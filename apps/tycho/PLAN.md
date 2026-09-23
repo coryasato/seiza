@@ -32,7 +32,9 @@ Complete the milestones in order. A milestone is done only when every "done when
 
 ### M0: Empty GPUI Kit shell on the web
 
-Set up the Cargo workspace (root `Cargo.toml`, `shared/`, `crate/`), `shared-web/`, the Vite host in `web/`, the root justfile with the `tycho` module, and COOP/COEP headers in the dev server. The shell has a title bar ("Tycho"), an empty main panel with a centered placeholder ("Drop a CSV or Parquet file"), and a disabled "Try sample: every known asteroid" button. Load fonts before init (see the root gotchas; this belongs in `shared/`'s bootstrap).
+Set up the Cargo workspace (root `Cargo.toml`, `shared/`, `crate/`), `shared-web/`, the Vite host in `web/`, the root justfile with the `tycho` module, the root `.gitignore`, and COOP/COEP headers in the dev server. The shell has a title bar ("Tycho"), an empty main panel with a centered placeholder ("Drop a CSV or Parquet file"), and a disabled "Try sample: every known asteroid" button. Load fonts before init (see the root gotchas; this belongs in `shared/`'s bootstrap).
+
+The root `.gitignore` covers: `target/`, `node_modules/`, `.wrangler/`, `apps/*/data/raw/`, `apps/*/data/*.parquet`, `apps/*/data/fixtures/*.csv`, `apps/*/perf/results/raw/`. Everything else under `perf/results/` is committed, and so is `data/MANIFEST.json`.
 
 **Done when:**
 - [ ] `just tycho dev` serves the page, and the shell paints in Chromium, Firefox, and Safari with no console errors or panics.
@@ -52,7 +54,7 @@ Tune the release profile: `opt-level="z"` vs `"s"` (measure both), `lto = true`,
 
 ### M2: DuckDB in a worker, prefetched after first paint
 
-Build `duckdb.worker.ts` and `bridge.ts` with the three calls. On the Rust side, wrap them with wasm-bindgen: JS Promises → `wasm_bindgen_futures::JsFuture`, driven on GPUI's web executor. Start the engine load from the first-frame callback, never before. Use the self-hosted DuckDB bundle; pick the EH or MVP bundle by feature detection. Arrow results cross the boundary as IPC bytes (`Uint8Array`).
+Build `duckdb.worker.ts` and `bridge.ts` with the three calls. On the Rust side, wrap them with wasm-bindgen: JS Promises → `wasm_bindgen_futures::JsFuture`, driven on GPUI's web executor. Start the engine load from `shared/`'s post-paint callback, never before. Use the self-hosted DuckDB bundle; pick the EH or MVP bundle by feature detection. Arrow results cross the boundary as IPC bytes (`Uint8Array`).
 
 **Done when:**
 - [ ] Reference TTFP is within noise (≤ 5%) of the M1 baseline with DuckDB loading enabled.
@@ -159,11 +161,12 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 
 ### `just tycho data` produces
 
+- `data/raw/`: raw API/S3 fetches (asteroid JSON pages, Gaia extracts). Gitignored.
 - `asteroids.parquet`: default button. ZSTD compression, fixed `ROW_GROUP_SIZE` (start at 122,880; revisit in M4).
 - `gaia-dr3-bright.parquet`: "big" button. Same writer settings.
-- `data/fixtures/asteroids.csv`: the asteroid table as CSV, plus hand-added rows with quoted commas and newlines in the name field. This is the M6 fixture. It also gives the "drop a CSV" demo a matching file people can download and try.
-- `data/MANIFEST.json`: for each file, the row count, byte size, SHA-256, source, fetch date, and the Gaia magnitude cut used.
-- Generated files are gitignored. Upload them to R2 with the S3-compatible API (rclone or `aws s3 cp` with the R2 endpoint), because Gaia is too big for `wrangler r2 object put`.
+- `data/fixtures/asteroids.csv`: the asteroid table as CSV, with the rows from `data/fixtures-src/tricky_rows.csv` appended by prep. `tricky_rows.csv` is hand-written and committed, and holds rows with quoted commas and newlines in the name field. The generated `asteroids.csv` is gitignored. This is the M6 fixture. It also gives the "drop a CSV" demo a matching file people can download and try.
+- `data/MANIFEST.json`: for each file, the row count, byte size, SHA-256, source, fetch date, and the Gaia magnitude cut used. **Committed**, so every benchmark names the exact files it ran against.
+- All other generated files are gitignored. Upload them to R2 with the S3-compatible API (rclone or `aws s3 cp` with the R2 endpoint), because Gaia is too big for `wrangler r2 object put`.
 
 ### Why re-host instead of linking the sources
 
@@ -226,6 +229,11 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 | File → first rows | ≤ 500 ms | — | — |
 | Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | — |
 | Jump to 90% | ≤ 400 ms | — | — |
+| Drop Parquet (~1 GB) → first rows | ≤ 1 s | — | — |
+| Drop CSV (~1 GB) → first rows | ≤ 1 s | — | — |
+| CSV row-count update interval | ≤ 500 ms | — | — |
+| CSV ingest throughput | recorded only | — | — |
+| Peak memory, 100 MB vs 1 GB Parquet | roughly flat | — | — |
 
 ---
 

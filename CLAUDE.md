@@ -1,6 +1,6 @@
-# webgpui
+# seiza (星座)
 
-**webgpui** is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a WebGL2 canvas. The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`).
+**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a WebGL2 canvas. The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`).
 
 The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
 
@@ -13,14 +13,15 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 ## Repo-wide rules
 
-1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in the commit/PR message. A change to `shared/` affects every app, so record the effect for each one.
+1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in the commit/PR message. A change to `shared/` affects every app, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `PLAN.md` and `perf/baseline.json`.
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame appears. The UI stays usable and says what's still loading.
-3. **Measure before and after.** Every milestone ends with a measurement using the protocol below. The numbers go in `apps/<app>/perf/results/` and a short note goes in `apps/<app>/docs/LESSONS.md`.
+3. **Measure before and after.** Every milestone ends with a measurement using the protocol below. The numbers go in `apps/<app>/perf/results/` (committed; large raw Playwright traces go in `perf/results/raw/`, which is gitignored) and a short note goes in `apps/<app>/docs/LESSONS.md`.
 4. **Handle the canvas tradeoffs in the open** (a11y, IME, text selection, Ctrl+F, bundle size). When an app falls short on one, it says so in the UI or README. It never hides the gap.
 
 ## Stack and pins
 
 - **UI:** `gpui-kit` (longbridge/gpui-kit), **pinned to an exact version** in the workspace `Cargo.toml` (0.6.4 was current on 2026-09-22). All apps use the same pin. Target `wasm32-unknown-unknown`.
+- **Release profile:** Cargo reads `[profile.release]` only from the workspace root `Cargo.toml`, so its settings apply to every app. If an app needs different settings, use `[profile.release.package.<crate>]` and note why in that app's `PLAN.md`. Per-package overrides can't set `lto`, `panic`, or `rpath`; those stay workspace-wide.
 - **JS host:** a thin Vite layer per app (`apps/<app>/web/`), built on `shared-web/`. Keep it thin: new logic goes in Rust unless it must touch a JS-only API.
 - **Headers everywhere, dev included:** `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. `shared-web/` provides the dev-server config so every app gets them from day one, and cross-origin problems show up early instead of at deploy.
 - **Hosting:** Cloudflare Workers (static assets + R2 where needed), one Worker per app in `apps/<app>/worker/`.
@@ -34,9 +35,10 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 ## Repo layout
 
 ```
-webgpui/
+seiza/
   Cargo.toml            # workspace; pins gpui-kit
-  shared/               # crate `webgpui`: wasm bootstrap, app shell, theme, perf overlay, file helpers
+  .gitignore            # target/, node_modules/, .wrangler/, per-app data/raw, generated data, perf/results/raw
+  shared/               # crate `seiza`: wasm bootstrap, app shell, theme, perf overlay, file helpers
   shared-web/           # reusable JS host bits: bootstrap, COOP/COEP dev-server config
   apps/
     tycho/

@@ -28,7 +28,7 @@ These add to the repo-wide rules.
 
 ## Stack
 
-- **UI:** `shared/` (crate `webgpui`) on the workspace's pinned `gpui-kit`.
+- **UI:** `shared/` (crate `seiza`) on the workspace's pinned `gpui-kit`.
 - **Engine:** `@duckdb/duckdb-wasm`, pinned. Runs in a Web Worker. **Self-host** the DuckDB bundles and extensions from our own origin, not jsDelivr, so they work under COEP and first-load timing doesn't depend on a third-party CDN. (Check the bundle sizes against Cloudflare's 25 MiB static-asset limit; see Hosting.)
 - **Hosting:** Cloudflare, one Worker (`worker/`) + R2 for data. Details in `PLAN.md`.
 - **JS host:** `web/` (Vite, built on `shared-web/`) holds `index.html`, the DuckDB worker, and `bridge.ts`. New logic goes in Rust unless it must touch DuckDB's JS API.
@@ -40,7 +40,7 @@ apps/tycho/
   crate/            # Rust (cdylib, package `tycho`): table view, data source, page cache
   web/              # Vite host: index.html, duckdb.worker.ts, bridge.ts, vite.config.ts
   worker/           # Cloudflare Worker + wrangler.toml
-  data/             # dataset prep scripts; generated files are gitignored
+  data/             # prep scripts, fixtures-src/, MANIFEST.json (committed); raw/ + generated data gitignored
   perf/             # Playwright scripts, baseline.json, budget-notes.md, results/
   docs/LESSONS.md   # lessons-learned log, one entry per milestone
   CLAUDE.md         # this file: context and rules
