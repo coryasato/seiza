@@ -1,0 +1,60 @@
+# Tycho
+
+> *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
+
+**Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file, or click a sample, and scroll through every row instantly. The data is queried locally with DuckDB-Wasm and drawn by GPUI (via GPUI Kit) on a WebGL2 canvas. Nothing is uploaded.
+
+The project's goal is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
+
+---
+
+This is Tycho's context. Milestones, datasets, hosting details, decisions, and measurements live in `PLAN.md`. The repo-wide rules in the root `CLAUDE.md` (TTFP first, paint before heavy loads, measurement protocol, canvas tradeoffs, GPUI Kit gotchas, `shared/` conventions) apply here too. Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
+
+---
+
+## Tycho rules
+
+These add to the repo-wide rules.
+
+1. **Never block the shell on DuckDB.** Paint first. Start loading the engine from `shared/`'s post-paint callback. The UI must stay usable (and say "engine loading…") until DuckDB is ready.
+2. **Keep the bridge narrow.** Only three calls cross the Rust ↔ JS boundary:
+   - `register_file(name, source) -> FileInfo`, where `source` is a dropped `File` or an HTTP URL
+   - `query(sql, request_id) -> ArrowIpcBytes`
+   - `cancel(request_id)`
+
+   Get schema, row count, and metadata with SQL through `query`. Don't add a fourth bridge call without writing down the decision in this file and in `PLAN.md`'s decisions log.
+3. **Query per viewport.** The table fetches only the visible rows plus a buffer. The app never loads the whole result into memory.
+4. **v1 scope is fixed.** No SQL editor, charts, sort/filter, or GROUP BY. If one of these seems necessary, stop and ask.
+
+## Stack
+
+- **UI:** `shared/` (crate `webgpui`) on the workspace's pinned `gpui-kit`.
+- **Engine:** `@duckdb/duckdb-wasm`, pinned. Runs in a Web Worker. **Self-host** the DuckDB bundles and extensions from our own origin, not jsDelivr, so they work under COEP and first-load timing doesn't depend on a third-party CDN. (Check the bundle sizes against Cloudflare's 25 MiB static-asset limit; see Hosting.)
+- **Hosting:** Cloudflare, one Worker (`worker/`) + R2 for data. Details in `PLAN.md`.
+- **JS host:** `web/` (Vite, built on `shared-web/`) holds `index.html`, the DuckDB worker, and `bridge.ts`. New logic goes in Rust unless it must touch DuckDB's JS API.
+
+## Layout
+
+```
+apps/tycho/
+  crate/            # Rust (cdylib, package `tycho`): table view, data source, page cache
+  web/              # Vite host: index.html, duckdb.worker.ts, bridge.ts, vite.config.ts
+  worker/           # Cloudflare Worker + wrangler.toml
+  data/             # dataset prep scripts; generated files are gitignored
+  perf/             # Playwright scripts, baseline.json, budget-notes.md, results/
+  docs/LESSONS.md   # lessons-learned log, one entry per milestone
+  CLAUDE.md         # this file: context and rules
+  PLAN.md           # milestones, datasets, hosting, decisions, measurements
+  justfile          # loaded from the root as the `tycho` module
+```
+
+## Commands (set up in M0; keep this list current)
+
+```
+just tycho dev          # build wasm (debug) + Vite dev server with COOP/COEP
+just tycho build        # release wasm (+ wasm-opt), Vite build, report asset sizes
+just tycho perf         # Playwright: cold-load + scroll measurements → perf/results/<date>.json
+just tycho data         # fetch asteroids + Gaia slice → Parquet/CSV + MANIFEST.json
+just tycho deploy       # build, upload changed data to R2, wrangler deploy
+just tycho check        # cargo clippy + fmt --check + wasm build + perf budget check
+```
