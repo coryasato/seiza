@@ -1,6 +1,6 @@
 # seiza (星座)
 
-**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a WebGL2 canvas. The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`).
+**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`).
 
 The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
 
@@ -35,10 +35,11 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 - Install `console_error_panic_hook` in debug builds. A panic shows up as `RuntimeError: unreachable` unless the hook is installed.
 - **`wasm-opt` needs `--enable-threads`.** `wasm_thread`'s atomics land in the binary even on the single-threaded platform, and wasm-opt refuses to validate without the flag.
 - **0.6.4's `Root` doesn't draw overlay layers.** The view under `Root` must render `Root::render_sheet_layer`, `render_dialog_layer`, and `render_notification_layer`, or dialogs and notifications silently never appear. `shared/`'s `AppShell` does this; apps get it for free.
-- **Headless DPR emulation breaks GPUI's canvas sizing.** gpui-pre-web sizes the backing store from `ResizeObserver`'s device-pixel-content-box, which headless Chromium misreports under `deviceScaleFactor`. Real HiDPI browsers are fine. See Tycho's `perf/results/2026-09-23-m0.md` before writing any Playwright measurement at DPR 2.
+- **Headless DPR emulation breaks GPUI's canvas sizing.** gpui-pre-web sizes the backing store from `ResizeObserver`'s device-pixel-content-box, which headless Chromium misreports under `deviceScaleFactor`. Real HiDPI browsers are fine. Measurements at DPR 2 hide `ResizeObserverEntry.prototype.devicePixelContentBoxSize` in an init script, which sends gpui-pre-web down its Safari path (`contentRect × devicePixelRatio`) and gives a true 2× backing store. Tycho's `perf/perf.ts` does this; reuse it.
 - **0.6.4 has no `gpui_kit::open_window`.** The GPUI Kit skill docs describe a later API. Use `cx.open_window(options, |window, cx| cx.new(|cx| Root::new(view, window, cx)))`. `shared/`'s `Bootstrap` does this.
 - **The web platform maps `.SystemUIFont` to IBM Plex Sans.** That's the family `shared-web/fonts/` bundles, so no theme font override is needed.
-- **GPUI's default web backend probes WebGPU first.** `shared/` forces WebGL2 (see Tycho's `PLAN.md` decisions log).
+- **`shared/` uses GPUI's `Auto` backend:** WebGPU when the browser has a usable adapter, WebGL2 otherwise. It beat forced WebGL2 on cold-start TTFP by 40% in Chromium and 28% in WebKit (Tycho M1). Check both paths when debugging rendering: headless Firefox falls back to WebGL2.
+- **GPUI's first real draw isn't in a `requestAnimationFrame`.** The window starts at 0×0. The first draw with a real size happens in gpui-pre-web's `ResizeObserver` callback, which renders and presents synchronously. With WebGPU it can be GPUI's rAF instead. Don't time anything off rAF ordering. See `shared/src/first_frame.rs`.
 
 ## Repo layout
 
@@ -86,9 +87,9 @@ Each app's recipes are listed in its CLAUDE.md.
 
 Every "done when" check that includes a number, in every app, uses this protocol.
 
-- **Reference run:** Playwright with Chromium in headless=new mode, a cold cache, 1440×900 at DPR 2, **median of 10 runs**. Save the results with the machine name and date.
+- **Reference run:** Playwright with Chromium in headless=new mode, a cold cache, 1440×900 at DPR 2, **median of 10 runs**. Save the results with the date, the hardware (CPU model, OS), and a machine label. The repo is public, so never record hostnames, usernames, or home-directory paths; `perf.ts` uses the `SEIZA_MACHINE` label (default `local`).
 - **Throttled run:** same setup with CPU 4× slowdown and "Fast 4G" network. Both runs are recorded, but budgets apply to the reference run.
-- **First paint (TTFP):** from `performance.timeOrigin` to the first frame GPUI actually presents. `shared/` calls `performance.mark("gpui:first-frame")` inside the first `requestAnimationFrame` after the first draw. Don't use the browser's FP/FCP metrics, because the canvas makes them meaningless.
+- **First paint (TTFP):** from `performance.timeOrigin` to the first frame GPUI actually presents. `shared/` sets `performance.mark("gpui:first-frame")` in a microtask queued by the first render with a real viewport, so it lands right after the callback that draws and presents that frame. Tycho's `perf/perf.ts` checks this independently on every run: it hooks WebGL2 draw calls and WebGPU submits, and fails if the mark isn't right after a task that did GPU work. Don't use the browser's FP/FCP metrics, because the canvas makes them meaningless.
 - **Cross-browser check:** each milestone also gets a manual check in Firefox and Safari. Note any differences.
 
 ## Working agreements for Claude Code

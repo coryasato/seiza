@@ -1,6 +1,6 @@
 # seiza (星座)
 
-**seiza** ("constellation") is a monorepo of heavy web apps built with [GPUI](https://www.gpui.rs/) (via [GPUI Kit](https://github.com/longbridge/gpui-kit)), compiled to WebAssembly, and drawn on a WebGL2 canvas.
+**seiza** ("constellation") is a monorepo of heavy web apps built with [GPUI](https://www.gpui.rs/) (via [GPUI Kit](https://github.com/longbridge/gpui-kit)), compiled to WebAssembly, and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available).
 
 The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a perf overlay and a reproducible measurement suite.
 
@@ -62,7 +62,7 @@ For Playwright's browsers, run `npx playwright install chromium firefox webkit` 
 
 ## How we measure
 
-Playwright + headless Chromium, cold cache, 1440×900 at DPR 2, median of 10 runs, plus a throttled run (4× CPU, Fast 4G). TTFP is measured from `performance.timeOrigin` to a `gpui:first-frame` mark set in the first `requestAnimationFrame` after GPUI's first draw. Browser FP/FCP aren't used, since a canvas makes them meaningless. Firefox and Safari get a manual check each milestone.
+Playwright + headless Chromium, cold cache, 1440×900 at DPR 2, median of 10 runs, plus a throttled run (4× CPU, Fast 4G). TTFP is measured from `performance.timeOrigin` to a `gpui:first-frame` mark set right after GPUI presents its first real frame (checked against the page's actual GPU calls on every run). Browser FP/FCP aren't used, since a canvas makes them meaningless. Firefox and Safari get a manual check each milestone.
 
 ## Working with this repo
 

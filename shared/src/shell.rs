@@ -14,14 +14,16 @@ type FirstFrameHook = Box<dyn FnOnce(&mut Window, &mut App)>;
 /// `Root` doesn't draw them itself, so without this `open_dialog`,
 /// `open_sheet`, and `push_notification` update state but never appear.
 ///
-/// On the web it also owns the first-frame mark: its first render arms the
-/// `gpui:first-frame` mark, then runs the post-paint hook.
+/// On the web it also owns the first-frame mark: its first render with a real
+/// viewport arms the `gpui:first-frame` mark, then runs the post-paint hook. The perf overlay
+/// draws above everything else.
 pub struct AppShell {
     title: SharedString,
     content: AnyView,
     #[cfg(target_family = "wasm")]
     first_frame: Option<FirstFrameHook>,
     _appearance: Subscription,
+    _perf: Subscription,
 }
 
 impl AppShell {
@@ -34,12 +36,14 @@ impl AppShell {
         let appearance = cx.observe_window_appearance(window, |_, window, cx| {
             Theme::sync_system_appearance(Some(window), cx);
         });
+        let perf = cx.observe_global::<crate::perf::PerfOverlay>(|_, cx| cx.notify());
         Self {
             title: title.into(),
             content: content.into(),
             #[cfg(target_family = "wasm")]
             first_frame: None,
             _appearance: appearance,
+            _perf: perf,
         }
     }
 
@@ -53,14 +57,26 @@ impl AppShell {
         self
     }
 
+    /// Arms the first-frame mark on the first render with a real viewport. The
+    /// window starts at 0×0, and a render at that size presents nothing.
     #[cfg(target_family = "wasm")]
     fn arm_first_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let viewport = window.viewport_size();
+        if viewport.width <= px(0.) || viewport.height <= px(0.) {
+            return;
+        }
         let Some(hook) = self.first_frame.take() else {
             return;
         };
+        let marked = crate::first_frame::mark_after_current_task();
         cx.spawn_in(window, async move |_, cx| {
-            crate::first_frame::mark_after_next_frame().await;
-            let _ = cx.update(hook);
+            let ttfp_ms = marked.await;
+            let _ = cx.update(|window, cx| {
+                if let Some(ttfp_ms) = ttfp_ms {
+                    crate::perf::set_ttfp(cx, ttfp_ms);
+                }
+                hook(window, cx);
+            });
         })
         .detach();
     }
@@ -90,5 +106,6 @@ impl Render for AppShell {
             .children(Root::render_sheet_layer(window, cx))
             .children(Root::render_dialog_layer(window, cx))
             .children(Root::render_notification_layer(window, cx))
+            .children(crate::perf::render(cx))
     }
 }

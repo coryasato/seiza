@@ -4,7 +4,8 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
+import { gzipSync } from 'node:zlib';
+import { brotli } from '../src/brotli.ts';
 
 const CLOUDFLARE_ASSET_LIMIT = 25 * 1024 * 1024;
 
@@ -39,9 +40,7 @@ function measure(dist: string, path: string): Asset {
     kind: kindOf(path),
     raw: bytes.length,
     gzip: gzipSync(bytes, { level: 9 }).length,
-    brotli: brotliCompressSync(bytes, {
-      params: { [constants.BROTLI_PARAM_QUALITY]: 11, [constants.BROTLI_PARAM_SIZE_HINT]: bytes.length },
-    }).length,
+    brotli: brotli(bytes).length,
   };
 }
 

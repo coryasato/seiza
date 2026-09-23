@@ -19,8 +19,17 @@ build: (wasm "release")
 preview:
     npm run preview --workspace @seiza/tycho-web
 
-# Lint, then a release wasm build. Perf budgets arrive in M1.
-check: lint (wasm "release")
+# Lint, release build, then the perf budgets: fails if reference TTFP regresses
+# more than 10% from perf/baseline.json, or the wasm grows more than 15% (brotli)
+# without a row in perf/budget-notes.md.
+check: lint build
+    node {{app_dir}}/perf/perf.ts --check
+
+# Cold-load suite (reference + throttled, median of 10) on the release build in
+# web/dist; writes perf/results/<date>-<label>.json. Run `just tycho build` first.
+# Extra flags pass through, e.g. `just tycho perf --label m2 --runs 5`.
+perf *args:
+    node {{app_dir}}/perf/perf.ts {{args}}
 
 # fmt, clippy (wasm target and native host), and TypeScript (host, perf scripts, shared-web scripts).
 lint:

@@ -1,0 +1,177 @@
+{
+  "date": "2026-09-23",
+  "label": "m1-opt-s",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium 153.0.8010.12 (headless=new)",
+  "tools": {
+    "rustc": "rustc 1.100.0-nightly (feaadeeac 2026-09-19)",
+    "wasmOpt": "wasm-opt version 133",
+    "node": "v26.0.0"
+  },
+  "url": "http://localhost:4174/",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "wasmBrotliKiB": 2842.4,
+  "ttfpMs": {
+    "reference": 291.5,
+    "throttled": 3962.8
+  },
+  "runs": {
+    "reference": [
+      {
+        "ttfpMs": 342.5199999809265,
+        "overlayTtfpMs": 343,
+        "firstDrawFrameEndMs": 342.42000007629395,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 331.40000009536743,
+        "overlayTtfpMs": 331,
+        "firstDrawFrameEndMs": 331.31500005722046,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 291.0700001716614,
+        "overlayTtfpMs": 291,
+        "firstDrawFrameEndMs": 290.96999979019165,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 293.86499977111816,
+        "overlayTtfpMs": 294,
+        "firstDrawFrameEndMs": 293.7849998474121,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 285.5149998664856,
+        "overlayTtfpMs": 286,
+        "firstDrawFrameEndMs": 285.4199995994568,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 287.69000005722046,
+        "overlayTtfpMs": 288,
+        "firstDrawFrameEndMs": 287.375,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 291.95499992370605,
+        "overlayTtfpMs": 292,
+        "firstDrawFrameEndMs": 291.789999961853,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 286.460000038147,
+        "overlayTtfpMs": 286,
+        "firstDrawFrameEndMs": 286.30000019073486,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 337.5800004005432,
+        "overlayTtfpMs": 338,
+        "firstDrawFrameEndMs": 337.4800000190735,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 290.3849997520447,
+        "overlayTtfpMs": 290,
+        "firstDrawFrameEndMs": 290.2599997520447,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ],
+    "throttled": [
+      {
+        "ttfpMs": 3981.739999771118,
+        "overlayTtfpMs": 3982,
+        "firstDrawFrameEndMs": 3980.949999809265,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3948.284999847412,
+        "overlayTtfpMs": 3948,
+        "firstDrawFrameEndMs": 3948.154999732971,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3962.1000003814697,
+        "overlayTtfpMs": 3962,
+        "firstDrawFrameEndMs": 3961.6600003242493,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 4000.8899998664856,
+        "overlayTtfpMs": 4001,
+        "firstDrawFrameEndMs": 4000.654999732971,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3996.199999809265,
+        "overlayTtfpMs": 3996,
+        "firstDrawFrameEndMs": 3995.005000114441,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3951.7450003623962,
+        "overlayTtfpMs": 3952,
+        "firstDrawFrameEndMs": 3951.1900000572205,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3967.2599997520447,
+        "overlayTtfpMs": 3967,
+        "firstDrawFrameEndMs": 3967.1050000190735,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3963.419999599457,
+        "overlayTtfpMs": 3963,
+        "firstDrawFrameEndMs": 3962.6849999427795,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3957.010000228882,
+        "overlayTtfpMs": 3957,
+        "firstDrawFrameEndMs": 3955.960000038147,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3950.710000038147,
+        "overlayTtfpMs": 3951,
+        "firstDrawFrameEndMs": 3950.044999599457,
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ]
+  }
+}

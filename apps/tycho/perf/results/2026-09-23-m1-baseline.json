@@ -1,0 +1,297 @@
+{
+  "date": "2026-09-23",
+  "label": "m1-baseline",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium 153.0.8010.12 (headless=new)",
+  "tools": {
+    "rustc": "rustc 1.100.0-nightly (feaadeeac 2026-09-19)",
+    "wasmOpt": "wasm-opt version 133",
+    "node": "v26.0.0"
+  },
+  "url": "http://localhost:4174/",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "wasmBrotliKiB": 2619.5,
+  "ttfpMs": {
+    "reference": 177.3,
+    "throttled": 3465.2
+  },
+  "runs": {
+    "reference": [
+      {
+        "ttfpMs": 189.59999990463257,
+        "overlayTtfpMs": 190,
+        "firstGpuWorkMs": 177.19499969482422,
+        "presentingTask": {
+          "lastGpuCallMs": 189.43499994277954,
+          "endMs": 189.71499967575073
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 176.4049997329712,
+        "overlayTtfpMs": 176,
+        "firstGpuWorkMs": 164.38499975204468,
+        "presentingTask": {
+          "lastGpuCallMs": 176.23499965667725,
+          "endMs": 176.52500009536743
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 176.82000017166138,
+        "overlayTtfpMs": 177,
+        "firstGpuWorkMs": 164.55999994277954,
+        "presentingTask": {
+          "lastGpuCallMs": 176.66000032424927,
+          "endMs": 176.93499994277954
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 177.8400001525879,
+        "overlayTtfpMs": 178,
+        "firstGpuWorkMs": 165.69500017166138,
+        "presentingTask": {
+          "lastGpuCallMs": 177.68000030517578,
+          "endMs": 177.9500002861023
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 184.2200002670288,
+        "overlayTtfpMs": 184,
+        "firstGpuWorkMs": 171.6449999809265,
+        "presentingTask": {
+          "lastGpuCallMs": 184.0750002861023,
+          "endMs": 184.33500003814697
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 184.6050000190735,
+        "overlayTtfpMs": 185,
+        "firstGpuWorkMs": 169.84499979019165,
+        "presentingTask": {
+          "lastGpuCallMs": 184.44000005722046,
+          "endMs": 184.7150001525879
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 172.17999982833862,
+        "overlayTtfpMs": 172,
+        "firstGpuWorkMs": 160.32000017166138,
+        "presentingTask": {
+          "lastGpuCallMs": 172.00500011444092,
+          "endMs": 172.30999994277954
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 176.19000005722046,
+        "overlayTtfpMs": 176,
+        "firstGpuWorkMs": 163.99499988555908,
+        "presentingTask": {
+          "lastGpuCallMs": 176.03999996185303,
+          "endMs": 176.30999994277954
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 170.61999988555908,
+        "overlayTtfpMs": 171,
+        "firstGpuWorkMs": 158.4850001335144,
+        "presentingTask": {
+          "lastGpuCallMs": 170.46000003814697,
+          "endMs": 170.74000024795532
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 187.52500009536743,
+        "overlayTtfpMs": 188,
+        "firstGpuWorkMs": 174.92500019073486,
+        "presentingTask": {
+          "lastGpuCallMs": 187.3400001525879,
+          "endMs": 187.66499996185303
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ],
+    "throttled": [
+      {
+        "ttfpMs": 3470.9749999046326,
+        "overlayTtfpMs": 3471,
+        "firstGpuWorkMs": 3420.914999961853,
+        "presentingTask": {
+          "lastGpuCallMs": 3469.789999961853,
+          "endMs": 3471.114999771118
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3465.955000400543,
+        "overlayTtfpMs": 3466,
+        "firstGpuWorkMs": 3409.130000114441,
+        "presentingTask": {
+          "lastGpuCallMs": 3464.2650003433228,
+          "endMs": 3466.7400002479553
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3458.7699999809265,
+        "overlayTtfpMs": 3459,
+        "firstGpuWorkMs": 3406.8250002861023,
+        "presentingTask": {
+          "lastGpuCallMs": 3457.5700001716614,
+          "endMs": 3459.305000305176
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3504.8049998283386,
+        "overlayTtfpMs": 3505,
+        "firstGpuWorkMs": 3455.9400000572205,
+        "presentingTask": {
+          "lastGpuCallMs": 3503.9649996757507,
+          "endMs": 3505.2549996376038
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3471.494999885559,
+        "overlayTtfpMs": 3471,
+        "firstGpuWorkMs": 3412.4699997901917,
+        "presentingTask": {
+          "lastGpuCallMs": 3471.3449997901917,
+          "endMs": 3473.829999923706
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3461.7199997901917,
+        "overlayTtfpMs": 3462,
+        "firstGpuWorkMs": 3412.3899998664856,
+        "presentingTask": {
+          "lastGpuCallMs": 3461.1349997520447,
+          "endMs": 3462.164999961853
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3463.8949999809265,
+        "overlayTtfpMs": 3464,
+        "firstGpuWorkMs": 3416.125,
+        "presentingTask": {
+          "lastGpuCallMs": 3463.760000228882,
+          "endMs": 3464.920000076294
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3464.5149998664856,
+        "overlayTtfpMs": 3465,
+        "firstGpuWorkMs": 3414.4299998283386,
+        "presentingTask": {
+          "lastGpuCallMs": 3463.960000038147,
+          "endMs": 3465.239999771118
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3460.010000228882,
+        "overlayTtfpMs": 3460,
+        "firstGpuWorkMs": 3412.3499999046326,
+        "presentingTask": {
+          "lastGpuCallMs": 3459.4000000953674,
+          "endMs": 3460.5300002098083
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3469.3049998283386,
+        "overlayTtfpMs": 3469,
+        "firstGpuWorkMs": 3421.295000076294,
+        "presentingTask": {
+          "lastGpuCallMs": 3468.864999771118,
+          "endMs": 3469.4349999427795
+        },
+        "gpuTaskCount": 3,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
 
 Tycho's build plan: milestones (with done-when checks), sample datasets, hosting, decisions, and measurements. Context and rules live in `CLAUDE.md` here and at the repo root. Tick checks as they pass and log decisions as they land.
 
-**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGL2) that proves WebAssembly + GPU-rendered UI beats the DOM for heavy apps, with a number on screen for every claim.
+**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGPU, WebGL2 fallback) that proves WebAssembly + GPU-rendered UI beats the DOM for heavy apps, with a number on screen for every claim.
 
 **Deciding metric:** time to first paint (TTFP), measured as `performance.mark("gpui:first-frame")`.
 
@@ -13,7 +13,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | Milestone | Title | Status |
 |---|---|---|
 | M0 | Empty GPUI Kit shell on the web | Done 2026-09-23 |
-| M1 | First-paint baseline and perf overlay skeleton | Not started |
+| M1 | First-paint baseline and perf overlay skeleton | Done 2026-09-23 |
 | M2 | DuckDB in a worker, prefetched after first paint | Not started |
 | M3 | Asteroid sample over HTTP | Not started |
 | M4 | Virtualized table over paged queries | Not started |
@@ -49,10 +49,10 @@ The root `.gitignore` covers: `target/`, `node_modules/`, `.wrangler/`, `apps/*/
 Tune the release profile: `opt-level="z"` vs `"s"` (measure both), `lto = true`, `codegen-units = 1`, `panic = "abort"`, `strip = true`, then `wasm-opt -Oz`. Use `WebAssembly.instantiateStreaming`. Preload the wasm and the one UI font. Add the perf overlay (toggle with Cmd/Ctrl+Shift+P, and `?perf` in the URL) showing TTFP. Write `just tycho perf` for cold load.
 
 **Done when:**
-- [ ] The overlay shows TTFP, and the value matches Playwright's measured mark within 5 ms.
-- [ ] `perf/baseline.json` records the median TTFP (reference and throttled) and the wasm brotli size for the empty shell. **This is the baseline that every later milestone is compared against.**
-- [ ] `just tycho check` fails if the reference TTFP regresses more than 10% from the baseline, or if the app's wasm brotli size grows more than 15% with no note in `perf/budget-notes.md`.
-- [ ] A `docs/LESSONS.md` entry records the numbers and which profile settings mattered.
+- [x] The overlay shows TTFP, and the value matches Playwright's measured mark within 5 ms. *Within 0.5 ms on every run (the overlay reads the mark's own `startTime`). `perf.ts` also checks the mark against the page's actual GPU calls, which found and fixed a mark that was a frame late on WebGPU.*
+- [x] `perf/baseline.json` records the median TTFP (reference and throttled) and the wasm brotli size for the empty shell. **This is the baseline that every later milestone is compared against.** *177.3 ms reference, 3465.2 ms throttled, 2619.5 KiB (Apple M1, 2026-09-23).*
+- [x] `just tycho check` fails if the reference TTFP regresses more than 10% from the baseline, or if the app's wasm brotli size grows more than 15% with no note in `perf/budget-notes.md`. *Negative controls fail on both; a note row accepts the size. See `perf/results/2026-09-23-m1.md`.*
+- [x] A `docs/LESSONS.md` entry records the numbers and which profile settings mattered.
 
 ### M2: DuckDB in a worker, prefetched after first paint
 
@@ -207,14 +207,22 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 | 2026-09-23 | `Cargo.lock` seeded from gpui-kit 0.6.4's published lock, so the whole gpui family is what 0.6.4 shipped with (gpui-pre 0.3.5, wasm-bindgen 0.2.121) | caret deps floated to 0.6.6 / 0.3.6 |
 | 2026-09-23 | Web platform: single-threaded, WebGL2 forced (not the WebGPU-first `Auto`), `CanvasFontFallback::Emoji` | M0; M1 measures `Auto` vs `WebGl` |
 | 2026-09-23 | UI font: IBM Plex Sans Regular (what `gpui-pre-web` maps `.SystemUIFont` to), fetched by the JS host in parallel with the wasm, not `include_bytes!` | M0 |
+| 2026-09-23 | `opt-level = "z"`: "s" is 8.6% bigger (2842 vs 2618 KiB br) and slower (291.5 vs 284.6 ms ref, 3963 vs 3741 ms throttled) | M1 `m1-opt-*` |
+| 2026-09-23 | Graphics backend: GPUI `Auto` (WebGPU, WebGL2 fallback), replacing forced WebGL2. Chromium 173.5 vs 291.0 ms ref (−40%), 3460 vs 3765 ms throttled; WebKit 296 vs 412 ms; Firefox falls back at no cost | M1 `m1-backend-*` |
+| 2026-09-23 | Preload the wasm and UI font from the HTML (`as=fetch crossorigin`): −10 ms ref, −188 ms throttled | M1 `m1-no-preload` |
+| 2026-09-23 | UI font stays the full face: a Latin subset saves 42 KiB br and 21 ms throttled (0.6%) but drops Greek and Cyrillic, which dropped files may contain | M1 `m1-font-subset` |
+| 2026-09-23 | Release logging stays on: 0.8 KiB br, no measurable TTFP, and it reports backend fallbacks and graphics failures | M1 `m1-no-release-logging` |
+| 2026-09-23 | Reference run at a true DPR 2: the perf suite hides `devicePixelContentBoxSize` so gpui-pre-web uses its Safari sizing path | M1 |
+| 2026-09-23 | First-frame mark: a microtask queued by the first render with a non-zero viewport (was: a rAF requested from the first render, a frame late on WebGPU). Verified every run by a GPU-call probe | M1 |
+| 2026-09-23 | Perf and check runs serve `web/dist` brotli-compressed (quality 11, cached) through `vite preview` | M1 |
 
 ### Pending decisions
 
-- [ ] `opt-level` `"z"` vs `"s"` (M1)
-- [ ] Graphics backend: forced WebGL2 vs `Auto` (WebGPU first), by cold-start TTFP (M1)
-- [ ] UI font subsetting (Latin + Latin Extended covers asteroid names?) vs the full 196 KiB face (M1)
-- [ ] Release logging and panic hook: keep `init_logging` in release or strip it for size (M1)
-- [ ] **Reference-run DPR (blocks M1's protocol):** headless Chromium can't give GPUI a consistent DPR 2. With emulation the `device-pixel-content-box` reads CSS px, so GPUI draws into a 1× backing store; the launch flag reads DPR 1. Options: run the reference at DPR 1 and record it, run headed Chromium, or patch gpui-pre-web's sizing in `shared/`. See `perf/results/2026-09-23-m0.md` (M1)
+- [x] `opt-level` `"z"` vs `"s"` (M1): "z"
+- [x] Graphics backend: forced WebGL2 vs `Auto` (WebGPU first), by cold-start TTFP (M1): `Auto`
+- [x] UI font subsetting vs the full 196 KiB face (M1): full face
+- [x] Release logging and panic hook (M1): logging stays in release; the panic hook stays debug-only
+- [x] **Reference-run DPR (M1):** true DPR 2 in headless Chromium by hiding `devicePixelContentBoxSize` in the perf suite (see decisions log)
 - [ ] Arrow IPC decoder approach (M2)
 - [ ] Paging strategy A/B/C (M4)
 - [ ] Page size and prefetch depth (M4)
@@ -231,9 +239,9 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | — | — |
-| TTFP (throttled) | recorded only | — | — |
-| App wasm (brotli) | ≤ +15% without note | — | 2615.6 KiB (M0, pre-tuning) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 175.3 ms (M1 check) |
+| TTFP (throttled) | recorded only | 3465.2 ms | 3465.2 ms |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2618.8 KiB |
 | Engine ready | — | — | — |
 | Sample click → schema | ≤ 300 ms | — | — |
 | File → first rows | ≤ 500 ms | — | — |

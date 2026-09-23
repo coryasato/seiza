@@ -100,7 +100,9 @@ async function isPainted(page: Page, png: Buffer): Promise<boolean> {
  * - Chromium at DPR 1. Under DPR-2 emulation (old and new headless), the
  *   device-pixel-content-box reports CSS pixels, so GPUI draws 2× layout into
  *   a 1× backing store. `--force-device-scale-factor=2` flips it the other way
- *   (DPR reads 1, the box reads 2×). This is an open problem for M1's reference run.
+ *   (DPR reads 1, the box reads 2×). The perf suite (perf.ts) gets a real DPR 2
+ *   by hiding `devicePixelContentBoxSize`; smoke keeps Chromium on the
+ *   unshimmed path, so it still checks the code path real Chrome uses.
  * - Firefox at DPR 2 through `layout.css.devPixelsPerPx`. Playwright's
  *   `deviceScaleFactor` isn't reliably honored there.
  * - WebKit at DPR 2 through `deviceScaleFactor`, which it honors.

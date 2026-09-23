@@ -8,37 +8,57 @@ use wasm_bindgen_futures::JsFuture;
 /// overlay and the Playwright suite both read it; don't rename it.
 pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 
-/// Resolves in the first `requestAnimationFrame` after the caller's draw,
-/// after setting [`FIRST_FRAME_MARK`].
+/// Sets [`FIRST_FRAME_MARK`] as soon as the current JS callback returns, and
+/// resolves with the mark's `startTime` (ms from `performance.timeOrigin`):
+/// the TTFP the overlay shows.
 ///
-/// Call it from the first render. The timing depends on gpui-pre 0.3.5
-/// internals, so re-check it on every gpui-kit bump:
+/// Call it from the first render that has a real (non-zero) viewport. In
+/// gpui-pre 0.3.5 that render always runs inside a draw that presents before
+/// its callback returns, so the microtask queued here lands right after the
+/// first present, on either graphics backend:
 ///
-/// 1. `cx.open_window` draws the first frame synchronously, outside any
-///    animation frame (`app.rs`: "allow a window to draw at least once before
-///    returning"). That draw builds the scene but presents nothing.
-/// 2. `WebWindow::new` already requested GPUI's frame-loop rAF before that
-///    draw. The rAF requested here is queued after it.
-/// 3. Browsers run rAF callbacks in request order, so GPUI's callback presents
-///    the first scene, then this one sets the mark in the same turn.
+/// - The window starts at 0×0 (`WebWindow::new`), so `cx.open_window`'s
+///   synchronous first draw has nothing to show and doesn't count.
+/// - The first real size arrives in gpui-pre-web's `ResizeObserver` callback,
+///   which renders and presents synchronously (`force_render`), before the
+///   browser paints that frame. With WebGPU, whose setup is async, it can
+///   instead be GPUI's frame-loop rAF, which also draws then presents.
 ///
-/// So the mark lands just after the first present, and only because GPUI's
-/// rAF is registered first. If that order ever flips, the mark would fire
-/// before anything is presented and TTFP would read low. M1's Playwright
-/// check (overlay TTFP vs trace) is the guard. The mark is set directly in
-/// the callback rather than after the future resumes, so executor scheduling
-/// can't inflate the number.
-pub(crate) async fn mark_after_next_frame() {
+/// An earlier version marked in a `requestAnimationFrame` requested from the
+/// first render. That depended on rAF ordering: it landed a frame late with
+/// WebGPU, and a frame early with WebGL2 once requested synchronously.
+/// Re-check this on every gpui-kit bump: the Playwright suite's first-draw
+/// probe (`perf/perf.ts`) fails if the mark isn't right after the first GPU
+/// work.
+pub(crate) fn mark_after_current_task() -> impl Future<Output = Option<f64>> {
     let promise = Promise::new(&mut |resolve, _reject| {
-        let on_frame = Closure::once_into_js(move || {
-            if let Some(performance) = web_sys::window().and_then(|window| window.performance()) {
-                let _ = performance.mark(FIRST_FRAME_MARK);
-            }
-            let _ = resolve.call0(&JsValue::NULL);
+        let mark = Closure::once_into_js(move || {
+            let start_time = web_sys::window()
+                .and_then(|window| window.performance())
+                .and_then(|performance| {
+                    performance.mark(FIRST_FRAME_MARK).ok()?;
+                    // The last entry is the mark just set, even if an older
+                    // one with the same name exists.
+                    let entries =
+                        performance.get_entries_by_name_with_entry_type(FIRST_FRAME_MARK, "mark");
+                    let entry = entries.get(entries.length().checked_sub(1)?);
+                    Some(
+                        entry
+                            .unchecked_into::<web_sys::PerformanceEntry>()
+                            .start_time(),
+                    )
+                });
+            let _ = resolve.call1(
+                &JsValue::NULL,
+                &start_time.map_or(JsValue::NULL, JsValue::from),
+            );
         });
         if let Some(window) = web_sys::window() {
-            let _ = window.request_animation_frame(on_frame.unchecked_ref());
+            window.queue_microtask(mark.unchecked_ref());
         }
     });
-    let _ = JsFuture::from(promise).await;
+    // Queued now, not when the returned future is first polled: GPUI's
+    // executor may poll a spawned task only after the frame has moved on.
+    let marked = JsFuture::from(promise);
+    async move { marked.await.ok()?.as_f64() }
 }

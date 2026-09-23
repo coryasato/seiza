@@ -1,0 +1,197 @@
+{
+  "date": "2026-09-23",
+  "label": "m1-backend-webgl",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium 153.0.8010.12 (headless=new)",
+  "tools": {
+    "rustc": "rustc 1.100.0-nightly (feaadeeac 2026-09-19)",
+    "wasmOpt": "wasm-opt version 133",
+    "node": "v26.0.0"
+  },
+  "url": "http://localhost:4174/",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "wasmBrotliKiB": 2620.4,
+  "ttfpMs": {
+    "reference": 291,
+    "throttled": 3765.4
+  },
+  "runs": {
+    "reference": [
+      {
+        "ttfpMs": 299.9299998283386,
+        "overlayTtfpMs": 300,
+        "firstGpuWorkMs": 299.625,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 293.8050003051758,
+        "overlayTtfpMs": 294,
+        "firstGpuWorkMs": 293.539999961853,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 287.6549997329712,
+        "overlayTtfpMs": 288,
+        "firstGpuWorkMs": 287.3899998664856,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 288.19000005722046,
+        "overlayTtfpMs": 288,
+        "firstGpuWorkMs": 287.8849997520447,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 288.07499980926514,
+        "overlayTtfpMs": 288,
+        "firstGpuWorkMs": 287.789999961853,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 281.44999980926514,
+        "overlayTtfpMs": 281,
+        "firstGpuWorkMs": 281.18499994277954,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 308.65000009536743,
+        "overlayTtfpMs": 309,
+        "firstGpuWorkMs": 308.40000009536743,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 288.07499980926514,
+        "overlayTtfpMs": 288,
+        "firstGpuWorkMs": 287.7699999809265,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 301.8200001716614,
+        "overlayTtfpMs": 302,
+        "firstGpuWorkMs": 301.5700001716614,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 295.4449996948242,
+        "overlayTtfpMs": 295,
+        "firstGpuWorkMs": 295.1499996185303,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ],
+    "throttled": [
+      {
+        "ttfpMs": 3774.744999885559,
+        "overlayTtfpMs": 3775,
+        "firstGpuWorkMs": 3773.444999694824,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3760.8899998664856,
+        "overlayTtfpMs": 3761,
+        "firstGpuWorkMs": 3760.0999999046326,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3764.079999923706,
+        "overlayTtfpMs": 3764,
+        "firstGpuWorkMs": 3762.784999847412,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3752.8899998664856,
+        "overlayTtfpMs": 3753,
+        "firstGpuWorkMs": 3751.7549996376038,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3766.7749996185303,
+        "overlayTtfpMs": 3767,
+        "firstGpuWorkMs": 3765.6499996185303,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3731.2750000953674,
+        "overlayTtfpMs": 3731,
+        "firstGpuWorkMs": 3730.380000114441,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3777.3449997901917,
+        "overlayTtfpMs": 3777,
+        "firstGpuWorkMs": 3776.444999694824,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3776.555000305176,
+        "overlayTtfpMs": 3777,
+        "firstGpuWorkMs": 3775.720000267029,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3785.954999923706,
+        "overlayTtfpMs": 3786,
+        "firstGpuWorkMs": 3785.0049996376038,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3750.6100001335144,
+        "overlayTtfpMs": 3751,
+        "firstGpuWorkMs": 3749.4000000953674,
+        "api": "webgl2",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ]
+  }
+}

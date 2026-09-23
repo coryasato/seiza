@@ -59,6 +59,8 @@ impl Bootstrap {
     pub fn run(self, content: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static) {
         #[cfg(debug_assertions)]
         console_error_panic_hook::set_once();
+        // Kept in release: it costs 0.8 KiB brotli and no measurable TTFP
+        // (M1), and it's how a graphics-backend fallback or failure shows up.
         gpui_kit::web::init_logging();
 
         let content: BuildContent = Box::new(content);
@@ -76,6 +78,7 @@ impl Bootstrap {
                 .add_fonts(vec![Cow::Owned(ui_font)])
                 .expect("failed to load the UI font");
             gpui_kit::init(cx);
+            crate::perf::init(cx);
             Theme::sync_system_appearance(None, cx);
 
             let options = WindowOptions {
@@ -103,15 +106,17 @@ impl Bootstrap {
     }
 }
 
-/// A single-threaded web platform on WebGL2.
+/// A single-threaded web platform: WebGPU where the browser offers a usable
+/// adapter, WebGL2 otherwise (GPUI's `Auto`).
 ///
-/// WebGL2 rather than GPUI's default WebGPU-first probe: the project targets
-/// WebGL2, and the probe would add an adapter request to every cold start in
-/// browsers that expose WebGPU. Revisit with measurements (M1).
+/// Chosen by cold-start TTFP in Tycho's M1, reference run (Chromium): Auto
+/// 173.5 ms vs forced WebGL2 291.0 ms. WebKit: 296 vs 412 ms. Firefox, whose
+/// headless adapter is blocklisted, falls back to WebGL2 at no measurable cost
+/// (550 vs 551 ms). See Tycho's `perf/results/2026-09-23-m1.md`.
 fn web_application() -> Application {
     let platform = Rc::new(WebPlatform::new_with_backend_and_font_fallback(
         false,
-        WebBackendPreference::WebGl,
+        WebBackendPreference::Auto,
         CanvasFontFallback::Emoji,
     ));
     let http_client = Arc::new(platform.fetch_http_client());
