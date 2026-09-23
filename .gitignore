@@ -1,0 +1,47 @@
+# Rust
+target/
+
+# JS
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# wasm-bindgen / wasm-pack output
+pkg/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# App data: raw fetches and generated datasets (MANIFEST.json and fixtures-src/ stay committed)
+apps/*/data/raw/
+apps/*/data/*.parquet
+apps/*/data/fixtures/*.csv
+
+# Perf: raw Playwright traces (everything else under perf/results/ is committed)
+apps/*/perf/results/raw/
+playwright-report/
+test-results/
+blob-report/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*~
+
+# Claude Code local settings
+.claude/settings.local.json
