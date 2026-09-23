@@ -1,0 +1,30 @@
+[workspace]
+resolver = "3"
+members = ["shared", "apps/tycho/crate"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+# Exact pin: every app shares one gpui-kit version. Bump deliberately, for all apps at once.
+gpui-kit = "=0.6.4"
+seiza = { path = "shared" }
+console_error_panic_hook = "0.1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = "0.3"
+
+# Cargo reads this only from the workspace root, so it applies to every app.
+# M1 tunes these by measurement (opt-level "z" vs "s").
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+panic = "abort"

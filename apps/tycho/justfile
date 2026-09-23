@@ -1,0 +1,40 @@
+# Tycho recipes. Run from the repo root: `just tycho <recipe>`.
+
+app_dir := source_directory()
+root := source_directory() / "../.."
+web := app_dir / "web"
+pkg := web / "pkg"
+target_dir := root / "target/wasm32-unknown-unknown"
+
+# Build wasm (debug) and start the Vite dev server with COOP/COEP.
+dev: (wasm "debug")
+    npm run dev --workspace @seiza/tycho-web
+
+# Release wasm (+ wasm-opt), Vite build, then report asset sizes.
+build: (wasm "release")
+    npm run build --workspace @seiza/tycho-web
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist
+
+# Serve the release build with the same headers.
+preview:
+    npm run preview --workspace @seiza/tycho-web
+
+# Lint, then a release wasm build. Perf budgets arrive in M1.
+check: lint (wasm "release")
+
+# fmt, clippy (wasm target and native host), and TypeScript (host, perf scripts, shared-web scripts).
+lint:
+    cargo fmt --all --check
+    cargo clippy -p tycho -p seiza --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tycho -p seiza -- -D warnings
+    npm run typecheck --workspace @seiza/tycho-web
+
+# Compile the crate and generate JS bindings into web/pkg/.
+wasm profile="debug":
+    cargo build -p tycho --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }}
+    wasm-bindgen {{target_dir}}/{{profile}}/tycho.wasm --out-dir {{pkg}} --target web
+    {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + pkg + "/tycho_bg.wasm -o " + pkg + "/tycho_bg.wasm" } else { "true" } }}
+
+# Cross-browser shell check (Chromium, Firefox, WebKit) against a running server.
+smoke url="http://localhost:5173/":
+    node {{app_dir}}/perf/smoke.ts {{url}}

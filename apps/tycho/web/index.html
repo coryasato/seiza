@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Tycho</title>
+    <meta name="description" content="A local-first data workbench. Drop a CSV or Parquet file and scroll every row. Nothing is uploaded." />
+    <style>
+      /* GPUI appends its canvas to <body> and sizes it to 100%. The page
+         background matches the default GPUI Kit theme so there's no flash
+         of a different color before the first frame. */
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      body { background: #fff; }
+      @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } }
+      body > canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <noscript>Tycho needs JavaScript and WebAssembly.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

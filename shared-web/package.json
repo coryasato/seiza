@@ -1,0 +1,12 @@
+{
+  "name": "@seiza/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable JS host bits for seiza apps: bootstrap and COOP/COEP Vite config.",
+  "exports": {
+    "./bootstrap": "./src/bootstrap.ts",
+    "./vite": "./src/vite.ts",
+    "./fonts/*": "./fonts/*"
+  }
+}

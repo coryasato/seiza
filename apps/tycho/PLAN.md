@@ -12,7 +12,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | Empty GPUI Kit shell on the web | Not started |
+| M0 | Empty GPUI Kit shell on the web | Done 2026-09-23 |
 | M1 | First-paint baseline and perf overlay skeleton | Not started |
 | M2 | DuckDB in a worker, prefetched after first paint | Not started |
 | M3 | Asteroid sample over HTTP | Not started |
@@ -37,10 +37,12 @@ Set up the Cargo workspace (root `Cargo.toml`, `shared/`, `crate/`), `shared-web
 The root `.gitignore` covers: `target/`, `node_modules/`, `.wrangler/`, `apps/*/data/raw/`, `apps/*/data/*.parquet`, `apps/*/data/fixtures/*.csv`, `apps/*/perf/results/raw/`. Everything else under `perf/results/` is committed, and so is `data/MANIFEST.json`.
 
 **Done when:**
-- [ ] `just tycho dev` serves the page, and the shell paints in Chromium, Firefox, and Safari with no console errors or panics.
-- [ ] `self.crossOriginIsolated === true` in the page console.
-- [ ] Resizing the window reflows the shell with no blank frames.
-- [ ] `just tycho build` prints the release asset sizes: app wasm raw, gzip, and brotli; JS; fonts.
+- [x] `just tycho dev` serves the page, and the shell paints in Chromium, Firefox, and Safari with no console errors or panics. *`just tycho smoke` passes in Playwright Chromium, Firefox, and WebKit (debug and release). Manual check in real Firefox and Safari done.*
+- [x] `self.crossOriginIsolated === true` in the page console. *True in all three engines, dev and preview.*
+- [x] Resizing the window reflows the shell with no blank frames. *Smoke resizes through five sizes and checks each settled frame is painted edge to edge, with a canvas that followed the resize (CSS box and backing store). A negative control with a canvas that can't shrink fails.*
+- [x] `just tycho build` prints the release asset sizes: app wasm raw, gzip, and brotli; JS; fonts. *wasm 9522.8 / 3740.2 / 2615.6 KiB. See `perf/results/2026-09-23-m0.md`.*
+
+`just tycho check` doesn't enforce the TTFP or wasm-size budgets in M0; there's no baseline yet. That lands in M1 (below), together with `perf/baseline.json`.
 
 ### M1: First-paint baseline and perf overlay skeleton
 
@@ -201,10 +203,18 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 |---|---|---|
 | 2026-09-22 | Sample datasets: JPL SBDB asteroids (default), Gaia DR3 bright slice (big), both re-hosted | initial spec |
 | 2026-09-22 | Hosting: Cloudflare, one Worker + static assets + R2 | initial spec |
+| 2026-09-23 | Rust toolchain: dated nightly (`nightly-2026-09-20`), because `gpui-pre-web`'s default `multithreaded` feature pulls in `wasm_thread` (`#![feature]`) | M0 build failure on stable |
+| 2026-09-23 | `Cargo.lock` seeded from gpui-kit 0.6.4's published lock, so the whole gpui family is what 0.6.4 shipped with (gpui-pre 0.3.5, wasm-bindgen 0.2.121) | caret deps floated to 0.6.6 / 0.3.6 |
+| 2026-09-23 | Web platform: single-threaded, WebGL2 forced (not the WebGPU-first `Auto`), `CanvasFontFallback::Emoji` | M0; M1 measures `Auto` vs `WebGl` |
+| 2026-09-23 | UI font: IBM Plex Sans Regular (what `gpui-pre-web` maps `.SystemUIFont` to), fetched by the JS host in parallel with the wasm, not `include_bytes!` | M0 |
 
 ### Pending decisions
 
 - [ ] `opt-level` `"z"` vs `"s"` (M1)
+- [ ] Graphics backend: forced WebGL2 vs `Auto` (WebGPU first), by cold-start TTFP (M1)
+- [ ] UI font subsetting (Latin + Latin Extended covers asteroid names?) vs the full 196 KiB face (M1)
+- [ ] Release logging and panic hook: keep `init_logging` in release or strip it for size (M1)
+- [ ] **Reference-run DPR (blocks M1's protocol):** headless Chromium can't give GPUI a consistent DPR 2. With emulation the `device-pixel-content-box` reads CSS px, so GPUI draws into a 1× backing store; the launch flag reads DPR 1. Options: run the reference at DPR 1 and record it, run headed Chromium, or patch gpui-pre-web's sizing in `shared/`. See `perf/results/2026-09-23-m0.md` (M1)
 - [ ] Arrow IPC decoder approach (M2)
 - [ ] Paging strategy A/B/C (M4)
 - [ ] Page size and prefetch depth (M4)
@@ -223,7 +233,7 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 |---|---|---|---|
 | TTFP (reference, median of 10) | ≤ +10% vs baseline | — | — |
 | TTFP (throttled) | recorded only | — | — |
-| App wasm (brotli) | ≤ +15% without note | — | — |
+| App wasm (brotli) | ≤ +15% without note | — | 2615.6 KiB (M0, pre-tuning) |
 | Engine ready | — | — | — |
 | Sample click → schema | ≤ 300 ms | — | — |
 | File → first rows | ≤ 500 ms | — | — |

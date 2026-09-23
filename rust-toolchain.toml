@@ -1,0 +1,9 @@
+# Nightly because gpui-pre-web's default `multithreaded` feature pulls in
+# wasm_thread, which uses `#![feature(stdarch_wasm_atomic_wait)]`. Upstream's
+# story-web builds on nightly for the same reason. Dated for reproducible builds;
+# bump deliberately.
+[toolchain]
+channel = "nightly-2026-09-20"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

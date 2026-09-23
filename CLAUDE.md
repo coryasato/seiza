@@ -21,6 +21,8 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 ## Stack and pins
 
 - **UI:** `gpui-kit` (longbridge/gpui-kit), **pinned to an exact version** in the workspace `Cargo.toml` (0.6.4 was current on 2026-09-22). All apps use the same pin. Target `wasm32-unknown-unknown`.
+- **The pin covers the whole gpui family through `Cargo.lock`.** `=0.6.4` on `gpui-kit` alone lets its caret deps float (`gpui-component`, `gpui-base`, `gpui-pre-*`). `Cargo.lock` is committed and was seeded from gpui-kit 0.6.4's published lock. To bump, copy the new release's `Cargo.lock` from the registry source, then `cargo fetch`. Don't run a bare `cargo update`.
+- **Toolchain:** dated nightly in `rust-toolchain.toml`, because `gpui-pre-web` pulls in `wasm_thread`, which needs `#![feature]`. `wasm-bindgen-cli` must match the locked `wasm-bindgen` exactly (`cargo install wasm-bindgen-cli --version <locked> --locked`). Also needed: `just`, `wasm-opt` (binaryen), Node.js.
 - **Release profile:** Cargo reads `[profile.release]` only from the workspace root `Cargo.toml`, so its settings apply to every app. If an app needs different settings, use `[profile.release.package.<crate>]` and note why in that app's `PLAN.md`. Per-package overrides can't set `lto`, `panic`, or `rpath`; those stay workspace-wide.
 - **JS host:** a thin Vite layer per app (`apps/<app>/web/`), built on `shared-web/`. Keep it thin: new logic goes in Rust unless it must touch a JS-only API.
 - **Headers everywhere, dev included:** `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. `shared-web/` provides the dev-server config so every app gets them from day one, and cross-origin problems show up early instead of at deploy.
@@ -31,15 +33,25 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 - **Load fonts before `gpui_kit::init`.** On wasm there are no system fonts. `Theme::change` resolves `.SystemUIFont` during init and panics on an empty font database, and because wasm uses `panic=abort`, the canvas never paints. Call `add_fonts(...)` (bundled UI font) first, then init. See longbridge/gpui-kit#3101 and #3105. `shared/`'s bootstrap handles this; apps shouldn't call init themselves.
 - **The Input context-menu "Paste" item is always disabled on web.** Cmd/Ctrl+V still works. See #3187.
 - Install `console_error_panic_hook` in debug builds. A panic shows up as `RuntimeError: unreachable` unless the hook is installed.
+- **`wasm-opt` needs `--enable-threads`.** `wasm_thread`'s atomics land in the binary even on the single-threaded platform, and wasm-opt refuses to validate without the flag.
+- **0.6.4's `Root` doesn't draw overlay layers.** The view under `Root` must render `Root::render_sheet_layer`, `render_dialog_layer`, and `render_notification_layer`, or dialogs and notifications silently never appear. `shared/`'s `AppShell` does this; apps get it for free.
+- **Headless DPR emulation breaks GPUI's canvas sizing.** gpui-pre-web sizes the backing store from `ResizeObserver`'s device-pixel-content-box, which headless Chromium misreports under `deviceScaleFactor`. Real HiDPI browsers are fine. See Tycho's `perf/results/2026-09-23-m0.md` before writing any Playwright measurement at DPR 2.
+- **0.6.4 has no `gpui_kit::open_window`.** The GPUI Kit skill docs describe a later API. Use `cx.open_window(options, |window, cx| cx.new(|cx| Root::new(view, window, cx)))`. `shared/`'s `Bootstrap` does this.
+- **The web platform maps `.SystemUIFont` to IBM Plex Sans.** That's the family `shared-web/fonts/` bundles, so no theme font override is needed.
+- **GPUI's default web backend probes WebGPU first.** `shared/` forces WebGL2 (see Tycho's `PLAN.md` decisions log).
 
 ## Repo layout
 
 ```
 seiza/
-  Cargo.toml            # workspace; pins gpui-kit
-  .gitignore            # target/, node_modules/, .wrangler/, per-app data/raw, generated data, perf/results/raw
+  Cargo.toml            # workspace; pins gpui-kit; release profile
+  Cargo.lock            # committed; pins the whole gpui family
+  rust-toolchain.toml   # dated nightly + wasm32 target
+  package.json          # npm workspaces: shared-web, apps/*/web
+  tsconfig.base.json    # strict TS settings every host extends
+  .gitignore            # target/, node_modules/, .wrangler/, pkg/, dist/, per-app data/raw, generated data, perf/results/raw
   shared/               # crate `seiza`: wasm bootstrap, app shell, theme, perf overlay, file helpers
-  shared-web/           # reusable JS host bits: bootstrap, COOP/COEP dev-server config
+  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), fonts/, scripts/asset-sizes.ts
   apps/
     tycho/
       crate/            # Rust (cdylib)

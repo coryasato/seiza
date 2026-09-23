@@ -1,0 +1,15 @@
+{
+  "name": "seiza",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared-web",
+    "apps/*/web"
+  ],
+  "devDependencies": {
+    "@playwright/test": "~1.63.0",
+    "@types/node": "~26.6.2",
+    "typescript": "~7.0.2",
+    "vite": "~8.3.0"
+  }
+}

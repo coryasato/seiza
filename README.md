@@ -4,13 +4,13 @@
 
 The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a perf overlay and a reproducible measurement suite.
 
-> **Status:** pre-M0. The plans are written; the code isn't yet. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
+> **Status:** M0. Tycho's empty shell paints on the web. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
 
 ## Apps
 
 | App | What it is | Status |
 |---|---|---|
-| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | Not started |
+| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | M0: shell only |
 
 > *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
 
@@ -42,16 +42,23 @@ seiza/
 
 ## Getting started
 
-Not runnable yet. Once M0 lands:
+Prerequisites:
+
+- [rustup](https://rustup.rs). `rust-toolchain.toml` installs the pinned nightly and the `wasm32-unknown-unknown` target on first build.
+- `wasm-bindgen-cli` matching the locked version: `cargo install wasm-bindgen-cli --version 0.2.121 --locked`
+- [`just`](https://github.com/casey/just) and `wasm-opt` from [Binaryen](https://github.com/WebAssembly/binaryen) (`brew install just binaryen`)
+- Node.js 22.18+ (scripts are TypeScript run by Node's built-in type stripping)
 
 ```sh
-just tycho dev     # debug wasm + Vite dev server with COOP/COEP
-just tycho build   # release build, prints asset sizes
-just tycho perf    # Playwright cold-load and scroll measurements
-just tycho check   # clippy, fmt, wasm build, perf budget check
+just setup          # npm install
+just tycho dev      # debug wasm + Vite dev server with COOP/COEP → http://localhost:5173
+just tycho build    # release build, prints raw/gzip/brotli asset sizes
+just tycho preview  # serve the release build
+just tycho smoke    # Chromium/Firefox/WebKit shell check against a running server
+just tycho check    # fmt, clippy, tsc, release wasm build
 ```
 
-Prerequisites (planned): Rust with the `wasm32-unknown-unknown` target, [`just`](https://github.com/casey/just), Node.js, `wasm-bindgen-cli`, and `wasm-opt` (Binaryen).
+For Playwright's browsers, run `npx playwright install chromium firefox webkit` once.
 
 ## How we measure
 
@@ -60,6 +67,10 @@ Playwright + headless Chromium, cold cache, 1440×900 at DPR 2, median of 10 run
 ## Working with this repo
 
 The `CLAUDE.md` files (root and per app) are the project's working rules and are written for both humans and [Claude Code](https://claude.com/claude-code). Each app's `PLAN.md` holds its milestones, "done when" checks, decisions log, and measurements; `docs/LESSONS.md` records what each milestone taught us.
+
+## Fonts
+
+The UI face is [IBM Plex Sans](https://github.com/IBM/plex), © IBM Corp., under the SIL Open Font License 1.1 ([`shared-web/fonts/OFL.txt`](shared-web/fonts/OFL.txt)).
 
 ## Data credits
 
