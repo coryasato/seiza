@@ -22,7 +22,7 @@ These add to the repo-wide rules.
    - `query(sql, request_id) -> ArrowIpcBytes`
    - `cancel(request_id)`
 
-   Get schema, row count, and metadata with SQL through `query`. Don't add a fourth bridge call without writing down the decision in this file and in `PLAN.md`'s decisions log.
+   Get schema, row count, and metadata with SQL through `query`. Don't add a fourth bridge call without writing down the decision in this file and in `PLAN.md`'s decisions log. The engine loads on the first call; the post-paint callback's warm-up query (`SELECT 42 AS x`) is what starts it.
 3. **Query per viewport.** The table fetches only the visible rows plus a buffer. The app never loads the whole result into memory.
 4. **v1 scope is fixed.** No SQL editor, charts, sort/filter, or GROUP BY. If one of these seems necessary, stop and ask.
 
@@ -31,14 +31,15 @@ These add to the repo-wide rules.
 - **UI:** `shared/` (crate `seiza`) on the workspace's pinned `gpui-kit`.
 - **Engine:** `@duckdb/duckdb-wasm`, pinned. Runs in a Web Worker. **Self-host** the DuckDB bundles and extensions from our own origin, not jsDelivr, so they work under COEP and first-load timing doesn't depend on a third-party CDN. (Check the bundle sizes against Cloudflare's 25 MiB static-asset limit; see Hosting.)
 - **Hosting:** Cloudflare, one Worker (`worker/`) + R2 for data. Details in `PLAN.md`.
-- **JS host:** `web/` (Vite, built on `shared-web/`) holds `index.html`, the DuckDB worker, and `bridge.ts`. New logic goes in Rust unless it must touch DuckDB's JS API.
+- **JS host:** `web/` (Vite, built on `shared-web/`) holds `index.html`, `bridge.ts` (the three calls; loads nothing until the first), and `engine.ts` (DuckDB-Wasm: bundle choice, worker, queries, cancel). New logic goes in Rust unless it must touch DuckDB's JS API.
+- **Arrow:** results cross the bridge as Arrow IPC stream bytes and are read by `crate/src/arrow.rs`, a hand-rolled reader (arrow-rs cost +127 KiB brotli; see `PLAN.md`). New column types go there, with a test.
 
 ## Layout
 
 ```
 apps/tycho/
-  crate/            # Rust (cdylib, package `tycho`): table view, data source, page cache
-  web/              # Vite host: index.html, duckdb.worker.ts, bridge.ts, vite.config.ts
+  crate/            # Rust (cdylib, package `tycho`): workbench, engine client (engine/), Arrow reader (arrow.rs), self-test
+  web/              # Vite host: index.html, src/{main,bridge,engine}.ts, vite.config.ts
   worker/           # Cloudflare Worker + wrangler.toml
   data/             # prep scripts, fixtures-src/, MANIFEST.json (committed); raw/ + generated data gitignored
   perf/             # Playwright scripts, baseline.json, budget-notes.md, results/
@@ -57,7 +58,8 @@ just tycho build        # release wasm (+ wasm-opt), Vite build, report asset si
 just tycho preview      # serve the release build (web/dist) with the same headers
 just tycho smoke [url]  # Playwright Chromium/Firefox/WebKit: paints, crossOriginIsolated, no console errors, resize
 just tycho check        # lint + release build + perf budgets (reference TTFP ≤ baseline +10%, wasm brotli ≤ +15% unless noted in perf/budget-notes.md)
-just tycho perf [flags] # cold-load suite, reference + throttled, median of 10 → perf/results/<date>-<label>.json (--label, --runs, --write-baseline)
+just tycho perf [flags] # cold-load suite, reference + throttled, median of 10 → perf/results/<date>-<label>.json (--label, --runs, --write-baseline, --trace); also checks no engine request starts before first paint
+just tycho engine [flags] # engine self-test from Rust (`?selftest`: SELECT 42, every shown type, cancel) in Chromium ×10 + Firefox + WebKit, plus blocked-engine negative controls (--label, --runs)
 just tycho lint         # cargo fmt --check, clippy on wasm32 with -D warnings, tsc
 just tycho wasm [debug|release]   # cargo build + wasm-bindgen into web/pkg/ (+ wasm-opt for release)
 ```
@@ -69,6 +71,6 @@ just tycho data         # fetch asteroids + Gaia slice → Parquet/CSV + MANIFES
 just tycho deploy       # build, upload changed data to R2, wrangler deploy (M8)
 ```
 
-The perf overlay is on with `?perf` in the URL, or toggle it with Cmd/Ctrl+Shift+P. (Firefox on macOS keeps Cmd+Shift+P for a private window; use Ctrl+Shift+P or `?perf` there.) `just tycho perf` and `check` serve `web/dist` through `vite preview`, brotli-compressed like production. `check` builds first; before `perf`, run `just tycho build` yourself.
+`?selftest` in the URL runs the engine self-test once DuckDB is ready; results show in the overlay and in `globalThis.__tychoSelftest`. The perf overlay is on with `?perf` in the URL, or toggle it with Cmd/Ctrl+Shift+P. (Firefox on macOS keeps Cmd+Shift+P for a private window; use Ctrl+Shift+P or `?perf` there.) `just tycho perf` and `check` serve `web/dist` through `vite preview`, brotli-compressed like production. `check` builds first; before `perf`, run `just tycho build` yourself.
 
 `web/pkg/` is generated by `just tycho wasm` (gitignored). After changing Rust, rerun `just tycho dev` (or `just tycho wasm` while Vite keeps running) and reload the page.

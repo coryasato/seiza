@@ -14,7 +14,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 |---|---|---|
 | M0 | Empty GPUI Kit shell on the web | Done 2026-09-23 |
 | M1 | First-paint baseline and perf overlay skeleton | Done 2026-09-23 |
-| M2 | DuckDB in a worker, prefetched after first paint | Not started |
+| M2 | DuckDB in a worker, prefetched after first paint | Done 2026-09-23 |
 | M3 | Asteroid sample over HTTP | Not started |
 | M4 | Virtualized table over paged queries | Not started |
 | M5 | Drop a Parquet file | Not started |
@@ -58,15 +58,19 @@ Tune the release profile: `opt-level="z"` vs `"s"` (measure both), `lto = true`,
 
 Build `duckdb.worker.ts` and `bridge.ts` with the three calls. On the Rust side, wrap them with wasm-bindgen: JS Promises → `wasm_bindgen_futures::JsFuture`, driven on GPUI's web executor. Start the engine load from `shared/`'s post-paint callback, never before. Use the self-hosted DuckDB bundle; pick the EH or MVP bundle by feature detection. Arrow results cross the boundary as IPC bytes (`Uint8Array`).
 
+*As built:* there's no `duckdb.worker.ts`. `web/src/engine.ts` (loaded by `bridge.ts` on the first call) runs DuckDB's prebuilt worker inside a small blob: wrapper worker; see the decisions log.
+
 **Done when:**
-- [ ] Reference TTFP is within noise (≤ 5%) of the M1 baseline with DuckDB loading enabled.
-- [ ] The network waterfall in the Playwright trace shows the first DuckDB request starting **after** the `gpui:first-frame` mark.
-- [ ] The overlay shows "engine ready" time (ms from timeOrigin).
-- [ ] `query("SELECT 42 AS x")` from Rust returns a decoded Arrow batch with `x = 42`.
-- [ ] `cancel()` on a long query (`SELECT count(*) FROM range(1e10)`) stops it within 200 ms, and the next query still succeeds.
-- [ ] **Decision recorded:** how Arrow IPC gets decoded in Rust (`arrow-ipc` + `arrow-array` with minimal features, or a hand-rolled reader for the types we show). Choose by measured wasm size delta. The decoder is in the app binary, so it counts against the repo-wide TTFP rule.
+- [x] Reference TTFP is within noise (≤ 5%) of the M1 baseline with DuckDB loading enabled. *168.7 ms (−4.8%) on the final protocol run; earlier runs 170.7 and 180.7 ms. Interleaved A/B against a rebuilt M1, 20 runs each: 170.0 vs 173.8 ms median (+2.2%), means 177.8 vs 175.9 ms. Throttled +0.8%.*
+- [x] The network waterfall in the Playwright trace shows the first DuckDB request starting **after** the `gpui:first-frame` mark. *0 of 20 runs had any non-first-paint request before the mark; the first engine request started 4.5–5.8 ms after it (reference), 24.2–35.7 ms (throttled). `perf.ts` checks this on every run; `--trace` saves the waterfall.*
+- [x] The overlay shows "engine ready" time (ms from timeOrigin). *Median 622.3 ms reference, 9728.4 ms throttled; the overlay matches the `tycho:engine-ready` mark within 0.5 ms.*
+- [x] `query("SELECT 42 AS x")` from Rust returns a decoded Arrow batch with `x = 42`. *It's the post-paint warm-up; the self-test repeats it (3.0 ms median round trip) and decodes 17 columns of every shown type against DuckDB's real output, in Chromium, Firefox, and WebKit.*
+- [x] `cancel()` on a long query (`SELECT count(*) FROM range(1e10)`) stops it within 200 ms, and the next query still succeeds. *Stopped in 4.7 ms median, 10.0 ms max (Chromium, n=10); Firefox 98 ms; WebKit 3 ms. DuckDB won't bind `range(DOUBLE)`, so the query is written `range(10000000000)`.*
+- [x] **Decision recorded:** how Arrow IPC gets decoded in Rust (`arrow-ipc` + `arrow-array` with minimal features, or a hand-rolled reader for the types we show). Choose by measured wasm size delta. The decoder is in the app binary, so it counts against the repo-wide TTFP rule. *Hand-rolled: arrow-rs costs +127.3 KiB brotli (+4.8%) more. All of M2's Rust is +12.3 KiB. See `perf/results/2026-09-23-m2.md`.*
 
 ### M3: Asteroid sample over HTTP
+
+*Carried from M2:* **Parquet isn't built into DuckDB-Wasm 1.32.0.** By default DuckDB autoloads it from `https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm` (`wasm_mvp` for MVP). M2 turned autoload and autoinstall off (`engine.ts`, `disableExtensionDownloads`) to keep the self-hosting rule, so Parquet functions currently fail with "exists in the parquet extension". M3 must self-host the Parquet extension (EH and MVP builds) from our origin, point `custom_extension_repository` at it, then load it (autoload on for that repository, or an explicit `LOAD parquet`). It counts toward the engine download, not the first paint. Check its size against the 25 MiB asset limit.
 
 Build `data/fetch_asteroids.py` + `data/prep.sql` (see Sample datasets below) to produce the Parquet files. Serve them from our origin with `Accept-Ranges: bytes`: through `wrangler dev` if possible, otherwise a dev server with equivalent range handling. Turn on the "Try sample: every known asteroid" button: `register_file(url)`, then read the schema and row count from Parquet metadata with SQL (`DESCRIBE`, `parquet_metadata`, `parquet_file_metadata`). Show column names, types, row count, file size, row-group count, and the data credit in a header strip.
 
@@ -118,7 +122,9 @@ Show first rows fast: sniff with `read_csv(..., sample_size=...)` and show `LIMI
 
 ### M7: Complete the perf overlay and harden
 
-Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95 plus a small frame-time sparkline), rows loaded, bytes fetched, and wasm memory. Add error states: engine failed to load, network failure on the sample, and file too large. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
+Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95 plus a small frame-time sparkline), rows loaded, bytes fetched, and wasm memory. Add error states: engine failed to load, network failure on the sample, and file too large.
+
+*Note from M2's code review, for this milestone to decide:* `bridge.ts` caches the engine load promise, including a rejected one (`engine ??= import(...)`). One transient failure (a network blip on the engine chunk or DuckDB's wasm) makes every later call fail with the same error until a reload. Today's UI says "Reload the page to try again", which matches. Decide whether "engine failed to load" should retry instead: reset the cached promise on rejection and offer a Retry button, or keep reload-only. A dead worker is terminated, so a retry must start a new one. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
 
 **Done when:**
 - [ ] All overlay metrics show live values and match `just tycho perf` within 5%.
@@ -215,6 +221,17 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 | 2026-09-23 | Reference run at a true DPR 2: the perf suite hides `devicePixelContentBoxSize` so gpui-pre-web uses its Safari sizing path | M1 |
 | 2026-09-23 | First-frame mark: a microtask queued by the first render with a non-zero viewport (was: a rAF requested from the first render, a frame late on WebGPU). Verified every run by a GPU-call probe | M1 |
 | 2026-09-23 | Perf and check runs serve `web/dist` brotli-compressed (quality 11, cached) through `vite preview` | M1 |
+| 2026-09-23 | `@duckdb/duckdb-wasm` pinned to **1.32.0**, the newest stable release. npm's `latest` tag points at a dev build (1.33.1-dev57) | M2 |
+| 2026-09-23 | Arrow IPC decoded by a **hand-rolled reader** (`crate/src/arrow.rs`), not arrow-rs: arrow-ipc + arrow-array + arrow-schema 60 with default features off cost +127.3 KiB brotli (+4.8%) more. Unsupported types decode as named placeholder columns | M2 `perf/results/2026-09-23-m2.md` |
+| 2026-09-23 | **The engine loads on the first bridge call**, not through a fourth call. The post-paint callback sends the warm-up `SELECT 42 AS x`, which starts the load; its answer is checked in Rust before the UI says "Engine ready" | M2 |
+| 2026-09-23 | DuckDB's own prebuilt worker, run inside a small blob: classic worker that turns unhandled rejections into worker errors. DuckDB-Wasm 1.32.0 never rejects `instantiate` when its worker fails, which hung the UI on "Engine loading…". No `duckdb.worker.ts` file: Vite's dev server serves worker entries as ES modules, which can't `importScripts` | M2 negative controls |
+| 2026-09-23 | One DuckDB connection per query. Results come from the pending-query API (`startPendingQuery`/`pollPendingQuery`/`fetchQueryResults`) as raw IPC bytes, concatenated in JS; no Arrow decoding in JS. `cancel` aborts an `AbortSignal`, which calls `cancelPendingQuery` between poll slices | M2 |
+| 2026-09-23 | Bundles: EH or MVP by DuckDB's `selectBundle` (every engine we test gets EH). The COI (threads) bundle isn't used | M2 |
+| 2026-09-23 | Both DuckDB wasm bundles (32.7 / 37.5 MiB raw) are over Cloudflare's 25 MiB asset limit and go to R2 in M8. `just tycho build` names them (`asset-sizes.ts --r2`); any other oversize file still fails | M2 |
+| 2026-09-23 | The bridge self-test ships in release behind `?selftest` (part of M2's +12.3 KiB), so it checks the build that's measured | M2 |
+| 2026-09-23 | DuckDB extension autoload and autoinstall are **off**. Parquet isn't built into DuckDB-Wasm, and by default it would be fetched from extensions.duckdb.org on first use. M3 self-hosts it | M2 code review |
+| 2026-09-23 | `registerFile(url)` first sends a one-byte range request and requires `206`: it rejects missing files, servers without range support, and SPA fallbacks (Vite answers unknown paths with `index.html`), and reads the real size from `Content-Range` (a compressed HEAD's `Content-Length` isn't the file size) | M2 code review |
+| 2026-09-23 | Every engine call races the worker's `error` event, at load and after, so a worker that dies mid-query rejects that query instead of leaving it pending | M2 code review |
 
 ### Pending decisions
 
@@ -223,7 +240,7 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 - [x] UI font subsetting vs the full 196 KiB face (M1): full face
 - [x] Release logging and panic hook (M1): logging stays in release; the panic hook stays debug-only
 - [x] **Reference-run DPR (M1):** true DPR 2 in headless Chromium by hiding `devicePixelContentBoxSize` in the perf suite (see decisions log)
-- [ ] Arrow IPC decoder approach (M2)
+- [x] Arrow IPC decoder approach (M2): hand-rolled reader
 - [ ] Paging strategy A/B/C (M4)
 - [ ] Page size and prefetch depth (M4)
 - [ ] Memory cap for page cache (M4)
@@ -239,10 +256,13 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 175.3 ms (M1 check) |
-| TTFP (throttled) | recorded only | 3465.2 ms | 3465.2 ms |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2618.8 KiB |
-| Engine ready | — | — | — |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 168.7 ms (M2, −4.8%) |
+| TTFP (throttled) | recorded only | 3465.2 ms | 3493.0 ms (M2, +0.8%) |
+| TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2631.8 KiB (M2, +0.5%) |
+| Engine ready (reference / throttled) | recorded only | — | 622.3 / 9728.4 ms (M2) |
+| `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
+| Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |
 | Sample click → schema | ≤ 300 ms | — | — |
 | File → first rows | ≤ 500 ms | — | — |
 | Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | — |

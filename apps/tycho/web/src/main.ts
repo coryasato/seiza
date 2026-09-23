@@ -5,5 +5,6 @@ import init, { start } from '../pkg/tycho.js';
 // The same asset wasm-bindgen would resolve; named here so the HTML preload and
 // `init` fetch one URL (instantiateStreaming needs `application/wasm`).
 import wasmUrl from '../pkg/tycho_bg.wasm?url';
+import { createBridge } from './bridge.ts';
 
-void boot({ init: () => init({ module_or_path: wasmUrl }), start, fontUrl });
+void boot({ init: () => init({ module_or_path: wasmUrl }), start: (font) => start(font, createBridge()), fontUrl });

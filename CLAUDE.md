@@ -13,7 +13,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 ## Repo-wide rules
 
-1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in the commit/PR message. A change to `shared/` affects every app, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `PLAN.md` and `perf/baseline.json`.
+1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/` affects every app, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `PLAN.md` and `perf/baseline.json`.
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame appears. The UI stays usable and says what's still loading.
 3. **Measure before and after.** Every milestone ends with a measurement using the protocol below. The numbers go in `apps/<app>/perf/results/` (committed; large raw Playwright traces go in `perf/results/raw/`, which is gitignored) and a short note goes in `apps/<app>/docs/LESSONS.md`.
 4. **Handle the canvas tradeoffs in the open** (a11y, IME, text selection, Ctrl+F, bundle size). When an app falls short on one, it says so in the UI or README. It never hides the gap.
@@ -56,7 +56,7 @@ seiza/
   apps/
     tycho/
       crate/            # Rust (cdylib)
-      web/              # Vite host, duckdb.worker.ts, bridge.ts
+      web/              # Vite host, bridge.ts, engine.ts (DuckDB-Wasm)
       worker/           # Cloudflare Worker + wrangler.toml
       data/  perf/  docs/
       CLAUDE.md         # Tycho context and rules

@@ -7,8 +7,18 @@
 // must match the `gpui:first-frame` mark within 5 ms, and the mark must land
 // right after the first GPU work GPUI issued (see `probe` below).
 //
+// Each run then waits for DuckDB (M2): the overlay's "Engine ready" must match
+// the `tycho:engine-ready` mark within 5 ms, and no request outside the
+// first-paint set (the document, entry JS, app wasm, and UI font) may start
+// before the first-frame mark. Engine requests from the main thread come from
+// Resource Timing (the same clock as the marks); the worker's own requests
+// (DuckDB's wasm) come from Playwright's network events.
+//
 // Usage: node apps/tycho/perf/perf.ts [--url <url>] [--runs 10] [--label <name>]
 //                                     [--reference-only] [--check] [--write-baseline]
+//                                     [--trace]
+// --trace adds one uncounted run per profile that saves a Playwright trace
+// (network waterfall included) to perf/results/raw/ (gitignored).
 // With no --url it starts `vite preview` on the release build in web/dist
 // (brotli, like production). --check applies the budgets in perf/baseline.json
 // and exits non-zero on a regression. --write-baseline records this run as the
@@ -19,11 +29,17 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { arch, cpus, release, type } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, type CDPSession } from '@playwright/test';
+import { chromium, type CDPSession, type Request } from '@playwright/test';
 import { preview } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
+// Set by web/src/engine.ts.
+const ENGINE_START_MARK = 'tycho:engine-start';
+const ENGINE_READY_MARK = 'tycho:engine-ready';
+/** What first paint may wait on; any other request must start after the
+ *  first-frame mark. Matched against the URL's path. */
+const FIRST_PAINT_REQUESTS = [/^\/(\?.*)?$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/tycho_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
 const baselinePath = join(perfDir, 'baseline.json');
@@ -115,9 +131,22 @@ function probe(): void {
   hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit'], 'webgpu');
 }
 
+interface EngineLoad {
+  startMs: number | null;
+  readyMs: number | null;
+  overlayReadyMs: number | null;
+  /** The earliest request outside the first-paint set. */
+  firstRequest: { url: string; startMs: number } | null;
+  /** Requests outside the first-paint set that started before the mark. */
+  beforeFirstFrame: string[];
+  /** Every request outside the first-paint set, in start order. */
+  requests: { url: string; startMs: number | null; from: 'page' | 'network' }[];
+}
+
 interface Run {
   ttfpMs: number;
   overlayTtfpMs: number | null;
+  engine: EngineLoad;
   firstGpuWorkMs: number | null;
   /** The GPU task whose window (last GPU call → checkpoint end) holds the
    *  mark, or null when none does. */
@@ -129,11 +158,33 @@ interface Run {
   consoleProblems: string[];
 }
 
-async function measure(url: string, profile: Profile): Promise<Run> {
+const isFirstPaintRequest = (url: string) => {
+  const { pathname, search } = new URL(url);
+  return FIRST_PAINT_REQUESTS.some((pattern) => pattern.test(pathname === '/' ? `/${search}` : pathname));
+};
+
+/** Reads an overlay row's value as a number of ms, once it has one. */
+async function overlayMs(page: import('@playwright/test').Page, row: string, timeout: number): Promise<number | null> {
+  return page
+    .waitForFunction(
+      (row) => {
+        const rows = (globalThis as { __seizaPerfOverlay?: [string, string][] }).__seizaPerfOverlay;
+        const value = rows?.find(([name]) => name === row)?.[1];
+        return value && /^\d/.test(value) ? value : false;
+      },
+      row,
+      { timeout, polling: 50 },
+    )
+    .then(async (handle) => Number.parseFloat((await handle.jsonValue()) as string))
+    .catch(() => null);
+}
+
+async function measure(url: string, profile: Profile, tracePath: string | null): Promise<Run> {
   // A new browser per run: empty HTTP cache and no compiled-wasm cache.
   const browser = await chromium.launch({ channel: 'chromium' });
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+    if (tracePath) await context.tracing.start({ snapshots: true, screenshots: false });
     await context.addInitScript(probe);
     const page = await context.newPage();
     const consoleProblems: string[] = [];
@@ -154,6 +205,23 @@ async function measure(url: string, profile: Profile): Promise<Run> {
       }
     });
     page.on('pageerror', (error) => consoleProblems.push(`pageerror: ${error.message}`));
+    // Every request Playwright saw, failed ones included, with a wall-clock
+    // start. Worker requests (DuckDB's wasm) aren't in the page's Resource
+    // Timing. The start is first when Playwright reported the request (an
+    // upper bound, a few ms late at most), then the browser's own start time
+    // once it finishes. Failed requests have no browser start time.
+    const networkRequests = new Map<Request, { url: string; wallMs: number; failed: boolean }>();
+    page.on('request', (request) => networkRequests.set(request, { url: request.url(), wallMs: Date.now(), failed: false }));
+    page.on('requestfinished', (request) => {
+      const entry = networkRequests.get(request);
+      const start = request.timing().startTime;
+      if (entry && start > 0) entry.wallMs = start;
+    });
+    page.on('requestfailed', (request) => {
+      const entry = networkRequests.get(request);
+      if (entry) entry.failed = true;
+      consoleProblems.push(`request failed: ${request.url()} (${request.failure()?.errorText ?? 'unknown'})`);
+    });
 
     const cdp: CDPSession = await context.newCDPSession(page);
     if (profile.cpuSlowdown > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpuSlowdown });
@@ -178,18 +246,51 @@ async function measure(url: string, profile: Profile): Promise<Run> {
       .then((handle) => handle.jsonValue())) as number;
 
     // The overlay learns TTFP one frame after the mark; wait for it to draw it.
-    const overlay = (await page
-      .waitForFunction(
-        () => {
-          const rows = (globalThis as { __seizaPerfOverlay?: [string, string][] }).__seizaPerfOverlay;
-          const value = rows?.find(([name]) => name === 'TTFP')?.[1];
-          return value && /^\d/.test(value) ? value : false;
-        },
-        undefined,
-        { timeout: 10_000, polling: 50 },
-      )
+    const overlayTtfpMs = await overlayMs(page, 'TTFP', 10_000);
+
+    // DuckDB loads after first paint; wait for it, then read the waterfall.
+    const readyMs = (await page
+      .waitForFunction((mark) => performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? false, ENGINE_READY_MARK, {
+        timeout: 120_000,
+        polling: 50,
+      })
       .then((handle) => handle.jsonValue())
-      .catch(() => null)) as string | null;
+      .catch(() => null)) as number | null;
+    const overlayReadyMs = await overlayMs(page, 'Engine ready', 10_000);
+    const timeline = await page.evaluate((mark) => {
+      const resources = performance
+        .getEntriesByType('resource')
+        .map((entry) => ({ url: entry.name, startMs: entry.startTime }));
+      return {
+        timeOrigin: performance.timeOrigin,
+        startMs: performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? null,
+        resources,
+      };
+    }, ENGINE_START_MARK);
+    const requests: EngineLoad['requests'] = [
+      ...timeline.resources.map((r) => ({ url: r.url, startMs: r.startMs as number | null, from: 'page' as const })),
+      ...[...networkRequests.values()]
+        .filter((r) => !timeline.resources.some((resource) => resource.url === r.url) && !/^(data|blob):/.test(r.url))
+        .map((r) => ({
+        url: r.url,
+        startMs: r.wallMs > 0 ? r.wallMs - timeline.timeOrigin : null,
+        from: 'network' as const,
+      })),
+    ]
+      .filter((r) => !isFirstPaintRequest(r.url))
+      .sort((a, b) => (a.startMs ?? Infinity) - (b.startMs ?? Infinity));
+    const first = requests.find((r) => r.startMs !== null);
+    const engine: EngineLoad = {
+      startMs: timeline.startMs,
+      readyMs,
+      overlayReadyMs,
+      firstRequest: first && first.startMs !== null ? { url: new URL(first.url).pathname, startMs: first.startMs } : null,
+      beforeFirstFrame: requests
+        .filter((r) => r.startMs !== null && r.startMs < ttfpMs)
+        .map((r) => `${new URL(r.url).pathname} at ${r.startMs!.toFixed(1)} ms`),
+      requests: requests.map((r) => ({ ...r, url: new URL(r.url).pathname, startMs: r.startMs === null ? null : Number(r.startMs.toFixed(1)) })),
+    };
+    if (tracePath) await context.tracing.stop({ path: tracePath });
 
     const { firstGpuWorkMs, gpuTasks, api, backing } = await page.evaluate(() => {
       const canvas = document.querySelector('canvas');
@@ -207,7 +308,8 @@ async function measure(url: string, profile: Profile): Promise<Run> {
     });
     return {
       ttfpMs,
-      overlayTtfpMs: overlay === null ? null : Number.parseFloat(overlay),
+      overlayTtfpMs,
+      engine,
       firstGpuWorkMs,
       presentingTask:
         gpuTasks
@@ -244,13 +346,23 @@ function runProblems(run: Run): string[] {
   else if (run.presentingTask === null)
     problems.push(`mark ${run.ttfpMs.toFixed(1)} ms isn't right after any of the ${run.gpuTaskCount} tasks that did GPU work`);
   if (run.backing !== '2880x1800') problems.push(`backing store ${run.backing}, expected 2880x1800`);
+  const { engine } = run;
+  if (engine.readyMs === null) problems.push('engine never became ready');
+  else if (engine.overlayReadyMs === null) problems.push('overlay never showed Engine ready');
+  else if (Math.abs(engine.overlayReadyMs - engine.readyMs) > OVERLAY_TOLERANCE_MS)
+    problems.push(`overlay Engine ready ${engine.overlayReadyMs} ms vs mark ${engine.readyMs.toFixed(1)} ms`);
+  if (engine.startMs !== null && engine.startMs < run.ttfpMs)
+    problems.push(`engine load started at ${engine.startMs.toFixed(1)} ms, before first frame ${run.ttfpMs.toFixed(1)} ms`);
+  if (engine.firstRequest === null) problems.push('no engine requests recorded');
+  problems.push(...engine.beforeFirstFrame.map((request) => `request before first frame: ${request}`));
   problems.push(...run.consoleProblems.map((text) => `console: ${text}`));
   return problems;
 }
 
 function wasmBrotliKiB(): number {
   const assets = join(webDir, 'dist/assets');
-  const wasm = readdirSync(assets).find((name) => name.endsWith('.wasm'));
+  // The app's wasm, not DuckDB's (which loads after first paint).
+  const wasm = readdirSync(assets).find((name) => name.startsWith('tycho_bg') && name.endsWith('.wasm'));
   if (!wasm) throw new Error(`no .wasm in ${assets}; run \`just tycho build\` first`);
   return brotli(readFileSync(join(assets, wasm))).length / 1024;
 }
@@ -315,23 +427,34 @@ const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async
   return version;
 });
 
-const results: Record<string, { runs: Run[]; medianTtfpMs: number; problems: string[] }> = {};
+const results: Record<string, { runs: Run[]; medianTtfpMs: number; medianEngineReadyMs: number | null; problems: string[] }> = {};
 try {
   for (const profile of profiles) {
     const profileRuns: Run[] = [];
+    if (flag('trace')) {
+      // An extra run, not counted: tracing (with snapshots, which network
+      // capture needs) slows the page it records.
+      const tracePath = join(perfDir, 'results/raw', `${label}-${profile.name}-trace.zip`);
+      mkdirSync(dirname(tracePath), { recursive: true });
+      await measure(url, profile, tracePath);
+      console.log(`${profile.name} trace run (not counted) → ${tracePath}`);
+    }
     for (let i = 0; i < runs; i++) {
-      const run = await measure(url, profile);
+      const run = await measure(url, profile, null);
       profileRuns.push(run);
       const problems = runProblems(run);
       console.log(
         `${profile.name} ${String(i + 1).padStart(2)}/${runs}  TTFP ${run.ttfpMs.toFixed(1)} ms  ` +
-          `overlay ${run.overlayTtfpMs ?? '—'}  first GPU work (${run.api || '?'}) ${run.firstGpuWorkMs?.toFixed(1) ?? '—'} ms  presenting task ${run.presentingTask ? `${run.presentingTask.lastGpuCallMs.toFixed(1)}–${run.presentingTask.endMs.toFixed(1)}` : '—'} ms` +
+          `overlay ${run.overlayTtfpMs ?? '—'}  engine ready ${run.engine.readyMs?.toFixed(0) ?? '—'} ms (first request +${run.engine.firstRequest ? (run.engine.firstRequest.startMs - run.ttfpMs).toFixed(1) : '—'} ms after mark)  first GPU work (${run.api || '?'}) ${run.firstGpuWorkMs?.toFixed(1) ?? '—'} ms  presenting task ${run.presentingTask ? `${run.presentingTask.lastGpuCallMs.toFixed(1)}–${run.presentingTask.endMs.toFixed(1)}` : '—'} ms` +
           (problems.length ? `  PROBLEMS: ${problems.join('; ')}` : ''),
       );
     }
     results[profile.name] = {
       runs: profileRuns,
       medianTtfpMs: median(profileRuns.map((run) => run.ttfpMs)),
+      medianEngineReadyMs: profileRuns.every((run) => run.engine.readyMs !== null)
+        ? median(profileRuns.map((run) => run.engine.readyMs!))
+        : null,
       problems: profileRuns.flatMap(runProblems),
     };
   }
@@ -353,6 +476,9 @@ const summary = {
   protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },
   wasmBrotliKiB: Number(wasmKiB.toFixed(1)),
   ttfpMs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, Number(r.medianTtfpMs.toFixed(1))])),
+  engineReadyMs: Object.fromEntries(
+    Object.entries(results).map(([name, r]) => [name, r.medianEngineReadyMs === null ? null : Number(r.medianEngineReadyMs.toFixed(1))]),
+  ),
   runs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, r.runs])),
 };
 
@@ -360,8 +486,18 @@ console.log(`\nwasm brotli ${wasmKiB.toFixed(1)} KiB`);
 for (const [name, r] of Object.entries(results)) {
   const ttfps = r.runs.map((run) => run.ttfpMs);
   console.log(
-    `${name}: median TTFP ${r.medianTtfpMs.toFixed(1)} ms (min ${Math.min(...ttfps).toFixed(1)}, max ${Math.max(...ttfps).toFixed(1)}, n=${ttfps.length})`,
+    `${name}: median TTFP ${r.medianTtfpMs.toFixed(1)} ms (min ${Math.min(...ttfps).toFixed(1)}, max ${Math.max(...ttfps).toFixed(1)}, n=${ttfps.length}); ` +
+      `median engine ready ${r.medianEngineReadyMs?.toFixed(1) ?? '—'} ms`,
   );
+}
+try {
+  const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
+  for (const [name, r] of Object.entries(results)) {
+    const base = baseline.ttfpMs[name as keyof Baseline['ttfpMs']];
+    console.log(`${name}: ${(((r.medianTtfpMs - base) / base) * 100).toFixed(1)}% vs baseline ${base} ms (${baseline.date})`);
+  }
+} catch {
+  // No baseline yet.
 }
 
 if (!check) {

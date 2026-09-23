@@ -10,6 +10,7 @@
     "typecheck": "tsc -p . && tsc -p ../perf && tsc -p ../../../shared-web/scripts"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "1.32.0",
     "@seiza/web": "*"
   }
 }

@@ -10,10 +10,11 @@ target_dir := root / "target/wasm32-unknown-unknown"
 dev: (wasm "debug")
     npm run dev --workspace @seiza/tycho-web
 
-# Release wasm (+ wasm-opt), Vite build, then report asset sizes.
+# Release wasm (+ wasm-opt), Vite build, then report asset sizes. DuckDB's
+# wasm bundles are over Cloudflare's 25 MiB asset limit; they go to R2 (M8).
 build: (wasm "release")
     npm run build --workspace @seiza/tycho-web
-    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp
 
 # Serve the release build with the same headers.
 preview:
@@ -30,6 +31,12 @@ check: lint build
 # Extra flags pass through, e.g. `just tycho perf --label m2 --runs 5`.
 perf *args:
     node {{app_dir}}/perf/perf.ts {{args}}
+
+# Engine self-test (M2): SELECT 42, every shown type, and cancel, run from Rust
+# in the release build (`?selftest`). Chromium --runs times, Firefox and WebKit
+# once; writes perf/results/<date>-<label>.json. Run `just tycho build` first.
+engine *args:
+    node {{app_dir}}/perf/engine.ts {{args}}
 
 # fmt, clippy (wasm target and native host), and TypeScript (host, perf scripts, shared-web scripts).
 lint:

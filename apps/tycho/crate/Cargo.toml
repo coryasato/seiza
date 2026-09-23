@@ -15,3 +15,10 @@ gpui-kit.workspace = true
 [target.'cfg(target_family = "wasm")'.dependencies]
 seiza.workspace = true
 wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+web-sys = { workspace = true, features = ["File", "Location", "Performance", "PerformanceEntry", "UrlSearchParams", "Window"] }
+
+[dev-dependencies]
+# Writes the Arrow IPC streams the reader's tests read back. Never in the app.
+arrow = { version = "60", default-features = false, features = ["ipc"] }
