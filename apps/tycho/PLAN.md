@@ -15,7 +15,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M0 | Empty GPUI Kit shell on the web | Done 2026-09-23 |
 | M1 | First-paint baseline and perf overlay skeleton | Done 2026-09-23 |
 | M2 | DuckDB in a worker, prefetched after first paint | Done 2026-09-23 |
-| M3 | Asteroid sample over HTTP | Not started |
+| M3 | Asteroid sample over HTTP | Done 2026-09-24 |
 | M4 | Virtualized table over paged queries | Not started |
 | M5 | Drop a Parquet file | Not started |
 | M6 | Drop a CSV with progressive loading | Not started |
@@ -72,14 +72,16 @@ Build `duckdb.worker.ts` and `bridge.ts` with the three calls. On the Rust side,
 
 *Carried from M2:* **Parquet isn't built into DuckDB-Wasm 1.32.0.** By default DuckDB autoloads it from `https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm` (`wasm_mvp` for MVP). M2 turned autoload and autoinstall off (`engine.ts`, `disableExtensionDownloads`) to keep the self-hosting rule, so Parquet functions currently fail with "exists in the parquet extension". M3 must self-host the Parquet extension (EH and MVP builds) from our origin, point `custom_extension_repository` at it, then load it (autoload on for that repository, or an explicit `LOAD parquet`). It counts toward the engine download, not the first paint. Check its size against the 25 MiB asset limit.
 
-Build `data/fetch_asteroids.ts` + `data/prep.sql` (see Sample datasets below) to produce the Parquet files. Serve them from our origin with `Accept-Ranges: bytes` through the Worker under `wrangler dev` (local mode: Miniflare's R2, seeded by `just tycho data` with `wrangler r2 object put --local`). No Cloudflare account, login, or remote bucket is needed until M8. Turn on the "Try sample: every known asteroid" button: `register_file(url)`, then read the schema and row count from Parquet metadata with SQL (`DESCRIBE`, `parquet_metadata`, `parquet_file_metadata`). Show column names, types, row count, file size, row-group count, and the data credit in a header strip.
+Build `data/fetch_asteroids.ts` + `data/prep.sql` (see Sample datasets below) to produce the Parquet files. Serve them from our origin with `Accept-Ranges: bytes` through the Worker under `wrangler dev` (local mode: Miniflare's R2, seeded by `just tycho data` with `wrangler r2 object put --local`). No Cloudflare account, login, or remote bucket is needed until M8. The browser still sees one origin: Vite (dev) and `vite preview` (perf, check) proxy `/data/*` to `wrangler dev`, and serve everything else as today. The Worker is written for production from the start: a `/data/*` route on R2, and every other path falls through to static assets (`env.ASSETS`), so M8 adds only config (`[assets]`, `_headers`), not Worker code. If `wrangler r2 object put --local` can't take the file, the fallback is a dashboard upload to the real bucket with the dev binding marked remote; record which one the measurements used, since remote R2 adds network latency to the checks. Turn on the "Try sample: every known asteroid" button: `register_file(url)`, then read the schema and row count from Parquet metadata with SQL (`DESCRIBE`, `parquet_metadata`, `parquet_file_metadata`). Show column names, types, row count, file size, row-group count, and the data credit in a header strip.
 
 **Done when:**
-- [ ] Clicking the sample (with the engine warm) shows schema and row count within **300 ms** on the reference run.
-- [ ] Before the first rows appear, the page has transferred **less than 2% of the file** (footer + first row group). Check this from the Playwright network log.
-- [ ] If the button is clicked before the engine is ready, the UI shows a loading state and completes once the engine is ready. It never crashes or hangs.
+- [x] Clicking the sample (with the engine warm) shows schema and row count within **300 ms** on the reference run. *87.8 ms median (73.7–100.4, n=10), click → the presented frame (`tycho:sample-shown`); throttled 1012.0 ms. `just tycho sample`.*
+- [x] Before the first rows appear, the page has transferred **less than 2% of the file** (footer + first row group). Check this from the Playwright network log. *34,759 bytes (0.098%) in requests started before the schema frame, counted in full at the server (Playwright doesn't see DuckDB's worker XHRs); a negative control with DuckDB's default config fails at 100%. M3 shows no rows, so this is the footer only: row group 0 alone is 9.5% at 122,880 rows per group. Carried to M4's row-group decision; see `perf/results/2026-09-24-m3.md`.*
+- [x] If the button is clicked before the engine is ready, the UI shows a loading state and completes once the engine is ready. It never crashes or hangs. *Chromium, Firefox, WebKit: spinner + "Waiting for the engine to load…", schema 200–350 ms after engine ready. With DuckDB's wasm, the Parquet extension, or the data file blocked, the click ends in a visible failure, and a retry after unblocking works.*
 
 ### M4: Virtualized table over paged queries (the wow moment)
+
+*Carried from M3:* the M3 transfer check ("footer + first row group < 2%") can't hold at 122,880 rows per group: row group 0 is 3.35 MB (9.5% of the asteroid file), and a `LIMIT 50` read pulled ~5.5 MB with DuckDB's readahead. At ~27 bytes per row, first rows under 2% need row groups of roughly 20k rows or fewer. Decide the row-group size here, with the paging strategy.
 
 Build the table with GPUI Kit's virtualized table, backed by a **page cache**: fixed-size pages keyed by page index, filled with `query` calls, and an in-flight map that `cancel`s stale requests when the viewport moves on. Prefetch N pages on each side of the viewport, and more in the direction of scrolling. When a page isn't loaded yet, draw placeholder rows (skeleton cells, same row height). Never stall a frame waiting on data. Evict pages with an LRU memory cap.
 
@@ -139,6 +141,8 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 
 **Serve it from a custom domain, not `*.workers.dev`.** The account's workers.dev subdomain is the owner's personal handle, and this repo is public. The workers.dev hostname must not appear in anything committed: README, `perf/results/`, `docs/`, `wrangler.toml`, or any script default. Run `perf.ts --url` against the custom domain, and check that the results JSON records only that host. Consider `workers_dev = false` in `wrangler.toml` so the handle URL isn't served at all.
 
+*Carried from M3:* the Worker's static-asset fallthrough must answer a missing `/duckdb-ext/*` file with 404, never an SPA `index.html`: DuckDB autoloads any extension a query needs from there, and only the pinned ones exist. `web/vite.config.ts` does this for dev and preview.
+
 **Done when:**
 - [ ] The app is served from a custom domain, and `git grep workers.dev` finds nothing but this note and the Hosting section.
 - [ ] The public URL passes `just tycho perf` against production, with TTFP within 15% of the local release build.
@@ -176,7 +180,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 
 - `data/raw/`: raw API/S3 fetches (asteroid JSON pages, Gaia extracts). Gitignored.
 - `asteroids.parquet`: default button. ZSTD compression, fixed `ROW_GROUP_SIZE` (start at 122,880; revisit in M4).
-- `gaia-dr3-bright.parquet`: "big" button. Same writer settings.
+- `gaia-dr3-bright.parquet`: "big" button. Same writer settings. Built in M7, the first milestone that uses it; `just tycho data` takes a target (`asteroids`, later `gaia`).
 - `data/fixtures/asteroids.csv`: the asteroid table as CSV, with the rows from `data/fixtures-src/tricky_rows.csv` appended by prep. `tricky_rows.csv` is hand-written and committed, and holds rows with quoted commas and newlines in the name field. The generated `asteroids.csv` is gitignored. This is the M6 fixture. It also gives the "drop a CSV" demo a matching file people can download and try.
 - `data/MANIFEST.json`: for each file, the row count, byte size, SHA-256, source, fetch date, and the Gaia magnitude cut used. **Committed**, so every benchmark names the exact files it ran against.
 - All other generated files are gitignored. Upload them to R2 with the S3-compatible API (rclone or `aws s3 cp` with the R2 endpoint), because Gaia is too big for `wrangler r2 object put`.
@@ -198,12 +202,12 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - **Worker static assets** serve `index.html`, JS, fonts, and the app wasm. Set COOP/COEP in `_headers`. The limit is **25 MiB per file**, so check the release wasm size and each DuckDB bundle against it in `just tycho build`. Any file over the limit moves to R2 and is served like the data.
 - **R2** holds the datasets (and oversize engine files) and is read through a Worker binding at `/data/*`. R2 has **no egress fees**, which matters when every visitor may pull hundreds of MB of Gaia rows. That's the main reason to choose it over Google Cloud Storage/Firebase.
 - **The Worker's range handling is ours to get right:**
-  - Call `env.TYCHO_DATA.get(key, { range: request.headers })`.
+  - Parse `Range` in the Worker and call `env.TYCHO_DATA.get(key, { range: { offset, length } | { suffix } })`. Don't pass `request.headers`: for several ranges or a start past the end, R2 returns the whole object with no error (M3, Miniflare).
   - Set `Content-Range` ourselves from `object.range` + `object.size`, since R2's example code doesn't.
   - Return `206`.
-  - Answer `HEAD` with `Content-Length` and `Accept-Ranges: bytes` (DuckDB-Wasm sends a HEAD first).
+  - Answer `HEAD` with `Content-Length` and `Accept-Ranges: bytes`, and a ranged `HEAD` with the 206 headers the ranged GET would get: DuckDB-Wasm sizes files with `HEAD` + `Range: bytes=0-` and needs the 206 (M3).
   - Add COOP/COEP (or `Cross-Origin-Resource-Policy: same-origin`) to these responses too.
-  - Set `Cache-Control: public, max-age=31536000, immutable` on content-hashed files.
+  - Set `Cache-Control: public, max-age=31536000, immutable` on content-hashed files. The data files keep stable names for now and go out as `no-cache, no-transform`; M8 decides on hashed names.
   - Multi-range requests aren't needed; answer them with a single range or `416`.
 - **Compression:** Cloudflare compresses `application/wasm` automatically. Which encoding (br or zstd) depends on the plan and Compression Rules. Record what production actually serves. Parquet is already compressed: send it with `Cache-Control: no-transform` so Cloudflare doesn't re-encode it and break byte ranges.
 - **Local dev:** `wrangler dev` runs the same Worker, so the headers and range behavior in dev match production. `just tycho dev` should use it, or at least the M3 checks must also pass under `wrangler dev`.
@@ -241,6 +245,18 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-23 | Every engine call races the worker's `error` event, at load and after, so a worker that dies mid-query rejects that query instead of leaving it pending | M2 code review |
 | 2026-09-24 | Data scripts in TypeScript (Node runs `.ts` directly), not Python: no second toolchain, and `tsc` checks them. `prep.sql` runs on `@duckdb/node-api`, pinned by the lockfile, instead of a Homebrew DuckDB CLI whose version nothing pins | M3 planning |
 | 2026-09-24 | M3 serves data through `wrangler dev` in local mode (Miniflare R2); the Cloudflare account is first used in M8. Worker `tycho`, bucket `tycho-data`, binding `TYCHO_DATA` | M3 planning |
+| 2026-09-24 | Dev and preview proxy `/data/*` to `wrangler dev`, so the page stays same-origin under COEP and keeps Vite's HMR and the M1 perf setup. The Worker's `/data` route falls through to static assets, so M8 adds config, not a rewrite | M3 planning |
+| 2026-09-24 | Gaia's data step moves to M7, its first user; M3 builds only the asteroids and the CSV fixture | M3 planning |
+| 2026-09-24 | DuckDB opens with `filesystem: { reliableHeadRequests: true, allowFullHTTPReads: false, forceFullHTTPReads: false }`. With 1.32.0's defaults it misreads its own `bytes=0-0` probe and downloads the whole file (all 35 MB to show a schema); with these settings it reads only the footer (34.8 KB) | M3 `perf/results/2026-09-24-m3.md` |
+| 2026-09-24 | The Worker parses `Range` itself (single range; 416 for multi-range, past-the-end, or malformed) and answers a ranged `HEAD` with 206 | M3 |
+| 2026-09-24 | The Parquet extension (EH + MVP, v1.4.3) is self-hosted from `web/public/duckdb-ext/`, fetched by `just tycho extensions` and checked against SHA-256 pins in `web/duckdb-extensions.json`. DuckDB's extension repository points at our origin; autoload stays on. Rust prefetches it with `LOAD parquet` right after the warm-up ("Parquet ready" in the overlay) | M3 |
+| 2026-09-24 | The data credit and fetch date live in the Parquet file's key/value metadata (`tycho.credit`, `tycho.fetched`), read with `parquet_kv_metadata`: no extra request, no new bridge call | M3 |
+| 2026-09-24 | Asteroid types: numbers as DOUBLE, `neo`/`pha` BOOLEAN, dates DATE. The 3,569 year-only `first_obs` values (0.23%) become NULL, counted in `MANIFEST.json` | M3 |
+| 2026-09-24 | "Sample → schema" is timed to the presented frame: `shared/`'s after-present mark is now public (`seiza::mark_after_current_task(name)`) | M3 |
+| 2026-09-24 | Missing DuckDB extensions are 404s (dev, preview; M8 Worker): autoload asks our origin for any extension a query needs, and an SPA fallback would hand it `index.html` | M3 code review |
+| 2026-09-24 | The Worker retries an R2 range rejected with 10039 clamped to the object's size (416 only when the start is past the end); unit-tested against a strict fake R2, since Miniflare clamps | M3 code review |
+| 2026-09-24 | `data/` isn't an npm workspace: native DuckDB installs only with `just tycho data`, from its own lockfile | M3 code review |
+| 2026-09-24 | Playwright clicks canvas controls through bounds the app publishes to `globalThis.__tychoTargets` (`crate/src/targets.rs`); `/data` bytes are counted server-side, since Playwright doesn't see DuckDB's worker XHRs | M3 |
 
 ### Pending decisions
 
@@ -251,6 +267,8 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [x] **Reference-run DPR (M1):** true DPR 2 in headless Chromium by hiding `devicePixelContentBoxSize` in the perf suite (see decisions log)
 - [x] Arrow IPC decoder approach (M2): hand-rolled reader
 - [ ] Paging strategy A/B/C (M4)
+- [ ] Row-group size for the samples (M4): 122,880 makes the M3 "first rows < 2%" check impossible (see M4)
+- [ ] Data file names: stable + `no-cache`, or content-hashed + `immutable` (M8)
 - [ ] Page size and prefetch depth (M4)
 - [ ] Memory cap for page cache (M4)
 - [ ] Chunked CSV ingest vs raw-file queries (M6)
@@ -265,14 +283,17 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 168.7 ms (M2, −4.8%) |
-| TTFP (throttled) | recorded only | 3465.2 ms | 3493.0 ms (M2, +0.8%) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 190.1 ms (M3, +7.2%; machine under load, A/B vs M2 +0.4%) |
+| TTFP (throttled) | recorded only | 3465.2 ms | 3521.8 ms (M3, +1.6%) |
+| TTFP, M3 interleaved A/B (20 runs each) | — | 186.2 ms (M2 rebuilt) | 186.9 ms (+0.4%) |
 | TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2631.8 KiB (M2, +0.5%) |
-| Engine ready (reference / throttled) | recorded only | — | 622.3 / 9728.4 ms (M2) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2637.6 KiB (M3, +0.7%; M3 itself +5.8 KiB) |
+| Engine ready (reference / throttled) | recorded only | — | 726.1 / 9821.8 ms (M3; 622.3 / 9728.4 in M2, load differs) |
 | `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
 | Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |
-| Sample click → schema | ≤ 300 ms | — | — |
+| Sample click → schema | ≤ 300 ms | — | 87.8 ms ref, 1012.0 ms throttled (M3) |
+| Bytes before schema shown | < 2% of file | — | 34,759 B, 0.098% (M3) |
+| Parquet extension (EH, brotli) | recorded only | — | 487.2 KiB, after engine ready (M3) |
 | File → first rows | ≤ 500 ms | — | — |
 | Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | — |
 | Jump to 90% | ≤ 400 ms | — | — |

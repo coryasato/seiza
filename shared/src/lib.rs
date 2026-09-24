@@ -18,4 +18,4 @@ pub use shell::AppShell;
 #[cfg(target_family = "wasm")]
 pub use bootstrap::Bootstrap;
 #[cfg(target_family = "wasm")]
-pub use first_frame::FIRST_FRAME_MARK;
+pub use first_frame::{FIRST_FRAME_MARK, mark_after_current_task};

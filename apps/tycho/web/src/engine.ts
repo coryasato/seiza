@@ -22,6 +22,18 @@ import type { FileInfo } from './bridge.ts';
 export const ENGINE_START_MARK = 'tycho:engine-start';
 export const ENGINE_READY_MARK = 'tycho:engine-ready';
 
+/**
+ * HTTP files are read by byte range, never downloaded whole. With DuckDB-Wasm
+ * 1.32.0's defaults, a URL is sized by a `bytes=0-0` GET whose answer it then
+ * misreads (it looks for the total in Content-Length, not Content-Range), so
+ * it falls back to downloading the entire file: all 34 MB of the asteroid
+ * sample to show its schema. With these settings it sizes the file with a
+ * ranged HEAD (the Worker answers 206) and reads only what queries need; a
+ * server without range support fails instead of silently downloading
+ * everything. See perf/results/2026-09-24-m3.md.
+ */
+const RANGE_READS_ONLY = { reliableHeadRequests: true, allowFullHTTPReads: false, forceFullHTTPReads: false };
+
 export interface Engine {
   registerFile(name: string, source: File | string): Promise<FileInfo>;
   query(sql: string, signal: AbortSignal): Promise<Uint8Array>;
@@ -54,8 +66,8 @@ export async function startEngine(): Promise<Engine> {
     await guard(
       (async () => {
         await db.instantiate(mainModule);
-        await db.open({});
-        await disableExtensionDownloads(db);
+        await db.open({ filesystem: RANGE_READS_ONLY });
+        await useSelfHostedExtensions(db);
       })(),
     );
   } catch (error) {
@@ -83,17 +95,28 @@ export async function startEngine(): Promise<Engine> {
   };
 }
 
+/** Where DuckDB loads extensions from: our origin, `public/duckdb-ext/`,
+ *  filled by `scripts/extensions.ts` from the pins in `duckdb-extensions.json`. */
+export const EXTENSION_REPOSITORY = '/duckdb-ext';
+
 /**
- * Stops DuckDB from fetching extensions on its own. By default it autoloads a
- * known extension (Parquet included: it isn't built into DuckDB-Wasm) from
- * extensions.duckdb.org the first time a query needs it. Tycho self-hosts
- * everything, so until our origin serves the extensions (M3), a query that
- * needs one fails with DuckDB's "extension not loaded" error instead.
+ * Points DuckDB's extension loading at our origin. Parquet isn't built into
+ * DuckDB-Wasm; by default DuckDB would fetch it from extensions.duckdb.org the
+ * first time a query needs it. Tycho self-hosts everything (CLAUDE.md), so
+ * the repository is ours, and autoload stays on: a Parquet query that arrives
+ * before Rust's `LOAD parquet` prefetch finishes still works. DuckDB builds
+ * the URL as `<repository>/<version>/<platform>/<name>.duckdb_extension.wasm`.
  */
-async function disableExtensionDownloads(db: AsyncDuckDB): Promise<void> {
+async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {
+  const repository = new URL(EXTENSION_REPOSITORY, location.href).href.replaceAll("'", "''");
   const conn = await db.connectInternal();
   try {
-    await db.runQuery(conn, 'SET GLOBAL autoload_known_extensions = false; SET GLOBAL autoinstall_known_extensions = false');
+    await db.runQuery(
+      conn,
+      `SET GLOBAL custom_extension_repository = '${repository}'; ` +
+        `SET GLOBAL autoinstall_extension_repository = '${repository}'; ` +
+        'SET GLOBAL autoinstall_known_extensions = true; SET GLOBAL autoload_known_extensions = true',
+    );
   } finally {
     await db.disconnect(conn);
   }

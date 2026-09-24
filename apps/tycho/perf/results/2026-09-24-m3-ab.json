@@ -1,0 +1,62 @@
+{
+  "date": "2026-09-24",
+  "label": "m3-ab",
+  "method": "interleaved A/B: 4 rounds x 5 reference runs per build, order alternating each round; M2 rebuilt from f945326 (M2 code); both served by vite preview with brotli",
+  "machine": "local",
+  "m2": {
+    "n": 20,
+    "ttfpMedian": 186.2,
+    "ttfpMean": 188.4,
+    "engineReadyMedian": 724.6,
+    "ttfp": [
+      239.7,
+      185.3,
+      174,
+      184.7,
+      179.3,
+      189.2,
+      172.3,
+      184.7,
+      176.5,
+      201.5,
+      190.3,
+      188.8,
+      189.7,
+      186.3,
+      190.2,
+      180.6,
+      181.2,
+      196.4,
+      191.9,
+      186.1
+    ]
+  },
+  "m3": {
+    "n": 20,
+    "ttfpMedian": 186.9,
+    "ttfpMean": 186.8,
+    "engineReadyMedian": 708.1,
+    "ttfp": [
+      194.6,
+      190.4,
+      180.7,
+      187.4,
+      188.2,
+      169.9,
+      192.4,
+      185.8,
+      193.5,
+      188.9,
+      209.1,
+      188.2,
+      184.7,
+      184.2,
+      186.3,
+      170.5,
+      188.5,
+      183.1,
+      185.4,
+      183.9
+    ]
+  }
+}

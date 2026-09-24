@@ -143,13 +143,21 @@ fn engine_error(error: JsValue) -> EngineError {
     }
 }
 
+/// Loads the Parquet extension from our origin (`web/src/engine.ts` points
+/// DuckDB's extension repository there). Sent right after the warm-up, so a
+/// sample click with the engine warm doesn't wait for the download. Autoload
+/// stays on, so a Parquet query sent before this finishes still works.
+const PREFETCH_PARQUET_SQL: &str = "LOAD parquet";
+
 /// Starts the engine: called from the post-paint callback. Runs the warm-up
 /// query (which makes the bridge load DuckDB), then sets [`EngineStatus`] and
-/// the overlay's "Engine ready" row. With `?selftest` in the URL, it then runs
-/// the bridge self-test.
+/// the overlay's "Engine ready" row, then prefetches the Parquet extension
+/// ("Parquet ready"). With `?selftest` in the URL, it then runs the bridge
+/// self-test.
 pub fn start(cx: &mut App) {
     let engine = cx.global::<Engine>().clone();
     seiza::perf::set_metric(cx, "Engine ready", "…");
+    seiza::perf::set_metric(cx, "Parquet ready", "…");
     cx.spawn(async move |cx| {
         let status = match warm_up(&engine).await {
             Ok(()) => EngineStatus::Ready {
@@ -165,7 +173,18 @@ pub fn start(cx: &mut App) {
             seiza::perf::set_metric(cx, "Engine ready", metric);
             cx.set_global(status.clone());
         });
-        if matches!(status, EngineStatus::Ready { .. }) && crate::selftest::requested() {
+        if !matches!(status, EngineStatus::Ready { .. }) {
+            cx.update(|cx| seiza::perf::set_metric(cx, "Parquet ready", "—"));
+            return;
+        }
+        let (_, parquet) = engine.query(PREFETCH_PARQUET_SQL);
+        let metric = match parquet.await {
+            Ok(_) => format!("{:.0} ms", now()),
+            // A sample click reports the same error through autoload.
+            Err(error) => format!("failed: {error}"),
+        };
+        cx.update(|cx| seiza::perf::set_metric(cx, "Parquet ready", metric));
+        if crate::selftest::requested() {
             crate::selftest::run(&engine, cx).await;
         }
     })

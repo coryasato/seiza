@@ -30,17 +30,27 @@ pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 /// Re-check this on every gpui-kit bump: the Playwright suite's first-draw
 /// probe (`perf/perf.ts`) fails if the mark isn't right after the first GPU
 /// work.
-pub(crate) fn mark_after_current_task() -> impl Future<Output = Option<f64>> {
+pub(crate) fn mark_first_frame() -> impl Future<Output = Option<f64>> {
+    mark_after_current_task(FIRST_FRAME_MARK)
+}
+
+/// Sets `performance.mark(name)` as soon as the current JS callback returns,
+/// and resolves with its `startTime` (ms from `performance.timeOrigin`).
+///
+/// Called from a view's `render`, the mark lands right after the frame that
+/// render is part of has been presented: GPUI draws and presents in one
+/// callback (see [`mark_first_frame`]). Apps use it to time "the user can
+/// see X" rather than "X's data arrived".
+pub fn mark_after_current_task(name: &'static str) -> impl Future<Output = Option<f64>> {
     let promise = Promise::new(&mut |resolve, _reject| {
         let mark = Closure::once_into_js(move || {
             let start_time = web_sys::window()
                 .and_then(|window| window.performance())
                 .and_then(|performance| {
-                    performance.mark(FIRST_FRAME_MARK).ok()?;
+                    performance.mark(name).ok()?;
                     // The last entry is the mark just set, even if an older
                     // one with the same name exists.
-                    let entries =
-                        performance.get_entries_by_name_with_entry_type(FIRST_FRAME_MARK, "mark");
+                    let entries = performance.get_entries_by_name_with_entry_type(name, "mark");
                     let entry = entries.get(entries.length().checked_sub(1)?);
                     Some(
                         entry

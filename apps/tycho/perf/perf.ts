@@ -26,12 +26,12 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { arch, cpus, release, type } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, type CDPSession, type Request } from '@playwright/test';
+import { chromium, type Request } from '@playwright/test';
 import { preview } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
+import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, median, option, throttle, type Profile } from './common.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
 // Set by web/src/engine.ts.
@@ -48,56 +48,26 @@ const TTFP_BUDGET = 0.1;
 const WASM_BUDGET = 0.15;
 const OVERLAY_TOLERANCE_MS = 5;
 
-function flag(name: string): boolean {
-  return process.argv.includes(`--${name}`);
-}
-function option(name: string): string | undefined {
-  const index = process.argv.indexOf(`--${name}`);
-  return index > 0 ? process.argv[index + 1] : undefined;
-}
-
 const runs = Number(option('runs') ?? 10);
 const label = option('label') ?? 'cold-load';
 const check = flag('check');
 
-/** Chrome DevTools' "Fast 4G" preset (throughput in bytes/s, latency in ms). */
-const FAST_4G = { download: (9_000_000 / 8) * 0.9, upload: (1_500_000 / 8) * 0.9, latency: 60 * 2.75 };
-
-interface Profile {
-  name: 'reference' | 'throttled';
-  cpuSlowdown: number;
-  network: typeof FAST_4G | null;
-}
-const PROFILES: Profile[] = [
-  { name: 'reference', cpuSlowdown: 1, network: null },
-  { name: 'throttled', cpuSlowdown: 4, network: FAST_4G },
-];
-
 /**
- * Runs before any page script.
- *
- * 1. DPR shim. Headless Chromium under `deviceScaleFactor: 2` reports
- *    `devicePixelRatio` 2 but a `device-pixel-content-box` in CSS pixels, so
- *    GPUI would draw 2× layout into a 1× backing store. Hiding
- *    `devicePixelContentBoxSize` sends gpui-pre-web down its Safari path
- *    (`contentRect × devicePixelRatio`), which gives a consistent 2× backing
- *    store. Real browsers don't need it. See perf/results/2026-09-23-m0.md.
- * 2. First-draw probe, an independent check of the first-frame mark. It
- *    records the first GPU work (a WebGL2 draw call or a WebGPU queue
- *    submit), and for every task that did GPU work, its last GPU call and the
- *    end of its microtask checkpoint (a microtask queued at its first GPU
- *    call), in any callback: GPUI's first real draw can run in a
- *    ResizeObserver callback, not only in a rAF. The mark is honest if it
- *    lands inside one of those windows, after that task's last GPU call and
- *    before its checkpoint ends, meaning the task that rendered the first
- *    real frame also presented it. With WebGPU, GPUI first presents an
- *    empty frame at 0×0 in the same callback, so the mark trails the first
- *    GPU work by that callback's render time, not by a frame. If gpui-kit
- *    changes when it presents, this catches it.
+ * The first-draw probe, an independent check of the first-frame mark. Runs
+ * before any page script, after the DPR shim (`hideDevicePixelContentBox`,
+ * common.ts). It records the first GPU work (a WebGL2 draw call or a WebGPU queue
+ * submit), and for every task that did GPU work, its last GPU call and the
+ * end of its microtask checkpoint (a microtask queued at its first GPU
+ * call), in any callback: GPUI's first real draw can run in a
+ * ResizeObserver callback, not only in a rAF. The mark is honest if it
+ * lands inside one of those windows, after that task's last GPU call and
+ * before its checkpoint ends, meaning the task that rendered the first
+ * real frame also presented it. With WebGPU, GPUI first presents an
+ * empty frame at 0×0 in the same callback, so the mark trails the first
+ * GPU work by that callback's render time, not by a frame. If gpui-kit
+ * changes when it presents, this catches it.
  */
 function probe(): void {
-  delete (ResizeObserverEntry.prototype as { devicePixelContentBoxSize?: unknown }).devicePixelContentBoxSize;
-
   type GpuTask = { lastGpuCall: number; end: number | null };
   const state = { firstGpuWork: null as number | null, gpuTasks: [] as GpuTask[], api: '', current: null as GpuTask | null };
   (globalThis as { __seizaProbe?: typeof state }).__seizaProbe = state;
@@ -185,6 +155,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
     if (tracePath) await context.tracing.start({ snapshots: true, screenshots: false });
+    await context.addInitScript(hideDevicePixelContentBox);
     await context.addInitScript(probe);
     const page = await context.newPage();
     const consoleProblems: string[] = [];
@@ -223,17 +194,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
       consoleProblems.push(`request failed: ${request.url()} (${request.failure()?.errorText ?? 'unknown'})`);
     });
 
-    const cdp: CDPSession = await context.newCDPSession(page);
-    if (profile.cpuSlowdown > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpuSlowdown });
-    if (profile.network) {
-      await cdp.send('Network.enable');
-      await cdp.send('Network.emulateNetworkConditions', {
-        offline: false,
-        latency: profile.network.latency,
-        downloadThroughput: profile.network.download,
-        uploadThroughput: profile.network.upload,
-      });
-    }
+    await throttle(context, page, profile);
 
     const target = new URL(url);
     target.searchParams.set('perf', '');
@@ -325,12 +286,6 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
   }
 }
 
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
-}
-
 /** Problems with one run: the overlay disagrees with the mark, the mark
  *  landed before anything was drawn, the canvas isn't at DPR 2, or the page
  *  logged errors or warnings (instantiateStreaming falling back, a preload
@@ -415,12 +370,7 @@ const server = url ? null : await preview({ root: webDir, preview: { port: 4174,
 url ??= 'http://localhost:4174/';
 
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
-// A label, not the hostname: results are committed to a public repo. Set
-// SEIZA_MACHINE to tell machines apart (e.g. "ci-m1"); the CPU model is
-// recorded separately.
-const machine = process.env.SEIZA_MACHINE ?? 'local';
-const cpu = cpus()[0]?.model ?? 'unknown';
-const os = `${type()} ${release()} ${arch()}`;
+const { machine, cpu, os } = machineInfo();
 const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async (browser) => {
   const version = browser.version();
   await browser.close();

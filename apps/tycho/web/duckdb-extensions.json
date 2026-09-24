@@ -1,0 +1,11 @@
+{
+  "comment": "DuckDB extensions Tycho self-hosts (CLAUDE.md: self-host the bundles and extensions). scripts/extensions.ts downloads each build into public/duckdb-ext/ (gitignored) and checks its SHA-256. The path mirrors extensions.duckdb.org, since DuckDB builds the URL as <repository>/<version>/<platform>/<name>.duckdb_extension.wasm. The version must match the DuckDB inside @duckdb/duckdb-wasm; bump both together.",
+  "source": "https://extensions.duckdb.org",
+  "duckdbVersion": "v1.4.3",
+  "extensions": {
+    "parquet": {
+      "wasm_eh": "22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55",
+      "wasm_mvp": "0785c6c95d003eff4faa7b3b4b660f02c9c92f6d68d135ddf330d42e3a650600"
+    }
+  }
+}

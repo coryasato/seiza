@@ -25,6 +25,9 @@ apps/*/data/raw/
 apps/*/data/*.parquet
 apps/*/data/fixtures/*.csv
 
+# DuckDB extensions, downloaded and checked against pinned hashes (apps/*/web/duckdb-extensions.json)
+apps/*/web/public/duckdb-ext/
+
 # Perf: raw Playwright traces (everything else under perf/results/ is committed)
 apps/*/perf/results/raw/
 playwright-report/

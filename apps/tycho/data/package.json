@@ -1,0 +1,10 @@
+{
+  "name": "@seiza/tycho-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Builds Tycho's sample datasets. Not an npm workspace: native DuckDB is installed only by `just tycho data`, with its own lockfile.",
+  "dependencies": {
+    "@duckdb/node-api": "1.4.5-r.1"
+  }
+}

@@ -68,7 +68,7 @@ impl AppShell {
         let Some(hook) = self.first_frame.take() else {
             return;
         };
-        let marked = crate::first_frame::mark_after_current_task();
+        let marked = crate::first_frame::mark_first_frame();
         cx.spawn_in(window, async move |_, cx| {
             let ttfp_ms = marked.await;
             let _ = cx.update(|window, cx| {

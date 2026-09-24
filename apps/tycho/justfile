@@ -6,19 +6,52 @@ web := app_dir / "web"
 pkg := web / "pkg"
 target_dir := root / "target/wasm32-unknown-unknown"
 
-# Build wasm (debug) and start the Vite dev server with COOP/COEP.
-dev: (wasm "debug")
-    npm run dev --workspace @seiza/tycho-web
+worker_scripts := app_dir / "worker/scripts"
+
+# Build wasm (debug) and start the Vite dev server with COOP/COEP, plus the
+# Worker (`wrangler dev`, local R2) that Vite proxies /data/* to.
+dev: (wasm "debug") extensions
+    node {{worker_scripts}}/with-worker.ts npm run dev --workspace @seiza/tycho-web
 
 # Release wasm (+ wasm-opt), Vite build, then report asset sizes. DuckDB's
 # wasm bundles are over Cloudflare's 25 MiB asset limit; they go to R2 (M8).
-build: (wasm "release")
+build: (wasm "release") extensions
     npm run build --workspace @seiza/tycho-web
     node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp
 
-# Serve the release build with the same headers.
+# Serve the release build with the same headers, plus the Worker for /data/*.
 preview:
-    npm run preview --workspace @seiza/tycho-web
+    node {{worker_scripts}}/with-worker.ts npm run preview --workspace @seiza/tycho-web
+
+# Download the pinned DuckDB extensions (web/duckdb-extensions.json) into
+# web/public/duckdb-ext/, checking each SHA-256. A no-op once they're there.
+extensions:
+    node {{web}}/scripts/extensions.ts
+
+# Build the sample data (fetch once, then prep.sql → Parquet + CSV fixture +
+# MANIFEST.json) and load the Parquet into the local R2 that `wrangler dev`
+# serves. `just tycho data --refresh` fetches the catalog again. Native DuckDB
+# (data/package.json, its own lockfile) is installed here, not by `just setup`.
+data *args: data-deps
+    node {{app_dir}}/data/prep.ts asteroids {{args}}
+    cd {{app_dir}}/worker && {{root}}/node_modules/.bin/wrangler r2 object put tycho-data/asteroids.parquet --file ../data/asteroids.parquet --local
+
+# Install the data scripts' dependencies (native DuckDB, tens of MB).
+data-deps:
+    npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
+
+# /data/* byte-range checks: the Worker's unit tests (a strict fake R2), then
+# against `wrangler dev` (HEAD, 206s, 416s, 404s, headers, and the whole
+# file's SHA-256 against MANIFEST.json).
+worker-check:
+    node --test {{app_dir}}/worker/test/index.test.ts
+    node {{worker_scripts}}/check.ts
+
+# M3 sample checks on the release build (vite preview + wrangler dev): click →
+# schema time, bytes transferred, click before the engine is ready. Writes
+# perf/results/<date>-<label>.json. Run `just tycho build` first.
+sample *args:
+    node {{app_dir}}/perf/sample.ts {{args}}
 
 # Lint, release build, then the perf budgets: fails if reference TTFP regresses
 # more than 10% from perf/baseline.json, or the wasm grows more than 15% (brotli)
@@ -38,12 +71,13 @@ perf *args:
 engine *args:
     node {{app_dir}}/perf/engine.ts {{args}}
 
-# fmt, clippy (wasm target and native host), and TypeScript (host, perf scripts, shared-web scripts).
+# fmt, clippy (wasm target and native host), and TypeScript (host, perf, data, and worker scripts, shared-web scripts).
 lint:
     cargo fmt --all --check
     cargo clippy -p tycho -p seiza --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tycho -p seiza -- -D warnings
     npm run typecheck --workspace @seiza/tycho-web
+    @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data\` (or \`just tycho data-deps\`)"; fi
 
 # Compile the crate and generate JS bindings into web/pkg/.
 wasm profile="debug":

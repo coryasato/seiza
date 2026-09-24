@@ -1,0 +1,16 @@
+# Tycho's Worker: one origin for the app and its data (PLAN.md, Hosting).
+# The account ID comes from CLOUDFLARE_ACCOUNT_ID, never this file (the repo
+# is public). M8 adds [assets] (web/dist) and a custom domain; see PLAN.md M8
+# for why the workers.dev hostname is never committed.
+name = "tycho"
+main = "src/index.ts"
+compatibility_date = "2026-09-24"
+
+# The datasets. In `wrangler dev` (local mode) this is Miniflare's R2, stored
+# under .wrangler/state/ and filled by `just tycho data`.
+[[r2_buckets]]
+binding = "TYCHO_DATA"
+bucket_name = "tycho-data"
+
+[dev]
+port = 8787

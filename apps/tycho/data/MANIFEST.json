@@ -1,0 +1,23 @@
+{
+  "asteroids.parquet": {
+    "rows": 1567523,
+    "bytes": 35456966,
+    "sha256": "d44a407bb445a0256ea91aa7f9a646766254052dd0bed26957cc672c3243717a",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 13,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880, sorted by spkid",
+    "notes": [
+      "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+      "0 rows have no first_obs in the source"
+    ]
+  },
+  "fixtures/asteroids.csv": {
+    "rows": 1567531,
+    "bytes": 178558830,
+    "sha256": "4a471e3d88f430cdf136d8b47df4c81625f68b92b6a2d92a1066a11bbb0efc72",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "writer": "DuckDB v1.4.5, CSV with header; the asteroid rows, then fixtures-src/tricky_rows.csv"
+  }
+}

@@ -14,19 +14,15 @@
 // Writes perf/results/<date>-<label>.json and exits non-zero on any failure.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { cpus, arch, release, type } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType } from '@playwright/test';
 import { preview } from 'vite';
+import { machineInfo, option, summarize } from './common.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
 
-function option(name: string): string | undefined {
-  const index = process.argv.indexOf(`--${name}`);
-  return index > 0 ? process.argv[index + 1] : undefined;
-}
 const runs = Number(option('runs') ?? 10);
 const label = option('label') ?? 'engine';
 
@@ -95,14 +91,6 @@ async function measure(engine: BrowserType, url: string, block?: string): Promis
 
 const checkMs = (run: Run, name: string) => run.report?.checks.find((check) => check.name === name)?.ms ?? null;
 
-function summarize(values: number[]): { median: number; max: number } | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = sorted.length >> 1;
-  const median = sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
-  return { median: Number(median.toFixed(1)), max: Number(sorted.at(-1)!.toFixed(1)) };
-}
-
 /** A run with `block`ed requests must fail to load the engine, quickly. */
 async function negativeControl(url: string, block: string): Promise<{ block: string; ok: boolean; detail: string }> {
   const run = await measure(chromium, url, block);
@@ -141,9 +129,7 @@ const numbers = (name: string) => chromiumRuns.map((run) => checkMs(run, name)).
 const summary = {
   date: new Date().toISOString().slice(0, 10),
   label,
-  machine: process.env.SEIZA_MACHINE ?? 'local',
-  cpu: cpus()[0]?.model ?? 'unknown',
-  os: `${type()} ${release()} ${arch()}`,
+  ...machineInfo(),
   url,
   chromium: {
     runs: chromiumRuns.length,

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -p . && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p . && tsc -p ../perf && tsc -p ../../../shared-web/scripts"
+    "typecheck": "tsc -p . && tsc -p scripts && tsc -p ../perf && tsc -p ../worker && tsc -p ../worker/scripts && tsc -p ../worker/test && tsc -p ../../../shared-web/scripts"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.32.0",

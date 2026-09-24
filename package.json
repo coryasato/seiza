@@ -4,7 +4,8 @@
   "type": "module",
   "workspaces": [
     "shared-web",
-    "apps/*/web"
+    "apps/*/web",
+    "apps/*/worker"
   ],
   "devDependencies": {
     "@playwright/test": "~1.63.0",
