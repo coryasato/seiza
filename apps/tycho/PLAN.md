@@ -72,7 +72,7 @@ Build `duckdb.worker.ts` and `bridge.ts` with the three calls. On the Rust side,
 
 *Carried from M2:* **Parquet isn't built into DuckDB-Wasm 1.32.0.** By default DuckDB autoloads it from `https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm` (`wasm_mvp` for MVP). M2 turned autoload and autoinstall off (`engine.ts`, `disableExtensionDownloads`) to keep the self-hosting rule, so Parquet functions currently fail with "exists in the parquet extension". M3 must self-host the Parquet extension (EH and MVP builds) from our origin, point `custom_extension_repository` at it, then load it (autoload on for that repository, or an explicit `LOAD parquet`). It counts toward the engine download, not the first paint. Check its size against the 25 MiB asset limit.
 
-Build `data/fetch_asteroids.py` + `data/prep.sql` (see Sample datasets below) to produce the Parquet files. Serve them from our origin with `Accept-Ranges: bytes`: through `wrangler dev` if possible, otherwise a dev server with equivalent range handling. Turn on the "Try sample: every known asteroid" button: `register_file(url)`, then read the schema and row count from Parquet metadata with SQL (`DESCRIBE`, `parquet_metadata`, `parquet_file_metadata`). Show column names, types, row count, file size, row-group count, and the data credit in a header strip.
+Build `data/fetch_asteroids.ts` + `data/prep.sql` (see Sample datasets below) to produce the Parquet files. Serve them from our origin with `Accept-Ranges: bytes` through the Worker under `wrangler dev` (local mode: Miniflare's R2, seeded by `just tycho data` with `wrangler r2 object put --local`). No Cloudflare account, login, or remote bucket is needed until M8. Turn on the "Try sample: every known asteroid" button: `register_file(url)`, then read the schema and row count from Parquet metadata with SQL (`DESCRIBE`, `parquet_metadata`, `parquet_file_metadata`). Show column names, types, row count, file size, row-group count, and the data credit in a header strip.
 
 **Done when:**
 - [ ] Clicking the sample (with the engine warm) shows schema and row count within **300 ms** on the reference run.
@@ -137,7 +137,10 @@ Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95
 
 Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app shell is served as Worker static assets, and `/data/*` (plus any file over 25 MiB) is streamed from R2 through the same Worker.
 
+**Serve it from a custom domain, not `*.workers.dev`.** The account's workers.dev subdomain is the owner's personal handle, and this repo is public. The workers.dev hostname must not appear in anything committed: README, `perf/results/`, `docs/`, `wrangler.toml`, or any script default. Run `perf.ts --url` against the custom domain, and check that the results JSON records only that host. Consider `workers_dev = false` in `wrangler.toml` so the handle URL isn't served at all.
+
 **Done when:**
+- [ ] The app is served from a custom domain, and `git grep workers.dev` finds nothing but this note and the Hosting section.
 - [ ] The public URL passes `just tycho perf` against production, with TTFP within 15% of the local release build.
 - [ ] `crossOriginIsolated === true` in production.
 - [ ] Range requests to `/data/*` return `206` with a correct `Content-Range`. `HEAD` returns `Content-Length` and `Accept-Ranges: bytes`. Both samples load and scroll in production.
@@ -153,7 +156,7 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 ### Default: every known asteroid (NASA/JPL Small-Body Database)
 
 - **Rows:** about 1.5 million: every asteroid with a known orbit. Confirm the count with `just tycho data`, since Rubin discoveries grow it every day.
-- **Source:** the JPL SBDB Query API (`ssd-api.jpl.nasa.gov/sbdb_query.api`), which returns JSON (`fields` + `data` arrays). `data/fetch_asteroids.py` pulls the full catalog in pages (`limit` / `limit-from`) and writes raw JSON. `prep.sql` then turns that into Parquet. Record the fetch date. The catalog can change between pages, so dedupe on `spkid`.
+- **Source:** the JPL SBDB Query API (`ssd-api.jpl.nasa.gov/sbdb_query.api`), which returns JSON (`fields` + `data` arrays). `data/fetch_asteroids.ts` (run by Node directly, like the `perf/` scripts) pulls the full catalog in pages (`limit` / `limit-from`) and writes raw JSON. `prep.sql` then turns that into Parquet. Record the fetch date. The catalog can change between pages, so dedupe on `spkid`.
 - **Columns:** `full_name`, `pdes`, `name`, `neo`, `pha`, `class`, `H`, `diameter`, `albedo`, `a`, `e`, `i`, `q`, `per_y`, `first_obs`, `last_obs`, `n_obs_used`, plus `spkid` as the key. Many physical fields are null, which is realistic and a good test of how the table renders nulls.
 - **Sort:** by `spkid`, so row 1 is **(1) Ceres**, then Pallas, Juno, Vesta… Scrolling top to bottom goes from the oldest discoveries to last week's.
 - **Credit in the UI:** "Asteroid data: NASA/JPL Small-Body Database, fetched <date>."
@@ -161,13 +164,15 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 ### Big: Gaia DR3 stars (ESA)
 
 - **Rows:** a slice of Gaia DR3's ~1.8 billion sources. Target **~25 million rows**, then tune after M7 measures the ceiling. Pick the cut by brightness (`phot_g_mean_mag < X`) and choose X in `prep.sql` to hit the target.
-- **Source:** Gaia DR3 as HATS-partitioned Parquet on AWS Open Data (`s3://stpubdata/gaia/`, us-east-1, no AWS account needed). Read it with the DuckDB CLI (`httpfs`, anonymous S3) and push the filter down.
+- **Source:** Gaia DR3 as HATS-partitioned Parquet on AWS Open Data (`s3://stpubdata/gaia/`, us-east-1, no AWS account needed). Read it with native DuckDB (`@duckdb/node-api`, `httpfs`, anonymous S3) and push the filter down.
 - **Columns:** `source_id`, `ra`, `dec`, `parallax`, `distance_pc` (1000/parallax where parallax > 0; label it approximate), `pmra`, `pmdec`, `phot_g_mean_mag`, `bp_rp`, `radial_velocity`, `teff_gspphot`.
 - **Sort:** by `source_id`. That ID encodes a HEALPix sky position, so scrolling sweeps across the sky, and neighboring rows compress well.
 - **Role:** this is the scale test. It gives the M4 paging and the M7 ceiling real work, and it sets up v1.1 charts (a GPU star map).
 - **Credit in the UI (required):** "This work has made use of data from the European Space Agency (ESA) mission Gaia, processed by the Gaia Data Processing and Analysis Consortium (DPAC)."
 
 ### `just tycho data` produces
+
+The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plain SQL, run by a small TS runner on `@duckdb/node-api` (pinned, in its own npm workspace at `data/` so its native binary stays out of the web host's install).
 
 - `data/raw/`: raw API/S3 fetches (asteroid JSON pages, Gaia extracts). Gitignored.
 - `asteroids.parquet`: default button. ZSTD compression, fixed `ROW_GROUP_SIZE` (start at 122,880; revisit in M4).
@@ -188,10 +193,12 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 
 **Decided 2026-09-22.** One Worker (`worker/`) handles one origin.
 
+- **Names (2026-09-24):** Worker `tycho` (public on a custom domain; the account's `*.workers.dev` subdomain exposes a personal handle, so it's never committed, see M8), R2 bucket `tycho-data`, bound as `TYCHO_DATA`. `wrangler.toml` doesn't commit the account ID; deploys read `CLOUDFLARE_ACCOUNT_ID` from the environment, and API tokens never go in the repo.
+
 - **Worker static assets** serve `index.html`, JS, fonts, and the app wasm. Set COOP/COEP in `_headers`. The limit is **25 MiB per file**, so check the release wasm size and each DuckDB bundle against it in `just tycho build`. Any file over the limit moves to R2 and is served like the data.
 - **R2** holds the datasets (and oversize engine files) and is read through a Worker binding at `/data/*`. R2 has **no egress fees**, which matters when every visitor may pull hundreds of MB of Gaia rows. That's the main reason to choose it over Google Cloud Storage/Firebase.
 - **The Worker's range handling is ours to get right:**
-  - Call `env.DATA.get(key, { range: request.headers })`.
+  - Call `env.TYCHO_DATA.get(key, { range: request.headers })`.
   - Set `Content-Range` ourselves from `object.range` + `object.size`, since R2's example code doesn't.
   - Return `206`.
   - Answer `HEAD` with `Content-Length` and `Accept-Ranges: bytes` (DuckDB-Wasm sends a HEAD first).
@@ -232,6 +239,8 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 | 2026-09-23 | DuckDB extension autoload and autoinstall are **off**. Parquet isn't built into DuckDB-Wasm, and by default it would be fetched from extensions.duckdb.org on first use. M3 self-hosts it | M2 code review |
 | 2026-09-23 | `registerFile(url)` first sends a one-byte range request and requires `206`: it rejects missing files, servers without range support, and SPA fallbacks (Vite answers unknown paths with `index.html`), and reads the real size from `Content-Range` (a compressed HEAD's `Content-Length` isn't the file size) | M2 code review |
 | 2026-09-23 | Every engine call races the worker's `error` event, at load and after, so a worker that dies mid-query rejects that query instead of leaving it pending | M2 code review |
+| 2026-09-24 | Data scripts in TypeScript (Node runs `.ts` directly), not Python: no second toolchain, and `tsc` checks them. `prep.sql` runs on `@duckdb/node-api`, pinned by the lockfile, instead of a Homebrew DuckDB CLI whose version nothing pins | M3 planning |
+| 2026-09-24 | M3 serves data through `wrangler dev` in local mode (Miniflare R2); the Cloudflare account is first used in M8. Worker `tycho`, bucket `tycho-data`, binding `TYCHO_DATA` | M3 planning |
 
 ### Pending decisions
 
