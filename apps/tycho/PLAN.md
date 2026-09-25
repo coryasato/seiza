@@ -16,11 +16,12 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M1 | First-paint baseline and perf overlay skeleton | Done 2026-09-23 |
 | M2 | DuckDB in a worker, prefetched after first paint | Done 2026-09-23 |
 | M3 | Asteroid sample over HTTP | Done 2026-09-24 |
-| M4 | Virtualized table over paged queries | Not started |
+| M4 | Virtualized table over paged queries | Done 2026-09-25 |
 | M5 | Drop a Parquet file | Not started |
 | M6 | Drop a CSV with progressive loading | Not started |
 | M7 | Complete the perf overlay and harden | Not started |
 | M8 | Deploy to Cloudflare | Not started |
+| Later | Table interactions: column resizing, selection, sorting | Not started; research first, after M8 |
 
 Complete them in order. Each one closes with: measurements committed to `perf/results/`, and an entry in `docs/LESSONS.md`.
 
@@ -92,14 +93,16 @@ Build the table with GPUI Kit's virtualized table, backed by a **page cache**: f
 
 Record, for each option, the latency of a random jump to row ~90% and the bytes transferred. Choose B unless the measurements say otherwise.
 
+*As built:* not gpui-kit's `DataTable`. Its `uniform_list` positions rows in f32 pixels, which steps by 4 px at the asteroids' 47 M px and 64 px at Gaia's 25 M rows. `crate/src/table/` keeps the scroll position as an f64 row index, draws only the visible rows and columns, and owns its scrollbars, wheel, and keys. Strategy B at 30,720-row groups (see the decisions log). The "first rows under 2%" goal carried from M3 can't hold with DuckDB-Wasm 1.32.0: its HTTP readahead reads at least 1.39 MB per page, 3.8% of the file.
+
 **Done when:**
-- [ ] **File → first rows** (click → first real cell painted) is **≤ 500 ms** with the engine warm, and shown in the overlay.
-- [ ] The overlay shows **scroll FPS** (frame-time p50/p95 over the last 2 s).
-- [ ] A scripted fling (Playwright wheel events, top → bottom in ~3 s) keeps **p95 frame time ≤ 20 ms** with **no frame > 50 ms**. Placeholders may appear during the fling.
-- [ ] Dragging the scrollbar to ~90% shows real rows in **≤ 400 ms** (reference) and never shows a blank table.
-- [ ] Scrolling to the last row shows the last row. The row count matches `SELECT count(*)`.
-- [ ] JS heap + wasm memory stay under the cap you set (write it down) after scrolling the whole sample twice.
-- [ ] **Decision recorded:** page size and prefetch depth, chosen from a small sweep (e.g. 256/1024/4096 rows × 1/2/4 pages).
+- [x] **File → first rows** (click → first real cell painted) is **≤ 500 ms** with the engine warm, and shown in the overlay. *239.2 ms median (n=10), click → `tycho:first-rows`, set right after the first frame with every visible row loaded; throttled 3416.4 ms. The overlay row "Sample → first rows" matches the app's marks within 0.5 ms. `just tycho table`.*
+- [x] The overlay shows **scroll FPS** (frame-time p50/p95 over the last 2 s). *`shared/`'s "Frame time (2 s)" row: p50, p95, and max of rAF intervals, refreshed every 500 ms while the overlay is visible. It agrees with the harness's own rAF recorder.*
+- [x] A scripted fling (Playwright wheel events, top → bottom in ~3 s) keeps **p95 frame time ≤ 20 ms** with **no frame > 50 ms**. Placeholders may appear during the fling. *p95 16.7 ms and worst frame 33.3 ms over all 10 reference runs, 0 over 50 ms; throttled (CPU 4×) worst 50.0 ms. Placeholders show in ~85% of fling frames: at ~520,000 rows/s no prefetch keeps up.*
+- [x] Dragging the scrollbar to ~90% shows real rows in **≤ 400 ms** (reference) and never shows a blank table. *133.0 ms median, release → `tycho:viewport-filled`; 0 frames with a blank row position; throttled 2228.2 ms.*
+- [x] Scrolling to the last row shows the last row. The row count matches `SELECT count(*)`. *All 20 runs: rows end at 1,567,523 = `count(*)`, and the last spkid matches the file's last row. Chromium, Firefox, and WebKit (`--browsers`).*
+- [x] JS heap + wasm memory stay under the cap you set (write it down) after scrolling the whole sample twice. *Cap **128 MiB** (wasm + live JS heap; `perf/table.ts`). 89.4 MiB after two passes, with the page cache at its 64 MiB budget. Wasm plateaus from the second pass on (5-pass run: no growth).*
+- [x] **Decision recorded:** page size and prefetch depth, chosen from a small sweep (e.g. 256/1024/4096 rows × 1/2/4 pages). *1024 rows × 2 pages; see the decisions log.*
 
 ### M5: Drop a Parquet file
 
@@ -126,6 +129,8 @@ Show first rows fast: sniff with `read_csv(..., sample_size=...)` and show `LIMI
 
 Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95 plus a small frame-time sparkline), rows loaded, bytes fetched, and wasm memory. Add error states: engine failed to load, network failure on the sample, and file too large.
 
+*Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, and cache formatted strings per loaded page if frame times need it.
+
 *Note from M2's code review, for this milestone to decide:* `bridge.ts` caches the engine load promise, including a rejected one (`engine ??= import(...)`). One transient failure (a network blip on the engine chunk or DuckDB's wasm) makes every later call fail with the same error until a reload. Today's UI says "Reload the page to try again", which matches. Decide whether "engine failed to load" should retry instead: reset the cached promise on rejection and offer a Retry button, or keep reload-only. A dead worker is terminated, so a retry must start a new one. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
 
 **Done when:**
@@ -150,6 +155,25 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 - [ ] Range requests to `/data/*` return `206` with a correct `Content-Range`. `HEAD` returns `Content-Length` and `Accept-Ranges: bytes`. Both samples load and scroll in production.
 - [ ] The wasm is served compressed (`Content-Encoding: br`, or `zstd` if that's what Cloudflare negotiates on our plan; record which).
 - [ ] The perf-overlay numbers from the public URL are recorded in the README as the headline results.
+
+---
+
+## Long-term goals (after M8)
+
+Not milestones yet. Each starts with research, and becomes a milestone only if the research says it's worth building.
+
+### Table interactions: column resizing, selection, sorting
+
+M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scrolling breaks past ~16 M px (see M4 and the decisions log). The cost was `DataTable`'s interactions: resizable columns, row/cell selection (and copying it), and sorting. Sorting is also out of v1 scope (Tycho rule 4), so this is post-v1 work.
+
+**Research costs first, then decide whether it's worth building.** Before writing any of it, measure or estimate and record in `docs/`:
+- **Size and first paint:** the added wasm (brotli) for each feature, against the TTFP and size budgets.
+- **Frame cost:** what each adds per frame while scrolling (hit-testing, resize handles, selection state across 25 M rows).
+- **Sorting's data cost:** the table pages by row-group ranges (`file_row_number`). A sort needs `ORDER BY` over the whole file, which reads all of it (37.7 MB for the asteroids, far more for Gaia), or a sorted copy in DuckDB's memory, against rule 3 (never load the whole result). Measure time, bytes, and memory on both samples.
+- **Reuse:** whether gpui-kit's column and selection pieces can sit on top of the row-based scroll model, or have to be rebuilt.
+- **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) the README tracks.
+
+Record the decision (build all, some, or none) in the decisions log with the numbers, and only then add a milestone with "done when" checks.
 
 ---
 
@@ -179,7 +203,7 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plain SQL, run by a small TS runner on `@duckdb/node-api` (pinned, in its own npm workspace at `data/` so its native binary stays out of the web host's install).
 
 - `data/raw/`: raw API/S3 fetches (asteroid JSON pages, Gaia extracts). Gitignored.
-- `asteroids.parquet`: default button. ZSTD compression, fixed `ROW_GROUP_SIZE` (start at 122,880; revisit in M4).
+- `asteroids.parquet`: default button. ZSTD compression, `ROW_GROUP_SIZE` 30,720 (M4; was 122,880).
 - `gaia-dr3-bright.parquet`: "big" button. Same writer settings. Built in M7, the first milestone that uses it; `just tycho data` takes a target (`asteroids`, later `gaia`).
 - `data/fixtures/asteroids.csv`: the asteroid table as CSV, with the rows from `data/fixtures-src/tricky_rows.csv` appended by prep. `tricky_rows.csv` is hand-written and committed, and holds rows with quoted commas and newlines in the name field. The generated `asteroids.csv` is gitignored. This is the M6 fixture. It also gives the "drop a CSV" demo a matching file people can download and try.
 - `data/MANIFEST.json`: for each file, the row count, byte size, SHA-256, source, fetch date, and the Gaia magnitude cut used. **Committed**, so every benchmark names the exact files it ran against.
@@ -257,6 +281,16 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-24 | The Worker retries an R2 range rejected with 10039 clamped to the object's size (416 only when the start is past the end); unit-tested against a strict fake R2, since Miniflare clamps | M3 code review |
 | 2026-09-24 | `data/` isn't an npm workspace: native DuckDB installs only with `just tycho data`, from its own lockfile | M3 code review |
 | 2026-09-24 | Playwright clicks canvas controls through bounds the app publishes to `globalThis.__tychoTargets` (`crate/src/targets.rs`); `/data` bytes are counted server-side, since Playwright doesn't see DuckDB's worker XHRs | M3 |
+| 2026-09-25 | **Own table, not gpui-kit's `DataTable`:** its `uniform_list` positions rows in f32 pixels (4 px steps at 47 M px, 64 px at 25 M rows). `crate/src/table/` scrolls in f64 rows and owns its scrollbars, wheel, and keys; no column resizing, selection, or sorting | M4 |
+| 2026-09-25 | Paging strategy **B** (`read_parquet(..., file_row_number = true)` filtered to the page): 49.6 ms and 1.39 MB for a jump to 90%, vs 60.5 ms (A, `LIMIT/OFFSET`, same bytes) and a 1.1 s, 37.7 MB ingest before any row (C) | M4 `perf/results/2026-09-25-m4.md` |
+| 2026-09-25 | Samples written with **30,720-row groups** (was 122,880): fastest first/next/jump pages, 3.6× fewer bytes per jump, +6.3% file size. Smaller groups were slower and bigger. DuckDB-Wasm's readahead sets a 1.39 MB floor per page read, so "first rows < 2%" is out of reach for this file | M4 |
+| 2026-09-25 | Pages of **1024 rows, prefetch 2** (twice ahead while scrolling), 3 queries in flight, **64 MiB** LRU page cache. The sweep didn't separate 256/1024/4096 × 1/2/4 beyond noise; 1024 divides the row groups | M4 sweep |
+| 2026-09-25 | App memory cap **128 MiB** (wasm + live JS heap) after scrolling the whole sample: 16 MiB shell + 64 MiB cache + allocator slack | M4 |
+| 2026-09-25 | Cancelled page queries count against the 3-in-flight limit until DuckDB answers them (it keeps reading a started page); failed pages retry once scrolled away and back; prefetch leans ahead only while the rows move (250 ms) | M4 code review |
+| 2026-09-25 | A scrollbar drag loads pages only once the pointer rests 80 ms, or on release: a started page read can't be cancelled (DuckDB's worker uses sync XHRs), and a stale one delayed the jump's target (throttled 4.3 → 2.2 s) | M4 |
+| 2026-09-25 | One `LOAD parquet` at a time (`Engine::load_parquet`): the prefetch and every file open share one attempt, a success is remembered, a failure lets the next caller retry. **Extension autoload is now off** (superseding M3's "autoload stays on"): `LOAD` is the only way an extension loads, and a query needing an unloaded one fails with a clear error. Two failing loads of one extension at once crash DuckDB-Wasm 1.32.0 without a worker error | M4 (M3 retry check, two code reviews) |
+| 2026-09-25 | The overlay's common rows (`shared/`): "Frame time (2 s)" (p50/p95/max of rAF intervals) and "Memory" (app wasm, JS heap), sampled only while the overlay is visible, starting after first paint | M4 |
+| 2026-09-25 | `?bench` exposes the bridge to the perf scripts as `globalThis.__tychoBridge`; `?page=`, `?prefetch=`, `?budget_mib=` override paging | M4 |
 
 ### Pending decisions
 
@@ -266,11 +300,11 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [x] Release logging and panic hook (M1): logging stays in release; the panic hook stays debug-only
 - [x] **Reference-run DPR (M1):** true DPR 2 in headless Chromium by hiding `devicePixelContentBoxSize` in the perf suite (see decisions log)
 - [x] Arrow IPC decoder approach (M2): hand-rolled reader
-- [ ] Paging strategy A/B/C (M4)
-- [ ] Row-group size for the samples (M4): 122,880 makes the M3 "first rows < 2%" check impossible (see M4)
+- [x] Paging strategy A/B/C (M4): B, a `file_row_number` filter
+- [x] Row-group size for the samples (M4): 30,720
 - [ ] Data file names: stable + `no-cache`, or content-hashed + `immutable` (M8)
-- [ ] Page size and prefetch depth (M4)
-- [ ] Memory cap for page cache (M4)
+- [x] Page size and prefetch depth (M4): 1024 rows × 2 pages
+- [x] Memory cap for page cache (M4): 64 MiB cache; 128 MiB app (wasm + JS heap)
 - [ ] Chunked CSV ingest vs raw-file queries (M6)
 - [ ] Gaia magnitude cut / final row target (M7)
 - [ ] Production wasm encoding, br vs zstd (M8)
@@ -283,20 +317,21 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 190.1 ms (M3, +7.2%; machine under load, A/B vs M2 +0.4%) |
-| TTFP (throttled) | recorded only | 3465.2 ms | 3521.8 ms (M3, +1.6%) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 170.2 ms (M4 protocol run, −4.0%); 179.7 ms in the final `check` (+1.4%, loaded machine) |
+| TTFP (throttled) | recorded only | 3465.2 ms | 3495.8 ms (M4, +0.9%) |
 | TTFP, M3 interleaved A/B (20 runs each) | — | 186.2 ms (M2 rebuilt) | 186.9 ms (+0.4%) |
 | TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2637.6 KiB (M3, +0.7%; M3 itself +5.8 KiB) |
-| Engine ready (reference / throttled) | recorded only | — | 726.1 / 9821.8 ms (M3; 622.3 / 9728.4 in M2, load differs) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2653.9 KiB (M4, +1.3%; M4 itself +16.3 KiB) |
+| Engine ready (reference / throttled) | recorded only | — | 621.5 / 9719.4 ms (M4; 726.1 / 9821.8 in M3, load differs) |
 | `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
 | Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |
-| Sample click → schema | ≤ 300 ms | — | 87.8 ms ref, 1012.0 ms throttled (M3) |
-| Bytes before schema shown | < 2% of file | — | 34,759 B, 0.098% (M3) |
+| Sample click → schema | ≤ 300 ms | — | 107.6 ms ref, 1066.4 ms throttled (M4: 52 row groups' bigger footer; 87.8 ms in M3) |
+| Bytes before schema shown | < 2% of file | — | 90,824 B, 0.241% (M4; 34,759 B in M3) |
 | Parquet extension (EH, brotli) | recorded only | — | 487.2 KiB, after engine ready (M3) |
-| File → first rows | ≤ 500 ms | — | — |
-| Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | — |
-| Jump to 90% | ≤ 400 ms | — | — |
+| File → first rows | ≤ 500 ms | — | 239.2 ms ref, 3416.4 ms throttled (M4) |
+| Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 33.3 ms (M4) |
+| Jump to 90% | ≤ 400 ms | — | 133.0 ms ref, 2228.2 ms throttled (M4) |
+| App memory after two full passes | ≤ 128 MiB | — | 89.4 MiB (M4) |
 | Drop Parquet (~1 GB) → first rows | ≤ 1 s | — | — |
 | Drop CSV (~1 GB) → first rows | ≤ 1 s | — | — |
 | CSV row-count update interval | ≤ 500 ms | — | — |

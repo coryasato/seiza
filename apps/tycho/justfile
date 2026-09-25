@@ -53,6 +53,19 @@ worker-check:
 sample *args:
     node {{app_dir}}/perf/sample.ts {{args}}
 
+# M4 table checks on the release build: file → first rows, scrollbar jump to
+# 90%, last row vs count(*), fling frame times, steady-scroll placeholders.
+# `--sweep` runs page size × prefetch instead; `--memory` adds two full passes
+# and records memory. Writes perf/results/<date>-<label>.json. Run
+# `just tycho build` first.
+table *args:
+    node {{app_dir}}/perf/table.ts {{args}}
+
+# M4 paging experiment: LIMIT/OFFSET vs file_row_number vs ingest, at several
+# row-group sizes (bench/ files in local R2; see perf/results/2026-09-25-m4.md).
+paging *args:
+    node {{app_dir}}/perf/paging.ts {{args}}
+
 # Lint, release build, then the perf budgets: fails if reference TTFP regresses
 # more than 10% from perf/baseline.json, or the wasm grows more than 15% (brotli)
 # without a row in perf/budget-notes.md.

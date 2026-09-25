@@ -75,6 +75,7 @@ impl AppShell {
                 if let Some(ttfp_ms) = ttfp_ms {
                     crate::perf::set_ttfp(cx, ttfp_ms);
                 }
+                crate::frames::start(cx);
                 hook(window, cx);
             });
         })

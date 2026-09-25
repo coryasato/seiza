@@ -6,13 +6,16 @@
 
 pub mod perf;
 mod shell;
+pub mod url;
 
 #[cfg(target_family = "wasm")]
 mod bootstrap;
 #[cfg(target_family = "wasm")]
 mod first_frame;
+#[cfg(target_family = "wasm")]
+mod frames;
 
-pub use perf::{PerfOverlay, TogglePerfOverlay};
+pub use perf::{FrameStats, PerfOverlay, TogglePerfOverlay, frame_stats};
 pub use shell::AppShell;
 
 #[cfg(target_family = "wasm")]

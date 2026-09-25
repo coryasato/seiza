@@ -1,8 +1,8 @@
 //! The perf overlay: the numbers behind every claim, drawn on the canvas.
 //!
-//! It owns the common metrics (TTFP today; frame times and wasm memory later)
-//! and lets apps add their own rows with [`set_metric`]. Toggle it with
-//! Cmd/Ctrl+Shift+P, or open the page with `?perf` in the URL.
+//! It owns the common metrics (TTFP, frame times over the last 2 s, and
+//! memory) and lets apps add their own rows with [`set_metric`]. Toggle it
+//! with Cmd/Ctrl+Shift+P, or open the page with `?perf` in the URL.
 
 use gpui_kit::component::{ActiveTheme as _, ThemeStyled as _, h_flex, v_flex};
 use gpui_kit::*;
@@ -19,6 +19,12 @@ pub struct PerfOverlay {
 
 impl Global for PerfOverlay {}
 
+impl PerfOverlay {
+    pub fn is_visible(&self) -> bool {
+        self.visible
+    }
+}
+
 /// Installs the overlay state and its key bindings. `shared/`'s bootstrap
 /// calls this after `gpui_kit::init`; apps don't need to.
 pub fn init(cx: &mut App) {
@@ -33,6 +39,8 @@ pub fn init(cx: &mut App) {
     ]);
     cx.on_action(|_: &TogglePerfOverlay, cx| {
         cx.update_global::<PerfOverlay, _>(|overlay, _| overlay.visible = !overlay.visible);
+        #[cfg(target_family = "wasm")]
+        crate::frames::sync(cx);
     });
 }
 
@@ -54,6 +62,49 @@ pub fn set_metric(cx: &mut App, label: impl Into<SharedString>, value: impl Into
             None => overlay.metrics.push((label, value)),
         }
     });
+}
+
+/// Like [`set_metric`], but leaves the overlay alone (no redraw) when the
+/// value is unchanged. For rows refreshed on a timer.
+#[cfg(target_family = "wasm")]
+pub(crate) fn set_metric_if_changed(cx: &mut App, label: &'static str, value: String) {
+    let unchanged = cx.try_global::<PerfOverlay>().is_some_and(|overlay| {
+        overlay
+            .metrics
+            .iter()
+            .any(|(existing, current)| existing == label && current.as_ref() == value)
+    });
+    if !unchanged {
+        set_metric(cx, label, value);
+    }
+}
+
+/// Frame-time percentiles from `requestAnimationFrame` timestamps.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FrameStats {
+    pub frames: usize,
+    pub p50: f64,
+    pub p95: f64,
+    pub max: f64,
+}
+
+/// The intervals between consecutive `stamps` (ms, ascending), summarized
+/// with nearest-rank percentiles. `None` with fewer than two stamps.
+pub fn frame_stats(stamps: &[f64]) -> Option<FrameStats> {
+    let mut intervals: Vec<f64> = stamps.windows(2).map(|pair| pair[1] - pair[0]).collect();
+    if intervals.is_empty() {
+        return None;
+    }
+    intervals.sort_by(f64::total_cmp);
+    let rank = |p: f64| {
+        intervals[((p * intervals.len() as f64).ceil() as usize).clamp(1, intervals.len()) - 1]
+    };
+    Some(FrameStats {
+        frames: intervals.len(),
+        p50: rank(0.5),
+        p95: rank(0.95),
+        max: intervals[intervals.len() - 1],
+    })
 }
 
 /// Records TTFP once the first-frame mark is set.
@@ -104,15 +155,7 @@ pub(crate) fn render(cx: &App) -> Option<AnyElement> {
 
 /// Whether the page URL asks for the overlay (`?perf`).
 fn requested_by_url() -> bool {
-    #[cfg(target_family = "wasm")]
-    {
-        web_sys::window()
-            .and_then(|window| window.location().search().ok())
-            .and_then(|search| web_sys::UrlSearchParams::new_with_str(&search).ok())
-            .is_some_and(|params| params.has("perf"))
-    }
-    #[cfg(not(target_family = "wasm"))]
-    false
+    crate::url::has_param("perf")
 }
 
 /// Mirrors the rows the overlay shows to `globalThis.__seizaPerfOverlay`
@@ -137,4 +180,28 @@ fn publish(rows: Option<&[(SharedString, SharedString)]>) {
     }
     #[cfg(not(target_family = "wasm"))]
     let _ = rows;
+}
+
+#[cfg(test)]
+mod tests {
+    // Not `super::*`: that brings gpui's `test` attribute over std's.
+    use super::frame_stats;
+
+    #[test]
+    fn frame_stats_use_nearest_rank() {
+        assert_eq!(frame_stats(&[]), None);
+        assert_eq!(frame_stats(&[5.0]), None);
+        // 19 steady frames and one long one.
+        let mut stamps = vec![0.0];
+        for index in 0..19 {
+            stamps.push(stamps[index] + 16.7);
+        }
+        stamps.push(stamps[19] + 50.0);
+        let stats = frame_stats(&stamps).unwrap();
+        assert_eq!(stats.frames, 20);
+        assert!((stats.p50 - 16.7).abs() < 1e-9);
+        // The 19th of 20 sorted intervals is still a steady one.
+        assert!((stats.p95 - 16.7).abs() < 1e-9);
+        assert!((stats.max - 50.0).abs() < 1e-9);
+    }
 }

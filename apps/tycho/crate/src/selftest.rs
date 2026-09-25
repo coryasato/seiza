@@ -67,10 +67,7 @@ struct Check {
 }
 
 pub fn requested() -> bool {
-    web_sys::window()
-        .and_then(|window| window.location().search().ok())
-        .and_then(|search| web_sys::UrlSearchParams::new_with_str(&search).ok())
-        .is_some_and(|params| params.has("selftest"))
+    seiza::url::has_param("selftest")
 }
 
 pub async fn run(engine: &Engine, cx: &mut AsyncApp) {

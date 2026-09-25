@@ -61,6 +61,22 @@ pub fn summary_queries(name: &str) -> [String; 3] {
     ]
 }
 
+/// One page of rows, `rows` (0-based, end-exclusive), in file order.
+///
+/// A filter on `file_row_number`, which DuckDB matches against each row
+/// group's range and so reads only the groups that hold the page: 50 ms and
+/// 1.4 MB for a jump to row 90% of the asteroids, vs 61 ms for LIMIT/OFFSET
+/// and a 1.1 s full download to ingest first (M4, perf/results/2026-09-25-m4.md).
+pub fn page_sql(name: &str, rows: std::ops::Range<u64>) -> String {
+    format!(
+        "SELECT * EXCLUDE (file_row_number) FROM read_parquet({}, file_row_number = true) \
+         WHERE file_row_number >= {} AND file_row_number < {} ORDER BY file_row_number",
+        sql_string(name),
+        rows.start,
+        rows.end
+    )
+}
+
 impl FileSummary {
     /// Builds the summary from [`summary_queries`]' results, in order.
     pub fn from_results(
@@ -114,14 +130,23 @@ impl FileSummary {
 }
 
 /// Registers `source` as `name` and reads its summary. The three metadata
-/// queries go out together, each on its own connection.
+/// queries go out together, each on its own connection, once the Parquet
+/// extension is loaded ([`crate::engine::Engine::load_parquet`]), so none of
+/// them autoloads it.
 #[cfg(target_family = "wasm")]
 pub async fn open(
     engine: &crate::engine::Engine,
     name: &str,
     source: crate::engine::FileSource,
 ) -> Result<FileSummary, crate::engine::EngineError> {
-    let info = engine.register_file(name, source).await?;
+    // Independent: the extension download (several round trips on a slow
+    // network) overlaps the registration. Both are sent before either is
+    // awaited.
+    let parquet = engine.load_parquet();
+    let info = engine.register_file(name, source);
+    let (info, parquet) = (info.await, parquet.await);
+    parquet?;
+    let info = info?;
     let [describe, metadata, kv] = summary_queries(name).map(|sql| engine.query(&sql).1);
     let (describe, metadata, kv) = (describe.await?, metadata.await?, kv.await?);
     FileSummary::from_results(name, info.size, &describe, &metadata, &kv)
@@ -289,6 +314,15 @@ mod tests {
         assert_eq!(
             describe,
             "DESCRIBE SELECT * FROM read_parquet('it''s.parquet')"
+        );
+    }
+
+    #[test]
+    fn page_query_filters_on_file_row_number() {
+        assert_eq!(
+            page_sql("it's.parquet", 2048..3072),
+            "SELECT * EXCLUDE (file_row_number) FROM read_parquet('it''s.parquet', file_row_number = true) \
+             WHERE file_row_number >= 2048 AND file_row_number < 3072 ORDER BY file_row_number"
         );
     }
 

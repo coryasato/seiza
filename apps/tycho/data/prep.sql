@@ -4,8 +4,9 @@
 -- like the wasm engine) from apps/tycho/data/. From raw/asteroids/fetch.json
 -- it sets the variable api_count (rows the API reported) and substitutes
 -- ${fetched} (the fetch date, YYYY-MM-DD; COPY options must be constants).
--- The writer settings (ZSTD, 122,880-row groups) are PLAN.md's; M4 revisits
--- the row-group size.
+-- The writer settings: ZSTD, and 30,720-row groups, chosen in M4 by measured
+-- page latency and bytes (perf/results/2026-09-25-m4.md): the table reads one
+-- page with a file_row_number filter, which DuckDB answers from one group.
 
 -- One row per raw API row. Each page is {fields, data: [[...], ...], count}.
 CREATE TEMP TABLE raw AS
@@ -80,7 +81,7 @@ END;
 COPY (SELECT * FROM asteroids ORDER BY spkid) TO 'asteroids.parquet' (
     FORMAT parquet,
     COMPRESSION zstd,
-    ROW_GROUP_SIZE 122880,
+    ROW_GROUP_SIZE 30720,
     KV_METADATA {
         'tycho.credit': 'Asteroid data: NASA/JPL Small-Body Database',
         'tycho.source': 'https://ssd-api.jpl.nasa.gov/sbdb_query.api',

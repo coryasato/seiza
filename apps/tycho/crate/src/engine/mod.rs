@@ -11,7 +11,9 @@ use crate::arrow::DecodeError;
 mod bridge;
 
 #[cfg(target_family = "wasm")]
-pub use bridge::{Bridge, ENGINE_READY_MARK, Engine, FileInfo, FileSource, RequestId, start};
+pub use bridge::{
+    Bridge, ENGINE_READY_MARK, Engine, FileInfo, FileSource, RequestId, show_parquet_ready, start,
+};
 #[cfg(target_family = "wasm")]
 pub(crate) use bridge::{WARM_UP_SQL, now};
 

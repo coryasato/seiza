@@ -7,4 +7,9 @@ import init, { start } from '../pkg/tycho.js';
 import wasmUrl from '../pkg/tycho_bg.wasm?url';
 import { createBridge } from './bridge.ts';
 
-void boot({ init: () => init({ module_or_path: wasmUrl }), start: (font) => start(font, createBridge()), fontUrl });
+const bridge = createBridge();
+// `?bench`: the perf scripts query the same engine the app uses (row counts,
+// paging experiments). The bridge loads nothing until its first call.
+if (new URLSearchParams(location.search).has('bench')) (globalThis as { __tychoBridge?: typeof bridge }).__tychoBridge = bridge;
+
+void boot({ init: () => init({ module_or_path: wasmUrl }), start: (font) => start(font, bridge), fontUrl });

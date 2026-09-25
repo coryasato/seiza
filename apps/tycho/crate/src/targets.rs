@@ -13,6 +13,17 @@ thread_local! {
         const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// Whether the page was opened for measuring (`?perf` or `?bench` in the
+/// URL). Hooks only the scripts read, like [`publish_table`] and the
+/// table's `tycho:viewport-filled` mark, run only then.
+pub fn measuring() -> bool {
+    thread_local! {
+        static MEASURING: bool =
+            seiza::url::has_param("perf") || seiza::url::has_param("bench");
+    }
+    MEASURING.with(|measuring| *measuring)
+}
+
 pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
     #[cfg(target_family = "wasm")]
     {
@@ -58,4 +69,49 @@ pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
     }
     #[cfg(not(target_family = "wasm"))]
     let _ = (id, bounds);
+}
+
+/// Publishes what the table shows to `globalThis.__tychoTable`, when it
+/// changes: `{rows, top, first, end, loaded, pending, failed, lastCell}`.
+/// The table calls it only while [`measuring`].
+pub fn publish_table(probe: &crate::table::TableProbe) {
+    #[cfg(target_family = "wasm")]
+    {
+        use js_sys::{Object, Reflect};
+        use wasm_bindgen::JsValue;
+
+        thread_local! {
+            static LAST: std::cell::RefCell<Option<crate::table::TableProbe>> =
+                const { std::cell::RefCell::new(None) };
+        }
+        if LAST.with_borrow(|last| last.as_ref() == Some(probe)) {
+            return;
+        }
+        LAST.set(Some(probe.clone()));
+        let object = Object::new();
+        let set = |key: &str, value: JsValue| {
+            let _ = Reflect::set(&object, &JsValue::from_str(key), &value);
+        };
+        set("rows", JsValue::from_f64(probe.rows as f64));
+        set("top", JsValue::from_f64(probe.top));
+        set("first", JsValue::from_f64(probe.first as f64));
+        set("end", JsValue::from_f64(probe.end as f64));
+        set("loaded", JsValue::from_f64(probe.loaded as f64));
+        set("pending", JsValue::from_f64(probe.pending as f64));
+        set("failed", JsValue::from_f64(probe.failed as f64));
+        set(
+            "lastCell",
+            probe
+                .last_cell
+                .as_deref()
+                .map_or(JsValue::NULL, JsValue::from_str),
+        );
+        let _ = Reflect::set(
+            &js_sys::global(),
+            &JsValue::from_str("__tychoTable"),
+            &object,
+        );
+    }
+    #[cfg(not(target_family = "wasm"))]
+    let _ = probe;
 }

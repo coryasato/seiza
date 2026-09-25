@@ -10,14 +10,14 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 gpui-kit.workspace = true
+seiza.workspace = true
 
 # The entry point and the bootstrap are web-only; the views compile natively for clippy and tests.
 [target.'cfg(target_family = "wasm")'.dependencies]
-seiza.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 js-sys.workspace = true
-web-sys = { workspace = true, features = ["File", "Location", "Performance", "PerformanceEntry", "UrlSearchParams", "Window"] }
+web-sys = { workspace = true, features = ["File", "Performance", "PerformanceEntry", "Window"] }
 
 [dev-dependencies]
 # Writes the Arrow IPC streams the reader's tests read back. Never in the app.

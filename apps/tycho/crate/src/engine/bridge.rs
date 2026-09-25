@@ -5,7 +5,7 @@
 //! the engine starts when [`start`] runs its warm-up query from the post-paint
 //! callback, and never earlier.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gpui_kit::{App, Global};
@@ -71,6 +71,20 @@ pub struct FileInfo {
 pub struct Engine {
     bridge: Bridge,
     next_request: Rc<Cell<u32>>,
+    /// The Parquet extension's load: see [`Engine::load_parquet`].
+    parquet: Rc<RefCell<ParquetLoad>>,
+}
+
+/// Where loading the Parquet extension is.
+#[derive(Default)]
+enum ParquetLoad {
+    /// Not loaded, and no attempt running (none yet, or the last one failed).
+    #[default]
+    Idle,
+    /// An attempt is running; it resolves when `LOAD parquet` does.
+    Loading(Promise),
+    /// Loaded, at this time (ms from `timeOrigin`).
+    Loaded(f64),
 }
 
 impl Global for Engine {}
@@ -80,7 +94,63 @@ impl Engine {
         Self {
             bridge,
             next_request: Rc::new(Cell::new(1)),
+            parquet: Rc::default(),
         }
+    }
+
+    /// Loads the Parquet extension, or joins the load already running.
+    /// Every Parquet query waits for this first, so no query autoloads the
+    /// extension. A success is remembered; after a failure, the next call
+    /// tries again.
+    ///
+    /// DuckDB-Wasm 1.32.0 crashes inside its worker ("table index is out of
+    /// bounds") when two loads of an extension fail at once, and no worker
+    /// error fires, so every later query hangs. M4 found it: with the
+    /// extension unreachable, a sample click racing the prefetch hung the
+    /// retry in 4 of 8 runs. Only one attempt ever runs at a time here.
+    pub fn load_parquet(&self) -> impl Future<Output = Result<(), EngineError>> + 'static {
+        // The borrow ends before `start_parquet_load` takes a mutable one.
+        let current = match &*self.parquet.borrow() {
+            ParquetLoad::Loaded(_) => Some(None),
+            ParquetLoad::Loading(attempt) => Some(Some(attempt.clone())),
+            ParquetLoad::Idle => None,
+        };
+        let attempt = current.unwrap_or_else(|| Some(self.start_parquet_load()));
+        async move {
+            match attempt {
+                None => Ok(()),
+                Some(attempt) => JsFuture::from(attempt)
+                    .await
+                    .map(drop)
+                    .map_err(engine_error),
+            }
+        }
+    }
+
+    /// When the Parquet extension loaded (ms from `timeOrigin`), if it has.
+    pub fn parquet_loaded_at(&self) -> Option<f64> {
+        match *self.parquet.borrow() {
+            ParquetLoad::Loaded(at) => Some(at),
+            _ => None,
+        }
+    }
+
+    fn start_parquet_load(&self) -> Promise {
+        let (_, load) = self.query(LOAD_PARQUET_SQL);
+        let state = self.parquet.clone();
+        let attempt = wasm_bindgen_futures::future_to_promise(async move {
+            let result = load.await;
+            *state.borrow_mut() = match result {
+                Ok(_) => ParquetLoad::Loaded(now()),
+                Err(_) => ParquetLoad::Idle,
+            };
+            result
+                .map(|_| JsValue::UNDEFINED)
+                .map_err(|error| js_sys::Error::new(&error.to_string()).into())
+        });
+        // Set before the attempt can finish: it runs on a later microtask.
+        *self.parquet.borrow_mut() = ParquetLoad::Loading(attempt.clone());
+        attempt
     }
 
     /// Sends `sql` now and returns its id (for [`Engine::cancel`]) and its
@@ -144,10 +214,10 @@ fn engine_error(error: JsValue) -> EngineError {
 }
 
 /// Loads the Parquet extension from our origin (`web/src/engine.ts` points
-/// DuckDB's extension repository there). Sent right after the warm-up, so a
-/// sample click with the engine warm doesn't wait for the download. Autoload
-/// stays on, so a Parquet query sent before this finishes still works.
-const PREFETCH_PARQUET_SQL: &str = "LOAD parquet";
+/// DuckDB's extension repository there). [`start`] sends it right after the
+/// warm-up, so a sample click with the engine warm doesn't wait for the
+/// download; [`Engine::load_parquet`] keeps it to one attempt at a time.
+const LOAD_PARQUET_SQL: &str = "LOAD parquet";
 
 /// Starts the engine: called from the post-paint callback. Runs the warm-up
 /// query (which makes the bridge load DuckDB), then sets [`EngineStatus`] and
@@ -157,7 +227,7 @@ const PREFETCH_PARQUET_SQL: &str = "LOAD parquet";
 pub fn start(cx: &mut App) {
     let engine = cx.global::<Engine>().clone();
     seiza::perf::set_metric(cx, "Engine ready", "…");
-    seiza::perf::set_metric(cx, "Parquet ready", "…");
+    seiza::perf::set_metric(cx, PARQUET_READY_METRIC, "…");
     cx.spawn(async move |cx| {
         let status = match warm_up(&engine).await {
             Ok(()) => EngineStatus::Ready {
@@ -174,21 +244,33 @@ pub fn start(cx: &mut App) {
             cx.set_global(status.clone());
         });
         if !matches!(status, EngineStatus::Ready { .. }) {
-            cx.update(|cx| seiza::perf::set_metric(cx, "Parquet ready", "—"));
+            cx.update(|cx| seiza::perf::set_metric(cx, PARQUET_READY_METRIC, "—"));
             return;
         }
-        let (_, parquet) = engine.query(PREFETCH_PARQUET_SQL);
-        let metric = match parquet.await {
-            Ok(_) => format!("{:.0} ms", now()),
-            // A sample click reports the same error through autoload.
-            Err(error) => format!("failed: {error}"),
-        };
-        cx.update(|cx| seiza::perf::set_metric(cx, "Parquet ready", metric));
+        let loaded = engine.load_parquet().await;
+        cx.update(|cx| match loaded {
+            Ok(()) => show_parquet_ready(cx, &engine),
+            // Opening a file tries again: `show_parquet_ready` then.
+            Err(error) => {
+                seiza::perf::set_metric(cx, PARQUET_READY_METRIC, format!("failed: {error}"))
+            }
+        });
         if crate::selftest::requested() {
             crate::selftest::run(&engine, cx).await;
         }
     })
     .detach();
+}
+
+const PARQUET_READY_METRIC: &str = "Parquet ready";
+
+/// Sets the overlay's "Parquet ready" row to when the extension loaded. The
+/// prefetch calls it, and so does a file open that succeeds: after a failed
+/// prefetch, the open's own load is the one that works.
+pub fn show_parquet_ready(cx: &mut App, engine: &Engine) {
+    if let Some(at) = engine.parquet_loaded_at() {
+        seiza::perf::set_metric(cx, PARQUET_READY_METRIC, format!("{at:.0} ms"));
+    }
 }
 
 async fn warm_up(engine: &Engine) -> Result<(), EngineError> {

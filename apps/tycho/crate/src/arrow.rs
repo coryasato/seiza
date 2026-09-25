@@ -699,6 +699,17 @@ impl QueryResult {
         self.batches.iter().map(|batch| batch.num_rows).sum()
     }
 
+    /// Bytes this result keeps alive: every column points into the one IPC
+    /// buffer it was decoded from.
+    pub fn heap_bytes(&self) -> usize {
+        self.batches
+            .iter()
+            .flat_map(|batch| batch.columns.first())
+            .map(|column| column.buf.len())
+            .next()
+            .unwrap_or(0)
+    }
+
     /// The cell at (`row`, `column`) across all batches, or `None` when
     /// either is out of range.
     pub fn value(&self, mut row: usize, column: usize) -> Option<Value<'_>> {
@@ -1412,5 +1423,15 @@ mod tests {
         assert_eq!(show(0, -2), "0");
         assert_eq!(show(-5, -1), "-50");
         assert_eq!(show(i128::MIN + 1, 38).len(), 41); // sign, "1.", 38 digits
+    }
+
+    #[test]
+    fn heap_bytes_is_the_ipc_buffer() {
+        let bytes = stream(&[batch(vec![(
+            "x",
+            Arc::new(Int64Array::from(vec![1, 2, 3])) as ArrayRef,
+        )])]);
+        let len = bytes.len();
+        assert_eq!(decode(bytes).unwrap().heap_bytes(), len);
     }
 }

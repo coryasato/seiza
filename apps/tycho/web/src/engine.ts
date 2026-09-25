@@ -103,9 +103,14 @@ export const EXTENSION_REPOSITORY = '/duckdb-ext';
  * Points DuckDB's extension loading at our origin. Parquet isn't built into
  * DuckDB-Wasm; by default DuckDB would fetch it from extensions.duckdb.org the
  * first time a query needs it. Tycho self-hosts everything (CLAUDE.md), so
- * the repository is ours, and autoload stays on: a Parquet query that arrives
- * before Rust's `LOAD parquet` prefetch finishes still works. DuckDB builds
- * the URL as `<repository>/<version>/<platform>/<name>.duckdb_extension.wasm`.
+ * the repository is ours. DuckDB builds the URL as
+ * `<repository>/<version>/<platform>/<name>.duckdb_extension.wasm`.
+ *
+ * Autoload is off: an extension loads only through an explicit `LOAD`, which
+ * Rust sends one at a time (`Engine::load_parquet`). Two failing loads of one
+ * extension at once crash DuckDB-Wasm 1.32.0's worker without an error event
+ * (M4), and with autoload on, any query could start one. A query that needs an
+ * extension nobody loaded fails with a clear error instead.
  */
 async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {
   const repository = new URL(EXTENSION_REPOSITORY, location.href).href.replaceAll("'", "''");
@@ -115,7 +120,7 @@ async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {
       conn,
       `SET GLOBAL custom_extension_repository = '${repository}'; ` +
         `SET GLOBAL autoinstall_extension_repository = '${repository}'; ` +
-        'SET GLOBAL autoinstall_known_extensions = true; SET GLOBAL autoload_known_extensions = true',
+        'SET GLOBAL autoinstall_known_extensions = true; SET GLOBAL autoload_known_extensions = false',
     );
   } finally {
     await db.disconnect(conn);

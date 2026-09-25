@@ -70,7 +70,7 @@ async function prepAsteroids(conn: DuckDBConnection, info: FetchInfo): Promise<M
       sha256: await sha256(parquet),
       ...common,
       rowGroups: await scalar(conn, `SELECT num_row_groups FROM parquet_file_metadata('${sqlText(parquet)}')`),
-      writer: `${writer}, ZSTD, ROW_GROUP_SIZE 122880, sorted by spkid`,
+      writer: `${writer}, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid`,
       notes: [
         `${yearOnly} rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL`,
         `${noFirstObs - yearOnly} rows have no first_obs in the source`,

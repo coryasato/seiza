@@ -24,14 +24,14 @@
 // header to perf/results/raw/ (gitignored). Exits non-zero on any failure.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createServer, request as httpRequest } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, firefox, webkit, type BrowserContext, type BrowserType, type Page } from '@playwright/test';
+import { chromium, firefox, webkit, type BrowserType } from '@playwright/test';
 import { preview } from 'vite';
 import { checkDataEndpoint } from '../worker/scripts/check.ts';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from './common.ts';
+import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
+import { clickTarget, open, overlayValue, settled, startCountingProxy, waitOverlay } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -47,119 +47,6 @@ const runs = Number(option('runs') ?? 10);
 const label = option('label') ?? 'm3-sample';
 const referenceOnly = flag('reference-only');
 
-type OverlayRows = [string, string][];
-const overlayValue = (page: Page, row: string) =>
-  page.evaluate((row) => (globalThis as { __seizaPerfOverlay?: OverlayRows }).__seizaPerfOverlay?.find(([name]) => name === row)?.[1] ?? null, row);
-
-/** Waits until an overlay row matches `pattern`; returns its value. */
-async function waitOverlay(page: Page, row: string, pattern: RegExp, timeout: number): Promise<string> {
-  const handle = await page.waitForFunction(
-    ({ row, source }) => {
-      const value = (globalThis as { __seizaPerfOverlay?: OverlayRows }).__seizaPerfOverlay?.find(([name]) => name === row)?.[1];
-      return value !== undefined && new RegExp(source).test(value) ? value : false;
-    },
-    { row, source: pattern.source },
-    { timeout, polling: 20 },
-  );
-  return (await handle.jsonValue()) as string;
-}
-
-/**
- * Clicks the center of a control's published bounds (crate/src/targets.rs),
- * once they're inside the viewport. WebKit's first layout pass runs before the
- * window has its real size and puts the button off-screen (x −91, y 1271 at
- * 1440×900); the next frame corrects it.
- */
-async function clickTarget(page: Page, id: string, timeout = 60_000): Promise<void> {
-  const handle = await page.waitForFunction(
-    (id) => {
-      const rect = (globalThis as { __tychoTargets?: Record<string, number[]> }).__tychoTargets?.[id];
-      if (!rect) return false;
-      const [x = -1, y = -1, width = 0, height = 0] = rect;
-      return x >= 0 && y >= 0 && x + width <= innerWidth && y + height <= innerHeight ? rect : false;
-    },
-    id,
-    { timeout, polling: 20 },
-  );
-  const [x = 0, y = 0, width = 0, height = 0] = (await handle.jsonValue()) as number[];
-  await page.mouse.click(x + width / 2, y + height / 2);
-}
-
-/**
- * Every /data/ response body, counted at the server: a proxy between Vite's
- * preview proxy and `wrangler dev`. Playwright doesn't report DuckDB's
- * requests (sync XHRs in its worker), so the page can't be the source.
- */
-interface DataResponse {
-  /** Wall-clock ms when the request arrived, and when its body ended (null
-   *  while it's still streaming). `bytes` counts up as the body arrives. */
-  startedAt: number;
-  endedAt: number | null;
-  method: string;
-  range: string | null;
-  status: number;
-  bytes: number;
-}
-const dataLog: DataResponse[] = [];
-async function startCountingProxy(listenPort: number, workerPort: number): Promise<() => void> {
-  await assertPortFree(listenPort);
-  const server = createServer((req, res) => {
-    const entry: DataResponse = { startedAt: Date.now(), endedAt: null, method: req.method ?? '', range: req.headers.range ?? null, status: 0, bytes: 0 };
-    dataLog.push(entry);
-    const upstream = httpRequest({ host: '127.0.0.1', port: workerPort, path: req.url, method: req.method, headers: req.headers }, (response) => {
-      entry.status = response.statusCode ?? 0;
-      response.on('data', (chunk: Buffer) => (entry.bytes += chunk.length));
-      response.on('end', () => (entry.endedAt = Date.now()));
-      res.writeHead(response.statusCode ?? 502, response.headers);
-      response.pipe(res);
-    });
-    upstream.on('error', (error) => res.destroy(error));
-    req.pipe(upstream);
-  });
-  return new Promise((resolve, reject) => {
-    server.once('error', (error) => reject(new Error(`counting proxy can't listen on ${listenPort}: ${error.message}`)));
-    server.listen(listenPort, '127.0.0.1', () => resolve(() => server.close()));
-  });
-}
-
-/** Waits (up to `timeout`) for these requests' bodies to finish. */
-async function settled(requests: DataResponse[], timeout = 30_000): Promise<void> {
-  const deadline = Date.now() + timeout;
-  while (requests.some((request) => request.endedAt === null) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-}
-
-interface Browsing {
-  page: Page;
-  context: BrowserContext;
-  problems: string[];
-  close(): Promise<void>;
-}
-
-async function open(engine: BrowserType, url: string, profile: Profile | null, block?: RegExp): Promise<Browsing> {
-  const browser = await engine.launch(engine === chromium ? { channel: 'chromium' } : {});
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: engine === chromium ? 2 : 1 });
-  if (engine === chromium) await context.addInitScript(hideDevicePixelContentBox);
-  if (block) await context.route(block, (route) => route.abort());
-  const page = await context.newPage();
-  const problems: string[] = [];
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
-  page.on('console', (message) => {
-    // Chromium follows perf.ts: browser warnings count, GPUI's own [WARN]
-    // logs don't. Firefox and WebKit warn about GPU usage and preloads on
-    // every load, unrelated to this check; only their errors count.
-    const text = message.text();
-    const warningCounts = engine === chromium && !text.startsWith('[WARN]');
-    if (message.type() === 'error' || (message.type() === 'warning' && warningCounts)) problems.push(text);
-  });
-  if (profile && engine === chromium) await throttle(context, page, profile);
-  const target = new URL(url);
-  target.searchParams.set('perf', '');
-  await page.goto(target.toString());
-  return { page, context, problems, close: () => browser.close() };
-}
-
 interface WarmRun {
   /** Playwright's click → the shown mark, on the page's clock. */
   clickToShownMs: number;
@@ -171,7 +58,7 @@ interface WarmRun {
 }
 
 async function warmRun(url: string, profile: Profile, screenshot: string | null): Promise<WarmRun> {
-  const run = await open(chromium, url, profile);
+  const run = await open(chromium, url, { profile });
   try {
     const { page } = run;
     // Warm: the engine is open and the Parquet extension is loaded.
@@ -186,7 +73,7 @@ async function warmRun(url: string, profile: Profile, screenshot: string | null)
     // Every /data/ request that started between the click and the frame,
     // counted in full: a read still streaming when the frame appeared (a
     // whole-file GET, say) must not slip under the budget.
-    const requests = dataLog.filter((response) => response.startedAt >= clickedWall && response.startedAt <= shownWall);
+    const requests = counting.log.filter((response) => response.startedAt >= clickedWall && response.startedAt <= shownWall);
     await settled(requests);
     const overlay = await waitOverlay(page, 'Sample → schema', /ms$|failed|—/, 10_000);
     if (screenshot) await page.screenshot({ path: screenshot });
@@ -211,7 +98,7 @@ interface EarlyRun {
 
 /** Click the moment the button is on screen, with the engine still loading. */
 async function earlyRun(engine: BrowserType, url: string): Promise<EarlyRun> {
-  const run = await open(engine, url, null);
+  const run = await open(engine, url);
   try {
     const { page } = run;
     await clickTarget(page, TARGET);
@@ -239,7 +126,7 @@ async function earlyRun(engine: BrowserType, url: string): Promise<EarlyRun> {
  * schema: the file is registered again, and the engine must still work.
  */
 async function failureRun(url: string, name: string, block: RegExp, retry = false): Promise<{ name: string; ok: boolean; detail: string }> {
-  const run = await open(chromium, url, null, block);
+  const run = await open(chromium, url, { block });
   try {
     const { page, context } = run;
     await clickTarget(page, TARGET);
@@ -268,7 +155,7 @@ async function failureRun(url: string, name: string, block: RegExp, retry = fals
 const WORKER_PORT = 8790;
 await assertPortFree(WORKER_DEV_PORT);
 const worker = await startWorkerDev({ port: WORKER_PORT, requireObject: 'asteroids.parquet' });
-const stopCounting = await startCountingProxy(WORKER_DEV_PORT, WORKER_PORT);
+const counting = await startCountingProxy(WORKER_DEV_PORT, WORKER_PORT);
 const server = await preview({ root: webDir, preview: { port: 4176, strictPort: true }, logLevel: 'warn' });
 const url = 'http://localhost:4176/';
 const date = new Date().toISOString().slice(0, 10);
@@ -318,7 +205,7 @@ try {
   }
 } finally {
   await server.close();
-  stopCounting();
+  counting.close();
   await worker.close();
 }
 

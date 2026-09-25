@@ -94,3 +94,25 @@ One entry per milestone, written before starting the next one: what surprised us
 - **The CSV fixture defeats DuckDB's sniffer:** the tricky rows come after 1.5M quote-free rows, so auto-detect picks no quote character. Good for M6: the CSV path can't rely on sniffing a prefix.
 - **The code review found what my checks couldn't:** autoload of an extension we don't host got Vite's `index.html` as "wasm"; the byte count skipped requests still streaming at the frame, the exact shape of the bug M3 found (it now has a negative control); R2's clamping was verified only in Miniflare. All fixed; see `perf/results/2026-09-24-m3.md`.
 - **The load average (5–12) made the first budget check fail** at 222 ms. The A/B is the tool for telling load from regression; a single protocol run on a busy machine isn't.
+
+## M4: Virtualized table over paged queries (2026-09-25)
+
+**Numbers:** file → first rows **239.2 ms** median (budget 500). Scrollbar jump to 90% **133.0 ms** (budget 400). A top-to-bottom fling in 3 s holds **p95 16.7 ms**, with no frame over 50 ms. App memory after two full passes is **89.4 MiB** (cap 128). Reference TTFP 170.2 ms (protocol run). App wasm +16.3 KiB brotli (2653.9 KiB). Details: `perf/results/2026-09-25-m4.md`.
+
+**Decisions:**
+- **Our own table, not gpui-kit's `DataTable`.** `uniform_list` positions rows in f32 pixels. At 1.5 M rows that's 47 M px, where f32 steps by 4 px; at Gaia's 25 M rows, by 64 px. `crate/src/table/` keeps the scroll position as an f64 row index and draws only the visible rows and columns. It owns its scrollbars, wheel, and keys.
+- **Paging strategy B, a `file_row_number` filter**, at **30,720-row groups**. A and B read the same bytes, since DuckDB skips row groups for `OFFSET` too, but B is 10–25 ms faster. C (ingest first) costs a 1.1 s full download before the first row. 30,720 beat 122,880 on every latency and read 3.6× fewer bytes per jump, for a 6% bigger file.
+- **1024-row pages, prefetch 2.** The sweep didn't separate the nine configs beyond noise. The choice rests on structure: 1024 divides the row groups, and small pages evict in finer steps.
+- **Drags load on rest or release**, not on every move. A page read can't be taken back once DuckDB's worker starts it.
+- **One `LOAD parquet` at a time** (`Engine::load_parquet`): the prefetch and every file open share one attempt, and no Parquet query runs before it. A first fix only waited for the prefetch; the code review caught that the three metadata queries could still autoload the extension together after a failed prefetch.
+- **Extension autoload is off.** A second review pointed out that waiting for `load_parquet` was only a convention while autoload stayed on. Any query that skipped it could still start a second, concurrent load. Now `LOAD` is the only way in.
+- **Cancelled page queries still count as in flight** until DuckDB answers them, for wheel and keys too, not just drags.
+
+**Surprises:**
+- **DuckDB-Wasm's readahead sets a 1.39 MB floor per page read.** `WebFileSystem` reads sequential regions in growing requests (16 K, 64 K, 256 K, 1 M), and no `db.open` option or Parquet setting changes it. So the M3 goal "first rows under 2% of the file" can't hold for a 38 MB file at any row-group size. On Fast 4G that ramp is four round trips, ~2.1 s per page.
+- **A scrollbar drag's stale page reads blocked the page it ended on.** Cancel can't stop a read already in DuckDB's worker, which uses sync XHRs. The throttled jump took 4.3 s, one stale read plus the real one. Waiting for the pointer to rest brought it to 2.2 s, and the reference jump from 184 to 133 ms.
+- **Headless DPR 2 halves Playwright's wheel deltas.** `mouse.wheel(0, 1000)` arrives as `deltaY` 500. The first sweep and protocol run flung at half speed. That surfaced only as an intermittent "didn't reach the last row", and it had made 4096-row pages look better than they are. `harness.ts`'s `wheel()` corrects for it.
+- **Two failing loads of one extension at once crash DuckDB-Wasm** ("table index is out of bounds") without a worker error, and every later query hangs. The M3 retry check caught it when a click raced the prefetch, in 4 of 8 runs. It likely predates M4; the bigger footer made the race more likely.
+- **A quick click on the scrollbar left the drag on.** The drag's move and release listeners were registered at paint, and only while dragging, so a release in the same frame as the press was missed. Playwright's WebKit showed it first; a negative control shows it in Chromium and Firefox too. The listeners now register every frame.
+- **Memory:** wasm plateaus at the page-cache budget plus ~21 MiB of allocator slack, and doesn't keep growing over 5 passes. Wasm memory never shrinks. The live JS heap is ~4 MiB, but without a forced GC it swings ~20 MiB between identical passes, so the check forces one.
+- **The bigger footer** (52 row groups instead of 13) costs the M3 click → schema ~20 ms (108 ms, budget 300). Bytes before the schema rose from 34.8 KB to 90.8 KB.

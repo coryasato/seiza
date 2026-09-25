@@ -4,15 +4,43 @@
 
 The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a perf overlay and a reproducible measurement suite.
 
-> **Status:** M0. Tycho's empty shell paints on the web. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
+> **Status:** Tycho is at M4 of 8. It opens a 1.57-million-row asteroid catalog over HTTP and scrolls every row, all local. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
 
 ## Apps
 
 | App | What it is | Status |
 |---|---|---|
-| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | M0: shell only |
+| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | M4: asteroid sample and virtualized table; file drop next |
 
 > *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
+
+## Numbers so far
+
+Tycho, measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median of 10) against the release build. The headline numbers will come from the deployed site in M8.
+
+| Metric | Budget | Now |
+|---|---|---|
+| Time to first paint | ≤ 195 ms (baseline + 10%) | 170 ms |
+| App wasm (brotli) | ≤ 3012 KiB | 2654 KiB |
+| Sample click → first rows (1.57 M rows, engine warm) | ≤ 500 ms | 239 ms |
+| Fling top → bottom in 3 s: p95 / worst frame | ≤ 20 / 50 ms | 16.7 / 33.3 ms |
+| Scrollbar jump to 90% → real rows | ≤ 400 ms | 133 ms |
+| App memory after scrolling every row twice | ≤ 128 MiB | 89 MiB |
+
+On a throttled run (4× CPU, Fast 4G), frames stay smooth, but rows arrive slowly: first rows 3.4 s, a jump 2.2 s. Details in [`apps/tycho/perf/results/`](apps/tycho/perf/results/).
+
+## Canvas tradeoffs (Tycho, as of M4)
+
+Drawing to a canvas gives up things the DOM does for free. Where Tycho stands today:
+
+- **Accessibility:** the table isn't exposed to screen readers. Keyboard scrolling works (arrows, Page Up/Down, Space, Home/End) once the table has focus.
+- **Text selection:** you can't select or copy cells yet.
+- **Ctrl+F:** the browser's find doesn't see the rows. There's no in-app search yet.
+- **IME:** no text input yet, so nothing to compose into.
+- **Bundle size:** the app wasm is 2.6 MiB brotli before first paint; DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after it.
+- **Table features:** no column resizing, selection, or sorting. Tycho draws its own table because GPUI Kit's `DataTable` can't scroll millions of rows precisely. Adding those features is a researched-first goal after v1 ([`PLAN.md`](apps/tycho/PLAN.md), "Long-term goals").
+
+M7 turns this into a full section with what each gap would take to close.
 
 ## Principles
 
@@ -51,14 +79,24 @@ Prerequisites:
 
 ```sh
 just setup          # npm install
-just tycho dev      # debug wasm + Vite dev server with COOP/COEP → http://localhost:5173
+just tycho data     # fetch the asteroid catalog once (~2.5 min, network), build the sample Parquet, load it into local R2
+just tycho dev      # debug wasm + Vite dev server with COOP/COEP → http://localhost:5173 (+ the Worker for /data/*)
 just tycho build    # release build, prints raw/gzip/brotli asset sizes
-just tycho preview  # serve the release build
-just tycho smoke    # Chromium/Firefox/WebKit shell check against a running server
-just tycho check    # fmt, clippy, tsc, release wasm build
+just tycho preview  # serve the release build → http://localhost:4173
+just tycho check    # fmt, clippy, tsc, release build, then the TTFP and wasm-size budgets
 ```
 
-For Playwright's browsers, run `npx playwright install chromium firefox webkit` once.
+Measurement suites, all against the release build (run `just tycho build` first):
+
+```sh
+just tycho perf     # cold-load TTFP, reference + throttled, median of 10
+just tycho sample   # sample click → schema, bytes transferred, early click, failure modes
+just tycho table    # first rows, fling, scrollbar jump, last row, memory (--sweep, --browsers)
+just tycho engine   # DuckDB self-test: types, cancel
+just tycho smoke    # Chromium/Firefox/WebKit shell check against a running server
+```
+
+Add `?perf` to the URL (or press Cmd/Ctrl+Shift+P) for the perf overlay. For Playwright's browsers, run `npx playwright install chromium firefox webkit` once. The full list of recipes is in [`apps/tycho/CLAUDE.md`](apps/tycho/CLAUDE.md).
 
 ## How we measure
 

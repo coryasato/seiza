@@ -1,0 +1,544 @@
+{
+  "date": "2026-09-25",
+  "label": "m4-paging",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "pageRows": 1024,
+  "rows": 1567523,
+  "setup": null,
+  "results": {
+    "8192": {
+      "A": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 130,
+            "min": 129.3,
+            "max": 188.1
+          },
+          "bytes": {
+            "median": 1392641,
+            "min": 1392641,
+            "max": 1392641
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 70,
+            "min": 69.3,
+            "max": 75.7
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 89.8,
+            "min": 86.5,
+            "max": 92.3
+          },
+          "bytes": {
+            "median": 344064,
+            "min": 344064,
+            "max": 344064
+          }
+        }
+      },
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 106.7,
+            "min": 106.2,
+            "max": 109
+          },
+          "bytes": {
+            "median": 1392641,
+            "min": 1392641,
+            "max": 1392641
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 51.6,
+            "min": 51.1,
+            "max": 52.2
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 64.8,
+            "min": 64,
+            "max": 66
+          },
+          "bytes": {
+            "median": 344064,
+            "min": 344064,
+            "max": 344064
+          }
+        }
+      },
+      "C": {
+        "runs": 5,
+        "ingest": {
+          "ms": {
+            "median": 1194.2,
+            "min": 1169.9,
+            "max": 1237.8
+          },
+          "bytes": {
+            "median": 41748566,
+            "min": 41748566,
+            "max": 41748566
+          }
+        },
+        "first": {
+          "ms": {
+            "median": 19.4,
+            "min": 18.9,
+            "max": 38.9
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 3.5,
+            "min": 3.3,
+            "max": 3.8
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 2.8,
+            "min": 2.7,
+            "max": 3.2
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        }
+      }
+    },
+    "16384": {
+      "A": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 98.3,
+            "min": 95.5,
+            "max": 110
+          },
+          "bytes": {
+            "median": 1392641,
+            "min": 1392641,
+            "max": 1392641
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 39.9,
+            "min": 39.2,
+            "max": 43.8
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 70.2,
+            "min": 62.2,
+            "max": 98.2
+          },
+          "bytes": {
+            "median": 1392640,
+            "min": 1392640,
+            "max": 1392640
+          }
+        }
+      },
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 83.2,
+            "min": 81.5,
+            "max": 84.2
+          },
+          "bytes": {
+            "median": 1392641,
+            "min": 1392641,
+            "max": 1392641
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 29.3,
+            "min": 29,
+            "max": 31.3
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 48.6,
+            "min": 48.4,
+            "max": 51.8
+          },
+          "bytes": {
+            "median": 1392640,
+            "min": 1392640,
+            "max": 1392640
+          }
+        }
+      },
+      "C": {
+        "runs": 5,
+        "ingest": {
+          "ms": {
+            "median": 1117.3,
+            "min": 1101.9,
+            "max": 1168.2
+          },
+          "bytes": {
+            "median": 39141377,
+            "min": 39141377,
+            "max": 39141377
+          }
+        },
+        "first": {
+          "ms": {
+            "median": 19.7,
+            "min": 18.2,
+            "max": 30.5
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 3.4,
+            "min": 3.3,
+            "max": 3.9
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 2.9,
+            "min": 2.7,
+            "max": 3.1
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        }
+      }
+    },
+    "30720": {
+      "A": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 81.1,
+            "min": 78.6,
+            "max": 81.6
+          },
+          "bytes": {
+            "median": 1392641,
+            "min": 1392641,
+            "max": 1392641
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 28.1,
+            "min": 26.9,
+            "max": 30.1
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 60.5,
+            "min": 56.6,
+            "max": 67.1
+          },
+          "bytes": {
+            "median": 1392640,
+            "min": 1392640,
+            "max": 1392640
+          }
+        }
+      },
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 70.3,
+            "min": 69.5,
+            "max": 72
+          },
+          "bytes": {
+            "median": 1392641,
+            "min": 1392641,
+            "max": 1392641
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 21.1,
+            "min": 20.8,
+            "max": 22.3
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 49.6,
+            "min": 46.3,
+            "max": 52.5
+          },
+          "bytes": {
+            "median": 1392640,
+            "min": 1392640,
+            "max": 1392640
+          }
+        }
+      },
+      "C": {
+        "runs": 5,
+        "ingest": {
+          "ms": {
+            "median": 1091.3,
+            "min": 1075.5,
+            "max": 1113.8
+          },
+          "bytes": {
+            "median": 37692044,
+            "min": 37692044,
+            "max": 37692044
+          }
+        },
+        "first": {
+          "ms": {
+            "median": 19.5,
+            "min": 18.7,
+            "max": 22.4
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 3.5,
+            "min": 3.3,
+            "max": 3.6
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 2.8,
+            "min": 2.6,
+            "max": 3.7
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        }
+      }
+    },
+    "122880": {
+      "A": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 98.9,
+            "min": 95.1,
+            "max": 103.7
+          },
+          "bytes": {
+            "median": 5586945,
+            "min": 5586945,
+            "max": 5586945
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 31.6,
+            "min": 31.2,
+            "max": 32.3
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 75.9,
+            "min": 71.1,
+            "max": 90
+          },
+          "bytes": {
+            "median": 4999050,
+            "min": 4999050,
+            "max": 4999050
+          }
+        }
+      },
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 91.4,
+            "min": 88.7,
+            "max": 95.6
+          },
+          "bytes": {
+            "median": 5586945,
+            "min": 5586945,
+            "max": 5586945
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 29.3,
+            "min": 28.4,
+            "max": 31.9
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 68.8,
+            "min": 66.4,
+            "max": 73.1
+          },
+          "bytes": {
+            "median": 4999050,
+            "min": 4999050,
+            "max": 4999050
+          }
+        }
+      },
+      "C": {
+        "runs": 5,
+        "ingest": {
+          "ms": {
+            "median": 1083,
+            "min": 1072.3,
+            "max": 1104.8
+          },
+          "bytes": {
+            "median": 35456907,
+            "min": 35456907,
+            "max": 35456907
+          }
+        },
+        "first": {
+          "ms": {
+            "median": 19.7,
+            "min": 18.3,
+            "max": 20.2
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 3.5,
+            "min": 3.4,
+            "max": 4.1
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 2.8,
+            "min": 2.8,
+            "max": 3.1
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        }
+      }
+    }
+  }
+}

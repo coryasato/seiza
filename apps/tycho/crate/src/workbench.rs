@@ -1,5 +1,5 @@
 //! The workbench: Tycho's one window. Empty until a file or sample is
-//! opened; then a header strip describes the file (M4 adds the rows).
+//! opened; then a header strip describes the file, above its rows.
 
 use gpui_kit::component::button::Button;
 use gpui_kit::component::empty::{Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle};
@@ -11,6 +11,7 @@ use gpui_kit::*;
 
 use crate::dataset::{FileSummary, format_bytes, format_count};
 use crate::engine::EngineStatus;
+use crate::table::RowTable;
 
 /// Where opening the asteroid sample is.
 #[derive(Debug, Clone, PartialEq)]
@@ -23,7 +24,10 @@ enum SampleState {
     /// Registering the file and reading its metadata. If the engine is still
     /// loading, the bridge holds the calls until it's ready.
     Opening,
-    Open(FileSummary),
+    Open {
+        summary: FileSummary,
+        table: Entity<RowTable>,
+    },
     Failed(SharedString),
 }
 
@@ -61,7 +65,7 @@ impl Workbench {
     /// Registers the asteroid sample by URL and reads its summary. Works before
     /// the engine is ready: the bridge queues the calls until it is.
     #[cfg(target_family = "wasm")]
-    fn open_sample(&mut self, cx: &mut Context<Self>) {
+    fn open_sample(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         use crate::dataset::{ASTEROIDS, open};
         use crate::engine::{Engine, FileSource};
 
@@ -77,18 +81,32 @@ impl Workbench {
         cx.notify();
 
         let engine = cx.global::<Engine>().clone();
-        cx.spawn(async move |this, cx| {
+        let clicked_at = self.clicked_at;
+        cx.spawn_in(window, async move |this, cx| {
             let result = open(
                 &engine,
                 ASTEROIDS.name,
                 FileSource::Url(ASTEROIDS.url.into()),
             )
             .await;
-            let _ = this.update(cx, |this, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 this.sample = match result {
                     Ok(summary) => {
                         this.mark_shown = true;
-                        SampleState::Open(summary)
+                        crate::engine::show_parquet_ready(cx, &engine);
+                        let table = cx.new(|cx| {
+                            RowTable::new(
+                                summary.name.clone(),
+                                summary.rows,
+                                &summary.columns,
+                                clicked_at,
+                                engine,
+                                cx,
+                            )
+                        });
+                        let focus = table.read(cx).focus_handle().clone();
+                        window.focus(&focus, cx);
+                        SampleState::Open { summary, table }
                     }
                     Err(error) => {
                         seiza::perf::set_metric(cx, SAMPLE_METRIC, "failed");
@@ -102,7 +120,7 @@ impl Workbench {
     }
 
     #[cfg(not(target_family = "wasm"))]
-    fn open_sample(&mut self, _cx: &mut Context<Self>) {}
+    fn open_sample(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
 
     /// On the first render showing the summary: marks `tycho:sample-shown`
     /// right after this frame is presented, and records click → shown.
@@ -183,7 +201,9 @@ impl Workbench {
                                     .label("Try sample: every known asteroid")
                                     .loading(opening)
                                     .disabled(engine_failed)
-                                    .on_click(cx.listener(|this, _, _, cx| this.open_sample(cx))),
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.open_sample(window, cx)
+                                    })),
                             ),
                     )
                     .child(self.render_status(cx)),
@@ -209,9 +229,6 @@ impl Workbench {
 
         v_flex()
             .gap_2()
-            .pb_3()
-            .border_b_1()
-            .border_color(theme.border)
             .child(
                 h_flex()
                     .gap_3()
@@ -251,10 +268,14 @@ impl Render for Workbench {
         #[cfg(target_family = "wasm")]
         self.mark_sample_shown(cx);
 
-        let content = match &self.sample {
-            SampleState::Open(summary) => Self::render_summary(summary, cx).into_any_element(),
-            _ => self.render_empty(cx).into_any_element(),
-        };
-        v_flex().size_full().p_4().child(content)
+        match &self.sample {
+            SampleState::Open { summary, table } => v_flex()
+                .size_full()
+                .p_4()
+                .gap_3()
+                .child(Self::render_summary(summary, cx))
+                .child(div().flex_1().min_h_0().child(table.clone())),
+            _ => v_flex().size_full().p_4().child(self.render_empty(cx)),
+        }
     }
 }

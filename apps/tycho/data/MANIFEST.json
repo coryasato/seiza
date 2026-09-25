@@ -1,12 +1,12 @@
 {
   "asteroids.parquet": {
     "rows": 1567523,
-    "bytes": 35456966,
-    "sha256": "d44a407bb445a0256ea91aa7f9a646766254052dd0bed26957cc672c3243717a",
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
     "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
     "fetched": "2026-09-24",
-    "rowGroups": 13,
-    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880, sorted by spkid",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
     "notes": [
       "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
       "0 rows have no first_obs in the source"
