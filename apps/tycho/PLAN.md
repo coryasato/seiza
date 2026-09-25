@@ -127,9 +127,9 @@ Show first rows fast: sniff with `read_csv(..., sample_size=...)` and show `LIMI
 
 ### M7: Complete the perf overlay and harden
 
-Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95 plus a small frame-time sparkline), rows loaded, bytes fetched, and wasm memory. Add error states: engine failed to load, network failure on the sample, and file too large.
+Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95 plus a small frame-time sparkline), **per-frame work time** (p50/p95 of the main-thread time GPUI spends building and drawing each frame), rows loaded, bytes fetched, and wasm memory. Frame intervals can't show work below the frame budget: they read 16.7 ms whether a frame took 1 ms or 12 ms. Work time shows the headroom left, so it's how to decide on the cell-string cache below, and how to re-run M4's page-size sweep on Gaia so its configs finally separate. Add error states: engine failed to load, network failure on the sample, and file too large.
 
-*Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, and cache formatted strings per loaded page if frame times need it.
+*Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, using per-frame work time (not frame intervals), and cache formatted strings per loaded page if the work time needs it.
 
 *Note from M2's code review, for this milestone to decide:* `bridge.ts` caches the engine load promise, including a rejected one (`engine ??= import(...)`). One transient failure (a network blip on the engine chunk or DuckDB's wasm) makes every later call fail with the same error until a reload. Today's UI says "Reload the page to try again", which matches. Decide whether "engine failed to load" should retry instead: reset the cached promise on rejection and offer a Retry button, or keep reload-only. A dead worker is terminated, so a retry must start a new one. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
 
@@ -342,4 +342,4 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 ## Open questions / notes
 
-- `docs/LESSONS.md` is on probation: remove it if it doesn't prove useful.
+None open. (`docs/LESSONS.md` came off probation after M4: several of its surprises became decisions.)
