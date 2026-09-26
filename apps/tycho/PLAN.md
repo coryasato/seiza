@@ -19,9 +19,10 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M4 | Virtualized table over paged queries | Done 2026-09-25 |
 | M5 | Drop a Parquet file | Not started |
 | M6 | Drop a CSV with progressive loading | Not started |
-| M7 | Complete the perf overlay and harden | Not started |
+| M7 | Observation panel, jump to row, and hardening | Not started |
 | M8 | Deploy to Cloudflare | Not started |
 | Later | Table interactions: column resizing, selection, sorting | Not started; research first, after M8 |
+| Later | Side-by-side comparison: WASM \| React | Not started; research first, after M8 |
 
 Complete them in order. Each one closes with: measurements committed to `perf/results/`, and an entry in `docs/LESSONS.md`.
 
@@ -125,16 +126,30 @@ Show first rows fast: sniff with `read_csv(..., sample_size=...)` and show `LIMI
 - [ ] Ingest throughput (MB/s) and total time are shown in load stats and recorded.
 - [ ] **Decision recorded:** chunked ingest vs. raw-file queries, backed by the numbers.
 
-### M7: Complete the perf overlay and harden
+### M7: Observation panel, jump to row, and hardening
 
-Finish the overlay: TTFP, engine ready, file → first rows, scroll FPS (p50/p95 plus a small frame-time sparkline), **per-frame work time** (p50/p95 of the main-thread time GPUI spends building and drawing each frame), rows loaded, bytes fetched, and wasm memory. Frame intervals can't show work below the frame budget: they read 16.7 ms whether a frame took 1 ms or 12 ms. Work time shows the headroom left, so it's how to decide on the cell-string cache below, and how to re-run M4's page-size sweep on Gaia so its configs finally separate. Add error states: engine failed to load, network failure on the sample, and file too large.
+Turn the perf overlay into an **observation panel**: something a visitor keeps open to watch the app work, while it loads and while they use it, not only a debug readout. It shows:
+- **Live load waterfall:** HTML → wasm download → compile → first frame → engine ready → Parquet loaded → first rows. Each step fills in as it happens, so a visitor on a slow link watches the load instead of waiting on it.
+- **Bytes read vs file size**, e.g. "read 1.4 MB of 38 MB". DuckDB reads over sync XHRs inside its worker, which the page doesn't see by default. Find where to count them, and get the count to Rust through `query` if possible: a fourth bridge call needs a recorded decision (Tycho rule 2).
+- **While scrolling:** rows/s, pages in flight, cache hits, wasm and JS memory, and a frame-time sparkline with **two lines**: the rAF interval and the **per-frame work time** (main-thread time spent in our frame: layout, table draw, GPUI present). The interval pins at 16.7 ms whether a frame took 1 ms or 12 ms, so it can't show headroom; the work time can. It's how to decide on the cell-string cache below, and how to re-run M4's page-size sweep on Gaia so its configs finally separate.
+
+The panel refreshes at ~4 Hz, not every frame, so watching doesn't cost the frames it measures.
+
+Add **jump to row**: a text input that scrolls the table to a row number. It's navigation, not analysis, so it's inside v1 scope (Tycho rule 4). It's the app's first text input, so it meets the canvas input gaps first: the Input context-menu "Paste" is disabled on web (#3187; Cmd/Ctrl+V works), and IME composition runs through GPUI's canvas input path (a Japanese IME can commit full-width digits like "１２３"; accept them or say why not). Keys typed in the input must not also scroll the table. Record what works in the README's "Canvas tradeoffs" section.
+
+Add error states: engine failed to load, network failure on the sample, and file too large.
+
+*Candidate (pending decision): static placeholder shell.* An HTML/CSS copy of the empty shell in `index.html`, painted before the wasm arrives and swapped for the canvas in the same step as `gpui:first-frame`, with no blank frame between. It must match the shell exactly (IBM Plex, theme colors, `prefers-color-scheme`) and stays non-interactive; optionally it catches an early file drop and hands it to the app once it starts. **TTFP keeps meaning GPUI's real first frame.** The placeholder paint is a separate metric, and the panel shows both. Decide by the throttled run, where first paint is ~3.5 s; the reference run's ~170 ms leaves little to win.
 
 *Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, using per-frame work time (not frame intervals), and cache formatted strings per loaded page if the work time needs it.
 
 *Note from M2's code review, for this milestone to decide:* `bridge.ts` caches the engine load promise, including a rejected one (`engine ??= import(...)`). One transient failure (a network blip on the engine chunk or DuckDB's wasm) makes every later call fail with the same error until a reload. Today's UI says "Reload the page to try again", which matches. Decide whether "engine failed to load" should retry instead: reset the cached promise on rejection and offer a Retry button, or keep reload-only. A dead worker is terminated, so a retry must start a new one. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
 
 **Done when:**
-- [ ] All overlay metrics show live values and match `just tycho perf` within 5%.
+- [ ] All panel metrics show live values and match `just tycho perf` within 5%.
+- [ ] The panel updates at **~4 Hz**, not every frame, and the M4 fling budget holds with the panel **open and closed** (the perf suite measures both).
+- [ ] **Per-frame work time** (p50/p95) is shown in the panel and recorded in the Measurements table: reference and throttled, asteroids and Gaia.
+- [ ] **Jump to row** lands on the requested row: first, middle, last, and out of range (a clear inline message, no scroll).
 - [ ] The ceiling is measured, documented in the README, and enforced with a friendly message before the tab can run out of memory.
 - [ ] The Gaia sample meets the M4 scroll and jump budgets. If it can't, lower the row target in `prep.sql` and record why.
 - [ ] `just tycho perf` runs the full suite (cold load, both samples, fling, jump, CSV) and writes one results file.
@@ -174,6 +189,21 @@ M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scroll
 - **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) the README tracks.
 
 Record the decision (build all, some, or none) in the decisions log with the numbers, and only then add a milestone with "done when" checks.
+
+### Side-by-side comparison: WASM | React
+
+The "React comparison mode" in Pending decisions. One page shows Tycho next to a React version (TanStack Virtual over a DOM grid), each with its own observation panel (M7). An optional third column: React with a canvas grid (Glide Data Grid), which separates "canvas vs DOM" from "wasm vs JS".
+
+- **Only the UI differs.** Same DuckDB engine layer, same file, same paging logic. Likely a separate host, `apps/tycho-react/`, reusing Tycho's engine layer; check what would have to move to a shared place (`web/engine.ts`, the page SQL and paging now in Rust) and whether that breaks the `shared/` rules.
+- **Not a live race in one tab.** Two apps in one tab share a main thread and a GPU and distort each other's numbers. Use a **replay mode**: the same scripted run (load, fling, jump to 90%) on each side in turn, with results side by side. Visitors can use either side, one active at a time.
+- **Show where React wins,** not only where Tycho does: first paint and bundle size are likely React's.
+
+**Research first, then decide.** Before building the page, measure through the same Playwright harness and record in `docs/`:
+- **Size and first paint:** the React app's bundle (brotli) and TTFP, reference and throttled.
+- **Row counts:** how its grid handles 1.5 M and 25 M rows. Browsers cap element height at roughly 33 M px in Chrome and under 18 M px in Firefox, below 25 M rows at any usable row height, so check what TanStack Virtual does past the cap (scaling, paging, or breaking).
+- **Frame cost:** fling frame intervals and per-frame work time, measured as for Tycho.
+
+Record the decision in the decisions log, and only then add a milestone with "done when" checks.
 
 ---
 
@@ -291,6 +321,9 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-25 | One `LOAD parquet` at a time (`Engine::load_parquet`): the prefetch and every file open share one attempt, a success is remembered, a failure lets the next caller retry. **Extension autoload is now off** (superseding M3's "autoload stays on"): `LOAD` is the only way an extension loads, and a query needing an unloaded one fails with a clear error. Two failing loads of one extension at once crash DuckDB-Wasm 1.32.0 without a worker error | M4 (M3 retry check, two code reviews) |
 | 2026-09-25 | The overlay's common rows (`shared/`): "Frame time (2 s)" (p50/p95/max of rAF intervals) and "Memory" (app wasm, JS heap), sampled only while the overlay is visible, starting after first paint | M4 |
 | 2026-09-25 | `?bench` exposes the bridge to the perf scripts as `globalThis.__tychoBridge`; `?page=`, `?prefetch=`, `?budget_mib=` override paging | M4 |
+| 2026-09-25 | M7's overlay becomes a user-facing **observation panel**: live load waterfall, bytes read vs file size, and while scrolling rows/s, pages in flight, cache hits, memory, and a sparkline of both rAF interval and per-frame work time. It refreshes at ~4 Hz; the fling budget is checked with it open and closed | M7 planning |
+| 2026-09-25 | **Jump to row** is navigation, not analysis, so it's inside v1 scope (Tycho rule 4). It's the first text input | M7 planning |
+| 2026-09-25 | The React comparison, if built, is a **replay mode** (the same scripted run on each side in turn), not a live race in one tab, where both sides would share a main thread and GPU. Research first; see Long-term goals | planning |
 
 ### Pending decisions
 
@@ -307,7 +340,9 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [x] Memory cap for page cache (M4): 64 MiB cache; 128 MiB app (wasm + JS heap)
 - [ ] Chunked CSV ingest vs raw-file queries (M6)
 - [ ] Gaia magnitude cut / final row target (M7)
+- [ ] Static placeholder shell painted before the wasm, decided by the throttled run; TTFP stays GPUI's first frame (M7)
 - [ ] Production wasm encoding, br vs zstd (M8)
+- [ ] React comparison mode: build the side-by-side page or not, after research (after M8; see Long-term goals)
 
 ---
 
@@ -330,6 +365,10 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 | Parquet extension (EH, brotli) | recorded only | — | 487.2 KiB, after engine ready (M3) |
 | File → first rows | ≤ 500 ms | — | 239.2 ms ref, 3416.4 ms throttled (M4) |
 | Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 33.3 ms (M4) |
+| Fling p95 frame time, panel open | ≤ 20 ms, none > 50 ms | — | — |
+| Per-frame work time, fling p50/p95 (asteroids, ref / throttled) | recorded only | — | — |
+| Per-frame work time, fling p50/p95 (Gaia, ref / throttled) | recorded only | — | — |
+| Jump to row (first, middle, last, out of range) | lands on the row | — | — |
 | Jump to 90% | ≤ 400 ms | — | 133.0 ms ref, 2228.2 ms throttled (M4) |
 | App memory after two full passes | ≤ 128 MiB | — | 89.4 MiB (M4) |
 | Drop Parquet (~1 GB) → first rows | ≤ 1 s | — | — |
