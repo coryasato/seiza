@@ -1,0 +1,609 @@
+{
+  "date": "2026-09-27",
+  "label": "m5-drop",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "files": {
+    "drop/asteroids-x3.parquet": {
+      "rows": 4702569,
+      "bytes": 113067110,
+      "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+      "rowGroups": 154,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    },
+    "drop/asteroids-x27.parquet": {
+      "rows": 42323121,
+      "bytes": 1016774988,
+      "sha256": "2d66bf8b63c0932fe98143681b28d02fc14e9bc2e836b19093c34f1cb26633d8",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 1378,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    },
+    "drop/asteroids-x27-rg122880.parquet": {
+      "rows": 42323121,
+      "bytes": 959155090,
+      "sha256": "cde927d6617c804f7368de8a4e8a160d260a83c039321571c0237715223068a9",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 345,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+    },
+    "drop/asteroids-x27-rg1048576.parquet": {
+      "rows": 42323121,
+      "bytes": 963732590,
+      "sha256": "f6a628b94b0d110264a1799170be1be9a87adb996fc6a1d87895635038431427",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 41,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 1048576"
+    }
+  },
+  "budgets": {
+    "schemaMs": 1000,
+    "firstRowsMs": 1000,
+    "appDeltaMiB": 16,
+    "allAgentsDeltaOfSizeDiff": 0.1,
+    "copyDetect": 0.9
+  },
+  "drop": {
+    "reference": {
+      "schemaMs": {
+        "median": 213.6,
+        "min": 204.4,
+        "max": 222.8
+      },
+      "firstRowsMs": {
+        "median": 796,
+        "min": 787.7,
+        "max": 810.1
+      },
+      "overlayFirstRowsMs": {
+        "median": 796,
+        "min": 788,
+        "max": 810
+      },
+      "appDropLagMs": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.05
+      },
+      "runs": [
+        {
+          "schemaMs": 220.5950002670288,
+          "firstRowsMs": 792.6849999427795,
+          "overlaySchemaMs": 221,
+          "overlayFirstRowsMs": 793,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 204.44999980926514,
+          "firstRowsMs": 809.2449998855591,
+          "overlaySchemaMs": 204,
+          "overlayFirstRowsMs": 809,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 222.82999992370605,
+          "firstRowsMs": 794.3399996757507,
+          "overlaySchemaMs": 223,
+          "overlayFirstRowsMs": 794,
+          "appDropLagMs": 0.04499959945678711,
+          "problems": []
+        },
+        {
+          "schemaMs": 222.8400001525879,
+          "firstRowsMs": 794.1399998664856,
+          "overlaySchemaMs": 223,
+          "overlayFirstRowsMs": 794,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 216.0199999809265,
+          "firstRowsMs": 787.6949996948242,
+          "overlaySchemaMs": 216,
+          "overlayFirstRowsMs": 788,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 211.1699995994568,
+          "firstRowsMs": 799.6299996376038,
+          "overlaySchemaMs": 211,
+          "overlayFirstRowsMs": 800,
+          "appDropLagMs": 0.04499959945678711,
+          "problems": []
+        },
+        {
+          "schemaMs": 209.92500019073486,
+          "firstRowsMs": 798.75,
+          "overlaySchemaMs": 210,
+          "overlayFirstRowsMs": 799,
+          "appDropLagMs": 0.05000019073486328,
+          "problems": []
+        },
+        {
+          "schemaMs": 220.92999982833862,
+          "firstRowsMs": 793.3549995422363,
+          "overlaySchemaMs": 221,
+          "overlayFirstRowsMs": 793,
+          "appDropLagMs": 0.04999971389770508,
+          "problems": []
+        },
+        {
+          "schemaMs": 204.6050000190735,
+          "firstRowsMs": 810.1399998664856,
+          "overlaySchemaMs": 205,
+          "overlayFirstRowsMs": 810,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 208.08499956130981,
+          "firstRowsMs": 797.7300000190735,
+          "overlaySchemaMs": 208,
+          "overlayFirstRowsMs": 798,
+          "appDropLagMs": 0.04999971389770508,
+          "problems": []
+        }
+      ]
+    },
+    "throttled": {
+      "schemaMs": {
+        "median": 254.1,
+        "min": 245.8,
+        "max": 272.9
+      },
+      "firstRowsMs": {
+        "median": 864.5,
+        "min": 857.7,
+        "max": 918.5
+      },
+      "overlayFirstRowsMs": {
+        "median": 864.5,
+        "min": 857,
+        "max": 918
+      },
+      "appDropLagMs": {
+        "median": 0.15,
+        "min": 0.04,
+        "max": 0.86
+      },
+      "runs": [
+        {
+          "schemaMs": 245.8300004005432,
+          "firstRowsMs": 888.1449999809265,
+          "overlaySchemaMs": 246,
+          "overlayFirstRowsMs": 888,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 253.00500011444092,
+          "firstRowsMs": 859.664999961853,
+          "overlaySchemaMs": 253,
+          "overlayFirstRowsMs": 859,
+          "appDropLagMs": 0.21000003814697266,
+          "problems": []
+        },
+        {
+          "schemaMs": 252.7699999809265,
+          "firstRowsMs": 857.6949996948242,
+          "overlaySchemaMs": 252,
+          "overlayFirstRowsMs": 857,
+          "appDropLagMs": 0.8649997711181641,
+          "problems": []
+        },
+        {
+          "schemaMs": 272.93499994277954,
+          "firstRowsMs": 877.3900003433228,
+          "overlaySchemaMs": 273,
+          "overlayFirstRowsMs": 877,
+          "appDropLagMs": 0.05000019073486328,
+          "problems": []
+        },
+        {
+          "schemaMs": 246.50500011444092,
+          "firstRowsMs": 858.5300002098083,
+          "overlaySchemaMs": 246,
+          "overlayFirstRowsMs": 858,
+          "appDropLagMs": 0.09000015258789062,
+          "problems": []
+        },
+        {
+          "schemaMs": 255.24500036239624,
+          "firstRowsMs": 863.1449999809265,
+          "overlaySchemaMs": 255,
+          "overlayFirstRowsMs": 863,
+          "appDropLagMs": 0.04000043869018555,
+          "problems": []
+        },
+        {
+          "schemaMs": 250.30499982833862,
+          "firstRowsMs": 865.9049997329712,
+          "overlaySchemaMs": 250,
+          "overlayFirstRowsMs": 866,
+          "appDropLagMs": 0.36999988555908203,
+          "problems": []
+        },
+        {
+          "schemaMs": 261.8800001144409,
+          "firstRowsMs": 884.414999961853,
+          "overlaySchemaMs": 262,
+          "overlayFirstRowsMs": 884,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 262.3600001335144,
+          "firstRowsMs": 918.4700002670288,
+          "overlaySchemaMs": 262,
+          "overlayFirstRowsMs": 918,
+          "appDropLagMs": 0.24499988555908203,
+          "problems": []
+        },
+        {
+          "schemaMs": 256.31500005722046,
+          "firstRowsMs": 861.204999923706,
+          "overlaySchemaMs": 256,
+          "overlayFirstRowsMs": 861,
+          "appDropLagMs": 0.5899996757507324,
+          "problems": []
+        }
+      ]
+    },
+    "drop/asteroids-x27-rg122880.parquet": {
+      "schemaMs": {
+        "median": 90.8,
+        "min": 89.5,
+        "max": 97.1
+      },
+      "firstRowsMs": {
+        "median": 219.1,
+        "min": 211.2,
+        "max": 230.5
+      },
+      "runs": [
+        {
+          "schemaMs": 97.08000040054321,
+          "firstRowsMs": 219.14500045776367,
+          "overlaySchemaMs": 97,
+          "overlayFirstRowsMs": 219,
+          "appDropLagMs": 0.05000019073486328,
+          "problems": []
+        },
+        {
+          "schemaMs": 92.19500017166138,
+          "firstRowsMs": 230.5199999809265,
+          "overlaySchemaMs": 92,
+          "overlayFirstRowsMs": 230,
+          "appDropLagMs": 0.05000019073486328,
+          "problems": []
+        },
+        {
+          "schemaMs": 90.47499990463257,
+          "firstRowsMs": 229.19500017166138,
+          "overlaySchemaMs": 90,
+          "overlayFirstRowsMs": 229,
+          "appDropLagMs": 0.04999971389770508,
+          "problems": []
+        },
+        {
+          "schemaMs": 89.46500015258789,
+          "firstRowsMs": 211.18499994277954,
+          "overlaySchemaMs": 89,
+          "overlayFirstRowsMs": 211,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 90.77500009536743,
+          "firstRowsMs": 212.40000009536743,
+          "overlaySchemaMs": 91,
+          "overlayFirstRowsMs": 212,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        }
+      ]
+    },
+    "drop/asteroids-x27-rg1048576.parquet": {
+      "schemaMs": {
+        "median": 57.2,
+        "min": 53.9,
+        "max": 58.3
+      },
+      "firstRowsMs": {
+        "median": 229.5,
+        "min": 227.3,
+        "max": 243
+      },
+      "runs": [
+        {
+          "schemaMs": 53.93499994277954,
+          "firstRowsMs": 243.0149998664856,
+          "overlaySchemaMs": 54,
+          "overlayFirstRowsMs": 243,
+          "appDropLagMs": 0.04500007629394531,
+          "problems": []
+        },
+        {
+          "schemaMs": 55.08500003814697,
+          "firstRowsMs": 227.2649998664856,
+          "overlaySchemaMs": 55,
+          "overlayFirstRowsMs": 227,
+          "appDropLagMs": 0.05000019073486328,
+          "problems": []
+        },
+        {
+          "schemaMs": 58.3149995803833,
+          "firstRowsMs": 229.84499979019165,
+          "overlaySchemaMs": 58,
+          "overlayFirstRowsMs": 230,
+          "appDropLagMs": 0.05499982833862305,
+          "problems": []
+        },
+        {
+          "schemaMs": 57.230000019073486,
+          "firstRowsMs": 229.36500024795532,
+          "overlaySchemaMs": 57,
+          "overlayFirstRowsMs": 229,
+          "appDropLagMs": 0.039999961853027344,
+          "problems": []
+        },
+        {
+          "schemaMs": 58.045000076293945,
+          "firstRowsMs": 229.50500011444092,
+          "overlaySchemaMs": 58,
+          "overlayFirstRowsMs": 229,
+          "appDropLagMs": 0.039999961853027344,
+          "problems": []
+        }
+      ]
+    }
+  },
+  "memory": {
+    "small": {
+      "file": "drop/asteroids-x3.parquet",
+      "bytes": 113067110,
+      "snapshots": {
+        "opened": {
+          "wasmMiB": 12.7,
+          "jsHeapMiB": 4.8,
+          "allAgentsMiB": 135.1
+        },
+        "End": {
+          "wasmMiB": 12.9,
+          "jsHeapMiB": 4.7,
+          "allAgentsMiB": 115.6
+        },
+        "Home": {
+          "wasmMiB": 12.9,
+          "jsHeapMiB": 4,
+          "allAgentsMiB": 115.7
+        }
+      },
+      "peak": {
+        "appMiB": 17.6,
+        "allAgentsMiB": 135.1
+      },
+      "problems": []
+    },
+    "big": {
+      "file": "drop/asteroids-x27.parquet",
+      "bytes": 1016774988,
+      "snapshots": {
+        "opened": {
+          "wasmMiB": 12.5,
+          "jsHeapMiB": 4.8,
+          "allAgentsMiB": 129.2
+        },
+        "End": {
+          "wasmMiB": 12.8,
+          "jsHeapMiB": 4.7,
+          "allAgentsMiB": 109.8
+        },
+        "Home": {
+          "wasmMiB": 12.8,
+          "jsHeapMiB": 4,
+          "allAgentsMiB": 109.8
+        }
+      },
+      "peak": {
+        "appMiB": 17.5,
+        "allAgentsMiB": 129.2
+      },
+      "problems": []
+    },
+    "delta": {
+      "appMiB": -0.10000000000000142,
+      "allAgentsMiB": -5.900000000000006
+    },
+    "control": {
+      "file": "drop/asteroids-x3.parquet",
+      "bytes": 113067110,
+      "snapshots": {
+        "opened": {
+          "wasmMiB": 12.7,
+          "jsHeapMiB": 4.8,
+          "allAgentsMiB": 115.3
+        },
+        "End": {
+          "wasmMiB": 12.9,
+          "jsHeapMiB": 4.7,
+          "allAgentsMiB": 115.6
+        },
+        "Home": {
+          "wasmMiB": 12.9,
+          "jsHeapMiB": 4,
+          "allAgentsMiB": 95.9
+        },
+        "withCopy": {
+          "wasmMiB": 12.9,
+          "jsHeapMiB": 111.8,
+          "allAgentsMiB": 223.5
+        }
+      },
+      "peak": {
+        "appMiB": 17.6,
+        "allAgentsMiB": 115.6
+      },
+      "problems": [],
+      "copyMiB": 127.6,
+      "fileMiB": 107.82919883728027
+    }
+  },
+  "unsupported": {
+    "results": [
+      {
+        "file": "notes.txt",
+        "over": "empty",
+        "notice": "notes.txt isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "table.csv",
+        "over": "empty",
+        "notice": "table.csv is a CSV file. Tycho opens Parquet files for now; CSV support is coming.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "junk.parquet",
+        "over": "empty",
+        "notice": "junk.parquet isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "tiny.parquet",
+        "over": "empty",
+        "notice": "tiny.parquet isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "secret.parquet",
+        "over": "empty",
+        "notice": "secret.parquet is an encrypted Parquet file. Tycho can't read those.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "notes.txt",
+        "over": "open",
+        "notice": "notes.txt isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "table.csv",
+        "over": "open",
+        "notice": "table.csv is a CSV file. Tycho opens Parquet files for now; CSV support is coming.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "junk.parquet",
+        "over": "open",
+        "notice": "junk.parquet isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "tiny.parquet",
+        "over": "open",
+        "notice": "tiny.parquet isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "secret.parquet",
+        "over": "open",
+        "notice": "secret.parquet is an encrypted Parquet file. Tycho can't read those.",
+        "state": "open",
+        "ok": true
+      }
+    ],
+    "problems": []
+  },
+  "supersede": [
+    {
+      "name": "1 GB, then 100 MB 20 ms later (while opening)",
+      "ok": true,
+      "detail": "state at second drop: opening asteroids-x27.parquet; asteroids-x3.parquet shown 223 ms, first rows 313 ms after the last drop; summaries shown since: 1",
+      "problems": []
+    },
+    {
+      "name": "100 MB, then 1 GB once its schema shows (pages loading)",
+      "ok": true,
+      "detail": "pages pending at second drop: 0; asteroids-x27.parquet shown 222 ms, first rows 797 ms after the last drop; summaries shown since: 1",
+      "problems": []
+    },
+    {
+      "name": "sample click, then a drop while the sample opens",
+      "ok": true,
+      "detail": "asteroids-x3.parquet shown 67 ms, first rows 141 ms after the last drop; summaries shown since: 1",
+      "problems": []
+    },
+    {
+      "name": "drop before the engine is ready",
+      "ok": true,
+      "detail": "state while loading: opening; asteroids-x3.parquet shown 623 ms, first rows 696 ms after the last drop; summaries shown since: 1",
+      "problems": []
+    }
+  ],
+  "browsers": [
+    {
+      "browser": "chromium",
+      "checks": [
+        {
+          "how": "drop",
+          "ok": true,
+          "detail": "schema 55 ms, first rows 145 ms"
+        },
+        {
+          "how": "file dialog",
+          "ok": true,
+          "detail": "schema 231 ms, first rows 788 ms after the choice"
+        }
+      ],
+      "problems": []
+    },
+    {
+      "browser": "firefox",
+      "checks": [
+        {
+          "how": "drop",
+          "ok": true,
+          "detail": "schema 38 ms, first rows 81 ms"
+        },
+        {
+          "how": "file dialog",
+          "ok": true,
+          "detail": "schema 159 ms, first rows 669 ms after the choice"
+        }
+      ],
+      "problems": []
+    },
+    {
+      "browser": "webkit",
+      "checks": [
+        {
+          "how": "drop",
+          "ok": true,
+          "detail": "schema 76 ms, first rows 202 ms"
+        },
+        {
+          "how": "file dialog",
+          "ok": true,
+          "detail": "schema 411 ms, first rows 1699 ms after the choice"
+        }
+      ],
+      "problems": []
+    }
+  ],
+  "failures": []
+}

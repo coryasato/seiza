@@ -19,5 +19,37 @@
     "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
     "fetched": "2026-09-24",
     "writer": "DuckDB v1.4.5, CSV with header; the asteroid rows, then fixtures-src/tricky_rows.csv"
+  },
+  "drop/asteroids-x3.parquet": {
+    "rows": 4702569,
+    "bytes": 113067110,
+    "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+    "rowGroups": 154,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+  },
+  "drop/asteroids-x27.parquet": {
+    "rows": 42323121,
+    "bytes": 1016774988,
+    "sha256": "2d66bf8b63c0932fe98143681b28d02fc14e9bc2e836b19093c34f1cb26633d8",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+    "rowGroups": 1378,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+  },
+  "drop/asteroids-x27-rg122880.parquet": {
+    "rows": 42323121,
+    "bytes": 959155090,
+    "sha256": "cde927d6617c804f7368de8a4e8a160d260a83c039321571c0237715223068a9",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+    "rowGroups": 345,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+  },
+  "drop/asteroids-x27-rg1048576.parquet": {
+    "rows": 42323121,
+    "bytes": 963732590,
+    "sha256": "f6a628b94b0d110264a1799170be1be9a87adb996fc6a1d87895635038431427",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+    "rowGroups": 41,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 1048576"
   }
 }

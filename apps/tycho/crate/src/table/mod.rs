@@ -211,6 +211,10 @@ pub struct RowTable {
     /// When the file was asked for (ms from `timeOrigin`); the first filled
     /// frame reports "first rows" against it, once.
     opened_at: Option<f64>,
+    /// The overlay row "first rows" is reported in, e.g. "Sample → first rows".
+    first_rows_metric: &'static str,
+    /// Set by [`RowTable::close`]: no more page loads.
+    closed: bool,
     #[cfg(target_family = "wasm")]
     engine: crate::engine::Engine,
 }
@@ -218,12 +222,13 @@ pub struct RowTable {
 impl RowTable {
     /// A table over `rows` rows of the registered file `file`. `opened_at`
     /// (ms from `timeOrigin`) is when it was asked for; the first filled frame
-    /// reports "first rows" against it.
+    /// reports "first rows" against it, in the overlay row `first_rows_metric`.
     pub fn new(
         file: String,
         rows: u64,
         columns: &[ColumnInfo],
         opened_at: f64,
+        first_rows_metric: &'static str,
         #[cfg(target_family = "wasm")] engine: crate::engine::Engine,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -256,6 +261,8 @@ impl RowTable {
             focus_handle: cx.focus_handle(),
             filled: false,
             opened_at: Some(opened_at),
+            first_rows_metric,
+            closed: false,
             #[cfg(target_family = "wasm")]
             engine,
         };
@@ -266,6 +273,22 @@ impl RowTable {
 
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
+    }
+
+    /// Stops the table for good: cancels its page queries and sends no more.
+    /// Called when another file replaces it. The entity can outlive this (the
+    /// last frame still holds it), and a page answering meanwhile must not
+    /// start new reads of a file nobody shows.
+    pub fn close(&mut self, cx: &mut Context<Self>) {
+        self.closed = true;
+        #[cfg(target_family = "wasm")]
+        for request in self.cache.requests() {
+            self.engine.cancel(request);
+        }
+        // Replaced before its first rows showed: they never will.
+        if self.opened_at.take().is_some() {
+            seiza::perf::set_metric(cx, self.first_rows_metric, "—");
+        }
     }
 
     fn gutter_width(&self) -> f32 {
@@ -403,7 +426,11 @@ impl RowTable {
 
     #[cfg(target_family = "wasm")]
     fn load_wanted(&mut self, wanted: &[u64], cx: &mut Context<Self>) {
-        let plan = self.cache.plan(wanted);
+        if self.closed {
+            return;
+        }
+        let visible = self.cache.visible_pages(self.scroll.visible());
+        let plan = self.cache.plan(wanted, visible);
         for request in plan.cancel {
             self.engine.cancel(request);
         }
@@ -427,6 +454,9 @@ impl RowTable {
         result: Result<QueryResult, crate::engine::EngineError>,
         cx: &mut Context<Self>,
     ) {
+        if self.closed {
+            return;
+        }
         let wanted = self.wanted();
         match result {
             Ok(rows) => {
@@ -587,13 +617,14 @@ impl RowTable {
                 drop(seiza::mark_after_current_task(VIEWPORT_FILLED_MARK));
             }
             if let Some(opened_at) = self.opened_at.take() {
+                let first_rows_metric = self.first_rows_metric;
                 let first_rows = seiza::mark_after_current_task(FIRST_ROWS_MARK);
                 cx.spawn(async move |_, cx| {
                     let metric = match first_rows.await {
                         Some(shown) => format!("{:.0} ms", shown - opened_at),
                         None => "—".into(),
                     };
-                    cx.update(|cx| seiza::perf::set_metric(cx, FIRST_ROWS_METRIC, metric));
+                    cx.update(|cx| seiza::perf::set_metric(cx, first_rows_metric, metric));
                 })
                 .detach();
             }
@@ -963,8 +994,6 @@ const VIEWPORT_FILLED_MARK: &str = "tycho:viewport-filled";
 /// Set right after the first such frame for a file.
 #[cfg(target_family = "wasm")]
 const FIRST_ROWS_MARK: &str = "tycho:first-rows";
-#[cfg(target_family = "wasm")]
-const FIRST_ROWS_METRIC: &str = "Sample → first rows";
 
 impl Focusable for RowTable {
     fn focus_handle(&self, _: &App) -> FocusHandle {

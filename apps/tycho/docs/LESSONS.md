@@ -116,3 +116,25 @@ One entry per milestone, written before starting the next one: what surprised us
 - **A quick click on the scrollbar left the drag on.** The drag's move and release listeners were registered at paint, and only while dragging, so a release in the same frame as the press was missed. Playwright's WebKit showed it first; a negative control shows it in Chromium and Firefox too. The listeners now register every frame.
 - **Memory:** wasm plateaus at the page-cache budget plus ~21 MiB of allocator slack, and doesn't keep growing over 5 passes. Wasm memory never shrinks. The live JS heap is ~4 MiB, but without a forced GC it swings ~20 MiB between identical passes, so the check forces one.
 - **The bigger footer** (52 row groups instead of 13) costs the M3 click → schema ~20 ms (108 ms, budget 300). Bytes before the schema rose from 34.8 KB to 90.8 KB.
+
+## M5: Drop a Parquet file (2026-09-27)
+
+**Numbers:** dropping a 969.7 MiB Parquet (42.3 M rows) shows its schema in **213.6 ms** and first rows in **796.0 ms** (budget 1 s; throttled 893.7). Peak memory for the 1 GB file matches the 100 MB one: app 17.5 vs 17.6 MiB, every agent 129.2 vs 135.1 MiB; holding a copy in the page reads +127.6 MiB, so a copy would show. Reference TTFP 173.9 ms in the final `check`. App wasm +7.4 KiB brotli (2661.3 KiB). Details: `perf/results/2026-09-27-m5.md`.
+
+**Decisions:**
+- **Drops and the file dialog live in `crate/src/files.rs`, not the JS host.** GPUI doesn't deliver browser drops (gpui-pre-web only `preventDefault`s them), so Tycho listens on `window` with web-sys and enters GPUI through its foreground executor. The dialog is a hidden `<input type=file>` clicked from a GPUI click handler, which works because GPUI dispatches inside the DOM's own pointer event. No bridge call was added: a `File` goes through `registerFile` as before.
+- **Sniff `PAR1` at both ends before the engine sees a file.** Two 4-byte slices, under a millisecond at any size, answered even while DuckDB loads. Wrong files keep the current file open and get an inline line saying why.
+- **Every open registers under its own SQL name** (`file-<n>.parquet`). A file's own name could be a glob to `read_parquet`, and a fresh name means a cached footer never outlives its file.
+- **A new open replaces the old one:** the open task is dropped, its metadata queries cancelled, and an open table closed (`RowTable::close`). Registered file handles stay registered; unregistering would be a fourth bridge call, and a handle holds no bytes.
+- **`SET GLOBAL parquet_metadata_cache = true`** after `LOAD parquet`, in the same load attempt.
+- **Visible pages first:** no prefetch page starts while a visible page isn't loaded (`PageCache::plan`).
+- **The every-agent memory bound is 10% of the two files' size difference**, not a fixed 16 MiB: that number swings ~20 MiB between snapshots of one file. The bound was changed after seeing that; the results note says so.
+
+**Surprises:**
+- **Our own row-group size was the slowest layout for a local 1 GB file.** First measurement: first rows 2.66 s at 30,720-row groups vs 0.59 s at 122,880 and 0.48 s at 1,048,576. M4 picked 30,720 for HTTP, where the readahead's bytes dominate; locally, per-row-group CPU does.
+- **A `file_row_number` filter doesn't prune row groups.** Each page query sets up every row group's column readers: ~0.4 ms per group with 19 columns, whatever the page size. That's ~20 ms on the M4 sample, invisible there, and ~490 ms at 1,378 groups. Native DuckDB 1.4.5 does the same. It isn't fixed here; it's carried to M7, where Gaia (25 M rows) picks its row-group size.
+- **DuckDB re-parsed the footer on every query.** The metadata cache is off by default, and a plain `SET` is per connection; each of our queries has its own, so the first try changed nothing. With `SET GLOBAL`, a metadata query on the 1 GB file went from ~165 ms to 1–2 ms.
+- **Round-robin query slices tripled first rows.** DuckDB-Wasm interleaves every pending query, so the visible page finished only when its two prefetch neighbours did. Holding prefetch until the visible pages are in also cut M4's jump to 90% from 133 to 92 ms.
+- **The file dialog needed no workaround in any engine.** The expectation was that Safari would refuse `input.click()` outside a "real" click handler; GPUI's synchronous dispatch was enough.
+- **The code review found a fix I'd reported but never landed** (a stale notice after a sample open): my edit script printed the change and never wrote it. Check a change is in the file before reporting it. The review also caught a failed open leaving queries running, a failed page blocking prefetch, and that parsed footers now stay in the worker for the session (recorded as a known cost).
+- **A script bug looked like a focus bug.** The memory check hung after Home, which looked like the page had no keyboard focus after a drop. It did; Home landed on cached pages, so the viewport never went unfilled and no `tycho:viewport-filled` mark came. The check now waits on what the table shows.

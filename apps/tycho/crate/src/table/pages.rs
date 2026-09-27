@@ -112,6 +112,14 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             .count()
     }
 
+    /// Every request still wanted, to cancel when the table goes away.
+    pub fn requests(&self) -> impl Iterator<Item = R> + '_ {
+        self.slots.values().filter_map(|slot| match slot {
+            Slot::Loading(request) => Some(*request),
+            _ => None,
+        })
+    }
+
     /// Cancelled requests DuckDB hasn't answered yet.
     pub fn draining(&self) -> usize {
         self.draining.len()
@@ -137,9 +145,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         if pages == 0 {
             return Vec::new();
         }
-        let first = (visible.start / self.page_rows).min(pages - 1);
-        let last = (visible.end.saturating_sub(1).max(visible.start) / self.page_rows)
-            .clamp(first, pages - 1);
+        let (first, last) = self.visible_span(&visible);
         let mut wanted: Vec<u64> = (first..=last).collect();
         if direction == Direction::Up {
             wanted.reverse();
@@ -168,11 +174,37 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         wanted
     }
 
+    /// How many pages the `visible` rows touch: the head of
+    /// [`PageCache::wanted`]'s list, for [`PageCache::plan`].
+    pub fn visible_pages(&self, visible: Range<u64>) -> usize {
+        if self.pages() == 0 {
+            return 0;
+        }
+        let (first, last) = self.visible_span(&visible);
+        (last - first + 1) as usize
+    }
+
+    /// The first and last page the `visible` rows touch. Needs a page.
+    fn visible_span(&self, visible: &Range<u64>) -> (u64, u64) {
+        let pages = self.pages();
+        let first = (visible.start / self.page_rows).min(pages - 1);
+        let last = (visible.end.saturating_sub(1).max(visible.start) / self.page_rows)
+            .clamp(first, pages - 1);
+        (first, last)
+    }
+
     /// Reconciles the cache with `wanted` (from [`PageCache::wanted`]):
     /// cancels in-flight pages that aren't wanted, forgets failures that
     /// aren't (so coming back retries them), marks wanted loaded pages as
     /// used, and picks what to fetch, up to the in-flight limit.
-    pub fn plan(&mut self, wanted: &[u64]) -> Plan<R> {
+    ///
+    /// The first `visible` pages of `wanted` are on screen. While any of them
+    /// isn't loaded, no prefetch page starts: DuckDB-Wasm runs one query
+    /// slice at a time, round-robin, so a prefetch in flight next to a
+    /// visible page makes it finish as late as both. At 50 ms a page (M4's
+    /// sample) that never showed; at ~540 ms (a 1 GB file with 1,378 row
+    /// groups, M5) first rows took 2.7 s instead of one page's time.
+    pub fn plan(&mut self, wanted: &[u64], visible: usize) -> Plan<R> {
         let mut cancel = Vec::new();
         self.slots.retain(|page, slot| match slot {
             Slot::Loading(request) if !wanted.contains(page) => {
@@ -187,7 +219,26 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         let tick = self.tick;
         let mut in_flight = self.in_flight() + self.draining.len();
         let mut fetch = Vec::new();
-        for page in wanted {
+        let visible = visible.min(wanted.len());
+        // Loading or not asked for yet. A failed page isn't retried while it
+        // stays in view, so it mustn't hold prefetch back.
+        let visible_missing = wanted[..visible]
+            .iter()
+            .any(|page| matches!(self.slots.get(page), None | Some(Slot::Loading(_))));
+        let reach = if visible_missing {
+            visible
+        } else {
+            wanted.len()
+        };
+        for (index, page) in wanted.iter().enumerate() {
+            if index >= reach {
+                // Still mark loaded prefetch pages as used, so they aren't
+                // evicted while the visible ones load.
+                if let Some(Slot::Loaded { used, .. }) = self.slots.get_mut(page) {
+                    *used = tick;
+                }
+                continue;
+            }
             match self.slots.get_mut(page) {
                 Some(Slot::Loaded { used, .. }) => *used = tick,
                 Some(_) => {}
@@ -306,7 +357,7 @@ mod tests {
     #[test]
     fn plan_limits_in_flight_and_cancels_stale() {
         let mut cache = Cache::new(10_000, 100, 1 << 20, 2);
-        let plan = cache.plan(&[5, 6, 7]);
+        let plan = cache.plan(&[5, 6, 7], 0);
         assert_eq!(
             plan,
             Plan {
@@ -319,33 +370,64 @@ mod tests {
         // The viewport jumped: both in-flight pages are stale. They're
         // cancelled, but DuckDB keeps reading them, so nothing new starts
         // until they answer.
-        let plan = cache.plan(&[90, 91]);
+        let plan = cache.plan(&[90, 91], 0);
         assert!(plan.fetch.is_empty());
         let mut cancelled = plan.cancel;
         cancelled.sort();
         assert_eq!(cancelled, vec![50, 60]);
         assert_eq!((cache.in_flight(), cache.draining()), (0, 2));
         cache.finished(50);
-        assert_eq!(cache.plan(&[90, 91]).fetch, vec![90]);
+        assert_eq!(cache.plan(&[90, 91], 0).fetch, vec![90]);
         cache.started(90, 90);
         // A cancelled request that won the race still frees its place.
         assert!(!cache.loaded(6, 60, "late", 5, &[90, 91]));
         assert_eq!(cache.draining(), 0);
-        assert_eq!(cache.plan(&[90, 91]).fetch, vec![91]);
+        assert_eq!(cache.plan(&[90, 91], 0).fetch, vec![91]);
     }
 
     #[test]
     fn a_cancelled_or_superseded_answer_is_dropped() {
         let mut cache = Cache::new(10_000, 100, 1 << 20, 4);
-        cache.plan(&[1]);
+        cache.plan(&[1], 0);
         cache.started(1, 10);
-        cache.plan(&[2]);
+        cache.plan(&[2], 0);
         assert!(!cache.loaded(1, 10, "late", 5, &[2]));
         assert_eq!(cache.row(150), RowState::Pending);
         cache.started(1, 11);
         assert!(!cache.loaded(1, 10, "stale", 5, &[1]));
         assert!(cache.loaded(1, 11, "fresh", 5, &[1]));
         assert_eq!(cache.row(150), RowState::Loaded(&"fresh", 50));
+    }
+
+    #[test]
+    fn prefetch_waits_for_the_visible_pages() {
+        let mut cache: PageCache<&str, u32> = PageCache::new(10_000, 100, 1_000, 3);
+        let wanted = cache.wanted(250..380, Direction::Still, 1);
+        let visible = cache.visible_pages(250..380);
+        assert_eq!((wanted.clone(), visible), (vec![2, 3, 4, 1], 2));
+        // Only the visible pages start, though the limit allows a third.
+        let plan = cache.plan(&wanted, visible);
+        assert_eq!(plan.fetch, vec![2, 3]);
+        cache.started(2, 20);
+        cache.started(3, 30);
+        assert!(cache.loaded(2, 20, "p", 5, &wanted));
+        assert_eq!(cache.plan(&wanted, visible).fetch, Vec::<u64>::new());
+        // Every visible page in: prefetch goes out.
+        assert!(cache.loaded(3, 30, "p", 5, &wanted));
+        assert_eq!(cache.plan(&wanted, visible).fetch, vec![4, 1]);
+    }
+
+    #[test]
+    fn a_failed_visible_page_doesnt_hold_prefetch() {
+        let mut cache: PageCache<&str, u32> = PageCache::new(10_000, 100, 1_000, 3);
+        let wanted = cache.wanted(250..380, Direction::Still, 1);
+        let visible = cache.visible_pages(250..380);
+        cache.plan(&wanted, visible);
+        cache.started(2, 20);
+        cache.started(3, 30);
+        cache.failed(2, 20, "network".into());
+        assert!(cache.loaded(3, 30, "p", 5, &wanted));
+        assert_eq!(cache.plan(&wanted, visible).fetch, vec![4, 1]);
     }
 
     #[test]
@@ -360,7 +442,7 @@ mod tests {
         assert_eq!(cache.used_bytes(), 20);
         assert_eq!(cache.row(0), RowState::Pending);
         // Touch page 1, then load page 3: page 2 is now the oldest.
-        cache.plan(&[1]);
+        cache.plan(&[1], 0);
         cache.started(3, 3);
         cache.loaded(3, 3, "p", 10, &[1, 3]);
         assert!(matches!(cache.row(100), RowState::Loaded(..)));
@@ -375,15 +457,15 @@ mod tests {
     #[test]
     fn failures_stay_while_in_view_then_retry() {
         let mut cache = Cache::new(1_000, 100, 1 << 20, 4);
-        cache.plan(&[0]);
+        cache.plan(&[0], 0);
         cache.started(0, 1);
         cache.failed(0, 1, "network".into());
         assert_eq!(cache.row(5), RowState::Failed("network"));
         // Still in view: shown, not hammered.
-        assert!(cache.plan(&[0]).fetch.is_empty());
+        assert!(cache.plan(&[0], 0).fetch.is_empty());
         // Scrolled away, then back: asked for again.
-        cache.plan(&[5]);
+        cache.plan(&[5], 0);
         assert_eq!(cache.row(5), RowState::Pending);
-        assert_eq!(cache.plan(&[0]).fetch, vec![0]);
+        assert_eq!(cache.plan(&[0], 0).fetch, vec![0]);
     }
 }

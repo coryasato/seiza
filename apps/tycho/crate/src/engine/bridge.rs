@@ -137,9 +137,13 @@ impl Engine {
 
     fn start_parquet_load(&self) -> Promise {
         let (_, load) = self.query(LOAD_PARQUET_SQL);
+        let engine = self.clone();
         let state = self.parquet.clone();
         let attempt = wasm_bindgen_futures::future_to_promise(async move {
-            let result = load.await;
+            let result = match load.await {
+                Ok(_) => engine.query(PARQUET_METADATA_CACHE_SQL).1.await,
+                failed => failed,
+            };
             *state.borrow_mut() = match result {
                 Ok(_) => ParquetLoad::Loaded(now()),
                 Err(_) => ParquetLoad::Idle,
@@ -218,6 +222,18 @@ fn engine_error(error: JsValue) -> EngineError {
 /// warm-up, so a sample click with the engine warm doesn't wait for the
 /// download; [`Engine::load_parquet`] keeps it to one attempt at a time.
 const LOAD_PARQUET_SQL: &str = "LOAD parquet";
+
+/// Keeps each Parquet file's parsed footer, so a file's metadata is parsed
+/// once, not by every query. Off by default, and `GLOBAL` because every
+/// query has its own connection. On a 1 GB file with 1,378 row groups, each
+/// parse costs ~165 ms in the worker: the three summary queries paid it three
+/// times and every page read once more (M5, `perf/results/2026-09-27-m5.md`).
+/// The cache keeps a footer as long as its file stays registered, which is the
+/// rest of the session: each dropped file registers under a new name, and
+/// unregistering would be a fourth bridge call. So each opened file costs its
+/// parsed footer in the worker (a few MB at 1,378 row groups). Known cost,
+/// recorded in M5's results; revisit if a session opens many big files.
+const PARQUET_METADATA_CACHE_SQL: &str = "SET GLOBAL parquet_metadata_cache = true";
 
 /// Starts the engine: called from the post-paint callback. Runs the warm-up
 /// query (which makes the bridge load DuckDB), then sets [`EngineStatus`] and

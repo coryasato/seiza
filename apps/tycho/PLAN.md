@@ -17,7 +17,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M2 | DuckDB in a worker, prefetched after first paint | Done 2026-09-23 |
 | M3 | Asteroid sample over HTTP | Done 2026-09-24 |
 | M4 | Virtualized table over paged queries | Done 2026-09-25 |
-| M5 | Drop a Parquet file | Not started |
+| M5 | Drop a Parquet file | Done 2026-09-27 |
 | M6 | Drop a CSV with progressive loading | Not started |
 | M7 | Observation panel, jump to row, and hardening | Not started |
 | M8 | Deploy to Cloudflare | Not started |
@@ -109,10 +109,15 @@ Record, for each option, the latency of a random jump to row ~90% and the bytes 
 
 Handle file drop and a file picker (the fallback) on the canvas. Register the file with DuckDB using the `File` handle, so it's read lazily and never copied whole into memory. Reuse the M3/M4 pipeline unchanged.
 
+*As built:* `crate/src/files.rs` listens for drops on `window` (GPUI swallows them on its canvas) and opens the file dialog through a hidden `<input type=file>`; `files::sniff` checks `PAR1` at both ends first. The pipeline is M3/M4's, plus two changes the 1 GB file forced: a global Parquet metadata cache and visible-pages-first paging (decisions log). Test files: `just tycho drop-files`; checks: `just tycho drop`.
+
 **Done when:**
-- [ ] Dropping a ~1 GB Parquet shows schema and first rows within **1 s** of the drop, with the engine warm.
-- [ ] Peak memory stays roughly the same whether the file is 100 MB or 1 GB, which shows the file isn't being copied.
-- [ ] Dropping an unsupported file shows a clear inline message. Dropping while a load is running cancels the old load cleanly.
+- [x] Dropping a ~1 GB Parquet shows schema and first rows within **1 s** of the drop, with the engine warm. *969.7 MiB, 42.3 M rows, our 30,720-row groups (1,378): schema **213.6 ms**, first rows **796.0 ms** median (n=10); throttled 254.1 / 864.5 ms. Before the two fixes: 536.9 / 2658.8 ms. At 122,880- and 1,048,576-row groups: 219 and 230 ms to first rows. The overlay's "File → first rows" matches within 0.5 ms.*
+- [x] Peak memory stays roughly the same whether the file is 100 MB or 1 GB, which shows the file isn't being copied. *App (wasm + JS) 17.6 vs 17.5 MiB; every agent (DuckDB's worker included) 135.1 vs 129.2 MiB. A held copy of the 100 MB file reads +127.6 MiB (negative control). Bounds: app ±16 MiB, every agent ±10% of the size difference; see `perf/results/2026-09-27-m5.md`.*
+- [x] Dropping an unsupported file shows a clear inline message. Dropping while a load is running cancels the old load cleanly. *Text, CSV, junk `.parquet`, 5-byte, and encrypted-Parquet files, on the empty state and over an open file: each gets its message, and an open file stays open. Four supersede cases (while opening, while pages load, over the sample, before the engine is ready): the last file wins, nothing else shows after, no console errors, the engine still answers.*
+- [x] Manual check in real Firefox and Safari (drop from Finder, file dialog). *Passed 2026-09-27; drop and dialog also pass in Playwright Chromium, Firefox, and WebKit.*
+
+*Carried to M7:* a page read costs ~0.4 ms per row group whatever its size, because a `file_row_number` filter doesn't prune row groups in DuckDB 1.4 (~490 ms at 1,378 groups; ~20 ms for the asteroids' 52). Pick Gaia's row-group size with this in view, and watch it in the work-time sparkline.
 
 ### M6: Drop a CSV with progressive loading
 
@@ -140,6 +145,16 @@ Add **jump to row**: a text input that scrolls the table to a row number. It's n
 Add error states: engine failed to load, network failure on the sample, and file too large.
 
 *Candidate (pending decision): static placeholder shell.* An HTML/CSS copy of the empty shell in `index.html`, painted before the wasm arrives and swapped for the canvas in the same step as `gpui:first-frame`, with no blank frame between. It must match the shell exactly (IBM Plex, theme colors, `prefers-color-scheme`) and stays non-interactive; optionally it catches an early file drop and hands it to the app once it starts. **TTFP keeps meaning GPUI's real first frame.** The placeholder paint is a separate metric, and the panel shows both. Decide by the throttled run, where first paint is ~3.5 s; the reference run's ~170 ms leaves little to win.
+
+*Carried from M5 (code review):* when a file is replaced, DuckDB reads already started keep running (up to 3 pages) next to the new file's first queries; the page cache counts them per table. Track in-flight and draining requests in `Engine` so a new table waits for them.
+
+*Carried from M5 (code review): parsed footers pile up.* With `parquet_metadata_cache` global and each open under a new SQL name, every opened file's parsed footer stays in DuckDB's worker for the session (a few MB for a 1,378-group file). Measure before deciding anything, and don't add a fourth bridge call on a guess:
+1. **Does unregistering free it?** The cache is keyed by path, so dropping the file handle (`db.dropFile`) may leave the footer cached, and a fourth call would buy nothing. Open 20 big files and record the worker's memory (`measureUserAgentSpecificMemory`, as `perf/drop.ts` does) with and without dropping each one after the next opens.
+2. **Can SQL clear it?** Test whether `SET GLOBAL parquet_metadata_cache = false` followed by `= true` empties the cache, or only stops it filling. If SQL can clear it, it goes through `query`, and the bridge stays at three calls.
+3. **If dropping does free it, fold it into `register_file`, not a new call.** v1 shows one file at a time, so "open a file" can mean "replace the open file": `engine.ts` drops the previously registered file when a new one registers. Rule 2 holds, but its wording changes, so update Tycho's CLAUDE.md and the decisions log. Drop only after the old file's reads have settled (the in-flight tracking above): a read DuckDB already started on a dropped handle would fail, or worse, hang the worker. The sample re-registers under the same name each time; check that dropping and re-registering it works.
+Record the numbers in M7's results either way. If the growth is small next to the file-size ceiling M7 measures, a documented cost may be the right answer.
+
+*Carried from M5:* a page read costs ~0.4 ms per row group (19 columns), whatever the page size: DuckDB 1.4 doesn't prune row groups on `file_row_number`, so every query sets up every group's column readers. At Gaia's 25 M rows, 30,720-row groups would be ~800 groups, ~0.3 s a page before any network. Weigh that against M4's HTTP readahead finding (bigger groups read more bytes per jump) when choosing Gaia's row-group size, and measure both.
 
 *Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, using per-frame work time (not frame intervals), and cache formatted strings per loaded page if the work time needs it.
 
@@ -324,6 +339,12 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-25 | M7's overlay becomes a user-facing **observation panel**: live load waterfall, bytes read vs file size, and while scrolling rows/s, pages in flight, cache hits, memory, and a sparkline of both rAF interval and per-frame work time. It refreshes at ~4 Hz; the fling budget is checked with it open and closed | M7 planning |
 | 2026-09-25 | **Jump to row** is navigation, not analysis, so it's inside v1 scope (Tycho rule 4). It's the first text input | M7 planning |
 | 2026-09-25 | The React comparison, if built, is a **replay mode** (the same scripted run on each side in turn), not a live race in one tab, where both sides would share a main thread and GPU. Research first; see Long-term goals | planning |
+| 2026-09-27 | Drops and the file dialog are Rust (`crate/src/files.rs`, web-sys): a `window` listener, since gpui-pre-web 0.3.5 swallows `drop` on its canvas, and a hidden `<input type=file>` clicked from a GPUI click handler. No new bridge call | M5 |
+| 2026-09-27 | A chosen file is sniffed (`PAR1` at both ends) before the engine sees it; a refused file leaves the current one open and shows why inline | M5 |
+| 2026-09-27 | Each open registers under its own SQL name (`file-<n>.parquet`), never the file's (a glob to `read_parquet`); a new open drops the old one's task, cancels its queries, and closes its table. Registered handles stay (unregistering is a fourth bridge call; a handle holds no bytes) | M5 |
+| 2026-09-27 | `SET GLOBAL parquet_metadata_cache = true` after `LOAD parquet`: each footer is parsed once, not by every query (~165 ms each at 1,378 row groups). `GLOBAL` because each query has its own connection | M5 `perf/results/2026-09-27-m5.md` |
+| 2026-09-27 | **Visible pages first:** no prefetch page starts while a visible page isn't loaded. DuckDB-Wasm round-robins query slices, so prefetch in flight delayed the visible page (1 GB first rows 2.7 s → 0.8 s with the cache fix; jump to 90% 133 → 92 ms) | M5 |
+| 2026-09-27 | M5 memory check: app memory within 16 MiB between the 100 MB and 1 GB files; every agent within 10% of their size difference, since it swings ~20 MiB between snapshots of one file. Set after the first runs; a held-copy negative control proves it catches a copy | M5 |
 
 ### Pending decisions
 
@@ -352,30 +373,30 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 170.2 ms (M4 protocol run, −4.0%); 179.7 ms in the final `check` (+1.4%, loaded machine) |
-| TTFP (throttled) | recorded only | 3465.2 ms | 3495.8 ms (M4, +0.9%) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 177.9 ms (M5 protocol run, +0.4%); 173.9 ms in the final `check` (−1.9%) |
+| TTFP (throttled) | recorded only | 3465.2 ms | 3507.8 ms (M5, +1.2%) |
 | TTFP, M3 interleaved A/B (20 runs each) | — | 186.2 ms (M2 rebuilt) | 186.9 ms (+0.4%) |
 | TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2653.9 KiB (M4, +1.3%; M4 itself +16.3 KiB) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2661.3 KiB (M5, +1.6%; M5 itself +7.4 KiB) |
 | Engine ready (reference / throttled) | recorded only | — | 621.5 / 9719.4 ms (M4; 726.1 / 9821.8 in M3, load differs) |
 | `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
 | Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |
-| Sample click → schema | ≤ 300 ms | — | 107.6 ms ref, 1066.4 ms throttled (M4: 52 row groups' bigger footer; 87.8 ms in M3) |
+| Sample click → schema | ≤ 300 ms | — | 97.3 ms ref, 1063.3 ms throttled (M5; 107.6 in M4, 87.8 in M3) |
 | Bytes before schema shown | < 2% of file | — | 90,824 B, 0.241% (M4; 34,759 B in M3) |
 | Parquet extension (EH, brotli) | recorded only | — | 487.2 KiB, after engine ready (M3) |
-| File → first rows | ≤ 500 ms | — | 239.2 ms ref, 3416.4 ms throttled (M4) |
+| File → first rows | ≤ 500 ms | — | 235.7 ms ref, 3359.7 ms throttled (M5; 239.2 in M4) |
 | Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 33.3 ms (M4) |
 | Fling p95 frame time, panel open | ≤ 20 ms, none > 50 ms | — | — |
 | Per-frame work time, fling p50/p95 (asteroids, ref / throttled) | recorded only | — | — |
 | Per-frame work time, fling p50/p95 (Gaia, ref / throttled) | recorded only | — | — |
 | Jump to row (first, middle, last, out of range) | lands on the row | — | — |
-| Jump to 90% | ≤ 400 ms | — | 133.0 ms ref, 2228.2 ms throttled (M4) |
-| App memory after two full passes | ≤ 128 MiB | — | 89.4 MiB (M4) |
-| Drop Parquet (~1 GB) → first rows | ≤ 1 s | — | — |
+| Jump to 90% | ≤ 400 ms | — | 91.6 ms ref, 2166.3 ms throttled (M5, visible pages first; 133.0 in M4) |
+| App memory after two full passes | ≤ 128 MiB | — | 91.2 MiB (M5; 89.4 in M4) |
+| Drop Parquet (~1 GB) → first rows | ≤ 1 s | — | 796.0 ms ref, 864.5 ms throttled; schema 213.6 / 254.1 ms (M5, 1,378 row groups) |
 | Drop CSV (~1 GB) → first rows | ≤ 1 s | — | — |
 | CSV row-count update interval | ≤ 500 ms | — | — |
 | CSV ingest throughput | recorded only | — | — |
-| Peak memory, 100 MB vs 1 GB Parquet | roughly flat | — | — |
+| Peak memory, 100 MB vs 1 GB Parquet | roughly flat | — | app 17.6 vs 17.5 MiB; every agent 135.1 vs 129.2 MiB (M5) |
 
 ---
 

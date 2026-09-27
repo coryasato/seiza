@@ -129,15 +129,19 @@ impl FileSummary {
     }
 }
 
-/// Registers `source` as `name` and reads its summary. The three metadata
-/// queries go out together, each on its own connection, once the Parquet
-/// extension is loaded ([`crate::engine::Engine::load_parquet`]), so none of
-/// them autoloads it.
+/// Registers `source` under the SQL name `name` and reads its summary, shown
+/// as `display_name`. The three metadata queries go out together, each on its
+/// own connection, once the Parquet extension is loaded
+/// ([`crate::engine::Engine::load_parquet`]), so none of them autoloads it.
+/// Each query's id goes to `sent` as it's sent, so a caller that gives up on
+/// the open can cancel them.
 #[cfg(target_family = "wasm")]
 pub async fn open(
     engine: &crate::engine::Engine,
     name: &str,
+    display_name: &str,
     source: crate::engine::FileSource,
+    sent: impl Fn(crate::engine::RequestId),
 ) -> Result<FileSummary, crate::engine::EngineError> {
     // Independent: the extension download (several round trips on a slow
     // network) overlaps the registration. Both are sent before either is
@@ -147,9 +151,13 @@ pub async fn open(
     let (info, parquet) = (info.await, parquet.await);
     parquet?;
     let info = info?;
-    let [describe, metadata, kv] = summary_queries(name).map(|sql| engine.query(&sql).1);
+    let [describe, metadata, kv] = summary_queries(name).map(|sql| {
+        let (id, result) = engine.query(&sql);
+        sent(id);
+        result
+    });
     let (describe, metadata, kv) = (describe.await?, metadata.await?, kv.await?);
-    FileSummary::from_results(name, info.size, &describe, &metadata, &kv)
+    FileSummary::from_results(display_name, info.size, &describe, &metadata, &kv)
         .map_err(crate::engine::EngineError::Engine)
 }
 

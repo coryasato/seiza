@@ -4,6 +4,8 @@ pub mod arrow;
 pub mod dataset;
 pub mod engine;
 #[cfg(target_family = "wasm")]
+mod files;
+#[cfg(target_family = "wasm")]
 mod selftest;
 pub mod table;
 mod targets;

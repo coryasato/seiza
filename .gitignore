@@ -24,6 +24,7 @@ pkg/
 apps/*/data/raw/
 apps/*/data/*.parquet
 apps/*/data/fixtures/*.csv
+apps/*/data/drop/
 
 # DuckDB extensions, downloaded and checked against pinned hashes (apps/*/web/duckdb-extensions.json)
 apps/*/web/public/duckdb-ext/

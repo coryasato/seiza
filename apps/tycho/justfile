@@ -36,6 +36,12 @@ data *args: data-deps
     node {{app_dir}}/data/prep.ts asteroids {{args}}
     cd {{app_dir}}/worker && {{root}}/node_modules/.bin/wrangler r2 object put tycho-data/asteroids.parquet --file ../data/asteroids.parquet --local
 
+# The M5 drop-test files (data/drop/, gitignored): asteroids.parquet repeated
+# to ~100 MB and ~1 GB, the 1 GB one in three row-group layouts. Local only:
+# perf/drop.ts opens them from disk, like a visitor's file.
+drop-files: data-deps
+    node {{app_dir}}/data/drop_files.ts
+
 # Install the data scripts' dependencies (native DuckDB, tens of MB).
 data-deps:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
@@ -60,6 +66,13 @@ sample *args:
 # `just tycho build` first.
 table *args:
     node {{app_dir}}/perf/table.ts {{args}}
+
+# M5 drop checks on the release build: drop a ~1 GB Parquet → schema and
+# first rows, 100 MB vs 1 GB memory, unsupported files, a drop superseding a
+# load, and the file dialog in Chromium/Firefox/WebKit. Needs
+# `just tycho drop-files`. Writes perf/results/<date>-<label>.json.
+drop *args:
+    node {{app_dir}}/perf/drop.ts {{args}}
 
 # M4 paging experiment: LIMIT/OFFSET vs file_row_number vs ingest, at several
 # row-group sizes (bench/ files in local R2; see perf/results/2026-09-25-m4.md).

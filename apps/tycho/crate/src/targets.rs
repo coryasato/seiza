@@ -115,3 +115,53 @@ pub fn publish_table(probe: &crate::table::TableProbe) {
     #[cfg(not(target_family = "wasm"))]
     let _ = probe;
 }
+
+/// What the workbench shows, for [`publish_workbench`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkbenchProbe<'a> {
+    /// `idle`, `opening`, `open`, or `failed`.
+    pub state: &'static str,
+    /// The file opening, shown, or failed.
+    pub name: Option<&'a str>,
+    pub rows: Option<u64>,
+    /// Why the open failed.
+    pub message: Option<&'a str>,
+    /// The inline line about the last file choice (e.g. not a Parquet file).
+    pub notice: Option<&'a str>,
+    pub dragging: bool,
+}
+
+/// Publishes what the workbench shows to `globalThis.__tychoWorkbench`:
+/// `{state, name, rows, message, notice, dragging}`. Called every render; the
+/// caller checks [`measuring`].
+pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
+    #[cfg(target_family = "wasm")]
+    {
+        use js_sys::{Object, Reflect};
+        use wasm_bindgen::JsValue;
+
+        let text = |value: Option<&str>| value.map_or(JsValue::NULL, JsValue::from_str);
+        let object = Object::new();
+        let set = |key: &str, value: JsValue| {
+            let _ = Reflect::set(&object, &JsValue::from_str(key), &value);
+        };
+        set("state", JsValue::from_str(probe.state));
+        set("name", text(probe.name));
+        set(
+            "rows",
+            probe
+                .rows
+                .map_or(JsValue::NULL, |rows| JsValue::from_f64(rows as f64)),
+        );
+        set("message", text(probe.message));
+        set("notice", text(probe.notice));
+        set("dragging", JsValue::from_bool(probe.dragging));
+        let _ = Reflect::set(
+            &js_sys::global(),
+            &JsValue::from_str("__tychoWorkbench"),
+            &object,
+        );
+    }
+    #[cfg(not(target_family = "wasm"))]
+    let _ = probe;
+}
