@@ -422,4 +422,6 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 ## Open questions / notes
 
-None open. (`docs/LESSONS.md` came off probation after M4: several of its surprises became decisions.)
+- **Possible later extraction of the table and engine as a standalone GPUI component.** Undecided; revisit after M8. Until then, `table/` and `engine/` report what happened through events, and the workbench decides what to display; they don't call `seiza::perf` directly.
+
+(`docs/LESSONS.md` came off probation after M4: several of its surprises became decisions.)
