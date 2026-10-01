@@ -18,7 +18,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M3 | Asteroid sample over HTTP | Done 2026-09-24 |
 | M4 | Virtualized table over paged queries | Done 2026-09-25 |
 | M5 | Drop a Parquet file | Done 2026-09-27 |
-| M6 | Drop a CSV with progressive loading | Not started |
+| M6 | Drop a CSV with progressive loading | Done 2026-09-30 |
 | M7 | Observation panel, jump to row, and hardening | Not started |
 | M8 | Deploy to Cloudflare | Not started |
 | Later | Table interactions: column resizing, selection, sorting | Not started; research first, after M8 |
@@ -123,13 +123,23 @@ Handle file drop and a file picker (the fallback) on the canvas. Register the fi
 
 Show first rows fast: sniff with `read_csv(..., sample_size=...)` and show `LIMIT` rows right away. Then ingest in the background in **chunks** so the row count can grow: JS slices the `File` by byte range at newline boundaries, then for each chunk runs `INSERT INTO t SELECT * FROM read_csv(chunk, columns=<sniffed schema>, header=<first chunk only>)`. After each chunk, the row count and scrollbar extent update. The table scrolls over the rows already ingested.
 
+*As built:* `crate/src/csv.rs`. Rust cuts the file at record boundaries (a quote-aware scan, 1 MiB per read), registers each chunk as a `File` slice (no copy, no new bridge call), and makes each chunk **its own table**, `CREATE TABLE tycho_csv.f<n>.c<k> AS SELECT * FROM read_csv(…, auto_detect = false, …)`, in an attached compressed in-memory database. Not one table appended to, as planned above: appends stalled 200–600 ms every few chunks. The dialect and types come from one `sniff_csv` of the first 1 MiB chunk, with RFC 4180 quoting forced (the sniffer picks no quote when the head has none); a later value that doesn't fit its type widens that column to VARCHAR and the chunk goes again. Chunks aim at 200 ms (1–8 MiB). The table (`RowSource::Csv`) grows after every chunk, and reads a page from the one or two chunk tables it spans. A replaced CSV's schema is dropped. Test file: `just tycho drop-files csv` (the fixture ×6, 1,021.7 MiB, 9,405,186 rows); checks: `just tycho csv`; experiment: `just tycho ingest`.
+
 **Done when:**
-- [ ] A ~1 GB CSV shows its first rows within **1 s** of the drop.
-- [ ] The row count in the header updates **at least every 500 ms** during ingest, and the scrollbar grows with it.
-- [ ] Scrolling during ingest stays within the M4 frame budget.
-- [ ] The final row count matches the file's data-line count, using `data/fixtures/asteroids.csv` (which includes quoted commas and newlines).
-- [ ] Ingest throughput (MB/s) and total time are shown in load stats and recorded.
-- [ ] **Decision recorded:** chunked ingest vs. raw-file queries, backed by the numbers.
+- [x] A ~1 GB CSV shows its first rows within **1 s** of the drop. *1,021.7 MiB, 9.4 M rows: schema **143.0 ms**, first rows **183.8 ms** median (n=10); throttled 193.7 / 342.9 ms. The overlay's "File → first rows" matches.*
+- [x] The row count in the header updates **at least every 500 ms** during ingest, and the scrollbar grows with it. *130 updates per load; the longest gap between frames showing the count grow was **202.4 ms** over all 10 reference runs (median gap 102.8 ms); throttled worst 455.1 ms. Sampled every 100 ms, the table's row extent equalled the header's count in every sample, and never shrank.*
+- [x] Scrolling during ingest stays within the M4 frame budget. *A 3 s fling down and up the loaded rows, mid-load: p95 **16.7 ms**, worst **16.7 ms**, 0 over 50 ms in all 10 reference runs. Throttled (recorded only): p95 33.3 ms median (50.0 in some runs), worst 66.7 ms, one frame over 50 in one run, against 16.7 / 33.3 ms throttled without an ingest (M5): the scan's main-thread work shows at CPU 4× (carried to M7).*
+- [x] The final row count matches the file's data-line count, using `data/fixtures/asteroids.csv` (which includes quoted commas and newlines). *1,567,531 = MANIFEST.json's count (and 9,405,186 for the 1 GB file, every run). End shows spkid 99000008, and the 8 tricky rows read back byte for byte. Firefox and WebKit: same count and last row. Generated files with a `rowid` column, a literal `12"` inside a field, and an unquoted TSV load exactly; a malformed row stops the load and keeps the rows before it.*
+- [x] Ingest throughput (MB/s) and total time are shown in load stats and recorded. *The overlay's "CSV load" ("1021.7 MiB in 15.5 s · 69.0 MB/s") and "CSV chunks" ("131 · slowest 188 ms"), and the header strip ("loading 30% · 67.6 MB/s", then "loaded in 15.5 s · 69.0 MB/s"). **15.4 s, 69.5 MB/s** median (n=10); throttled 21.2 s, 50.5 MB/s.*
+- [x] **Decision recorded:** chunked ingest vs. raw-file queries, backed by the numbers. *Chunked, one compressed table per chunk; see the decisions log and `perf/results/2026-09-30-m6.md`.*
+
+*Known cost:* every chunk stays registered with DuckDB for the session (`file-<n>-<k>.csv`, ~130 for the 1 GB file), like M5's file handles: unregistering is a fourth bridge call, and a registration holds a `File` slice, no bytes. Fold it into M7's footer-cache question (dropping on `registerFile`).
+
+*Code review (M6):* a finished or stopped CSV's tables weren't dropped when another file replaced it (only a loading one's were), ~300 MiB each for the 1 GB file; a CSV with its own `rowid` column paged by its values; a quote inside a field (`12" pizza`) could make the scanner treat the rest of the file as one quoted field; a stop between queries didn't stop the next chunk; a chunk's time could include the next chunk's scan. All fixed, each with a check (`just tycho csv`: supersede and formats).
+
+*Manual check (Firefox, Safari):* passed 2026-09-30; the 1 GB CSV loads in ~20 s there. End on the 1 GB Parquet showed skeleton rows for ~1.5 s, with or without a CSV before it (measured): M5's per-row-group cost, below.
+
+*Carried to M7:* during a CSV load at CPU 4×, fling frames reach 33–50 ms at p95 and 66.7 ms at worst, against 16.7 / 33.3 ms without one: the record scan copies 1 MiB windows into wasm on the main thread. Check it with the per-frame work time, and try smaller windows. And a 1 GB CSV holds ~300 MiB in DuckDB (~590 MiB every agent): the file-size ceiling M7 measures is lower for CSV than for Parquet.
 
 ### M7: Observation panel, jump to row, and hardening
 
@@ -345,6 +355,14 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-27 | `SET GLOBAL parquet_metadata_cache = true` after `LOAD parquet`: each footer is parsed once, not by every query (~165 ms each at 1,378 row groups). `GLOBAL` because each query has its own connection | M5 `perf/results/2026-09-27-m5.md` |
 | 2026-09-27 | **Visible pages first:** no prefetch page starts while a visible page isn't loaded. DuckDB-Wasm round-robins query slices, so prefetch in flight delayed the visible page (1 GB first rows 2.7 s → 0.8 s with the cache fix; jump to 90% 133 → 92 ms) | M5 |
 | 2026-09-27 | M5 memory check: app memory within 16 MiB between the 100 MB and 1 GB files; every agent within 10% of their size difference, since it swings ~20 MiB between snapshots of one file. Set after the first runs; a held-copy negative control proves it catches a copy | M5 |
+| 2026-09-30 | **Chunked ingest, not raw-file queries**, for CSV. Raw `read_csv` pages re-parse from the top: a page at 90% of the 1 GB CSV took 5.1 s and `count(*)` 3.3 s. Chunked: first rows in ~0.2 s, the count grows, a page at 90% reads in ~4 ms | M6 `perf/results/2026-09-30-m6.md` |
+| 2026-09-30 | **One table per chunk** (`CREATE TABLE … AS`), not appends to one table. Appends stalled 200–600 ms every few chunks inside DuckDB and grew memory with the chunk count; per-chunk tables never passed ~255 ms. Pages spanning two chunks read both with `UNION ALL` | M6 |
+| 2026-09-30 | Chunk tables live in `ATTACH ':memory:' AS tycho_csv (COMPRESS)`: 300 MiB of DuckDB memory for the 1 GB CSV, against 2.1 GiB uncompressed, for ~40% slower chunks. One schema per open, so `DROP SCHEMA … CASCADE` frees a replaced CSV | M6 |
+| 2026-09-30 | `read_csv` with `auto_detect = false` and every option from one `sniff_csv` of the first chunk (1 MiB): sniffing each chunk cost ~20 ms of ~55. RFC 4180 quoting is forced (the sniffer sees no quotes in the head and picks none); a conversion error widens that column to VARCHAR and retries the chunk | M6 |
+| 2026-09-30 | Chunks aim at 200 ms (1 MiB first, then 1–8 MiB, smoothed): the count updates between chunks, and a page read waits for the chunk in progress. Record boundaries are found in Rust (quote-aware), 1 MiB per read; the next chunk's end is found while DuckDB reads the current one. Chunks are `File` slices through `registerFile`: no new bridge call | M6 |
+| 2026-09-30 | A replaced CSV's load task stops, cancels its query, and drops its schema only after that query answers (a table mid-creation can't be dropped under it); a CSV that's done or stopped has its schema dropped by the workbench on close | M6, code review |
+| 2026-09-30 | Chunk tables are paged by `rowid`, except when the file has a `rowid` column (it hides DuckDB's): then each table numbers its rows with `row_number() OVER ()`, which streams in order but cost ~2.6× natively, so only those files pay it | M6 code review |
+| 2026-09-30 | A quote opens a field only at the field's start, in the scanner as in DuckDB; RFC 4180's quote is forced unless the sniffer found an unquoted TSV | M6 code review |
 
 ### Pending decisions
 
@@ -359,7 +377,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [ ] Data file names: stable + `no-cache`, or content-hashed + `immutable` (M8)
 - [x] Page size and prefetch depth (M4): 1024 rows × 2 pages
 - [x] Memory cap for page cache (M4): 64 MiB cache; 128 MiB app (wasm + JS heap)
-- [ ] Chunked CSV ingest vs raw-file queries (M6)
+- [x] Chunked CSV ingest vs raw-file queries (M6): chunked, one compressed table per chunk
 - [ ] Gaia magnitude cut / final row target (M7)
 - [ ] Static placeholder shell painted before the wasm, decided by the throttled run; TTFP stays GPUI's first frame (M7)
 - [ ] Production wasm encoding, br vs zstd (M8)
@@ -373,11 +391,11 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 177.9 ms (M5 protocol run, +0.4%); 173.9 ms in the final `check` (−1.9%) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 173.3 ms in M6's final `check` (−2.2%); 177.9 ms (M5 protocol run) |
 | TTFP (throttled) | recorded only | 3465.2 ms | 3507.8 ms (M5, +1.2%) |
 | TTFP, M3 interleaved A/B (20 runs each) | — | 186.2 ms (M2 rebuilt) | 186.9 ms (+0.4%) |
 | TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2661.3 KiB (M5, +1.6%; M5 itself +7.4 KiB) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2673.2 KiB (M6, +2.1%; M6 itself +11.9 KiB) |
 | Engine ready (reference / throttled) | recorded only | — | 621.5 / 9719.4 ms (M4; 726.1 / 9821.8 in M3, load differs) |
 | `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
 | Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |
@@ -393,9 +411,11 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 | Jump to 90% | ≤ 400 ms | — | 91.6 ms ref, 2166.3 ms throttled (M5, visible pages first; 133.0 in M4) |
 | App memory after two full passes | ≤ 128 MiB | — | 91.2 MiB (M5; 89.4 in M4) |
 | Drop Parquet (~1 GB) → first rows | ≤ 1 s | — | 796.0 ms ref, 864.5 ms throttled; schema 213.6 / 254.1 ms (M5, 1,378 row groups) |
-| Drop CSV (~1 GB) → first rows | ≤ 1 s | — | — |
-| CSV row-count update interval | ≤ 500 ms | — | — |
-| CSV ingest throughput | recorded only | — | — |
+| Drop CSV (~1 GB) → first rows | ≤ 1 s | — | 183.8 ms ref, 342.9 ms throttled; schema 143.0 / 193.7 ms (M6, 1,021.7 MiB) |
+| CSV row-count update interval | ≤ 500 ms | — | worst 202.4 ms ref (median gap 102.8), worst 455.1 ms throttled (M6) |
+| CSV ingest throughput | recorded only | — | 69.5 MB/s, 15.4 s for 1,021.7 MiB ref; 50.5 MB/s, 21.2 s throttled (M6) |
+| Fling p95 frame time during CSV ingest | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 16.7 ms ref; 33.3 ms p95, worst 66.7 ms throttled (M6) |
+| DuckDB + every agent memory, 1 GB CSV loaded | recorded only | — | ~300 MiB DuckDB; 589.5 MiB every agent (M6) |
 | Peak memory, 100 MB vs 1 GB Parquet | roughly flat | — | app 17.6 vs 17.5 MiB; every agent 135.1 vs 129.2 MiB (M5) |
 
 ---

@@ -1,0 +1,1078 @@
+{
+  "date": "2026-09-30",
+  "label": "m6-csv",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "files": {
+    "drop/asteroids-x6.csv": {
+      "rows": 9405186,
+      "bytes": 1071352470,
+      "sha256": "7177b6bbea5c2963629d8ed0732656a5090cd37958a7c4e67f4165550ecb0a54",
+      "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 6",
+      "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+    },
+    "fixtures/asteroids.csv": {
+      "rows": 1567531,
+      "bytes": 178558830,
+      "sha256": "4a471e3d88f430cdf136d8b47df4c81625f68b92b6a2d92a1066a11bbb0efc72",
+      "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+      "fetched": "2026-09-24",
+      "writer": "DuckDB v1.4.5, CSV with header; the asteroid rows, then fixtures-src/tricky_rows.csv"
+    },
+    "drop/asteroids-x3.parquet": {
+      "rows": 4702569,
+      "bytes": 113067110,
+      "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+      "rowGroups": 154,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    }
+  },
+  "budgets": {
+    "schemaMs": 1000,
+    "firstRowsMs": 1000,
+    "updateGapMs": 500,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50
+  },
+  "drop": {
+    "reference": {
+      "schemaMs": {
+        "median": 143,
+        "min": 129.2,
+        "max": 153.1
+      },
+      "firstRowsMs": {
+        "median": 183.8,
+        "min": 169,
+        "max": 203
+      },
+      "ingestMs": {
+        "median": 15413.4,
+        "min": 15308.7,
+        "max": 15694.7
+      },
+      "mbPerS": {
+        "median": 69.5,
+        "min": 68.3,
+        "max": 70
+      },
+      "updateGapMaxMs": {
+        "median": 201.5,
+        "min": 191.2,
+        "max": 202.4
+      },
+      "updateGapP50Ms": {
+        "median": 102.8,
+        "min": 92.3,
+        "max": 118.3
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "allAgentsMiB": {
+        "median": 589.5,
+        "min": 563.6,
+        "max": 594.9
+      },
+      "runs": [
+        {
+          "schemaMs": 130.98999977111816,
+          "firstRowsMs": 172.2150001525879,
+          "ingestMs": 15694.664999961853,
+          "mbPerS": 68.26220693481537,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 116.7,
+            "max": 201.55499982833862
+          },
+          "fling": {
+            "frames": 180,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 93,
+            "rowsWhenDone": 1836547
+          },
+          "samples": 156,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.7 s · 68.3 MB/s",
+            "chunks": "131 · slowest 204 ms",
+            "firstRows": "172 ms"
+          },
+          "memory": {
+            "wasmMiB": 18.5,
+            "jsHeapMiB": 9.6,
+            "allAgentsMiB": 594.9
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 144.4800000190735,
+          "firstRowsMs": 203,
+          "ingestMs": 15557.179999828339,
+          "mbPerS": 68.8654672641071,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 106.2,
+            "max": 202.44500017166138
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 103,
+            "rowsWhenDone": 1821534
+          },
+          "samples": 155,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.5 s · 69.0 MB/s",
+            "chunks": "131 · slowest 198 ms",
+            "firstRows": "203 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.1,
+            "jsHeapMiB": 19.3,
+            "allAgentsMiB": 589.5
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 147,
+          "firstRowsMs": 173.32000017166138,
+          "ingestMs": 15609.630000114441,
+          "mbPerS": 68.63407204348505,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 93.5,
+            "max": 200.33500003814697
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.6700000000003,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 100,
+            "rowsWhenDone": 1841768
+          },
+          "samples": 155,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.6 s · 68.7 MB/s",
+            "chunks": "131 · slowest 204 ms",
+            "firstRows": "173 ms"
+          },
+          "memory": {
+            "wasmMiB": 18.1,
+            "jsHeapMiB": 17,
+            "allAgentsMiB": 590.2
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 135.6100001335144,
+          "firstRowsMs": 194.26000022888184,
+          "ingestMs": 15332.780000209808,
+          "mbPerS": 69.87333477590757,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 118.3,
+            "max": 191.22500038146973
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 101,
+            "rowsWhenDone": 1819834
+          },
+          "samples": 152,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.3 s · 69.9 MB/s",
+            "chunks": "131 · slowest 187 ms",
+            "firstRows": "194 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.4,
+            "jsHeapMiB": 11.4,
+            "allAgentsMiB": 589.8
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 137.3600001335144,
+          "firstRowsMs": 178.7150001525879,
+          "ingestMs": 15349.619999885559,
+          "mbPerS": 69.79667705180894,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 103,
+            "max": 200.21000003814697
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 103,
+            "rowsWhenDone": 1816880
+          },
+          "samples": 152,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.3 s · 69.8 MB/s",
+            "chunks": "131 · slowest 193 ms",
+            "firstRows": "179 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.4,
+            "jsHeapMiB": 19.8,
+            "allAgentsMiB": 589.5
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 153.05000019073486,
+          "firstRowsMs": 194.27500009536743,
+          "ingestMs": 15418.375,
+          "mbPerS": 69.48543345196885,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 93,
+            "max": 199.06500005722046
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 97,
+            "rowsWhenDone": 1827549
+          },
+          "samples": 153,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.4 s · 69.6 MB/s",
+            "chunks": "131 · slowest 196 ms",
+            "firstRows": "194 ms"
+          },
+          "memory": {
+            "wasmMiB": 18.5,
+            "jsHeapMiB": 26.6,
+            "allAgentsMiB": 563.6
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 146.68499994277954,
+          "firstRowsMs": 187.42999982833862,
+          "ingestMs": 15408.480000019073,
+          "mbPerS": 69.53005552777911,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 93.3,
+            "max": 202.4399995803833
+          },
+          "fling": {
+            "frames": 182,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 105,
+            "rowsWhenDone": 1832569
+          },
+          "samples": 153,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.4 s · 69.6 MB/s",
+            "chunks": "131 · slowest 188 ms",
+            "firstRows": "187 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.4,
+            "jsHeapMiB": 66.2,
+            "allAgentsMiB": 569.6
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 141.7200002670288,
+          "firstRowsMs": 181.625,
+          "ingestMs": 15338.860000133514,
+          "mbPerS": 69.8456384627459,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 102.5,
+            "max": 201.94500017166138
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.6700000000003,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 98,
+            "rowsWhenDone": 1836170
+          },
+          "samples": 153,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.3 s · 70.0 MB/s",
+            "chunks": "131 · slowest 189 ms",
+            "firstRows": "182 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.4,
+            "jsHeapMiB": 25.6,
+            "allAgentsMiB": 589.5
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 144.21999979019165,
+          "firstRowsMs": 185.9800000190735,
+          "ingestMs": 15457.730000019073,
+          "mbPerS": 69.30852524909402,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 103.6,
+            "max": 201.44500017166138
+          },
+          "fling": {
+            "frames": 181,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 108,
+            "rowsWhenDone": 1822729
+          },
+          "samples": 154,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.5 s · 69.3 MB/s",
+            "chunks": "131 · slowest 204 ms",
+            "firstRows": "186 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.4,
+            "jsHeapMiB": 67.3,
+            "allAgentsMiB": 569.6
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 129.23499965667725,
+          "firstRowsMs": 168.99499988555908,
+          "ingestMs": 15308.744999885559,
+          "mbPerS": 69.9830371469385,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 131,
+          "updates": 130,
+          "gapMs": {
+            "p50": 92.3,
+            "max": 202.2200002670288
+          },
+          "fling": {
+            "frames": 182,
+            "p50": 16.664999999999964,
+            "p95": 16.670000000000073,
+            "max": 16.670000000000073,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 100,
+            "rowsWhenDone": 1834772
+          },
+          "samples": 152,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 15.3 s · 70.0 MB/s",
+            "chunks": "131 · slowest 186 ms",
+            "firstRows": "169 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.4,
+            "jsHeapMiB": 17.8,
+            "allAgentsMiB": 589.4
+          },
+          "problems": []
+        }
+      ]
+    },
+    "throttled": {
+      "schemaMs": {
+        "median": 193.7,
+        "min": 189.2,
+        "max": 212.3
+      },
+      "firstRowsMs": {
+        "median": 342.9,
+        "min": 317.7,
+        "max": 366.7
+      },
+      "ingestMs": {
+        "median": 21201.5,
+        "min": 21123.6,
+        "max": 21543.4
+      },
+      "mbPerS": {
+        "median": 50.5,
+        "min": 49.7,
+        "max": 50.7
+      },
+      "updateGapMaxMs": {
+        "median": 313.7,
+        "min": 281.9,
+        "max": 455.1
+      },
+      "updateGapP50Ms": {
+        "median": 163.3,
+        "min": 160.1,
+        "max": 175.1
+      },
+      "flingP95Ms": {
+        "median": 33.3,
+        "min": 33.3,
+        "max": 50
+      },
+      "flingMaxMs": {
+        "median": 50,
+        "min": 50,
+        "max": 66.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 1
+      },
+      "allAgentsMiB": {
+        "median": 570,
+        "min": 542.7,
+        "max": 597.3
+      },
+      "runs": [
+        {
+          "schemaMs": 192.11499977111816,
+          "firstRowsMs": 352.75499963760376,
+          "ingestMs": 21181.77499961853,
+          "mbPerS": 50.57897508680431,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 132,
+          "updates": 131,
+          "gapMs": {
+            "p50": 163.5,
+            "max": 313.4900002479553
+          },
+          "fling": {
+            "frames": 136,
+            "p50": 16.665000000000873,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 15,
+            "rowsWhenDone": 892501
+          },
+          "samples": 210,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.2 s · 50.7 MB/s",
+            "chunks": "132 · slowest 203 ms",
+            "firstRows": "353 ms"
+          },
+          "memory": {
+            "wasmMiB": 18.4,
+            "jsHeapMiB": 41.8,
+            "allAgentsMiB": 590.5
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 192.96999979019165,
+          "firstRowsMs": 366.73999977111816,
+          "ingestMs": 21130.174999713898,
+          "mbPerS": 50.702489213388255,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 134,
+          "updates": 133,
+          "gapMs": {
+            "p50": 160.1,
+            "max": 302.9800000190735
+          },
+          "fling": {
+            "frames": 134,
+            "p50": 16.665000000000873,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 6,
+            "rowsWhenDone": 906390
+          },
+          "samples": 209,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.1 s · 50.8 MB/s",
+            "chunks": "134 · slowest 247 ms",
+            "firstRows": "367 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.9,
+            "jsHeapMiB": 58.2,
+            "allAgentsMiB": 589.9
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 202.23999977111816,
+          "firstRowsMs": 345.039999961853,
+          "ingestMs": 21123.644999980927,
+          "mbPerS": 50.71816298754157,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 132,
+          "gapMs": {
+            "p50": 163.2,
+            "max": 316.914999961853
+          },
+          "fling": {
+            "frames": 141,
+            "p50": 16.665000000000873,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 7,
+            "rowsWhenDone": 947878
+          },
+          "samples": 210,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.1 s · 50.8 MB/s",
+            "chunks": "133 · slowest 203 ms",
+            "firstRows": "345 ms"
+          },
+          "memory": {
+            "wasmMiB": 18.6,
+            "jsHeapMiB": 9.6,
+            "allAgentsMiB": 597.3
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 212.33499956130981,
+          "firstRowsMs": 343.84999990463257,
+          "ingestMs": 21352.30999994278,
+          "mbPerS": 50.175014787761654,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 132,
+          "gapMs": {
+            "p50": 164.7,
+            "max": 433.9099998474121
+          },
+          "fling": {
+            "frames": 143,
+            "p50": 16.665000000000873,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 44,
+            "rowsWhenDone": 930460
+          },
+          "samples": 212,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.3 s · 50.3 MB/s",
+            "chunks": "133 · slowest 237 ms",
+            "firstRows": "343 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.5,
+            "jsHeapMiB": 28.9,
+            "allAgentsMiB": 542.9
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 189.92999982833862,
+          "firstRowsMs": 317.71499967575073,
+          "ingestMs": 21543.43499994278,
+          "mbPerS": 49.729881516241285,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 132,
+          "gapMs": {
+            "p50": 161.3,
+            "max": 312.0349998474121
+          },
+          "fling": {
+            "frames": 139,
+            "p50": 16.665000000000873,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 13,
+            "rowsWhenDone": 947148
+          },
+          "samples": 214,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.5 s · 49.8 MB/s",
+            "chunks": "133 · slowest 253 ms",
+            "firstRows": "318 ms"
+          },
+          "memory": {
+            "wasmMiB": 16.9,
+            "jsHeapMiB": 7,
+            "allAgentsMiB": 577.8
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 189.19000005722046,
+          "firstRowsMs": 327.2550001144409,
+          "ingestMs": 21328.664999961853,
+          "mbPerS": 50.23063890786958,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 132,
+          "updates": 131,
+          "gapMs": {
+            "p50": 165.3,
+            "max": 455.1300001144409
+          },
+          "fling": {
+            "frames": 134,
+            "p50": 16.665000000000873,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 19,
+            "rowsWhenDone": 904576
+          },
+          "samples": 212,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.3 s · 50.3 MB/s",
+            "chunks": "132 · slowest 323 ms",
+            "firstRows": "327 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.8,
+            "jsHeapMiB": 27.6,
+            "allAgentsMiB": 570.1
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 197.69999980926514,
+          "firstRowsMs": 336.3699998855591,
+          "ingestMs": 21201.509999752045,
+          "mbPerS": 50.53189466281079,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 132,
+          "gapMs": {
+            "p50": 161.6,
+            "max": 384.6699995994568
+          },
+          "fling": {
+            "frames": 138,
+            "p50": 16.665000000000873,
+            "p95": 33.340000000000146,
+            "max": 66.65999999999985,
+            "over50": 1,
+            "blankFrames": 0,
+            "placeholderFrames": 44,
+            "rowsWhenDone": 943547
+          },
+          "samples": 211,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.2 s · 50.6 MB/s",
+            "chunks": "133 · slowest 210 ms",
+            "firstRows": "336 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.5,
+            "jsHeapMiB": 37.8,
+            "allAgentsMiB": 542.9
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 193.4800000190735,
+          "firstRowsMs": 327.1349997520447,
+          "ingestMs": 21333.21999979019,
+          "mbPerS": 50.2199138250361,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 132,
+          "gapMs": {
+            "p50": 172.8,
+            "max": 306.41000032424927
+          },
+          "fling": {
+            "frames": 137,
+            "p50": 16.665000000000873,
+            "p95": 49.99499999999898,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 30,
+            "rowsWhenDone": 959836
+          },
+          "samples": 213,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.3 s · 50.3 MB/s",
+            "chunks": "133 · slowest 277 ms",
+            "firstRows": "327 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.5,
+            "jsHeapMiB": 39.7,
+            "allAgentsMiB": 569.8
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 193.82999992370605,
+          "firstRowsMs": 342.7649998664856,
+          "ingestMs": 21164.80999994278,
+          "mbPerS": 50.619517491671154,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 132,
+          "gapMs": {
+            "p50": 175.1,
+            "max": 281.8800001144409
+          },
+          "fling": {
+            "frames": 139,
+            "p50": 16.665000000000873,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 25,
+            "rowsWhenDone": 962840
+          },
+          "samples": 210,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.1 s · 50.7 MB/s",
+            "chunks": "133 · slowest 229 ms",
+            "firstRows": "342 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.5,
+            "jsHeapMiB": 20.5,
+            "allAgentsMiB": 542.9
+          },
+          "problems": []
+        },
+        {
+          "schemaMs": 210.76000022888184,
+          "firstRowsMs": 343.05999994277954,
+          "ingestMs": 21201.575000286102,
+          "mbPerS": 50.5317397403515,
+          "rows": 9405186,
+          "state": "done",
+          "message": null,
+          "chunks": 133,
+          "updates": 131,
+          "gapMs": {
+            "p50": 161,
+            "max": 313.80999994277954
+          },
+          "fling": {
+            "frames": 137,
+            "p50": 16.665000000000873,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 22,
+            "rowsWhenDone": 904901
+          },
+          "samples": 210,
+          "mismatchedSamples": 0,
+          "shrankSamples": 0,
+          "overlay": {
+            "load": "1021.7 MiB in 21.2 s · 50.6 MB/s",
+            "chunks": "133 · slowest 205 ms",
+            "firstRows": "342 ms"
+          },
+          "memory": {
+            "wasmMiB": 17.2,
+            "jsHeapMiB": 29.6,
+            "allAgentsMiB": 542.7
+          },
+          "problems": []
+        }
+      ]
+    }
+  },
+  "fixture": {
+    "browser": "chromium",
+    "loadedMs": 2542.7750000953674,
+    "rows": 1567531,
+    "checks": [
+      {
+        "what": "count",
+        "ok": true,
+        "detail": "1567531 rows (done), file has 1567531"
+      },
+      {
+        "what": "table extent",
+        "ok": true,
+        "detail": "table 1567531"
+      },
+      {
+        "what": "End shows the last row",
+        "ok": true,
+        "detail": "last cell 99000008"
+      },
+      {
+        "what": "tricky rows read back exactly",
+        "ok": true,
+        "detail": "8 rows match"
+      }
+    ],
+    "problems": []
+  },
+  "supersede": [
+    {
+      "name": "Parquet over a loading CSV",
+      "ok": true,
+      "detail": "shows asteroids-x3.parquet (4702569 rows, ingest null); CSV tables left: 0",
+      "problems": []
+    },
+    {
+      "name": "Parquet over a loaded CSV",
+      "ok": true,
+      "detail": "25 CSV tables while shown; 0 left after the Parquet opened",
+      "problems": []
+    },
+    {
+      "name": "Parquet over a CSV whose load stopped",
+      "ok": true,
+      "detail": "CSV stopped at 239500 rows with 3 tables; 0 left after the Parquet opened",
+      "problems": []
+    },
+    {
+      "name": "CSV over a loading CSV",
+      "ok": true,
+      "detail": "fixture 1567531 rows (done); CSV tables 24, the fixture's 24",
+      "problems": []
+    },
+    {
+      "name": "CSV dropped before the engine is ready",
+      "ok": true,
+      "detail": "1567531 rows; engine ready at the drop: false; first rows 713 ms after the drop",
+      "problems": []
+    }
+  ],
+  "formats": {
+    "checks": [
+      {
+        "what": "rowid: count",
+        "ok": true,
+        "detail": "400000 of 400000 rows (done, 5 chunks)"
+      },
+      {
+        "what": "rowid: End shows the last row",
+        "ok": true,
+        "detail": "last cell 2800993, want 2800993"
+      },
+      {
+        "what": "inches: count",
+        "ok": true,
+        "detail": "400000 of 400000 rows (done, 4 chunks)"
+      },
+      {
+        "what": "inches: End shows the last row",
+        "ok": true,
+        "detail": "last cell 39\" pizza, want 39\" pizza"
+      },
+      {
+        "what": "tsv: count",
+        "ok": true,
+        "detail": "400000 of 400000 rows (done, 4 chunks)"
+      },
+      {
+        "what": "tsv: End shows the last row",
+        "ok": true,
+        "detail": "last cell 399999, want 399999"
+      },
+      {
+        "what": "malformed row: load stops, rows before it stay",
+        "ok": true,
+        "detail": "stopped at 294609 of 400000 rows"
+      }
+    ],
+    "problems": []
+  },
+  "browsers": [
+    {
+      "browser": "firefox",
+      "loadedMs": 2989,
+      "rows": 1567531,
+      "checks": [
+        {
+          "what": "count",
+          "ok": true,
+          "detail": "1567531 rows (done), file has 1567531"
+        },
+        {
+          "what": "table extent",
+          "ok": true,
+          "detail": "table 1567531"
+        },
+        {
+          "what": "End shows the last row",
+          "ok": true,
+          "detail": "last cell 99000008"
+        }
+      ],
+      "problems": []
+    },
+    {
+      "browser": "webkit",
+      "loadedMs": 2788.9600000000005,
+      "rows": 1567531,
+      "checks": [
+        {
+          "what": "count",
+          "ok": true,
+          "detail": "1567531 rows (done), file has 1567531"
+        },
+        {
+          "what": "table extent",
+          "ok": true,
+          "detail": "table 1567531"
+        },
+        {
+          "what": "End shows the last row",
+          "ok": true,
+          "detail": "last cell 99000008"
+        }
+      ],
+      "problems": []
+    }
+  ],
+  "failures": []
+}

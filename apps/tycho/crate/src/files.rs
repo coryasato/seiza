@@ -1,7 +1,8 @@
 //! Files from the visitor's device: dropped on the page, or picked with the
 //! browser's file dialog. Both hand over a `File`, a handle to the bytes on
-//! disk, which DuckDB then reads by range (`registerFile`); nothing here reads
-//! more than the 8 bytes [`sniff`] checks.
+//! disk, which DuckDB then reads by range (`registerFile`). [`sniff`] reads
+//! 8 bytes; a CSV's chunks are cut by `crate::csv`, which reads it through
+//! [`read`].
 //!
 //! GPUI can't deliver these. gpui-pre-web 0.3.5 intercepts `dragover` and
 //! `drop` on its canvas only to stop the browser navigating to the file: a
@@ -208,7 +209,7 @@ fn create_input() -> Option<web_sys::HtmlInputElement> {
     let input: web_sys::HtmlInputElement = document.create_element("input").ok()?.unchecked_into();
     input.set_type("file");
     // A hint for the dialog's filter, not a check: `sniff` decides.
-    input.set_accept(".parquet,.parq,.pq");
+    input.set_accept(".parquet,.parq,.pq,.csv,.tsv,text/csv,text/tab-separated-values");
     input.set_hidden(true);
     let on_change = Closure::<dyn FnMut(web_sys::Event)>::new(move |event: web_sys::Event| {
         let Some(input) = event
@@ -235,19 +236,22 @@ fn create_input() -> Option<web_sys::HtmlInputElement> {
     Some(input)
 }
 
-/// What a file's first and last bytes say it is.
+/// What a file's first and last bytes, and its name, say it is.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Parquet,
     /// `PARE` at both ends: the columns and footer are encrypted, and DuckDB
     /// needs the key.
     EncryptedParquet,
-    /// Anything else. `csv` when the name or type says CSV (M6 opens those).
-    Other {
-        csv: bool,
-    },
-    /// Too short to hold a Parquet header and footer (12 bytes).
-    TooSmall,
+    /// Named or typed as CSV (or TSV). The name decides: CSV has no magic
+    /// bytes, and DuckDB's sniffer says whether it reads as one.
+    Csv,
+    /// A gzipped CSV. Chunks are cut at record boundaries in the raw bytes,
+    /// which a compressed file doesn't have.
+    CompressedCsv,
+    /// Zero bytes.
+    Empty,
+    Other,
 }
 
 /// Reads the 4 bytes at each end of `file`: a Parquet file starts and ends
@@ -257,21 +261,23 @@ pub async fn sniff(file: &web_sys::File) -> Result<Kind, String> {
     const MAGIC: &[u8] = b"PAR1";
     const ENCRYPTED: &[u8] = b"PARE";
     let size = file.size();
-    if size < 12.0 {
-        return Ok(Kind::TooSmall);
+    if size == 0.0 {
+        return Ok(Kind::Empty);
     }
-    let head = read(file, 0.0, 4.0).await?;
-    let tail = read(file, size - 4.0, size).await?;
-    Ok(match (head.as_slice(), tail.as_slice()) {
-        (MAGIC, MAGIC) => Kind::Parquet,
-        (ENCRYPTED, ENCRYPTED) => Kind::EncryptedParquet,
-        _ => Kind::Other {
-            csv: looks_like_csv(&file.name(), &file.type_()),
-        },
-    })
+    // Too short to hold a Parquet header and footer (12 bytes): not Parquet.
+    if size >= 12.0 {
+        let head = read(file, 0.0, 4.0).await?;
+        let tail = read(file, size - 4.0, size).await?;
+        match (head.as_slice(), tail.as_slice()) {
+            (MAGIC, MAGIC) => return Ok(Kind::Parquet),
+            (ENCRYPTED, ENCRYPTED) => return Ok(Kind::EncryptedParquet),
+            _ => {}
+        }
+    }
+    Ok(csv_kind(&file.name(), &file.type_()).unwrap_or(Kind::Other))
 }
 
-async fn read(file: &web_sys::File, start: f64, end: f64) -> Result<Vec<u8>, String> {
+pub(crate) async fn read(file: &web_sys::File, start: f64, end: f64) -> Result<Vec<u8>, String> {
     let error = |error: JsValue| {
         error
             .dyn_ref::<js_sys::Error>()
@@ -284,12 +290,14 @@ async fn read(file: &web_sys::File, start: f64, end: f64) -> Result<Vec<u8>, Str
     Ok(Uint8Array::new(&buffer).to_vec())
 }
 
-/// By name or MIME type; only used to word the message for a non-Parquet file.
-pub fn looks_like_csv(name: &str, mime: &str) -> bool {
+/// A CSV by name or MIME type, compressed or not.
+pub fn csv_kind(name: &str, mime: &str) -> Option<Kind> {
     let name = name.to_ascii_lowercase();
-    [".csv", ".tsv", ".csv.gz", ".tsv.gz"]
-        .iter()
-        .any(|ext| name.ends_with(ext))
+    if [".csv.gz", ".tsv.gz"].iter().any(|ext| name.ends_with(ext)) {
+        return Some(Kind::CompressedCsv);
+    }
+    let csv = [".csv", ".tsv"].iter().any(|ext| name.ends_with(ext))
         || mime == "text/csv"
-        || mime == "text/tab-separated-values"
+        || mime == "text/tab-separated-values";
+    csv.then_some(Kind::Csv)
 }

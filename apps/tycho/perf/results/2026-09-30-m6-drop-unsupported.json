@@ -1,0 +1,124 @@
+{
+  "date": "2026-09-30",
+  "label": "m6-drop-unsupported",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "files": {
+    "drop/asteroids-x3.parquet": {
+      "rows": 4702569,
+      "bytes": 113067110,
+      "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+      "rowGroups": 154,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    },
+    "drop/asteroids-x27.parquet": {
+      "rows": 42323121,
+      "bytes": 1016774988,
+      "sha256": "2d66bf8b63c0932fe98143681b28d02fc14e9bc2e836b19093c34f1cb26633d8",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 1378,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    },
+    "drop/asteroids-x27-rg122880.parquet": {
+      "rows": 42323121,
+      "bytes": 959155090,
+      "sha256": "cde927d6617c804f7368de8a4e8a160d260a83c039321571c0237715223068a9",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 345,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+    },
+    "drop/asteroids-x27-rg1048576.parquet": {
+      "rows": 42323121,
+      "bytes": 963732590,
+      "sha256": "f6a628b94b0d110264a1799170be1be9a87adb996fc6a1d87895635038431427",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 41,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 1048576"
+    }
+  },
+  "budgets": {
+    "schemaMs": 1000,
+    "firstRowsMs": 1000,
+    "appDeltaMiB": 16,
+    "allAgentsDeltaOfSizeDiff": 0.1,
+    "copyDetect": 0.9
+  },
+  "unsupported": {
+    "results": [
+      {
+        "file": "notes.txt",
+        "over": "empty",
+        "notice": "notes.txt isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). Tycho opens Parquet and CSV (.csv, .tsv) files.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "table.csv.gz",
+        "over": "empty",
+        "notice": "table.csv.gz is compressed. Unzip it, then open the CSV inside.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "junk.parquet",
+        "over": "empty",
+        "notice": "junk.parquet isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). Tycho opens Parquet and CSV (.csv, .tsv) files.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "tiny.parquet",
+        "over": "empty",
+        "notice": "tiny.parquet isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). Tycho opens Parquet and CSV (.csv, .tsv) files.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "secret.parquet",
+        "over": "empty",
+        "notice": "secret.parquet is an encrypted Parquet file. Tycho can't read those.",
+        "state": "idle",
+        "ok": true
+      },
+      {
+        "file": "notes.txt",
+        "over": "open",
+        "notice": "notes.txt isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). Tycho opens Parquet and CSV (.csv, .tsv) files.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "table.csv.gz",
+        "over": "open",
+        "notice": "table.csv.gz is compressed. Unzip it, then open the CSV inside.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "junk.parquet",
+        "over": "open",
+        "notice": "junk.parquet isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). Tycho opens Parquet and CSV (.csv, .tsv) files.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "tiny.parquet",
+        "over": "open",
+        "notice": "tiny.parquet isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). Tycho opens Parquet and CSV (.csv, .tsv) files.",
+        "state": "open",
+        "ok": true
+      },
+      {
+        "file": "secret.parquet",
+        "over": "open",
+        "notice": "secret.parquet is an encrypted Parquet file. Tycho can't read those.",
+        "state": "open",
+        "ok": true
+      }
+    ],
+    "problems": []
+  },
+  "failures": []
+}

@@ -92,6 +92,29 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         start.min(self.rows)..(start + self.page_rows).min(self.rows)
     }
 
+    /// Changes the row count (a CSV grows while it loads). If the old last
+    /// page was short, it no longer holds every row it covers: it's
+    /// forgotten, and its request, if one is out, is returned for the caller
+    /// to cancel (it counts as in flight until it answers).
+    pub fn set_rows(&mut self, rows: u64) -> Option<R> {
+        let old = std::mem::replace(&mut self.rows, rows);
+        if old.is_multiple_of(self.page_rows) || rows == old {
+            return None;
+        }
+        let page = old / self.page_rows;
+        match self.slots.remove(&page) {
+            Some(Slot::Loaded { bytes, .. }) => {
+                self.used_bytes -= bytes;
+                None
+            }
+            Some(Slot::Loading(request)) => {
+                self.draining.push(request);
+                Some(request)
+            }
+            _ => None,
+        }
+    }
+
     /// Bytes held by loaded pages.
     pub fn used_bytes(&self) -> usize {
         self.used_bytes
@@ -452,6 +475,38 @@ mod tests {
         cache.loaded(4, 4, "p", 10, &[1, 3, 4]);
         assert_eq!(cache.loaded_pages(), 3);
         assert_eq!(cache.used_bytes(), 30);
+    }
+
+    #[test]
+    fn growing_forgets_the_short_last_page() {
+        let mut cache = Cache::new(250, 100, 1 << 20, 4);
+        for page in 0..3 {
+            cache.started(page, page as u32);
+        }
+        assert!(cache.loaded(0, 0, "full", 10, &[]));
+        assert!(cache.loaded(2, 2, "short", 10, &[]));
+        // Page 2 held rows 200..250 of 200..300: gone once there are more.
+        assert_eq!(cache.set_rows(400), None);
+        assert_eq!(cache.row(210), RowState::Pending);
+        assert_eq!(cache.used_bytes(), 10);
+        assert!(matches!(cache.row(10), RowState::Loaded(..)));
+        assert_eq!(cache.pages(), 4);
+        // A short page still loading: cancelled, and draining until it answers.
+        cache.started(3, 3);
+        assert_eq!(cache.set_rows(450), None);
+        assert_eq!(cache.set_rows(450), None);
+        let mut cache = Cache::new(250, 100, 1 << 20, 4);
+        cache.started(2, 2);
+        assert_eq!(cache.set_rows(300), Some(2));
+        assert_eq!(cache.draining(), 1);
+        assert!(!cache.loaded(2, 2, "late", 10, &[]));
+        assert_eq!(cache.draining(), 0);
+        // Whole pages stay.
+        let mut cache = Cache::new(200, 100, 1 << 20, 4);
+        cache.started(1, 1);
+        assert!(cache.loaded(1, 1, "full", 10, &[]));
+        assert_eq!(cache.set_rows(300), None);
+        assert!(matches!(cache.row(150), RowState::Loaded(..)));
     }
 
     #[test]

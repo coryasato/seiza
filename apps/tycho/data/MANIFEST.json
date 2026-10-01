@@ -51,5 +51,12 @@
     "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
     "rowGroups": 41,
     "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 1048576"
+  },
+  "drop/asteroids-x6.csv": {
+    "rows": 9405186,
+    "bytes": 1071352470,
+    "sha256": "7177b6bbea5c2963629d8ed0732656a5090cd37958a7c4e67f4165550ecb0a54",
+    "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 6",
+    "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
   }
 }

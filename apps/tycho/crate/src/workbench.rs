@@ -2,10 +2,12 @@
 //! opened; then a header strip describes the file, above its rows.
 //!
 //! A file comes from a drop anywhere on the page, the file dialog, or the
-//! sample button. Every open goes through the same pipeline (register, read
-//! the footer's metadata, page rows: M3/M4). A new one replaces the current
-//! one, whether it's still opening or already showing rows: its queries are
-//! cancelled and its answers ignored.
+//! sample button. A Parquet file goes through one pipeline (register, read
+//! the footer's metadata, page rows: M3/M4); a CSV through another (cut into
+//! chunks, each copied into a table, the rows growing as they come: M6,
+//! `crate::csv`). A new file replaces the current one, whether it's still
+//! opening or already showing rows: its queries are cancelled, its answers
+//! ignored, and a CSV's tables dropped.
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::empty::{Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle};
@@ -18,6 +20,8 @@ use gpui_kit::*;
 
 use crate::dataset::{FileSummary, format_bytes, format_count};
 use crate::engine::EngineStatus;
+#[cfg(target_family = "wasm")]
+use crate::table::RowSource;
 use crate::table::RowTable;
 
 /// What's being opened or shown: the sample, or a file from this device.
@@ -70,16 +74,21 @@ enum Load {
     Opening {
         origin: Origin,
         name: SharedString,
-        /// Dropping it stops the open at its next await.
+        /// Dropping it stops the open at its next await. None for a CSV,
+        /// whose task runs on to drop its tables (`csv`).
         #[cfg(target_family = "wasm")]
-        _task: Task<()>,
+        _task: Option<Task<()>>,
         /// The metadata queries sent so far, to cancel if a new file comes.
         #[cfg(target_family = "wasm")]
         sent: std::rc::Rc<std::cell::RefCell<Vec<crate::engine::RequestId>>>,
+        #[cfg(target_family = "wasm")]
+        csv: Option<crate::csv::Stop>,
     },
     Open {
         summary: FileSummary,
         table: Entity<RowTable>,
+        /// A CSV's load, which runs on after its first rows show.
+        csv: Option<CsvLoad>,
     },
     Failed {
         origin: Origin,
@@ -93,6 +102,92 @@ impl Load {
         matches!(self, Self::Opening { origin, .. } if *origin == which)
     }
 }
+
+/// Where a CSV's load is.
+#[cfg_attr(
+    not(target_family = "wasm"),
+    expect(dead_code, reason = "only the web build opens files")
+)]
+#[derive(Debug, Clone, PartialEq)]
+enum IngestState {
+    Loading,
+    Done,
+    /// A chunk failed; the rows before it stay.
+    Stopped(SharedString),
+}
+
+/// A CSV's load, for the header strip and the overlay's load stats.
+#[cfg_attr(
+    not(target_family = "wasm"),
+    expect(dead_code, reason = "only the web build opens files")
+)]
+struct CsvLoad {
+    state: IngestState,
+    bytes: u64,
+    read: u64,
+    chunks: u64,
+    /// The slowest chunk: the longest the row count went without updating.
+    slowest_ms: f64,
+    /// ms from `timeOrigin`: when the file was dropped or picked, and when
+    /// its last chunk was in.
+    started_at: f64,
+    finished_at: Option<f64>,
+    /// Columns a later chunk turned into text, with the type they had and
+    /// the rows before the chunk that did.
+    widened: Vec<(String, String, u64)>,
+    /// Which open it is: its tables are `tycho_csv.f<open>.*`.
+    #[cfg(target_family = "wasm")]
+    open: u64,
+    #[cfg(target_family = "wasm")]
+    stop: crate::csv::Stop,
+}
+
+impl CsvLoad {
+    fn state_name(&self) -> &'static str {
+        match self.state {
+            IngestState::Loading => "loading",
+            IngestState::Done => "done",
+            IngestState::Stopped(_) => "stopped",
+        }
+    }
+
+    /// Megabytes (10^6) per second, from the drop to `until`.
+    fn throughput(&self, until: f64) -> f64 {
+        self.read as f64 / 1e6 / ((until - self.started_at) / 1000.0).max(0.001)
+    }
+
+    /// The header strip's words for it.
+    fn describe(&self, now: f64) -> String {
+        match (&self.state, self.finished_at) {
+            (IngestState::Done, Some(finished)) => format!(
+                "loaded in {:.1} s · {:.1} MB/s",
+                (finished - self.started_at) / 1000.0,
+                self.throughput(finished)
+            ),
+            (IngestState::Stopped(_), _) => format!(
+                "stopped at {:.0}%",
+                self.read as f64 * 100.0 / self.bytes.max(1) as f64
+            ),
+            _ => format!(
+                "loading {:.0}% · {:.1} MB/s",
+                self.read as f64 * 100.0 / self.bytes.max(1) as f64,
+                self.throughput(now)
+            ),
+        }
+    }
+}
+
+/// The overlay's CSV load stats.
+#[cfg(target_family = "wasm")]
+const CSV_LOAD_METRIC: &str = "CSV load";
+#[cfg(target_family = "wasm")]
+const CSV_CHUNKS_METRIC: &str = "CSV chunks";
+/// Set right after each frame that shows a CSV's row count grow, and after
+/// the one that shows its load done (with `?perf` or `?bench`).
+#[cfg(target_family = "wasm")]
+const CSV_ROWS_MARK: &str = "tycho:csv-rows";
+#[cfg(target_family = "wasm")]
+const CSV_DONE_MARK: &str = "tycho:csv-done";
 
 /// A line about the last file choice that didn't replace what's shown: a
 /// file Tycho can't open, or extra files in one drop.
@@ -124,6 +219,10 @@ pub struct Workbench {
     opened_at: f64,
     #[cfg(target_family = "wasm")]
     mark_shown: Option<Marks>,
+    /// A CSV's rows and load state as last rendered, to mark each frame
+    /// that shows them change.
+    #[cfg(target_family = "wasm")]
+    shown_csv: Option<(u64, &'static str)>,
     _engine_status: Subscription,
 }
 
@@ -144,6 +243,8 @@ impl Workbench {
             opened_at: 0.0,
             #[cfg(target_family = "wasm")]
             mark_shown: None,
+            #[cfg(target_family = "wasm")]
+            shown_csv: None,
             _engine_status: cx.observe_global::<EngineStatus>(|_, cx| cx.notify()),
         }
     }
@@ -195,6 +296,8 @@ impl Workbench {
     ) {
         use crate::files::{Kind, sniff};
 
+        let format_hint = "Tycho opens Parquet and CSV (.csv, .tsv) files.";
+
         self.opens += 1;
         let open = self.opens;
         self.sniffing = Some(cx.spawn_in(window, async move |this, cx| {
@@ -205,16 +308,17 @@ impl Workbench {
                 }
                 this.sniffing = None;
                 let name = SharedString::from(file.name());
-                let refused = match kind {
-                    Ok(Kind::Parquet) => None,
+                let refused = match &kind {
+                    Ok(Kind::Parquet | Kind::Csv) => None,
                     Ok(Kind::EncryptedParquet) => Some(format!(
                         "{name} is an encrypted Parquet file. Tycho can't read those."
                     )),
-                    Ok(Kind::Other { csv: true }) => Some(format!(
-                        "{name} is a CSV file. Tycho opens Parquet files for now; CSV support is coming."
+                    Ok(Kind::CompressedCsv) => Some(format!(
+                        "{name} is compressed. Unzip it, then open the CSV inside."
                     )),
-                    Ok(Kind::Other { csv: false } | Kind::TooSmall) => Some(format!(
-                        "{name} isn't a Parquet file (no PAR1 marker at its start and end). Tycho opens Parquet files."
+                    Ok(Kind::Empty) => Some(format!("{name} is empty.")),
+                    Ok(Kind::Other) => Some(format!(
+                        "{name} isn't a Parquet or CSV file (no PAR1 marker at its ends, not named .csv or .tsv). {format_hint}"
                     )),
                     Err(error) => Some(format!("Couldn't read {name}: {error}")),
                 };
@@ -234,6 +338,10 @@ impl Workbench {
                     .into(),
                     error: false,
                 });
+                if kind == Ok(Kind::Csv) {
+                    this.open_csv(name, file, open, at, window, cx);
+                    return;
+                }
                 let sql_name = format!("file-{open}.parquet");
                 this.open(
                     Origin::Device,
@@ -251,21 +359,41 @@ impl Workbench {
     /// Stops whatever is loading or showing, so a new file can take over.
     #[cfg(target_family = "wasm")]
     fn close_current(&mut self, cx: &mut Context<Self>) {
+        let engine = cx.global::<crate::engine::Engine>().clone();
         match std::mem::replace(&mut self.load, Load::Idle) {
-            Load::Opening { origin, sent, .. } => {
+            Load::Opening {
+                origin, sent, csv, ..
+            } => {
                 // The task is dropped with the state; its sent queries go on
                 // in DuckDB unless cancelled.
-                let engine = cx.global::<crate::engine::Engine>();
                 for request in sent.borrow().iter() {
                     engine.cancel(*request);
+                }
+                if let Some(csv) = csv {
+                    csv.stop(&engine);
                 }
                 let marks = origin.marks();
                 seiza::perf::set_metric(cx, marks.schema_metric, "—");
                 seiza::perf::set_metric(cx, marks.first_rows_metric, "—");
             }
-            Load::Open { table, .. } => table.update(cx, |table, cx| table.close(cx)),
+            Load::Open { table, csv, .. } => {
+                table.update(cx, |table, cx| table.close(cx));
+                match csv {
+                    // Still loading: the load task drops the tables once its
+                    // query answers.
+                    Some(load) if load.state == IngestState::Loading => load.stop.stop(&engine),
+                    // Done or stopped: the task has ended, so drop them here.
+                    // A page read DuckDB already started on them answers
+                    // first (the drop waits its turn behind it).
+                    Some(load) => drop(engine.query(&crate::csv::drop_sql(load.open)).1),
+                    None => {}
+                }
+            }
             Load::Idle | Load::Failed { .. } => {}
         }
+        seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "—");
+        seiza::perf::set_metric(cx, CSV_CHUNKS_METRIC, "—");
+        self.shown_csv = None;
         self.mark_shown = None;
     }
 
@@ -316,7 +444,7 @@ impl Workbench {
                             crate::engine::show_parquet_ready(cx, &engine);
                             let table = cx.new(|cx| {
                                 RowTable::new(
-                                    sql_name,
+                                    RowSource::Parquet(sql_name),
                                     summary.rows,
                                     &summary.columns,
                                     started_at,
@@ -327,7 +455,11 @@ impl Workbench {
                             });
                             let focus = table.read(cx).focus_handle().clone();
                             window.focus(&focus, cx);
-                            Load::Open { summary, table }
+                            Load::Open {
+                                summary,
+                                table,
+                                csv: None,
+                            }
                         }
                         Err(error) => {
                             // Queries still running (a failed DESCRIBE leaves
@@ -355,10 +487,291 @@ impl Workbench {
         self.load = Load::Opening {
             origin,
             name,
-            _task: task,
+            _task: Some(task),
             sent,
+            csv: None,
         };
         cx.notify();
+    }
+
+    /// Opens a CSV file: its first chunk becomes a table (schema and first
+    /// rows), then the rest follows a chunk at a time while the table
+    /// scrolls. One task does it all, detached, so a stop still drops the
+    /// tables (see [`CsvStop`]).
+    #[cfg(target_family = "wasm")]
+    fn open_csv(
+        &mut self,
+        name: SharedString,
+        file: web_sys::File,
+        open: u64,
+        started_at: f64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::csv::Ingest;
+        use crate::engine::{Engine, EngineError};
+
+        self.close_current(cx);
+        let marks = Origin::Device.marks();
+        self.opened_at = started_at;
+        mark_at(marks.start, started_at);
+        seiza::perf::set_metric(cx, marks.schema_metric, "…");
+        seiza::perf::set_metric(cx, marks.first_rows_metric, "…");
+        seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "…");
+
+        let engine = cx.global::<Engine>().clone();
+        let stop = crate::csv::Stop::default();
+        {
+            let (stop, name) = (stop.clone(), name.clone());
+            cx.spawn_in(window, async move |this, cx| {
+                let first = async {
+                    let mut ingest =
+                        Ingest::start(engine.clone(), file, open, stop.clone()).await?;
+                    if stop.stopped() {
+                        return Err(EngineError::Cancelled);
+                    }
+                    match ingest.next().await {
+                        Some(Ok(chunk)) => Ok((ingest, chunk)),
+                        Some(Err(error)) => Err(error),
+                        None => Err(EngineError::Engine("it has no rows".into())),
+                    }
+                }
+                .await;
+                let keep = match first {
+                    _ if stop.stopped() => false,
+                    Err(error) => {
+                        let _ = this.update(cx, |this, cx| {
+                            this.notice = None;
+                            seiza::perf::set_metric(cx, marks.schema_metric, "failed");
+                            seiza::perf::set_metric(cx, marks.first_rows_metric, "—");
+                            seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "failed");
+                            this.load = Load::Failed {
+                                origin: Origin::Device,
+                                name,
+                                message: error.to_string().into(),
+                            };
+                            cx.notify();
+                        });
+                        false
+                    }
+                    Ok((mut ingest, chunk)) => {
+                        let shown = this.update_in(cx, |this, window, cx| {
+                            this.csv_opened(
+                                name,
+                                &ingest,
+                                chunk,
+                                open,
+                                stop.clone(),
+                                started_at,
+                                window,
+                                cx,
+                            )
+                        });
+                        let mut keep = shown.is_ok();
+                        while keep {
+                            let next = ingest.next().await;
+                            if stop.stopped() {
+                                keep = false;
+                                break;
+                            }
+                            let last = !matches!(next, Some(Ok(_)));
+                            keep = this
+                                .update(cx, |this, cx| this.csv_progress(next, cx))
+                                .is_ok();
+                            if last {
+                                break;
+                            }
+                        }
+                        keep
+                    }
+                };
+                if !keep {
+                    // Whatever DuckDB was doing for this file has answered
+                    // (the loop waits on it), so its tables can go.
+                    let _ = engine.query(&crate::csv::drop_sql(open)).1.await;
+                }
+            })
+            .detach();
+        }
+        self.load = Load::Opening {
+            origin: Origin::Device,
+            name,
+            _task: None,
+            sent: Default::default(),
+            csv: Some(stop),
+        };
+        cx.notify();
+    }
+
+    /// A CSV's first chunk is a table: show it.
+    #[cfg(target_family = "wasm")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the hand-off from the load task to the view"
+    )]
+    fn csv_opened(
+        &mut self,
+        name: SharedString,
+        ingest: &crate::csv::Ingest,
+        chunk: crate::csv::Chunk,
+        open: u64,
+        stop: crate::csv::Stop,
+        started_at: f64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let marks = Origin::Device.marks();
+        let summary = FileSummary {
+            name: name.to_string(),
+            bytes: Some(ingest.size() as u64),
+            rows: chunk.rows,
+            row_groups: None,
+            columns: ingest.columns().to_vec(),
+            credit: None,
+        };
+        let mut chunks = crate::csv::Chunks::new(ingest.row_column());
+        chunks.push(chunk.table, chunk.rows);
+        let engine = cx.global::<crate::engine::Engine>().clone();
+        let table = cx.new(|cx| {
+            RowTable::new(
+                RowSource::Csv(chunks),
+                summary.rows,
+                &summary.columns,
+                started_at,
+                marks.first_rows_metric,
+                engine,
+                cx,
+            )
+        });
+        let focus = table.read(cx).focus_handle().clone();
+        window.focus(&focus, cx);
+        let mut load = CsvLoad {
+            state: IngestState::Loading,
+            bytes: ingest.size() as u64,
+            read: chunk.bytes_read as u64,
+            chunks: 1,
+            slowest_ms: chunk.ms,
+            started_at,
+            finished_at: None,
+            widened: Vec::new(),
+            open,
+            stop,
+        };
+        if load.read >= load.bytes {
+            load.state = IngestState::Done;
+            load.finished_at = Some(crate::engine::now());
+        }
+        self.mark_shown = Some(marks);
+        self.load = Load::Open {
+            summary,
+            table,
+            csv: Some(load),
+        };
+        self.show_csv_stats(cx);
+        cx.notify();
+    }
+
+    /// The load task's next step: another chunk, the end, or a failure.
+    #[cfg(target_family = "wasm")]
+    fn csv_progress(
+        &mut self,
+        next: Option<Result<crate::csv::Chunk, crate::engine::EngineError>>,
+        cx: &mut Context<Self>,
+    ) {
+        let Load::Open {
+            summary,
+            table,
+            csv: Some(load),
+        } = &mut self.load
+        else {
+            return;
+        };
+        match next {
+            Some(Ok(chunk)) => {
+                for column in &chunk.widened {
+                    if let Some(info) = summary.columns.iter_mut().find(|info| info.name == *column)
+                    {
+                        load.widened.push((
+                            column.clone(),
+                            std::mem::replace(&mut info.data_type, "VARCHAR".into()),
+                            summary.rows,
+                        ));
+                    }
+                    table.update(cx, |table, cx| table.widen(column, cx));
+                }
+                summary.rows += chunk.rows;
+                load.read = chunk.bytes_read as u64;
+                load.chunks += 1;
+                load.slowest_ms = load.slowest_ms.max(chunk.ms);
+                table.update(cx, |table, cx| table.grow(chunk.table, chunk.rows, cx));
+            }
+            None => {
+                load.state = IngestState::Done;
+                // A file of one chunk is done when it opens.
+                load.finished_at.get_or_insert_with(crate::engine::now);
+            }
+            Some(Err(error)) => load.state = IngestState::Stopped(error.to_string().into()),
+        }
+        self.show_csv_stats(cx);
+        cx.notify();
+    }
+
+    /// The overlay's CSV load stats: progress and throughput while loading,
+    /// then the total time; chunks made and the slowest one.
+    #[cfg(target_family = "wasm")]
+    fn show_csv_stats(&self, cx: &mut App) {
+        let Load::Open {
+            csv: Some(load), ..
+        } = &self.load
+        else {
+            return;
+        };
+        let now = crate::engine::now();
+        let progress = match (&load.state, load.finished_at) {
+            (IngestState::Done, Some(finished)) => format!(
+                "{} in {:.1} s · {:.1} MB/s",
+                format_bytes(load.bytes),
+                (finished - load.started_at) / 1000.0,
+                load.throughput(finished)
+            ),
+            _ => load.describe(now),
+        };
+        seiza::perf::set_metric(cx, CSV_LOAD_METRIC, progress);
+        seiza::perf::set_metric(
+            cx,
+            CSV_CHUNKS_METRIC,
+            format!("{} · slowest {:.0} ms", load.chunks, load.slowest_ms),
+        );
+    }
+
+    /// Marks each frame that shows a CSV's row count change, and the one
+    /// that shows its load done: the M6 checks time the updates by them.
+    #[cfg(target_family = "wasm")]
+    fn mark_csv_shown(&mut self) {
+        let shown = match &self.load {
+            Load::Open {
+                summary,
+                csv: Some(load),
+                ..
+            } => Some((summary.rows, load.state_name())),
+            _ => None,
+        };
+        if shown == self.shown_csv {
+            return;
+        }
+        let before = std::mem::replace(&mut self.shown_csv, shown);
+        let Some((rows, state)) = shown else {
+            return;
+        };
+        if !crate::targets::measuring() {
+            return;
+        }
+        if before.is_none_or(|(before, _)| before != rows) {
+            drop(seiza::mark_after_current_task(CSV_ROWS_MARK));
+        }
+        if state == "done" && before.is_none_or(|(_, before)| before != "done") {
+            drop(seiza::mark_after_current_task(CSV_DONE_MARK));
+        }
     }
 
     /// On the first render showing the summary: marks it right after this
@@ -393,6 +806,12 @@ impl Workbench {
             Load::Open { summary, .. } => ("open", Some(summary.name.as_str()), Some(summary.rows)),
             Load::Failed { name, .. } => ("failed", Some(name.as_ref()), None),
         };
+        let csv = match &self.load {
+            Load::Open {
+                csv: Some(load), ..
+            } => Some(load),
+            _ => None,
+        };
         let message = match &self.load {
             Load::Failed { message, .. } => Some(message.as_ref()),
             _ => None,
@@ -404,6 +823,9 @@ impl Workbench {
             message,
             notice: self.notice.as_ref().map(|notice| notice.text.as_ref()),
             dragging: self.dragging,
+            ingest: csv.map(CsvLoad::state_name),
+            read_bytes: csv.map(|load| load.read),
+            chunks: csv.map(|load| load.chunks),
         });
     }
 
@@ -487,11 +909,8 @@ impl Workbench {
             .border_0()
             .header(
                 EmptyHeader::new()
-                    .title(EmptyTitle::new().child("Drop a Parquet file"))
-                    .description(
-                        EmptyDescription::new()
-                            .child("Files stay on this device. CSV support is coming."),
-                    ),
+                    .title(EmptyTitle::new().child("Drop a Parquet or CSV file"))
+                    .description(EmptyDescription::new().child("Files stay on this device.")),
             )
             .content(
                 EmptyContent::new()
@@ -502,7 +921,7 @@ impl Workbench {
                                 "open-file",
                                 Button::new("open-file")
                                     .primary()
-                                    .label("Open a Parquet file…")
+                                    .label("Open a file…")
                                     .loading(self.load.opening(Origin::Device))
                                     .disabled(engine_failed)
                                     .on_click(cx.listener(|this, _, window, cx| {
@@ -527,7 +946,12 @@ impl Workbench {
 
     /// The header strip: the file, its size and shape, its columns, and the
     /// data credit.
-    fn render_summary(&self, summary: &FileSummary, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_summary(
+        &self,
+        summary: &FileSummary,
+        csv: Option<&CsvLoad>,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let theme = cx.theme();
         let mut stats = vec![
             format!("{} rows", format_count(summary.rows)),
@@ -536,11 +960,44 @@ impl Workbench {
         if let Some(bytes) = summary.bytes {
             stats.push(format_bytes(bytes));
         }
-        stats.push(format!(
-            "{} row group{}",
-            format_count(summary.row_groups),
-            if summary.row_groups == 1 { "" } else { "s" }
-        ));
+        if let Some(row_groups) = summary.row_groups {
+            stats.push(format!(
+                "{} row group{}",
+                format_count(row_groups),
+                if row_groups == 1 { "" } else { "s" }
+            ));
+        }
+        if let Some(load) = csv {
+            #[cfg(target_family = "wasm")]
+            let now = crate::engine::now();
+            #[cfg(not(target_family = "wasm"))]
+            let now = load.started_at;
+            stats.push(load.describe(now));
+        }
+        let muted_line = |text: String| {
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(text)
+        };
+        let widened = csv
+            .into_iter()
+            .flat_map(|load| &load.widened)
+            .map(|(column, was, rows)| {
+                muted_line(format!(
+                    "{column} is shown as text: a value after row {} isn't a {was}.",
+                    format_count(*rows)
+                ))
+            });
+        let stopped = csv.and_then(|load| match &load.state {
+            IngestState::Stopped(message) => {
+                Some(div().text_xs().text_color(theme.danger).child(format!(
+                    "Stopped reading after row {}: {message}. The rows before it are shown.",
+                    format_count(summary.rows)
+                )))
+            }
+            _ => None,
+        });
 
         v_flex()
             .gap_2()
@@ -586,6 +1043,8 @@ impl Workbench {
                     .text_color(theme.muted_foreground)
                     .child(credit)
             }))
+            .children(widened)
+            .children(stopped)
             .children(self.notice.as_ref().map(|notice| {
                 div()
                     .text_xs()
@@ -617,7 +1076,7 @@ impl Workbench {
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("Parquet files are read in place, never uploaded or copied."),
+                        .child("Parquet is read in place; CSV is copied into memory as it loads. Nothing is uploaded."),
                 ),
         )
     }
@@ -669,15 +1128,22 @@ impl crate::files::FileTarget for Workbench {
 impl Render for Workbench {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(target_family = "wasm")]
-        self.mark_summary_shown(cx);
+        {
+            self.mark_summary_shown(cx);
+            self.mark_csv_shown();
+        }
         self.publish();
 
         let content = match &self.load {
-            Load::Open { summary, table } => v_flex()
+            Load::Open {
+                summary,
+                table,
+                csv,
+            } => v_flex()
                 .size_full()
                 .p_4()
                 .gap_3()
-                .child(self.render_summary(summary, cx))
+                .child(self.render_summary(summary, csv.as_ref(), cx))
                 .child(div().flex_1().min_h_0().child(table.clone())),
             _ => v_flex().size_full().p_4().child(self.render_empty(cx)),
         };

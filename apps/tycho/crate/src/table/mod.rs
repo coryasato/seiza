@@ -105,6 +105,28 @@ impl Paging {
     }
 }
 
+/// Where the table's rows come from.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RowSource {
+    /// A registered Parquet file, by its SQL name; read where it lies.
+    Parquet(String),
+    /// A CSV file's chunk tables, growing while it loads.
+    Csv(crate::csv::Chunks),
+}
+
+impl RowSource {
+    #[cfg_attr(
+        not(target_family = "wasm"),
+        expect(dead_code, reason = "only the web build loads pages")
+    )]
+    fn page_sql(&self, rows: std::ops::Range<u64>) -> String {
+        match self {
+            Self::Parquet(file) => crate::dataset::page_sql(file, rows),
+            Self::Csv(chunks) => chunks.page_sql(rows),
+        }
+    }
+}
+
 /// A column as drawn: its left edge in the scrolled content, and its width.
 #[derive(Debug, Clone, PartialEq)]
 struct TableColumn {
@@ -185,8 +207,9 @@ pub struct TableProbe {
     expect(dead_code, reason = "only the web build loads pages")
 )]
 pub struct RowTable {
-    /// The name SQL reads the file by.
-    file: String,
+    source: RowSource,
+    /// As the header strip shows them; [`RowTable::widen`] changes a type.
+    column_info: Vec<ColumnInfo>,
     columns: Vec<TableColumn>,
     content_width: f32,
     scroll: RowScroll,
@@ -220,11 +243,11 @@ pub struct RowTable {
 }
 
 impl RowTable {
-    /// A table over `rows` rows of the registered file `file`. `opened_at`
-    /// (ms from `timeOrigin`) is when it was asked for; the first filled frame
-    /// reports "first rows" against it, in the overlay row `first_rows_metric`.
+    /// A table over `rows` rows of `source`. `opened_at` (ms from
+    /// `timeOrigin`) is when it was asked for; the first filled frame reports
+    /// "first rows" against it, in the overlay row `first_rows_metric`.
     pub fn new(
-        file: String,
+        source: RowSource,
         rows: u64,
         columns: &[ColumnInfo],
         opened_at: f64,
@@ -233,14 +256,15 @@ impl RowTable {
         cx: &mut Context<Self>,
     ) -> Self {
         let paging = Paging::from_url();
-        let (columns, content_width) = layout_columns(columns);
+        let (laid_out, content_width) = layout_columns(columns);
         #[cfg_attr(
             not(target_family = "wasm"),
             expect(unused_mut, reason = "only the web build loads pages")
         )]
         let mut table = Self {
-            file,
-            columns,
+            source,
+            column_info: columns.to_vec(),
+            columns: laid_out,
             content_width,
             scroll: RowScroll::new(rows),
             scroll_x: 0.0,
@@ -273,6 +297,47 @@ impl RowTable {
 
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
+    }
+
+    /// A CSV chunk became `table`, holding `rows` more rows: the row count
+    /// and the scrollbar grow, and pages that were short or missing load.
+    pub fn grow(&mut self, table: String, rows: u64, cx: &mut Context<Self>) {
+        let RowSource::Csv(chunks) = &mut self.source else {
+            return;
+        };
+        chunks.push(table, rows);
+        let total = chunks.rows();
+        self.scroll.set_rows(total);
+        #[cfg_attr(
+            not(target_family = "wasm"),
+            expect(unused_variables, reason = "only the web build loads pages")
+        )]
+        let stale = self.cache.set_rows(total);
+        #[cfg(target_family = "wasm")]
+        {
+            if let Some(request) = stale {
+                self.engine.cancel(request);
+            }
+            self.load_pages(cx);
+        }
+        cx.notify();
+    }
+
+    /// A later CSV chunk had a value `column`'s type couldn't hold, so the
+    /// column is text from here on. Pages already loaded keep their values;
+    /// new reads cast the earlier chunks' values to text too.
+    pub fn widen(&mut self, column: &str, cx: &mut Context<Self>) {
+        if let RowSource::Csv(chunks) = &mut self.source {
+            chunks.widen(column);
+        }
+        for info in &mut self.column_info {
+            if info.name == column {
+                info.data_type = "VARCHAR".into();
+            }
+        }
+        (self.columns, self.content_width) = layout_columns(&self.column_info);
+        self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
+        cx.notify();
     }
 
     /// Stops the table for good: cancels its page queries and sends no more.
@@ -435,7 +500,7 @@ impl RowTable {
             self.engine.cancel(request);
         }
         for page in plan.fetch {
-            let sql = crate::dataset::page_sql(&self.file, self.cache.rows_of(page));
+            let sql = self.source.page_sql(self.cache.rows_of(page));
             let (request, result) = self.engine.query(&sql);
             self.cache.started(page, request);
             cx.spawn(async move |this, cx| {

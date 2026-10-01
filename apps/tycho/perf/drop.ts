@@ -22,7 +22,7 @@
 //    agent's within 10% of the files' size difference. A negative control
 //    holds the 100 MB file's bytes in the page (`file.arrayBuffer()`) and
 //    must read at least 90% of the file higher, so a copy would show.
-// 3. Unsupported files (Chromium): a text file, a CSV, junk named .parquet,
+// 3. Unsupported files (Chromium): a text file, a gzipped CSV, junk named .parquet,
 //    a 5-byte file, and an encrypted-Parquet shape, dropped on the empty
 //    state and over an open file: each shows its inline notice, and an open
 //    file stays open.
@@ -47,7 +47,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwri
 import { preview } from 'vite';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, open, overlayValue, waitMark, waitOverlay } from './harness.ts';
+import { clickTarget, dropFile, open, overlayValue, waitMark, waitOverlay } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -95,37 +95,7 @@ type Global = { __tychoWorkbench?: WorkbenchProbe; __tychoDropInput?: HTMLInputE
 const workbench = (page: Page) => page.evaluate(() => (globalThis as Global).__tychoWorkbench ?? null);
 const now = (page: Page) => page.evaluate(() => performance.now());
 
-/**
- * Drops the file at `file` (a disk path) on the canvas, the way the OS does:
- * dragenter, dragover, drop, each carrying a DataTransfer with the file.
- * Returns the page time just before the drop event.
- */
-async function drop(page: Page, file: string): Promise<number> {
-  await page.evaluate(() => {
-    const g = globalThis as Global;
-    if (!g.__tychoDropInput) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.hidden = true;
-      document.body.append(input);
-      g.__tychoDropInput = input;
-    }
-  });
-  const input = await page.evaluateHandle(() => (globalThis as Global).__tychoDropInput!);
-  await input.asElement()!.setInputFiles(file);
-  return page.evaluate(() => {
-    const file = (globalThis as Global).__tychoDropInput!.files![0]!;
-    const canvas = document.querySelector('canvas')!;
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    const fire = (type: string) => canvas.dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true, clientX: 720, clientY: 450 }));
-    fire('dragenter');
-    fire('dragover');
-    const at = performance.now();
-    fire('drop');
-    return at;
-  });
-}
+const drop = dropFile;
 
 /** Waits until the workbench shows `name` open with its first rows painted
  *  after `since`; returns [shown, firstRows] page times. */
@@ -239,10 +209,10 @@ function unsupportedFiles(dir: string) {
   encrypted.set(new TextEncoder().encode('PARE'), 0);
   encrypted.set(new TextEncoder().encode('PARE'), 60);
   return [
-    { file: make('notes.txt', 'hello, world\n'), expect: /isn't a Parquet file/ },
-    { file: make('table.csv', 'a,b\n1,2\n3,4\n'), expect: /is a CSV file.*CSV support is coming/ },
-    { file: make('junk.parquet', junk), expect: /isn't a Parquet file/ },
-    { file: make('tiny.parquet', 'PAR1\n'), expect: /isn't a Parquet file/ },
+    { file: make('notes.txt', 'hello, world\n'), expect: /isn't a Parquet or CSV file/ },
+    { file: make('table.csv.gz', new Uint8Array([0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 3, 1, 2, 3, 4])), expect: /is compressed/ },
+    { file: make('junk.parquet', junk), expect: /isn't a Parquet or CSV file/ },
+    { file: make('tiny.parquet', 'PAR1\n'), expect: /isn't a Parquet or CSV file/ },
     { file: make('secret.parquet', encrypted), expect: /encrypted Parquet/ },
   ];
 }

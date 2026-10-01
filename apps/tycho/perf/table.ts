@@ -39,7 +39,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwri
 import { preview } from 'vite';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, open, overlayValue, startCountingProxy, targetRect, waitMark, waitOverlay, wheel } from './harness.ts';
+import { clickTarget, frameRecorder, framesBetween, open, overlayValue, startCountingProxy, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -61,52 +61,10 @@ const passes = Number(option('passes') ?? 2);
 const sweepRuns = Number(option('sweep-runs') ?? 5);
 const label = option('label') ?? (flag('sweep') ? 'm4-sweep' : 'm4-table');
 
-interface TableProbe {
-  rows: number;
-  top: number;
-  first: number;
-  end: number;
-  loaded: number;
-  pending: number;
-  failed: number;
-  lastCell: string | null;
-}
-type Global = { __tychoTable?: TableProbe; __tychoFrames?: { t: number; blank: boolean; pending: boolean }[]; __tychoBridge?: { query(sql: string, id: number): Promise<Uint8Array> } };
-
-/** Records every rAF: its time, and whether the table drew a blank row
- *  position or a placeholder. Installed before the page loads. */
-function frameRecorder(): void {
-  const frames: { t: number; blank: boolean; pending: boolean }[] = [];
-  (globalThis as Global).__tychoFrames = frames;
-  const tick = (t: number) => {
-    const table = (globalThis as Global).__tychoTable;
-    const shown = table ? table.loaded + table.pending + table.failed : 0;
-    frames.push({ t, blank: !!table && (table.end <= table.first || shown !== table.end - table.first), pending: !!table && table.pending > 0 });
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
+type Global = { __tychoTable?: TableProbe; __tychoBridge?: { query(sql: string, id: number): Promise<Uint8Array> } };
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 const probe = (page: Page) => page.evaluate(() => (globalThis as Global).__tychoTable ?? null);
-
-/** Frame intervals (ms) recorded between two page times, plus what the
- *  table showed in those frames. */
-async function framesBetween(page: Page, from: number, to: number) {
-  const frames = await page.evaluate(({ from, to }) => ((globalThis as Global).__tychoFrames ?? []).filter((frame) => frame.t >= from && frame.t <= to), { from, to });
-  const intervals = frames.slice(1).map((frame, index) => frame.t - frames[index]!.t);
-  const sorted = [...intervals].sort((a, b) => a - b);
-  const rank = (p: number) => sorted[Math.min(sorted.length, Math.max(1, Math.ceil(p * sorted.length))) - 1] ?? 0;
-  return {
-    frames: frames.length,
-    p50: rank(0.5),
-    p95: rank(0.95),
-    max: sorted.at(-1) ?? 0,
-    over50: intervals.filter((interval) => interval > 50).length,
-    blankFrames: frames.filter((frame) => frame.blank).length,
-    placeholderFrames: frames.filter((frame) => frame.pending).length,
-  };
-}
 
 /** One SQL answer as text, found in the raw IPC bytes by a marker. */
 async function sqlText(page: Page, sql: string): Promise<string | null> {

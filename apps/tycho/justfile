@@ -36,11 +36,13 @@ data *args: data-deps
     node {{app_dir}}/data/prep.ts asteroids {{args}}
     cd {{app_dir}}/worker && {{root}}/node_modules/.bin/wrangler r2 object put tycho-data/asteroids.parquet --file ../data/asteroids.parquet --local
 
-# The M5 drop-test files (data/drop/, gitignored): asteroids.parquet repeated
-# to ~100 MB and ~1 GB, the 1 GB one in three row-group layouts. Local only:
-# perf/drop.ts opens them from disk, like a visitor's file.
-drop-files: data-deps
-    node {{app_dir}}/data/drop_files.ts
+# The drop-test files (data/drop/, gitignored): asteroids.parquet repeated
+# to ~100 MB and ~1 GB, the 1 GB one in three row-group layouts (M5), and the
+# CSV fixture repeated to ~1 GB (M6). Local only: perf/drop.ts and
+# perf/csv.ts open them from disk, like a visitor's file. Pass name parts to
+# build only some, e.g. `just tycho drop-files csv`.
+drop-files *args: data-deps
+    node {{app_dir}}/data/drop_files.ts {{args}}
 
 # Install the data scripts' dependencies (native DuckDB, tens of MB).
 data-deps:
@@ -73,6 +75,20 @@ table *args:
 # `just tycho drop-files`. Writes perf/results/<date>-<label>.json.
 drop *args:
     node {{app_dir}}/perf/drop.ts {{args}}
+
+# M6 CSV checks on the release build: drop a ~1 GB CSV → schema and first
+# rows, row-count updates ≤ 500 ms apart, a fling while it loads, the final
+# count (reference + throttled); the fixture's count and tricky rows; a drop
+# replacing a loading CSV (its tables dropped); Firefox and WebKit. Needs
+# `just tycho drop-files`. Writes perf/results/<date>-<label>.json.
+csv *args:
+    node {{app_dir}}/perf/csv.ts {{args}}
+
+# M6 ingest experiment: raw-file queries vs whole-file and chunked ingest of
+# the ~1 GB CSV, by chunk size, compression, and one table vs one per chunk
+# (see perf/results/2026-09-30-m6.md).
+ingest *args:
+    node {{app_dir}}/perf/ingest.ts {{args}}
 
 # M4 paging experiment: LIMIT/OFFSET vs file_row_number vs ingest, at several
 # row-group sizes (bench/ files in local R2; see perf/results/2026-09-25-m4.md).

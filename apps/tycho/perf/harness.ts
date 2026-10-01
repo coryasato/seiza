@@ -1,6 +1,7 @@
 // Playwright helpers for the scripts that drive the app (sample.ts, paging.ts,
-// table.ts): opening a page per the protocol, reading the perf overlay,
-// clicking canvas controls, and counting /data/ bytes at the server.
+// table.ts, drop.ts, csv.ts): opening a page per the protocol, reading the
+// perf overlay, clicking canvas controls, dropping files, recording frames,
+// and counting /data/ bytes at the server.
 
 import { createServer, request as httpRequest } from 'node:http';
 import { chromium, type BrowserContext, type BrowserType, type Page } from '@playwright/test';
@@ -175,4 +176,85 @@ export async function open(
   for (const [key, value] of Object.entries(options.params ?? {})) target.searchParams.set(key, value);
   await page.goto(target.toString());
   return { page, context, problems, close: () => browser.close() };
+}
+
+type DropGlobal = { __tychoDropInput?: HTMLInputElement };
+
+/**
+ * Drops the file at `file` (a disk path) on the canvas, the way the OS does:
+ * dragenter, dragover, drop, each carrying a DataTransfer with the file. The
+ * file is set on a scratch <input type=file> by path, so Chromium reads it
+ * from disk (no copy), like a visitor's file. Returns the page time just
+ * before the drop event.
+ */
+export async function dropFile(page: Page, file: string): Promise<number> {
+  await page.evaluate(() => {
+    const g = globalThis as DropGlobal;
+    if (!g.__tychoDropInput) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.hidden = true;
+      document.body.append(input);
+      g.__tychoDropInput = input;
+    }
+  });
+  const input = await page.evaluateHandle(() => (globalThis as DropGlobal).__tychoDropInput!);
+  await input.asElement()!.setInputFiles(file);
+  return page.evaluate(() => {
+    const file = (globalThis as DropGlobal).__tychoDropInput!.files![0]!;
+    const canvas = document.querySelector('canvas')!;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const fire = (type: string) => canvas.dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true, clientX: 720, clientY: 450 }));
+    fire('dragenter');
+    fire('dragover');
+    const at = performance.now();
+    fire('drop');
+    return at;
+  });
+}
+
+/** What the table publishes to `globalThis.__tychoTable` with `?perf` or `?bench`. */
+export interface TableProbe {
+  rows: number;
+  top: number;
+  first: number;
+  end: number;
+  loaded: number;
+  pending: number;
+  failed: number;
+  lastCell: string | null;
+}
+type FrameGlobal = { __tychoTable?: TableProbe; __tychoFrames?: { t: number; blank: boolean; pending: boolean }[] };
+
+/** Records every rAF: its time, and whether the table drew a blank row
+ *  position or a placeholder. Install with `context.addInitScript`. */
+export function frameRecorder(): void {
+  const frames: { t: number; blank: boolean; pending: boolean }[] = [];
+  (globalThis as FrameGlobal).__tychoFrames = frames;
+  const tick = (t: number) => {
+    const table = (globalThis as FrameGlobal).__tychoTable;
+    const shown = table ? table.loaded + table.pending + table.failed : 0;
+    frames.push({ t, blank: !!table && (table.end <= table.first || shown !== table.end - table.first), pending: !!table && table.pending > 0 });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/** Frame intervals (ms) recorded between two page times, plus what the
+ *  table showed in those frames. */
+export async function framesBetween(page: Page, from: number, to: number) {
+  const frames = await page.evaluate(({ from, to }) => ((globalThis as FrameGlobal).__tychoFrames ?? []).filter((frame) => frame.t >= from && frame.t <= to), { from, to });
+  const intervals = frames.slice(1).map((frame, index) => frame.t - frames[index]!.t);
+  const sorted = [...intervals].sort((a, b) => a - b);
+  const rank = (p: number) => sorted[Math.min(sorted.length, Math.max(1, Math.ceil(p * sorted.length))) - 1] ?? 0;
+  return {
+    frames: frames.length,
+    p50: rank(0.5),
+    p95: rank(0.95),
+    max: sorted.at(-1) ?? 0,
+    over50: intervals.filter((interval) => interval > 50).length,
+    blankFrames: frames.filter((frame) => frame.blank).length,
+    placeholderFrames: frames.filter((frame) => frame.pending).length,
+  };
 }

@@ -1,6 +1,7 @@
 //! Tycho: a local-first data workbench. DuckDB-Wasm queries, GPUI draws.
 
 pub mod arrow;
+pub mod csv;
 pub mod dataset;
 pub mod engine;
 #[cfg(target_family = "wasm")]

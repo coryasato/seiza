@@ -31,7 +31,8 @@ pub struct FileSummary {
     /// Bytes, when the host knows them.
     pub bytes: Option<u64>,
     pub rows: u64,
-    pub row_groups: u64,
+    /// Parquet only.
+    pub row_groups: Option<u64>,
     pub columns: Vec<ColumnInfo>,
     /// From the file's own key/value metadata (`tycho.credit`, `tycho.fetched`),
     /// which `data/prep.sql` writes. Files from elsewhere have none.
@@ -39,7 +40,7 @@ pub struct FileSummary {
 }
 
 /// `name` as a SQL string literal.
-fn sql_string(name: &str) -> String {
+pub(crate) fn sql_string(name: &str) -> String {
     format!("'{}'", name.replace('\'', "''"))
 }
 
@@ -122,7 +123,7 @@ impl FileSummary {
             name: name.to_owned(),
             bytes,
             rows,
-            row_groups,
+            row_groups: Some(row_groups),
             columns,
             credit,
         })
@@ -161,7 +162,7 @@ pub async fn open(
         .map_err(crate::engine::EngineError::Engine)
 }
 
-fn column(result: &QueryResult, name: &str) -> Result<usize, String> {
+pub(crate) fn column(result: &QueryResult, name: &str) -> Result<usize, String> {
     result
         .fields
         .iter()
@@ -169,14 +170,14 @@ fn column(result: &QueryResult, name: &str) -> Result<usize, String> {
         .ok_or_else(|| format!("metadata query has no `{name}` column"))
 }
 
-fn text(result: &QueryResult, row: usize, column: usize) -> Result<String, String> {
+pub(crate) fn text(result: &QueryResult, row: usize, column: usize) -> Result<String, String> {
     match result.value(row, column) {
         Some(Value::Str(text)) => Ok(text.to_owned()),
         other => Err(format!("expected text, got {other:?}")),
     }
 }
 
-fn count(result: &QueryResult, column: usize) -> Result<u64, String> {
+pub(crate) fn count(result: &QueryResult, column: usize) -> Result<u64, String> {
     match result.value(0, column) {
         Some(Value::Int(value)) if value >= 0 => Ok(value as u64),
         Some(Value::UInt(value)) => Ok(value),
@@ -273,7 +274,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(summary.rows, 1_567_523);
-        assert_eq!(summary.row_groups, 13);
+        assert_eq!(summary.row_groups, Some(13));
         assert_eq!(
             summary.columns,
             vec![
@@ -310,7 +311,7 @@ mod tests {
         let kv = result(vec![("key", strings(&[])), ("value", strings(&[]))]);
         let summary =
             FileSummary::from_results("x.parquet", None, &describe(), &metadata, &kv).unwrap();
-        assert_eq!((summary.rows, summary.row_groups), (5, 1));
+        assert_eq!((summary.rows, summary.row_groups), (5, Some(1)));
 
         let broken = result(vec![("num_rows", Arc::new(Int64Array::from(vec![5])))]);
         assert!(FileSummary::from_results("x", None, &describe(), &broken, &kv).is_err());

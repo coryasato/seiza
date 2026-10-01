@@ -58,6 +58,13 @@ impl RowScroll {
         true
     }
 
+    /// Changes the row count (a CSV grows while it loads), keeping the top
+    /// row where it is when possible.
+    pub fn set_rows(&mut self, rows: u64) {
+        self.rows = rows;
+        self.top = self.top.clamp(0.0, self.max_top());
+    }
+
     /// Moves the top to `top`, clamped. Returns whether it moved.
     pub fn set_top(&mut self, top: f64) -> bool {
         let top = if top.is_finite() {

@@ -7294,6 +7294,7 @@ name = "tycho"
 version = "0.1.0"
 dependencies = [
  "arrow",
+ "futures",
  "gpui-kit",
  "js-sys",
  "seiza",

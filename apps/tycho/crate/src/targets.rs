@@ -129,10 +129,16 @@ pub struct WorkbenchProbe<'a> {
     /// The inline line about the last file choice (e.g. not a Parquet file).
     pub notice: Option<&'a str>,
     pub dragging: bool,
+    /// A CSV's load: `loading`, `done`, or `stopped`; null for Parquet.
+    pub ingest: Option<&'static str>,
+    /// A CSV's bytes read so far, and chunks made.
+    pub read_bytes: Option<u64>,
+    pub chunks: Option<u64>,
 }
 
 /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`:
-/// `{state, name, rows, message, notice, dragging}`. Called every render; the
+/// `{state, name, rows, message, notice, dragging, ingest, readBytes, chunks}`.
+/// Called every render; the
 /// caller checks [`measuring`].
 pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
     #[cfg(target_family = "wasm")]
@@ -156,6 +162,12 @@ pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
         set("message", text(probe.message));
         set("notice", text(probe.notice));
         set("dragging", JsValue::from_bool(probe.dragging));
+        let number = |value: Option<u64>| {
+            value.map_or(JsValue::NULL, |value| JsValue::from_f64(value as f64))
+        };
+        set("ingest", text(probe.ingest));
+        set("readBytes", number(probe.read_bytes));
+        set("chunks", number(probe.chunks));
         let _ = Reflect::set(
             &js_sys::global(),
             &JsValue::from_str("__tychoWorkbench"),
