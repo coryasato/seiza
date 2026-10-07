@@ -4,6 +4,7 @@
 //! (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame`
 //! mark → post-paint callback) and the window shell apps render into.
 
+mod panel;
 pub mod perf;
 mod shell;
 pub mod url;
@@ -15,7 +16,7 @@ mod first_frame;
 #[cfg(target_family = "wasm")]
 mod frames;
 
-pub use perf::{FrameStats, PerfOverlay, TogglePerfOverlay, frame_stats};
+pub use perf::{FrameStats, LoadStep, PerfOverlay, TogglePerfOverlay, frame_stats, sample_stats};
 pub use shell::AppShell;
 
 #[cfg(target_family = "wasm")]

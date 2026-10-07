@@ -31,7 +31,7 @@ import { preview } from 'vite';
 import { checkDataEndpoint } from '../worker/scripts/check.ts';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, open, overlayValue, settled, startCountingProxy, waitOverlay } from './harness.ts';
+import { clickTarget, open, overlayValue, settled, startCountingProxy, waitMark, waitOverlay } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -136,12 +136,28 @@ async function failureRun(url: string, name: string, block: RegExp, retry = fals
     let ok = outcome === 'failed';
     if (retry && ok) {
       await context.unroute(block);
+      const before = await page.evaluate(() => performance.now());
       await clickTarget(page, TARGET);
-      // The row still says "failed" from the first click until this one lands.
-      const restarted = await waitOverlay(page, 'Sample → schema', /…/, 10_000).then(() => true, () => false);
-      const second = restarted
-        ? await waitOverlay(page, 'Sample → schema', /ms$|failed/, 60_000).catch(() => 'hung (no outcome in 60 s)')
-        : 'the second click never started a load';
+      // The row still says "failed" from the first click until this one
+      // lands, and the panel publishes at ~4 Hz, so a fast retry's "…" may
+      // never show: the app's click mark says it restarted, and only a panel
+      // refresh taken after it counts.
+      const clicked = await waitMark(page, 'tycho:sample-click', before, 10_000).catch(() => null);
+      const second =
+        clicked === null
+          ? 'the second click never started a load'
+          : await page
+              .waitForFunction(
+                (clicked) => {
+                  const g = globalThis as { __seizaPerfOverlay?: [string, string][]; __seizaPerfOverlayAt?: number };
+                  const value = g.__seizaPerfOverlay?.find(([name]) => name === 'Sample → schema')?.[1];
+                  return (g.__seizaPerfOverlayAt ?? 0) > clicked && value && /ms$|failed/.test(value) ? value : false;
+                },
+                clicked,
+                { timeout: 60_000, polling: 20 },
+              )
+              .then(async (handle) => (await handle.jsonValue()) as string)
+              .catch(() => 'hung (no outcome in 60 s)');
       ok = /ms$/.test(second);
       detail += `; retry after unblocking: ${second}`;
     }

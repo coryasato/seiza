@@ -169,3 +169,18 @@ One entry per milestone, written before starting the next one: what surprised us
 - **The perf overlay now sits under dialogs.** It's drawn inside the shell, and `Root` draws its overlays above the shell. M7's observation panel should account for that if it ever needs to cover a dialog.
 - One web gotcha is gone: the skill docs' `open_window` now matches the pinned API. Another is fixed upstream but untested here: Input's context-menu Paste falls back to an async clipboard read (#3244). Tycho has no text input until M7's jump to row, which checks it. File drops are still swallowed by gpui-pre-web 0.3.8.
 
+## M7 part A: Observation panel (2026-10-07)
+
+M7 is split into five parts, one session each (PLAN.md). Part E writes the milestone's full entry; this one covers part A.
+
+**Numbers:** 340/340 panel values matched an independent measurement within 5% (10 reference + 10 throttled runs). Fling p95 16.7 ms, worst 16.7, with the panel open and closed. Work per frame: fling 5.2 / 7.3 ms (p50/p95), steady scroll 12.7 / 15.1 ms (reference). App wasm +6.8 KiB brotli. TTFP unchanged in an interleaved A/B (195.5 vs 195.8 ms). Details: `perf/results/2026-10-07-m7-panel.md`.
+**Decisions:** DuckDB's reads are counted in its worker wrapper and reach Rust as a shared counter on `FileInfo`, with no fourth bridge call. The panel is a cached view refreshed at 4 Hz. The table reports through an event and `stats()`, and the workbench decides what the panel shows.
+**Surprises:**
+- **The frame interval hid the real cost of scrolling.** Both a fling and a steady scroll pin at 16.7 ms. Work per frame shows the steady scroll at 12.7 ms p50 and 15.1 p95, ~1.6 ms from a dropped frame, while the fling (mostly placeholders) is at 5.2. Loaded rows are what's expensive; part B checks whether that's cell formatting.
+- **js-sys's `Atomics::load_bigint` passes its index as a BigInt, which `Atomics.load` rejects.** The JS exception unwound through a GPUI update, and every later `cx.update` panicked "RefCell already borrowed". The first error in the log was the real one. Tycho declares its own `Atomics.load` binding with a number index.
+- **A `check` at 194.9 ms against a 195.0 ms limit was load, not the panel** (load 4–7). The interleaved A/B put master at 195.8 ms under the same load.
+- **Under CPU 4× throttling, work per frame is ~4× the reference but the interval p95 stays 16.7 ms.** Throttled work times compare with each other, not with a 60 Hz frame.
+- **A cached GPUI view saves its own render, not the frame.** Notifying it marks every ancestor dirty, so each 4 Hz refresh redraws the whole window, and a hidden panel that kept notifying redrew the app for nothing (code review). The panel now notifies only while it's visible, and says that its frame rows include the frames its refreshes draw.
+- **The code review caught swapped legend colors** that the screenshots missed: `cargo fmt` had rewrapped the sparkline's call, so a text replacement changed only the legend. The sparkline and legend now share one color definition.
+- **DuckDB's worker leaves room for counting.** Its main handler is `globalThis.onmessage`, set during `importScripts`, so a listener the wrapper adds first can take our own message (`stopImmediatePropagation`) before DuckDB sees it. Its reads go through `XMLHttpRequest` and `FileReaderSync` on `File.slice`, so wrapping those three counts every byte.
+

@@ -9,7 +9,14 @@ import { createBridge } from './bridge.ts';
 
 const bridge = createBridge();
 // `?bench`: the perf scripts query the same engine the app uses (row counts,
-// paging experiments). The bridge loads nothing until its first call.
-if (new URLSearchParams(location.search).has('bench')) (globalThis as { __tychoBridge?: typeof bridge }).__tychoBridge = bridge;
+// paging experiments), and read the app's wasm memory to check the perf
+// panel's. The bridge loads nothing until its first call.
+const bench = new URLSearchParams(location.search).has('bench');
+if (bench) (globalThis as { __tychoBridge?: typeof bridge }).__tychoBridge = bridge;
 
-void boot({ init: () => init({ module_or_path: wasmUrl }), start: (font) => start(font, bridge), fontUrl });
+const instantiate = async () => {
+  const exports = await init({ module_or_path: wasmUrl });
+  if (bench) (globalThis as { __tychoWasmMemory?: WebAssembly.Memory }).__tychoWasmMemory = exports.memory;
+  return exports;
+};
+void boot({ init: instantiate, start: (font) => start(font, bridge), fontUrl, wasmUrl });

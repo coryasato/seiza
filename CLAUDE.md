@@ -30,6 +30,8 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 ### Known GPUI Kit web gotchas (check before debugging)
 
+- **The `gpui-kit` skills track upstream main, which runs ahead of the pin.** Updated 2026-10-07 to main (`1af2d1f`). These APIs it documents aren't in 0.7.1: `TooltipDefaults` and `Button::tooltip_show_delay` (only GPUI's raw elements have `tooltip_show_delay`), the test harness's `find_all` and `ClickOptions`, and `Diff`. Check the pinned crate source before using an API from the skill.
+
 - **Load fonts before `gpui_kit::init`.** On wasm there are no system fonts. `Theme::change` resolves `.SystemUIFont` during init and panics on an empty font database, and because wasm uses `panic=abort`, the canvas never paints. Call `add_fonts(...)` (bundled UI font) first, then init. See longbridge/gpui-kit#3101 and #3105. `shared/`'s bootstrap handles this; apps shouldn't call init themselves.
 - **The Input context-menu "Paste" item was disabled on web until 0.7.0** (#3187). 0.7.0 falls back to an async clipboard read (#3244); untested here until Tycho's M7 jump-to-row input. Cmd/Ctrl+V works either way.
 - Install `console_error_panic_hook` in debug builds. A panic shows up as `RuntimeError: unreachable` unless the hook is installed.
@@ -69,8 +71,8 @@ seiza/
 ## `shared/` and `shared-web/` conventions
 
 - Code goes in `shared/` only if it has no knowledge of any app: no DuckDB, no app types, no app strings. Apps depend on `shared/`, never the reverse.
-- The perf overlay (Tycho's M7 turns it into a user-facing "observation panel") lives in `shared/`. It owns the common metrics (the load steps up to first frame, TTFP, frame intervals and per-frame work time, wasm memory) and lets apps register their own metrics and load steps. It refreshes at ~4 Hz, not every frame.
-- `shared/` owns the web bootstrap order (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame` mark → post-paint callback). Apps hook into the post-paint callback to start heavy loads.
+- The perf panel ("Observation panel", `shared/src/perf.rs` + `panel.rs` + `frames.rs`) lives in `shared/`. It owns the common metrics (the page-load waterfall up to first frame from the bootstrap's `seiza:wasm-*` marks, TTFP, frame intervals and per-frame work time, memory) and lets apps add load steps (`set_load_step`, one time axis per section), rows (`set_metric`), and rows recomputed at each refresh (`on_refresh`). It refreshes at ~4 Hz, not every frame, and is a cached GPUI view: frames it wasn't refreshed in replay its last drawing. It samples nothing while hidden. Its toggle is in the shell's title bar.
+- `shared/` owns the web bootstrap order (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame` mark → post-paint callback). Apps hook into the post-paint callback to start heavy loads. `shared-web`'s `boot` takes the app's `wasmUrl` for the waterfall's download step.
 - When a GPUI Kit web bug blocks progress, check upstream issues first. Work around it in `shared/` with a comment linking the issue. Don't fork unless there's no other way.
 - Code starts in the app. Move it to `shared/` once it's clearly app-agnostic. Don't build abstractions for apps that don't exist yet.
 

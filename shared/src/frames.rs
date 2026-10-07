@@ -1,11 +1,19 @@
-//! The perf overlay's live rows: frame times and memory.
+//! The perf panel's live sample: frame intervals, per-frame work, memory.
 //!
-//! Frame time is the interval between `requestAnimationFrame` callbacks: a
-//! frame that GPUI (or anything else on the main thread) holds up shows as a
-//! long interval, and a steady 60 Hz shows as ~16.7 ms. GPUI's own frame loop
-//! only runs when something changed, so the sampler keeps its own rAF loop,
-//! and only while the overlay is visible: an idle page shouldn't tick at
-//! 60 Hz for a hidden panel.
+//! **Frame interval** is the time between `requestAnimationFrame` callbacks:
+//! a frame that GPUI (or anything else on the main thread) holds up shows as
+//! a long interval, and a steady 60 Hz shows as ~16.7 ms whether a frame took
+//! 1 ms or 12. GPUI's own frame loop only runs when something changed, so the
+//! sampler keeps its own rAF loop.
+//!
+//! **Work per frame** is the main-thread time of each frame GPUI draws: from
+//! the shell's render (the start of the window's layout) to the end of the
+//! callback that drew and presented it, timed by a microtask queued at the
+//! render (see `first_frame.rs`: GPUI draws and presents in one callback).
+//! It shows the headroom the interval can't.
+//!
+//! Both run only while the panel is open: an idle page shouldn't tick at
+//! 60 Hz for a hidden panel. The panel refreshes every [`REFRESH_EVERY`].
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -15,79 +23,132 @@ use std::time::Duration;
 use gpui_kit::{App, Task};
 use wasm_bindgen::{JsCast as _, JsValue, closure::Closure};
 
-use crate::perf::{FrameStats, PerfOverlay, frame_stats};
+use crate::perf::{LoadStep, PAGE_LOAD, WINDOW_MS};
 
-/// The window the stats cover, in ms.
-const WINDOW_MS: f64 = 2_000.0;
-/// How often the overlay's rows refresh.
-const REFRESH_EVERY: Duration = Duration::from_millis(500);
-
-pub(crate) const FRAMES_METRIC: &str = "Frame time (2 s)";
-pub(crate) const MEMORY_METRIC: &str = "Memory";
+/// ~4 Hz: often enough to watch, rare enough not to cost the frames it shows.
+const REFRESH_EVERY: Duration = Duration::from_millis(250);
 
 thread_local! {
     /// rAF timestamps from the last `WINDOW_MS`.
     static STAMPS: RefCell<VecDeque<f64>> = const { RefCell::new(VecDeque::new()) };
+    /// (start, ms) of each frame drawn in the last `WINDOW_MS`.
+    static WORK: RefCell<VecDeque<(f64, f64)>> = const { RefCell::new(VecDeque::new()) };
+    /// Whether frames are sampled: the panel is open and the first frame out.
+    static SAMPLING: Cell<bool> = const { Cell::new(false) };
+    /// The start of the frame being drawn, until its microtask runs.
+    static FRAME_START: Cell<Option<f64>> = const { Cell::new(None) };
+    /// The microtask that ends a frame's work, reused for every frame.
+    static FRAME_END: RefCell<Option<Closure<dyn FnMut()>>> = const { RefCell::new(None) };
     /// The running rAF loop's id, or 0 for none. Each loop checks it's still
-    /// the one: hiding and re-showing the overlay between two frames would
+    /// the one: hiding and re-showing the panel between two frames would
     /// otherwise leave the old loop running beside the new one, recording
     /// every frame twice.
     static LIVE_LOOP: Cell<u64> = const { Cell::new(0) };
     static LOOPS_STARTED: Cell<u64> = const { Cell::new(0) };
-    /// The overlay rows' refresh, while the overlay is visible.
+    /// The panel's refresh, while it's open.
     static REFRESH: RefCell<Option<Task<()>>> = const { RefCell::new(None) };
     /// Whether the first frame is out; nothing samples before it.
     static STARTED: Cell<bool> = const { Cell::new(false) };
 }
 
-/// Called once, after the first frame: from then on the rows refresh
-/// whenever the overlay is visible.
-pub(crate) fn start(cx: &mut App) {
+/// Called once, after the first frame: records the page-load steps up to
+/// it, and from then on samples whenever the panel is open.
+pub(crate) fn start(cx: &mut App, ttfp_ms: Option<f64>) {
+    record_page_load(cx, ttfp_ms);
     STARTED.set(true);
     sync(cx);
 }
 
-/// Starts or stops the refresh to match the overlay's visibility. The
-/// overlay's toggle calls this, so a hidden overlay costs nothing: no timer,
-/// no rAF loop.
+/// Starts or stops sampling to match the panel's visibility. The panel's
+/// toggle calls this, so a hidden panel costs nothing: no timer, no rAF loop,
+/// no per-frame timing.
 pub(crate) fn sync(cx: &mut App) {
-    let visible = cx
-        .try_global::<PerfOverlay>()
-        .is_some_and(PerfOverlay::is_visible);
+    let visible = crate::perf::is_visible(cx);
     if !visible || !STARTED.get() {
         // Dropping the task cancels it.
         REFRESH.take();
+        SAMPLING.set(false);
         LIVE_LOOP.set(0);
         STAMPS.with_borrow_mut(VecDeque::clear);
+        WORK.with_borrow_mut(VecDeque::clear);
+        crate::perf::publish(cx);
         return;
     }
     if REFRESH.with_borrow(Option::is_some) {
         return;
     }
+    SAMPLING.set(true);
     run_loop();
-    let refresh = cx.spawn(async move |cx| {
+    refresh(cx);
+    let task = cx.spawn(async move |cx| {
         loop {
             cx.background_executor().timer(REFRESH_EVERY).await;
-            let frames = STAMPS.with_borrow(|stamps| {
-                let stamps: Vec<f64> = stamps.iter().copied().collect();
-                frame_stats(&stamps)
-            });
-            let frames = frames.map_or_else(|| "…".to_string(), |stats| format_frames(&stats));
-            let memory = memory();
-            cx.update(|cx| {
-                crate::perf::set_metric_if_changed(cx, FRAMES_METRIC, frames);
-                crate::perf::set_metric_if_changed(cx, MEMORY_METRIC, memory);
-            });
+            cx.update(refresh);
         }
     });
-    REFRESH.set(Some(refresh));
+    REFRESH.set(Some(task));
 }
 
-fn format_frames(stats: &FrameStats) -> String {
-    format!(
-        "p50 {:.1} · p95 {:.1} · max {:.0} ms",
-        stats.p50, stats.p95, stats.max
-    )
+/// Takes the sample, runs the app's refresh callbacks, and publishes.
+fn refresh(cx: &mut App) {
+    let now = now();
+    let stamps = STAMPS.with_borrow_mut(|stamps| {
+        trim(stamps, now, |stamp| *stamp);
+        stamps.iter().copied().collect()
+    });
+    let work = WORK.with_borrow_mut(|work| {
+        trim(work, now, |(start, _)| *start);
+        work.iter().copied().collect()
+    });
+    crate::perf::set_live(
+        cx,
+        crate::perf::Live {
+            now_ms: now,
+            stamps,
+            work,
+            memory: Some(memory().into()),
+        },
+    );
+    for callback in crate::perf::refresh_callbacks(cx) {
+        callback(cx);
+    }
+    crate::perf::publish(cx);
+}
+
+fn trim<T>(samples: &mut VecDeque<T>, now: f64, time: impl Fn(&T) -> f64) {
+    while samples
+        .front()
+        .is_some_and(|first| now - time(first) > WINDOW_MS)
+    {
+        samples.pop_front();
+    }
+}
+
+/// Called by the shell's render, at the start of every frame GPUI draws.
+/// Times the frame's work while sampling: one `performance.now()` here and
+/// one in a microtask that runs once the drawing callback returns.
+pub(crate) fn frame_started() {
+    if !SAMPLING.get() || FRAME_START.get().is_some() {
+        return;
+    }
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    FRAME_START.set(Some(now()));
+    FRAME_END.with_borrow_mut(|end| {
+        let end = end.get_or_insert_with(|| {
+            Closure::new(|| {
+                let Some(start) = FRAME_START.take() else {
+                    return;
+                };
+                if SAMPLING.get() {
+                    let work = now() - start;
+                    WORK.with_borrow_mut(|samples| samples.push_back((start, work)));
+                }
+            })
+        });
+        window.queue_microtask(end.as_ref().unchecked_ref());
+    });
 }
 
 /// A rAF loop that records each callback's timestamp, until another loop
@@ -107,9 +168,7 @@ fn run_loop() {
         }
         STAMPS.with_borrow_mut(|stamps| {
             stamps.push_back(time);
-            while stamps.front().is_some_and(|first| time - first > WINDOW_MS) {
-                stamps.pop_front();
-            }
+            trim(stamps, time, |stamp| *stamp);
         });
         if let (Some(window), Some(closure)) = (web_sys::window(), next.borrow().as_ref()) {
             let _ = window.request_animation_frame(closure.as_ref().unchecked_ref());
@@ -118,6 +177,53 @@ fn run_loop() {
     if let (Some(window), Some(closure)) = (web_sys::window(), callback.borrow().as_ref()) {
         let _ = window.request_animation_frame(closure.as_ref().unchecked_ref());
     }
+}
+
+/// The page-load steps up to the first frame, from the navigation's and the
+/// wasm's timings and the bootstrap's marks (`shared-web/src/bootstrap.ts`):
+/// the HTML, the wasm's download, its compile (what's left of it once the
+/// download ends: compilation streams), and the first frame.
+fn record_page_load(cx: &mut App, ttfp_ms: Option<f64>) {
+    let html = navigation_response_end();
+    let requested = mark("seiza:wasm-requested");
+    let downloaded = mark("seiza:wasm-downloaded");
+    let ready = mark("seiza:wasm-ready");
+    if let Some(end) = html {
+        crate::perf::set_load_step(cx, PAGE_LOAD, "HTML", LoadStep::done(0.0, end));
+    }
+    if let (Some(start), Some(end)) = (requested, downloaded) {
+        crate::perf::set_load_step(cx, PAGE_LOAD, "Wasm download", LoadStep::done(start, end));
+    }
+    if let (Some(start), Some(end)) = (downloaded, ready) {
+        crate::perf::set_load_step(cx, PAGE_LOAD, "Compile", LoadStep::done(start, end));
+    }
+    if let (Some(start), Some(end)) = (ready.or(html), ttfp_ms) {
+        crate::perf::set_load_step(cx, PAGE_LOAD, "First frame", LoadStep::done(start, end));
+    }
+}
+
+fn navigation_response_end() -> Option<f64> {
+    let performance = web_sys::window()?.performance()?;
+    let entry = performance.get_entries_by_type("navigation").get(0);
+    js_sys::Reflect::get(&entry, &JsValue::from_str("responseEnd"))
+        .ok()?
+        .as_f64()
+}
+
+/// The last `performance.mark` named `name`, in ms from `timeOrigin`.
+fn mark(name: &str) -> Option<f64> {
+    let performance = web_sys::window()?.performance()?;
+    let entries = performance.get_entries_by_name_with_entry_type(name, "mark");
+    let entry = entries.get(entries.length().checked_sub(1)?);
+    js_sys::Reflect::get(&entry, &JsValue::from_str("startTime"))
+        .ok()?
+        .as_f64()
+}
+
+fn now() -> f64 {
+    web_sys::window()
+        .and_then(|window| window.performance())
+        .map_or(0.0, |performance| performance.now())
 }
 
 /// The app's wasm memory, and the JS heap where the browser reports it

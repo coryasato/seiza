@@ -135,7 +135,7 @@ impl FileSummary {
 /// own connection, once the Parquet extension is loaded
 /// ([`crate::engine::Engine::load_parquet`]), so none of them autoloads it.
 /// Each query's id goes to `sent` as it's sent, so a caller that gives up on
-/// the open can cancel them.
+/// the open can cancel them. Also returns the file's live read counter.
 #[cfg(target_family = "wasm")]
 pub async fn open(
     engine: &crate::engine::Engine,
@@ -143,7 +143,7 @@ pub async fn open(
     display_name: &str,
     source: crate::engine::FileSource,
     sent: impl Fn(crate::engine::RequestId),
-) -> Result<FileSummary, crate::engine::EngineError> {
+) -> Result<(FileSummary, Option<crate::engine::ReadCounter>), crate::engine::EngineError> {
     // Independent: the extension download (several round trips on a slow
     // network) overlaps the registration. Both are sent before either is
     // awaited.
@@ -159,6 +159,7 @@ pub async fn open(
     });
     let (describe, metadata, kv) = (describe.await?, metadata.await?, kv.await?);
     FileSummary::from_results(display_name, info.size, &describe, &metadata, &kv)
+        .map(|summary| (summary, info.bytes_read))
         .map_err(crate::engine::EngineError::Engine)
 }
 

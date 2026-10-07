@@ -46,6 +46,7 @@ export async function startEngine(): Promise<Engine> {
     eh: { mainModule: ehModule, mainWorker: ehWorker },
   });
   const worker = startWorker(bundle.mainWorker!);
+  const countReads = readCounter(worker);
   // Rejects on the worker's first error, at load or any time after. Every
   // call races it: DuckDB-Wasm never settles a pending call when its worker
   // dies, so without this a crash mid-query (out of memory on a big file, a
@@ -83,12 +84,14 @@ export async function startEngine(): Promise<Engine> {
           if (typeof source === 'string') {
             const url = new URL(source, location.href).href;
             const size = await remoteSize(url);
+            const bytesRead = countReads(url);
             await db.registerFileURL(name, url, DuckDBDataProtocol.HTTP, false);
-            return { name, size };
+            return { name, size, bytesRead };
           }
           // Read through FileReader as DuckDB asks for byte ranges; never copied whole.
+          const bytesRead = source instanceof File ? countReads(fileKey(source)) : null;
           await db.registerFileHandle(name, source, DuckDBDataProtocol.BROWSER_FILEREADER, true);
-          return { name, size: source.size };
+          return { name, size: source.size, bytesRead };
         })(),
       ),
     query: (sql, signal) => guard(runQuery(db, sql, signal)),
@@ -145,9 +148,84 @@ async function remoteSize(url: string): Promise<number | null> {
   return total === undefined ? null : Number(total);
 }
 
+/** The message `readCounter` sends the worker; the worker's wrapper keeps it
+ *  from DuckDB. */
+const COUNT_MESSAGE = '__tychoCountReads';
+
+/** How the worker's wrapper names a dropped file. The worker gets its own
+ *  copy of the `File`, so identity can't match; these fields do. */
+const fileKey = (file: File) => `file:${file.name}\0${file.size}\0${file.lastModified}`;
+
+/**
+ * Counts the bytes DuckDB reads from a registered file, for the perf panel's
+ * "read X of Y". DuckDB reads inside its worker, with synchronous XHRs (by
+ * byte range) for a URL and `FileReaderSync` on slices for a dropped file, so
+ * the page never sees them. The worker's wrapper (`startWorker`) counts both
+ * into a shared counter per file, which Rust reads with `Atomics.load`: the
+ * counter rides on `registerFile`'s answer, so the bridge stays at three calls
+ * (Tycho rule 2). Null without cross-origin isolation (no
+ * `SharedArrayBuffer`), which Tycho always has.
+ */
+function readCounter(worker: Worker): (key: string) => BigInt64Array | null {
+  return (key) => {
+    if (typeof SharedArrayBuffer === 'undefined') return null;
+    const counter = new BigInt64Array(new SharedArrayBuffer(8));
+    // Ordered before DuckDB's register message, so no read goes uncounted.
+    worker.postMessage({ [COUNT_MESSAGE]: { key, counter } });
+    return counter;
+  };
+}
+
+/**
+ * The worker's side of `readCounter`, run before DuckDB's script. Wraps
+ * `XMLHttpRequest` (counting each GET's response body) and `FileReaderSync`
+ * (counting each read of a slice of a counted file: `Blob.prototype.slice` is
+ * wrapped to remember a slice's file). Runs as worker source, so it's plain JS.
+ */
+const COUNT_READS_SOURCE = `
+const counters = new Map();
+const roots = new WeakMap();
+const fileKey = (file) => 'file:' + file.name + '\\0' + file.size + '\\0' + file.lastModified;
+const add = (key, bytes) => {
+  const counter = key && counters.get(key);
+  if (counter && bytes > 0) Atomics.add(counter, 0, BigInt(bytes));
+};
+self.addEventListener('message', (event) => {
+  const message = event.data && event.data[${JSON.stringify(COUNT_MESSAGE)}];
+  if (!message) return;
+  event.stopImmediatePropagation();
+  counters.set(message.key, message.counter);
+});
+const open = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+  this.__tychoKey = String(method).toUpperCase() === 'GET' ? String(url) : null;
+  return open.call(this, method, url, ...rest);
+};
+const send = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.send = function (...args) {
+  const result = send.apply(this, args);
+  if (this.__tychoKey && this.readyState === 4 && this.response) add(this.__tychoKey, this.response.byteLength);
+  return result;
+};
+const slice = Blob.prototype.slice;
+Blob.prototype.slice = function (...args) {
+  const part = slice.apply(this, args);
+  roots.set(part, roots.get(this) ?? this);
+  return part;
+};
+const read = FileReaderSync.prototype.readAsArrayBuffer;
+FileReaderSync.prototype.readAsArrayBuffer = function (blob) {
+  const bytes = read.call(this, blob);
+  const root = roots.get(blob) ?? blob;
+  if (root instanceof File) add(fileKey(root), bytes.byteLength);
+  return bytes;
+};
+`;
+
 /**
  * Starts DuckDB's worker script inside a small classic worker that reports
- * unhandled promise rejections as errors.
+ * unhandled promise rejections as errors, and counts the bytes DuckDB reads
+ * (`readCounter`).
  *
  * DuckDB-Wasm 1.32.0 doesn't reject `instantiate` when its worker fails: a
  * worker script that doesn't load, or a wasm fetch that fails (DuckDB fetches
@@ -160,6 +238,7 @@ function startWorker(scriptUrl: string): Worker {
   const script = new URL(scriptUrl, location.href).href;
   const source =
     `self.addEventListener('unhandledrejection', (event) => self.reportError(event.reason));\n` +
+    COUNT_READS_SOURCE +
     `importScripts(${JSON.stringify(script)});\n`;
   // Not revoked: that could race the worker's own fetch of it; it's one small blob.
   return new Worker(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));

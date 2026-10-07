@@ -14,6 +14,10 @@ export interface FileInfo {
   name: string;
   /** Bytes, or null when a URL's HEAD had no Content-Length. */
   size: number | null;
+  /** Bytes DuckDB has read from it so far, live: a shared counter its worker
+   *  adds to (read with `Atomics.load`). Null for a `Blob` that isn't a
+   *  `File` (a CSV chunk), or without cross-origin isolation. */
+  bytesRead: BigInt64Array | null;
 }
 
 export interface Bridge {

@@ -7,6 +7,7 @@
 //! itself, and owns its scrollbars. Rows whose page isn't loaded yet draw as
 //! placeholders; a frame never waits on data.
 
+mod activity;
 mod pages;
 mod scroll;
 
@@ -17,6 +18,7 @@ use gpui_kit::*;
 
 use crate::arrow::{QueryResult, Value};
 use crate::dataset::{ColumnInfo, format_count};
+pub use activity::{Activity, ActivityStats};
 pub use pages::{Direction, PageCache, RowState};
 pub use scroll::RowScroll;
 
@@ -188,6 +190,27 @@ enum Drag {
     Horizontal { grab: f32 },
 }
 
+/// What the table reports. The workbench decides what to show for it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TableEvent {
+    /// The first frame with every visible row loaded was presented at
+    /// `shown_ms` (ms from `timeOrigin`), or `None` if its mark couldn't be
+    /// set (no time to report). Once per table.
+    FirstRows { shown_ms: Option<f64> },
+}
+
+/// The table's paging and scrolling, for the perf panel.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TableStats {
+    pub loaded_pages: usize,
+    pub in_flight: usize,
+    /// Cancelled reads DuckDB is still running (see `PageCache::draining`).
+    pub draining: usize,
+    pub cache_bytes: usize,
+    /// Over the last [`seiza::perf::WINDOW_MS`]: rows/s and filled frames.
+    pub activity: ActivityStats,
+}
+
 /// What the Playwright checks read from `globalThis.__tychoTable`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TableProbe {
@@ -231,11 +254,10 @@ pub struct RowTable {
     focus_handle: FocusHandle,
     /// Whether the last frame had every visible row loaded.
     filled: bool,
-    /// When the file was asked for (ms from `timeOrigin`); the first filled
-    /// frame reports "first rows" against it, once.
-    opened_at: Option<f64>,
-    /// The overlay row "first rows" is reported in, e.g. "Sample → first rows".
-    first_rows_metric: &'static str,
+    /// Until the first filled frame: it emits [`TableEvent::FirstRows`].
+    first_rows_pending: bool,
+    /// The frames drawn while the perf panel is open.
+    activity: Activity,
     /// Set by [`RowTable::close`]: no more page loads.
     closed: bool,
     #[cfg(target_family = "wasm")]
@@ -243,15 +265,12 @@ pub struct RowTable {
 }
 
 impl RowTable {
-    /// A table over `rows` rows of `source`. `opened_at` (ms from
-    /// `timeOrigin`) is when it was asked for; the first filled frame reports
-    /// "first rows" against it, in the overlay row `first_rows_metric`.
+    /// A table over `rows` rows of `source`. Its first filled frame emits
+    /// [`TableEvent::FirstRows`].
     pub fn new(
         source: RowSource,
         rows: u64,
         columns: &[ColumnInfo],
-        opened_at: f64,
-        first_rows_metric: &'static str,
         #[cfg(target_family = "wasm")] engine: crate::engine::Engine,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -284,8 +303,8 @@ impl RowTable {
             scroll_settle: None,
             focus_handle: cx.focus_handle(),
             filled: false,
-            opened_at: Some(opened_at),
-            first_rows_metric,
+            first_rows_pending: true,
+            activity: Activity::new(seiza::perf::WINDOW_MS),
             closed: false,
             #[cfg(target_family = "wasm")]
             engine,
@@ -344,15 +363,23 @@ impl RowTable {
     /// Called when another file replaces it. The entity can outlive this (the
     /// last frame still holds it), and a page answering meanwhile must not
     /// start new reads of a file nobody shows.
-    pub fn close(&mut self, cx: &mut Context<Self>) {
+    pub fn close(&mut self) {
         self.closed = true;
         #[cfg(target_family = "wasm")]
         for request in self.cache.requests() {
             self.engine.cancel(request);
         }
-        // Replaced before its first rows showed: they never will.
-        if self.opened_at.take().is_some() {
-            seiza::perf::set_metric(cx, self.first_rows_metric, "—");
+    }
+
+    /// Paging and the last seconds' scrolling, as of `now` (ms from
+    /// `timeOrigin`). Scrolling is recorded only while the panel is open.
+    pub fn stats(&mut self, now: f64) -> TableStats {
+        TableStats {
+            loaded_pages: self.cache.loaded_pages(),
+            in_flight: self.cache.in_flight(),
+            draining: self.cache.draining(),
+            cache_bytes: self.cache.used_bytes(),
+            activity: self.activity.stats(now),
         }
     }
 
@@ -532,17 +559,6 @@ impl RowTable {
             Err(error) => self.cache.failed(page, request, error.to_string()),
         }
         self.load_wanted(&wanted, cx);
-        seiza::perf::set_metric(
-            cx,
-            "Pages",
-            format!(
-                "{} loaded · {} in flight · {} cancelled · {}",
-                self.cache.loaded_pages(),
-                self.cache.in_flight(),
-                self.cache.draining(),
-                crate::dataset::format_bytes(self.cache.used_bytes() as u64)
-            ),
-        );
         cx.notify();
     }
 
@@ -670,7 +686,7 @@ impl RowTable {
 
     /// Marks the frames where the viewport becomes fully loaded: every one
     /// sets `tycho:viewport-filled` once presented, and the first also sets
-    /// `tycho:first-rows` and the overlay's "first rows" time.
+    /// `tycho:first-rows` and emits [`TableEvent::FirstRows`].
     fn track_filled(&mut self, filled: bool, cx: &mut Context<Self>) {
         let became_filled = filled && !self.filled;
         self.filled = filled;
@@ -681,15 +697,11 @@ impl RowTable {
             if crate::targets::measuring() {
                 drop(seiza::mark_after_current_task(VIEWPORT_FILLED_MARK));
             }
-            if let Some(opened_at) = self.opened_at.take() {
-                let first_rows_metric = self.first_rows_metric;
+            if std::mem::take(&mut self.first_rows_pending) {
                 let first_rows = seiza::mark_after_current_task(FIRST_ROWS_MARK);
-                cx.spawn(async move |_, cx| {
-                    let metric = match first_rows.await {
-                        Some(shown) => format!("{:.0} ms", shown - opened_at),
-                        None => "—".into(),
-                    };
-                    cx.update(|cx| seiza::perf::set_metric(cx, first_rows_metric, metric));
+                cx.spawn(async move |this, cx| {
+                    let shown_ms = first_rows.await;
+                    let _ = this.update(cx, |_, cx| cx.emit(TableEvent::FirstRows { shown_ms }));
                 })
                 .detach();
             }
@@ -843,6 +855,13 @@ impl RowTable {
             !visible.is_empty() && loaded == visible.end - visible.start
         };
         self.track_filled(filled, cx);
+        #[cfg(target_family = "wasm")]
+        if seiza::perf::is_visible(cx) {
+            self.activity
+                .record(crate::engine::now(), self.scroll.top(), filled);
+        } else {
+            self.activity.clear();
+        }
         if measuring {
             crate::targets::publish_table(&TableProbe {
                 rows: self.scroll.rows(),
@@ -1059,6 +1078,8 @@ const VIEWPORT_FILLED_MARK: &str = "tycho:viewport-filled";
 /// Set right after the first such frame for a file.
 #[cfg(target_family = "wasm")]
 const FIRST_ROWS_MARK: &str = "tycho:first-rows";
+
+impl EventEmitter<TableEvent> for RowTable {}
 
 impl Focusable for RowTable {
     fn focus_handle(&self, _: &App) -> FocusHandle {

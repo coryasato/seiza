@@ -38,11 +38,23 @@ extern "C" {
 
     #[wasm_bindgen(method, getter)]
     fn size(this: &JsFileInfo) -> Option<f64>;
+
+    #[wasm_bindgen(method, getter, js_name = bytesRead)]
+    fn bytes_read(this: &JsFileInfo) -> Option<js_sys::BigInt64Array>;
+
+    /// `Atomics.load` with a number index. js-sys's `load_bigint` passes the
+    /// index as a BigInt, which `Atomics.load` rejects.
+    #[wasm_bindgen(js_namespace = Atomics, js_name = load)]
+    fn atomics_load(array: &js_sys::BigInt64Array, index: u32) -> JsValue;
 }
 
 /// The `performance.mark` the JS host sets once DuckDB is instantiated and
 /// open. Must match `ENGINE_READY_MARK` in `web/src/engine.ts`.
 pub const ENGINE_READY_MARK: &str = "tycho:engine-ready";
+
+/// Set when the Parquet extension has loaded (and its metadata cache is
+/// on); the perf scripts check the panel's "Parquet ready" against it.
+pub const PARQUET_READY_MARK: &str = "tycho:parquet-ready";
 
 /// The warm-up query. It starts the engine load, and its answer proves a query
 /// makes the whole round trip: bridge, worker, Arrow IPC, decoder.
@@ -59,11 +71,26 @@ pub enum FileSource {
 }
 
 /// What `registerFile` reports back.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct FileInfo {
     pub name: String,
     /// Bytes, when known (a `File`, or a URL whose HEAD had `Content-Length`).
     pub size: Option<u64>,
+    /// How much of it DuckDB has read, live. None for a CSV chunk.
+    pub bytes_read: Option<ReadCounter>,
+}
+
+/// The bytes DuckDB has read from one registered file, counted inside its
+/// worker as they arrive (`web/src/engine.ts`, `readCounter`): a URL's
+/// range responses, or a dropped file's slices. Rides on `registerFile`'s
+/// answer, so reading it isn't a bridge call (Tycho rule 2).
+#[derive(Debug, Clone)]
+pub struct ReadCounter(js_sys::BigInt64Array);
+
+impl ReadCounter {
+    pub fn get(&self) -> u64 {
+        i64::try_from(atomics_load(&self.0, 0)).map_or(0, |bytes| bytes.max(0) as u64)
+    }
 }
 
 /// A cheap handle to the engine. Installed as a global at startup.
@@ -145,7 +172,12 @@ impl Engine {
                 failed => failed,
             };
             *state.borrow_mut() = match result {
-                Ok(_) => ParquetLoad::Loaded(now()),
+                Ok(_) => {
+                    if let Some(performance) = web_sys::window().and_then(|w| w.performance()) {
+                        let _ = performance.mark(PARQUET_READY_MARK);
+                    }
+                    ParquetLoad::Loaded(now())
+                }
                 Err(_) => ParquetLoad::Idle,
             };
             result
@@ -199,6 +231,7 @@ impl Engine {
             Ok(FileInfo {
                 name: info.name(),
                 size: info.size().map(|size| size as u64),
+                bytes_read: info.bytes_read().map(ReadCounter),
             })
         }
     }
@@ -237,13 +270,15 @@ const PARQUET_METADATA_CACHE_SQL: &str = "SET GLOBAL parquet_metadata_cache = tr
 
 /// Starts the engine: called from the post-paint callback. Runs the warm-up
 /// query (which makes the bridge load DuckDB), then sets [`EngineStatus`] and
-/// the overlay's "Engine ready" row, then prefetches the Parquet extension
+/// the panel's "Engine ready" step, then prefetches the Parquet extension
 /// ("Parquet ready"). With `?selftest` in the URL, it then runs the bridge
 /// self-test.
 pub fn start(cx: &mut App) {
+    use seiza::LoadStep;
+
     let engine = cx.global::<Engine>().clone();
-    seiza::perf::set_metric(cx, "Engine ready", "…");
-    seiza::perf::set_metric(cx, PARQUET_READY_METRIC, "…");
+    let started = now();
+    seiza::perf::set_load_step(cx, PAGE_LOAD, ENGINE_READY_STEP, LoadStep::running(started));
     cx.spawn(async move |cx| {
         let status = match warm_up(&engine).await {
             Ok(()) => EngineStatus::Ready {
@@ -251,24 +286,37 @@ pub fn start(cx: &mut App) {
             },
             Err(error) => EngineStatus::Failed(error.to_string().into()),
         };
+        // The JS host marks when it actually began loading.
+        let started = mark_start_time(ENGINE_START_MARK).unwrap_or(started);
         cx.update(|cx| {
-            let metric = match &status {
-                EngineStatus::Ready { ready_ms } => format!("{ready_ms:.0} ms"),
-                _ => "failed".into(),
+            let step = match &status {
+                EngineStatus::Ready { ready_ms } => LoadStep::done(started, *ready_ms),
+                _ => LoadStep::failed(started, now()),
             };
-            seiza::perf::set_metric(cx, "Engine ready", metric);
+            seiza::perf::set_load_step(cx, PAGE_LOAD, ENGINE_READY_STEP, step);
+            // Without an engine, the extension never loads: "—".
+            let parquet = match &status {
+                EngineStatus::Ready { ready_ms } => LoadStep::running(*ready_ms),
+                _ => LoadStep::skipped(started),
+            };
+            seiza::perf::set_load_step(cx, PAGE_LOAD, PARQUET_READY_STEP, parquet);
             cx.set_global(status.clone());
         });
         if !matches!(status, EngineStatus::Ready { .. }) {
-            cx.update(|cx| seiza::perf::set_metric(cx, PARQUET_READY_METRIC, "—"));
             return;
         }
         let loaded = engine.load_parquet().await;
         cx.update(|cx| match loaded {
             Ok(()) => show_parquet_ready(cx, &engine),
             // Opening a file tries again: `show_parquet_ready` then.
-            Err(error) => {
-                seiza::perf::set_metric(cx, PARQUET_READY_METRIC, format!("failed: {error}"))
+            Err(_) => {
+                let since = engine_ready_ms(cx).unwrap_or_else(now);
+                seiza::perf::set_load_step(
+                    cx,
+                    PAGE_LOAD,
+                    PARQUET_READY_STEP,
+                    LoadStep::failed(since, now()),
+                );
             }
         });
         if crate::selftest::requested() {
@@ -278,14 +326,34 @@ pub fn start(cx: &mut App) {
     .detach();
 }
 
-const PARQUET_READY_METRIC: &str = "Parquet ready";
+/// The panel's page-load section; the engine's steps follow the shell's.
+const PAGE_LOAD: &str = seiza::perf::PAGE_LOAD;
+/// Step names the perf scripts read; don't rename them.
+const ENGINE_READY_STEP: &str = "Engine ready";
+const PARQUET_READY_STEP: &str = "Parquet ready";
 
-/// Sets the overlay's "Parquet ready" row to when the extension loaded. The
+/// Set by `web/src/engine.ts` when DuckDB starts loading.
+const ENGINE_START_MARK: &str = "tycho:engine-start";
+
+fn engine_ready_ms(cx: &App) -> Option<f64> {
+    match cx.try_global::<EngineStatus>()? {
+        EngineStatus::Ready { ready_ms } => Some(*ready_ms),
+        _ => None,
+    }
+}
+
+/// Sets the panel's "Parquet ready" step to when the extension loaded. The
 /// prefetch calls it, and so does a file open that succeeds: after a failed
 /// prefetch, the open's own load is the one that works.
 pub fn show_parquet_ready(cx: &mut App, engine: &Engine) {
     if let Some(at) = engine.parquet_loaded_at() {
-        seiza::perf::set_metric(cx, PARQUET_READY_METRIC, format!("{at:.0} ms"));
+        let since = engine_ready_ms(cx).unwrap_or(at);
+        seiza::perf::set_load_step(
+            cx,
+            PAGE_LOAD,
+            PARQUET_READY_STEP,
+            seiza::LoadStep::done(since, at),
+        );
     }
 }
 

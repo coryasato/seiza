@@ -23,6 +23,8 @@ use crate::engine::EngineStatus;
 #[cfg(target_family = "wasm")]
 use crate::table::RowSource;
 use crate::table::RowTable;
+#[cfg(target_family = "wasm")]
+use crate::table::TableEvent;
 
 /// What's being opened or shown: the sample, or a file from this device.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,21 +34,21 @@ enum Origin {
 }
 
 impl Origin {
-    /// The `performance.mark`s and overlay rows an open reports under.
+    /// The `performance.mark`s and panel steps an open reports under.
     #[cfg(target_family = "wasm")]
     fn marks(self) -> Marks {
         match self {
             Self::Sample => Marks {
                 start: "tycho:sample-click",
                 shown: "tycho:sample-shown",
-                schema_metric: "Sample → schema",
-                first_rows_metric: "Sample → first rows",
+                schema_step: "Sample → schema",
+                first_rows_step: "Sample → first rows",
             },
             Self::Device => Marks {
                 start: "tycho:file-open",
                 shown: "tycho:file-shown",
-                schema_metric: "File → schema",
-                first_rows_metric: "File → first rows",
+                schema_step: "File → schema",
+                first_rows_step: "File → first rows",
             },
         }
     }
@@ -59,8 +61,64 @@ struct Marks {
     start: &'static str,
     /// Right after the first frame showing the summary.
     shown: &'static str,
-    schema_metric: &'static str,
-    first_rows_metric: &'static str,
+    /// The panel's steps, in [`OPEN_STEPS`]. The perf scripts read them by
+    /// name; don't rename them.
+    schema_step: &'static str,
+    first_rows_step: &'static str,
+}
+
+/// The panel's waterfall section for the current open, timed from the
+/// click, drop, or choice.
+#[cfg(target_family = "wasm")]
+const OPEN_STEPS: &str = "Open";
+
+/// The panel's rows for the open file, refreshed while it's open.
+#[cfg(target_family = "wasm")]
+const READ_METRIC: &str = "Read";
+#[cfg(target_family = "wasm")]
+const ROWS_PER_S_METRIC: &str = "Rows/s (2 s)";
+#[cfg(target_family = "wasm")]
+const CACHE_HITS_METRIC: &str = "Cache hits (2 s)";
+#[cfg(target_family = "wasm")]
+const PAGES_METRIC: &str = "Pages";
+
+#[cfg(target_family = "wasm")]
+impl Marks {
+    /// A new open: its steps start, and the last open's go.
+    fn start(self, started_at: f64, cx: &mut App) {
+        use seiza::LoadStep;
+        seiza::perf::clear_load_section(cx, OPEN_STEPS);
+        seiza::perf::set_load_step(
+            cx,
+            OPEN_STEPS,
+            self.schema_step,
+            LoadStep::running(started_at),
+        );
+        seiza::perf::set_load_step(
+            cx,
+            OPEN_STEPS,
+            self.first_rows_step,
+            LoadStep::running(started_at),
+        );
+    }
+
+    /// The open failed before its schema showed.
+    fn fail(self, started_at: f64, cx: &mut App) {
+        use seiza::LoadStep;
+        let now = crate::engine::now();
+        seiza::perf::set_load_step(
+            cx,
+            OPEN_STEPS,
+            self.schema_step,
+            LoadStep::failed(started_at, now),
+        );
+        seiza::perf::set_load_step(
+            cx,
+            OPEN_STEPS,
+            self.first_rows_step,
+            LoadStep::skipped(started_at),
+        );
+    }
 }
 
 #[cfg_attr(
@@ -223,6 +281,9 @@ pub struct Workbench {
     /// that shows them change.
     #[cfg(target_family = "wasm")]
     shown_csv: Option<(u64, &'static str)>,
+    /// What DuckDB has read of the open Parquet file (a CSV counts its own).
+    #[cfg(target_family = "wasm")]
+    read_counter: Option<crate::engine::ReadCounter>,
     _engine_status: Subscription,
 }
 
@@ -232,6 +293,24 @@ impl Workbench {
         crate::files::listen(cx.entity().downgrade(), window.window_handle(), cx);
         #[cfg(not(target_family = "wasm"))]
         let _ = window;
+        #[cfg(target_family = "wasm")]
+        {
+            // Rows in this order, before any file adds its own.
+            for metric in [
+                READ_METRIC,
+                ROWS_PER_S_METRIC,
+                CACHE_HITS_METRIC,
+                PAGES_METRIC,
+            ] {
+                seiza::perf::set_metric(cx, metric, "—");
+            }
+            let this = cx.entity().downgrade();
+            seiza::perf::on_refresh(cx, move |cx| {
+                if let Some(this) = this.upgrade() {
+                    this.update(cx, |this, cx| this.refresh_panel(cx));
+                }
+            });
+        }
         Self {
             load: Load::Idle,
             notice: None,
@@ -245,6 +324,8 @@ impl Workbench {
             mark_shown: None,
             #[cfg(target_family = "wasm")]
             shown_csv: None,
+            #[cfg(target_family = "wasm")]
+            read_counter: None,
             _engine_status: cx.observe_global::<EngineStatus>(|_, cx| cx.notify()),
         }
     }
@@ -361,9 +442,7 @@ impl Workbench {
     fn close_current(&mut self, cx: &mut Context<Self>) {
         let engine = cx.global::<crate::engine::Engine>().clone();
         match std::mem::replace(&mut self.load, Load::Idle) {
-            Load::Opening {
-                origin, sent, csv, ..
-            } => {
+            Load::Opening { sent, csv, .. } => {
                 // The task is dropped with the state; its sent queries go on
                 // in DuckDB unless cancelled.
                 for request in sent.borrow().iter() {
@@ -372,12 +451,9 @@ impl Workbench {
                 if let Some(csv) = csv {
                     csv.stop(&engine);
                 }
-                let marks = origin.marks();
-                seiza::perf::set_metric(cx, marks.schema_metric, "—");
-                seiza::perf::set_metric(cx, marks.first_rows_metric, "—");
             }
             Load::Open { table, csv, .. } => {
-                table.update(cx, |table, cx| table.close(cx));
+                table.update(cx, |table, _| table.close());
                 match csv {
                     // Still loading: the load task drops the tables once its
                     // query answers.
@@ -395,6 +471,7 @@ impl Workbench {
         seiza::perf::set_metric(cx, CSV_CHUNKS_METRIC, "—");
         self.shown_csv = None;
         self.mark_shown = None;
+        self.read_counter = None;
     }
 
     /// Registers `source` as `sql_name` and reads its summary, then shows its
@@ -425,8 +502,7 @@ impl Workbench {
         let marks = origin.marks();
         self.opened_at = started_at;
         mark_at(marks.start, started_at);
-        seiza::perf::set_metric(cx, marks.schema_metric, "…");
-        seiza::perf::set_metric(cx, marks.first_rows_metric, "…");
+        marks.start(started_at, cx);
 
         let engine = cx.global::<Engine>().clone();
         let sent = Rc::new(RefCell::new(Vec::new()));
@@ -439,20 +515,20 @@ impl Workbench {
                 .await;
                 let _ = this.update_in(cx, |this, window, cx| {
                     this.load = match result {
-                        Ok(summary) => {
+                        Ok((summary, read_counter)) => {
                             this.mark_shown = Some(marks);
+                            this.read_counter = read_counter;
                             crate::engine::show_parquet_ready(cx, &engine);
                             let table = cx.new(|cx| {
                                 RowTable::new(
                                     RowSource::Parquet(sql_name),
                                     summary.rows,
                                     &summary.columns,
-                                    started_at,
-                                    marks.first_rows_metric,
                                     engine,
                                     cx,
                                 )
                             });
+                            this.watch_table(&table, marks, started_at, cx);
                             let focus = table.read(cx).focus_handle().clone();
                             window.focus(&focus, cx);
                             Load::Open {
@@ -471,8 +547,7 @@ impl Workbench {
                             // The failure says it all; an "Opened …, the first
                             // of N files" line would bury it.
                             this.notice = None;
-                            seiza::perf::set_metric(cx, marks.schema_metric, "failed");
-                            seiza::perf::set_metric(cx, marks.first_rows_metric, "—");
+                            marks.fail(started_at, cx);
                             Load::Failed {
                                 origin,
                                 name,
@@ -515,8 +590,7 @@ impl Workbench {
         let marks = Origin::Device.marks();
         self.opened_at = started_at;
         mark_at(marks.start, started_at);
-        seiza::perf::set_metric(cx, marks.schema_metric, "…");
-        seiza::perf::set_metric(cx, marks.first_rows_metric, "…");
+        marks.start(started_at, cx);
         seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "…");
 
         let engine = cx.global::<Engine>().clone();
@@ -542,8 +616,7 @@ impl Workbench {
                     Err(error) => {
                         let _ = this.update(cx, |this, cx| {
                             this.notice = None;
-                            seiza::perf::set_metric(cx, marks.schema_metric, "failed");
-                            seiza::perf::set_metric(cx, marks.first_rows_metric, "—");
+                            marks.fail(started_at, cx);
                             seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "failed");
                             this.load = Load::Failed {
                                 origin: Origin::Device,
@@ -637,12 +710,11 @@ impl Workbench {
                 RowSource::Csv(chunks),
                 summary.rows,
                 &summary.columns,
-                started_at,
-                marks.first_rows_metric,
                 engine,
                 cx,
             )
         });
+        self.watch_table(&table, marks, started_at, cx);
         let focus = table.read(cx).focus_handle().clone();
         window.focus(&focus, cx);
         let mut load = CsvLoad {
@@ -785,13 +857,125 @@ impl Workbench {
         let shown = seiza::mark_after_current_task(marks.shown);
         let started_at = self.opened_at;
         cx.spawn(async move |_, cx| {
-            let metric = match shown.await {
-                Some(shown) => format!("{:.0} ms", shown - started_at),
-                None => "—".into(),
+            // No mark, no time: "—" rather than a guess.
+            let step = match shown.await {
+                Some(shown) => seiza::LoadStep::done(started_at, shown),
+                None => seiza::LoadStep::skipped(started_at),
             };
-            cx.update(|cx| seiza::perf::set_metric(cx, marks.schema_metric, metric));
+            cx.update(|cx| seiza::perf::set_load_step(cx, OPEN_STEPS, marks.schema_step, step));
         })
         .detach();
+    }
+
+    /// Shows `table`'s first rows in the panel, as long as it's still the
+    /// table shown.
+    #[cfg(target_family = "wasm")]
+    fn watch_table(
+        &mut self,
+        table: &Entity<RowTable>,
+        marks: Marks,
+        started_at: f64,
+        cx: &mut Context<Self>,
+    ) {
+        cx.subscribe(table, move |this, table, event, cx| {
+            let current = matches!(&this.load, Load::Open { table: shown, .. } if *shown == table);
+            match event {
+                TableEvent::FirstRows { shown_ms } if current => seiza::perf::set_load_step(
+                    cx,
+                    OPEN_STEPS,
+                    marks.first_rows_step,
+                    match shown_ms {
+                        Some(shown) => seiza::LoadStep::done(started_at, *shown),
+                        None => seiza::LoadStep::skipped(started_at),
+                    },
+                ),
+                TableEvent::FirstRows { .. } => {}
+            }
+        })
+        .detach();
+    }
+
+    /// The panel's rows for the open file: what DuckDB has read of it, and
+    /// the table's scrolling and paging. Runs at the panel's refresh.
+    #[cfg(target_family = "wasm")]
+    fn refresh_panel(&mut self, cx: &mut Context<Self>) {
+        let now = crate::engine::now();
+        let (read, size, table) = match &self.load {
+            Load::Open {
+                summary,
+                table,
+                csv,
+            } => (
+                match csv {
+                    Some(load) => Some(load.read),
+                    None => self
+                        .read_counter
+                        .as_ref()
+                        .map(crate::engine::ReadCounter::get),
+                },
+                summary.bytes,
+                Some(table.clone()),
+            ),
+            _ => (None, None, None),
+        };
+        // Bytes transferred, not distinct bytes: DuckDB reads a range again
+        // once its readahead buffer has moved on, so past the file's size
+        // a share would be meaningless.
+        let read = match (read, size) {
+            (Some(read), Some(size)) if read > size => {
+                format!(
+                    "{} transferred · file {}",
+                    format_bytes(read),
+                    format_bytes(size)
+                )
+            }
+            (Some(read), Some(size)) if size > 0 => format!(
+                "{} of {} ({:.1}%)",
+                format_bytes(read),
+                format_bytes(size),
+                read as f64 * 100.0 / size as f64
+            ),
+            (Some(read), _) => format_bytes(read),
+            (None, _) => "—".into(),
+        };
+        seiza::perf::set_metric(cx, READ_METRIC, read);
+        let Some(table) = table else {
+            for metric in [ROWS_PER_S_METRIC, CACHE_HITS_METRIC, PAGES_METRIC] {
+                seiza::perf::set_metric(cx, metric, "—");
+            }
+            return;
+        };
+        let stats = table.update(cx, |table, _| table.stats(now));
+        let activity = stats.activity;
+        seiza::perf::set_metric(
+            cx,
+            ROWS_PER_S_METRIC,
+            format_count(activity.rows_per_s.round() as u64),
+        );
+        seiza::perf::set_metric(
+            cx,
+            CACHE_HITS_METRIC,
+            if activity.frames == 0 {
+                "—".to_string()
+            } else {
+                format!(
+                    "{:.0}% of {} frames",
+                    activity.filled_frames as f64 * 100.0 / activity.frames as f64,
+                    activity.frames
+                )
+            },
+        );
+        seiza::perf::set_metric(
+            cx,
+            PAGES_METRIC,
+            format!(
+                "{} loaded · {} in flight · {} cancelled · {}",
+                stats.loaded_pages,
+                stats.in_flight,
+                stats.draining,
+                format_bytes(stats.cache_bytes as u64)
+            ),
+        );
     }
 
     /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`,

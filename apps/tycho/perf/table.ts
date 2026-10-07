@@ -39,7 +39,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwri
 import { preview } from 'vite';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, frameRecorder, framesBetween, open, overlayValue, startCountingProxy, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
+import { clickTarget, fling, frameRecorder, framesBetween, open, overlayValue, startCountingProxy, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -155,22 +155,7 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
     const homePressed = await now(page);
     await page.keyboard.press('Home');
     await waitFilled(page, homePressed).catch(() => null);
-    const [x, y, , h] = await targetRect(page, 'table-scroll-track');
-    await page.mouse.move(x - 400, y + h / 2);
-    const total = FILE.rows * 30;
-    const flingStart = await now(page);
-    const wallStart = Date.now();
-    let sent = 0;
-    while (Date.now() - wallStart < 3_000) {
-      const remaining = 3_000 - (Date.now() - wallStart);
-      const delta = Math.max(1_000, ((total - sent) * 16) / Math.max(remaining, 16));
-      await wheel(page, delta);
-      sent += delta;
-      await page.waitForTimeout(8);
-    }
-    // Whatever the loop didn't cover in its 3 s: the fling ends at the bottom.
-    if (sent < total) await wheel(page, total - sent);
-    const flingEnd = await now(page);
+    const { start: flingStart, end: flingEnd } = await fling(page, FILE.rows);
     await page.waitForTimeout(500);
     const afterFling = await probe(page);
     const flingFrames = await framesBetween(page, flingStart, flingEnd + 500);

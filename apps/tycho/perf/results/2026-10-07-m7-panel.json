@@ -1,0 +1,3582 @@
+{
+  "date": "2026-10-07",
+  "label": "m7-panel",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium (headless=new)",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "tolerance": 0.05,
+    "windowMs": 2000
+  },
+  "file": {
+    "name": "asteroids.parquet",
+    "rows": 1567523,
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+    "notes": [
+      "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+      "0 rows have no first_obs in the source"
+    ]
+  },
+  "summary": {
+    "reference": {
+      "runs": 10,
+      "matched": "170/170",
+      "steadyWork": {
+        "p50Ms": 12.7,
+        "p95Ms": 15.1
+      },
+      "flingPanelOpen": {
+        "intervalP95Ms": 16.7,
+        "intervalMaxMs": 16.7,
+        "over50": 0,
+        "workP50Ms": 5.9,
+        "workP95Ms": 8.1
+      },
+      "flingPanelClosed": {
+        "intervalP95Ms": 16.7,
+        "intervalMaxMs": 16.7,
+        "over50": 0,
+        "workP50Ms": 5.2,
+        "workP95Ms": 7.3
+      }
+    },
+    "throttled": {
+      "runs": 10,
+      "matched": "170/170",
+      "steadyWork": {
+        "p50Ms": 36.9,
+        "p95Ms": 42.8
+      },
+      "flingPanelOpen": {
+        "intervalP95Ms": 16.7,
+        "intervalMaxMs": 33.3,
+        "over50": 0,
+        "workP50Ms": 23.8,
+        "workP95Ms": 29.8
+      },
+      "flingPanelClosed": {
+        "intervalP95Ms": 16.7,
+        "intervalMaxMs": 33.3,
+        "over50": 0,
+        "workP50Ms": 21,
+        "workP95Ms": 26.4
+      }
+    }
+  },
+  "runs": {
+    "reference": [
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 197,
+            "measured": 197.215,
+            "allowed": 9.861,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 9,
+            "measured": 8.81,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 102,
+            "measured": 102.395,
+            "allowed": 5.12,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 112,
+            "measured": 111.68,
+            "allowed": 5.584,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 197,
+            "measured": 197.215,
+            "allowed": 9.861,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 713,
+            "measured": 712.615,
+            "allowed": 35.631,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 842,
+            "measured": 841.87,
+            "allowed": 42.094,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 114,
+            "measured": 114.24,
+            "allowed": 5.712,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 219,
+            "measured": 219.44,
+            "allowed": 10.972,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 11.7,
+            "measured": 11.76,
+            "allowed": 0.588,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 13.4,
+            "measured": 13.46,
+            "allowed": 0.673,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.1,
+            "measured": 16.063,
+            "allowed": 0.803,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 120,
+          "work": {
+            "n": 45,
+            "p50": 11.760000228881836,
+            "p95": 13.460000038146973,
+            "max": 14.264999866485596
+          },
+          "panelWork": "p50 11.7 · p95 13.4 · max 14 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 176
+            },
+            "work": {
+              "n": 176,
+              "p50": 6.050000190734863,
+              "p95": 7.795000076293945,
+              "max": 25.19000005722046
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 152
+            },
+            "work": {
+              "n": 181,
+              "p50": 5.130000114440918,
+              "p95": 7.519999980926514,
+              "max": 11.880000114440918
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 184,
+            "measured": 183.985,
+            "allowed": 9.199,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 1.94,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 87,
+            "measured": 87.18,
+            "allowed": 4.359,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 96,
+            "measured": 96.4,
+            "allowed": 4.82,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 184,
+            "measured": 183.985,
+            "allowed": 9.199,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 665,
+            "measured": 664.55,
+            "allowed": 33.228,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 800,
+            "measured": 800.14,
+            "allowed": 40.007,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 119,
+            "measured": 118.59,
+            "allowed": 5.929,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 206,
+            "measured": 206.135,
+            "allowed": 10.307,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 13.3,
+            "measured": 13.395,
+            "allowed": 0.67,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 15.7,
+            "measured": 15.79,
+            "allowed": 0.789,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.2,
+            "measured": 16.25,
+            "allowed": 0.813,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 118,
+          "work": {
+            "n": 44,
+            "p50": 13.394999980926514,
+            "p95": 15.789999961853027,
+            "max": 16.200000286102295
+          },
+          "panelWork": "p50 13.3 · p95 15.7 · max 16 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 179
+            },
+            "work": {
+              "n": 177,
+              "p50": 5.515000343322754,
+              "p95": 6.494999885559082,
+              "max": 8.165000438690186
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 154
+            },
+            "work": {
+              "n": 183,
+              "p50": 6.15500020980835,
+              "p95": 8.505000114440918,
+              "max": 21.994999885559082
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 186,
+            "measured": 186.145,
+            "allowed": 9.307,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 1.535,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 91,
+            "measured": 90.605,
+            "allowed": 4.53,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 100,
+            "measured": 100.025,
+            "allowed": 5.001,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 186,
+            "measured": 186.145,
+            "allowed": 9.307,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 745,
+            "measured": 744.725,
+            "allowed": 37.236,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 874,
+            "measured": 873.98,
+            "allowed": 43.699,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 108,
+            "measured": 108.34,
+            "allowed": 5.417,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 196,
+            "measured": 196.435,
+            "allowed": 9.822,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 12.6,
+            "measured": 12.695,
+            "allowed": 0.635,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 15,
+            "measured": 15.105,
+            "allowed": 0.755,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 14.9,
+            "measured": 14.938,
+            "allowed": 0.747,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 115,
+          "work": {
+            "n": 44,
+            "p50": 12.695000171661377,
+            "p95": 15.105000019073486,
+            "max": 15.900000095367432
+          },
+          "panelWork": "p50 12.6 · p95 15.0 · max 16 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 182
+            },
+            "work": {
+              "n": 174,
+              "p50": 5.845000267028809,
+              "p95": 7.275000095367432,
+              "max": 21.960000038146973
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 139
+            },
+            "work": {
+              "n": 168,
+              "p50": 5.150000095367432,
+              "p95": 7.605000019073486,
+              "max": 10.96999979019165
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 198,
+            "measured": 198.03,
+            "allowed": 9.901,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 2.165,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 102,
+            "measured": 101.615,
+            "allowed": 5.081,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 111,
+            "measured": 111.33,
+            "allowed": 5.566,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 198,
+            "measured": 198.03,
+            "allowed": 9.901,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 711,
+            "measured": 710.89,
+            "allowed": 35.544,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 838,
+            "measured": 837.6,
+            "allowed": 41.88,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 118,
+            "measured": 118.235,
+            "allowed": 5.912,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 206,
+            "measured": 206.025,
+            "allowed": 10.301,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 12.7,
+            "measured": 12.77,
+            "allowed": 0.638,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 14.6,
+            "measured": 14.645,
+            "allowed": 0.732,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 600,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.2,
+            "measured": 16.25,
+            "allowed": 0.813,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 120,
+          "work": {
+            "n": 46,
+            "p50": 12.769999980926514,
+            "p95": 14.644999980926514,
+            "max": 15.255000114440918
+          },
+          "panelWork": "p50 12.7 · p95 14.6 · max 15 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 177
+            },
+            "work": {
+              "n": 171,
+              "p50": 5.25,
+              "p95": 6.675000190734863,
+              "max": 11.394999980926514
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 153
+            },
+            "work": {
+              "n": 181,
+              "p50": 5.920000076293945,
+              "p95": 8.414999961853027,
+              "max": 24.950000286102295
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 186,
+            "measured": 185.605,
+            "allowed": 9.28,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 1.66,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 92,
+            "measured": 91.86,
+            "allowed": 4.593,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 101,
+            "measured": 101.05,
+            "allowed": 5.053,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 186,
+            "measured": 185.605,
+            "allowed": 9.28,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 679,
+            "measured": 679.475,
+            "allowed": 33.974,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 808,
+            "measured": 807.835,
+            "allowed": 40.392,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 119,
+            "measured": 119.495,
+            "allowed": 5.975,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 206,
+            "measured": 206.175,
+            "allowed": 10.309,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 12.4,
+            "measured": 12.455,
+            "allowed": 0.623,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 14.7,
+            "measured": 14.77,
+            "allowed": 0.738,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.4,
+            "measured": 16.375,
+            "allowed": 0.819,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 115,
+          "work": {
+            "n": 45,
+            "p50": 12.454999923706055,
+            "p95": 14.769999980926514,
+            "max": 15.795000076293945
+          },
+          "panelWork": "p50 12.4 · p95 14.7 · max 16 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 183
+            },
+            "work": {
+              "n": 177,
+              "p50": 5.96999979019165,
+              "p95": 7.669999599456787,
+              "max": 20.6850004196167
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 155
+            },
+            "work": {
+              "n": 182,
+              "p50": 5.070000171661377,
+              "p95": 7.625,
+              "max": 11.399999618530273
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 188,
+            "measured": 187.88,
+            "allowed": 9.394,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 2.155,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 91,
+            "measured": 90.895,
+            "allowed": 4.545,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 101,
+            "measured": 100.965,
+            "allowed": 5.048,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 188,
+            "measured": 187.88,
+            "allowed": 9.394,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 673,
+            "measured": 673.25,
+            "allowed": 33.663,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 805,
+            "measured": 805.07,
+            "allowed": 40.253,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 117,
+            "measured": 116.935,
+            "allowed": 5.847,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 205,
+            "measured": 204.93,
+            "allowed": 10.246,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 12.2,
+            "measured": 12.315,
+            "allowed": 0.616,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 15.3,
+            "measured": 15.375,
+            "allowed": 0.769,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.4,
+            "measured": 16.375,
+            "allowed": 0.819,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 117,
+          "work": {
+            "n": 46,
+            "p50": 12.3149995803833,
+            "p95": 15.375,
+            "max": 16.640000343322754
+          },
+          "panelWork": "p50 12.2 · p95 15.3 · max 17 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 177
+            },
+            "work": {
+              "n": 173,
+              "p50": 5.195000171661377,
+              "p95": 7.105000019073486,
+              "max": 12.889999866485596
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.670000000012806,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 163
+            },
+            "work": {
+              "n": 183,
+              "p50": 5.924999713897705,
+              "p95": 8.170000076293945,
+              "max": 21.890000343322754
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 190,
+            "measured": 189.84,
+            "allowed": 9.492,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 1.835,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 91,
+            "measured": 91.105,
+            "allowed": 4.555,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 101,
+            "measured": 100.735,
+            "allowed": 5.037,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 190,
+            "measured": 189.84,
+            "allowed": 9.492,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 666,
+            "measured": 665.62,
+            "allowed": 33.281,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 795,
+            "measured": 794.9,
+            "allowed": 39.745,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 134,
+            "measured": 133.9,
+            "allowed": 6.695,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 205,
+            "measured": 205.02,
+            "allowed": 10.251,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 13,
+            "measured": 13.1,
+            "allowed": 0.655,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 15.1,
+            "measured": 15.12,
+            "allowed": 0.756,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.4,
+            "measured": 16.375,
+            "allowed": 0.819,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 119,
+          "work": {
+            "n": 44,
+            "p50": 13.099999904632568,
+            "p95": 15.119999885559082,
+            "max": 16.37000036239624
+          },
+          "panelWork": "p50 13.0 · p95 15.1 · max 16 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 182
+            },
+            "work": {
+              "n": 178,
+              "p50": 5.924999713897705,
+              "p95": 7.255000114440918,
+              "max": 23.18499994277954
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.670000000012806,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 154
+            },
+            "work": {
+              "n": 180,
+              "p50": 5.210000038146973,
+              "p95": 7.679999828338623,
+              "max": 13.335000038146973
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 195,
+            "measured": 194.805,
+            "allowed": 9.74,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 1.68,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 99,
+            "measured": 98.8,
+            "allowed": 4.94,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 109,
+            "measured": 109.01,
+            "allowed": 5.45,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 195,
+            "measured": 194.805,
+            "allowed": 9.74,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 729,
+            "measured": 729,
+            "allowed": 36.45,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 870,
+            "measured": 870.33,
+            "allowed": 43.516,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 118,
+            "measured": 118.355,
+            "allowed": 5.918,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 189,
+            "measured": 188.735,
+            "allowed": 9.437,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.33,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 13.4,
+            "measured": 13.535,
+            "allowed": 0.677,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 15.2,
+            "measured": 15.3,
+            "allowed": 0.765,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 585,
+            "allowed": 29.25,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.1,
+            "measured": 16.125,
+            "allowed": 0.806,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 113,
+          "work": {
+            "n": 43,
+            "p50": 13.53499984741211,
+            "p95": 15.300000190734863,
+            "max": 15.779999732971191
+          },
+          "panelWork": "p50 13.4 · p95 15.2 · max 16 ms",
+          "panelFrames": "p50 16.7 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 183
+            },
+            "work": {
+              "n": 168,
+              "p50": 5.144999980926514,
+              "p95": 6.049999713897705,
+              "max": 11.884999752044678
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 170
+            },
+            "work": {
+              "n": 177,
+              "p50": 5.784999847412109,
+              "p95": 8.164999961853027,
+              "max": 25.050000190734863
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 183,
+            "measured": 183.07,
+            "allowed": 9.154,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 3,
+            "measured": 2.78,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 88,
+            "measured": 87.595,
+            "allowed": 4.38,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 97,
+            "measured": 97.26,
+            "allowed": 4.863,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 183,
+            "measured": 183.07,
+            "allowed": 9.154,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 647,
+            "measured": 646.605,
+            "allowed": 32.33,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 781,
+            "measured": 781.38,
+            "allowed": 39.069,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 98,
+            "measured": 97.585,
+            "allowed": 4.879,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 186,
+            "measured": 185.95,
+            "allowed": 9.298,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 12.2,
+            "measured": 12.24,
+            "allowed": 0.612,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 14.1,
+            "measured": 14.205,
+            "allowed": 0.71,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.4,
+            "measured": 16.375,
+            "allowed": 0.819,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 117,
+          "work": {
+            "n": 46,
+            "p50": 12.240000247955322,
+            "p95": 14.204999923706055,
+            "max": 15.429999828338623
+          },
+          "panelWork": "p50 12.2 · p95 14.1 · max 15 ms",
+          "panelFrames": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 178
+            },
+            "work": {
+              "n": 180,
+              "p50": 5.860000133514404,
+              "p95": 7.96999979019165,
+              "max": 13.264999866485596
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 160
+            },
+            "work": {
+              "n": 179,
+              "p50": 5.09499979019165,
+              "p95": 7.445000171661377,
+              "max": 11.835000038146973
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 187,
+            "measured": 186.975,
+            "allowed": 9.349,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 2,
+            "measured": 1.555,
+            "allowed": 0.5,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 93,
+            "measured": 93.14,
+            "allowed": 4.657,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 102,
+            "measured": 102.49,
+            "allowed": 5.125,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 187,
+            "measured": 186.975,
+            "allowed": 9.349,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 690,
+            "measured": 690.21,
+            "allowed": 34.511,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 827,
+            "measured": 826.96,
+            "allowed": 41.348,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 108,
+            "measured": 108.095,
+            "allowed": 5.405,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 179,
+            "measured": 179.14,
+            "allowed": 8.957,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.665,
+            "allowed": 0.833,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.33,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 12.9,
+            "measured": 12.985,
+            "allowed": 0.649,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 15.1,
+            "measured": 15.205,
+            "allowed": 0.76,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 16.2,
+            "measured": 16.25,
+            "allowed": 0.813,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 113,
+          "work": {
+            "n": 44,
+            "p50": 12.985000133514404,
+            "p95": 15.204999923706055,
+            "max": 16.02500009536743
+          },
+          "panelWork": "p50 12.9 · p95 15.1 · max 16 ms",
+          "panelFrames": "p50 16.7 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 178
+            },
+            "work": {
+              "n": 173,
+              "p50": 5.295000076293945,
+              "p95": 6.264999866485596,
+              "max": 8.775000095367432
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 211,
+              "p50": 16.66500000000815,
+              "p95": 16.669999999998254,
+              "max": 16.670000000012806,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 168
+            },
+            "work": {
+              "n": 174,
+              "p50": 5.860000133514404,
+              "p95": 8.680000305175781,
+              "max": 23.514999866485596
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3616,
+            "measured": 3615.57,
+            "allowed": 180.778,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 168,
+            "measured": 168.34,
+            "allowed": 8.417,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3197,
+            "measured": 3196.745,
+            "allowed": 159.837,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3277,
+            "measured": 3276.8,
+            "allowed": 163.84,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3616,
+            "measured": 3615.57,
+            "allowed": 180.778,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9855,
+            "measured": 9854.865,
+            "allowed": 492.743,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10656,
+            "measured": 10656.065,
+            "allowed": 532.803,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1082,
+            "measured": 1082.2,
+            "allowed": 54.11,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3395,
+            "measured": 3395.485,
+            "allowed": 169.774,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.4,
+            "measured": 36.465,
+            "allowed": 1.823,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.2,
+            "measured": 42.305,
+            "allowed": 2.115,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 81,
+          "work": {
+            "n": 40,
+            "p50": 36.46499967575073,
+            "p95": 42.30500030517578,
+            "max": 45.230000019073486
+          },
+          "panelWork": "p50 36.4 · p95 42.2 · max 45 ms",
+          "panelFrames": "p50 16.7 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 209,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 207
+            },
+            "work": {
+              "n": 91,
+              "p50": 23.445000171661377,
+              "p95": 29.850000381469727,
+              "max": 38.94499969482422
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 213,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 211
+            },
+            "work": {
+              "n": 91,
+              "p50": 20.829999923706055,
+              "p95": 24.085000038146973,
+              "max": 25.630000114440918
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3609,
+            "measured": 3608.88,
+            "allowed": 180.444,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 169,
+            "measured": 168.84,
+            "allowed": 8.442,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3194,
+            "measured": 3194.29,
+            "allowed": 159.714,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3264,
+            "measured": 3263.995,
+            "allowed": 163.2,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3609,
+            "measured": 3608.88,
+            "allowed": 180.444,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9872,
+            "measured": 9872.255,
+            "allowed": 493.613,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10678,
+            "measured": 10678.4,
+            "allowed": 533.92,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1074,
+            "measured": 1073.79,
+            "allowed": 53.689,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3469,
+            "measured": 3469.19,
+            "allowed": 173.46,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.325,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.2,
+            "measured": 36.515,
+            "allowed": 1.826,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.5,
+            "measured": 43.285,
+            "allowed": 2.164,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 40,
+            "p50": 36.514999866485596,
+            "p95": 43.28500032424927,
+            "max": 44.44499969482422
+          },
+          "panelWork": "p50 36.2 · p95 42.5 · max 44 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 213,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 211
+            },
+            "work": {
+              "n": 91,
+              "p50": 20.71500015258789,
+              "p95": 24.75,
+              "max": 29.02500009536743
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 210,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.330000000001746,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 208
+            },
+            "work": {
+              "n": 93,
+              "p50": 23.100000381469727,
+              "p95": 27.589999675750732,
+              "max": 31.90000009536743
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3637,
+            "measured": 3636.655,
+            "allowed": 181.833,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 174,
+            "measured": 174.445,
+            "allowed": 8.722,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3197,
+            "measured": 3196.775,
+            "allowed": 159.839,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3281,
+            "measured": 3281.005,
+            "allowed": 164.05,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3637,
+            "measured": 3636.655,
+            "allowed": 181.833,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9896,
+            "measured": 9895.975,
+            "allowed": 494.799,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10701,
+            "measured": 10701.315,
+            "allowed": 535.066,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1078,
+            "measured": 1078.335,
+            "allowed": 53.917,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3384,
+            "measured": 3383.555,
+            "allowed": 169.178,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 35.6,
+            "measured": 35.92,
+            "allowed": 1.796,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.9,
+            "measured": 42.925,
+            "allowed": 2.146,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 81,
+          "work": {
+            "n": 40,
+            "p50": 35.920000076293945,
+            "p95": 42.924999713897705,
+            "max": 48.58500003814697
+          },
+          "panelWork": "p50 35.6 · p95 42.9 · max 49 ms",
+          "panelFrames": "p50 16.7 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 209,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 207
+            },
+            "work": {
+              "n": 91,
+              "p50": 23.27500009536743,
+              "p95": 30.289999961853027,
+              "max": 32.89999961853027
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.325000000004366,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 209
+            },
+            "work": {
+              "n": 91,
+              "p50": 20.744999885559082,
+              "p95": 23.929999828338623,
+              "max": 28.735000133514404
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3613,
+            "measured": 3613.425,
+            "allowed": 180.671,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 176,
+            "measured": 175.525,
+            "allowed": 8.776,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3195,
+            "measured": 3195.3,
+            "allowed": 159.765,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3272,
+            "measured": 3272,
+            "allowed": 163.6,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3613,
+            "measured": 3613.425,
+            "allowed": 180.671,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9865,
+            "measured": 9864.785,
+            "allowed": 493.239,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10662,
+            "measured": 10662.12,
+            "allowed": 533.106,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1075,
+            "measured": 1074.575,
+            "allowed": 53.729,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3384,
+            "measured": 3384.49,
+            "allowed": 169.224,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.33,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.7,
+            "measured": 36.845,
+            "allowed": 1.842,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.7,
+            "measured": 42.39,
+            "allowed": 2.119,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 40,
+            "p50": 36.84500026702881,
+            "p95": 42.389999866485596,
+            "max": 45.28999996185303
+          },
+          "panelWork": "p50 36.7 · p95 42.7 · max 45 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 214,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 16.67000000000553,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 212
+            },
+            "work": {
+              "n": 91,
+              "p50": 21.489999771118164,
+              "p95": 25.539999961853027,
+              "max": 27.97499990463257
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 209
+            },
+            "work": {
+              "n": 92,
+              "p50": 23.170000076293945,
+              "p95": 29.744999885559082,
+              "max": 33.72499990463257
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3613,
+            "measured": 3613.3,
+            "allowed": 180.665,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 170,
+            "measured": 169.98,
+            "allowed": 8.499,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3193,
+            "measured": 3193.04,
+            "allowed": 159.652,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3268,
+            "measured": 3267.78,
+            "allowed": 163.389,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3613,
+            "measured": 3613.3,
+            "allowed": 180.665,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9858,
+            "measured": 9858.12,
+            "allowed": 492.906,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10666,
+            "measured": 10666.035,
+            "allowed": 533.302,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1073,
+            "measured": 1073.315,
+            "allowed": 53.666,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3455,
+            "measured": 3454.795,
+            "allowed": 172.74,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.325,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.9,
+            "measured": 37.22,
+            "allowed": 1.861,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.6,
+            "measured": 42.685,
+            "allowed": 2.134,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 40,
+            "p50": 37.22000026702881,
+            "p95": 42.68499994277954,
+            "max": 43.55499982833862
+          },
+          "panelWork": "p50 36.9 · p95 42.6 · max 43 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 209,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.34000000000378,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 207
+            },
+            "work": {
+              "n": 91,
+              "p50": 23.949999809265137,
+              "p95": 28.950000286102295,
+              "max": 34.375
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 212,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.330000000001746,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 210
+            },
+            "work": {
+              "n": 91,
+              "p50": 20.94000005722046,
+              "p95": 27.125,
+              "max": 30.69000005722046
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3599,
+            "measured": 3598.595,
+            "allowed": 179.93,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 168,
+            "measured": 168.27,
+            "allowed": 8.413,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3193,
+            "measured": 3192.59,
+            "allowed": 159.629,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3259,
+            "measured": 3258.945,
+            "allowed": 162.947,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3599,
+            "measured": 3598.595,
+            "allowed": 179.93,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9834,
+            "measured": 9834.33,
+            "allowed": 491.716,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10634,
+            "measured": 10634.055,
+            "allowed": 531.703,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1076,
+            "measured": 1076.015,
+            "allowed": 53.801,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3389,
+            "measured": 3388.97,
+            "allowed": 169.448,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 16.7,
+            "measured": 16.67,
+            "allowed": 0.834,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.7,
+            "measured": 37,
+            "allowed": 1.85,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 44.7,
+            "measured": 44.86,
+            "allowed": 2.243,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 570,
+            "measured": 585,
+            "allowed": 29.25,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 39,
+            "p50": 37,
+            "p95": 44.859999656677246,
+            "max": 47.19999980926514
+          },
+          "panelWork": "p50 36.7 · p95 44.7 · max 47 ms",
+          "panelFrames": "p50 16.7 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 213,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.32999999999447,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 210
+            },
+            "work": {
+              "n": 90,
+              "p50": 21.070000171661377,
+              "p95": 26.949999809265137,
+              "max": 28.255000114440918
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 209,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 207
+            },
+            "work": {
+              "n": 91,
+              "p50": 23.850000381469727,
+              "p95": 30.514999866485596,
+              "max": 31.369999885559082
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3613,
+            "measured": 3613.16,
+            "allowed": 180.658,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 171,
+            "measured": 170.76,
+            "allowed": 8.538,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3195,
+            "measured": 3195.01,
+            "allowed": 159.751,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3270,
+            "measured": 3270.215,
+            "allowed": 163.511,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3613,
+            "measured": 3613.16,
+            "allowed": 180.658,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9860,
+            "measured": 9859.51,
+            "allowed": 492.976,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10669,
+            "measured": 10668.605,
+            "allowed": 533.43,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1076,
+            "measured": 1076.15,
+            "allowed": 53.808,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3386,
+            "measured": 3386.3,
+            "allowed": 169.315,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.33,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.4,
+            "measured": 37.055,
+            "allowed": 1.853,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 40.7,
+            "measured": 40.76,
+            "allowed": 2.038,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 40,
+            "p50": 37.05500030517578,
+            "p95": 40.760000228881836,
+            "max": 45.864999771118164
+          },
+          "panelWork": "p50 36.4 · p95 40.7 · max 46 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.3350000000064,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 209
+            },
+            "work": {
+              "n": 92,
+              "p50": 23.880000114440918,
+              "p95": 28.71999979019165,
+              "max": 31.460000038146973
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 208,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.3350000000064,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 206
+            },
+            "work": {
+              "n": 90,
+              "p50": 22.955000400543213,
+              "p95": 28.450000286102295,
+              "max": 35.57000017166138
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3620,
+            "measured": 3619.57,
+            "allowed": 180.979,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 169,
+            "measured": 169.155,
+            "allowed": 8.458,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3189,
+            "measured": 3188.935,
+            "allowed": 159.447,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3261,
+            "measured": 3260.595,
+            "allowed": 163.03,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3620,
+            "measured": 3619.57,
+            "allowed": 180.979,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9853,
+            "measured": 9853.175,
+            "allowed": 492.659,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10653,
+            "measured": 10652.605,
+            "allowed": 532.63,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1060,
+            "measured": 1059.57,
+            "allowed": 52.979,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3353,
+            "measured": 3352.95,
+            "allowed": 167.647,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.325,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 38.4,
+            "measured": 38.885,
+            "allowed": 1.944,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.4,
+            "measured": 43.17,
+            "allowed": 2.159,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 40,
+            "p50": 38.885000228881836,
+            "p95": 43.170000076293945,
+            "max": 44.34000015258789
+          },
+          "panelWork": "p50 38.4 · p95 42.4 · max 44 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 209
+            },
+            "work": {
+              "n": 90,
+              "p50": 21.910000324249268,
+              "p95": 26.869999885559082,
+              "max": 35.109999656677246
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 206,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 203
+            },
+            "work": {
+              "n": 89,
+              "p50": 23.925000190734863,
+              "p95": 32.174999713897705,
+              "max": 38.22000026702881
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3612,
+            "measured": 3612.465,
+            "allowed": 180.623,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 172,
+            "measured": 172.255,
+            "allowed": 8.613,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3192,
+            "measured": 3191.96,
+            "allowed": 159.598,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3271,
+            "measured": 3270.985,
+            "allowed": 163.549,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3612,
+            "measured": 3612.465,
+            "allowed": 180.623,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9856,
+            "measured": 9856.11,
+            "allowed": 492.806,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10661,
+            "measured": 10660.62,
+            "allowed": 533.031,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1063,
+            "measured": 1063.23,
+            "allowed": 53.162,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3334,
+            "measured": 3334.315,
+            "allowed": 166.716,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.325,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 36.7,
+            "measured": 36.76,
+            "allowed": 1.838,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 42.8,
+            "measured": 42.675,
+            "allowed": 2.134,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 585,
+            "measured": 600,
+            "allowed": 30,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 80,
+          "work": {
+            "n": 40,
+            "p50": 36.75999975204468,
+            "p95": 42.67500019073486,
+            "max": 43.90000009536743
+          },
+          "panelWork": "p50 36.7 · p95 42.8 · max 43 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 33 ms"
+        },
+        "flings": [
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 209,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.330000000001746,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 207
+            },
+            "work": {
+              "n": 91,
+              "p50": 23.984999656677246,
+              "p95": 29.174999713897705,
+              "max": 33.15000009536743
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.330000000001746,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 209
+            },
+            "work": {
+              "n": 90,
+              "p50": 20.554999828338623,
+              "p95": 26.93499994277954,
+              "max": 31.054999828338623
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      },
+      {
+        "matches": [
+          {
+            "row": "TTFP",
+            "panel": 3598,
+            "measured": 3598.12,
+            "allowed": 179.906,
+            "ok": true
+          },
+          {
+            "row": "HTML",
+            "panel": 168,
+            "measured": 167.725,
+            "allowed": 8.386,
+            "ok": true
+          },
+          {
+            "row": "Wasm download",
+            "panel": 3187,
+            "measured": 3187.455,
+            "allowed": 159.373,
+            "ok": true
+          },
+          {
+            "row": "Compile",
+            "panel": 3255,
+            "measured": 3254.915,
+            "allowed": 162.746,
+            "ok": true
+          },
+          {
+            "row": "First frame",
+            "panel": 3598,
+            "measured": 3598.12,
+            "allowed": 179.906,
+            "ok": true
+          },
+          {
+            "row": "Engine ready",
+            "panel": 9838,
+            "measured": 9837.825,
+            "allowed": 491.891,
+            "ok": true
+          },
+          {
+            "row": "Parquet ready",
+            "panel": 10630,
+            "measured": 10630.315,
+            "allowed": 531.516,
+            "ok": true
+          },
+          {
+            "row": "Sample → schema",
+            "panel": 1053,
+            "measured": 1052.755,
+            "allowed": 52.638,
+            "ok": true
+          },
+          {
+            "row": "Sample → first rows",
+            "panel": 3351,
+            "measured": 3351.29,
+            "allowed": 167.564,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p50",
+            "panel": 33.3,
+            "measured": 33.33,
+            "allowed": 1.666,
+            "ok": true
+          },
+          {
+            "row": "Frame interval p95",
+            "panel": 33.3,
+            "measured": 33.335,
+            "allowed": 1.667,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p50",
+            "panel": 38.7,
+            "measured": 39.075,
+            "allowed": 1.954,
+            "ok": true
+          },
+          {
+            "row": "Work per frame p95",
+            "panel": 47.2,
+            "measured": 47.275,
+            "allowed": 2.364,
+            "ok": true
+          },
+          {
+            "row": "Rows/s",
+            "panel": 570,
+            "measured": 585,
+            "allowed": 29.25,
+            "ok": true
+          },
+          {
+            "row": "Cache hits %",
+            "panel": 100,
+            "measured": 100,
+            "allowed": 5,
+            "ok": true
+          },
+          {
+            "row": "Wasm memory MiB",
+            "panel": 13.6,
+            "measured": 13.563,
+            "allowed": 0.678,
+            "ok": true
+          },
+          {
+            "row": "Read bytes",
+            "panel": 1468006.4,
+            "measured": 1483465,
+            "allowed": 74173.25,
+            "ok": true
+          }
+        ],
+        "steady": {
+          "frames": 78,
+          "work": {
+            "n": 39,
+            "p50": 39.07499980926514,
+            "p95": 47.27500009536743,
+            "max": 51.825000286102295
+          },
+          "panelWork": "p50 38.7 · p95 47.2 · max 51 ms",
+          "panelFrames": "p50 33.3 · p95 33.3 · max 50 ms"
+        },
+        "flings": [
+          {
+            "panel": "closed",
+            "frames": {
+              "frames": 211,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.3350000000064,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 209
+            },
+            "work": {
+              "n": 90,
+              "p50": 21.55999994277954,
+              "p95": 25.994999885559082,
+              "max": 28.94499969482422
+            },
+            "reachedEnd": true
+          },
+          {
+            "panel": "open",
+            "frames": {
+              "frames": 208,
+              "p50": 16.665000000000873,
+              "p95": 16.67000000000553,
+              "max": 33.33499999999913,
+              "over50": 0,
+              "blankFrames": 0,
+              "placeholderFrames": 206
+            },
+            "work": {
+              "n": 91,
+              "p50": 23.735000133514404,
+              "p95": 30.69000005722046,
+              "max": 34.90499973297119
+            },
+            "reachedEnd": true
+          }
+        ],
+        "problems": []
+      }
+    ]
+  },
+  "failures": []
+}

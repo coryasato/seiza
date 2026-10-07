@@ -69,6 +69,14 @@ sample *args:
 table *args:
     node {{app_dir}}/perf/table.ts {{args}}
 
+# M7 panel checks on the release build: every observation-panel value
+# against an independent measurement (page timings, an rAF recorder, a
+# work-time wrapper, /data/ bytes at the server), and the fling with the
+# panel open and closed (reference + throttled). Writes
+# perf/results/<date>-<label>.json. Run `just tycho build` first.
+panel *args:
+    node {{app_dir}}/perf/panel.ts {{args}}
+
 # M5 drop checks on the release build: drop a ~1 GB Parquet → schema and
 # first rows, 100 MB vs 1 GB memory, unsupported files, a drop superseding a
 # load, and the file dialog in Chromium/Firefox/WebKit. Needs

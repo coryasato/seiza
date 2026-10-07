@@ -19,7 +19,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M4 | Virtualized table over paged queries | Done 2026-09-25 |
 | M5 | Drop a Parquet file | Done 2026-09-27 |
 | M6 | Drop a CSV with progressive loading | Done 2026-09-30 |
-| M7 | Observation panel, jump to row, and hardening | Not started |
+| M7 | Observation panel, jump to row, and hardening | In progress: part A (panel) done 2026-10-07 |
 | M8 | Deploy to Cloudflare | Not started |
 | Later | Table interactions: column resizing, selection, sorting | Not started; research first, after M8 |
 | Later | Side-by-side comparison: WASM \| React | Not started; research first, after M8 |
@@ -171,14 +171,21 @@ Record the numbers in M7's results either way. If the growth is small next to th
 *Note from M2's code review, for this milestone to decide:* `bridge.ts` caches the engine load promise, including a rejected one (`engine ??= import(...)`). One transient failure (a network blip on the engine chunk or DuckDB's wasm) makes every later call fail with the same error until a reload. Today's UI says "Reload the page to try again", which matches. Decide whether "engine failed to load" should retry instead: reset the cached promise on rejection and offer a Retry button, or keep reload-only. A dead worker is terminated, so a retry must start a new one. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
 
 **Done when:**
-- [ ] All panel metrics show live values and match `just tycho perf` within 5%.
-- [ ] The panel updates at **~4 Hz**, not every frame, and the M4 fling budget holds with the panel **open and closed** (the perf suite measures both).
-- [ ] **Per-frame work time** (p50/p95) is shown in the panel and recorded in the Measurements table: reference and throttled, asteroids and Gaia.
+- [x] All panel metrics show live values and match `just tycho perf` within 5%. *2026-10-07 (part A):* 17 values a run, 340/340 within 5% (or half the display step) over 10 reference + 10 throttled runs, each against an independent measurement, in `just tycho panel`. Part E moves it into `just tycho perf`.
+- [x] The panel updates at **~4 Hz**, not every frame, and the M4 fling budget holds with the panel **open and closed** (the perf suite measures both). *2026-10-07:* fling p95 16.7 ms, worst 16.7 ms, both ways (reference, 10 runs each).
+- [ ] **Per-frame work time** (p50/p95) is shown in the panel and recorded in the Measurements table: reference and throttled, asteroids and Gaia. *Asteroids done 2026-10-07; Gaia in part B.*
 - [ ] **Jump to row** lands on the requested row: first, middle, last, and out of range (a clear inline message, no scroll).
 - [ ] The ceiling is measured, documented in the README, and enforced with a friendly message before the tab can run out of memory.
 - [ ] The Gaia sample meets the M4 scroll and jump budgets. If it can't, lower the row target in `prep.sql` and record why.
 - [ ] `just tycho perf` runs the full suite (cold load, both samples, fling, jump, CSV) and writes one results file.
 - [ ] The README has a "Canvas tradeoffs" section giving the current status of a11y, IME, selection, Ctrl+F, and bundle size, each with what we do today.
+
+**Split into parts (2026-10-07),** one session each, in order. M7 is five pieces of work. Each has its own measurement pass, and later checks depend on the panel's work time. Each part ends with its numbers in `perf/results/` and a short note under M7 in `docs/LESSONS.md`. The milestone closes after part E.
+- **A. Observation panel** (`shared/` overlay → panel): the load waterfall, bytes read vs file size (find where to count DuckDB's XHRs; get it to Rust without a fourth call if possible), rows/s, pages in flight, cache hits, memory, and a two-line sparkline (rAF interval + per-frame work time). It refreshes at 4 Hz. `just tycho perf` checks the panel against its own numbers (within 5%) and measures the fling with the panel open and closed. Checks 1–3 (asteroids). Start the Gaia fetch in the background if it's slow.
+- **B. Gaia sample:** `just tycho data gaia`, the row-group size (per-row-group cost vs readahead; measure both), the magnitude cut, the "Big: 25M Gaia stars" button with the ESA credit, M4's scroll and jump budgets on Gaia, the page-size sweep re-run, and the cell-string cache decision by work time. Check 6, and check 3 for Gaia.
+- **C. Jump to row:** the first text input. Restore lost focus per the gpui-kit skill (`cx.on_focus_lost` + `window.focus_lost_restore_target`, both in 0.7.1): when a focused input or table stops rendering (a failed open shows the empty state), key dispatch starts at the root and `key_context` bindings stop firing. Paste via the context menu (#3244) and its permission prompt, IME full-width digits, keys not reaching the table. The README's "Canvas tradeoffs" section. Checks 4 and 8.
+- **D. Hardening:** error states (engine, network, too large), the engine-retry decision, the Parquet and CSV size ceiling (measured, enforced, in the README), in-flight/draining tracking in `Engine`, footer pile-up measurements, the CSV scan window vs fling work time. Then the read counter's key collision (part A review): counters are keyed by URL, or by a dropped file's name, size, and mtime, so re-opening the same sample or file shares the key. The old open's cancelled reads that are still draining count toward the new open's "Read". Key them per registration once `Engine` knows which reads belong to which open. Check 5.
+- **E. Close-out:** one `just tycho perf` suite and one results file (cold load, both samples, fling, jump, CSV). The static-placeholder-shell decision from the throttled run. Final Measurements rows, LESSONS entry. One copy of the performance-mark and clock helpers (part A review): `seiza`'s `frames.rs` (`mark`, last entry), Tycho's `engine::bridge` (`mark_start_time`, first entry; `now`; an inline `performance.mark`), and `first_frame.rs` each have their own, and they disagree on which entry a re-set mark reads. Make them `seiza` helpers and settle first or last. Check 7, and a re-check of everything.
 
 ### M8: Deploy to Cloudflare
 
@@ -364,6 +371,9 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-30 | Chunk tables are paged by `rowid`, except when the file has a `rowid` column (it hides DuckDB's): then each table numbers its rows with `row_number() OVER ()`, which streams in order but cost ~2.6× natively, so only those files pay it | M6 code review |
 | 2026-09-30 | A quote opens a field only at the field's start, in the scanner as in DuckDB; RFC 4180's quote is forced unless the sniffer found an unquoted TSV | M6 code review |
 | 2026-10-07 | gpui-kit 0.6.4 → **0.7.1**, `Cargo.lock` re-seeded from its published lock (gpui-pre 0.3.8, wasm-bindgen still 0.2.121). `shared/` uses `gpui_kit::open_window`; 0.7's `Root` hosts the overlay layers. +31.2 KiB brotli, TTFP unchanged (interleaved A/B) | `perf/results/2026-10-07-gpui-kit-0.7.1.md` |
+| 2026-10-07 | DuckDB's reads are counted inside its worker: `startWorker`'s wrapper wraps `XMLHttpRequest` (GET bodies) and `FileReaderSync` (slices of a dropped `File`) and adds them to a per-file `SharedArrayBuffer` counter. The counter rides on `registerFile`'s `FileInfo` (`bytesRead`), and Rust reads it with `Atomics.load`, so **no fourth bridge call**. SQL can't see the bytes: DuckDB-Wasm's own file statistics are a JS API (a fourth call), and its readahead happens below DuckDB's reads | M7 part A |
+| 2026-10-07 | The perf panel is a cached GPUI view refreshed at 4 Hz: fling frames replay its drawing. Work per frame is timed from the shell's render to a microtask queued there, which runs after GPUI's draw-and-present callback; the sparkline is drawn with quads, not paths (paths would link lyon into every app) | M7 part A |
+| 2026-10-07 | The table reports its first rows with an event (`TableEvent::FirstRows`) and its paging and scrolling through `RowTable::stats`; the workbench decides what the panel shows (the open-questions note). Rows/s and cache hits cover the panel's 2 s window; a cache hit is a drawn frame with every visible row loaded | M7 part A |
 
 ### Pending decisions
 
@@ -392,12 +402,12 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 191.8 ms (gpui-kit 0.7.1 protocol run, +8.2%, machine load ~4; 186.5 ms in its `check`, +5.2%); 173.3 ms in M6's final `check` (−2.2%) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 191.8 ms (gpui-kit 0.7.1 protocol run, +8.2%, machine load ~4; 186.5 ms in its `check`, +5.2%); 173.3 ms in M6's final `check` (−2.2%); M7 A interleaved A/B: 195.5 ms vs master 195.8 under load 6–7 |
 | TTFP (throttled) | recorded only | 3465.2 ms | 3565.1 ms (gpui-kit 0.7.1, +2.9%; 0.6.4 rebuilt in the same session: 3536.5 ms) |
 | TTFP, gpui-kit 0.7.1 interleaved A/B (20 runs each) | — | 191.4 ms (0.6.4 rebuilt) | 190.0 ms (−0.7%) |
 | TTFP, M3 interleaved A/B (20 runs each) | — | 186.2 ms (M2 rebuilt) | 186.9 ms (+0.4%) |
 | TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2704.4 KiB (gpui-kit 0.7.1, +3.2%; the upgrade itself +31.2 KiB) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2711.2 KiB (M7 A, +6.8 KiB: panel, sampler, read counter; 2704.4 after gpui-kit 0.7.1) |
 | Engine ready (reference / throttled) | recorded only | — | 621.5 / 9719.4 ms (M4; 726.1 / 9821.8 in M3, load differs) |
 | `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
 | Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |
@@ -406,8 +416,9 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 | Parquet extension (EH, brotli) | recorded only | — | 487.2 KiB, after engine ready (M3) |
 | File → first rows | ≤ 500 ms | — | 235.7 ms ref, 3359.7 ms throttled (M5; 239.2 in M4) |
 | Fling p95 frame time | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 33.3 ms (M4) |
-| Fling p95 frame time, panel open | ≤ 20 ms, none > 50 ms | — | — |
-| Per-frame work time, fling p50/p95 (asteroids, ref / throttled) | recorded only | — | — |
+| Fling p95 frame time, panel open | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 16.7 ms; closed in the same runs: 16.7 / 16.7 (M7 A) |
+| Per-frame work time, fling p50/p95 (asteroids, ref / throttled) | recorded only | — | 5.2 / 7.3 ms ref, 21.0 / 26.4 ms throttled; panel open 5.9 / 8.1, 23.8 / 29.8 (M7 A) |
+| Per-frame work time, steady scroll p50/p95 (asteroids, ref / throttled) | recorded only | — | 12.7 / 15.1 ms ref, 36.9 / 42.8 ms throttled (M7 A) |
 | Per-frame work time, fling p50/p95 (Gaia, ref / throttled) | recorded only | — | — |
 | Jump to row (first, middle, last, out of range) | lands on the row | — | — |
 | Jump to 90% | ≤ 400 ms | — | 91.6 ms ref, 2166.3 ms throttled (M5, visible pages first; 133.0 in M4) |

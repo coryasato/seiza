@@ -156,11 +156,12 @@ export interface Browsing {
 export async function open(
   engine: BrowserType,
   url: string,
-  options: { profile?: Profile | null; block?: RegExp; params?: Record<string, string> } = {},
+  options: { profile?: Profile | null; block?: RegExp; params?: Record<string, string>; init?: (() => void)[] } = {},
 ): Promise<Browsing> {
   const browser = await engine.launch(engine === chromium ? { channel: 'chromium' } : {});
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: engine === chromium ? 2 : 1 });
   if (engine === chromium) await context.addInitScript(hideDevicePixelContentBox);
+  for (const script of options.init ?? []) await context.addInitScript(script);
   if (options.block) await context.route(options.block, (route) => route.abort());
   const page = await context.newPage();
   const problems: string[] = [];
@@ -225,20 +226,135 @@ export interface TableProbe {
   failed: number;
   lastCell: string | null;
 }
-type FrameGlobal = { __tychoTable?: TableProbe; __tychoFrames?: { t: number; blank: boolean; pending: boolean }[] };
+/** One rAF as the recorder saw it: its time, the table's top row, and
+ *  whether the table drew a blank row position, a placeholder, or every
+ *  visible row loaded (`filled`). */
+export interface RecordedFrame {
+  t: number;
+  top: number | null;
+  blank: boolean;
+  pending: boolean;
+  filled: boolean;
+}
+type FrameGlobal = { __tychoTable?: TableProbe; __tychoFrames?: RecordedFrame[] };
 
-/** Records every rAF: its time, and whether the table drew a blank row
- *  position or a placeholder. Install with `context.addInitScript`. */
+/** Records every rAF (see `RecordedFrame`). Install with
+ *  `context.addInitScript` or `page.evaluate`. */
 export function frameRecorder(): void {
-  const frames: { t: number; blank: boolean; pending: boolean }[] = [];
+  const frames: RecordedFrame[] = [];
   (globalThis as FrameGlobal).__tychoFrames = frames;
   const tick = (t: number) => {
     const table = (globalThis as FrameGlobal).__tychoTable;
     const shown = table ? table.loaded + table.pending + table.failed : 0;
-    frames.push({ t, blank: !!table && (table.end <= table.first || shown !== table.end - table.first), pending: !!table && table.pending > 0 });
+    frames.push({
+      t,
+      top: table ? table.top : null,
+      blank: !!table && (table.end <= table.first || shown !== table.end - table.first),
+      pending: !!table && table.pending > 0,
+      filled: !!table && (table.rows === 0 || (table.end > table.first && table.loaded === table.end - table.first)),
+    });
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
+}
+
+/** One rAF callback that drew (made a WebGL2 draw call or a WebGPU submit):
+ *  when it started and how long it ran, on the main thread. */
+export interface WorkSample {
+  t: number;
+  ms: number;
+}
+
+/**
+ * Times every `requestAnimationFrame` callback that does GPU work: GPUI's
+ * frames. An independent check of the perf panel's "work per frame", which
+ * the app times from its shell's render to a microtask after the present.
+ * Install with `context.addInitScript` (before the app's scripts).
+ */
+export function workRecorder(): void {
+  const work: WorkSample[] = [];
+  (globalThis as { __tychoWork?: WorkSample[] }).__tychoWork = work;
+  let drew = false;
+  const hook = (proto: object | undefined, names: string[]) => {
+    if (!proto) return;
+    const methods = proto as Record<string, (...args: unknown[]) => unknown>;
+    for (const name of names) {
+      const original = methods[name];
+      if (!original) continue;
+      methods[name] = function (this: unknown, ...args: unknown[]) {
+        drew = true;
+        return original.apply(this, args);
+      };
+    }
+  };
+  hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']);
+  hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit']);
+  const request = globalThis.requestAnimationFrame.bind(globalThis);
+  globalThis.requestAnimationFrame = (callback) =>
+    request((time) => {
+      drew = false;
+      const start = performance.now();
+      try {
+        callback(time);
+      } finally {
+        if (drew) work.push({ t: start, ms: performance.now() - start });
+      }
+    });
+}
+
+/** Work samples (see `workRecorder`) that started between two page times. */
+export async function workBetween(page: Page, from: number, to: number): Promise<WorkSample[]> {
+  return page.evaluate(
+    ({ from, to }) => ((globalThis as { __tychoWork?: WorkSample[] }).__tychoWork ?? []).filter((sample) => sample.t >= from && sample.t <= to),
+    { from, to },
+  );
+}
+
+/** Frames recorded between two page times (see `frameRecorder`). */
+export async function recordedBetween(page: Page, from: number, to: number): Promise<RecordedFrame[]> {
+  return page.evaluate(({ from, to }) => ((globalThis as FrameGlobal).__tychoFrames ?? []).filter((frame) => frame.t >= from && frame.t <= to), { from, to });
+}
+
+/** The perf panel's rows and when they were taken (page clock), or null
+ *  while it's hidden. */
+export async function panelSnapshot(page: Page): Promise<{ at: number; rows: Record<string, string> } | null> {
+  return page.evaluate(() => {
+    const g = globalThis as { __seizaPerfOverlay?: OverlayRows; __seizaPerfOverlayAt?: number };
+    if (!g.__seizaPerfOverlay || g.__seizaPerfOverlayAt === undefined) return null;
+    return { at: g.__seizaPerfOverlayAt, rows: Object.fromEntries(g.__seizaPerfOverlay) };
+  });
+}
+
+/** Nearest-rank percentiles, as the app computes them (`seiza::sample_stats`). */
+export function percentiles(values: number[]): { n: number; p50: number; p95: number; max: number } {
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = (p: number) => sorted[Math.min(sorted.length, Math.max(1, Math.ceil(p * sorted.length))) - 1] ?? 0;
+  return { n: sorted.length, p50: rank(0.5), p95: rank(0.95), max: sorted.at(-1) ?? 0 };
+}
+
+/**
+ * The M4 fling: wheel events from the top to the bottom of a `rows`-row
+ * table in ~3 s, the pointer over the table. Returns the page times it
+ * started and ended. Press Home and wait for the rows first.
+ */
+export async function fling(page: Page, rows: number): Promise<{ start: number; end: number }> {
+  const [x, y, , h] = await targetRect(page, 'table-scroll-track');
+  await page.mouse.move(x - 400, y + h / 2);
+  const total = rows * 30;
+  const now = () => page.evaluate(() => performance.now());
+  const start = await now();
+  const wallStart = Date.now();
+  let sent = 0;
+  while (Date.now() - wallStart < 3_000) {
+    const remaining = 3_000 - (Date.now() - wallStart);
+    const delta = Math.max(1_000, ((total - sent) * 16) / Math.max(remaining, 16));
+    await wheel(page, delta);
+    sent += delta;
+    await page.waitForTimeout(8);
+  }
+  // Whatever the loop didn't cover in its 3 s: the fling ends at the bottom.
+  if (sent < total) await wheel(page, total - sent);
+  return { start, end: await now() };
 }
 
 /** Frame intervals (ms) recorded between two page times, plus what the
