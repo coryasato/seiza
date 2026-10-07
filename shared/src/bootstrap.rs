@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui_kit::component::{Root, Theme};
+use gpui_kit::component::Theme;
 use gpui_kit::web::{CanvasFontFallback, WebBackendPreference, WebPlatform};
 use gpui_kit::*;
 
@@ -88,15 +88,16 @@ impl Bootstrap {
                 }),
                 ..Default::default()
             };
-            cx.open_window(options, move |window, cx| {
+            // Kit wraps the shell in `Root`, which hosts dialogs, sheets, and
+            // notifications itself (since 0.7.0).
+            gpui_kit::open_window(options, cx, move |window, cx| {
                 let content = content(window, cx);
                 // The shell always arms the first-frame mark; the post-paint
                 // callback is optional.
                 let after_first_paint = after_first_paint.unwrap_or_else(|| Box::new(|_, _| {}));
-                let shell = cx.new(|cx| {
+                cx.new(|cx| {
                     AppShell::new(title, content, window, cx).on_first_frame(after_first_paint)
-                });
-                cx.new(|cx| Root::new(shell, window, cx))
+                })
             })
             .expect("failed to open the window");
             cx.activate(true);

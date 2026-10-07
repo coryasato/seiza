@@ -1,0 +1,896 @@
+{
+  "date": "2026-10-07",
+  "label": "gpui-kit-0.6.4",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium 153.0.8010.12 (headless=new)",
+  "tools": {
+    "rustc": "rustc 1.100.0-nightly (feaadeeac 2026-09-19)",
+    "wasmOpt": "wasm-opt version 133",
+    "node": "v26.0.0"
+  },
+  "url": "http://localhost:4174/",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "wasmBrotliKiB": 2673.2,
+  "ttfpMs": {
+    "reference": 180.9,
+    "throttled": 3536.5
+  },
+  "engineReadyMs": {
+    "reference": 667.1,
+    "throttled": 9771.7
+  },
+  "runs": {
+    "reference": [
+      {
+        "ttfpMs": 233.43499994277954,
+        "overlayTtfpMs": 233,
+        "engine": {
+          "startMs": 253.2350001335144,
+          "readyMs": 772.1350002288818,
+          "overlayReadyMs": 772,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 244.03999996185303
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 244,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 262.3,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 331.9,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 815,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 215.74499988555908,
+        "presentingTask": {
+          "lastGpuCallMs": 233.2649998664856,
+          "endMs": 233.58500003814697
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 173.8550000190735,
+        "overlayTtfpMs": 174,
+        "engine": {
+          "startMs": 191.36500024795532,
+          "readyMs": 644.8950004577637,
+          "overlayReadyMs": 645,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 180.3300004005432
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 180.3,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 198.5,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 236.4,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 686.3,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 159.87000036239624,
+        "presentingTask": {
+          "lastGpuCallMs": 173.69000005722046,
+          "endMs": 174.00500011444092
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 179.8899998664856,
+        "overlayTtfpMs": 180,
+        "engine": {
+          "startMs": 203.9800000190735,
+          "readyMs": 669.7849998474121,
+          "overlayReadyMs": 670,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 187.29500007629395
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 187.3,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 210.7,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 248,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 166.30000019073486,
+        "presentingTask": {
+          "lastGpuCallMs": 179.7350001335144,
+          "endMs": 180.0349998474121
+        },
+        "gpuTaskCount": 4,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 181.90000009536743,
+        "overlayTtfpMs": 182,
+        "engine": {
+          "startMs": 199.65500020980835,
+          "readyMs": 664.4250001907349,
+          "overlayReadyMs": 664,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 188.42500019073486
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 188.4,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 209.1,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 246.9,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 707,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 168.41000032424927,
+        "presentingTask": {
+          "lastGpuCallMs": 181.75500011444092,
+          "endMs": 182.03500032424927
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 172.23499965667725,
+        "overlayTtfpMs": 172,
+        "engine": {
+          "startMs": 189.23499965667725,
+          "readyMs": 647.3550000190735,
+          "overlayReadyMs": 647,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 178.59499979019165
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 178.6,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 215.3,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 251.4,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 158.6449999809265,
+        "presentingTask": {
+          "lastGpuCallMs": 172.08500003814697,
+          "endMs": 172.39999961853027
+        },
+        "gpuTaskCount": 4,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 186.52499961853027,
+        "overlayTtfpMs": 187,
+        "engine": {
+          "startMs": 207.70499992370605,
+          "readyMs": 664.170000076294,
+          "overlayReadyMs": 664,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 193.10999965667725
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 193.1,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 212.7,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 249.9,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 706.9,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 172.72499990463257,
+        "presentingTask": {
+          "lastGpuCallMs": 186.36999988555908,
+          "endMs": 186.6549997329712
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 175.86499977111816,
+        "overlayTtfpMs": 176,
+        "engine": {
+          "startMs": 200.93499994277954,
+          "readyMs": 640.0749998092651,
+          "overlayReadyMs": 640,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 182.45499992370605
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 182.5,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 207.2,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 246.2,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 681.7,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 161.9049997329712,
+        "presentingTask": {
+          "lastGpuCallMs": 175.69999980926514,
+          "endMs": 176
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 171.6050000190735,
+        "overlayTtfpMs": 172,
+        "engine": {
+          "startMs": 191.18000030517578,
+          "readyMs": 736.7150001525879,
+          "overlayReadyMs": 737,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 177.80000019073486
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 177.8,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 199.7,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 239.7,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 781.8,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 157.82000017166138,
+        "presentingTask": {
+          "lastGpuCallMs": 171.43499994277954,
+          "endMs": 171.74000024795532
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 198.80000019073486,
+        "overlayTtfpMs": 199,
+        "engine": {
+          "startMs": 233.0199999809265,
+          "readyMs": 751.0299997329712,
+          "overlayReadyMs": 751,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 205.0199999809265
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 205,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 240.2,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 281.5,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 184.2799997329712,
+        "presentingTask": {
+          "lastGpuCallMs": 198.61999988555908,
+          "endMs": 198.95499992370605
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 216.65000009536743,
+        "overlayTtfpMs": 217,
+        "engine": {
+          "startMs": 244.15000009536743,
+          "readyMs": 695.6350002288818,
+          "overlayReadyMs": 696,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 226.51000022888184
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 226.5,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 252.7,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 291.6,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 742.3,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 202.30000019073486,
+        "presentingTask": {
+          "lastGpuCallMs": 216.4550004005432,
+          "endMs": 216.79500007629395
+        },
+        "gpuTaskCount": 5,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ],
+    "throttled": [
+      {
+        "ttfpMs": 3536.550000190735,
+        "overlayTtfpMs": 3537,
+        "engine": {
+          "startMs": 3783.220000267029,
+          "readyMs": 9770.505000114441,
+          "overlayReadyMs": 9771,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3565.7300000190735
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3565.7,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3789.1,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4144.9,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 9820.6,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3483.590000152588,
+        "presentingTask": {
+          "lastGpuCallMs": 3535.4900002479553,
+          "endMs": 3536.7400002479553
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3547.4050002098083,
+        "overlayTtfpMs": 3547,
+        "engine": {
+          "startMs": 3793.455000400543,
+          "readyMs": 9797.230000019073,
+          "overlayReadyMs": 9797,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3576.8700003623962
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3576.9,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3799.7,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4156.3,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 9847.3,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3493.830000400543,
+        "presentingTask": {
+          "lastGpuCallMs": 3546.5,
+          "endMs": 3547.6850004196167
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3522.6100001335144,
+        "overlayTtfpMs": 3523,
+        "engine": {
+          "startMs": 3766.885000228882,
+          "readyMs": 9769.150000095367,
+          "overlayReadyMs": 9769,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3550.0250000953674
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3550,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3772.3,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4127.1,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3470.6400003433228,
+        "presentingTask": {
+          "lastGpuCallMs": 3521.8250002861023,
+          "endMs": 3523.164999961853
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3514.909999847412,
+        "overlayTtfpMs": 3515,
+        "engine": {
+          "startMs": 3763.6749997138977,
+          "readyMs": 9755.31500005722,
+          "overlayReadyMs": 9755,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3546.1349997520447
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3546.1,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3769.4,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4129.4,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3461.659999847412,
+        "presentingTask": {
+          "lastGpuCallMs": 3514.154999732971,
+          "endMs": 3515.0499997138977
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3537.8600001335144,
+        "overlayTtfpMs": 3538,
+        "engine": {
+          "startMs": 3781.8049998283386,
+          "readyMs": 9758.06500005722,
+          "overlayReadyMs": 9758,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3565.8600001335144
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3565.9,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3787.1,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4146.5,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 9807.5,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3484.9400000572205,
+        "presentingTask": {
+          "lastGpuCallMs": 3536.7000002861023,
+          "endMs": 3538.010000228882
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3542.069999694824,
+        "overlayTtfpMs": 3542,
+        "engine": {
+          "startMs": 3798.4800000190735,
+          "readyMs": 9830.224999904633,
+          "overlayReadyMs": 9830,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3578.8899998664856
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3578.9,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3805.8,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4163,
+              "from": "network"
+            },
+            {
+              "url": "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+              "startMs": 9906.9,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3481.319999694824,
+        "presentingTask": {
+          "lastGpuCallMs": 3541.0499997138977,
+          "endMs": 3542.2549996376038
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3549.3550000190735,
+        "overlayTtfpMs": 3549,
+        "engine": {
+          "startMs": 3801.555000305176,
+          "readyMs": 9795.920000076294,
+          "overlayReadyMs": 9796,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3583.880000114441
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3583.9,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3808.8,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4168.4,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3495.7400002479553,
+        "presentingTask": {
+          "lastGpuCallMs": 3548.3100004196167,
+          "endMs": 3549.914999961853
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3526.125,
+        "overlayTtfpMs": 3526,
+        "engine": {
+          "startMs": 3771.675000190735,
+          "readyMs": 9778.775000095367,
+          "overlayReadyMs": 9779,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3553.635000228882
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3553.6,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3779.4,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4138,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3475.9299998283386,
+        "presentingTask": {
+          "lastGpuCallMs": 3525.670000076294,
+          "endMs": 3526.260000228882
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3536.4100003242493,
+        "overlayTtfpMs": 3536,
+        "engine": {
+          "startMs": 3784.7000002861023,
+          "readyMs": 9767.845000267029,
+          "overlayReadyMs": 9768,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3569.3950004577637
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3569.4,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3790.2,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4146,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3483.9450001716614,
+        "presentingTask": {
+          "lastGpuCallMs": 3535.460000038147,
+          "endMs": 3536.555000305176
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      },
+      {
+        "ttfpMs": 3519.3600001335144,
+        "overlayTtfpMs": 3519,
+        "engine": {
+          "startMs": 3764.1449999809265,
+          "readyMs": 9772.889999866486,
+          "overlayReadyMs": 9773,
+          "firstRequest": {
+            "url": "/assets/engine-DjvrWT6C.js",
+            "startMs": 3548.154999732971
+          },
+          "beforeFirstFrame": [],
+          "requests": [
+            {
+              "url": "/assets/engine-DjvrWT6C.js",
+              "startMs": 3548.2,
+              "from": "page"
+            },
+            {
+              "url": "/assets/duckdb-browser-eh.worker-hQa-dcAV.js",
+              "startMs": 3770.5,
+              "from": "network"
+            },
+            {
+              "url": "/assets/duckdb-eh-9ubY-jlA.wasm",
+              "startMs": 4133.1,
+              "from": "network"
+            }
+          ]
+        },
+        "firstGpuWorkMs": 3468.340000152588,
+        "presentingTask": {
+          "lastGpuCallMs": 3518.5599999427795,
+          "endMs": 3519.6500000953674
+        },
+        "gpuTaskCount": 16,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "consoleProblems": []
+      }
+    ]
+  }
+}

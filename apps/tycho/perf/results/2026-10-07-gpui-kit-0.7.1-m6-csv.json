@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-07",
+  "label": "m6-csv",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "files": {
+    "drop/asteroids-x6.csv": {
+      "rows": 9405186,
+      "bytes": 1071352470,
+      "sha256": "7177b6bbea5c2963629d8ed0732656a5090cd37958a7c4e67f4165550ecb0a54",
+      "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 6",
+      "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+    },
+    "fixtures/asteroids.csv": {
+      "rows": 1567531,
+      "bytes": 178558830,
+      "sha256": "4a471e3d88f430cdf136d8b47df4c81625f68b92b6a2d92a1066a11bbb0efc72",
+      "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+      "fetched": "2026-09-24",
+      "writer": "DuckDB v1.4.5, CSV with header; the asteroid rows, then fixtures-src/tricky_rows.csv"
+    },
+    "drop/asteroids-x3.parquet": {
+      "rows": 4702569,
+      "bytes": 113067110,
+      "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+      "rowGroups": 154,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    }
+  },
+  "budgets": {
+    "schemaMs": 1000,
+    "firstRowsMs": 1000,
+    "updateGapMs": 500,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50
+  },
+  "browsers": [
+    {
+      "browser": "firefox",
+      "loadedMs": 3119.04,
+      "rows": 1567531,
+      "checks": [
+        {
+          "what": "count",
+          "ok": true,
+          "detail": "1567531 rows (done), file has 1567531"
+        },
+        {
+          "what": "table extent",
+          "ok": true,
+          "detail": "table 1567531"
+        },
+        {
+          "what": "End shows the last row",
+          "ok": true,
+          "detail": "last cell 99000008"
+        }
+      ],
+      "problems": []
+    },
+    {
+      "browser": "webkit",
+      "loadedMs": 2781.5,
+      "rows": 1567531,
+      "checks": [
+        {
+          "what": "count",
+          "ok": true,
+          "detail": "1567531 rows (done), file has 1567531"
+        },
+        {
+          "what": "table extent",
+          "ok": true,
+          "detail": "table 1567531"
+        },
+        {
+          "what": "End shows the last row",
+          "ok": true,
+          "detail": "last cell 99000008"
+        }
+      ],
+      "problems": []
+    }
+  ],
+  "failures": []
+}

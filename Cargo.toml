@@ -9,7 +9,7 @@ publish = false
 
 [workspace.dependencies]
 # Exact pin: every app shares one gpui-kit version. Bump deliberately, for all apps at once.
-gpui-kit = "=0.6.4"
+gpui-kit = "=0.7.1"
 seiza = { path = "shared" }
 console_error_panic_hook = "0.1"
 wasm-bindgen = "0.2"

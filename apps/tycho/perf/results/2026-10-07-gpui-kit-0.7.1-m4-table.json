@@ -1,0 +1,822 @@
+{
+  "date": "2026-10-07",
+  "label": "gpui-kit-0.7.1-m4-table",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "name": "asteroids.parquet",
+    "rows": 1567523,
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+    "notes": [
+      "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+      "0 rows have no first_obs in the source"
+    ]
+  },
+  "budgets": {
+    "firstRowsMs": 500,
+    "jumpMs": 400,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50,
+    "memoryCapMiB": 128
+  },
+  "profiles": {
+    "reference": {
+      "runs": 10,
+      "firstRowsMs": {
+        "median": 198.5,
+        "min": 159.9,
+        "max": 217
+      },
+      "jumpMs": {
+        "median": 84,
+        "min": 82.4,
+        "max": 100.7
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.844,
+        "min": 0.835,
+        "max": 0.849
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "throttled": {
+      "runs": 10,
+      "firstRowsMs": {
+        "median": 3376.1,
+        "min": 3348.7,
+        "max": 3422.6
+      },
+      "jumpMs": {
+        "median": 2171.9,
+        "min": 2158.1,
+        "max": 2192.3
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 33.3,
+        "min": 33.3,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.842,
+        "min": 0.84,
+        "max": 0.845
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "steadyPlaceholderShare": {
+        "median": 0.96,
+        "min": 0.924,
+        "max": 0.966
+      }
+    }
+  },
+  "runs": {
+    "reference": [
+      {
+        "firstRowsMs": 216.97499990463257,
+        "appFirstRowsMs": 203.44500017166138,
+        "overlayFirstRowsMs": 203,
+        "jumpMs": 99.32999992370605,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3026.8949999809265,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 198.0900001525879,
+        "appFirstRowsMs": 193.30999994277954,
+        "overlayFirstRowsMs": 193,
+        "jumpMs": 100.69999980926514,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 177,
+          "durationMs": 3039.0600004196167,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 183,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 202.44500017166138,
+        "appFirstRowsMs": 197.13000011444092,
+        "overlayFirstRowsMs": 197,
+        "jumpMs": 83.74500036239624,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000189,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 177,
+          "durationMs": 3025.414999961853,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 193.125,
+        "appFirstRowsMs": 189.09999990463257,
+        "overlayFirstRowsMs": 189,
+        "jumpMs": 83.52499961853027,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000189,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3039.744999885559,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 207.05500030517578,
+        "appFirstRowsMs": 202.80500030517578,
+        "overlayFirstRowsMs": 203,
+        "jumpMs": 83.7350001335144,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3050.255000114441,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.665000000000873,
+          "p95": 16.669999999998254,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 159.91499996185303,
+        "appFirstRowsMs": 156.02500009536743,
+        "overlayFirstRowsMs": 156,
+        "jumpMs": 84.96999979019165,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000189,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3041.6749997138977,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.665000000000873,
+          "p95": 16.669999999998254,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 216.71499967575073,
+        "appFirstRowsMs": 212.67999982833862,
+        "overlayFirstRowsMs": 213,
+        "jumpMs": 82.38499975204468,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3027.4000000953674,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 198.8949999809265,
+        "appFirstRowsMs": 194.63499975204468,
+        "overlayFirstRowsMs": 195,
+        "jumpMs": 84.22000026702881,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 179,
+          "durationMs": 3042.180000305176,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 183,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 190.9249997138977,
+        "appFirstRowsMs": 185.96999979019165,
+        "overlayFirstRowsMs": 186,
+        "jumpMs": 83.13000011444092,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3026.2300000190735,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.665000000000873,
+          "p95": 16.669999999998254,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 163.69499969482422,
+        "appFirstRowsMs": 159.27499961853027,
+        "overlayFirstRowsMs": 159,
+        "jumpMs": 84.72499990463257,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000189,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3043.545000076294,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms"
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.665000000000873,
+          "p95": 16.669999999998254,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0
+        },
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "firstRowsMs": 3379.340000152588,
+        "appFirstRowsMs": 3367.414999961853,
+        "overlayFirstRowsMs": 3367,
+        "jumpMs": 2191.010000228882,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 209,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 176,
+          "durationMs": 3070.3150000572205,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 176,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 170
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3422.630000114441,
+        "appFirstRowsMs": 3408.715000152588,
+        "overlayFirstRowsMs": 3409,
+        "jumpMs": 2182.0700001716614,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3073.1349997520447,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 175,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 165
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3365.460000038147,
+        "appFirstRowsMs": 3351.3550000190735,
+        "overlayFirstRowsMs": 3351,
+        "jumpMs": 2164.675000190735,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3064.180000305176,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 172,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 159
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3359.885000228882,
+        "appFirstRowsMs": 3345.970000267029,
+        "overlayFirstRowsMs": 3346,
+        "jumpMs": 2160.4000000953674,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 209,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 176,
+          "durationMs": 3051.8949999809265,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 179,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 173
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3348.680000305176,
+        "appFirstRowsMs": 3336.595000267029,
+        "overlayFirstRowsMs": 3337,
+        "jumpMs": 2179.704999923706,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3053.5250000953674,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 177,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 171
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3357.869999885559,
+        "appFirstRowsMs": 3344.8949999809265,
+        "overlayFirstRowsMs": 3345,
+        "jumpMs": 2179.1349997520447,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 214,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3073.1399998664856,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 177,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 169
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3381.630000114441,
+        "appFirstRowsMs": 3368.6399998664856,
+        "overlayFirstRowsMs": 3369,
+        "jumpMs": 2158.080000400543,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3066.9649996757507,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 178,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 170
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3407.930000305176,
+        "appFirstRowsMs": 3393.710000038147,
+        "overlayFirstRowsMs": 3394,
+        "jumpMs": 2160.8049998283386,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 214,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.32999999999447,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3069.794999599457,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 177,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 171
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3372.760000228882,
+        "appFirstRowsMs": 3359.845000267029,
+        "overlayFirstRowsMs": 3360,
+        "jumpMs": 2160.9800000190735,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.32999999999447,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3070.1900000572205,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 179,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 173
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3395.4749999046326,
+        "appFirstRowsMs": 3382.2300000190735,
+        "overlayFirstRowsMs": 3382,
+        "jumpMs": 2192.3049998283386,
+        "jumpTop": 1411836.523094001,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3055.819999694824,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms"
+        },
+        "steady": {
+          "frames": 179,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 170
+        },
+        "problems": []
+      }
+    ]
+  }
+}

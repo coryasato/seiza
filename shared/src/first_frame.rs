@@ -13,11 +13,11 @@ pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 /// the TTFP the overlay shows.
 ///
 /// Call it from the first render that has a real (non-zero) viewport. In
-/// gpui-pre 0.3.5 that render always runs inside a draw that presents before
+/// gpui-pre 0.3.8 that render always runs inside a draw that presents before
 /// its callback returns, so the microtask queued here lands right after the
 /// first present, on either graphics backend:
 ///
-/// - The window starts at 0×0 (`WebWindow::new`), so `cx.open_window`'s
+/// - The window starts at 0×0 (`WebWindow::new`), so `open_window`'s
 ///   synchronous first draw has nothing to show and doesn't count.
 /// - The first real size arrives in gpui-pre-web's `ResizeObserver` callback,
 ///   which renders and presents synchronously (`force_render`), before the

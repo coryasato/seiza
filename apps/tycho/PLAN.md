@@ -150,7 +150,7 @@ Turn the perf overlay into an **observation panel**: something a visitor keeps o
 
 The panel refreshes at ~4 Hz, not every frame, so watching doesn't cost the frames it measures.
 
-Add **jump to row**: a text input that scrolls the table to a row number. It's navigation, not analysis, so it's inside v1 scope (Tycho rule 4). It's the app's first text input, so it meets the canvas input gaps first: the Input context-menu "Paste" is disabled on web (#3187; Cmd/Ctrl+V works), and IME composition runs through GPUI's canvas input path (a Japanese IME can commit full-width digits like "１２３"; accept them or say why not). Keys typed in the input must not also scroll the table. Record what works in the README's "Canvas tradeoffs" section.
+Add **jump to row**: a text input that scrolls the table to a row number. It's navigation, not analysis, so it's inside v1 scope (Tycho rule 4). It's the app's first text input, so it meets the canvas input gaps first: the Input context-menu "Paste" was disabled on web until gpui-kit 0.7.0 (#3187), which falls back to an async clipboard read (#3244); check it works and what permission prompt the browser shows, and IME composition runs through GPUI's canvas input path (a Japanese IME can commit full-width digits like "１２３"; accept them or say why not). Keys typed in the input must not also scroll the table. Record what works in the README's "Canvas tradeoffs" section.
 
 Add error states: engine failed to load, network failure on the sample, and file too large.
 
@@ -363,6 +363,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-09-30 | A replaced CSV's load task stops, cancels its query, and drops its schema only after that query answers (a table mid-creation can't be dropped under it); a CSV that's done or stopped has its schema dropped by the workbench on close | M6, code review |
 | 2026-09-30 | Chunk tables are paged by `rowid`, except when the file has a `rowid` column (it hides DuckDB's): then each table numbers its rows with `row_number() OVER ()`, which streams in order but cost ~2.6× natively, so only those files pay it | M6 code review |
 | 2026-09-30 | A quote opens a field only at the field's start, in the scanner as in DuckDB; RFC 4180's quote is forced unless the sniffer found an unquoted TSV | M6 code review |
+| 2026-10-07 | gpui-kit 0.6.4 → **0.7.1**, `Cargo.lock` re-seeded from its published lock (gpui-pre 0.3.8, wasm-bindgen still 0.2.121). `shared/` uses `gpui_kit::open_window`; 0.7's `Root` hosts the overlay layers. +31.2 KiB brotli, TTFP unchanged (interleaved A/B) | `perf/results/2026-10-07-gpui-kit-0.7.1.md` |
 
 ### Pending decisions
 
@@ -391,11 +392,12 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 
 | Metric | Budget | M1 baseline | Latest |
 |---|---|---|---|
-| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 173.3 ms in M6's final `check` (−2.2%); 177.9 ms (M5 protocol run) |
-| TTFP (throttled) | recorded only | 3465.2 ms | 3507.8 ms (M5, +1.2%) |
+| TTFP (reference, median of 10) | ≤ +10% vs baseline | 177.3 ms | 191.8 ms (gpui-kit 0.7.1 protocol run, +8.2%, machine load ~4; 186.5 ms in its `check`, +5.2%); 173.3 ms in M6's final `check` (−2.2%) |
+| TTFP (throttled) | recorded only | 3465.2 ms | 3565.1 ms (gpui-kit 0.7.1, +2.9%; 0.6.4 rebuilt in the same session: 3536.5 ms) |
+| TTFP, gpui-kit 0.7.1 interleaved A/B (20 runs each) | — | 191.4 ms (0.6.4 rebuilt) | 190.0 ms (−0.7%) |
 | TTFP, M3 interleaved A/B (20 runs each) | — | 186.2 ms (M2 rebuilt) | 186.9 ms (+0.4%) |
 | TTFP, M2 interleaved A/B (20 runs each) | — | 170.0 ms (M1 rebuilt) | 173.8 ms (+2.2%) |
-| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2673.2 KiB (M6, +2.1%; M6 itself +11.9 KiB) |
+| App wasm (brotli) | ≤ +15% without note | 2619.5 KiB | 2704.4 KiB (gpui-kit 0.7.1, +3.2%; the upgrade itself +31.2 KiB) |
 | Engine ready (reference / throttled) | recorded only | — | 621.5 / 9719.4 ms (M4; 726.1 / 9821.8 in M3, load differs) |
 | `SELECT 42` round trip, engine warm | recorded only | — | 3.0 ms (M2) |
 | Cancel → query stopped | ≤ 200 ms | — | 4.7 ms median, 10.0 max (M2) |

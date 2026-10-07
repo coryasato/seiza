@@ -4,7 +4,7 @@
 //! 8 bytes; a CSV's chunks are cut by `crate::csv`, which reads it through
 //! [`read`].
 //!
-//! GPUI can't deliver these. gpui-pre-web 0.3.5 intercepts `dragover` and
+//! GPUI can't deliver these. gpui-pre-web (0.3.5–0.3.8) intercepts `dragover` and
 //! `drop` on its canvas only to stop the browser navigating to the file: a
 //! browser drop has `File` objects, not the paths GPUI's `ExternalPaths`
 //! expects (`gpui-pre-web/src/events.rs`, `register_drop`). So Tycho listens

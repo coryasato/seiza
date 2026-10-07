@@ -158,3 +158,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - **Throughput depends more on layout than on parsing.** DuckDB parses this CSV at ~190 MB/s. One whole-file `CREATE TABLE AS` stores it at 131 MB/s, compressed per-chunk tables at ~68 MB/s. The price of progressive loading plus compression is about half the throughput. First rows come in 0.2 s rather than after 8 s.
 - **The code review found a leak my checks couldn't see.** The supersede check replaced a CSV only *while it loaded*, where the task drops its own tables; once a load finished, the task was gone, and replacing the file left its ~300 MiB in DuckDB. The check now replaces a loaded CSV and a stopped one too. The review also caught a real-world format bug for each assumption: a `rowid` column hides DuckDB's own, and a stray `12"` would have made the rest of a file one "quoted" chunk. The `formats` check generates each.
 - **Throttled, the load costs frames.** At CPU 4× a fling during the load reaches 33–50 ms p95 and 66.7 ms at worst (16.7 / 33.3 ms without a load, M5). The budget is the reference run's, which holds at 16.7 ms. Carried to M7 with the per-frame work time to find out why.
+
+## Upgrade: gpui-kit 0.6.4 → 0.7.1 (2026-10-07)
+
+**Numbers:** app wasm **2704.4 KiB** brotli, **+31.2 KiB** (+1.2%). TTFP unchanged: interleaved A/B, 20 runs each, 190.0 ms (0.7.1) vs 191.4 ms (0.6.4) under load 3–8 (`perf/results/2026-10-07-gpui-kit-0.7.1-ab.json`). Table fling p95 16.7 ms, worst 16.7 ms, as before; throttled 3565.1 vs 3536.5 ms. Details: `perf/results/2026-10-07-gpui-kit-0.7.1.md`.
+**Decisions:** take the 0.7 window API as designed. `gpui_kit::open_window` wraps the shell in `Root`, and `AppShell` stops rendering overlay layers. DuckDB-Wasm stays at 1.32.0 (no newer stable build).
+**Surprises:**
+- **A full perf run right after the bump read +6% TTFP. It was load.** A single before/after pair minutes apart under a load of ~4 isn't a comparison. Alternating the builds (after, before, after, before) showed no difference.
+- **The overlay code is now linked whether or not it's used.** 0.6.4 made the app render the layers (+26.4 KiB in M0). 0.7 registers per-window presentation for every component in `Root` and cost +31.2 KiB more, though Tycho opens no dialog yet.
+- **The perf overlay now sits under dialogs.** It's drawn inside the shell, and `Root` draws its overlays above the shell. M7's observation panel should account for that if it ever needs to cover a dialog.
+- One web gotcha is gone: the skill docs' `open_window` now matches the pinned API. Another is fixed upstream but untested here: Input's context-menu Paste falls back to an async clipboard read (#3244). Tycho has no text input until M7's jump to row, which checks it. File drops are still swallowed by gpui-pre-web 0.3.8.
+

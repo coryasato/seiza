@@ -1,7 +1,7 @@
 //! The window shell every app renders into: a title bar above the app's view,
-//! plus the window's overlay layers.
+//! plus the perf overlay.
 
-use gpui_kit::component::{Root, Theme, TitleBar, v_flex};
+use gpui_kit::component::{Theme, TitleBar, v_flex};
 use gpui_kit::*;
 
 #[cfg(target_family = "wasm")]
@@ -9,14 +9,12 @@ type FirstFrameHook = Box<dyn FnOnce(&mut Window, &mut App)>;
 
 /// A title bar above the app's content, filling the canvas.
 ///
-/// It follows the system light/dark appearance while the page is open, and
-/// renders the sheet, dialog, and notification layers: in gpui-kit 0.6.4,
-/// `Root` doesn't draw them itself, so without this `open_dialog`,
-/// `open_sheet`, and `push_notification` update state but never appear.
+/// It follows the system light/dark appearance while the page is open. The
+/// sheet, dialog, and notification layers are `Root`'s job (gpui-kit 0.7).
 ///
 /// On the web it also owns the first-frame mark: its first render with a real
 /// viewport arms the `gpui:first-frame` mark, then runs the post-paint hook. The perf overlay
-/// draws above everything else.
+/// draws above the app's view; `Root`'s dialogs and sheets draw above it.
 pub struct AppShell {
     title: SharedString,
     content: AnyView,
@@ -84,6 +82,8 @@ impl AppShell {
 }
 
 impl Render for AppShell {
+    // Only the web build arms the first-frame mark with `window`.
+    #[cfg_attr(not(target_family = "wasm"), expect(unused_variables))]
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(target_family = "wasm")]
         self.arm_first_frame(window, cx);
@@ -104,9 +104,6 @@ impl Render for AppShell {
                             .child(self.content.clone()),
                     ),
             )
-            .children(Root::render_sheet_layer(window, cx))
-            .children(Root::render_dialog_layer(window, cx))
-            .children(Root::render_notification_layer(window, cx))
             .children(crate::perf::render(cx))
     }
 }

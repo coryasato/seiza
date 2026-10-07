@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-07",
+  "label": "gpui-kit-0.7.1-ab",
+  "method": "interleaved A/B: 2 rounds x 10 reference runs per build, order after, before, after, before; 0.6.4 is master (76dafb0) rebuilt via git stash; both served by vite preview with brotli; machine load 2.7-8.2",
+  "machine": "local",
+  "gpui-kit-0.6.4": {
+    "n": 20,
+    "ttfpMedian": 191.4,
+    "ttfpMean": 195.8,
+    "roundMedians": [
+      193.8,
+      187.7
+    ],
+    "engineReadyMedian": 689.5,
+    "wasmBrotliKiB": 2673.2,
+    "ttfp": [
+      234.9,
+      226.5,
+      207.0,
+      194.4,
+      193.2,
+      200.3,
+      182.5,
+      176.3,
+      181.3,
+      182.8,
+      211.9,
+      210.1,
+      210.0,
+      180.0,
+      185.8,
+      176.4,
+      189.6,
+      184.1,
+      181.3,
+      206.8
+    ]
+  },
+  "gpui-kit-0.7.1": {
+    "n": 20,
+    "ttfpMedian": 190.0,
+    "ttfpMean": 193.8,
+    "roundMedians": [
+      192.6,
+      187.9
+    ],
+    "engineReadyMedian": 668.6,
+    "wasmBrotliKiB": 2704.4,
+    "ttfp": [
+      217.9,
+      199.6,
+      212.1,
+      195.7,
+      175.2,
+      189.4,
+      175.3,
+      195.9,
+      173.9,
+      189.2,
+      246.6,
+      190.6,
+      180.5,
+      182.0,
+      185.2,
+      171.6,
+      201.8,
+      211.4,
+      206.8,
+      174.3
+    ]
+  }
+}
