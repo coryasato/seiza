@@ -58,5 +58,75 @@
     "sha256": "7177b6bbea5c2963629d8ed0732656a5090cd37958a7c4e67f4165550ecb0a54",
     "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 6",
     "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+  },
+  "gaia-dr3-bright.parquet": {
+    "rows": 25067889,
+    "bytes": 1572736231,
+    "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 409,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+    ]
+  },
+  "bench/gaia-rg30720.parquet": {
+    "rows": 25067889,
+    "bytes": 1554500683,
+    "sha256": "63a19f68cb2c357402752f218d4a814cb97818665372a2fb586e9389ad323632",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 817,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies within two partitions) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+    ]
+  },
+  "bench/gaia-rg61440.parquet": {
+    "rows": 25067889,
+    "bytes": 1572736231,
+    "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 409,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+    ]
+  },
+  "bench/gaia-rg122880.parquet": {
+    "rows": 25067889,
+    "bytes": 1572584764,
+    "sha256": "88da0372d326094f65c97e364411138e0eb44c0c9643b9a2d0f246cabdb5bf95",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 205,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies within two partitions) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+    ]
+  },
+  "bench/gaia-rg245760.parquet": {
+    "rows": 25067889,
+    "bytes": 1572496453,
+    "sha256": "73f2a4c7b9d5ef686b74c5579d3c880ad7fe5637474a0229c1757021874fc35c",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 103,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 245760, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies within two partitions) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+    ]
   }
 }

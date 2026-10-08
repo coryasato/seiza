@@ -1,8 +1,9 @@
 // M4 paging experiment: how the table should fetch a page of rows from a
 // Parquet file over HTTP, and what row-group size the samples should use.
 //
-// For each file (the asteroid sample rewritten at several row-group sizes,
-// loaded into local R2 under bench/) and each strategy:
+// For each file (a sample rewritten at several row-group sizes, loaded into
+// local R2 under bench/: the asteroids, or with --dataset gaia, the Gaia
+// sample, M7) and each strategy:
 //   A  LIMIT/OFFSET on the raw Parquet
 //   B  a filter on file_row_number (read_parquet(..., file_row_number = true)),
 //      which DuckDB can match against row-group ranges
@@ -12,16 +13,17 @@
 // holding row 90%,
 // each as round-trip time in the page and /data/ bytes counted at the server.
 // C also records its ingest. Each (file, strategy) runs in a new browser.
-// Every page is checked (count, first and last spkid) and the strategies
-// must agree.
+// Every page is checked (count, first and last key: spkid, or source_id) and
+// the strategies must agree.
 //
 // Usage: node apps/tycho/perf/paging.ts [--runs 5] [--page 1024] [--label m4-paging]
 //                                       [--files 122880,16384] [--strategies A,B,C]
-//                                       [--setup "SET GLOBAL …"]
-// Needs the bench/ variants in local R2 (how to build them: perf/results/2026-09-25-m4.md, "Reproducing it")
+//                                       [--setup "SET GLOBAL …"] [--dataset asteroids|gaia]
+// Needs the bench/ variants in local R2 (asteroids: perf/results/2026-09-25-m4.md, "Reproducing it";
+// gaia: `just tycho data gaia --bench 30720,122880`)
 // and a release build (`just tycho build`).
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
@@ -35,9 +37,14 @@ const webDir = join(perfDir, '../web');
 
 const runs = Number(option('runs') ?? 5);
 const pageRows = Number(option('page') ?? 1024);
-const label = option('label') ?? 'm4-paging';
-const files = (option('files') ?? '122880,30720,16384,8192').split(',').map(Number);
-const strategies = (option('strategies') ?? 'A,B,C').split(',') as Strategy[];
+const dataset = option('dataset') ?? 'asteroids';
+if (dataset !== 'asteroids' && dataset !== 'gaia') throw new Error(`--dataset ${dataset}: asteroids or gaia`);
+const label = option('label') ?? (dataset === 'gaia' ? 'm7-paging-gaia' : 'm4-paging');
+const files = (option('files') ?? (dataset === 'gaia' ? '30720,61440,122880,245760' : '122880,30720,16384,8192')).split(',').map(Number);
+const KEY = dataset === 'gaia' ? 'source_id' : 'spkid';
+const benchPath = (rowGroup: number) => `bench/${dataset}-rg${rowGroup}.parquet`;
+// Strategy C copies the whole file into DuckDB-Wasm: 25 M rows for Gaia.
+const strategies = (option('strategies') ?? (option('dataset') === 'gaia' ? 'B' : 'A,B,C')).split(',') as Strategy[];
 /** SQL run once per browser before the file is registered, e.g. a DuckDB setting. */
 const setup = option('setup');
 
@@ -60,9 +67,9 @@ function pageSql(strategy: Strategy, offset: number): string {
 }
 
 /** Wraps a page query so its answer is a marker string findable in the raw
- *  IPC bytes: row count, first and last spkid. */
+ *  IPC bytes: row count, first and last key (`KEY`). */
 const checkSql = (sql: string) =>
-  `SELECT 'CHECK:' || count(*) || ':' || coalesce(first(spkid)::VARCHAR, '-') || ':' || coalesce(last(spkid)::VARCHAR, '-') || ':END' AS c FROM (${sql})`;
+  `SELECT 'CHECK:' || count(*) || ':' || coalesce(first(${KEY})::VARCHAR, '-') || ':' || coalesce(last(${KEY})::VARCHAR, '-') || ':END' AS c FROM (${sql})`;
 
 interface Timed {
   ms: number;
@@ -115,7 +122,7 @@ async function measure(url: string, proxy: CountingProxy, rowGroup: number, stra
         const bridge = (globalThis as { __tychoBridge?: { registerFile(name: string, source: string): Promise<unknown> } }).__tychoBridge!;
         await bridge.registerFile(name, url);
       },
-      { name: NAME, url: `/data/bench/asteroids-rg${rowGroup}.parquet` },
+      { name: NAME, url: `/data/${benchPath(rowGroup)}` },
     );
     // What the header strip reads first; not counted.
     await timed(page, proxy, `SELECT num_rows FROM parquet_file_metadata('${NAME}')`);
@@ -135,11 +142,13 @@ async function measure(url: string, proxy: CountingProxy, rowGroup: number, stra
 
 const WORKER_PORT = 8791;
 await assertPortFree(WORKER_DEV_PORT);
-const worker = await startWorkerDev({ port: WORKER_PORT, requireObject: `bench/asteroids-rg${files[0]}.parquet` });
+const worker = await startWorkerDev({ port: WORKER_PORT, requireObject: benchPath(files[0]!) });
 const proxy = await startCountingProxy(WORKER_DEV_PORT, WORKER_PORT);
 const server = await preview({ root: webDir, preview: { port: 4177, strictPort: true }, logLevel: 'warn' });
 const url = 'http://localhost:4177/';
-const ROWS = 1_567_523;
+const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number }>;
+// The asteroid bench files predate their MANIFEST entries.
+const ROWS = dataset === 'gaia' ? manifest[benchPath(files[0]!)]!.rows : 1_567_523;
 
 const results: Record<string, Record<string, unknown>> = {};
 const failures: string[] = [];
@@ -181,7 +190,7 @@ try {
 
 const date = new Date().toISOString().slice(0, 10);
 const out = join(perfDir, 'results', `${date}-${label}.json`);
-writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), pageRows, rows: ROWS, setup: setup ?? null, results }, null, 2)}\n`);
+writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), dataset, pageRows, rows: ROWS, setup: setup ?? null, results }, null, 2)}\n`);
 console.log(`wrote ${out}`);
 if (failures.length) {
   console.error(`\nFAIL\n${failures.map((failure) => `  ${failure}`).join('\n')}`);

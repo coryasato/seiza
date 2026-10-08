@@ -28,13 +28,29 @@ preview:
 extensions:
     node {{web}}/scripts/extensions.ts
 
-# Build the sample data (fetch once, then prep.sql → Parquet + CSV fixture +
-# MANIFEST.json) and load the Parquet into the local R2 that `wrangler dev`
-# serves. `just tycho data --refresh` fetches the catalog again. Native DuckDB
-# (data/package.json, its own lockfile) is installed here, not by `just setup`.
+# Build a sample (fetch once, then prep → Parquet + MANIFEST.json) and load
+# it into the local R2 that `wrangler dev` serves. `asteroids` (the default)
+# also writes the CSV fixture; `gaia` reads ~90 GB from AWS Open Data on its
+# first run (~1 h), keeping ~1.5 GB of extracts in data/raw/gaia/, and takes
+# `--cut` and `--bench` (data/prep.ts). `--refresh` fetches again. Native
+# DuckDB (data/package.json, its own lockfile) is installed here, not by
+# `just setup`.
+#
+# Targets can come anywhere among the flags, as prep.ts reads them; the
+# upload list follows the same rule (no target means asteroids).
 data *args: data-deps
-    node {{app_dir}}/data/prep.ts asteroids {{args}}
-    cd {{app_dir}}/worker && {{root}}/node_modules/.bin/wrangler r2 object put tycho-data/asteroids.parquet --file ../data/asteroids.parquet --local
+    #!/usr/bin/env bash
+    set -euo pipefail
+    node {{app_dir}}/data/prep.ts {{args}}
+    cd {{app_dir}}/data
+    args=" {{args}} "
+    files=()
+    [[ "$args" == *" gaia "* ]] && files+=(gaia-dr3-bright.parquet)
+    [[ "$args" == *" gaia "* && "$args" == *" --bench "* ]] && files+=(bench/gaia-rg*.parquet)
+    [[ "$args" == *" asteroids "* || "$args" != *" gaia "* ]] && files+=(asteroids.parquet)
+    for file in "${files[@]}"; do
+        {{root}}/node_modules/.bin/wrangler r2 object put "tycho-data/$file" --file "$PWD/$file" --local --cwd {{app_dir}}/worker
+    done
 
 # The drop-test files (data/drop/, gitignored): asteroids.parquet repeated
 # to ~100 MB and ~1 GB, the 1 GB one in three row-group layouts (M5), and the

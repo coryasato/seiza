@@ -1,0 +1,598 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-sweep-gaia",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "name": "gaia-dr3-bright.parquet",
+    "rows": 25067889,
+    "bytes": 1572736231,
+    "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 409,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies within two partitions) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+    ]
+  },
+  "budgets": {
+    "firstRowsMs": 500,
+    "jumpMs": 400,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50,
+    "memoryCapMiB": 128
+  },
+  "sweep": {
+    "page 256 × prefetch 1": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 305.3,
+        "min": 280.2,
+        "max": 340.6
+      },
+      "jumpMs": {
+        "median": 137,
+        "min": 135.7,
+        "max": 184.2
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.848,
+        "min": 0.844,
+        "max": 0.849
+      },
+      "flingWorkP50Ms": {
+        "median": 5.8,
+        "min": 5.7,
+        "max": 5.8
+      },
+      "flingWorkP95Ms": {
+        "median": 7.8,
+        "min": 7.7,
+        "max": 8.4
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 11.9,
+        "min": 11.9,
+        "max": 12.2
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.2,
+        "min": 14.1,
+        "max": 14.5
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 256 × prefetch 2": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 290.2,
+        "min": 270.5,
+        "max": 305
+      },
+      "jumpMs": {
+        "median": 152.9,
+        "min": 134.6,
+        "max": 186.5
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.849,
+        "min": 0.844,
+        "max": 0.85
+      },
+      "flingWorkP50Ms": {
+        "median": 5.7,
+        "min": 5.7,
+        "max": 5.8
+      },
+      "flingWorkP95Ms": {
+        "median": 7.8,
+        "min": 7.5,
+        "max": 8.1
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 11.9,
+        "min": 11.5,
+        "max": 12
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.3,
+        "min": 13.7,
+        "max": 14.5
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 256 × prefetch 4": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 292.2,
+        "min": 278.3,
+        "max": 300.4
+      },
+      "jumpMs": {
+        "median": 138.2,
+        "min": 136,
+        "max": 151.3
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.849,
+        "min": 0.848,
+        "max": 0.849
+      },
+      "flingWorkP50Ms": {
+        "median": 6,
+        "min": 5.8,
+        "max": 6.1
+      },
+      "flingWorkP95Ms": {
+        "median": 8.4,
+        "min": 7.7,
+        "max": 9.8
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12,
+        "min": 11.8,
+        "max": 12
+      },
+      "steadyWorkP95Ms": {
+        "median": 13.9,
+        "min": 13.7,
+        "max": 14.6
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 1024 × prefetch 1": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 291.5,
+        "min": 258.1,
+        "max": 307.8
+      },
+      "jumpMs": {
+        "median": 137.1,
+        "min": 135.2,
+        "max": 168.3
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.849,
+        "min": 0.848,
+        "max": 0.853
+      },
+      "flingWorkP50Ms": {
+        "median": 5.7,
+        "min": 5.6,
+        "max": 5.7
+      },
+      "flingWorkP95Ms": {
+        "median": 8,
+        "min": 7.8,
+        "max": 8.1
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12.5,
+        "min": 12.1,
+        "max": 12.7
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.5,
+        "min": 14.3,
+        "max": 14.6
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 1024 × prefetch 2": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 291.6,
+        "min": 277,
+        "max": 320.3
+      },
+      "jumpMs": {
+        "median": 135.7,
+        "min": 135,
+        "max": 136.5
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.849,
+        "min": 0.848,
+        "max": 0.852
+      },
+      "flingWorkP50Ms": {
+        "median": 5.7,
+        "min": 5.7,
+        "max": 5.8
+      },
+      "flingWorkP95Ms": {
+        "median": 7.9,
+        "min": 7.2,
+        "max": 8.1
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12.5,
+        "min": 12.1,
+        "max": 12.6
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.1,
+        "min": 13.5,
+        "max": 14.7
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 1024 × prefetch 4": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 293.3,
+        "min": 275.6,
+        "max": 388
+      },
+      "jumpMs": {
+        "median": 136.5,
+        "min": 134,
+        "max": 150.8
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.849,
+        "min": 0.848,
+        "max": 0.849
+      },
+      "flingWorkP50Ms": {
+        "median": 5.9,
+        "min": 5.8,
+        "max": 5.9
+      },
+      "flingWorkP95Ms": {
+        "median": 8.2,
+        "min": 7.8,
+        "max": 9.6
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12.4,
+        "min": 12.1,
+        "max": 12.8
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.5,
+        "min": 13.9,
+        "max": 14.8
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 4096 × prefetch 1": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 302.4,
+        "min": 280.2,
+        "max": 322.7
+      },
+      "jumpMs": {
+        "median": 152.3,
+        "min": 136.5,
+        "max": 154.9
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.848,
+        "min": 0.844,
+        "max": 0.85
+      },
+      "flingWorkP50Ms": {
+        "median": 5.9,
+        "min": 5.8,
+        "max": 6.1
+      },
+      "flingWorkP95Ms": {
+        "median": 9.3,
+        "min": 7.9,
+        "max": 9.5
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12.7,
+        "min": 12.6,
+        "max": 12.9
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.5,
+        "min": 14.2,
+        "max": 14.8
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 4096 × prefetch 2": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 305.6,
+        "min": 278.1,
+        "max": 312.2
+      },
+      "jumpMs": {
+        "median": 151.3,
+        "min": 135.1,
+        "max": 198
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.848,
+        "min": 0.845,
+        "max": 0.853
+      },
+      "flingWorkP50Ms": {
+        "median": 5.8,
+        "min": 5.7,
+        "max": 6
+      },
+      "flingWorkP95Ms": {
+        "median": 7.9,
+        "min": 7.5,
+        "max": 8.5
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12.6,
+        "min": 12.5,
+        "max": 12.7
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.5,
+        "min": 14.3,
+        "max": 15.1
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "page 4096 × prefetch 4": {
+      "runs": 5,
+      "firstRowsMs": {
+        "median": 309,
+        "min": 276.3,
+        "max": 336.9
+      },
+      "jumpMs": {
+        "median": 137.1,
+        "min": 135.3,
+        "max": 168.5
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.849,
+        "min": 0.848,
+        "max": 0.853
+      },
+      "flingWorkP50Ms": {
+        "median": 5.8,
+        "min": 5.7,
+        "max": 5.9
+      },
+      "flingWorkP95Ms": {
+        "median": 7.9,
+        "min": 7.5,
+        "max": 8.6
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 12.6,
+        "min": 10.3,
+        "max": 12.7
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.4,
+        "min": 13.6,
+        "max": 14.7
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    }
+  }
+}

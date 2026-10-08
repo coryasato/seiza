@@ -80,6 +80,7 @@ Prerequisites:
 ```sh
 just setup          # npm install
 just tycho data     # fetch the asteroid catalog once (~2.5 min, network), build the sample Parquet, load it into local R2
+just tycho data gaia  # the big sample: Gaia DR3's 25 M brightest stars (first run reads ~90 GB from AWS Open Data, ~50 min)
 just tycho dev      # debug wasm + Vite dev server with COOP/COEP → http://localhost:5173 (+ the Worker for /data/*)
 just tycho build    # release build, prints raw/gzip/brotli asset sizes
 just tycho preview  # serve the release build → http://localhost:4173

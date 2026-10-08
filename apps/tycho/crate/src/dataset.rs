@@ -10,12 +10,27 @@ pub struct Sample {
     /// What SQL calls it once registered.
     pub name: &'static str,
     pub url: &'static str,
+    /// Its button's element id, which the Playwright checks click by.
+    pub target: &'static str,
+    pub label: &'static str,
 }
 
 /// The default sample: every known asteroid (PLAN.md, Sample datasets).
 pub const ASTEROIDS: Sample = Sample {
     name: "asteroids.parquet",
     url: "/data/asteroids.parquet",
+    target: "try-sample-asteroids",
+    label: "Try sample: every known asteroid",
+};
+
+/// The big sample: Gaia DR3's 25 M brightest stars (PLAN.md, Sample
+/// datasets; M7). Its ESA credit is in the file's metadata, like the
+/// asteroids'.
+pub const GAIA: Sample = Sample {
+    name: "gaia-dr3-bright.parquet",
+    url: "/data/gaia-dr3-bright.parquet",
+    target: "try-sample-gaia",
+    label: "Big: 25M Gaia stars",
 };
 
 #[derive(Debug, Clone, PartialEq)]

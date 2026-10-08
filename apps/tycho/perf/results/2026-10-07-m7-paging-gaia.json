@@ -1,0 +1,181 @@
+{
+  "date": "2026-10-07",
+  "label": "m7-paging-gaia",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "dataset": "gaia",
+  "pageRows": 1024,
+  "rows": 25067889,
+  "setup": null,
+  "results": {
+    "30720": {
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 233.9,
+            "min": 225.6,
+            "max": 385.7
+          },
+          "bytes": {
+            "median": 5586945,
+            "min": 5586945,
+            "max": 5586945
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 165.8,
+            "min": 162.7,
+            "max": 311.3
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 193.1,
+            "min": 191.5,
+            "max": 342.4
+          },
+          "bytes": {
+            "median": 5586944,
+            "min": 5586944,
+            "max": 5586944
+          }
+        }
+      }
+    },
+    "61440": {
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 135.7,
+            "min": 132.6,
+            "max": 145.8
+          },
+          "bytes": {
+            "median": 5586945,
+            "min": 5586945,
+            "max": 5586945
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 67.5,
+            "min": 57.9,
+            "max": 73.5
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 103.1,
+            "min": 96,
+            "max": 135.6
+          },
+          "bytes": {
+            "median": 5586944,
+            "min": 5586944,
+            "max": 5586944
+          }
+        }
+      }
+    },
+    "122880": {
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 176.8,
+            "min": 173.6,
+            "max": 191.6
+          },
+          "bytes": {
+            "median": 22364161,
+            "min": 22364161,
+            "max": 22364161
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 34.2,
+            "min": 31.9,
+            "max": 34.3
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 134.5,
+            "min": 131.3,
+            "max": 145.8
+          },
+          "bytes": {
+            "median": 22364160,
+            "min": 22364160,
+            "max": 22364160
+          }
+        }
+      }
+    },
+    "245760": {
+      "B": {
+        "runs": 5,
+        "ingest": null,
+        "first": {
+          "ms": {
+            "median": 182.5,
+            "min": 175,
+            "max": 200.8
+          },
+          "bytes": {
+            "median": 22364161,
+            "min": 22364161,
+            "max": 22364161
+          }
+        },
+        "next": {
+          "ms": {
+            "median": 36,
+            "min": 35.2,
+            "max": 41.1
+          },
+          "bytes": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "jump": {
+          "ms": {
+            "median": 142.2,
+            "min": 127.9,
+            "max": 164.3
+          },
+          "bytes": {
+            "median": 22364160,
+            "min": 22364160,
+            "max": 22364160
+          }
+        }
+      }
+    }
+  }
+}

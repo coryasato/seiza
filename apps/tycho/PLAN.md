@@ -19,7 +19,7 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M4 | Virtualized table over paged queries | Done 2026-09-25 |
 | M5 | Drop a Parquet file | Done 2026-09-27 |
 | M6 | Drop a CSV with progressive loading | Done 2026-09-30 |
-| M7 | Observation panel, jump to row, and hardening | In progress: part A (panel) done 2026-10-07 |
+| M7 | Observation panel, jump to row, and hardening | In progress: parts A (panel) and B (Gaia sample) done 2026-10-07 |
 | M8 | Deploy to Cloudflare | Not started |
 | Later | Table interactions: column resizing, selection, sorting | Not started; research first, after M8 |
 | Later | Side-by-side comparison: WASM \| React | Not started; research first, after M8 |
@@ -164,19 +164,19 @@ Add error states: engine failed to load, network failure on the sample, and file
 3. **If dropping does free it, fold it into `register_file`, not a new call.** v1 shows one file at a time, so "open a file" can mean "replace the open file": `engine.ts` drops the previously registered file when a new one registers. Rule 2 holds, but its wording changes, so update Tycho's CLAUDE.md and the decisions log. Drop only after the old file's reads have settled (the in-flight tracking above): a read DuckDB already started on a dropped handle would fail, or worse, hang the worker. The sample re-registers under the same name each time; check that dropping and re-registering it works.
 Record the numbers in M7's results either way. If the growth is small next to the file-size ceiling M7 measures, a documented cost may be the right answer.
 
-*Carried from M5:* a page read costs ~0.4 ms per row group (19 columns), whatever the page size: DuckDB 1.4 doesn't prune row groups on `file_row_number`, so every query sets up every group's column readers. At Gaia's 25 M rows, 30,720-row groups would be ~800 groups, ~0.3 s a page before any network. Weigh that against M4's HTTP readahead finding (bigger groups read more bytes per jump) when choosing Gaia's row-group size, and measure both.
+*Carried from M5:* a page read costs ~0.4 ms per row group (19 columns), whatever the page size: DuckDB 1.4 doesn't prune row groups on `file_row_number`, so every query sets up every group's column readers. At Gaia's 25 M rows, 30,720-row groups would be ~800 groups, ~0.3 s a page before any network. Weigh that against M4's HTTP readahead finding (bigger groups read more bytes per jump) when choosing Gaia's row-group size, and measure both. *Done in part B: 61,440-row groups (see the decisions log).*
 
-*Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, using per-frame work time (not frame intervals), and cache formatted strings per loaded page if the work time needs it.
+*Note from M4's code review:* the table formats every visible cell (`Value::to_string`) on every frame, ~360 strings per frame. Frames hold 16.7 ms p95 on the asteroids, so there's no cache yet (measure before adding one). Re-check with Gaia's wider rows here, using per-frame work time (not frame intervals), and cache formatted strings per loaded page if the work time needs it. *Decided in part B: no cache; formatting is 0.6% of a Gaia draw (decisions log).*
 
 *Note from M2's code review, for this milestone to decide:* `bridge.ts` caches the engine load promise, including a rejected one (`engine ??= import(...)`). One transient failure (a network blip on the engine chunk or DuckDB's wasm) makes every later call fail with the same error until a reload. Today's UI says "Reload the page to try again", which matches. Decide whether "engine failed to load" should retry instead: reset the cached promise on rejection and offer a Retry button, or keep reload-only. A dead worker is terminated, so a retry must start a new one. Add the second sample button, "Big: 25M Gaia stars" (with the ESA credit). Measure the practical file-size ceiling (wasm32 has about 4 GB of memory) for Parquet and CSV, and fail gracefully above it.
 
 **Done when:**
 - [x] All panel metrics show live values and match `just tycho perf` within 5%. *2026-10-07 (part A):* 17 values a run, 340/340 within 5% (or half the display step) over 10 reference + 10 throttled runs, each against an independent measurement, in `just tycho panel`. Part E moves it into `just tycho perf`.
 - [x] The panel updates at **~4 Hz**, not every frame, and the M4 fling budget holds with the panel **open and closed** (the perf suite measures both). *2026-10-07:* fling p95 16.7 ms, worst 16.7 ms, both ways (reference, 10 runs each).
-- [ ] **Per-frame work time** (p50/p95) is shown in the panel and recorded in the Measurements table: reference and throttled, asteroids and Gaia. *Asteroids done 2026-10-07; Gaia in part B.*
+- [x] **Per-frame work time** (p50/p95) is shown in the panel and recorded in the Measurements table: reference and throttled, asteroids and Gaia. *Asteroids 2026-10-07 (part A). Gaia 2026-10-07 (part B, `just tycho table --sample gaia`, 10 runs each): fling 5.7 / 7.9 ms ref, 21.7 / 28.7 throttled; steady scroll 12.6 / 14.7 ref, 21.3 / 26.7 throttled.*
 - [ ] **Jump to row** lands on the requested row: first, middle, last, and out of range (a clear inline message, no scroll).
 - [ ] The ceiling is measured, documented in the README, and enforced with a friendly message before the tab can run out of memory.
-- [ ] The Gaia sample meets the M4 scroll and jump budgets. If it can't, lower the row target in `prep.sql` and record why.
+- [x] The Gaia sample meets the M4 scroll and jump budgets. If it can't, lower the row target in `prep.sql` and record why. *2026-10-07 (part B), 25,067,889 rows, reference, 10 runs: first rows **290.6 ms** (≤ 500), jump to 90% **136.8 ms** (≤ 400), fling p95 **16.7 ms**, worst 16.7 (≤ 20, none > 50), last row = `count(*)`; app memory 71.2 MiB after two full passes (≤ 128). The row target stays. Throttled (recorded only): first rows 8470.6 ms, jump 6584.5 ms: 5.6 MB per page read on Fast 4G.*
 - [ ] `just tycho perf` runs the full suite (cold load, both samples, fling, jump, CSV) and writes one results file.
 - [ ] The README has a "Canvas tradeoffs" section giving the current status of a11y, IME, selection, Ctrl+F, and bundle size, each with what we do today.
 
@@ -184,7 +184,7 @@ Record the numbers in M7's results either way. If the growth is small next to th
 - **A. Observation panel** (`shared/` overlay → panel): the load waterfall, bytes read vs file size (find where to count DuckDB's XHRs; get it to Rust without a fourth call if possible), rows/s, pages in flight, cache hits, memory, and a two-line sparkline (rAF interval + per-frame work time). It refreshes at 4 Hz. `just tycho perf` checks the panel against its own numbers (within 5%) and measures the fling with the panel open and closed. Checks 1–3 (asteroids). Start the Gaia fetch in the background if it's slow.
 - **B. Gaia sample:** `just tycho data gaia`, the row-group size (per-row-group cost vs readahead; measure both), the magnitude cut, the "Big: 25M Gaia stars" button with the ESA credit, M4's scroll and jump budgets on Gaia, the page-size sweep re-run, and the cell-string cache decision by work time. Check 6, and check 3 for Gaia.
 - **C. Jump to row:** the first text input. Restore lost focus per the gpui-kit skill (`cx.on_focus_lost` + `window.focus_lost_restore_target`, both in 0.7.1): when a focused input or table stops rendering (a failed open shows the empty state), key dispatch starts at the root and `key_context` bindings stop firing. Paste via the context menu (#3244) and its permission prompt, IME full-width digits, keys not reaching the table. The README's "Canvas tradeoffs" section. Checks 4 and 8.
-- **D. Hardening:** error states (engine, network, too large), the engine-retry decision, the Parquet and CSV size ceiling (measured, enforced, in the README), in-flight/draining tracking in `Engine`, footer pile-up measurements, the CSV scan window vs fling work time. Then the read counter's key collision (part A review): counters are keyed by URL, or by a dropped file's name, size, and mtime, so re-opening the same sample or file shares the key. The old open's cancelled reads that are still draining count toward the new open's "Read". Key them per registration once `Engine` knows which reads belong to which open. Check 5.
+- **D. Hardening:** error states (engine, network, too large), the engine-retry decision, the Parquet and CSV size ceiling (measured, enforced, in the README), in-flight/draining tracking in `Engine`, footer pile-up measurements, the CSV scan window vs fling work time. Then the read counter's key collision (part A review): counters are keyed by URL, or by a dropped file's name, size, and mtime, so re-opening the same sample or file shares the key. The old open's cancelled reads that are still draining count toward the new open's "Read". Key them per registration once `Engine` knows which reads belong to which open. From part B: the open observation panel covers the bottom of the table's vertical scrollbar, so a thumb at the bottom (after End or a fling) can't be grabbed; and a wheel against the table's end (nothing moves) still redraws, at ~22 ms a draw against ~12.5 ms for a scrolling draw (both samples; measured with `perf/table.ts`'s old steady step, which wheeled there by mistake). Check 5.
 - **E. Close-out:** one `just tycho perf` suite and one results file (cold load, both samples, fling, jump, CSV). The static-placeholder-shell decision from the throttled run. Final Measurements rows, LESSONS entry. One copy of the performance-mark and clock helpers (part A review): `seiza`'s `frames.rs` (`mark`, last entry), Tycho's `engine::bridge` (`mark_start_time`, first entry; `now`; an inline `performance.mark`), and `first_frame.rs` each have their own, and they disagree on which entry a re-set mark reads. Make them `seiza` helpers and settle first or last. Check 7, and a re-check of everything.
 
 ### M8: Deploy to Cloudflare
@@ -253,8 +253,8 @@ Record the decision in the decisions log, and only then add a milestone with "do
 
 ### Big: Gaia DR3 stars (ESA)
 
-- **Rows:** a slice of Gaia DR3's ~1.8 billion sources. Target **~25 million rows**, then tune after M7 measures the ceiling. Pick the cut by brightness (`phot_g_mean_mag < X`) and choose X in `prep.sql` to hit the target.
-- **Source:** Gaia DR3 as HATS-partitioned Parquet on AWS Open Data (`s3://stpubdata/gaia/`, us-east-1, no AWS account needed). Read it with native DuckDB (`@duckdb/node-api`, `httpfs`, anonymous S3) and push the filter down.
+- **Rows:** a slice of Gaia DR3's ~1.8 billion sources. Target **~25 million rows**, then tune after M7 measures the ceiling. Pick the cut by brightness (`phot_g_mean_mag < X`) and choose X in `prep.sql` to hit the target. *M7 part B:* **G < 14.5, 25,067,889 stars** (the ESA archive's count, which prep checks); `prep.ts`'s `--cut` moves it without a refetch, down from G < 15 (36.9 M).
+- **Source:** Gaia DR3 as HATS-partitioned Parquet on AWS Open Data (`s3://stpubdata/gaia/`, us-east-1, no AWS account needed). Read it with native DuckDB (`@duckdb/node-api`, `httpfs`, anonymous S3) and push the filter down. *M7 part B:* the pushdown can't skip data. The 2,016 partitions are sorted by `source_id`, so every row group holds every magnitude, and the fetch reads the ten columns of all 1.8 billion rows (~90 GB, ~50 min at 8 jobs). `fetch_gaia.ts` keeps one extract per partition (G < 15, 2.3 GB) in `data/raw/gaia/`, so a rerun or a new cut reads nothing. Two partitions hold 17,842 identical duplicate rows at G < 14.5; prep drops them.
 - **Columns:** `source_id`, `ra`, `dec`, `parallax`, `distance_pc` (1000/parallax where parallax > 0; label it approximate), `pmra`, `pmdec`, `phot_g_mean_mag`, `bp_rp`, `radial_velocity`, `teff_gspphot`.
 - **Sort:** by `source_id`. That ID encodes a HEALPix sky position, so scrolling sweeps across the sky, and neighboring rows compress well.
 - **Role:** this is the scale test. It gives the M4 paging and the M7 ceiling real work, and it sets up v1.1 charts (a GPU star map).
@@ -266,7 +266,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 
 - `data/raw/`: raw API/S3 fetches (asteroid JSON pages, Gaia extracts). Gitignored.
 - `asteroids.parquet`: default button. ZSTD compression, `ROW_GROUP_SIZE` 30,720 (M4; was 122,880).
-- `gaia-dr3-bright.parquet`: "big" button. Same writer settings. Built in M7, the first milestone that uses it; `just tycho data` takes a target (`asteroids`, later `gaia`).
+- `gaia-dr3-bright.parquet`: "big" button. ZSTD, **`ROW_GROUP_SIZE` 61,440** (M7: same bytes per page as 30,720, half the per-group cost; see the decisions log), 1.57 GB, 409 row groups. `just tycho data gaia` builds it; `--bench` writes row-group variants to `data/bench/`.
 - `data/fixtures/asteroids.csv`: the asteroid table as CSV, with the rows from `data/fixtures-src/tricky_rows.csv` appended by prep. `tricky_rows.csv` is hand-written and committed, and holds rows with quoted commas and newlines in the name field. The generated `asteroids.csv` is gitignored. This is the M6 fixture. It also gives the "drop a CSV" demo a matching file people can download and try.
 - `data/MANIFEST.json`: for each file, the row count, byte size, SHA-256, source, fetch date, and the Gaia magnitude cut used. **Committed**, so every benchmark names the exact files it ran against.
 - All other generated files are gitignored. Upload them to R2 with the S3-compatible API (rclone or `aws s3 cp` with the R2 endpoint), because Gaia is too big for `wrangler r2 object put`.
@@ -374,6 +374,12 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-10-07 | DuckDB's reads are counted inside its worker: `startWorker`'s wrapper wraps `XMLHttpRequest` (GET bodies) and `FileReaderSync` (slices of a dropped `File`) and adds them to a per-file `SharedArrayBuffer` counter. The counter rides on `registerFile`'s `FileInfo` (`bytesRead`), and Rust reads it with `Atomics.load`, so **no fourth bridge call**. SQL can't see the bytes: DuckDB-Wasm's own file statistics are a JS API (a fourth call), and its readahead happens below DuckDB's reads | M7 part A |
 | 2026-10-07 | The perf panel is a cached GPUI view refreshed at 4 Hz: fling frames replay its drawing. Work per frame is timed from the shell's render to a microtask queued there, which runs after GPUI's draw-and-present callback; the sparkline is drawn with quads, not paths (paths would link lyon into every app) | M7 part A |
 | 2026-10-07 | The table reports its first rows with an event (`TableEvent::FirstRows`) and its paging and scrolling through `RowTable::stats`; the workbench decides what the panel shows (the open-questions note). Rows/s and cache hits cover the panel's 2 s window; a cache hit is a drawn frame with every visible row loaded | M7 part A |
+| 2026-10-07 | Gaia comes from the HATS Parquet on AWS with native DuckDB, one extract per partition kept in `data/raw/gaia/` at G < 15. The magnitude filter can't prune (partitions are sorted by sky position), so the first fetch reads ~90 GB; the extracts make every later build local | M7 part B |
+| 2026-10-07 | Gaia's cut is **G < 14.5**: 25,067,889 stars, PLAN's ~25 M target. Prep checks the count against the ESA archive (TAP `COUNT(*)`, asked once and kept), and drops 17,842 identical duplicate rows in two HATS partitions with `DISTINCT` | M7 part B |
+| 2026-10-07 | Gaia's row groups are **61,440 rows** (409 groups), not the asteroids' 30,720. A page read costs 5.59 MB at both (DuckDB-Wasm's readahead runs 16 K/64 K/256 K/1 M/4 M; the 3.8 MB group fits the 4 MB step) and 22.4 MB from 122,880 (the 16 MB step). The page's per-group setup halves: next page 67.5 vs 165.8 ms, jump to 90% 103.1 vs 193.1 ms (medians of 5) | M7 part B `perf/results/2026-10-07-m7-gaia.md` |
+| 2026-10-07 | **No cell-string cache.** Formatting every visible cell takes 0.075 ms p50 of a 13.1 ms draw on Gaia (0.045 of 11.8 on the asteroids), timed alone in an instrumented build. Gaia's cells hold 2.4× the characters and cost +11% work per draw | M7 part B |
+| 2026-10-07 | Pages stay **1024 rows × prefetch 2** on Gaia too. Re-run with work per frame, the sweep still barely separates: steady work 11.9 ms at 256-row pages vs 12.5 at 1024, first rows and jumps within noise, no placeholders in any steady scroll | M7 part B `perf/results/2026-10-08-m7-sweep-gaia.json` |
+| 2026-10-07 | The ESA credit rides in the Gaia file's key/value metadata (`tycho.credit`), like the asteroids', and shows in the header strip; no fetch date (DR3 is a fixed release), so it reads as ESA's sentence word for word | M7 part B |
 
 ### Pending decisions
 
@@ -389,7 +395,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [x] Page size and prefetch depth (M4): 1024 rows × 2 pages
 - [x] Memory cap for page cache (M4): 64 MiB cache; 128 MiB app (wasm + JS heap)
 - [x] Chunked CSV ingest vs raw-file queries (M6): chunked, one compressed table per chunk
-- [ ] Gaia magnitude cut / final row target (M7)
+- [x] Gaia magnitude cut / final row target (M7): G < 14.5, 25,067,889 stars
 - [ ] Static placeholder shell painted before the wasm, decided by the throttled run; TTFP stays GPUI's first frame (M7)
 - [ ] Production wasm encoding, br vs zstd (M8)
 - [ ] React comparison mode: build the side-by-side page or not, after research (after M8; see Long-term goals)
@@ -419,7 +425,11 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 | Fling p95 frame time, panel open | ≤ 20 ms, none > 50 ms | — | 16.7 ms p95, worst 16.7 ms; closed in the same runs: 16.7 / 16.7 (M7 A) |
 | Per-frame work time, fling p50/p95 (asteroids, ref / throttled) | recorded only | — | 5.2 / 7.3 ms ref, 21.0 / 26.4 ms throttled; panel open 5.9 / 8.1, 23.8 / 29.8 (M7 A) |
 | Per-frame work time, steady scroll p50/p95 (asteroids, ref / throttled) | recorded only | — | 12.7 / 15.1 ms ref, 36.9 / 42.8 ms throttled (M7 A) |
-| Per-frame work time, fling p50/p95 (Gaia, ref / throttled) | recorded only | — | — |
+| Per-frame work time, fling p50/p95 (Gaia, ref / throttled) | recorded only | — | 5.7 / 7.9 ms ref, 21.7 / 28.7 ms throttled (M7 B) |
+| Per-frame work time, steady scroll p50/p95 (Gaia, ref / throttled) | recorded only | — | 12.6 / 14.7 ms ref, 21.3 / 26.7 ms throttled (M7 B) |
+| Gaia (25.1 M rows): first rows, jump to 90%, fling p95 / max | ≤ 500 ms, ≤ 400 ms, ≤ 20 / 50 ms | — | 290.6 ms, 136.8 ms, 16.7 / 16.7 ms ref; 8470.6 ms, 6584.5 ms, 16.7 / 33.3 throttled (M7 B) |
+| Gaia app memory after two full passes | ≤ 128 MiB | — | 71.2 MiB (wasm 66.6 + JS 4.6); every agent 523.8 MiB (M7 B) |
+| Gaia page read (61,440-row groups): bytes, next page, jump to 90% | recorded only | — | 5.59 MB, 67.5 ms, 103.1 ms (M7 B, raw bridge queries) |
 | Jump to row (first, middle, last, out of range) | lands on the row | — | — |
 | Jump to 90% | ≤ 400 ms | — | 91.6 ms ref, 2166.3 ms throttled (M5, visible pages first; 133.0 in M4) |
 | App memory after two full passes | ≤ 128 MiB | — | 91.2 MiB (M5; 89.4 in M4) |

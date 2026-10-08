@@ -18,7 +18,7 @@ use gpui_kit::component::{
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::dataset::{FileSummary, format_bytes, format_count};
+use crate::dataset::{ASTEROIDS, FileSummary, GAIA, Sample, format_bytes, format_count};
 use crate::engine::EngineStatus;
 #[cfg(target_family = "wasm")]
 use crate::table::RowSource;
@@ -26,10 +26,10 @@ use crate::table::RowTable;
 #[cfg(target_family = "wasm")]
 use crate::table::TableEvent;
 
-/// What's being opened or shown: the sample, or a file from this device.
+/// What's being opened or shown: a sample, or a file from this device.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Origin {
-    Sample,
+    Sample(Sample),
     Device,
 }
 
@@ -38,7 +38,7 @@ impl Origin {
     #[cfg(target_family = "wasm")]
     fn marks(self) -> Marks {
         match self {
-            Self::Sample => Marks {
+            Self::Sample(_) => Marks {
                 start: "tycho:sample-click",
                 shown: "tycho:sample-shown",
                 schema_step: "Sample → schema",
@@ -330,22 +330,21 @@ impl Workbench {
         }
     }
 
-    /// Opens the asteroid sample by URL.
+    /// Opens a sample by URL.
     #[cfg(target_family = "wasm")]
-    fn open_sample(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        use crate::dataset::ASTEROIDS;
+    fn open_sample(&mut self, sample: Sample, window: &mut Window, cx: &mut Context<Self>) {
         use crate::engine::FileSource;
 
-        if self.load.opening(Origin::Sample) {
+        if self.load.opening(Origin::Sample(sample)) {
             return;
         }
         self.sniffing = None;
         self.notice = None;
         self.open(
-            Origin::Sample,
-            ASTEROIDS.name.into(),
-            ASTEROIDS.name.into(),
-            FileSource::Url(ASTEROIDS.url.into()),
+            Origin::Sample(sample),
+            sample.name.into(),
+            sample.name.into(),
+            FileSource::Url(sample.url.into()),
             crate::engine::now(),
             window,
             cx,
@@ -353,7 +352,7 @@ impl Workbench {
     }
 
     #[cfg(not(target_family = "wasm"))]
-    fn open_sample(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
+    fn open_sample(&mut self, _sample: Sample, _window: &mut Window, _cx: &mut Context<Self>) {}
 
     #[cfg(target_family = "wasm")]
     fn pick_file(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
@@ -1031,7 +1030,7 @@ impl Workbench {
             (
                 _,
                 Load::Opening {
-                    origin: Origin::Sample,
+                    origin: Origin::Sample(_),
                     ..
                 },
                 _,
@@ -1053,7 +1052,7 @@ impl Workbench {
             (
                 _,
                 Load::Failed {
-                    origin: Origin::Sample,
+                    origin: Origin::Sample(_),
                     message,
                     ..
                 },
@@ -1112,17 +1111,19 @@ impl Workbench {
                                         this.pick_file(window, cx)
                                     })),
                             ))
-                            .child(Self::target(
-                                "try-sample-asteroids",
-                                Button::new("try-sample-asteroids")
-                                    .outline()
-                                    .label("Try sample: every known asteroid")
-                                    .loading(self.load.opening(Origin::Sample))
-                                    .disabled(engine_failed)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_sample(window, cx)
-                                    })),
-                            )),
+                            .children([ASTEROIDS, GAIA].map(|sample| {
+                                Self::target(
+                                    sample.target,
+                                    Button::new(sample.target)
+                                        .outline()
+                                        .label(sample.label)
+                                        .loading(self.load.opening(Origin::Sample(sample)))
+                                        .disabled(engine_failed)
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.open_sample(sample, window, cx)
+                                        })),
+                                )
+                            })),
                     )
                     .child(self.render_status(cx)),
             )

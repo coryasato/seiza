@@ -9,20 +9,23 @@
 // 2. Jump: drag the scrollbar thumb to 90% and release → the next
 //    `tycho:viewport-filled`. Budget ≤ 400 ms. Every frame meanwhile must
 //    draw a row (loaded or placeholder) for every visible position.
-// 3. Last row: End → the last visible row is row `count(*)`, and its spkid is
+// 3. Last row: End → the last visible row is row `count(*)`, and its key (spkid, or source_id) is
 //    the file's last (both read through the app's bridge, `?bench`).
 // 4. Fling: Home, then wheel events top → bottom in ~3 s. Frame intervals
 //    from an in-page rAF recorder: p95 ≤ 20 ms, none > 50 ms. The overlay's
 //    frame row is recorded alongside.
 // 5. Steady scroll (recorded): ~1,800 rows/s for 3 s from row 400,000; the
 //    share of frames that showed a placeholder.
+// Fling and steady scroll also record per-frame work time (`workRecorder`:
+// every rAF callback that drew), p50/p95, next to the intervals (M7).
+// --sample gaia runs all of it on the big sample (M7 part B).
 // The memory pass (--memory) drags the thumb one pixel at a time through the
 // whole file twice, waiting for each viewport to fill, and records wasm
 // memory, JS heap, the page cache, and measureUserAgentSpecificMemory (which
 // includes DuckDB's worker) after each pass. Wasm + JS heap must stay under
 // MEMORY_CAP_MIB and not grow more than 10% between passes.
 //
-// Usage: node apps/tycho/perf/table.ts [--runs 10] [--label m4-table] [--reference-only]
+// Usage: node apps/tycho/perf/table.ts [--runs 10] [--label m4-table] [--reference-only] [--sample asteroids|gaia]
 //                                      [--sweep] [--sweep-runs 5] [--memory] [--passes 2]
 //                                      [--memory-only] [--browsers] [--browsers-only]
 // --browsers adds a table check in Chromium, Firefox, and WebKit (first rows,
@@ -39,12 +42,36 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwri
 import { preview } from 'vite';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, fling, frameRecorder, framesBetween, open, overlayValue, startCountingProxy, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
+import {
+  clickTarget,
+  fling,
+  frameRecorder,
+  framesBetween,
+  open,
+  overlayValue,
+  percentiles,
+  startCountingProxy,
+  targetRect,
+  waitMark,
+  waitOverlay,
+  wheel,
+  workBetween,
+  workRecorder,
+  type TableProbe,
+} from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number; bytes: number; sha256: string }>;
-const FILE = manifest['asteroids.parquet']!;
+/** The samples as `crate/src/dataset.rs` names them: file, button, and key column. */
+const SAMPLES = {
+  asteroids: { name: 'asteroids.parquet', target: 'try-sample-asteroids', key: 'spkid' },
+  gaia: { name: 'gaia-dr3-bright.parquet', target: 'try-sample-gaia', key: 'source_id' },
+};
+const sampleName = option('sample') ?? 'asteroids';
+if (!(sampleName in SAMPLES)) throw new Error(`--sample ${sampleName}: ${Object.keys(SAMPLES).join(' or ')}`);
+const SAMPLE = SAMPLES[sampleName as keyof typeof SAMPLES];
+const FILE = manifest[SAMPLE.name]!;
 
 const BUDGET = { firstRowsMs: 500, jumpMs: 400, flingP95Ms: 20, flingMaxMs: 50 };
 /**
@@ -59,7 +86,7 @@ const MEMORY_CAP_MIB = 128;
 const runs = Number(option('runs') ?? 10);
 const passes = Number(option('passes') ?? 2);
 const sweepRuns = Number(option('sweep-runs') ?? 5);
-const label = option('label') ?? (flag('sweep') ? 'm4-sweep' : 'm4-table');
+const label = option('label') ?? (sampleName === 'gaia' ? (flag('sweep') ? 'm7-sweep-gaia' : 'm7-table-gaia') : flag('sweep') ? 'm4-sweep' : 'm4-table');
 
 type Global = { __tychoTable?: TableProbe; __tychoBridge?: { query(sql: string, id: number): Promise<Uint8Array> } };
 
@@ -101,6 +128,9 @@ async function dragThumbTo(page: Page, fraction: number): Promise<number> {
   return released;
 }
 
+type Work = ReturnType<typeof percentiles>;
+const workIn = async (page: Page, from: number, to: number): Promise<Work> => percentiles((await workBetween(page, from, to)).map((sample) => sample.ms));
+
 interface Run {
   /** Playwright's click → the mark (what the budget applies to). */
   firstRowsMs: number;
@@ -111,20 +141,20 @@ interface Run {
   jumpTop: number;
   jumpBlankFrames: number;
   lastRow: { ok: boolean; detail: string };
-  fling: Awaited<ReturnType<typeof framesBetween>> & { durationMs: number; reachedEnd: boolean; stoppedAt: string; overlay: string | null };
-  steady: Awaited<ReturnType<typeof framesBetween>>;
+  fling: Awaited<ReturnType<typeof framesBetween>> & { durationMs: number; reachedEnd: boolean; stoppedAt: string; overlay: string | null; work: Work };
+  steady: Awaited<ReturnType<typeof framesBetween>> & { work: Work; from: number };
   problems: string[];
 }
 
 async function measure(url: string, profile: Profile | null, params: Record<string, string>): Promise<Run> {
-  const run = await open(chromium, url, { profile, params: { bench: '', ...params } });
+  const run = await open(chromium, url, { profile, params: { bench: '', ...params }, init: [workRecorder] });
   const { page } = run;
   try {
     await page.evaluate(frameRecorder);
     await waitOverlay(page, 'Parquet ready', /ms$/, 180_000);
     // 1. File → first rows.
     const clickedAt = await now(page);
-    await clickTarget(page, 'try-sample-asteroids');
+    await clickTarget(page, SAMPLE.target);
     const firstRows = await waitMark(page, 'tycho:first-rows', clickedAt, 60_000);
     const overlay = await waitOverlay(page, 'Sample → first rows', /ms$|—/, 10_000);
     // The app times from its own click handler, which marks this.
@@ -143,13 +173,11 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
     await waitFilled(page, endPressed).catch(() => null);
     await page.waitForTimeout(100);
     const atEnd = await probe(page);
-    const count = await sqlText(page, `SELECT count(*) FROM read_parquet('asteroids.parquet')`);
-    const lastSpkid = await sqlText(
-      page,
-      `SELECT spkid FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number = (SELECT count(*) - 1 FROM read_parquet('asteroids.parquet'))`,
-    );
-    const lastOk = !!atEnd && atEnd.end === atEnd.rows && String(atEnd.rows) === count && atEnd.lastCell === lastSpkid && atEnd.pending === 0;
-    const lastRow = { ok: lastOk, detail: `end ${atEnd?.end}/${atEnd?.rows} rows, count(*) ${count}, last spkid shown ${atEnd?.lastCell}, file ${lastSpkid}` };
+    const file = `read_parquet('${SAMPLE.name}'`;
+    const count = await sqlText(page, `SELECT count(*) FROM ${file})`);
+    const lastKey = await sqlText(page, `SELECT ${SAMPLE.key} FROM ${file}, file_row_number = true) WHERE file_row_number = (SELECT count(*) - 1 FROM ${file}))`);
+    const lastOk = !!atEnd && atEnd.end === atEnd.rows && String(atEnd.rows) === count && atEnd.lastCell === lastKey && atEnd.pending === 0;
+    const lastRow = { ok: lastOk, detail: `end ${atEnd?.end}/${atEnd?.rows} rows, count(*) ${count}, last ${SAMPLE.key} shown ${atEnd?.lastCell}, file ${lastKey}` };
 
     // 4. Fling: Home, then top → bottom in ~3 s of wheel events.
     const homePressed = await now(page);
@@ -159,18 +187,26 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
     await page.waitForTimeout(500);
     const afterFling = await probe(page);
     const flingFrames = await framesBetween(page, flingStart, flingEnd + 500);
+    const flingWork = await workIn(page, flingStart, flingEnd + 500);
     const flingOverlay = await overlayValue(page, 'Frame time (2 s)');
 
-    // 5. Steady scroll from row 400,000: ~1,800 rows/s.
+    // 5. Steady scroll from row 400,000: ~1,800 rows/s. Home first: the
+    // fling left the thumb at the bottom of its track, under the open
+    // observation panel, where a press lands on the panel (M7).
+    const homeAgain = await now(page);
+    await page.keyboard.press('Home');
+    await waitFilled(page, homeAgain).catch(() => null);
     await dragThumbTo(page, 400_000 / FILE.rows);
     await page.waitForTimeout(800);
+    const steadyFrom = (await probe(page))?.top ?? -1;
     const steadyStart = await now(page);
     const steadyWall = Date.now();
     while (Date.now() - steadyWall < 3_000) {
       await wheel(page, 900);
       await page.waitForTimeout(16);
     }
-    const steady = await framesBetween(page, steadyStart, await now(page));
+    const steadyEnd = await now(page);
+    const steady = { ...(await framesBetween(page, steadyStart, steadyEnd)), work: await workIn(page, steadyStart, steadyEnd), from: steadyFrom };
 
     return {
       firstRowsMs: firstRows - clickedAt,
@@ -180,7 +216,7 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
       jumpTop: jumped?.top ?? -1,
       jumpBlankFrames: jumpFrames.blankFrames,
       lastRow,
-      fling: { ...flingFrames, durationMs: flingEnd - flingStart, reachedEnd: afterFling?.end === afterFling?.rows, stoppedAt: afterFling ? `rows ${afterFling.first}–${afterFling.end} of ${afterFling.rows}` : 'no table', overlay: flingOverlay },
+      fling: { ...flingFrames, durationMs: flingEnd - flingStart, reachedEnd: afterFling?.end === afterFling?.rows, stoppedAt: afterFling ? `rows ${afterFling.first}–${afterFling.end} of ${afterFling.rows}` : 'no table', overlay: flingOverlay, work: flingWork },
       steady,
       problems: run.problems,
     };
@@ -189,14 +225,23 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
   }
 }
 
-/** Drags the thumb through the whole file `passes` times, a pixel at a time,
- *  each step waiting for the viewport to fill; then reads memory. */
+/** Shows or hides the observation panel (Ctrl+Shift+P). The memory passes
+ *  drag with it hidden: it covers the bottom of the scrollbar track, where
+ *  a press on the thumb would land on the panel (M7). */
+async function setPanel(page: Page, open: boolean): Promise<void> {
+  const visible = () => page.evaluate(() => (globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined);
+  if ((await visible()) === open) return;
+  await page.keyboard.press('Control+Shift+P');
+  await page.waitForFunction((open) => ((globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined) === open, open, { timeout: 5_000 });
+}
+
 /**
  * App memory: the app's wasm memory and the main thread's live JS heap (after
  * a forced GC), as the overlay shows them (MiB). DuckDB's worker isn't in it; the whole page's
  * total (workers included) comes from measureUserAgentSpecificMemory.
  */
 async function memorySnapshot(page: Page) {
+  await setPanel(page, true);
   // Live memory, not GC timing: dropped result buffers otherwise swing the JS
   // heap by ~20 MiB between identical passes (M4). Wasm memory only grows,
   // so it's exact either way.
@@ -230,7 +275,7 @@ async function memoryPass(url: string, passes = 2) {
   const { page } = run;
   try {
     await waitOverlay(page, 'Parquet ready', /ms$/, 180_000);
-    await clickTarget(page, 'try-sample-asteroids');
+    await clickTarget(page, SAMPLE.target);
     await waitMark(page, 'tycho:first-rows', 0, 60_000);
     const opened = await memorySnapshot(page);
     const [tx, ty, tw, th] = await targetRect(page, 'table-scroll-thumb');
@@ -239,6 +284,7 @@ async function memoryPass(url: string, passes = 2) {
     const started = Date.now();
     const afterPass = [];
     for (let pass = 0; pass < passes; pass++) {
+      await setPanel(page, false);
       await page.mouse.move(tx + tw / 2, (pass === 0 ? ty : trackY + travel) + th / 2);
       await hoverSettles(page);
       await page.mouse.down();
@@ -271,8 +317,10 @@ async function browserCheck(engine: BrowserType, url: string) {
   const { page } = run;
   try {
     await waitOverlay(page, 'Parquet ready', /ms$/, 180_000);
+    // The track click below lands at 97% of the track, under the open panel.
+    await setPanel(page, false);
     const clickedAt = await now(page);
-    await clickTarget(page, 'try-sample-asteroids');
+    await clickTarget(page, SAMPLE.target);
     const firstRows = (await waitMark(page, 'tycho:first-rows', clickedAt, 60_000)) - clickedAt;
     const released = await dragThumbTo(page, 0.9);
     const jump = (await waitFilled(page, released)) - released;
@@ -340,7 +388,7 @@ const WORKER_PORT = 8792;
 // Before starting anything: a `just tycho dev` already on it would otherwise
 // fail the proxy below and leave this script's Worker running.
 await assertPortFree(WORKER_DEV_PORT);
-const worker = await startWorkerDev({ port: WORKER_PORT, requireObject: 'asteroids.parquet' });
+const worker = await startWorkerDev({ port: WORKER_PORT, requireObject: SAMPLE.name });
 // Vite's preview proxy sends /data/* to WORKER_DEV_PORT; the proxy there
 // forwards to this Worker (counting bytes, unused here).
 let proxy: Awaited<ReturnType<typeof startCountingProxy>>;
@@ -364,7 +412,11 @@ const summarizeRuns = (list: Run[]) => ({
   flingMaxMs: summarize(list.map((run) => run.fling.max)),
   flingOver50: summarize(list.map((run) => run.fling.over50), 0),
   flingPlaceholderShare: summarize(list.map((run) => run.fling.placeholderFrames / Math.max(1, run.fling.frames)), 3),
+  flingWorkP50Ms: summarize(list.map((run) => run.fling.work.p50)),
+  flingWorkP95Ms: summarize(list.map((run) => run.fling.work.p95)),
   steadyP95Ms: summarize(list.map((run) => run.steady.p95)),
+  steadyWorkP50Ms: summarize(list.map((run) => run.steady.work.p50)),
+  steadyWorkP95Ms: summarize(list.map((run) => run.steady.work.p95)),
   steadyPlaceholderShare: summarize(list.map((run) => run.steady.placeholderFrames / Math.max(1, run.steady.frames)), 3),
 });
 
@@ -374,12 +426,12 @@ const log = (name: string, run: Run) =>
       `fling ${run.fling.durationMs.toFixed(0)} ms p50 ${run.fling.p50.toFixed(1)} p95 ${run.fling.p95.toFixed(1)} max ${run.fling.max.toFixed(1)} (${run.fling.over50} >50, ${(
         (run.fling.placeholderFrames / Math.max(1, run.fling.frames)) *
         100
-      ).toFixed(0)}% placeholder, end ${run.fling.reachedEnd}; overlay ${run.fling.overlay}), ` +
-      `steady p95 ${run.steady.p95.toFixed(1)} ${((run.steady.placeholderFrames / Math.max(1, run.steady.frames)) * 100).toFixed(0)}% placeholder; last row ${run.lastRow.ok ? 'ok' : `FAIL ${run.lastRow.detail}`}` +
+      ).toFixed(0)}% placeholder, end ${run.fling.reachedEnd}; overlay ${run.fling.overlay}; work p50 ${run.fling.work.p50.toFixed(1)} p95 ${run.fling.work.p95.toFixed(1)}), ` +
+      `steady p95 ${run.steady.p95.toFixed(1)} work p50 ${run.steady.work.p50.toFixed(1)} p95 ${run.steady.work.p95.toFixed(1)} ${((run.steady.placeholderFrames / Math.max(1, run.steady.frames)) * 100).toFixed(0)}% placeholder; last row ${run.lastRow.ok ? 'ok' : `FAIL ${run.lastRow.detail}`}` +
       (run.problems.length ? `  PROBLEMS: ${run.problems.join('; ')}` : ''),
   );
 
-const output: Record<string, unknown> = { date, label, ...machineInfo(), file: { name: 'asteroids.parquet', ...FILE }, budgets: { ...BUDGET, memoryCapMiB: MEMORY_CAP_MIB } };
+const output: Record<string, unknown> = { date, label, ...machineInfo(), file: { name: SAMPLE.name, ...FILE }, budgets: { ...BUDGET, memoryCapMiB: MEMORY_CAP_MIB } };
 try {
   if (flag('memory-only') || flag('browsers-only')) {
     // Just the passes below.
@@ -412,6 +464,7 @@ try {
         if (!run.lastRow.ok) failures.push(`${where}: last row ${run.lastRow.detail}`);
         if (run.jumpBlankFrames > 0) failures.push(`${where}: ${run.jumpBlankFrames} frames drew a blank row position during the jump`);
         if (!run.fling.reachedEnd) failures.push(`${where}: the fling didn't reach the last row (stopped at ${run.fling.stoppedAt})`);
+        if (Math.abs(run.steady.from - 400_000) > FILE.rows * 0.01) failures.push(`${where}: the steady scroll started at row ${run.steady.from}, not ~400,000`);
         if (Math.abs(run.jumpTop / FILE.rows - 0.9) > 0.01) failures.push(`${where}: the jump landed at row ${run.jumpTop}, not ~90%`);
         if (run.overlayFirstRowsMs === null || Math.abs(run.overlayFirstRowsMs - run.appFirstRowsMs) > 5) {
           failures.push(`${where}: overlay first rows ${run.overlayFirstRowsMs} ms vs the marks' ${run.appFirstRowsMs.toFixed(1)} ms`);

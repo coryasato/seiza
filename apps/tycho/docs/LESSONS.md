@@ -184,3 +184,15 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 - **The code review caught swapped legend colors** that the screenshots missed: `cargo fmt` had rewrapped the sparkline's call, so a text replacement changed only the legend. The sparkline and legend now share one color definition.
 - **DuckDB's worker leaves room for counting.** Its main handler is `globalThis.onmessage`, set during `importScripts`, so a listener the wrapper adds first can take our own message (`stopImmediatePropagation`) before DuckDB sees it. Its reads go through `XMLHttpRequest` and `FileReaderSync` on `File.slice`, so wrapping those three counts every byte.
 
+## M7 part B: Gaia sample (2026-10-07)
+
+**Numbers:** 25,067,889 stars (G < 14.5, matching the ESA archive's count), 1.57 GB, 409 row groups of 61,440. Reference, 10 runs: first rows **290.6 ms**, jump to 90% **136.8 ms**, fling p95 16.7 ms, worst 16.7. App memory 71.2 MiB after two full passes. Work per frame: fling 5.7 / 7.9 ms, steady scroll 12.6 / 14.7 ms, the same as the asteroids. Throttled: first rows 8.5 s, jump 6.6 s. The first fetch read ~90 GB from AWS in 48 min. App wasm −0.6 KiB. Details: `perf/results/2026-10-07-m7-gaia.md`.
+**Decisions:** cut at G < 14.5. 61,440-row groups: the same bytes per page as 30,720 at under half the CPU. No cell-string cache (formatting is 0.6% of a draw). Pages stay 1024 × 2. The ESA credit rides in the file's metadata.
+**Surprises:**
+- **The readahead doesn't stop at 1 MB.** M4 saw 16 K/64 K/256 K/1 M and called 1.39 MB the floor. It keeps growing ×4 (4 M, 16 M) while reads stay sequential, so bytes per page jump in steps with the row-group size: 5.6 MB for Gaia at 30,720 and 61,440 rows, 22.4 MB from 122,880. The row-group choice became "the biggest group under a step", not a curve.
+- **A filter pushdown can't help a sky-sorted catalog.** Every HATS partition holds every magnitude, so keeping 2% of Gaia meant reading 100% of its columns. Keeping one extract per partition made every later build local (4–5 s).
+- **The source has duplicates.** 17,842 identical rows inside two HATS partitions. The distinct count matched the ESA archive's to the row. Without the archive check they'd have shipped.
+- **Part A's own hypothesis was wrong.** Its note guessed that loaded rows cost more than placeholders because of cell formatting. Timed alone, formatting is 0.075 ms of a 13 ms draw; the cost is text layout and drawing.
+- **A wrong number came from a script, not the app.** The first Gaia runs read 21 ms of steady-scroll work against 12.7 in a probe. It took a bisection to find: since part A, the panel covers the scrollbar's bottom, so the script's drag after a fling pressed the panel, and the "steady scroll" wheeled against the last row. Its memory pass hung for the same reason. The script now checks where the scroll starts. A visitor hits the same wall (part D).
+- `rows += await …` in a pool of concurrent jobs loses updates: the fetch's progress log read 4.6 M rows when the extracts held 36.9 M.
+

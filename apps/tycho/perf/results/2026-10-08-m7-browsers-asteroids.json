@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-browsers-asteroids",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "name": "asteroids.parquet",
+    "rows": 1567523,
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+    "notes": [
+      "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+      "0 rows have no first_obs in the source"
+    ]
+  },
+  "budgets": {
+    "firstRowsMs": 500,
+    "jumpMs": 400,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50,
+    "memoryCapMiB": 128
+  },
+  "browsers": [
+    {
+      "browser": "chromium",
+      "ok": true,
+      "detail": "first rows 186 ms, jump 68 ms, track click 1545780 → after moving off 1545780 (stayed), cancelled drag ended, 3000 px wheel moved 100.00 rows, end 1567523/1567523",
+      "problems": []
+    },
+    {
+      "browser": "firefox",
+      "ok": true,
+      "detail": "first rows 160 ms, jump 69 ms, track click 1545830 → after moving off 1545830 (stayed), cancelled drag ended, 3000 px wheel moved 100.00 rows, end 1567523/1567523",
+      "problems": []
+    },
+    {
+      "browser": "webkit",
+      "ok": true,
+      "detail": "first rows 172 ms, jump 75 ms, track click 1545830 → after moving off 1545830 (stayed), cancelled drag ended, 3000 px wheel moved 100.00 rows, end 1567523/1567523",
+      "problems": []
+    }
+  ]
+}
