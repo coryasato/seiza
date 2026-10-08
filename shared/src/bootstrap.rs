@@ -77,7 +77,18 @@ impl Bootstrap {
             cx.text_system()
                 .add_fonts(vec![Cow::Owned(ui_font)])
                 .expect("failed to load the UI font");
+            let mac = is_mac_browser();
+            if mac {
+                // Before init: a menu labels an action with its latest
+                // binding, and a wasm build spells Cmd "Win".
+                bind_mac_menu_keys(cx);
+            }
             gpui_kit::init(cx);
+            if mac {
+                // After init: these must outrank the wasm build's own (its
+                // Shift+Alt+←/→ selects a character, not a word).
+                bind_mac_input_keys(cx);
+            }
             crate::perf::init(cx);
             Theme::sync_system_appearance(None, cx);
 
@@ -122,4 +133,74 @@ fn web_application() -> Application {
     ));
     let http_client = Arc::new(platform.fetch_http_client());
     Application::with_platform(platform).with_http_client(http_client)
+}
+
+/// Whether the page runs in a Mac browser (`navigator.platform`), where Cmd
+/// and Opt are the editing modifiers.
+fn is_mac_browser() -> bool {
+    use wasm_bindgen::JsValue;
+
+    js_sys::Reflect::get(&js_sys::global(), &JsValue::from_str("navigator"))
+        .and_then(|navigator| js_sys::Reflect::get(&navigator, &JsValue::from_str("platform")))
+        .ok()
+        .and_then(|platform| platform.as_string())
+        .is_some_and(|platform| platform.starts_with("Mac"))
+}
+
+/// The Mac editing keys for gpui-kit's text inputs, in Mac browsers.
+///
+/// gpui-kit 0.7.1 binds an input's Mac shortcuts only under
+/// `cfg(target_os = "macos")`, which a wasm build never is: the web build
+/// gets the Windows/Linux set, so in a Mac browser Cmd+A, Cmd+C, Cmd+Z and
+/// friends did nothing (Tycho M7 part C; no upstream issue found
+/// 2026-10-08). These are gpui-base's macOS input bindings, minus Cmd+V: a
+/// Cmd+V that nothing binds reaches the browser's own paste event, which
+/// needs no clipboard permission, while the `Paste` action reads the
+/// clipboard asynchronously, behind the browser's permission. Only in Mac
+/// browsers: elsewhere Alt+←/→ is the browser's Back/Forward.
+///
+/// The actions the input's right-click menu shows. Bound before
+/// `gpui_kit::init`, so the menu keeps labelling the Ctrl keys.
+fn bind_mac_menu_keys(cx: &mut App) {
+    use gpui_kit::component::input::{Copy, Cut, SelectAll};
+
+    const INPUT: Option<&str> = Some("Input");
+    cx.bind_keys([
+        KeyBinding::new("cmd-a", SelectAll, INPUT),
+        KeyBinding::new("cmd-c", Copy, INPUT),
+        KeyBinding::new("cmd-x", Cut, INPUT),
+    ]);
+}
+
+/// The rest of [`bind_mac_menu_keys`]'s set, bound after `gpui_kit::init`
+/// to outrank the wasm build's bindings for the same keys.
+fn bind_mac_input_keys(cx: &mut App) {
+    use gpui_kit::component::input::{
+        DeleteToBeginningOfLine, DeleteToEndOfLine, DeleteToNextWordEnd, DeleteToPreviousWordStart,
+        MoveEnd, MoveHome, MoveToEnd, MoveToNextWord, MoveToPreviousWord, MoveToStart, Redo,
+        SelectToEnd, SelectToEndOfLine, SelectToNextWordEnd, SelectToPreviousWordStart,
+        SelectToStart, SelectToStartOfLine, Undo,
+    };
+
+    const INPUT: Option<&str> = Some("Input");
+    cx.bind_keys([
+        KeyBinding::new("cmd-z", Undo, INPUT),
+        KeyBinding::new("cmd-shift-z", Redo, INPUT),
+        KeyBinding::new("cmd-left", MoveHome, INPUT),
+        KeyBinding::new("cmd-right", MoveEnd, INPUT),
+        KeyBinding::new("cmd-up", MoveToStart, INPUT),
+        KeyBinding::new("cmd-down", MoveToEnd, INPUT),
+        KeyBinding::new("shift-cmd-left", SelectToStartOfLine, INPUT),
+        KeyBinding::new("shift-cmd-right", SelectToEndOfLine, INPUT),
+        KeyBinding::new("cmd-shift-up", SelectToStart, INPUT),
+        KeyBinding::new("cmd-shift-down", SelectToEnd, INPUT),
+        KeyBinding::new("cmd-backspace", DeleteToBeginningOfLine, INPUT),
+        KeyBinding::new("cmd-delete", DeleteToEndOfLine, INPUT),
+        KeyBinding::new("alt-left", MoveToPreviousWord, INPUT),
+        KeyBinding::new("alt-right", MoveToNextWord, INPUT),
+        KeyBinding::new("alt-shift-left", SelectToPreviousWordStart, INPUT),
+        KeyBinding::new("alt-shift-right", SelectToNextWordEnd, INPUT),
+        KeyBinding::new("alt-backspace", DeleteToPreviousWordStart, INPUT),
+        KeyBinding::new("alt-delete", DeleteToNextWordEnd, INPUT),
+    ]);
 }

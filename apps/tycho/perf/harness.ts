@@ -225,6 +225,8 @@ export interface TableProbe {
   pending: number;
   failed: number;
   lastCell: string | null;
+  /** The row the last jump landed on (0-based), highlighted; null before one. */
+  marked: number | null;
 }
 /** One rAF as the recorder saw it: its time, the table's top row, and
  *  whether the table drew a blank row position, a placeholder, or every

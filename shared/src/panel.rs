@@ -56,6 +56,14 @@ impl Render for PerfPanel {
                 .child(text)
         };
 
+        // Where it is, for scripts that click near it: a press on the panel
+        // never reaches what's under it.
+        #[cfg(target_family = "wasm")]
+        let root = root.on_children_prepainted(|bounds, _, _| {
+            if let Some(bounds) = bounds.first() {
+                crate::perf::publish_rect(*bounds);
+            }
+        });
         let mut panel = v_flex()
             .id("seiza-perf-panel")
             .absolute()

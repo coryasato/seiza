@@ -425,6 +425,7 @@ pub(crate) fn publish(cx: &App) {
     let Some(overlay) = cx.try_global::<PerfOverlay>().filter(|o| o.visible) else {
         let _ = js_sys::Reflect::delete_property(&global, &rows_key);
         let _ = js_sys::Reflect::delete_property(&global, &at_key);
+        let _ = js_sys::Reflect::delete_property(&global, &RECT_KEY.into());
         return;
     };
     let snapshot = overlay.snapshot();
@@ -435,6 +436,28 @@ pub(crate) fn publish(cx: &App) {
         .collect();
     let _ = js_sys::Reflect::set(&global, &rows_key, &array);
     let _ = js_sys::Reflect::set(&global, &at_key, &JsValue::from_f64(snapshot.live.now_ms));
+}
+
+#[cfg(target_family = "wasm")]
+const RECT_KEY: &str = "__seizaPerfOverlayRect";
+
+/// Mirrors the open panel's bounds to `globalThis.__seizaPerfOverlayRect`
+/// (`[x, y, width, height]`, CSS pixels from the canvas's top-left; removed
+/// while hidden, by [`publish`]).
+#[cfg(target_family = "wasm")]
+pub(crate) fn publish_rect(bounds: Bounds<Pixels>) {
+    use wasm_bindgen::JsValue;
+
+    let rect: js_sys::Array = [
+        bounds.origin.x,
+        bounds.origin.y,
+        bounds.size.width,
+        bounds.size.height,
+    ]
+    .into_iter()
+    .map(|value| JsValue::from_f64(f32::from(value).into()))
+    .collect();
+    let _ = js_sys::Reflect::set(&js_sys::global(), &RECT_KEY.into(), &rect);
 }
 
 #[cfg(test)]

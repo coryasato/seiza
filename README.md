@@ -21,7 +21,7 @@ Tycho, measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median
 | Metric | Budget | Now |
 |---|---|---|
 | Time to first paint | ≤ 195 ms (baseline + 10%) | 170 ms |
-| App wasm (brotli) | ≤ 3012 KiB | 2654 KiB |
+| App wasm (brotli) | ≤ 3012 KiB | 2801 KiB (M7: +88 KiB for the jump input) |
 | Sample click → first rows (1.57 M rows, engine warm) | ≤ 500 ms | 239 ms |
 | Fling top → bottom in 3 s: p95 / worst frame | ≤ 20 / 50 ms | 16.7 / 33.3 ms |
 | Scrollbar jump to 90% → real rows | ≤ 400 ms | 133 ms |
@@ -29,18 +29,17 @@ Tycho, measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median
 
 On a throttled run (4× CPU, Fast 4G), frames stay smooth, but rows arrive slowly: first rows 3.4 s, a jump 2.2 s. Details in [`apps/tycho/perf/results/`](apps/tycho/perf/results/).
 
-## Canvas tradeoffs (Tycho, as of M4)
+## Canvas tradeoffs (Tycho, as of M7)
 
-Drawing to a canvas gives up things the DOM does for free. Where Tycho stands today:
+Drawing to a canvas gives up things the DOM does for free. Here's where Tycho stands on each, what it does today, and what closing the gap would take.
 
-- **Accessibility:** the table isn't exposed to screen readers. Keyboard scrolling works (arrows, Page Up/Down, Space, Home/End) once the table has focus.
-- **Text selection:** you can't select or copy cells yet.
-- **Ctrl+F:** the browser's find doesn't see the rows. There's no in-app search yet.
-- **IME:** no text input yet, so nothing to compose into.
-- **Bundle size:** the app wasm is 2.6 MiB brotli before first paint; DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after it.
-- **Table features:** no column resizing, selection, or sorting. Tycho draws its own table because GPUI Kit's `DataTable` can't scroll millions of rows precisely. Adding those features is a researched-first goal after v1 ([`PLAN.md`](apps/tycho/PLAN.md), "Long-term goals").
-
-M7 turns this into a full section with what each gap would take to close.
+- **Accessibility:** screen readers see nothing: the canvas has no accessibility tree, so the table, the buttons, and the jump input are invisible to them. *Today:* everything works from the keyboard. Arrows, Page Up/Down, Space, and Home/End scroll the focused table. Cmd/Ctrl+G jumps to a row, and Enter there hands the keys back to the table. *To close it:* a hidden DOM mirror of the visible rows and controls, kept in step with each frame.
+- **Text input and IME:** the jump-to-row input is GPUI Kit's canvas-drawn text field. A hidden browser input underneath it carries keys, composition, and paste. *Today:* typing, selection, undo, and IME composition work. A Japanese IME's full-width digits (`１２３`) are accepted, as are thousands separators (`1,000,000`). In a Mac browser, GPUI Kit 0.7.1's web build doesn't bind Cmd+A/C/X/Z in inputs, so Tycho binds them itself. Keys typed in the input never scroll the table.
+- **Paste:** Cmd/Ctrl+V works with no permission prompt, because it's the browser's own paste event. The right-click menu is drawn by GPUI Kit, not the browser. Its Paste item reads the clipboard through the async Clipboard API, so the browser has to grant clipboard access first. If access is refused, nothing is pasted and nothing says why. The menu labels its shortcuts "Ctrl+…" even in a Mac browser, where Cmd works too.
+- **Text selection and copy:** cells can't be selected or copied yet. Column resizing, selection, and sorting are a researched-first goal after v1 ([`PLAN.md`](apps/tycho/PLAN.md), "Long-term goals").
+- **Ctrl+F:** the browser's find doesn't see the rows, and there's no in-app search (v1 scope excludes filtering). Jump to row is the way to get somewhere. It takes Cmd/Ctrl+G, which in a browser is "find next", since find has nothing to search here anyway.
+- **Bundle size:** the app wasm is 2.74 MiB brotli, downloaded and compiled before first paint. The jump input's text engine (editing, undo, selection, IME) is 88 KiB of that, ~3 ms of first paint on a fast machine and ~100 ms on Fast 4G. GPUI Kit's styled text field would have been 194 KiB, because it also links its multi-line and code-editor engines, so Tycho styles GPUI Kit's bare single-line field itself. DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after first paint.
+- **Overlapping panel:** the observation panel floats over the window's lower right, and a click there lands on the panel, including on the bottom of the table's scrollbar. Moving it is the next hardening step (M7 part D).
 
 ## Principles
 

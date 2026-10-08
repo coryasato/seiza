@@ -93,6 +93,15 @@ table *args:
 panel *args:
     node {{app_dir}}/perf/panel.ts {{args}}
 
+# M7 jump-to-row checks on the release build, both samples: first, middle,
+# last, and out of range land (or refuse) with the panel open and clear of
+# the input; keys stay in the input; IME full-width digits, paste (keys and
+# context menu), Cmd/Ctrl editing keys, focus after a failed open (reference
+# + throttled; --browsers adds Firefox and WebKit). Writes
+# perf/results/<date>-<label>.json. Run `just tycho build` first.
+jump *args:
+    node {{app_dir}}/perf/jump.ts {{args}}
+
 # M5 drop checks on the release build: drop a ~1 GB Parquet → schema and
 # first rows, 100 MB vs 1 GB memory, unsupported files, a drop superseding a
 # load, and the file dialog in Chromium/Firefox/WebKit. Needs

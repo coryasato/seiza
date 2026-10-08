@@ -223,6 +223,8 @@ pub struct TableProbe {
     pub failed: u64,
     /// The last visible row's first cell, if loaded.
     pub last_cell: Option<String>,
+    /// The row the last jump landed on (0-based), highlighted.
+    pub marked: Option<u64>,
 }
 
 #[cfg_attr(
@@ -260,6 +262,9 @@ pub struct RowTable {
     activity: Activity,
     /// Set by [`RowTable::close`]: no more page loads.
     closed: bool,
+    /// The row the last jump landed on, highlighted so it can be found when
+    /// the end of the file keeps it from reaching the top.
+    marked: Option<u64>,
     #[cfg(target_family = "wasm")]
     engine: crate::engine::Engine,
 }
@@ -306,6 +311,7 @@ impl RowTable {
             first_rows_pending: true,
             activity: Activity::new(seiza::perf::WINDOW_MS),
             closed: false,
+            marked: None,
             #[cfg(target_family = "wasm")]
             engine,
         };
@@ -316,6 +322,19 @@ impl RowTable {
 
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
+    }
+
+    pub fn rows(&self) -> u64 {
+        self.scroll.rows()
+    }
+
+    /// Scrolls `row` (0-based) to the top, or as near as the end of the file
+    /// allows, and highlights it.
+    pub fn jump_to(&mut self, row: u64, cx: &mut Context<Self>) {
+        self.marked = Some(row);
+        self.move_top_to(row as f64, cx);
+        // The highlight moved even if the rows didn't.
+        cx.notify();
     }
 
     /// A CSV chunk became `table`, holding `rows` more rows: the row count
@@ -441,8 +460,13 @@ impl RowTable {
     }
 
     fn scroll_to_fraction(&mut self, fraction: f64, cx: &mut Context<Self>) {
+        self.move_top_to(fraction.clamp(0.0, 1.0) * self.scroll.max_top(), cx);
+    }
+
+    /// Moves the top row to `top` (clamped), leaning prefetch the way it went.
+    fn move_top_to(&mut self, top: f64, cx: &mut Context<Self>) {
         let before = self.scroll.top();
-        if self.scroll.set_fraction(fraction) {
+        if self.scroll.set_top(top) {
             self.direction = if self.scroll.top() > before {
                 Direction::Down
             } else {
@@ -775,7 +799,8 @@ impl RowTable {
                         .h(row_h)
                         .border_b_1()
                         .border_color(theme.table_row_border)
-                        .when(row % 2 == 1, |row| row.bg(theme.table_even)),
+                        .when(row % 2 == 1, |row| row.bg(theme.table_even))
+                        .when(self.marked == Some(row), |row| row.bg(theme.table_active)),
                 );
                 gutter_cells.push(
                     div()
@@ -872,6 +897,7 @@ impl RowTable {
                 pending,
                 failed,
                 last_cell,
+                marked: self.marked,
             });
         }
 

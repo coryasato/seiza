@@ -6,6 +6,7 @@ pub mod dataset;
 pub mod engine;
 #[cfg(target_family = "wasm")]
 mod files;
+pub mod jump;
 #[cfg(target_family = "wasm")]
 mod selftest;
 pub mod table;
@@ -29,6 +30,7 @@ pub fn start(ui_font: Vec<u8>, bridge: engine::Bridge) {
         .after_first_paint(|_, cx| engine::start(cx))
         .run(move |window, cx| {
             table::init(cx);
+            workbench::init(cx);
             cx.set_global(engine::Engine::new(bridge));
             cx.set_global(engine::EngineStatus::Loading);
             cx.new(|cx| Workbench::new(window, cx)).into()

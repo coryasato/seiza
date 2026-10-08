@@ -72,7 +72,8 @@ pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
 }
 
 /// Publishes what the table shows to `globalThis.__tychoTable`, when it
-/// changes: `{rows, top, first, end, loaded, pending, failed, lastCell}`.
+/// changes: `{rows, top, first, end, loaded, pending, failed, lastCell,
+/// marked}`.
 /// The table calls it only while [`measuring`].
 pub fn publish_table(probe: &crate::table::TableProbe) {
     #[cfg(target_family = "wasm")]
@@ -99,6 +100,12 @@ pub fn publish_table(probe: &crate::table::TableProbe) {
         set("loaded", JsValue::from_f64(probe.loaded as f64));
         set("pending", JsValue::from_f64(probe.pending as f64));
         set("failed", JsValue::from_f64(probe.failed as f64));
+        set(
+            "marked",
+            probe
+                .marked
+                .map_or(JsValue::NULL, |row| JsValue::from_f64(row as f64)),
+        );
         set(
             "lastCell",
             probe
@@ -134,10 +141,17 @@ pub struct WorkbenchProbe<'a> {
     /// A CSV's bytes read so far, and chunks made.
     pub read_bytes: Option<u64>,
     pub chunks: Option<u64>,
+    /// What the jump input holds.
+    pub jump_text: &'a str,
+    /// The line beside the jump input when the typed text isn't a row.
+    pub jump_refusal: Option<&'a str>,
+    /// What has focus: `jump`, `table`, `workbench`, or null for none.
+    pub focused: Option<&'static str>,
 }
 
 /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`:
-/// `{state, name, rows, message, notice, dragging, ingest, readBytes, chunks}`.
+/// `{state, name, rows, message, notice, dragging, ingest, readBytes, chunks,
+/// jumpText, jumpRefusal, focused}`.
 /// Called every render; the
 /// caller checks [`measuring`].
 pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
@@ -168,6 +182,9 @@ pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
         set("ingest", text(probe.ingest));
         set("readBytes", number(probe.read_bytes));
         set("chunks", number(probe.chunks));
+        set("jumpText", JsValue::from_str(probe.jump_text));
+        set("jumpRefusal", text(probe.jump_refusal));
+        set("focused", text(probe.focused));
         let _ = Reflect::set(
             &js_sys::global(),
             &JsValue::from_str("__tychoWorkbench"),

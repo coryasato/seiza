@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-jump-ab",
+  "method": "interleaved A/B, order this change, HEAD, this change, HEAD: 2 rounds x 10 reference runs, then 2 rounds x 5 throttled runs per build; HEAD is 5545fdf built in a git worktree; both served by vite preview with brotli; machine load 2.6-4.7. wasm sizes measured with brotli on each build (perf.ts reads the local dist, so its own field is not per-URL)",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium 153.0.8010.12 (headless=new)",
+  "head": {
+    "wasmBrotliKiB": 2713.3,
+    "reference": {
+      "n": 20,
+      "ttfpMedian": 192.6,
+      "roundMedians": [
+        191.3,
+        194
+      ],
+      "ttfp": [
+        201.08499956130981,
+        192.03000020980835,
+        190.5149998664856,
+        188.18499994277954,
+        193.77500009536743,
+        194.5199999809265,
+        182.2200002670288,
+        187.88000011444092,
+        201.78999996185303,
+        190.5349998474121,
+        187.15000009536743,
+        219.6749997138977,
+        203.16499996185303,
+        198.50500011444092,
+        191.1399998664856,
+        188.21499967575073,
+        195.00999975204468,
+        185.42500019073486,
+        193.07499980926514,
+        197.59999990463257
+      ]
+    },
+    "throttled": {
+      "n": 10,
+      "ttfpMedian": 3590.6,
+      "roundMedians": [
+        3584.8,
+        3594.1
+      ],
+      "ttfp": [
+        3584.784999847412,
+        3581.3200001716614,
+        3600.4950003623962,
+        3593.8700003623962,
+        3581.2699999809265,
+        3602.2249999046326,
+        3586.625,
+        3602.2300000190735,
+        3587.2599997520447,
+        3594.1449999809265
+      ]
+    }
+  },
+  "change": {
+    "wasmBrotliKiB": 2801.3,
+    "reference": {
+      "n": 20,
+      "ttfpMedian": 196,
+      "roundMedians": [
+        196.2,
+        195.4
+      ],
+      "ttfp": [
+        248.3250002861023,
+        195.90500020980835,
+        193.30999994277954,
+        209.06999969482422,
+        186.55999994277954,
+        200.35999965667725,
+        192.7300000190735,
+        196.50500011444092,
+        183.22499990463257,
+        200.18499994277954,
+        196.1399998664856,
+        186.94999980926514,
+        230.5199999809265,
+        192.82000017166138,
+        211.1050000190735,
+        192.32499980926514,
+        276.210000038147,
+        281.7550001144409,
+        194.74499988555908,
+        190.76000022888184
+      ]
+    },
+    "throttled": {
+      "n": 10,
+      "ttfpMedian": 3691.6,
+      "roundMedians": [
+        3696.5,
+        3689.7
+      ],
+      "ttfp": [
+        3740.130000114441,
+        3716.8650002479553,
+        3696.4850001335144,
+        3687.2699999809265,
+        3686.6050000190735,
+        3682.5,
+        3693.4850001335144,
+        3703.005000114441,
+        3686.6500000953674,
+        3689.710000038147
+      ]
+    }
+  },
+  "delta": {
+    "wasmBrotliKiB": 88,
+    "referenceMs": 3.4,
+    "throttledMs": 101
+  },
+  "rejected": {
+    "what": "gpui-kit component Input (links its textarea and code-editor engines too); same method, load 3.4-4.9",
+    "wasmBrotliKiB": 2907.4,
+    "head": {
+      "reference": 187.4,
+      "throttled": 3602.4
+    },
+    "change": {
+      "reference": 196.9,
+      "throttled": 3802.1
+    },
+    "delta": {
+      "wasmBrotliKiB": 194.1,
+      "referenceMs": 9.5,
+      "throttledMs": 199.7
+    }
+  }
+}

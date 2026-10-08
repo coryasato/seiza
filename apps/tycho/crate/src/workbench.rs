@@ -11,6 +11,7 @@
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::empty::{Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle};
+use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::tag::Tag;
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Sizable as _, StyledExt as _, h_flex, v_flex,
@@ -25,6 +26,24 @@ use crate::table::RowSource;
 use crate::table::RowTable;
 #[cfg(target_family = "wasm")]
 use crate::table::TableEvent;
+
+actions!(tycho_workbench, [FocusJump]);
+
+const CONTEXT: &str = "Workbench";
+
+/// Binds the workbench's keys: Cmd/Ctrl+G focuses jump to row ("go to",
+/// as in editors). The browser's own Cmd/Ctrl+G is find-next, and its find
+/// can't see the canvas anyway (README, "Canvas tradeoffs").
+#[cfg_attr(
+    not(target_family = "wasm"),
+    expect(dead_code, reason = "only the web entry point binds keys")
+)]
+pub fn init(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("cmd-g", FocusJump, Some(CONTEXT)),
+        KeyBinding::new("ctrl-g", FocusJump, Some(CONTEXT)),
+    ]);
+}
 
 /// What's being opened or shown: a sample, or a file from this device.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -284,15 +303,22 @@ pub struct Workbench {
     /// What DuckDB has read of the open Parquet file (a CSV counts its own).
     #[cfg(target_family = "wasm")]
     read_counter: Option<crate::engine::ReadCounter>,
+    /// Jump to row: the header strip's input, and the line beside it when
+    /// what was typed isn't a row of the file.
+    jump: Entity<InputState>,
+    jump_refusal: Option<SharedString>,
+    /// The workbench's root, where focus goes back to when the focused
+    /// input or table stops rendering (see [`Workbench::new`]).
+    focus_handle: FocusHandle,
     _engine_status: Subscription,
+    _jump_events: Subscription,
+    _focus_lost: Subscription,
 }
 
 impl Workbench {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         #[cfg(target_family = "wasm")]
         crate::files::listen(cx.entity().downgrade(), window.window_handle(), cx);
-        #[cfg(not(target_family = "wasm"))]
-        let _ = window;
         #[cfg(target_family = "wasm")]
         {
             // Rows in this order, before any file adds its own.
@@ -311,6 +337,35 @@ impl Workbench {
                 }
             });
         }
+        let jump = cx.new(|cx| {
+            let mut state = InputState::new(window, cx).placeholder("Jump to row…");
+            state.on_context_menu(std::rc::Rc::new(edit_menu));
+            state
+        });
+        let jump_events =
+            cx.subscribe_in(&jump, window, |this, _, event, window, cx| match event {
+                InputEvent::PressEnter { .. } => this.jump(window, cx),
+                InputEvent::Change => {
+                    if this.jump_refusal.take().is_some() {
+                        cx.notify();
+                    }
+                }
+                InputEvent::Focus | InputEvent::Blur => {}
+            });
+        // When the focused element stops rendering (the table of a file that
+        // another replaced, or a failed open's empty state), nothing has
+        // focus, key dispatch starts at the window's root, and the
+        // workbench's bindings stop firing. Put focus back on the nearest
+        // focusable ancestor that's still there: the workbench.
+        let focus_lost = cx.on_focus_lost(window, |this, window, cx| {
+            let target = window
+                .focus_lost_restore_target(cx)
+                .unwrap_or_else(|| this.focus_handle.clone());
+            window.focus(&target, cx);
+            // This runs after the frame that lost focus was drawn; draw the
+            // one that has it (and publishes it, for the checks).
+            cx.notify();
+        });
         Self {
             load: Load::Idle,
             notice: None,
@@ -326,8 +381,59 @@ impl Workbench {
             shown_csv: None,
             #[cfg(target_family = "wasm")]
             read_counter: None,
+            jump,
+            jump_refusal: None,
+            focus_handle: cx.focus_handle(),
             _engine_status: cx.observe_global::<EngineStatus>(|_, cx| cx.notify()),
+            _jump_events: jump_events,
+            _focus_lost: focus_lost,
         }
+    }
+
+    /// Enter in the jump input: scrolls the table to the typed row and hands
+    /// it the keys, or says why not and leaves the table where it is.
+    fn jump(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Load::Open { table, csv, .. } = &self.load else {
+            return;
+        };
+        let table = table.clone();
+        let loading = csv
+            .as_ref()
+            .is_some_and(|load| load.state == IngestState::Loading);
+        let text = self.jump.read(cx).value();
+        let rows = table.read(cx).rows();
+        match crate::jump::parse(&text, rows, loading) {
+            Ok(None) => {}
+            Ok(Some(row)) => {
+                self.jump_refusal = None;
+                table.update(cx, |table, cx| table.jump_to(row, cx));
+                let focus = table.read(cx).focus_handle().clone();
+                window.focus(&focus, cx);
+            }
+            Err(refusal) => self.jump_refusal = Some(refusal.message().into()),
+        }
+        cx.notify();
+    }
+
+    /// Cmd/Ctrl+G: into the jump input, its text selected to type over.
+    fn focus_jump(&mut self, _: &FocusJump, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.load, Load::Open { .. }) {
+            // Nothing to jump in: leave Cmd/Ctrl+G to the browser.
+            cx.propagate();
+            return;
+        }
+        self.jump.update(cx, |state, cx| {
+            state.focus(window, cx);
+            state.select_all(window, cx);
+        });
+    }
+
+    /// What's shown is going: the jump input starts empty.
+    #[cfg(target_family = "wasm")]
+    fn reset_jump(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.jump_refusal = None;
+        self.jump
+            .update(cx, |state, cx| state.set_value("", window, cx));
     }
 
     /// Opens a sample by URL.
@@ -438,7 +544,8 @@ impl Workbench {
 
     /// Stops whatever is loading or showing, so a new file can take over.
     #[cfg(target_family = "wasm")]
-    fn close_current(&mut self, cx: &mut Context<Self>) {
+    fn close_current(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.reset_jump(window, cx);
         let engine = cx.global::<crate::engine::Engine>().clone();
         match std::mem::replace(&mut self.load, Load::Idle) {
             Load::Opening { sent, csv, .. } => {
@@ -497,7 +604,7 @@ impl Workbench {
 
         use crate::engine::Engine;
 
-        self.close_current(cx);
+        self.close_current(window, cx);
         let marks = origin.marks();
         self.opened_at = started_at;
         mark_at(marks.start, started_at);
@@ -585,7 +692,7 @@ impl Workbench {
         use crate::csv::Ingest;
         use crate::engine::{Engine, EngineError};
 
-        self.close_current(cx);
+        self.close_current(window, cx);
         let marks = Origin::Device.marks();
         self.opened_at = started_at;
         mark_at(marks.start, started_at);
@@ -979,10 +1086,21 @@ impl Workbench {
 
     /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`,
     /// for the Playwright checks (the canvas has no DOM text to read).
-    fn publish(&self) {
+    fn publish(&self, window: &Window, cx: &App) {
         if !crate::targets::measuring() {
             return;
         }
+        let focused = if self.jump.read(cx).focus_handle(cx).is_focused(window) {
+            Some("jump")
+        } else if let Load::Open { table, .. } = &self.load
+            && table.read(cx).focus_handle().is_focused(window)
+        {
+            Some("table")
+        } else if self.focus_handle.is_focused(window) {
+            Some("workbench")
+        } else {
+            None
+        };
         let (state, name, rows) = match &self.load {
             Load::Idle => ("idle", None, None),
             Load::Opening { name, .. } => ("opening", Some(name.as_ref()), None),
@@ -1009,6 +1127,9 @@ impl Workbench {
             ingest: csv.map(CsvLoad::state_name),
             read_bytes: csv.map(|load| load.read),
             chunks: csv.map(|load| load.chunks),
+            jump_text: &self.jump.read(cx).value(),
+            jump_refusal: self.jump_refusal.as_deref(),
+            focused,
         });
     }
 
@@ -1071,16 +1192,16 @@ impl Workbench {
         div().text_xs().text_color(color).child(text)
     }
 
-    /// A button the Playwright checks can find: they click through its
-    /// published bounds (the canvas has no DOM to query).
-    fn target(id: &'static str, button: Button) -> impl IntoElement {
+    /// Wraps `child`, publishing its bounds as `id` for the Playwright
+    /// checks, which click through them (the canvas has no DOM to query).
+    fn published(id: &'static str, child: impl IntoElement) -> Div {
         div()
             .on_children_prepainted(move |bounds, _, _| {
                 if let Some(bounds) = bounds.first() {
                     crate::targets::publish(id, *bounds);
                 }
             })
-            .child(button)
+            .child(child)
     }
 
     fn render_empty(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1100,7 +1221,7 @@ impl Workbench {
                     .child(
                         h_flex()
                             .gap_2()
-                            .child(Self::target(
+                            .child(Self::published(
                                 "open-file",
                                 Button::new("open-file")
                                     .primary()
@@ -1112,7 +1233,7 @@ impl Workbench {
                                     })),
                             ))
                             .children([ASTEROIDS, GAIA].map(|sample| {
-                                Self::target(
+                                Self::published(
                                     sample.target,
                                     Button::new(sample.target)
                                         .outline()
@@ -1135,8 +1256,10 @@ impl Workbench {
         &self,
         summary: &FileSummary,
         csv: Option<&CsvLoad>,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let jump_focused = self.jump.read(cx).focus_handle(cx).is_focused(window);
         let theme = cx.theme();
         let mut stats = vec![
             format!("{} rows", format_count(summary.rows)),
@@ -1197,7 +1320,39 @@ impl Workbench {
                             .child(stats.join(" · ")),
                     )
                     .child(div().flex_1())
-                    .child(Self::target(
+                    // Top right, clear of the observation panel, which
+                    // covers the window's lower right.
+                    .children(self.jump_refusal.clone().map(|refusal| {
+                        Self::published(
+                            "jump-refusal",
+                            div().text_xs().text_color(theme.danger).child(refusal),
+                        )
+                    }))
+                    .child(Self::published(
+                        "jump-input",
+                        // gpui-base's unstyled input, not gpui-kit's
+                        // `Input`: that element renders any of three
+                        // input states, so one single-line field linked
+                        // the textarea and code-editor engines too
+                        // (+194 KiB brotli, M7 part C).
+                        div()
+                            .w(px(168.))
+                            .h(px(26.))
+                            .px_2()
+                            .flex()
+                            .items_center()
+                            .text_sm()
+                            .rounded(theme.radius)
+                            .border_1()
+                            .border_color(if jump_focused {
+                                theme.ring
+                            } else {
+                                theme.input
+                            })
+                            .bg(theme.background)
+                            .child(gpui_kit::base::input::Input::new(&self.jump)),
+                    ))
+                    .child(Self::published(
                         "open-file",
                         Button::new("open-file")
                             .ghost()
@@ -1267,6 +1422,31 @@ impl Workbench {
     }
 }
 
+/// The jump input's right-click menu: what gpui-kit's `Input` offers, which
+/// the unstyled gpui-base input leaves to its owner. gpui-kit draws it on
+/// the canvas on the web. Paste is offered whenever the text can change: the
+/// synchronous clipboard read is always empty on the web, so it reads
+/// asynchronously, behind the browser's clipboard permission.
+fn edit_menu(
+    _: gpui_kit::base::input::NativeMenu,
+    can: gpui_kit::base::input::InputContextMenuCapabilities,
+    position: Point<Pixels>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    use gpui_kit::component::input::{Copy, Cut, Paste, SelectAll};
+    use gpui_kit::component::native_menu::NativeMenu;
+
+    let editable = can.is_editable();
+    NativeMenu::new()
+        .menu_with_disabled("Cut", !(editable && can.is_copyable()), Box::new(Cut))
+        .menu_with_disabled("Copy", !can.is_copyable(), Box::new(Copy))
+        .menu_with_disabled("Paste", !editable, Box::new(Paste))
+        .separator()
+        .menu("Select All", Box::new(SelectAll))
+        .show(position, window, cx);
+}
+
 /// Sets `performance.mark(name)` at `at` (ms from `timeOrigin`), when the
 /// click, drop, or choice happened rather than when it was handled.
 #[cfg(target_family = "wasm")]
@@ -1311,13 +1491,13 @@ impl crate::files::FileTarget for Workbench {
 }
 
 impl Render for Workbench {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(target_family = "wasm")]
         {
             self.mark_summary_shown(cx);
             self.mark_csv_shown();
         }
-        self.publish();
+        self.publish(window, cx);
 
         let content = match &self.load {
             Load::Open {
@@ -1328,11 +1508,19 @@ impl Render for Workbench {
                 .size_full()
                 .p_4()
                 .gap_3()
-                .child(self.render_summary(summary, csv.as_ref(), cx))
+                .child(self.render_summary(summary, csv.as_ref(), window, cx))
                 .child(div().flex_1().min_h_0().child(table.clone())),
             _ => v_flex().size_full().p_4().child(self.render_empty(cx)),
         };
         div()
+            .key_context(CONTEXT)
+            // Focusable only so lost focus has somewhere to go back to (see
+            // `new`): a press here must not take focus from the table. Bubble
+            // listeners run in reverse, so this runs before the root's own
+            // focus-on-press, after the table's and the input's.
+            .track_focus(&self.focus_handle)
+            .on_any_mouse_down(|_, window, _| window.prevent_default())
+            .on_action(cx.listener(Self::focus_jump))
             .relative()
             .size_full()
             .child(content)
