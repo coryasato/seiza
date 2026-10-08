@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-ceiling-parquet-9gb",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "ceiling": [
+    {
+      "file": "drop/asteroids-x270-rg122880.parquet",
+      "bytes": 9590441184,
+      "rows": 423231210,
+      "before": {
+        "allAgentsMiB": 86.9
+      },
+      "firstRowsMs": 3500.0599999427795,
+      "workbench": {
+        "state": "open",
+        "name": "asteroids-x270-rg122880.parquet",
+        "rows": 423231210,
+        "message": null,
+        "notice": null,
+        "dragging": false,
+        "ingest": null,
+        "readBytes": null,
+        "chunks": null,
+        "jumpText": "",
+        "jumpRefusal": null,
+        "focused": "table"
+      },
+      "afterOpen": {
+        "allAgentsMiB": 146.6,
+        "duckdbMiB": 5.5
+      },
+      "end": {
+        "rows": 423231210,
+        "top": 423231186.70000076,
+        "first": 423231186,
+        "end": 423231210,
+        "loaded": 24,
+        "pending": 0,
+        "failed": 0,
+        "marked": null,
+        "lastCell": "54657680"
+      },
+      "endMs": 3064.9950003623962,
+      "afterEnd": {
+        "allAgentsMiB": 146.6,
+        "duckdbMiB": 5.6
+      },
+      "engineAnswers": true,
+      "problems": []
+    }
+  ]
+}

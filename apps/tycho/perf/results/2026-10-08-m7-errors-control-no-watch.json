@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-errors-control-no-watch",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "limits": {
+    "parquetBytes": 10000000000,
+    "csvBytes": 6000000000
+  },
+  "checks": [
+    {
+      "name": "2. engine stopped → Retry",
+      "ok": true,
+      "detail": "status: The engine stopped while asteroids.parquet was open, and the file closed with it. Retry starts a new engine; then open the file again.; engines started before Retry: 0; retry: new engine, sample opened, End loaded",
+      "problems": []
+    },
+    {
+      "name": "2b. engine stopped under a replaced open",
+      "ok": true,
+      "detail": "status: The engine stopped (Uncaught Error: test: the worker stopped). Retry starts a new one.; engines started before Retry: 0; retry: sample opened",
+      "problems": []
+    }
+  ]
+}

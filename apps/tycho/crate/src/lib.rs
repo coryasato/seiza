@@ -7,6 +7,7 @@ pub mod engine;
 #[cfg(target_family = "wasm")]
 mod files;
 pub mod jump;
+pub mod limits;
 #[cfg(target_family = "wasm")]
 mod selftest;
 pub mod table;

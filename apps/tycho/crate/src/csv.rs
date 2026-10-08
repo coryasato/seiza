@@ -527,6 +527,41 @@ pub fn created_rows(result: &QueryResult) -> Result<u64, String> {
     count(result, column(result, "Count")?)
 }
 
+/// DuckDB's memory, in bytes: asked after each chunk.
+pub const MEMORY_SQL: &str = "SELECT sum(memory_usage_bytes)::BIGINT AS bytes FROM duckdb_memory()";
+
+/// How much memory DuckDB may hold before a CSV's load stops: 1.5 GiB.
+/// DuckDB-Wasm 1.32.0 (memory limit 3.1 GiB) stops storing rows at ~2.1 GiB
+/// of in-memory tables, and doesn't say so: `CREATE TABLE … AS` answers
+/// with an empty table, chunk after chunk, until one finally errors (M7: an
+/// 8.6 GB CSV lost 57 chunks that way). The asteroid CSV takes 0.28 bytes of
+/// memory per byte of file, so 1.5 GiB holds ~5.4 GB of it; a CSV that
+/// compresses worse stops sooner.
+pub const MEMORY_BUDGET: u64 = 1536 << 20;
+
+/// Above this much DuckDB memory, a chunk of bytes that became no rows is
+/// taken as DuckDB dropping them (see [`MEMORY_BUDGET`]). Below it, an empty
+/// chunk is a block of comment or blank lines, which a CSV can have.
+pub const EMPTY_CHUNK_SUSPECT: u64 = 1 << 30;
+
+/// Whether a load can go on after a chunk of `bytes` became `rows` rows and
+/// DuckDB holds `memory` bytes.
+pub fn check_chunk(bytes: u64, rows: u64, memory: u64) -> Result<(), String> {
+    if rows == 0 && bytes > 4096 && memory >= EMPTY_CHUNK_SUSPECT {
+        return Err(format!(
+            "DuckDB stored no rows from the last {} it read: it's out of memory",
+            crate::dataset::format_bytes(bytes)
+        ));
+    }
+    if memory >= MEMORY_BUDGET {
+        return Err(format!(
+            "the rows so far take {} of DuckDB's memory, Tycho's limit for a CSV (past ~2 GiB, DuckDB-Wasm drops rows without an error)",
+            crate::dataset::format_bytes(memory)
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(target_family = "wasm")]
 pub use web::{Chunk, Ingest, Stop};
 
@@ -539,7 +574,8 @@ mod web {
     use crate::engine::{Engine, EngineError, FileSource, RequestId, now};
 
     /// How much of the file the scanner reads at a time. Each read is an
-    /// `await`, so frames draw between them.
+    /// `await`, so frames draw between them. 256 and 64 KiB didn't change a
+    /// fling during the load, and slowed it (M7 part D).
     const WINDOW: f64 = (1 << 20) as f64;
 
     /// Stops an ingest: its next query isn't sent, and the one DuckDB is
@@ -762,11 +798,16 @@ mod web {
                 let ms = answered - sent;
                 match result {
                     Ok(result) => {
+                        let rows = created_rows(&result).map_err(failed)?;
+                        let memory = self.stop.send(&self.engine, MEMORY_SQL)?.await?;
+                        let memory = count(&memory, column(&memory, "bytes").map_err(failed)?)
+                            .map_err(failed)?;
+                        check_chunk((end - start) as u64, rows, memory).map_err(failed)?;
                         self.sizer.record((end - start) as u64, ms);
                         self.start = end;
                         self.index += 1;
                         return Ok(Chunk {
-                            rows: created_rows(&result).map_err(failed)?,
+                            rows,
                             table,
                             bytes_read: end,
                             ms,
@@ -1068,6 +1109,19 @@ mod tests {
             error_summary("Out of Memory Error: failed"),
             "Out of Memory Error: failed"
         );
+    }
+
+    #[test]
+    fn a_chunk_stops_the_load_when_memory_runs_out() {
+        assert_eq!(check_chunk(8 << 20, 70_000, 1 << 30), Ok(()));
+        // Empty but tiny: a trailing blank line.
+        assert_eq!(check_chunk(2, 0, 1 << 30), Ok(()));
+        // Empty with little memory used: a block of comment lines.
+        assert_eq!(check_chunk(8 << 20, 0, 300 << 20), Ok(()));
+        let empty = check_chunk(8 << 20, 0, EMPTY_CHUNK_SUSPECT).unwrap_err();
+        assert!(empty.contains("no rows"), "{empty}");
+        let full = check_chunk(8 << 20, 70_000, MEMORY_BUDGET).unwrap_err();
+        assert!(full.contains("limit for a CSV"), "{full}");
     }
 
     #[test]

@@ -147,11 +147,15 @@ pub struct WorkbenchProbe<'a> {
     pub jump_refusal: Option<&'a str>,
     /// What has focus: `jump`, `table`, `workbench`, or null for none.
     pub focused: Option<&'static str>,
+    /// The engine: `loading`, `ready`, `failed`, or `stopped`.
+    pub engine: &'static str,
+    /// The empty state's status line (shown only while no file is open).
+    pub status: &'a str,
 }
 
 /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`:
 /// `{state, name, rows, message, notice, dragging, ingest, readBytes, chunks,
-/// jumpText, jumpRefusal, focused}`.
+/// jumpText, jumpRefusal, focused, engine, status}`.
 /// Called every render; the
 /// caller checks [`measuring`].
 pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
@@ -185,6 +189,8 @@ pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
         set("jumpText", JsValue::from_str(probe.jump_text));
         set("jumpRefusal", text(probe.jump_refusal));
         set("focused", text(probe.focused));
+        set("engine", JsValue::from_str(probe.engine));
+        set("status", JsValue::from_str(probe.status));
         let _ = Reflect::set(
             &js_sys::global(),
             &JsValue::from_str("__tychoWorkbench"),

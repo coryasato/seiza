@@ -102,6 +102,22 @@ panel *args:
 jump *args:
     node {{app_dir}}/perf/jump.ts {{args}}
 
+# M7 part D error-state checks on the release build: the engine didn't load
+# (Retry), the engine stopped (Retry), the sample offline, page reads
+# offline (rows recover by themselves once online), reopening a file while
+# its reads drain ("Read" stays right), files over the size limits refused,
+# the open panel clear of the scrollbars. Writes
+# perf/results/<date>-<label>.json. Run `just tycho build` first.
+errors *args:
+    node {{app_dir}}/perf/errors.ts {{args}}
+
+# M7 part D experiments on the release build: --only footers (parsed footers
+# piling up over 20 opens), ceiling (the big drop files: first rows, End,
+# memory; --files), wheel-end (redraws against the last row). Needs
+# `just tycho drop-files`. Run `just tycho build` first.
+hardening *args:
+    node {{app_dir}}/perf/hardening.ts {{args}}
+
 # M5 drop checks on the release build: drop a ~1 GB Parquet → schema and
 # first rows, 100 MB vs 1 GB memory, unsupported files, a drop superseding a
 # load, and the file dialog in Chromium/Firefox/WebKit. Needs

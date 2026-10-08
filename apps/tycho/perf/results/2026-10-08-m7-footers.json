@@ -1,0 +1,143 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-footers",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "footers": {
+    "file": {
+      "rows": 42323121,
+      "bytes": 1016774988,
+      "sha256": "2d66bf8b63c0932fe98143681b28d02fc14e9bc2e836b19093c34f1cb26633d8",
+      "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 27",
+      "rowGroups": 1378,
+      "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+    },
+    "opens": 20,
+    "results": [
+      {
+        "variant": "keep",
+        "snapshots": [
+          {
+            "opens": 0,
+            "allAgentsMiB": 87,
+            "duckdbMiB": 0
+          },
+          {
+            "opens": 1,
+            "allAgentsMiB": 130.6,
+            "duckdbMiB": 2.2
+          },
+          {
+            "opens": 2,
+            "allAgentsMiB": 165,
+            "duckdbMiB": 4.4
+          },
+          {
+            "opens": 5,
+            "allAgentsMiB": 197,
+            "duckdbMiB": 11.1
+          },
+          {
+            "opens": 10,
+            "allAgentsMiB": 269.6,
+            "duckdbMiB": 22.1
+          },
+          {
+            "opens": 15,
+            "allAgentsMiB": 345.6,
+            "duckdbMiB": 33.2
+          },
+          {
+            "opens": 20,
+            "allAgentsMiB": 454.9,
+            "duckdbMiB": 44.2
+          }
+        ],
+        "problems": []
+      },
+      {
+        "variant": "drop",
+        "snapshots": [
+          {
+            "opens": 0,
+            "allAgentsMiB": 87,
+            "duckdbMiB": 0
+          },
+          {
+            "opens": 1,
+            "allAgentsMiB": 110.8,
+            "duckdbMiB": 2.2
+          },
+          {
+            "opens": 2,
+            "allAgentsMiB": 125.5,
+            "duckdbMiB": 4.4
+          },
+          {
+            "opens": 5,
+            "allAgentsMiB": 177.3,
+            "duckdbMiB": 11.1
+          },
+          {
+            "opens": 10,
+            "allAgentsMiB": 249.9,
+            "duckdbMiB": 22.1
+          },
+          {
+            "opens": 15,
+            "allAgentsMiB": 325.8,
+            "duckdbMiB": 33.2
+          },
+          {
+            "opens": 20,
+            "allAgentsMiB": 435.1,
+            "duckdbMiB": 44.2
+          }
+        ],
+        "problems": []
+      },
+      {
+        "variant": "sqlclear",
+        "snapshots": [
+          {
+            "opens": 0,
+            "allAgentsMiB": 86.9,
+            "duckdbMiB": 0
+          },
+          {
+            "opens": 1,
+            "allAgentsMiB": 110.8,
+            "duckdbMiB": 2.2
+          },
+          {
+            "opens": 2,
+            "allAgentsMiB": 125.5,
+            "duckdbMiB": 4.4
+          },
+          {
+            "opens": 5,
+            "allAgentsMiB": 177.2,
+            "duckdbMiB": 11.1
+          },
+          {
+            "opens": 10,
+            "allAgentsMiB": 249.9,
+            "duckdbMiB": 22.1
+          },
+          {
+            "opens": 15,
+            "allAgentsMiB": 325.8,
+            "duckdbMiB": 33.2
+          },
+          {
+            "opens": 20,
+            "allAgentsMiB": 435.1,
+            "duckdbMiB": 44.2
+          }
+        ],
+        "problems": []
+      }
+    ]
+  }
+}

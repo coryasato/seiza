@@ -1,0 +1,946 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-csv-scan",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "csvScan": {
+    "summary": {
+      "64": {
+        "loading": {
+          "intervalP95": {
+            "median": 50,
+            "min": 33.3,
+            "max": 50
+          },
+          "intervalMax": {
+            "median": 50,
+            "min": 50,
+            "max": 50
+          },
+          "over50": {
+            "median": 0,
+            "min": 0,
+            "max": 1
+          },
+          "workP50": {
+            "median": 40.9,
+            "min": 40.4,
+            "max": 42.2
+          },
+          "workP95": {
+            "median": 49.3,
+            "min": 48.5,
+            "max": 51.2
+          },
+          "longTasks": {
+            "median": 4,
+            "min": 2,
+            "max": 4
+          },
+          "longestTask": {
+            "median": 54,
+            "min": 52,
+            "max": 60
+          }
+        },
+        "loaded": {
+          "intervalP95": {
+            "median": 33.3,
+            "min": 33.3,
+            "max": 33.3
+          },
+          "intervalMax": {
+            "median": 50,
+            "min": 33.3,
+            "max": 50
+          },
+          "workP95": {
+            "median": 37.8,
+            "min": 35.8,
+            "max": 39.1
+          },
+          "longTasks": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": {
+          "median": 34714.4,
+          "min": 34047,
+          "max": 34935.7
+        }
+      },
+      "256": {
+        "loading": {
+          "intervalP95": {
+            "median": 50,
+            "min": 33.3,
+            "max": 50
+          },
+          "intervalMax": {
+            "median": 50,
+            "min": 50,
+            "max": 66.7
+          },
+          "over50": {
+            "median": 0,
+            "min": 0,
+            "max": 2
+          },
+          "workP50": {
+            "median": 41.4,
+            "min": 40.2,
+            "max": 41.8
+          },
+          "workP95": {
+            "median": 50.6,
+            "min": 49.8,
+            "max": 52.7
+          },
+          "longTasks": {
+            "median": 5,
+            "min": 4,
+            "max": 7
+          },
+          "longestTask": {
+            "median": 55,
+            "min": 54,
+            "max": 64
+          }
+        },
+        "loaded": {
+          "intervalP95": {
+            "median": 33.3,
+            "min": 33.3,
+            "max": 33.3
+          },
+          "intervalMax": {
+            "median": 50,
+            "min": 50,
+            "max": 50
+          },
+          "workP95": {
+            "median": 39.1,
+            "min": 38.1,
+            "max": 39.6
+          },
+          "longTasks": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": {
+          "median": 24141.1,
+          "min": 23969.7,
+          "max": 24247.5
+        }
+      },
+      "1024": {
+        "loading": {
+          "intervalP95": {
+            "median": 50,
+            "min": 50,
+            "max": 50
+          },
+          "intervalMax": {
+            "median": 50,
+            "min": 50,
+            "max": 50
+          },
+          "over50": {
+            "median": 0,
+            "min": 0,
+            "max": 1
+          },
+          "workP50": {
+            "median": 40.8,
+            "min": 39.8,
+            "max": 41.5
+          },
+          "workP95": {
+            "median": 49.7,
+            "min": 49.2,
+            "max": 51.8
+          },
+          "longTasks": {
+            "median": 4,
+            "min": 3,
+            "max": 6
+          },
+          "longestTask": {
+            "median": 56,
+            "min": 53,
+            "max": 58
+          }
+        },
+        "loaded": {
+          "intervalP95": {
+            "median": 33.3,
+            "min": 33.3,
+            "max": 33.3
+          },
+          "intervalMax": {
+            "median": 50,
+            "min": 50,
+            "max": 50
+          },
+          "workP95": {
+            "median": 38.5,
+            "min": 37.4,
+            "max": 41.8
+          },
+          "longTasks": {
+            "median": 0,
+            "min": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": {
+          "median": 22079.1,
+          "min": 21533,
+          "max": 22203
+        }
+      }
+    },
+    "results": [
+      {
+        "windowKib": 1024,
+        "loading": {
+          "frames": {
+            "frames": 123,
+            "p50": 16.670000000000073,
+            "p95": 50,
+            "max": 50.0049999999992,
+            "over50": 1,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 46,
+            "p50": 39.760000228881836,
+            "p95": 51.799999713897705,
+            "max": 55.86999988555908
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 58
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 135,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 70
+          },
+          "work": {
+            "n": 81,
+            "p50": 29.605000019073486,
+            "p95": 38.52500009536743,
+            "max": 40.56500005722046
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 22054.425000190735,
+        "chunks": "134 · slowest 224 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 256,
+        "loading": {
+          "frames": {
+            "frames": 137,
+            "p50": 16.670000000000073,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 3
+          },
+          "work": {
+            "n": 41,
+            "p50": 41.52500009536743,
+            "p95": 52.65999984741211,
+            "max": 53.514999866485596
+          },
+          "longTasks": {
+            "count": 6,
+            "max": 54
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 131,
+            "p50": 16.665000000000873,
+            "p95": 33.34000000000378,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 63
+          },
+          "work": {
+            "n": 81,
+            "p50": 29.119999885559082,
+            "p95": 39.114999771118164,
+            "max": 42.24499988555908
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 24197.819999694824,
+        "chunks": "133 · slowest 211 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 64,
+        "loading": {
+          "frames": {
+            "frames": 129,
+            "p50": 16.670000000000073,
+            "p95": 33.340000000000146,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 41,
+            "p50": 40.889999866485596,
+            "p95": 49.25,
+            "max": 54.704999923706055
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 55
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 133,
+            "p50": 16.669999999998254,
+            "p95": 33.3350000000064,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 58
+          },
+          "work": {
+            "n": 78,
+            "p50": 30.579999923706055,
+            "p95": 37.78999996185303,
+            "max": 45.22000026702881
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 34129.670000076294,
+        "chunks": "133 · slowest 238 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 1024,
+        "loading": {
+          "frames": {
+            "frames": 122,
+            "p50": 16.670000000000073,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 8
+          },
+          "work": {
+            "n": 44,
+            "p50": 40.94000005722046,
+            "p95": 49.484999656677246,
+            "max": 54.15500020980835
+          },
+          "longTasks": {
+            "count": 6,
+            "max": 56
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 137,
+            "p50": 16.665000000000873,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 72
+          },
+          "work": {
+            "n": 80,
+            "p50": 29.039999961853027,
+            "p95": 41.799999713897705,
+            "max": 47.90000009536743
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 22079.144999980927,
+        "chunks": "134 · slowest 240 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 256,
+        "loading": {
+          "frames": {
+            "frames": 130,
+            "p50": 16.670000000000073,
+            "p95": 49.99499999999898,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 3
+          },
+          "work": {
+            "n": 42,
+            "p50": 41.40000009536743,
+            "p95": 49.75500011444092,
+            "max": 54.450000286102295
+          },
+          "longTasks": {
+            "count": 5,
+            "max": 55
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 132,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 65
+          },
+          "work": {
+            "n": 78,
+            "p50": 30.644999980926514,
+            "p95": 39.55000019073486,
+            "max": 40.420000076293945
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 23969.715000152588,
+        "chunks": "133 · slowest 241 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 64,
+        "loading": {
+          "frames": {
+            "frames": 131,
+            "p50": 16.670000000000073,
+            "p95": 50,
+            "max": 50.00500000000102,
+            "over50": 1,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 45,
+            "p50": 40.68499994277954,
+            "p95": 51.20500040054321,
+            "max": 51.83999967575073
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 54
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 136,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 49.99500000000262,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 61
+          },
+          "work": {
+            "n": 77,
+            "p50": 29.43000030517578,
+            "p95": 38.639999866485596,
+            "max": 39.575000286102295
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 34935.65000009537,
+        "chunks": "133 · slowest 249 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 1024,
+        "loading": {
+          "frames": {
+            "frames": 129,
+            "p50": 16.665000000000873,
+            "p95": 49.99499999999898,
+            "max": 50.0049999999992,
+            "over50": 1,
+            "blankFrames": 0,
+            "placeholderFrames": 24
+          },
+          "work": {
+            "n": 44,
+            "p50": 39.94499969482422,
+            "p95": 49.72000026702881,
+            "max": 51.25500011444092
+          },
+          "longTasks": {
+            "count": 3,
+            "max": 53
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 132,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 63
+          },
+          "work": {
+            "n": 80,
+            "p50": 30.875,
+            "p95": 38.66499996185303,
+            "max": 44.114999771118164
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 21532.985000133514,
+        "chunks": "133 · slowest 223 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 256,
+        "loading": {
+          "frames": {
+            "frames": 133,
+            "p50": 16.665000000000873,
+            "p95": 50,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 42,
+            "p50": 40.18000030517578,
+            "p95": 50.579999923706055,
+            "max": 56.795000076293945
+          },
+          "longTasks": {
+            "count": 5,
+            "max": 57
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 127,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 73
+          },
+          "work": {
+            "n": 86,
+            "p50": 28.390000343322754,
+            "p95": 38.420000076293945,
+            "max": 42.46500015258789
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 24247.515000343323,
+        "chunks": "133 · slowest 259 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 64,
+        "loading": {
+          "frames": {
+            "frames": 131,
+            "p50": 16.665000000000873,
+            "p95": 50,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 44,
+            "p50": 40.38000011444092,
+            "p95": 50.30499982833862,
+            "max": 56.18499994277954
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 60
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 137,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 33.34000000000378,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 62
+          },
+          "work": {
+            "n": 76,
+            "p50": 29.824999809265137,
+            "p95": 36.704999923706055,
+            "max": 39.56500005722046
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 34738.53999996185,
+        "chunks": "133 · slowest 252 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 1024,
+        "loading": {
+          "frames": {
+            "frames": 123,
+            "p50": 16.670000000000073,
+            "p95": 50,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 42,
+            "p50": 41.454999923706055,
+            "p95": 49.165000438690186,
+            "max": 55.43499994277954
+          },
+          "longTasks": {
+            "count": 5,
+            "max": 58
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 136,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 63
+          },
+          "work": {
+            "n": 79,
+            "p50": 29.695000171661377,
+            "p95": 37.37000036239624,
+            "max": 43.77500009536743
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 22202.985000133514,
+        "chunks": "135 · slowest 263 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 256,
+        "loading": {
+          "frames": {
+            "frames": 126,
+            "p50": 16.670000000000073,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 4
+          },
+          "work": {
+            "n": 43,
+            "p50": 41.78999996185303,
+            "p95": 50.63000011444092,
+            "max": 51.99499988555908
+          },
+          "longTasks": {
+            "count": 7,
+            "max": 54
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 134,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 72
+          },
+          "work": {
+            "n": 81,
+            "p50": 29.200000286102295,
+            "p95": 38.105000019073486,
+            "max": 43.769999980926514
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 24120.885000228882,
+        "chunks": "133 · slowest 222 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 64,
+        "loading": {
+          "frames": {
+            "frames": 136,
+            "p50": 16.670000000000073,
+            "p95": 33.335000000000946,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 42,
+            "p50": 42.16499996185303,
+            "p95": 48.67999982833862,
+            "max": 53.30999994277954
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 53
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 137,
+            "p50": 16.665000000000873,
+            "p95": 33.33499999999913,
+            "max": 50.00500000000466,
+            "over50": 1,
+            "blankFrames": 0,
+            "placeholderFrames": 78
+          },
+          "work": {
+            "n": 82,
+            "p50": 28.085000038146973,
+            "p95": 39.114999771118164,
+            "max": 41.58500003814697
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 34714.384999752045,
+        "chunks": "132 · slowest 313 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 1024,
+        "loading": {
+          "frames": {
+            "frames": 125,
+            "p50": 16.670000000000073,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 14
+          },
+          "work": {
+            "n": 44,
+            "p50": 40.80499982833862,
+            "p95": 50.625,
+            "max": 52.704999923706055
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 55
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 136,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 67
+          },
+          "work": {
+            "n": 81,
+            "p50": 29.539999961853027,
+            "p95": 38.170000076293945,
+            "max": 46.38499975204468
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 22120.394999980927,
+        "chunks": "134 · slowest 243 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 256,
+        "loading": {
+          "frames": {
+            "frames": 129,
+            "p50": 16.670000000000073,
+            "p95": 50,
+            "max": 66.66499999999905,
+            "over50": 2,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 41,
+            "p50": 41.05499982833862,
+            "p95": 50.894999980926514,
+            "max": 62.3100004196167
+          },
+          "longTasks": {
+            "count": 4,
+            "max": 64
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 136,
+            "p50": 16.669999999998254,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 75
+          },
+          "work": {
+            "n": 82,
+            "p50": 28.605000019073486,
+            "p95": 39.549999713897705,
+            "max": 46.359999656677246
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 24141.11999988556,
+        "chunks": "133 · slowest 228 ms",
+        "problems": []
+      },
+      {
+        "windowKib": 64,
+        "loading": {
+          "frames": {
+            "frames": 130,
+            "p50": 16.670000000000073,
+            "p95": 49.9950000000008,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 0
+          },
+          "work": {
+            "n": 43,
+            "p50": 41.77999973297119,
+            "p95": 48.49499988555908,
+            "max": 50.980000019073486
+          },
+          "longTasks": {
+            "count": 2,
+            "max": 52
+          }
+        },
+        "stillLoadingAfterFling": true,
+        "loaded": {
+          "frames": {
+            "frames": 138,
+            "p50": 16.665000000000873,
+            "p95": 33.33499999999913,
+            "max": 50,
+            "over50": 0,
+            "blankFrames": 0,
+            "placeholderFrames": 82
+          },
+          "work": {
+            "n": 83,
+            "p50": 28.179999828338623,
+            "p95": 35.78999996185303,
+            "max": 40.06500005722046
+          },
+          "longTasks": {
+            "count": 0,
+            "max": 0
+          }
+        },
+        "ingestMs": 34046.954999923706,
+        "chunks": "133 · slowest 250 ms",
+        "problems": []
+      }
+    ]
+  }
+}

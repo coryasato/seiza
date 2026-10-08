@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-errors-control-no-idle",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "limits": {
+    "parquetBytes": 10000000000,
+    "csvBytes": 6000000000
+  },
+  "checks": [
+    {
+      "name": "5. reopen while reads drain",
+      "ok": true,
+      "detail": "Read 5452595.2 B fresh vs 5452595.2 B reopened; first rows 820 ms fresh vs 1236 ms reopened",
+      "problems": []
+    }
+  ]
+}

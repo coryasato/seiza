@@ -32,6 +32,9 @@ pub struct PerfOverlay {
     metrics: Vec<(SharedString, SharedString)>,
     live: Live,
     refresh: Vec<RefreshCallback>,
+    /// How far the panel keeps from the window's right and bottom edges
+    /// ([`set_clearance`]); None for the default.
+    clearance: Option<(Pixels, Pixels)>,
 }
 
 impl Global for PerfOverlay {}
@@ -40,6 +43,19 @@ impl PerfOverlay {
     pub fn is_visible(&self) -> bool {
         self.visible
     }
+
+    /// From the window's right and bottom edges to the panel.
+    pub(crate) fn clearance(&self) -> (Pixels, Pixels) {
+        self.clearance.unwrap_or((px(12.), px(12.)))
+    }
+}
+
+/// Keeps the open panel at least `right` from the window's right edge and
+/// `bottom` from its bottom edge (12 px each by default), so controls an app
+/// draws along those edges stay reachable: a press on the panel never
+/// reaches what's under it (scrolling does).
+pub fn set_clearance(cx: &mut App, right: Pixels, bottom: Pixels) {
+    cx.default_global::<PerfOverlay>().clearance = Some((right, bottom));
 }
 
 /// One step of a load waterfall, in ms from `performance.timeOrigin`.

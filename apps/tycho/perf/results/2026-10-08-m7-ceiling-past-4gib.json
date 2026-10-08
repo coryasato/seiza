@@ -1,0 +1,207 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-ceiling-past-4gib",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "ceiling": [
+    {
+      "file": "drop/asteroids-x130-rg122880.parquet",
+      "bytes": 4617576331,
+      "rows": 203777990,
+      "before": {
+        "allAgentsMiB": 87
+      },
+      "firstRowsMs": 1053.3399996757507,
+      "workbench": {
+        "state": "open",
+        "name": "asteroids-x130-rg122880.parquet",
+        "rows": 203777990,
+        "message": null,
+        "notice": null,
+        "dragging": false,
+        "ingest": null,
+        "readBytes": null,
+        "chunks": null,
+        "jumpText": "",
+        "jumpRefusal": null,
+        "focused": "table"
+      },
+      "afterOpen": {
+        "allAgentsMiB": 125.4,
+        "duckdbMiB": 2.7
+      },
+      "end": {
+        "rows": 203777990,
+        "top": 203777966.70000076,
+        "first": 203777966,
+        "end": 203777990,
+        "loaded": 24,
+        "pending": 0,
+        "failed": 0,
+        "marked": null,
+        "lastCell": "54657680"
+      },
+      "endMs": 799.3550000190735,
+      "afterEnd": {
+        "allAgentsMiB": 125.5,
+        "duckdbMiB": 2.8
+      },
+      "engineAnswers": true,
+      "problems": []
+    },
+    {
+      "file": "drop/asteroids-x30.csv",
+      "bytes": 5356761942,
+      "rows": 47025930,
+      "before": {
+        "allAgentsMiB": 86.9
+      },
+      "firstRowsMs": 203.20499992370605,
+      "ingest": "done",
+      "readBytes": 5356761942,
+      "rowsShown": 47025930,
+      "ingestMs": 84382.44499969482,
+      "peakAllAgentsMiB": 1822.6,
+      "csvLoad": "5.0 GiB in 82.2 s · 65.2 MB/s",
+      "workbench": {
+        "state": "open",
+        "name": "asteroids-x30.csv",
+        "rows": 47025930,
+        "message": null,
+        "notice": null,
+        "dragging": false,
+        "ingest": "done",
+        "readBytes": 5356761942,
+        "chunks": 644,
+        "jumpText": "",
+        "jumpRefusal": null,
+        "focused": "table"
+      },
+      "afterOpen": {
+        "allAgentsMiB": 1814.7,
+        "duckdbMiB": 1508.3
+      },
+      "end": {
+        "rows": 47025930,
+        "top": 47025907.616666794,
+        "first": 47025907,
+        "end": 47025930,
+        "loaded": 23,
+        "pending": 0,
+        "failed": 0,
+        "marked": null,
+        "lastCell": "99000008"
+      },
+      "endMs": 81.89000034332275,
+      "afterEnd": {
+        "allAgentsMiB": 1814.8,
+        "duckdbMiB": 1508.3
+      },
+      "engineAnswers": true,
+      "problems": []
+    },
+    {
+      "file": "drop/asteroids-x48.csv",
+      "bytes": 8570819046,
+      "rows": 75241488,
+      "before": {
+        "allAgentsMiB": 87
+      },
+      "firstRowsMs": 192.92500019073486,
+      "ingest": "done",
+      "readBytes": 8570819046,
+      "rowsShown": 66392236,
+      "ingestMs": 130932.21000003815,
+      "peakAllAgentsMiB": 2499.6,
+      "csvLoad": "8.0 GiB in 123.1 s · 69.6 MB/s",
+      "workbench": {
+        "state": "open",
+        "name": "asteroids-x48.csv",
+        "rows": 66392236,
+        "message": null,
+        "notice": null,
+        "dragging": false,
+        "ingest": "done",
+        "readBytes": 8570819046,
+        "chunks": 1034,
+        "jumpText": "",
+        "jumpRefusal": null,
+        "focused": "table"
+      },
+      "afterOpen": {
+        "allAgentsMiB": 2499.5,
+        "duckdbMiB": 2124.3
+      },
+      "end": {
+        "rows": 66392236,
+        "top": 66392213.616666794,
+        "first": 66392213,
+        "end": 66392236,
+        "loaded": 23,
+        "pending": 0,
+        "failed": 0,
+        "marked": null,
+        "lastCell": "20167650"
+      },
+      "endMs": 90.67999982833862,
+      "afterEnd": {
+        "allAgentsMiB": 2499.6,
+        "duckdbMiB": 2124.3
+      },
+      "engineAnswers": true,
+      "problems": []
+    },
+    {
+      "file": "drop/asteroids-x60.csv",
+      "bytes": 10713523782,
+      "rows": 94051860,
+      "before": {
+        "allAgentsMiB": 87
+      },
+      "firstRowsMs": 178.96000003814697,
+      "ingest": "done",
+      "readBytes": 10713523782,
+      "rowsShown": 65963223,
+      "ingestMs": 141761.4050002098,
+      "peakAllAgentsMiB": 2428.9,
+      "csvLoad": "10.0 GiB in 131.3 s · 81.6 MB/s",
+      "workbench": {
+        "state": "open",
+        "name": "asteroids-x60.csv",
+        "rows": 65963223,
+        "message": null,
+        "notice": null,
+        "dragging": false,
+        "ingest": "done",
+        "readBytes": 10713523782,
+        "chunks": 1289,
+        "jumpText": "",
+        "jumpRefusal": null,
+        "focused": "table"
+      },
+      "afterOpen": {
+        "allAgentsMiB": 2421.1,
+        "duckdbMiB": 2111
+      },
+      "end": {
+        "rows": 65963223,
+        "top": 65963200.616666794,
+        "first": 65963200,
+        "end": 65963223,
+        "loaded": 23,
+        "pending": 0,
+        "failed": 0,
+        "marked": null,
+        "lastCell": "54419371"
+      },
+      "endMs": 88.0750002861023,
+      "afterEnd": {
+        "allAgentsMiB": 2421.1,
+        "duckdbMiB": 2111
+      },
+      "engineAnswers": true,
+      "problems": []
+    }
+  ]
+}

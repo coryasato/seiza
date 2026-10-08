@@ -64,11 +64,12 @@ impl Render for PerfPanel {
                 crate::perf::publish_rect(*bounds);
             }
         });
+        let (right, bottom) = overlay.clearance();
         let mut panel = v_flex()
             .id("seiza-perf-panel")
             .absolute()
-            .bottom_3()
-            .right_3()
+            .bottom(bottom)
+            .right(right)
             .w_96()
             .gap_3()
             .px_3()

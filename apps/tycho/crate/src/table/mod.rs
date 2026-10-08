@@ -197,6 +197,12 @@ pub enum TableEvent {
     /// `shown_ms` (ms from `timeOrigin`), or `None` if its mark couldn't be
     /// set (no time to report). Once per table.
     FirstRows { shown_ms: Option<f64> },
+    /// A page read failed to read the file ([`EngineError::is_read_failure`]).
+    /// A failed HTTP range read leaves
+    /// DuckDB-Wasm's handle on the file broken, and every later read of
+    /// those bytes fails too, network or not (M7): the owner registers the
+    /// file again under a new name, then calls [`RowTable::read_from`].
+    ReadFailed,
 }
 
 /// The table's paging and scrolling, for the perf panel.
@@ -390,6 +396,25 @@ impl RowTable {
         }
     }
 
+    /// Reads a Parquet table's rows from `name` from now on (the same file,
+    /// registered again), and loads the pages whose reads failed again, if
+    /// they're still wanted.
+    pub fn read_from(&mut self, name: String, cx: &mut Context<Self>) {
+        if let RowSource::Parquet(current) = &mut self.source {
+            *current = name;
+        }
+        if self.cache.forget_failed() {
+            #[cfg(target_family = "wasm")]
+            self.load_pages(cx);
+            cx.notify();
+        }
+    }
+
+    /// Whether any page's read failed and hasn't been retried.
+    pub fn has_failed_reads(&self) -> bool {
+        self.cache.has_failed()
+    }
+
     /// Paging and the last seconds' scrolling, as of `now` (ms from
     /// `timeOrigin`). Scrolling is recorded only while the panel is open.
     pub fn stats(&mut self, now: f64) -> TableStats {
@@ -580,7 +605,13 @@ impl RowTable {
                 self.cache.loaded(page, request, rows, bytes, &wanted);
             }
             Err(crate::engine::EngineError::Cancelled) => self.cache.finished(request),
-            Err(error) => self.cache.failed(page, request, error.to_string()),
+            Err(error) => {
+                let read_failure = error.is_read_failure();
+                self.cache.failed(page, request, error.to_string());
+                if read_failure {
+                    cx.emit(TableEvent::ReadFailed);
+                }
+            }
         }
         self.load_wanted(&wanted, cx);
         cx.notify();

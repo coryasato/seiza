@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-errors",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "limits": {
+    "parquetBytes": 10000000000,
+    "csvBytes": 6000000000
+  },
+  "checks": [
+    {
+      "name": "1. engine didn’t load (DuckDB's wasm) → Retry",
+      "ok": true,
+      "detail": "status: The engine didn't load: DuckDB worker: Uncaught TypeError: Failed to fetch. Retry loads it again.; drop while down: the engine isn't running; Retry starts it; engine starts 0; retry: engine ready, sample opened",
+      "problems": []
+    },
+    {
+      "name": "1. engine didn’t load (engine.ts chunk) → Retry",
+      "ok": true,
+      "detail": "status: The engine didn't load: Failed to fetch dynamically imported module: http://localhost:4181/assets/engine-DrO5Z4H7.js. Retry loads it again.; drop while down: the engine isn't running; Retry starts it; engine starts 0; retry: engine ready, sample opened",
+      "problems": []
+    },
+    {
+      "name": "2. engine stopped → Retry",
+      "ok": true,
+      "detail": "status: The engine stopped while asteroids.parquet was open, and the file closed with it. Retry starts a new engine; then open the file again.; engines started before Retry: 0; retry: new engine, sample opened, End loaded",
+      "problems": []
+    },
+    {
+      "name": "2b. engine stopped under a replaced open",
+      "ok": true,
+      "detail": "status: The engine stopped (Uncaught Error: test: the worker stopped). Retry starts a new one.; engines started before Retry: 0; retry: sample opened",
+      "problems": []
+    },
+    {
+      "name": "3. network, sample",
+      "ok": true,
+      "detail": "offline: Couldn't open the sample: the network request failed. Check the connection, then try again; online again: opened",
+      "problems": []
+    },
+    {
+      "name": "4. network, pages",
+      "ok": true,
+      "detail": "offline End: rows failed visibly; online again: the rows in view loaded by themselves in 5.1 s, then Home and End loaded",
+      "problems": []
+    },
+    {
+      "name": "5. reopen while reads drain",
+      "ok": true,
+      "detail": "Read 5452595.2 B fresh vs 5452595.2 B reopened; first rows 831 ms fresh vs 1277 ms reopened",
+      "problems": []
+    },
+    {
+      "name": "6. too large",
+      "ok": true,
+      "detail": "huge.parquet over empty: huge.parquet is 10.0 GB, too large: Tycho opens Parquet files up to 10.0 GB, the largest it's measured with.; huge.csv over empty: huge.csv is 6.0 GB, too large: Tycho loads CSV files up to 6.0 GB, because it copies them into memory, and a browser tab's engine holds about 2 GB. Parquet files are read in place, up to 10.0 GB.; huge.parquet over open: huge.parquet is 10.0 GB, too large: Tycho opens Parquet files up to 10.0 GB, the largest it's measured with.; huge.csv over open: huge.csv is 6.0 GB, too large: Tycho loads CSV files up to 6.0 GB, because it copies them into memory, and a browser tab's engine holds about 2 GB. Parquet files are read in place, up to 10.0 GB.",
+      "problems": []
+    },
+    {
+      "name": "7. panel clear of the scrollbar",
+      "ok": true,
+      "detail": "thumb [1407, 843, 16, 24], panel [1015, 219.5, 384, 639.5]; dragged the thumb from the bottom to the top",
+      "problems": []
+    }
+  ]
+}

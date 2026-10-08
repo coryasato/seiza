@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-wheel-end",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "wheelEnd": {
+    "results": [
+      {
+        "name": "still, at the end",
+        "seconds": 2.12,
+        "frames": 0,
+        "work": {
+          "n": 0,
+          "p50": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "top": 1567500.6166667938
+      },
+      {
+        "name": "wheel down at the end",
+        "seconds": 5.97,
+        "frames": 0,
+        "work": {
+          "n": 0,
+          "p50": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "top": 1567500.6166667938
+      },
+      {
+        "name": "wheel down from the top",
+        "seconds": 5.96,
+        "frames": 121,
+        "work": {
+          "n": 121,
+          "p50": 10.75,
+          "p95": 13.114999771118164,
+          "max": 17.93499994277954
+        },
+        "top": 160.00000000000003
+      },
+      {
+        "name": "panel open: still, at the end",
+        "seconds": 2.12,
+        "frames": 9,
+        "work": {
+          "n": 9,
+          "p50": 17.454999923706055,
+          "p95": 22.585000038146973,
+          "max": 22.585000038146973
+        },
+        "top": 1567500.6166667938
+      },
+      {
+        "name": "panel open: wheel down at the end",
+        "seconds": 6.18,
+        "frames": 23,
+        "work": {
+          "n": 23,
+          "p50": 19.84999990463257,
+          "p95": 24.59999990463257,
+          "max": 26.679999828338623
+        },
+        "top": 1567500.6166667938
+      }
+    ],
+    "problems": []
+  }
+}

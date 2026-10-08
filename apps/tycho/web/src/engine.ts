@@ -39,6 +39,12 @@ export interface Engine {
   query(sql: string, signal: AbortSignal): Promise<Uint8Array>;
 }
 
+/** The name of the error every call rejects with once DuckDB's worker has
+ *  stopped after loading (Rust: `EngineError::Stopped`). */
+export const ENGINE_STOPPED = 'EngineStopped';
+
+/** Starts DuckDB. If its worker stops after loading, the engine is dead,
+ *  and every call rejects with `ENGINE_STOPPED` (bridge.ts then forgets it). */
 export async function startEngine(): Promise<Engine> {
   performance.mark(ENGINE_START_MARK);
   const bundle = await selectBundle({
@@ -51,10 +57,18 @@ export async function startEngine(): Promise<Engine> {
   // call races it: DuckDB-Wasm never settles a pending call when its worker
   // dies, so without this a crash mid-query (out of memory on a big file, a
   // failed range read) would leave that query pending forever.
+  let ready = false;
   const workerFailed = new Promise<never>((_, reject) => {
     worker.addEventListener('error', (event) => {
       event.preventDefault();
-      reject(new Error(event.message ? `DuckDB worker: ${event.message}` : "DuckDB's worker failed to load"));
+      if (!ready) {
+        reject(new Error(event.message ? `DuckDB worker: ${event.message}` : "DuckDB's worker failed to load"));
+        return;
+      }
+      const error = new Error(event.message || "DuckDB's worker stopped");
+      error.name = ENGINE_STOPPED;
+      reject(error);
+      worker.terminate();
     });
   });
   workerFailed.catch(() => {}); // Reported through the calls that race it.
@@ -75,6 +89,7 @@ export async function startEngine(): Promise<Engine> {
     worker.terminate();
     throw error;
   }
+  ready = true;
   performance.mark(ENGINE_READY_MARK);
 
   return {
@@ -138,7 +153,13 @@ async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {
  * path with `index.html` (Vite's dev and preview servers do).
  */
 async function remoteSize(url: string): Promise<number | null> {
-  const response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+  } catch {
+    // A TypeError that says only "Failed to fetch" (or "Load failed").
+    throw new Error("the network request failed. Check the connection, then try again");
+  }
   // Only the headers are needed; a server that ignored the range would send it all.
   void response.body?.cancel();
   if (response.status !== 206) {

@@ -13,6 +13,11 @@
 // DuckDB's sniffer reads only the head, sees no quotes, and picks none, and
 // the quoted rows at the end then fail to parse.
 //
+// M7, the size ceiling: the Parquet table repeated to ~2.2 GB and ~4.5 GB
+// (DuckDB's default 122,880-row groups, as a visitor's file would most
+// likely have), ~4.6 GB (past 2^32 bytes), and ~9.6 GB, and the CSV fixture to ~2,
+// ~4, ~5.4, ~8.6, and ~10.7 GB.
+//
 // Each file's rows, bytes, row groups, and SHA-256 go into MANIFEST.json
 // under `drop/`.
 //
@@ -43,11 +48,20 @@ const FILES: Record<string, [number, number]> = {
   'drop/asteroids-x27.parquet': [27, 30_720],
   'drop/asteroids-x27-rg122880.parquet': [27, 122_880],
   'drop/asteroids-x27-rg1048576.parquet': [27, 1_048_576],
+  'drop/asteroids-x60-rg122880.parquet': [60, 122_880],
+  'drop/asteroids-x120-rg122880.parquet': [120, 122_880],
+  'drop/asteroids-x130-rg122880.parquet': [130, 122_880],
+  'drop/asteroids-x270-rg122880.parquet': [270, 122_880],
 };
 
 /** Name → copies of the CSV fixture's body. */
 const CSV_FILES: Record<string, number> = {
   'drop/asteroids-x6.csv': 6,
+  'drop/asteroids-x12.csv': 12,
+  'drop/asteroids-x24.csv': 24,
+  'drop/asteroids-x30.csv': 30,
+  'drop/asteroids-x48.csv': 48,
+  'drop/asteroids-x60.csv': 60,
 };
 
 async function sha256(path: string): Promise<string> {
@@ -108,6 +122,43 @@ for (const [name, copies] of Object.entries(CSV_FILES)) {
     writer: 'drop_files.ts, byte for byte; rows counted by ' + writer,
   };
   console.log(`${name}: ${(statSync(path).size / 2 ** 20).toFixed(1)} MiB, ${rows} rows (${((performance.now() - started) / 1000).toFixed(1)} s)`);
+}
+// M7: a CSV that compresses badly (random hex), ~4.6 GB: under the 6 GB
+// limit, over DuckDB's memory budget, so its load must stop at the budget.
+const RANDOM_CSV = 'drop/random-hex.csv';
+if (wanted(RANDOM_CSV)) {
+  const path = join(dataDir, RANDOM_CSV);
+  const started = performance.now();
+  const out = createWriteStream(path);
+  out.write('id,a,b,c\n');
+  // xorshift32, seeded: the same bytes every run.
+  let state = 0x9e3779b9;
+  const next = () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return state >>> 0;
+  };
+  const hex = (words: number) => Array.from({ length: words }, () => next().toString(16).padStart(8, '0')).join('');
+  const rows = 50_000_000;
+  let batch = '';
+  for (let row = 0; row < rows; row++) {
+    batch += `${row},${hex(4)},${hex(4)},${hex(2)}\n`;
+    if (batch.length > 1 << 20) {
+      if (!out.write(batch)) await once(out, 'drain');
+      batch = '';
+    }
+  }
+  out.end(batch);
+  await once(out, 'finish');
+  manifest[RANDOM_CSV] = {
+    rows,
+    bytes: statSync(path).size,
+    sha256: await sha256(path),
+    source: 'drop_files.ts: id and three random hex columns (xorshift32, fixed seed)',
+    writer: 'drop_files.ts',
+  };
+  console.log(`${RANDOM_CSV}: ${(statSync(path).size / 2 ** 20).toFixed(1)} MiB, ${rows} rows (${((performance.now() - started) / 1000).toFixed(1)} s)`);
 }
 conn.closeSync();
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

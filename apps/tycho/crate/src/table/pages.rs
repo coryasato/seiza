@@ -313,6 +313,22 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         }
     }
 
+    /// Whether any page's read failed (and the failure isn't forgotten).
+    pub fn has_failed(&self) -> bool {
+        self.slots
+            .values()
+            .any(|slot| matches!(slot, Slot::Failed(_)))
+    }
+
+    /// Forgets every failure, so the next [`PageCache::plan`] fetches those
+    /// pages again if they're wanted. Returns whether there were any.
+    pub fn forget_failed(&mut self) -> bool {
+        let before = self.slots.len();
+        self.slots
+            .retain(|_, slot| !matches!(slot, Slot::Failed(_)));
+        self.slots.len() != before
+    }
+
     /// `request` answered (a cancelled request, or any other): it no longer
     /// holds a place in flight. `loaded` and `failed` call this themselves.
     pub fn finished(&mut self, request: R) {
@@ -507,6 +523,21 @@ mod tests {
         assert!(cache.loaded(1, 1, "full", 10, &[]));
         assert_eq!(cache.set_rows(300), None);
         assert!(matches!(cache.row(150), RowState::Loaded(..)));
+    }
+
+    #[test]
+    fn forgotten_failures_load_again_in_view() {
+        let mut cache: Cache = PageCache::new(10_000, 1000, 1 << 20, 3);
+        let plan = cache.plan(&[0], 1);
+        assert_eq!(plan.fetch, vec![0]);
+        cache.started(0, 1);
+        cache.failed(0, 1, "network".into());
+        assert!(cache.plan(&[0], 1).fetch.is_empty());
+        assert!(cache.has_failed());
+        assert!(cache.forget_failed());
+        assert!(!cache.has_failed());
+        assert!(!cache.forget_failed());
+        assert_eq!(cache.plan(&[0], 1).fetch, vec![0]);
     }
 
     #[test]

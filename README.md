@@ -21,7 +21,7 @@ Tycho, measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median
 | Metric | Budget | Now |
 |---|---|---|
 | Time to first paint | ≤ 195 ms (baseline + 10%) | 170 ms |
-| App wasm (brotli) | ≤ 3012 KiB | 2801 KiB (M7: +88 KiB for the jump input) |
+| App wasm (brotli) | ≤ 3012 KiB | 2806 KiB (M7: +88 KiB for the jump input, +6 KiB for error states and limits) |
 | Sample click → first rows (1.57 M rows, engine warm) | ≤ 500 ms | 239 ms |
 | Fling top → bottom in 3 s: p95 / worst frame | ≤ 20 / 50 ms | 16.7 / 33.3 ms |
 | Scrollbar jump to 90% → real rows | ≤ 400 ms | 133 ms |
@@ -39,7 +39,16 @@ Drawing to a canvas gives up things the DOM does for free. Here's where Tycho st
 - **Text selection and copy:** cells can't be selected or copied yet. Column resizing, selection, and sorting are a researched-first goal after v1 ([`PLAN.md`](apps/tycho/PLAN.md), "Long-term goals").
 - **Ctrl+F:** the browser's find doesn't see the rows, and there's no in-app search (v1 scope excludes filtering). Jump to row is the way to get somewhere. It takes Cmd/Ctrl+G, which in a browser is "find next", since find has nothing to search here anyway.
 - **Bundle size:** the app wasm is 2.74 MiB brotli, downloaded and compiled before first paint. The jump input's text engine (editing, undo, selection, IME) is 88 KiB of that, ~3 ms of first paint on a fast machine and ~100 ms on Fast 4G. GPUI Kit's styled text field would have been 194 KiB, because it also links its multi-line and code-editor engines, so Tycho styles GPUI Kit's bare single-line field itself. DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after first paint.
-- **Overlapping panel:** the observation panel floats over the window's lower right, and a click there lands on the panel, including on the bottom of the table's scrollbar. Moving it is the next hardening step (M7 part D).
+- **Overlapping panel:** the observation panel floats over the window's lower right, and a click there lands on the panel. *Today:* it keeps clear of the table's scrollbars, so a thumb at the bottom stays grabbable, but it still covers the cells under it. Hide it with its button or Cmd/Ctrl+Shift+P. While it's open it redraws the window 4 times a second (~20 ms of work each), even when nothing else moves; closed, an idle window draws nothing.
+
+## File size limits (Tycho, as of M7)
+
+Everything runs in one browser tab, and a tab's engine (DuckDB-Wasm, a 32-bit wasm build) has about 4 GB of address space. Measured on an Apple M1 in Chromium ([`apps/tycho/perf/results/2026-10-08-m7-hardening.md`](apps/tycho/perf/results/2026-10-08-m7-hardening.md)):
+
+- **Parquet: up to 10 GB.** A Parquet file is read where it lies, so its size barely touches memory: a 9.6 GB file (423 M rows) held 5.6 MiB in DuckDB and 147 MiB across the tab. What grows is time, with the number of row groups: every page read sets up every row group. At DuckDB's default 122,880-row groups, first rows took 0.44 s at 2 GB, 1.0 s at 4.6 GB, and 3.5 s at 9.6 GB (3,445 row groups). Files over 10 GB, untested, are refused with a message.
+- **CSV: up to 6 GB, and up to 1.5 GiB in memory.** A CSV has no index, so Tycho copies it into DuckDB's memory as it loads: about 0.28 bytes per byte for the asteroid CSV (a 5.4 GB file took 1.5 GiB), more for data that compresses badly (random text took 0.47). Past ~2.1 GiB, DuckDB-Wasm 1.32.0 silently stores empty tables instead of failing, and an 8.6 GB CSV lost 8.8 M rows that way with no error. So Tycho stops a load at 1.5 GiB of DuckDB memory, keeps the rows before it, and says why. It also refuses files over 6 GB before reading them. To open a bigger CSV, convert it to Parquet first.
+- **Many files in one session:** each opened Parquet file's parsed footer stays in DuckDB for the session (2.2 MiB for a 1 GB file with 1,378 row groups; across the tab, ~16 MiB per open). Neither unregistering the file nor resetting DuckDB's metadata cache frees it. That's ~250 opens of such a file before the tab runs out; reload the page to start fresh.
+- **When the engine stops anyway:** if DuckDB's worker dies (out of memory, say), the open file closes, the page says so, and Retry starts a new engine without a reload. Tycho notices at its next query, such as the next scroll.
 
 ## Principles
 

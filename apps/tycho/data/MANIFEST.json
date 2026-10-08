@@ -128,5 +128,79 @@
       "17842 duplicate rows in the HATS extracts (identical copies within two partitions) dropped",
       "distance_pc = 1000 / parallax where parallax > 0, else NULL"
     ]
+  },
+  "drop/asteroids-x60-rg122880.parquet": {
+    "rows": 94051380,
+    "bytes": 2131193240,
+    "sha256": "e35490d2c48c1e8f8d79165bc268d5a8265bd8175dc40407e449a34aeae05963",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 60",
+    "rowGroups": 766,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+  },
+  "drop/asteroids-x120-rg122880.parquet": {
+    "rows": 188102760,
+    "bytes": 4262269853,
+    "sha256": "cdb6ec249b0d761ae295dad50ed203747a8de84155dd71b0dd71075d83b036c0",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 120",
+    "rowGroups": 1531,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+  },
+  "drop/asteroids-x12.csv": {
+    "rows": 18810372,
+    "bytes": 2142704838,
+    "sha256": "d27180523f3acf853033bb0b3b717c5bb9202d25be69a545bddfef96748bfc22",
+    "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 12",
+    "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+  },
+  "drop/asteroids-x24.csv": {
+    "rows": 37620744,
+    "bytes": 4285409574,
+    "sha256": "6a963d8f980354d87831637450ec6a55d00d6b92bf5e8f467578967c2e01fb5f",
+    "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 24",
+    "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+  },
+  "drop/asteroids-x130-rg122880.parquet": {
+    "rows": 203777990,
+    "bytes": 4617576331,
+    "sha256": "5cd9eaa6ff5859d050f99c5b0aa24074979ef034979fbdb849e1662e18c7b232",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 130",
+    "rowGroups": 1659,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+  },
+  "drop/asteroids-x30.csv": {
+    "rows": 47025930,
+    "bytes": 5356761942,
+    "sha256": "331f958ffb1c70bd90d91a15881e615ce27eebbf4cc1d5a3e010f4468c42ff9d",
+    "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 30",
+    "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+  },
+  "drop/asteroids-x48.csv": {
+    "rows": 75241488,
+    "bytes": 8570819046,
+    "sha256": "443226bb56722416a39a041ed25abc7fd48ab9d0cc9ad7eb05a7d56000952400",
+    "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 48",
+    "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+  },
+  "drop/asteroids-x60.csv": {
+    "rows": 94051860,
+    "bytes": 10713523782,
+    "sha256": "05c9c7c8221f73a84a20d88719414f770955f83f6be4b2de52593116771e49b3",
+    "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 60",
+    "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+  },
+  "drop/asteroids-x270-rg122880.parquet": {
+    "rows": 423231210,
+    "bytes": 9590441184,
+    "sha256": "798193e5d1364782c06f7843bf05b1005d4ed852e6b573ced2eb8351fd005532",
+    "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 270",
+    "rowGroups": 3445,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 122880"
+  },
+  "drop/random-hex.csv": {
+    "rows": 50000000,
+    "bytes": 4588888899,
+    "sha256": "48cdb1f72a745b2ea037b0d395e2078afdac824eff89521e19c6d16074a866b5",
+    "source": "drop_files.ts: id and three random hex columns (xorshift32, fixed seed)",
+    "writer": "drop_files.ts"
   }
 }

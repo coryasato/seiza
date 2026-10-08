@@ -1,0 +1,597 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-d-jump",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "samples": {
+    "asteroids": {
+      "reference": {
+        "runs": 3,
+        "middleFilledMs": {
+          "median": 73.7,
+          "min": 72,
+          "max": 82.1,
+          "cached": 0
+        },
+        "lastFilledMs": {
+          "median": 71.4,
+          "min": 63.2,
+          "max": 72.2,
+          "cached": 0
+        },
+        "firstFilledMs": {
+          "cached": 3
+        },
+        "list": [
+          {
+            "sample": "asteroids",
+            "header": {
+              "ok": true,
+              "detail": "focus after the click table, top 99 → 100 after ArrowDown"
+            },
+            "inputClearOfPanel": true,
+            "inputRect": [
+              1160,
+              50,
+              168,
+              26
+            ],
+            "panelRect": [
+              1015,
+              219.5,
+              384,
+              639.5
+            ],
+            "landings": [
+              {
+                "row": 783762,
+                "ok": true,
+                "detail": "top 783761 rows 783761–783784 of 1567523, marked 783761, pending 0, focus table, refusal null",
+                "filledMs": 73.66499996185303
+              },
+              {
+                "row": 1567523,
+                "ok": true,
+                "detail": "top 1567500.6166667938 rows 1567500–1567523 of 1567523, marked 1567522, pending 0, focus table, refusal null",
+                "filledMs": 71.40499973297119
+              },
+              {
+                "row": 1,
+                "ok": true,
+                "detail": "top 0 rows 0–23 of 1567523, marked 0, pending 0, focus table, refusal null",
+                "filledMs": null
+              }
+            ],
+            "refused": [
+              {
+                "text": "1567524",
+                "ok": true,
+                "refusal": "No row 1,567,524: rows run from 1 to 1,567,523.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 1,567,524: rows run from 1 to 1,567,523.\", top 0 → 0, focus jump, refusal at 881,53,267,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "0",
+                "ok": true,
+                "refusal": "No row 0: rows run from 1 to 1,567,523.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 0: rows run from 1 to 1,567,523.\", top 0 → 0, focus jump, refusal at 931,53,217,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "abc",
+                "ok": true,
+                "refusal": "Type a row number, like 1,000.",
+                "clearOfPanel": true,
+                "detail": "refusal \"Type a row number, like 1,000.\", top 0 → 0, focus jump, refusal at 982,53,166,19.5 vs panel 1015,219.5,384,639.5"
+              }
+            ],
+            "keys": {
+              "ok": true,
+              "detail": "top 0 → 0 after ArrowDown, ArrowDown, PageDown, Space, End, ArrowUp, PageUp, Home, Control+ArrowDown, Meta+ArrowDown and typing; focus jump"
+            },
+            "problems": []
+          },
+          {
+            "sample": "asteroids",
+            "header": {
+              "ok": true,
+              "detail": "focus after the click table, top 99 → 100 after ArrowDown"
+            },
+            "inputClearOfPanel": true,
+            "inputRect": [
+              1160,
+              50,
+              168,
+              26
+            ],
+            "panelRect": [
+              1015,
+              219.5,
+              384,
+              639.5
+            ],
+            "landings": [
+              {
+                "row": 783762,
+                "ok": true,
+                "detail": "top 783761 rows 783761–783784 of 1567523, marked 783761, pending 0, focus table, refusal null",
+                "filledMs": 72.02999973297119
+              },
+              {
+                "row": 1567523,
+                "ok": true,
+                "detail": "top 1567500.6166667938 rows 1567500–1567523 of 1567523, marked 1567522, pending 0, focus table, refusal null",
+                "filledMs": 63.15000009536743
+              },
+              {
+                "row": 1,
+                "ok": true,
+                "detail": "top 0 rows 0–23 of 1567523, marked 0, pending 0, focus table, refusal null",
+                "filledMs": null
+              }
+            ],
+            "refused": [
+              {
+                "text": "1567524",
+                "ok": true,
+                "refusal": "No row 1,567,524: rows run from 1 to 1,567,523.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 1,567,524: rows run from 1 to 1,567,523.\", top 0 → 0, focus jump, refusal at 881,53,267,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "0",
+                "ok": true,
+                "refusal": "No row 0: rows run from 1 to 1,567,523.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 0: rows run from 1 to 1,567,523.\", top 0 → 0, focus jump, refusal at 931,53,217,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "abc",
+                "ok": true,
+                "refusal": "Type a row number, like 1,000.",
+                "clearOfPanel": true,
+                "detail": "refusal \"Type a row number, like 1,000.\", top 0 → 0, focus jump, refusal at 982,53,166,19.5 vs panel 1015,219.5,384,639.5"
+              }
+            ],
+            "keys": {
+              "ok": true,
+              "detail": "top 0 → 0 after ArrowDown, ArrowDown, PageDown, Space, End, ArrowUp, PageUp, Home, Control+ArrowDown, Meta+ArrowDown and typing; focus jump"
+            },
+            "problems": []
+          },
+          {
+            "sample": "asteroids",
+            "header": {
+              "ok": true,
+              "detail": "focus after the click table, top 99 → 100 after ArrowDown"
+            },
+            "inputClearOfPanel": true,
+            "inputRect": [
+              1160,
+              50,
+              168,
+              26
+            ],
+            "panelRect": [
+              1015,
+              219.5,
+              384,
+              639.5
+            ],
+            "landings": [
+              {
+                "row": 783762,
+                "ok": true,
+                "detail": "top 783761 rows 783761–783784 of 1567523, marked 783761, pending 0, focus table, refusal null",
+                "filledMs": 82.08000040054321
+              },
+              {
+                "row": 1567523,
+                "ok": true,
+                "detail": "top 1567500.6166667938 rows 1567500–1567523 of 1567523, marked 1567522, pending 0, focus table, refusal null",
+                "filledMs": 72.16499996185303
+              },
+              {
+                "row": 1,
+                "ok": true,
+                "detail": "top 0 rows 0–23 of 1567523, marked 0, pending 0, focus table, refusal null",
+                "filledMs": null
+              }
+            ],
+            "refused": [
+              {
+                "text": "1567524",
+                "ok": true,
+                "refusal": "No row 1,567,524: rows run from 1 to 1,567,523.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 1,567,524: rows run from 1 to 1,567,523.\", top 0 → 0, focus jump, refusal at 881,53,267,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "0",
+                "ok": true,
+                "refusal": "No row 0: rows run from 1 to 1,567,523.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 0: rows run from 1 to 1,567,523.\", top 0 → 0, focus jump, refusal at 931,53,217,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "abc",
+                "ok": true,
+                "refusal": "Type a row number, like 1,000.",
+                "clearOfPanel": true,
+                "detail": "refusal \"Type a row number, like 1,000.\", top 0 → 0, focus jump, refusal at 982,53,166,19.5 vs panel 1015,219.5,384,639.5"
+              }
+            ],
+            "keys": {
+              "ok": true,
+              "detail": "top 0 → 0 after ArrowDown, ArrowDown, PageDown, Space, End, ArrowUp, PageUp, Home, Control+ArrowDown, Meta+ArrowDown and typing; focus jump"
+            },
+            "problems": []
+          }
+        ]
+      },
+      "edges": {
+        "sample": "asteroids",
+        "ime": {
+          "row": 123,
+          "ok": true,
+          "detail": "top 122, marked 122, refusal null",
+          "filledMs": null
+        },
+        "keys": {
+          "Control+A selects all": {
+            "ok": true,
+            "detail": "input \"\" after typing 98765, Control+A, Backspace"
+          },
+          "Control+C copies": {
+            "ok": true,
+            "detail": "clipboard \"31415\""
+          },
+          "Control+Z undoes": {
+            "ok": true,
+            "detail": "input \"\" after typing 27, 18, Control+Z"
+          },
+          "Meta+A selects all": {
+            "ok": true,
+            "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+          },
+          "Meta+C copies": {
+            "ok": true,
+            "detail": "clipboard \"31415\""
+          },
+          "Meta+Z undoes": {
+            "ok": true,
+            "detail": "input \"\" after typing 27, 18, Meta+Z"
+          },
+          "Alt+Shift+ArrowLeft (Mac word/line)": {
+            "ok": true,
+            "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+          },
+          "Meta+Shift+ArrowLeft (Mac word/line)": {
+            "ok": true,
+            "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+          },
+          "Alt+Backspace (Mac word/line)": {
+            "ok": true,
+            "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+          }
+        },
+        "ctrlV": {
+          "landed": true,
+          "detail": "input \"4242\", focus jump"
+        },
+        "cmdV": {
+          "landed": true,
+          "detail": "input \"4141\", focus jump"
+        },
+        "menuPaste": {
+          "landed": true,
+          "detail": "input \"4343\", focus jump"
+        },
+        "menuPasteDenied": {
+          "landed": false,
+          "detail": "input \"\", focus jump"
+        },
+        "focus": {
+          "ok": true,
+          "detail": "focus table → workbench (state failed)"
+        },
+        "problems": []
+      }
+    },
+    "gaia": {
+      "reference": {
+        "runs": 3,
+        "middleFilledMs": {
+          "median": 146.9,
+          "min": 139.9,
+          "max": 151.2,
+          "cached": 0
+        },
+        "lastFilledMs": {
+          "median": 147,
+          "min": 132.8,
+          "max": 151.9,
+          "cached": 0
+        },
+        "firstFilledMs": {
+          "cached": 3
+        },
+        "list": [
+          {
+            "sample": "gaia",
+            "header": {
+              "ok": true,
+              "detail": "focus after the click table, top 99 → 100 after ArrowDown"
+            },
+            "inputClearOfPanel": true,
+            "inputRect": [
+              1160,
+              50,
+              168,
+              26
+            ],
+            "panelRect": [
+              1015,
+              219.5,
+              384,
+              639.5
+            ],
+            "landings": [
+              {
+                "row": 12533945,
+                "ok": true,
+                "detail": "top 12533944 rows 12533944–12533968 of 25067889, marked 12533944, pending 0, focus table, refusal null",
+                "filledMs": 146.93499994277954
+              },
+              {
+                "row": 25067889,
+                "ok": true,
+                "detail": "top 25067865.866666794 rows 25067865–25067889 of 25067889, marked 25067888, pending 0, focus table, refusal null",
+                "filledMs": 151.88499975204468
+              },
+              {
+                "row": 1,
+                "ok": true,
+                "detail": "top 0 rows 0–24 of 25067889, marked 0, pending 0, focus table, refusal null",
+                "filledMs": null
+              }
+            ],
+            "refused": [
+              {
+                "text": "25067890",
+                "ok": true,
+                "refusal": "No row 25,067,890: rows run from 1 to 25,067,889.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 25,067,890: rows run from 1 to 25,067,889.\", top 0 → 0, focus jump, refusal at 867,53,281,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "0",
+                "ok": true,
+                "refusal": "No row 0: rows run from 1 to 25,067,889.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 0: rows run from 1 to 25,067,889.\", top 0 → 0, focus jump, refusal at 924,53,224,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "abc",
+                "ok": true,
+                "refusal": "Type a row number, like 1,000.",
+                "clearOfPanel": true,
+                "detail": "refusal \"Type a row number, like 1,000.\", top 0 → 0, focus jump, refusal at 982,53,166,19.5 vs panel 1015,219.5,384,639.5"
+              }
+            ],
+            "keys": {
+              "ok": true,
+              "detail": "top 0 → 0 after ArrowDown, ArrowDown, PageDown, Space, End, ArrowUp, PageUp, Home, Control+ArrowDown, Meta+ArrowDown and typing; focus jump"
+            },
+            "problems": []
+          },
+          {
+            "sample": "gaia",
+            "header": {
+              "ok": true,
+              "detail": "focus after the click table, top 99 → 100 after ArrowDown"
+            },
+            "inputClearOfPanel": true,
+            "inputRect": [
+              1160,
+              50,
+              168,
+              26
+            ],
+            "panelRect": [
+              1015,
+              219.5,
+              384,
+              639.5
+            ],
+            "landings": [
+              {
+                "row": 12533945,
+                "ok": true,
+                "detail": "top 12533944 rows 12533944–12533968 of 25067889, marked 12533944, pending 0, focus table, refusal null",
+                "filledMs": 139.92000007629395
+              },
+              {
+                "row": 25067889,
+                "ok": true,
+                "detail": "top 25067865.866666794 rows 25067865–25067889 of 25067889, marked 25067888, pending 0, focus table, refusal null",
+                "filledMs": 147.0449995994568
+              },
+              {
+                "row": 1,
+                "ok": true,
+                "detail": "top 0 rows 0–24 of 25067889, marked 0, pending 0, focus table, refusal null",
+                "filledMs": null
+              }
+            ],
+            "refused": [
+              {
+                "text": "25067890",
+                "ok": true,
+                "refusal": "No row 25,067,890: rows run from 1 to 25,067,889.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 25,067,890: rows run from 1 to 25,067,889.\", top 0 → 0, focus jump, refusal at 867,53,281,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "0",
+                "ok": true,
+                "refusal": "No row 0: rows run from 1 to 25,067,889.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 0: rows run from 1 to 25,067,889.\", top 0 → 0, focus jump, refusal at 924,53,224,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "abc",
+                "ok": true,
+                "refusal": "Type a row number, like 1,000.",
+                "clearOfPanel": true,
+                "detail": "refusal \"Type a row number, like 1,000.\", top 0 → 0, focus jump, refusal at 982,53,166,19.5 vs panel 1015,219.5,384,639.5"
+              }
+            ],
+            "keys": {
+              "ok": true,
+              "detail": "top 0 → 0 after ArrowDown, ArrowDown, PageDown, Space, End, ArrowUp, PageUp, Home, Control+ArrowDown, Meta+ArrowDown and typing; focus jump"
+            },
+            "problems": []
+          },
+          {
+            "sample": "gaia",
+            "header": {
+              "ok": true,
+              "detail": "focus after the click table, top 99 → 100 after ArrowDown"
+            },
+            "inputClearOfPanel": true,
+            "inputRect": [
+              1160,
+              50,
+              168,
+              26
+            ],
+            "panelRect": [
+              1015,
+              219.5,
+              384,
+              639.5
+            ],
+            "landings": [
+              {
+                "row": 12533945,
+                "ok": true,
+                "detail": "top 12533944 rows 12533944–12533968 of 25067889, marked 12533944, pending 0, focus table, refusal null",
+                "filledMs": 151.21999979019165
+              },
+              {
+                "row": 25067889,
+                "ok": true,
+                "detail": "top 25067865.866666794 rows 25067865–25067889 of 25067889, marked 25067888, pending 0, focus table, refusal null",
+                "filledMs": 132.83500003814697
+              },
+              {
+                "row": 1,
+                "ok": true,
+                "detail": "top 0 rows 0–24 of 25067889, marked 0, pending 0, focus table, refusal null",
+                "filledMs": null
+              }
+            ],
+            "refused": [
+              {
+                "text": "25067890",
+                "ok": true,
+                "refusal": "No row 25,067,890: rows run from 1 to 25,067,889.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 25,067,890: rows run from 1 to 25,067,889.\", top 0 → 0, focus jump, refusal at 867,53,281,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "0",
+                "ok": true,
+                "refusal": "No row 0: rows run from 1 to 25,067,889.",
+                "clearOfPanel": true,
+                "detail": "refusal \"No row 0: rows run from 1 to 25,067,889.\", top 0 → 0, focus jump, refusal at 924,53,224,19.5 vs panel 1015,219.5,384,639.5"
+              },
+              {
+                "text": "abc",
+                "ok": true,
+                "refusal": "Type a row number, like 1,000.",
+                "clearOfPanel": true,
+                "detail": "refusal \"Type a row number, like 1,000.\", top 0 → 0, focus jump, refusal at 982,53,166,19.5 vs panel 1015,219.5,384,639.5"
+              }
+            ],
+            "keys": {
+              "ok": true,
+              "detail": "top 0 → 0 after ArrowDown, ArrowDown, PageDown, Space, End, ArrowUp, PageUp, Home, Control+ArrowDown, Meta+ArrowDown and typing; focus jump"
+            },
+            "problems": []
+          }
+        ]
+      },
+      "edges": {
+        "sample": "gaia",
+        "ime": {
+          "row": 123,
+          "ok": true,
+          "detail": "top 122, marked 122, refusal null",
+          "filledMs": null
+        },
+        "keys": {
+          "Control+A selects all": {
+            "ok": true,
+            "detail": "input \"\" after typing 98765, Control+A, Backspace"
+          },
+          "Control+C copies": {
+            "ok": true,
+            "detail": "clipboard \"31415\""
+          },
+          "Control+Z undoes": {
+            "ok": true,
+            "detail": "input \"\" after typing 27, 18, Control+Z"
+          },
+          "Meta+A selects all": {
+            "ok": true,
+            "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+          },
+          "Meta+C copies": {
+            "ok": true,
+            "detail": "clipboard \"31415\""
+          },
+          "Meta+Z undoes": {
+            "ok": true,
+            "detail": "input \"\" after typing 27, 18, Meta+Z"
+          },
+          "Alt+Shift+ArrowLeft (Mac word/line)": {
+            "ok": true,
+            "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+          },
+          "Meta+Shift+ArrowLeft (Mac word/line)": {
+            "ok": true,
+            "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+          },
+          "Alt+Backspace (Mac word/line)": {
+            "ok": true,
+            "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+          }
+        },
+        "ctrlV": {
+          "landed": true,
+          "detail": "input \"4242\", focus jump"
+        },
+        "cmdV": {
+          "landed": true,
+          "detail": "input \"4141\", focus jump"
+        },
+        "menuPaste": {
+          "landed": true,
+          "detail": "input \"4343\", focus jump"
+        },
+        "menuPasteDenied": {
+          "landed": false,
+          "detail": "input \"\", focus jump"
+        },
+        "focus": {
+          "ok": true,
+          "detail": "focus table → workbench (state failed)"
+        },
+        "problems": []
+      }
+    }
+  }
+}

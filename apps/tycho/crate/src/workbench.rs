@@ -162,6 +162,7 @@ enum Load {
         csv: Option<crate::csv::Stop>,
     },
     Open {
+        origin: Origin,
         summary: FileSummary,
         table: Entity<RowTable>,
         /// A CSV's load, which runs on after its first rows show.
@@ -171,6 +172,8 @@ enum Load {
         origin: Origin,
         name: SharedString,
         message: SharedString,
+        /// The engine stopped under it, rather than the file failing.
+        engine_stopped: bool,
     },
 }
 
@@ -254,6 +257,14 @@ impl CsvLoad {
     }
 }
 
+/// How long after the `done`th registration of the open file (after
+/// failed reads) the next may start: 5 s, doubling to a minute, so a file
+/// whose reads keep failing isn't registered in a loop.
+#[cfg(target_family = "wasm")]
+fn reregister_window_ms(done: u32) -> f64 {
+    (5_000.0 * 2f64.powi(done.saturating_sub(1).min(4) as i32)).min(60_000.0)
+}
+
 /// The overlay's CSV load stats.
 #[cfg(target_family = "wasm")]
 const CSV_LOAD_METRIC: &str = "CSV load";
@@ -303,6 +314,20 @@ pub struct Workbench {
     /// What DuckDB has read of the open Parquet file (a CSV counts its own).
     #[cfg(target_family = "wasm")]
     read_counter: Option<crate::engine::ReadCounter>,
+    /// The open Parquet file's SQL name and source, to register it again
+    /// after a failed read (`TableEvent::ReadFailed`), and when that last
+    /// started (ms from `timeOrigin`). The next waits
+    /// [`reregister_window_ms`], so a file that keeps failing can't loop.
+    #[cfg(target_family = "wasm")]
+    parquet_source: Option<(String, crate::engine::FileSource)>,
+    #[cfg(target_family = "wasm")]
+    reregistered_at: Option<f64>,
+    /// Registrations since the open: each one's SQL name is new.
+    #[cfg(target_family = "wasm")]
+    reregistrations: u32,
+    /// A registration waiting for its window ([`reregister_window_ms`]).
+    #[cfg(target_family = "wasm")]
+    reregister_later: Option<Task<()>>,
     /// Jump to row: the header strip's input, and the line beside it when
     /// what was typed isn't a row of the file.
     jump: Entity<InputState>,
@@ -330,6 +355,11 @@ impl Workbench {
             ] {
                 seiza::perf::set_metric(cx, metric, "—");
             }
+            // The open panel stays clear of the table's scrollbars (the
+            // window's padding, the table's border, the bar, and a gap):
+            // a thumb at the bottom after End or a fling stays grabbable.
+            let clearance = px(16. + 1. + 8.) + gpui_kit::component::scroll::Scrollbar::width();
+            seiza::perf::set_clearance(cx, clearance, clearance);
             let this = cx.entity().downgrade();
             seiza::perf::on_refresh(cx, move |cx| {
                 if let Some(this) = this.upgrade() {
@@ -381,13 +411,57 @@ impl Workbench {
             shown_csv: None,
             #[cfg(target_family = "wasm")]
             read_counter: None,
+            #[cfg(target_family = "wasm")]
+            parquet_source: None,
+            #[cfg(target_family = "wasm")]
+            reregistered_at: None,
+            #[cfg(target_family = "wasm")]
+            reregistrations: 0,
+            #[cfg(target_family = "wasm")]
+            reregister_later: None,
             jump,
             jump_refusal: None,
             focus_handle: cx.focus_handle(),
-            _engine_status: cx.observe_global::<EngineStatus>(|_, cx| cx.notify()),
+            _engine_status: cx.observe_global_in::<EngineStatus>(window, Self::engine_changed),
             _jump_events: jump_events,
             _focus_lost: focus_lost,
         }
+    }
+
+    /// The engine's status changed. If its worker stopped, what's open or
+    /// opening went with it (its registration and tables are gone): the
+    /// empty state says so, with Retry.
+    fn engine_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(target_family = "wasm")]
+        if let Some(EngineStatus::Stopped(message)) = cx.try_global::<EngineStatus>().cloned() {
+            let origin_name = match &self.load {
+                Load::Open {
+                    origin, summary, ..
+                } => Some((*origin, SharedString::from(summary.name.clone()))),
+                Load::Opening { origin, name, .. } => Some((*origin, name.clone())),
+                Load::Idle | Load::Failed { .. } => None,
+            };
+            if let Some((origin, name)) = origin_name {
+                self.close_current(window, cx);
+                self.load = Load::Failed {
+                    origin,
+                    name,
+                    message: format!("the engine stopped ({message})").into(),
+                    engine_stopped: true,
+                };
+            }
+        }
+        #[cfg(not(target_family = "wasm"))]
+        let _ = window;
+        cx.notify();
+    }
+
+    /// Retry, after the engine failed to load or stopped.
+    fn retry_engine(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(target_family = "wasm")]
+        crate::engine::retry(cx);
+        #[cfg(not(target_family = "wasm"))]
+        let _ = cx;
     }
 
     /// Enter in the jump input: scrolls the table to the typed row and hands
@@ -508,6 +582,9 @@ impl Workbench {
                     )),
                     Err(error) => Some(format!("Couldn't read {name}: {error}")),
                 };
+                let refused = refused.or_else(|| {
+                    crate::limits::too_large(&name, file.size() as u64, kind == Ok(Kind::Csv))
+                });
                 if let Some(text) = refused {
                     this.notice = Some(Notice {
                         text: text.into(),
@@ -578,6 +655,10 @@ impl Workbench {
         self.shown_csv = None;
         self.mark_shown = None;
         self.read_counter = None;
+        self.parquet_source = None;
+        self.reregistered_at = None;
+        self.reregistrations = 0;
+        self.reregister_later = None;
     }
 
     /// Registers `source` as `sql_name` and reads its summary, then shows its
@@ -614,6 +695,7 @@ impl Workbench {
         let sent = Rc::new(RefCell::new(Vec::new()));
         let task = {
             let (sent, name) = (sent.clone(), name.clone());
+            let kept = source.clone();
             cx.spawn_in(window, async move |this, cx| {
                 let result = crate::dataset::open(&engine, &sql_name, &name, source, |id| {
                     sent.borrow_mut().push(id)
@@ -624,6 +706,7 @@ impl Workbench {
                         Ok((summary, read_counter)) => {
                             this.mark_shown = Some(marks);
                             this.read_counter = read_counter;
+                            this.parquet_source = Some((sql_name.clone(), kept));
                             crate::engine::show_parquet_ready(cx, &engine);
                             let table = cx.new(|cx| {
                                 RowTable::new(
@@ -638,6 +721,7 @@ impl Workbench {
                             let focus = table.read(cx).focus_handle().clone();
                             window.focus(&focus, cx);
                             Load::Open {
+                                origin,
                                 summary,
                                 table,
                                 csv: None,
@@ -657,6 +741,10 @@ impl Workbench {
                             Load::Failed {
                                 origin,
                                 name,
+                                engine_stopped: matches!(
+                                    error,
+                                    crate::engine::EngineError::Stopped(_)
+                                ),
                                 message: error.to_string().into(),
                             }
                         }
@@ -727,6 +815,7 @@ impl Workbench {
                             this.load = Load::Failed {
                                 origin: Origin::Device,
                                 name,
+                                engine_stopped: matches!(error, EngineError::Stopped(_)),
                                 message: error.to_string().into(),
                             };
                             cx.notify();
@@ -841,6 +930,7 @@ impl Workbench {
         }
         self.mark_shown = Some(marks);
         self.load = Load::Open {
+            origin: Origin::Device,
             summary,
             table,
             csv: Some(load),
@@ -860,6 +950,7 @@ impl Workbench {
             summary,
             table,
             csv: Some(load),
+            ..
         } = &mut self.load
         else {
             return;
@@ -996,7 +1087,82 @@ impl Workbench {
                     },
                 ),
                 TableEvent::FirstRows { .. } => {}
+                TableEvent::ReadFailed if current => this.register_again(table, cx),
+                TableEvent::ReadFailed => {}
             }
+        })
+        .detach();
+    }
+
+    /// A page read of the open Parquet file failed: registers the file
+    /// again under a new SQL name, then has the table read from it. After a
+    /// failed HTTP range read, DuckDB-Wasm reads those bytes wrong under
+    /// that name for good ("TProtocolException: Invalid data"), network or
+    /// not, even registered again under it (M7); a new name starts clean,
+    /// at the cost of parsing the footer again. If registering fails too
+    /// (still offline), the rows keep their error, and it tries again when
+    /// its window ([`reregister_window_ms`]) passes.
+    #[cfg(target_family = "wasm")]
+    fn register_again(&mut self, table: Entity<RowTable>, cx: &mut Context<Self>) {
+        let now = crate::engine::now();
+        // Only for the table shown, while it has failed reads, and while
+        // the engine runs: a timer or a failed registration can come back
+        // after another file opened, or after a success fixed it.
+        let shown = matches!(&self.load, Load::Open { table: shown, .. } if *shown == table);
+        let engine_up = !cx
+            .try_global::<EngineStatus>()
+            .is_some_and(EngineStatus::is_down);
+        if !shown || !engine_up || !table.read(cx).has_failed_reads() {
+            return;
+        }
+        let Some((name, source)) = self.parquet_source.clone() else {
+            return;
+        };
+        if let Some(at) = self.reregistered_at {
+            let wait = reregister_window_ms(self.reregistrations) - (now - at);
+            if wait > 0.0 {
+                // Rows in view don't retry on their own: come back then.
+                if self.reregister_later.is_none() {
+                    self.reregister_later = Some(cx.spawn(async move |this, cx| {
+                        cx.background_executor()
+                            .timer(std::time::Duration::from_millis(wait as u64))
+                            .await;
+                        let _ = this.update(cx, |this, cx| {
+                            this.reregister_later = None;
+                            this.register_again(table, cx);
+                        });
+                    }));
+                }
+                return;
+            }
+        }
+        self.reregistered_at = Some(now);
+        self.reregistrations += 1;
+        let name = format!(
+            "{}-r{}.parquet",
+            name.trim_end_matches(".parquet"),
+            self.reregistrations
+        );
+        let engine = cx.global::<crate::engine::Engine>().clone();
+        cx.spawn(async move |this, cx| {
+            let Ok(info) = engine.register_file(&name, source).await else {
+                // Still offline, say: try again once the window passes.
+                let _ = this.update(cx, |this, cx| this.register_again(table, cx));
+                return;
+            };
+            let _ = this.update(cx, |this, cx| {
+                let shown =
+                    matches!(&this.load, Load::Open { table: shown, .. } if *shown == table);
+                if !shown {
+                    return;
+                }
+                if let (Some(before), Some(counter)) = (&this.read_counter, info.bytes_read) {
+                    this.read_counter = Some(counter.continuing(before));
+                }
+                // The failures that scheduled it are being retried now.
+                this.reregister_later = None;
+                table.update(cx, |table, cx| table.read_from(name, cx));
+            });
         })
         .detach();
     }
@@ -1011,6 +1177,7 @@ impl Workbench {
                 summary,
                 table,
                 csv,
+                ..
             } => (
                 match csv {
                     Some(load) => Some(load.read),
@@ -1130,6 +1297,13 @@ impl Workbench {
             jump_text: &self.jump.read(cx).value(),
             jump_refusal: self.jump_refusal.as_deref(),
             focused,
+            engine: match cx.try_global::<EngineStatus>() {
+                None | Some(EngineStatus::Loading) => "loading",
+                Some(EngineStatus::Ready { .. }) => "ready",
+                Some(EngineStatus::Failed(_)) => "failed",
+                Some(EngineStatus::Stopped(_)) => "stopped",
+            },
+            status: &self.status_line(cx).0,
         });
     }
 
@@ -1137,11 +1311,37 @@ impl Workbench {
     /// The engine loads after first paint, so the shell says so until it's
     /// ready (Tycho rule 1).
     fn render_status(&self, cx: &App) -> impl IntoElement {
+        let (text, color) = self.status_line(cx);
+        div().text_xs().text_color(color).child(text)
+    }
+
+    /// [`Workbench::render_status`]'s line and its color.
+    fn status_line(&self, cx: &App) -> (SharedString, Hsla) {
         let theme = cx.theme();
         let engine = cx.try_global::<EngineStatus>().cloned().unwrap_or_default();
-        let (text, color): (SharedString, _) = match (&engine, &self.load, &self.notice) {
+        match (&engine, &self.load, &self.notice) {
             (EngineStatus::Failed(message), _, _) => (
-                format!("Engine failed to load: {message}. Reload the page to try again.").into(),
+                format!("The engine didn't load: {message}. Retry loads it again.").into(),
+                theme.danger,
+            ),
+            (
+                EngineStatus::Stopped(_),
+                Load::Failed {
+                    name,
+                    engine_stopped: true,
+                    ..
+                },
+                _,
+            ) => (
+                format!(
+                    "The engine stopped while {name} was open, and the file closed with it. \
+                     Retry starts a new engine; then open the file again."
+                )
+                .into(),
+                theme.danger,
+            ),
+            (EngineStatus::Stopped(message), _, _) => (
+                format!("The engine stopped ({message}). Retry starts a new one.").into(),
                 theme.danger,
             ),
             (EngineStatus::Loading, Load::Opening { .. }, _) => (
@@ -1188,8 +1388,7 @@ impl Workbench {
             ),
             (EngineStatus::Loading, _, _) => ("Engine loading…".into(), theme.muted_foreground),
             (EngineStatus::Ready { .. }, _, _) => ("Engine ready".into(), theme.muted_foreground),
-        };
-        div().text_xs().text_color(color).child(text)
+        }
     }
 
     /// Wraps `child`, publishing its bounds as `id` for the Playwright
@@ -1205,10 +1404,9 @@ impl Workbench {
     }
 
     fn render_empty(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let engine_failed = matches!(
-            cx.try_global::<EngineStatus>(),
-            Some(EngineStatus::Failed(_))
-        );
+        let engine_down = cx
+            .try_global::<EngineStatus>()
+            .is_some_and(EngineStatus::is_down);
         Empty::new()
             .border_0()
             .header(
@@ -1221,13 +1419,26 @@ impl Workbench {
                     .child(
                         h_flex()
                             .gap_2()
+                            // First, in the centered row: clear of the
+                            // panel, which covers the window's lower right.
+                            .when(engine_down, |row| {
+                                row.child(Self::published(
+                                    "retry-engine",
+                                    Button::new("retry-engine")
+                                        .primary()
+                                        .label("Retry")
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            this.retry_engine(window, cx)
+                                        })),
+                                ))
+                            })
                             .child(Self::published(
                                 "open-file",
                                 Button::new("open-file")
                                     .primary()
                                     .label("Open a file…")
                                     .loading(self.load.opening(Origin::Device))
-                                    .disabled(engine_failed)
+                                    .disabled(engine_down)
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.pick_file(window, cx)
                                     })),
@@ -1239,7 +1450,7 @@ impl Workbench {
                                         .outline()
                                         .label(sample.label)
                                         .loading(self.load.opening(Origin::Sample(sample)))
-                                        .disabled(engine_failed)
+                                        .disabled(engine_down)
                                         .on_click(cx.listener(move |this, _, window, cx| {
                                             this.open_sample(sample, window, cx)
                                         })),
@@ -1504,6 +1715,7 @@ impl Render for Workbench {
                 summary,
                 table,
                 csv,
+                ..
             } => v_flex()
                 .size_full()
                 .p_4()
