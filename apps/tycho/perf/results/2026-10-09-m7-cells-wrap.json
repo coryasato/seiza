@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-09",
+  "label": "m7-cells-wrap",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "files": [
+    {
+      "file": "overflow",
+      "rows": [
+        1,
+        1000,
+        2000,
+        317,
+        1055,
+        1874
+      ],
+      "views": 12,
+      "cells": 2304,
+      "rounded": 280,
+      "findings": [],
+      "tooltips": [
+        {
+          "name": "overflow-rounded",
+          "ok": true,
+          "detail": "tooltip \"45.12345678901234\", exact \"45.12345678901234\", shown \"45.123456789\"",
+          "shownMs": 547.375
+        },
+        {
+          "name": "overflow-fits",
+          "ok": true,
+          "detail": "tooltip null on \"0\""
+        },
+        {
+          "name": "overflow-long-text",
+          "ok": true,
+          "detail": "tooltip \"Long text value Long text value Long text value Long text value 3\", exact \"Long text value Long text value Long text value Long text value 3\", shown \"Long text value Long text value Long text value Long text value 3\"",
+          "shownMs": 543.5650000572205
+        },
+        {
+          "name": "overflow-multi-line",
+          "ok": true,
+          "detail": "tooltip \"first line\\nsecond line 0\", exact \"first line\\nsecond line 0\", shown \"first line¶second line 0\"",
+          "shownMs": 26.195000171661377
+        },
+        {
+          "name": "overflow-grace",
+          "ok": true,
+          "detail": "first true, second true after 14 ms (delay 500, grace 300)",
+          "shownMs": 14.329999923706055
+        },
+        {
+          "name": "overflow-decimal",
+          "ok": true,
+          "detail": "tooltip \"99999999999999999999999999999999999999\", exact \"99999999999999999999999999999999999999\", shown \"99999999999999999999999999999999999999\"",
+          "shownMs": 26.880000114440918
+        },
+        {
+          "name": "overflow-scroll-hides",
+          "ok": true,
+          "detail": "tooltip before \"99999999999999999999999999999999999999\", after null"
+        }
+      ],
+      "layout": {
+        "left": 78.5,
+        "top": 145.5,
+        "rowHeight": 30,
+        "cellsWidth": 1328.5,
+        "columns": [
+          {
+            "name": "id",
+            "x": 0,
+            "width": 109.40000915527344,
+            "kind": "integer",
+            "budget": 11
+          },
+          {
+            "name": "long_text",
+            "x": 109.40000915527344,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "cjk_text",
+            "x": 309.4000244140625,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "multi_line",
+            "x": 509.4000244140625,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "wide_decimal",
+            "x": 709.4000244140625,
+            "width": 120,
+            "kind": "decimal",
+            "budget": 12
+          },
+          {
+            "name": "big_min",
+            "x": 829.4000244140625,
+            "width": 185.00001525878906,
+            "kind": "integer",
+            "budget": 20
+          },
+          {
+            "name": "ubig_max",
+            "x": 1014.4000244140625,
+            "width": 185.00001525878906,
+            "kind": "integer",
+            "budget": 20
+          },
+          {
+            "name": "dbl",
+            "x": 1199.4000244140625,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "flt",
+            "x": 1319.4000244140625,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "dec",
+            "x": 1439.4000244140625,
+            "width": 120,
+            "kind": "decimal",
+            "budget": 12
+          }
+        ],
+        "topRow": 4,
+        "scrollX": 230.9000244140625
+      },
+      "problems": []
+    }
+  ],
+  "failures": []
+}

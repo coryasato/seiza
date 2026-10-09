@@ -202,5 +202,12 @@
     "sha256": "48cdb1f72a745b2ea037b0d395e2078afdac824eff89521e19c6d16074a866b5",
     "source": "drop_files.ts: id and three random hex columns (xorshift32, fixed seed)",
     "writer": "drop_files.ts"
+  },
+  "drop/overflow.parquet": {
+    "rows": 2000,
+    "bytes": 59799,
+    "sha256": "e7f61c4a8e6e36c7cb700312cf97fa500a6ced5a29527b80b4711c0beb6f0cef",
+    "source": "drop_files.ts: generated values too wide for their columns (M7 part F)",
+    "writer": "DuckDB v1.4.5, ZSTD"
   }
 }

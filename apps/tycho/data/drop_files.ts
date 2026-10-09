@@ -18,6 +18,12 @@
 // likely have), ~4.6 GB (past 2^32 bytes), and ~9.6 GB, and the CSV fixture to ~2,
 // ~4, ~5.4, ~8.6, and ~10.7 GB.
 //
+// M7 part F, cell overflow: overflow.parquet, 2,000 rows of values too wide
+// for their columns, of every kind the table formats differently: long,
+// non-Latin, and multi-line text, integers at their types' ends (BIGINT, UBIGINT; Parquet
+// has no 128-bit integer: DuckDB writes a HUGEINT as DOUBLE), doubles that
+// round (long, huge, tiny, negative), FLOAT, and DECIMAL(38,0) and (38,10).
+//
 // Each file's rows, bytes, row groups, and SHA-256 go into MANIFEST.json
 // under `drop/`.
 //
@@ -159,6 +165,41 @@ if (wanted(RANDOM_CSV)) {
     writer: 'drop_files.ts',
   };
   console.log(`${RANDOM_CSV}: ${(statSync(path).size / 2 ** 20).toFixed(1)} MiB, ${rows} rows (${((performance.now() - started) / 1000).toFixed(1)} s)`);
+}
+const OVERFLOW = 'drop/overflow.parquet';
+if (wanted(OVERFLOW)) {
+  const path = join(dataDir, OVERFLOW);
+  await conn.run(
+    `COPY (SELECT
+      i::INTEGER * (CASE WHEN i % 2 = 0 THEN -1 ELSE 1 END) * 1000003 AS id,
+      repeat('Long text value ', 1 + i % 20) || i AS long_text,
+      repeat('星座データ', 1 + i % 8) AS cjk_text,
+      CASE WHEN i % 3 = 0 THEN 'first line' || chr(10) || 'second line ' || i ELSE 'one line ' || i END AS multi_line,
+      99999999999999999999999999999999999999::DECIMAL(38, 0) - i AS wide_decimal,
+      (-9223372036854775808)::BIGINT + i AS big_min,
+      18446744073709551615::UBIGINT - i::UBIGINT AS ubig_max,
+      CASE i % 7
+        WHEN 0 THEN 45.12345678901234 + i
+        WHEN 1 THEN -1.2345678901234567e15 * (i + 1)
+        WHEN 2 THEN 1.234567890123e-7 * (i + 1)
+        WHEN 3 THEN 999.9999999999 + i / 1e9
+        WHEN 4 THEN 1.7976931348623157e308 / (i + 1)
+        -- DOUBLE first: as DECIMAL, 0.1 + 0.2 is exactly 0.3 and never rounds.
+        WHEN 5 THEN -(0.1::DOUBLE + 0.2::DOUBLE) * (i + 1)
+        ELSE (i + 1)::DOUBLE / 3
+      END AS dbl,
+      (i / 7.0)::FLOAT AS flt,
+      (i * 123456789.1234567891)::DECIMAL(38, 10) AS dec
+    FROM range(2000) r(i) ORDER BY i) TO '${sql(path)}' (FORMAT parquet, COMPRESSION zstd)`,
+  );
+  manifest[OVERFLOW] = {
+    rows: 2000,
+    bytes: statSync(path).size,
+    sha256: await sha256(path),
+    source: 'drop_files.ts: generated values too wide for their columns (M7 part F)',
+    writer: `${writer}, ZSTD`,
+  };
+  console.log(`${OVERFLOW}: ${statSync(path).size} bytes, 2000 rows`);
 }
 conn.closeSync();
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

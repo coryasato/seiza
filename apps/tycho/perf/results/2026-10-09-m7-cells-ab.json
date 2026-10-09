@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-09",
+  "label": "m7-cells-ab",
+  "protocol": "interleaved: 4 rounds x 5 reference-only + 2 rounds x 5 both profiles per build, alternating order; vite preview of each web/dist, perf.ts --url",
+  "sides": {
+    "head": {
+      "referenceTtfpMs": {
+        "n": 30,
+        "median": 193.7,
+        "min": 185.1,
+        "max": 239.4
+      },
+      "throttledTtfpMs": {
+        "n": 10,
+        "median": 3695.2,
+        "min": 3682.6,
+        "max": 3712.9
+      },
+      "wasmBrotliKiB": 2804.3,
+      "build": "HEAD 3af2ac0 in a git worktree, its own target/"
+    },
+    "change": {
+      "referenceTtfpMs": {
+        "n": 30,
+        "median": 194.9,
+        "min": 185.3,
+        "max": 212.0
+      },
+      "throttledTtfpMs": {
+        "n": 10,
+        "median": 3707.3,
+        "min": 3693.6,
+        "max": 3719.2
+      },
+      "wasmBrotliKiB": 2811.4
+    }
+  },
+  "note": "perf.ts reports the wasm size of the repo's own dist; HEAD's (worktree build) is 2804.3 KiB from its build's asset-sizes report"
+}

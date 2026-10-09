@@ -1,0 +1,423 @@
+{
+  "date": "2026-10-09",
+  "label": "m7-cells",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "files": [
+    {
+      "file": "asteroids",
+      "rows": [
+        1,
+        783762,
+        1567523,
+        247689,
+        826779,
+        1468188
+      ],
+      "views": 18,
+      "cells": 3564,
+      "rounded": 0,
+      "findings": [],
+      "tooltips": [
+        {
+          "name": "asteroids-fits",
+          "ok": true,
+          "detail": "tooltip null on \"20000001\""
+        }
+      ],
+      "layout": {
+        "left": 108.5,
+        "top": 195.5,
+        "rowHeight": 30,
+        "cellsWidth": 1298.5,
+        "columns": [
+          {
+            "name": "spkid",
+            "x": 0,
+            "width": 185.00001525878906,
+            "kind": "integer",
+            "budget": 20
+          },
+          {
+            "name": "full_name",
+            "x": 185.00001525878906,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "pdes",
+            "x": 385,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "name",
+            "x": 585,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "neo",
+            "x": 785,
+            "width": 72,
+            "kind": "text",
+            "budget": 6
+          },
+          {
+            "name": "pha",
+            "x": 857,
+            "width": 72,
+            "kind": "text",
+            "budget": 6
+          },
+          {
+            "name": "class",
+            "x": 929,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "H",
+            "x": 1129,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "diameter",
+            "x": 1249,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "albedo",
+            "x": 1369,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "a",
+            "x": 1489,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "e",
+            "x": 1609,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "i",
+            "x": 1729,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "q",
+            "x": 1849,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "per_y",
+            "x": 1969,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "first_obs",
+            "x": 2089,
+            "width": 104,
+            "kind": "text",
+            "budget": 10
+          },
+          {
+            "name": "last_obs",
+            "x": 2193,
+            "width": 104,
+            "kind": "text",
+            "budget": 10
+          },
+          {
+            "name": "n_obs_used",
+            "x": 2297,
+            "width": 109.40000915527344,
+            "kind": "integer",
+            "budget": 11
+          }
+        ],
+        "topRow": 0,
+        "scrollX": 0
+      },
+      "problems": []
+    },
+    {
+      "file": "gaia",
+      "rows": [
+        1,
+        12533945,
+        25067889,
+        3961037,
+        13221872,
+        23479314
+      ],
+      "views": 12,
+      "cells": 2622,
+      "rounded": 1722,
+      "findings": [],
+      "tooltips": [
+        {
+          "name": "gaia-rounded",
+          "ok": true,
+          "detail": "tooltip \"45.00497837174552\", exact \"45.00497837174552\", shown \"45.004978372\"",
+          "shownMs": 548.4950003623962
+        },
+        {
+          "name": "gaia-fits",
+          "ok": true,
+          "detail": "tooltip null on \"38655544960\""
+        }
+      ],
+      "layout": {
+        "left": 116,
+        "top": 173,
+        "rowHeight": 30,
+        "cellsWidth": 1291,
+        "columns": [
+          {
+            "name": "source_id",
+            "x": 0,
+            "width": 185.00001525878906,
+            "kind": "integer",
+            "budget": 20
+          },
+          {
+            "name": "ra",
+            "x": 185.00001525878906,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "dec",
+            "x": 305,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "parallax",
+            "x": 425,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "distance_pc",
+            "x": 545,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "pmra",
+            "x": 665,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "pmdec",
+            "x": 785,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "phot_g_mean_mag",
+            "x": 905,
+            "width": 136.5,
+            "kind": "float",
+            "budget": 14
+          },
+          {
+            "name": "bp_rp",
+            "x": 1041.5,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "radial_velocity",
+            "x": 1161.5,
+            "width": 136.5,
+            "kind": "float",
+            "budget": 14
+          },
+          {
+            "name": "teff_gspphot",
+            "x": 1298,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          }
+        ],
+        "topRow": 0,
+        "scrollX": 0
+      },
+      "problems": []
+    },
+    {
+      "file": "overflow",
+      "rows": [
+        1,
+        1000,
+        2000,
+        317,
+        1055,
+        1874
+      ],
+      "views": 12,
+      "cells": 2304,
+      "rounded": 280,
+      "findings": [],
+      "tooltips": [
+        {
+          "name": "overflow-rounded",
+          "ok": true,
+          "detail": "tooltip \"45.12345678901234\", exact \"45.12345678901234\", shown \"45.123456789\"",
+          "shownMs": 550.5550003051758
+        },
+        {
+          "name": "overflow-fits",
+          "ok": true,
+          "detail": "tooltip null on \"0\""
+        },
+        {
+          "name": "overflow-long-text",
+          "ok": true,
+          "detail": "tooltip \"Long text value Long text value Long text value Long text value 3\", exact \"Long text value Long text value Long text value Long text value 3\", shown \"Long text value Long text value Long text value Long text value 3\"",
+          "shownMs": 540.8249998092651
+        },
+        {
+          "name": "overflow-multi-line",
+          "ok": true,
+          "detail": "tooltip \"first line\\nsecond line 0\", exact \"first line\\nsecond line 0\", shown \"first line¶second line 0\"",
+          "shownMs": 29.049999713897705
+        },
+        {
+          "name": "overflow-grace",
+          "ok": true,
+          "detail": "first true, second true after 11 ms (delay 500, grace 300)",
+          "shownMs": 10.505000114440918
+        },
+        {
+          "name": "overflow-decimal",
+          "ok": true,
+          "detail": "tooltip \"99999999999999999999999999999999999999\", exact \"99999999999999999999999999999999999999\", shown \"99999999999999999999999999999999999999\"",
+          "shownMs": 27.59999990463257
+        },
+        {
+          "name": "overflow-scroll-hides",
+          "ok": true,
+          "detail": "tooltip before \"99999999999999999999999999999999999999\", after null"
+        }
+      ],
+      "layout": {
+        "left": 78.5,
+        "top": 145.5,
+        "rowHeight": 30,
+        "cellsWidth": 1328.5,
+        "columns": [
+          {
+            "name": "id",
+            "x": 0,
+            "width": 109.40000915527344,
+            "kind": "integer",
+            "budget": 11
+          },
+          {
+            "name": "long_text",
+            "x": 109.40000915527344,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "cjk_text",
+            "x": 309.4000244140625,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "multi_line",
+            "x": 509.4000244140625,
+            "width": 200,
+            "kind": "text",
+            "budget": 21
+          },
+          {
+            "name": "wide_decimal",
+            "x": 709.4000244140625,
+            "width": 120,
+            "kind": "decimal",
+            "budget": 12
+          },
+          {
+            "name": "big_min",
+            "x": 829.4000244140625,
+            "width": 185.00001525878906,
+            "kind": "integer",
+            "budget": 20
+          },
+          {
+            "name": "ubig_max",
+            "x": 1014.4000244140625,
+            "width": 185.00001525878906,
+            "kind": "integer",
+            "budget": 20
+          },
+          {
+            "name": "dbl",
+            "x": 1199.4000244140625,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "flt",
+            "x": 1319.4000244140625,
+            "width": 120,
+            "kind": "float",
+            "budget": 12
+          },
+          {
+            "name": "dec",
+            "x": 1439.4000244140625,
+            "width": 120,
+            "kind": "decimal",
+            "budget": 12
+          }
+        ],
+        "topRow": 4,
+        "scrollX": 230.9000244140625
+      },
+      "problems": []
+    }
+  ],
+  "failures": []
+}

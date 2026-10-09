@@ -93,6 +93,14 @@ table *args:
 panel *args:
     node {{app_dir}}/perf/panel.ts {{args}}
 
+# M7 part F cell-overflow checks on the release build: no value spills out
+# of its cell (screenshot ink in each cell's padding), rounded doubles within
+# half a unit, tooltips on rounded and cut values, on both samples and
+# data/drop/overflow.parquet (`just tycho drop-files overflow`).
+# Flags: --label, --files asteroids,gaia,overflow.
+cells *args:
+    node {{app_dir}}/perf/cells.ts {{args}}
+
 # M7 jump-to-row checks on the release build, both samples: first, middle,
 # last, and out of range land (or refuse) with the panel open and clear of
 # the input; keys stay in the input; IME full-width digits, paste (keys and

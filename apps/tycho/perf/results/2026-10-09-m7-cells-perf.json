@@ -1,0 +1,651 @@
+{
+  "date": "2026-10-09",
+  "label": "m7-cells-perf",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "protocol": "root CLAUDE.md, \"Measurement protocol\": Chromium headless=new, cold cache, 1440×900 at DPR 2, median of 10; reference + throttled (CPU 4×, Fast 4G)",
+  "loadAverage": {
+    "before": [
+      4.61,
+      5.72,
+      4.18
+    ],
+    "after": [
+      3.3,
+      3,
+      2.67
+    ]
+  },
+  "headline": {
+    "table-asteroids": {
+      "reference": {
+        "firstRowsMs": 206.9,
+        "jumpTo90Ms": 83.6,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 16.7,
+        "flingWorkP50Ms": 5.9,
+        "flingWorkP95Ms": 7.9,
+        "steadyWorkP50Ms": 12.4,
+        "steadyWorkP95Ms": 15.8
+      },
+      "throttled": {
+        "firstRowsMs": 3361.8,
+        "jumpTo90Ms": 2179,
+        "flingP95MsWorstRun": 33.3,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 23.7,
+        "flingWorkP95Ms": 30.4,
+        "steadyWorkP50Ms": 23.7,
+        "steadyWorkP95Ms": 34.9
+      }
+    },
+    "table-gaia": {
+      "reference": {
+        "firstRowsMs": 297.6,
+        "jumpTo90Ms": 135.2,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 16.7,
+        "flingWorkP50Ms": 5.6,
+        "flingWorkP95Ms": 7.6,
+        "steadyWorkP50Ms": 12.4,
+        "steadyWorkP95Ms": 15.2
+      },
+      "throttled": {
+        "firstRowsMs": 8392.8,
+        "jumpTo90Ms": 6567.8,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 21.8,
+        "flingWorkP95Ms": 30.7,
+        "steadyWorkP50Ms": 20.5,
+        "steadyWorkP95Ms": 25.8
+      }
+    },
+    "jump": {
+      "asteroids": {
+        "reference": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 83.1,
+          "lastMs": 64.2
+        },
+        "throttled": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 2177.7,
+          "lastMs": 513.2
+        },
+        "edgeProblems": 0
+      },
+      "gaia": {
+        "reference": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 146.3,
+          "lastMs": 150.1
+        },
+        "throttled": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 6560.5,
+          "lastMs": 4920.9
+        },
+        "edgeProblems": 0
+      }
+    }
+  },
+  "parts": {
+    "table-asteroids": {
+      "passed": true,
+      "seconds": 1589,
+      "failures": [],
+      "raw": "raw/2026-10-09-m7-cells-perf/table-asteroids.json",
+      "summary": {
+        "date": "2026-10-09",
+        "label": "m7-cells-perf-table-asteroids",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "asteroids.parquet",
+          "rows": 1567523,
+          "bytes": 37692103,
+          "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+          "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+          "fetched": "2026-09-24",
+          "rowGroups": 52,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+          "notes": [
+            "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+            "0 rows have no first_obs in the source"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 206.9,
+              "min": 175.9,
+              "max": 307.5
+            },
+            "jumpMs": {
+              "median": 83.6,
+              "min": 80.9,
+              "max": 132.6
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.842,
+              "min": 0.825,
+              "max": 0.849
+            },
+            "flingWorkP50Ms": {
+              "median": 5.9,
+              "min": 5.8,
+              "max": 6.1
+            },
+            "flingWorkP95Ms": {
+              "median": 7.9,
+              "min": 7.6,
+              "max": 8.6
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 12.4,
+              "min": 11.6,
+              "max": 12.6
+            },
+            "steadyWorkP95Ms": {
+              "median": 15.8,
+              "min": 14.5,
+              "max": 16.8
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 3361.8,
+              "min": 3350.6,
+              "max": 3418.3
+            },
+            "jumpMs": {
+              "median": 2179,
+              "min": 2160.9,
+              "max": 2198.1
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.842,
+              "min": 0.83,
+              "max": 0.847
+            },
+            "flingWorkP50Ms": {
+              "median": 23.7,
+              "min": 23.1,
+              "max": 25.7
+            },
+            "flingWorkP95Ms": {
+              "median": 30.4,
+              "min": 28.6,
+              "max": 33.5
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 23.7,
+              "min": 23.1,
+              "max": 28.5
+            },
+            "steadyWorkP95Ms": {
+              "median": 34.9,
+              "min": 32.9,
+              "max": 38.4
+            },
+            "steadyPlaceholderShare": {
+              "median": 0.656,
+              "min": 0.579,
+              "max": 0.713
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "table-gaia": {
+      "passed": true,
+      "seconds": 1720,
+      "failures": [],
+      "raw": "raw/2026-10-09-m7-cells-perf/table-gaia.json",
+      "summary": {
+        "date": "2026-10-09",
+        "label": "m7-cells-perf-table-gaia",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "gaia-dr3-bright.parquet",
+          "rows": 25067889,
+          "bytes": 1572736231,
+          "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+          "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+          "fetched": "2026-10-07",
+          "rowGroups": 409,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+          "notes": [
+            "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+            "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+            "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 297.6,
+              "min": 272.3,
+              "max": 347.5
+            },
+            "jumpMs": {
+              "median": 135.2,
+              "min": 133.9,
+              "max": 152.8
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.848,
+              "min": 0.844,
+              "max": 0.849
+            },
+            "flingWorkP50Ms": {
+              "median": 5.6,
+              "min": 5.5,
+              "max": 5.7
+            },
+            "flingWorkP95Ms": {
+              "median": 7.6,
+              "min": 7.2,
+              "max": 8.4
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 12.4,
+              "min": 11.9,
+              "max": 12.7
+            },
+            "steadyWorkP95Ms": {
+              "median": 15.2,
+              "min": 13.6,
+              "max": 16.1
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 8392.8,
+              "min": 8387.1,
+              "max": 8503.5
+            },
+            "jumpMs": {
+              "median": 6567.8,
+              "min": 6550.3,
+              "max": 6588.5
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.848,
+              "min": 0.834,
+              "max": 0.853
+            },
+            "flingWorkP50Ms": {
+              "median": 21.8,
+              "min": 20.7,
+              "max": 24.1
+            },
+            "flingWorkP95Ms": {
+              "median": 30.7,
+              "min": 28.3,
+              "max": 34.4
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 20.5,
+              "min": 20,
+              "max": 23.1
+            },
+            "steadyWorkP95Ms": {
+              "median": 25.8,
+              "min": 24.9,
+              "max": 29.9
+            },
+            "steadyPlaceholderShare": {
+              "median": 1,
+              "min": 1,
+              "max": 1
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "jump": {
+      "passed": true,
+      "seconds": 733,
+      "failures": [],
+      "raw": "raw/2026-10-09-m7-cells-perf/jump.json",
+      "summary": {
+        "date": "2026-10-09",
+        "label": "m7-cells-perf-jump",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "samples": {
+          "asteroids": {
+            "reference": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 83.1,
+                "min": 71.8,
+                "max": 99.7,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 64.2,
+                "min": 59.9,
+                "max": 69.4,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "throttled": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 2177.7,
+                "min": 2157.5,
+                "max": 2278.8,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 513.2,
+                "min": 507.9,
+                "max": 529.3,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "edges": {
+              "sample": "asteroids",
+              "ime": {
+                "row": 123,
+                "ok": true,
+                "detail": "top 122, marked 122, refusal null",
+                "filledMs": null
+              },
+              "keys": {
+                "Control+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Control+A, Backspace"
+                },
+                "Control+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Control+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Control+Z"
+                },
+                "Meta+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+                },
+                "Meta+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Meta+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Meta+Z"
+                },
+                "Alt+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+                },
+                "Meta+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+                },
+                "Alt+Backspace (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+                }
+              },
+              "ctrlV": {
+                "landed": true,
+                "detail": "input \"4242\", focus jump"
+              },
+              "cmdV": {
+                "landed": true,
+                "detail": "input \"4141\", focus jump"
+              },
+              "menuPaste": {
+                "landed": true,
+                "detail": "input \"4343\", focus jump"
+              },
+              "menuPasteDenied": {
+                "landed": false,
+                "detail": "input \"\", focus jump"
+              },
+              "focus": {
+                "ok": true,
+                "detail": "focus table → workbench (state failed)"
+              },
+              "problems": []
+            }
+          },
+          "gaia": {
+            "reference": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 146.3,
+                "min": 119.6,
+                "max": 174.1,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 150.1,
+                "min": 140.1,
+                "max": 324.5,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "throttled": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 6560.5,
+                "min": 6544.1,
+                "max": 6600.5,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 4920.9,
+                "min": 4895.5,
+                "max": 4993.7,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "edges": {
+              "sample": "gaia",
+              "ime": {
+                "row": 123,
+                "ok": true,
+                "detail": "top 122, marked 122, refusal null",
+                "filledMs": null
+              },
+              "keys": {
+                "Control+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Control+A, Backspace"
+                },
+                "Control+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Control+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Control+Z"
+                },
+                "Meta+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+                },
+                "Meta+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Meta+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Meta+Z"
+                },
+                "Alt+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+                },
+                "Meta+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+                },
+                "Alt+Backspace (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+                }
+              },
+              "ctrlV": {
+                "landed": true,
+                "detail": "input \"4242\", focus jump"
+              },
+              "cmdV": {
+                "landed": true,
+                "detail": "input \"4141\", focus jump"
+              },
+              "menuPaste": {
+                "landed": true,
+                "detail": "input \"4343\", focus jump"
+              },
+              "menuPasteDenied": {
+                "landed": false,
+                "detail": "input \"\", focus jump"
+              },
+              "focus": {
+                "ok": true,
+                "detail": "focus table → workbench (state failed)"
+              },
+              "problems": []
+            }
+          }
+        },
+        "failures": []
+      }
+    }
+  }
+}

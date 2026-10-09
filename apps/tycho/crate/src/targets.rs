@@ -73,7 +73,7 @@ pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
 
 /// Publishes what the table shows to `globalThis.__tychoTable`, when it
 /// changes: `{rows, top, first, end, loaded, pending, failed, lastCell,
-/// marked}`.
+/// marked, scrollX, tooltip}`.
 /// The table calls it only while [`measuring`].
 pub fn publish_table(probe: &crate::table::TableProbe) {
     #[cfg(target_family = "wasm")]
@@ -106,6 +106,14 @@ pub fn publish_table(probe: &crate::table::TableProbe) {
                 .marked
                 .map_or(JsValue::NULL, |row| JsValue::from_f64(row as f64)),
         );
+        set("scrollX", JsValue::from_f64(probe.scroll_x.into()));
+        set(
+            "tooltip",
+            probe
+                .tooltip
+                .as_deref()
+                .map_or(JsValue::NULL, JsValue::from_str),
+        );
         set(
             "lastCell",
             probe
@@ -121,6 +129,127 @@ pub fn publish_table(probe: &crate::table::TableProbe) {
     }
     #[cfg(not(target_family = "wasm"))]
     let _ = probe;
+}
+
+/// Whether the page asked for every visible cell's text (`?cells`, with
+/// `?perf` or `?bench`): [`publish_cells`], every frame. Off in the perf
+/// runs, which it would slow.
+pub fn probing_cells() -> bool {
+    thread_local! {
+        static CELLS: bool = measuring() && seiza::url::has_param("cells");
+    }
+    CELLS.with(|cells| *cells)
+}
+
+/// Where the table's cells are, for [`publish_table_layout`]: CSS pixels
+/// from the canvas's top-left.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TableLayout {
+    /// The cells area's left edge (right of the row numbers) and top edge.
+    pub left: f32,
+    pub top: f32,
+    /// Row `r`'s top is `top + (r - __tychoTable.top) * row_height`, and
+    /// column `c`'s left edge is `left + columns[c].x - __tychoTable.scrollX`.
+    pub row_height: f32,
+    pub cells_width: f32,
+    pub columns: Vec<ColumnProbe>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColumnProbe {
+    pub name: String,
+    pub x: f32,
+    pub width: f32,
+    /// `text`, `integer`, `float`, or `decimal`.
+    pub kind: &'static str,
+    /// The characters a float may take.
+    pub budget: usize,
+}
+
+/// Publishes the table's layout to `globalThis.__tychoTableLayout`: `{left,
+/// top, rowHeight, cellsWidth, columns: [{name, x, width, kind, budget}]}`.
+/// The table calls it only while [`measuring`], and only when the layout
+/// changed (the scroll position is in [`publish_table`]).
+pub fn publish_table_layout(layout: &TableLayout) {
+    #[cfg(target_family = "wasm")]
+    {
+        use js_sys::{Array, Object, Reflect};
+        use wasm_bindgen::JsValue;
+
+        let set = |object: &Object, key: &str, value: JsValue| {
+            let _ = Reflect::set(object, &JsValue::from_str(key), &value);
+        };
+        let number = |value: f32| JsValue::from_f64(value.into());
+        let object = Object::new();
+        set(&object, "left", number(layout.left));
+        set(&object, "top", number(layout.top));
+        set(&object, "rowHeight", number(layout.row_height));
+        set(&object, "cellsWidth", number(layout.cells_width));
+        let columns: Array = layout
+            .columns
+            .iter()
+            .map(|column| {
+                let probe = Object::new();
+                set(&probe, "name", JsValue::from_str(&column.name));
+                set(&probe, "x", number(column.x));
+                set(&probe, "width", number(column.width));
+                set(&probe, "kind", JsValue::from_str(column.kind));
+                set(&probe, "budget", JsValue::from_f64(column.budget as f64));
+                JsValue::from(probe)
+            })
+            .collect();
+        set(&object, "columns", columns.into());
+        let _ = Reflect::set(
+            &js_sys::global(),
+            &JsValue::from_str("__tychoTableLayout"),
+            &object,
+        );
+    }
+    #[cfg(not(target_family = "wasm"))]
+    let _ = layout;
+}
+
+/// A drawn cell's value and the text handed to GPUI for it (which GPUI may
+/// still cut to the column's width).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellProbe {
+    pub row: u64,
+    pub column: usize,
+    /// The value's exact text (a float's shortest round-trip text).
+    pub exact: String,
+    pub shown: String,
+}
+
+/// Publishes the drawn cells to `globalThis.__tychoCells`: `[{row, column,
+/// exact, shown}]`, every frame. Only with [`probing_cells`].
+pub fn publish_cells(cells: &[CellProbe]) {
+    #[cfg(target_family = "wasm")]
+    {
+        use js_sys::{Array, Object, Reflect};
+        use wasm_bindgen::JsValue;
+
+        let cells: Array = cells
+            .iter()
+            .map(|cell| {
+                let object = Object::new();
+                let set = |key: &str, value: JsValue| {
+                    let _ = Reflect::set(&object, &JsValue::from_str(key), &value);
+                };
+                set("row", JsValue::from_f64(cell.row as f64));
+                set("column", JsValue::from_f64(cell.column as f64));
+                set("exact", JsValue::from_str(&cell.exact));
+                set("shown", JsValue::from_str(&cell.shown));
+                JsValue::from(object)
+            })
+            .collect();
+        let _ = Reflect::set(
+            &js_sys::global(),
+            &JsValue::from_str("__tychoCells"),
+            &cells,
+        );
+    }
+    #[cfg(not(target_family = "wasm"))]
+    let _ = cells;
 }
 
 /// What the workbench shows, for [`publish_workbench`].
