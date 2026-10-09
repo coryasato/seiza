@@ -1,0 +1,101 @@
+{
+  "date": "2026-10-08",
+  "label": "m7-close-out-ab",
+  "method": "interleaved A/B, alternating order per round: 4 rounds x 5 reference runs, then 2 rounds x 5 throttled runs per build (perf.ts --url); HEAD is 20bae8a built in a git worktree; both served by vite preview with brotli; machine load 3.4-5.3",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "head": {
+    "commit": "20bae8a",
+    "wasmBrotliKiB": 2804.4,
+    "ttfpMs": {
+      "reference": 197.1,
+      "throttled": 3720.9
+    },
+    "runs": {
+      "reference": [
+        252.8,
+        191.7,
+        203.3,
+        235.4,
+        228,
+        193.3,
+        256.8,
+        221.3,
+        199.8,
+        195.6,
+        198.3,
+        193.4,
+        190.1,
+        200.5,
+        194,
+        187.9,
+        195,
+        210.5,
+        195.8,
+        191.1
+      ],
+      "throttled": [
+        3794.2,
+        3695.4,
+        3750.8,
+        3717.3,
+        3772.7,
+        3700.9,
+        3724.6,
+        3727.8,
+        3716,
+        3706.8
+      ]
+    }
+  },
+  "change": {
+    "what": "M7 part E: seiza::marks (one copy of the clock and mark helpers)",
+    "wasmBrotliKiB": 2806.2,
+    "ttfpMs": {
+      "reference": 199.8,
+      "throttled": 3713
+    },
+    "runs": {
+      "reference": [
+        242.9,
+        222.6,
+        199.5,
+        185.5,
+        191.4,
+        192.5,
+        216.1,
+        192.8,
+        186.5,
+        201.4,
+        217.1,
+        200.4,
+        190.9,
+        194.5,
+        204.9,
+        223.1,
+        193.8,
+        202.7,
+        200.2,
+        199.2
+      ],
+      "throttled": [
+        3697.8,
+        3714.3,
+        3719.9,
+        3702.5,
+        3752.8,
+        3711.6,
+        3729,
+        3700.4,
+        3795.9,
+        3701.8
+      ]
+    }
+  },
+  "delta": {
+    "referenceMs": 2.7,
+    "throttledMs": -7.9,
+    "wasmBrotliKiB": 1.8
+  }
+}

@@ -150,10 +150,25 @@ paging *args:
 check: lint build
     node {{app_dir}}/perf/perf.ts --check
 
-# Cold-load suite (reference + throttled, median of 10) on the release build in
-# web/dist; writes perf/results/<date>-<label>.json. Run `just tycho build` first.
-# Extra flags pass through, e.g. `just tycho perf --label m2 --runs 5`.
+# The full perf suite (M7): cold load, the observation panel, the table on
+# both samples, jump to row, and the ~1 GB CSV, reference + throttled, median
+# of 10, into one perf/results/<date>-<label>.json (each part's own output in
+# perf/results/raw/). About 1 h 45 min. Needs `just tycho drop-files csv`. Run
+# `just tycho build` first. Flags: --runs, --label, --only cold,panel,table,jump,csv,
+# --reference-only.
 perf *args:
+    node {{app_dir}}/perf/suite.ts {{args}}
+
+# M7 part E experiment: HEAD's release build against a copy whose index.html
+# paints a static HTML placeholder of the shell before the wasm, interleaved:
+# TTFP and the placeholder's paint. Run `just tycho build` first.
+placeholder *args:
+    node {{app_dir}}/perf/placeholder.ts {{args}}
+
+# Cold load only (reference + throttled, median of 10) on the release build in
+# web/dist; writes perf/results/<date>-<label>.json. Run `just tycho build` first.
+# Extra flags pass through, e.g. `just tycho cold --label m2 --runs 5`.
+cold *args:
     node {{app_dir}}/perf/perf.ts {{args}}
 
 # Engine self-test (M2): SELECT 42, every shown type, and cancel, run from Rust

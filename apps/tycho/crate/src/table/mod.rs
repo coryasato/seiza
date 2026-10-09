@@ -914,7 +914,7 @@ impl RowTable {
         #[cfg(target_family = "wasm")]
         if seiza::perf::is_visible(cx) {
             self.activity
-                .record(crate::engine::now(), self.scroll.top(), filled);
+                .record(seiza::marks::now(), self.scroll.top(), filled);
         } else {
             self.activity.clear();
         }

@@ -15,7 +15,9 @@
 //      wrapper around `requestAnimationFrame` (`workRecorder`), not by the app;
 //    - rows/s and cache hits: the table's published top row and loaded rows,
 //      sampled by the recorder at every rAF;
-//    - wasm memory: the module's `WebAssembly.Memory` (`?bench`).
+//    - wasm memory: the module's `WebAssembly.Memory` (`?bench`), read just
+//      before and just after the refresh. A range check: the panel's value
+//      must fall between them (± the tolerance); `range` records both.
 // 4. Bytes read: once the scroll's reads settle, the panel's "Read" against
 //    the /data/ bytes counted at the server (a proxy in front of the Worker).
 // 5. Fling (M4 budget: p95 ≤ 20 ms, none > 50 ms), panel open and closed
@@ -73,6 +75,9 @@ interface Match {
   measured: number | null;
   /** Allowed difference: 5% of the measurement or half the display step. */
   allowed: number;
+  /** For a value read between two measurements: both, in order. The panel
+   *  must fall between them, give or take `allowed`. */
+  range?: [number, number];
   ok: boolean;
 }
 
@@ -80,6 +85,18 @@ function match(row: string, panel: number | null, measured: number | null, step:
   const allowed = measured === null ? 0 : Math.max(Math.abs(measured) * TOLERANCE, step / 2);
   const ok = panel !== null && measured !== null && Math.abs(panel - measured) <= allowed + 1e-9;
   return { row, panel, measured: measured === null ? null : Number(measured.toFixed(3)), allowed: Number(allowed.toFixed(3)), ok };
+}
+
+/** Like `match`, for a panel value that saw something between two
+ *  measurements (`low` before, `high` after). A range check, not a point
+ *  check: it can't tell a value from an older one inside the bracket. With
+ *  nothing changing between the reads, the bracket is a point. */
+function matchRange(row: string, panel: number | null, low: number | null, high: number | null, step: number): Match {
+  if (low === null || high === null) return { ...match(row, panel, null, step), ok: false };
+  const allowed = Math.max(high * TOLERANCE, step / 2);
+  const ok = panel !== null && panel >= low - allowed - 1e-9 && panel <= high + allowed + 1e-9;
+  const round = (value: number) => Number(value.toFixed(3));
+  return { row, panel, measured: round(high), allowed: round(allowed), range: [round(low), round(high)], ok };
 }
 
 const ms = (value: string | undefined) => (value && /^-?[\d.]+ ms$/.test(value) ? Number.parseFloat(value) : null);
@@ -162,7 +179,12 @@ async function steadyScroll(page: Page) {
   const start = await now(page);
   const wallStart = Date.now();
   let snapshot: Awaited<ReturnType<typeof panelSnapshot>> = null;
-  let memory: number | null = null;
+  // Wasm memory only grows, and the panel read it at its refresh. A read
+  // made before that refresh and the first read after it bound what it saw:
+  // on a throttled run, pages arriving between the refresh and a later read
+  // grew it 1.3 MiB (part E).
+  let memory: { before: number | null; after: number | null } | null = null;
+  let previous: { at: number; memory: number | null } | null = null;
   while (Date.now() - wallStart < 4_000) {
     await wheel(page, 900);
     await page.waitForTimeout(16);
@@ -171,10 +193,11 @@ async function steadyScroll(page: Page) {
         const g = globalThis as { __seizaPerfOverlay?: [string, string][]; __seizaPerfOverlayAt?: number; __tychoWasmMemory?: WebAssembly.Memory };
         return { at: g.__seizaPerfOverlayAt ?? 0, rows: Object.fromEntries(g.__seizaPerfOverlay ?? []), memory: g.__tychoWasmMemory?.buffer.byteLength ?? null };
       });
-      if (taken.at - WINDOW_MS > start + 100) {
+      if (taken.at - WINDOW_MS > start + 100 && previous && previous.at < taken.at) {
         snapshot = { at: taken.at, rows: taken.rows };
-        memory = taken.memory;
+        memory = { before: previous.memory, after: taken.memory };
       }
+      previous = { at: taken.at, memory: taken.memory };
     }
   }
   if (!snapshot) throw new Error('no panel refresh fell inside the steady scroll');
@@ -199,6 +222,8 @@ function liveMatches(steady: Awaited<ReturnType<typeof steadyScroll>>): Match[] 
   const panelRate = rows['Rows/s (2 s)'] ? Number(rows['Rows/s (2 s)'].replaceAll(',', '')) : null;
   const panelHits = /^([\d.]+)%/.exec(rows['Cache hits (2 s)'] ?? '');
   const panelWasm = /^wasm ([\d.]+)/.exec(rows['Memory'] ?? '');
+  const panelWasmMiB = panelWasm ? Number(panelWasm[1]) : null;
+  const mib = (bytes: number | null | undefined) => (bytes == null ? null : bytes / 1024 ** 2);
   return [
     match('Frame interval p50', panelFrames?.p50 ?? null, intervals.p50, 0.1),
     match('Frame interval p95', panelFrames?.p95 ?? null, intervals.p95, 0.1),
@@ -206,7 +231,7 @@ function liveMatches(steady: Awaited<ReturnType<typeof steadyScroll>>): Match[] 
     match('Work per frame p95', panelWork?.p95 ?? null, workStats.p95, 0.1),
     match('Rows/s', panelRate, rowsPerS, 1),
     match('Cache hits %', panelHits ? Number(panelHits[1]) : null, hits, 1),
-    match('Wasm memory MiB', panelWasm ? Number(panelWasm[1]) : null, memory === null ? null : memory / 1024 ** 2, 0.1),
+    matchRange('Wasm memory MiB', panelWasmMiB, mib(memory?.before), mib(memory?.after), 0.1),
   ];
 }
 
@@ -304,7 +329,7 @@ try {
       results[profile.name]!.push(run);
       const where = `${profile.name} run ${i + 1}`;
       const bad = run.matches.filter((m) => !m.ok);
-      failures.push(...bad.map((m) => `${where}: panel ${m.row} ${m.panel} vs measured ${m.measured} (allowed ±${m.allowed})`));
+      failures.push(...bad.map((m) => `${where}: panel ${m.row} ${m.panel} vs measured ${m.range ? `${m.range[0]}–${m.range[1]}` : m.measured} (allowed ±${m.allowed})`));
       failures.push(...run.problems.map((problem) => `${where}: ${problem}`));
       for (const f of run.flings) {
         if (!f.reachedEnd) failures.push(`${where}: the fling (panel ${f.panel}) didn't reach the last row`);
@@ -317,7 +342,7 @@ try {
         `${profile.name.padEnd(9)} ${String(i + 1).padStart(2)}/${runs}  ${run.matches.length - bad.length}/${run.matches.length} match` +
           `  steady work p50 ${run.steady.work.p50.toFixed(1)} p95 ${run.steady.work.p95.toFixed(1)} ms (panel ${run.steady.panelWork})` +
           `  fling ${run.flings.map(fl).join('; ')}` +
-          (bad.length ? `  MISMATCH: ${bad.map((m) => `${m.row} ${m.panel} vs ${m.measured}`).join(', ')}` : ''),
+          (bad.length ? `  MISMATCH: ${bad.map((m) => `${m.row} ${m.panel} vs ${m.range ? `${m.range[0]}–${m.range[1]}` : m.measured}`).join(', ')}` : ''),
       );
     }
   }
@@ -353,7 +378,7 @@ const summary = Object.fromEntries(
 console.log(`\n${JSON.stringify(summary, null, 2)}`);
 
 const date = new Date().toISOString().slice(0, 10);
-const out = join(perfDir, 'results', `${date}-${label}.json`);
+const out = option('out') ?? join(perfDir, 'results', `${date}-${label}.json`);
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(
   out,

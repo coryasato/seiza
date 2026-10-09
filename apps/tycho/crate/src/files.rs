@@ -174,7 +174,7 @@ impl<T: FileTarget> Deliver<T> {
         if let Some(file) = files.get(0) {
             self.send(FileEvent::Chosen {
                 file,
-                at: crate::engine::now(),
+                at: seiza::marks::now(),
                 more: files.length().saturating_sub(1),
             });
         }

@@ -4,6 +4,7 @@ target/
 # JS
 node_modules/
 dist/
+apps/*/web/dist-placeholder/
 *.tsbuildinfo
 .vite/
 

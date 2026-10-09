@@ -23,6 +23,7 @@ use std::time::Duration;
 use gpui_kit::{App, Task};
 use wasm_bindgen::{JsCast as _, JsValue, closure::Closure};
 
+use crate::marks::{mark_time, now};
 use crate::perf::{LoadStep, PAGE_LOAD, WINDOW_MS};
 
 /// ~4 Hz: often enough to watch, rare enough not to cost the frames it shows.
@@ -185,9 +186,9 @@ fn run_loop() {
 /// download ends: compilation streams), and the first frame.
 fn record_page_load(cx: &mut App, ttfp_ms: Option<f64>) {
     let html = navigation_response_end();
-    let requested = mark("seiza:wasm-requested");
-    let downloaded = mark("seiza:wasm-downloaded");
-    let ready = mark("seiza:wasm-ready");
+    let requested = mark_time("seiza:wasm-requested");
+    let downloaded = mark_time("seiza:wasm-downloaded");
+    let ready = mark_time("seiza:wasm-ready");
     if let Some(end) = html {
         crate::perf::set_load_step(cx, PAGE_LOAD, "HTML", LoadStep::done(0.0, end));
     }
@@ -208,22 +209,6 @@ fn navigation_response_end() -> Option<f64> {
     js_sys::Reflect::get(&entry, &JsValue::from_str("responseEnd"))
         .ok()?
         .as_f64()
-}
-
-/// The last `performance.mark` named `name`, in ms from `timeOrigin`.
-fn mark(name: &str) -> Option<f64> {
-    let performance = web_sys::window()?.performance()?;
-    let entries = performance.get_entries_by_name_with_entry_type(name, "mark");
-    let entry = entries.get(entries.length().checked_sub(1)?);
-    js_sys::Reflect::get(&entry, &JsValue::from_str("startTime"))
-        .ok()?
-        .as_f64()
-}
-
-fn now() -> f64 {
-    web_sys::window()
-        .and_then(|window| window.performance())
-        .map_or(0.0, |performance| performance.now())
 }
 
 /// The app's wasm memory, and the JS heap where the browser reports it

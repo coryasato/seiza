@@ -11,12 +11,12 @@ use crate::arrow::DecodeError;
 mod bridge;
 
 #[cfg(target_family = "wasm")]
+pub(crate) use bridge::WARM_UP_SQL;
+#[cfg(target_family = "wasm")]
 pub use bridge::{
     Bridge, ENGINE_READY_MARK, Engine, FileInfo, FileSource, ReadCounter, RequestId, retry,
     show_parquet_ready, start,
 };
-#[cfg(target_family = "wasm")]
-pub(crate) use bridge::{WARM_UP_SQL, now};
 
 /// Whether DuckDB can take queries yet. The engine starts loading right after
 /// the first frame, so the first frame always shows `Loading`.

@@ -15,6 +15,8 @@ mod bootstrap;
 mod first_frame;
 #[cfg(target_family = "wasm")]
 mod frames;
+#[cfg(target_family = "wasm")]
+pub mod marks;
 
 pub use perf::{FrameStats, LoadStep, PerfOverlay, TogglePerfOverlay, frame_stats, sample_stats};
 pub use shell::AppShell;
@@ -22,4 +24,6 @@ pub use shell::AppShell;
 #[cfg(target_family = "wasm")]
 pub use bootstrap::Bootstrap;
 #[cfg(target_family = "wasm")]
-pub use first_frame::{FIRST_FRAME_MARK, mark_after_current_task};
+pub use first_frame::FIRST_FRAME_MARK;
+#[cfg(target_family = "wasm")]
+pub use marks::mark_after_current_task;

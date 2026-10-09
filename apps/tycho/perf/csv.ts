@@ -503,9 +503,8 @@ try {
 }
 
 output.failures = failures;
-const resultsDir = join(perfDir, 'results');
-mkdirSync(resultsDir, { recursive: true });
-const file = join(resultsDir, `${date}-${label}.json`);
+const file = option('out') ?? join(perfDir, 'results', `${date}-${label}.json`);
+mkdirSync(dirname(file), { recursive: true });
 writeFileSync(file, `${JSON.stringify(output, null, 2)}\n`);
 console.log(`wrote ${file}`);
 if (failures.length) {

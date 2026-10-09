@@ -16,7 +16,8 @@ use wasm_bindgen::{JsCast as _, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
 use crate::arrow::Value;
-use crate::engine::{Engine, EngineError, WARM_UP_SQL, now};
+use crate::engine::{Engine, EngineError, WARM_UP_SQL};
+use seiza::marks::now;
 
 /// Cancel must stop a query within this long (PLAN.md, M2).
 const CANCEL_BUDGET_MS: f64 = 200.0;

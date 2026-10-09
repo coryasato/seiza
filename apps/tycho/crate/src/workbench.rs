@@ -124,7 +124,7 @@ impl Marks {
     /// The open failed before its schema showed.
     fn fail(self, started_at: f64, cx: &mut App) {
         use seiza::LoadStep;
-        let now = crate::engine::now();
+        let now = seiza::marks::now();
         seiza::perf::set_load_step(
             cx,
             OPEN_STEPS,
@@ -525,7 +525,7 @@ impl Workbench {
             sample.name.into(),
             sample.name.into(),
             FileSource::Url(sample.url.into()),
-            crate::engine::now(),
+            seiza::marks::now(),
             window,
             cx,
         );
@@ -688,7 +688,7 @@ impl Workbench {
         self.close_current(window, cx);
         let marks = origin.marks();
         self.opened_at = started_at;
-        mark_at(marks.start, started_at);
+        seiza::marks::mark_at(marks.start, started_at);
         marks.start(started_at, cx);
 
         let engine = cx.global::<Engine>().clone();
@@ -783,7 +783,7 @@ impl Workbench {
         self.close_current(window, cx);
         let marks = Origin::Device.marks();
         self.opened_at = started_at;
-        mark_at(marks.start, started_at);
+        seiza::marks::mark_at(marks.start, started_at);
         marks.start(started_at, cx);
         seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "…");
 
@@ -926,7 +926,7 @@ impl Workbench {
         };
         if load.read >= load.bytes {
             load.state = IngestState::Done;
-            load.finished_at = Some(crate::engine::now());
+            load.finished_at = Some(seiza::marks::now());
         }
         self.mark_shown = Some(marks);
         self.load = Load::Open {
@@ -977,7 +977,7 @@ impl Workbench {
             None => {
                 load.state = IngestState::Done;
                 // A file of one chunk is done when it opens.
-                load.finished_at.get_or_insert_with(crate::engine::now);
+                load.finished_at.get_or_insert_with(seiza::marks::now);
             }
             Some(Err(error)) => load.state = IngestState::Stopped(error.to_string().into()),
         }
@@ -995,7 +995,7 @@ impl Workbench {
         else {
             return;
         };
-        let now = crate::engine::now();
+        let now = seiza::marks::now();
         let progress = match (&load.state, load.finished_at) {
             (IngestState::Done, Some(finished)) => format!(
                 "{} in {:.1} s · {:.1} MB/s",
@@ -1104,7 +1104,7 @@ impl Workbench {
     /// its window ([`reregister_window_ms`]) passes.
     #[cfg(target_family = "wasm")]
     fn register_again(&mut self, table: Entity<RowTable>, cx: &mut Context<Self>) {
-        let now = crate::engine::now();
+        let now = seiza::marks::now();
         // Only for the table shown, while it has failed reads, and while
         // the engine runs: a timer or a failed registration can come back
         // after another file opened, or after a success fixed it.
@@ -1171,7 +1171,7 @@ impl Workbench {
     /// the table's scrolling and paging. Runs at the panel's refresh.
     #[cfg(target_family = "wasm")]
     fn refresh_panel(&mut self, cx: &mut Context<Self>) {
-        let now = crate::engine::now();
+        let now = seiza::marks::now();
         let (read, size, table) = match &self.load {
             Load::Open {
                 summary,
@@ -1488,7 +1488,7 @@ impl Workbench {
         }
         if let Some(load) = csv {
             #[cfg(target_family = "wasm")]
-            let now = crate::engine::now();
+            let now = seiza::marks::now();
             #[cfg(not(target_family = "wasm"))]
             let now = load.started_at;
             stats.push(load.describe(now));
@@ -1656,29 +1656,6 @@ fn edit_menu(
         .separator()
         .menu("Select All", Box::new(SelectAll))
         .show(position, window, cx);
-}
-
-/// Sets `performance.mark(name)` at `at` (ms from `timeOrigin`), when the
-/// click, drop, or choice happened rather than when it was handled.
-#[cfg(target_family = "wasm")]
-fn mark_at(name: &str, at: f64) {
-    use js_sys::{Function, Object, Reflect};
-    use wasm_bindgen::{JsCast as _, JsValue};
-
-    // `performance.mark(name, { startTime })`; web-sys has the options type
-    // only behind its unstable-APIs flag.
-    let Some(performance) = web_sys::window().and_then(|window| window.performance()) else {
-        return;
-    };
-    let options = Object::new();
-    let _ = Reflect::set(&options, &"startTime".into(), &JsValue::from_f64(at));
-    if let Ok(mark) = Reflect::get(&performance, &"mark".into()) {
-        let _ = mark.unchecked_into::<Function>().call2(
-            &performance,
-            &JsValue::from_str(name),
-            &options,
-        );
-    }
 }
 
 #[cfg(target_family = "wasm")]

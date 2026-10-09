@@ -513,7 +513,8 @@ try {
   await worker.close();
 }
 
-const out = join(perfDir, 'results', `${date}-${label}.json`);
+output.failures = failures;
+const out = option('out') ?? join(perfDir, 'results', `${date}-${label}.json`);
 writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`);
 for (const [name, summary] of Object.entries((output.profiles ?? output.sweep ?? {}) as Record<string, ReturnType<typeof summarizeRuns>>)) {
   console.log(`\n${name}: ${JSON.stringify(summary)}`);

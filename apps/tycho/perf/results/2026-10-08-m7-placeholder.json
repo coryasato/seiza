@@ -1,0 +1,365 @@
+{
+  "date": "2026-10-09",
+  "label": "m7-placeholder",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "interleaved": true
+  },
+  "reference": {
+    "head": {
+      "ttfpMs": {
+        "median": 193.7,
+        "min": 184.7,
+        "max": 235.3
+      },
+      "placeholderPaintMs": null,
+      "htmlResponseEndMs": {
+        "median": 2.4,
+        "min": 1.4,
+        "max": 5.4
+      },
+      "runs": [
+        {
+          "variant": "head",
+          "ttfpMs": 235.28500032424927,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 5.375,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 202.8149995803833,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 1.614999771118164,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 184.67500019073486,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 2.0350003242492676,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 195.95499992370605,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 4.429999828338623,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 194.53999996185303,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 2.5949997901916504,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 208.29500007629395,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 1.570000171661377,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 192.57999992370605,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 2.8600001335144043,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 190.2200002670288,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 1.4100003242492676,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 189.39000034332275,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 4.110000133514404,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 192.80999994277954,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 2.1599998474121094,
+          "placeholderGoneAfterFrame": true
+        }
+      ]
+    },
+    "placeholder": {
+      "ttfpMs": {
+        "median": 193.3,
+        "min": 181,
+        "max": 288.8
+      },
+      "placeholderPaintMs": {
+        "median": 66.5,
+        "min": 35.4,
+        "max": 118.9
+      },
+      "htmlResponseEndMs": {
+        "median": 2.1,
+        "min": 1.4,
+        "max": 3.4
+      },
+      "runs": [
+        {
+          "variant": "placeholder",
+          "ttfpMs": 288.7949995994568,
+          "placeholderPaintMs": 118.90499973297119,
+          "htmlResponseEndMs": 2.0799999237060547,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 194.4650001525879,
+          "placeholderPaintMs": 85.47499990463257,
+          "htmlResponseEndMs": 2.0500001907348633,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 194.71000003814697,
+          "placeholderPaintMs": 47.389999866485596,
+          "htmlResponseEndMs": 3.3849997520446777,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 195.5199999809265,
+          "placeholderPaintMs": 55.05499982833862,
+          "htmlResponseEndMs": 1.614999771118164,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 187.70499992370605,
+          "placeholderPaintMs": 52.81999969482422,
+          "htmlResponseEndMs": 2.2149996757507324,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 219.3949999809265,
+          "placeholderPaintMs": 94.23999977111816,
+          "htmlResponseEndMs": 2.1700000762939453,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 187.75499963760376,
+          "placeholderPaintMs": 38.25499963760376,
+          "htmlResponseEndMs": 1.5949997901916504,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 192.11500024795532,
+          "placeholderPaintMs": 79.80000019073486,
+          "htmlResponseEndMs": 2.2900004386901855,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 180.96000003814697,
+          "placeholderPaintMs": 77.98999977111816,
+          "htmlResponseEndMs": 1.375,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 183.25,
+          "placeholderPaintMs": 35.36999988555908,
+          "htmlResponseEndMs": 1.7849998474121094,
+          "placeholderGoneAfterFrame": true
+        }
+      ]
+    }
+  },
+  "throttled": {
+    "head": {
+      "ttfpMs": {
+        "median": 3696.9,
+        "min": 3666,
+        "max": 3723.1
+      },
+      "placeholderPaintMs": null,
+      "htmlResponseEndMs": {
+        "median": 169.1,
+        "min": 167.4,
+        "max": 172.1
+      },
+      "runs": [
+        {
+          "variant": "head",
+          "ttfpMs": 3700.305000305176,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 167.4350004196167,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3682.914999961853,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 170.49000024795532,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3723.050000190735,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 167.6399998664856,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3700.159999847412,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 172.10999965667725,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3666,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 168.9800000190735,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3668.444999694824,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 168.7949995994568,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3721.760000228882,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 170.17500019073486,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3693.7300000190735,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 170.0900001525879,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3671.7800002098083,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 167.875,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "head",
+          "ttfpMs": 3717.550000190735,
+          "placeholderPaintMs": null,
+          "htmlResponseEndMs": 169.1399998664856,
+          "placeholderGoneAfterFrame": true
+        }
+      ]
+    },
+    "placeholder": {
+      "ttfpMs": {
+        "median": 3668.5,
+        "min": 3652.9,
+        "max": 3726.7
+      },
+      "placeholderPaintMs": {
+        "median": 234.5,
+        "min": 224.3,
+        "max": 246.3
+      },
+      "htmlResponseEndMs": {
+        "median": 169.5,
+        "min": 167.6,
+        "max": 172
+      },
+      "runs": [
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3652.8949999809265,
+          "placeholderPaintMs": 226.54500007629395,
+          "htmlResponseEndMs": 169.68499994277954,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3691.7850003242493,
+          "placeholderPaintMs": 224.3250002861023,
+          "htmlResponseEndMs": 167.72500038146973,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3726.6950001716614,
+          "placeholderPaintMs": 231.92000007629395,
+          "htmlResponseEndMs": 169.58500003814697,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3670.8650002479553,
+          "placeholderPaintMs": 246.34999990463257,
+          "htmlResponseEndMs": 167.6100001335144,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3675.7599997520447,
+          "placeholderPaintMs": 233.44999980926514,
+          "htmlResponseEndMs": 169.48999977111816,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3658.9299998283386,
+          "placeholderPaintMs": 225.8949999809265,
+          "htmlResponseEndMs": 168.3949999809265,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3680.045000076294,
+          "placeholderPaintMs": 235.68499994277954,
+          "htmlResponseEndMs": 171.97499990463257,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3666.1050000190735,
+          "placeholderPaintMs": 245.48999977111816,
+          "htmlResponseEndMs": 169.2350001335144,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3659.1950001716614,
+          "placeholderPaintMs": 245.67000007629395,
+          "htmlResponseEndMs": 169.42500019073486,
+          "placeholderGoneAfterFrame": true
+        },
+        {
+          "variant": "placeholder",
+          "ttfpMs": 3660.4349999427795,
+          "placeholderPaintMs": 235.4850001335144,
+          "htmlResponseEndMs": 171.61500024795532,
+          "placeholderGoneAfterFrame": true
+        }
+      ]
+    }
+  }
+}

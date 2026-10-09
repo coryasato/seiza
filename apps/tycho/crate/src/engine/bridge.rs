@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use gpui_kit::{App, Global};
 use js_sys::{Promise, Uint8Array};
+use seiza::marks::{mark, mark_time, now};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
@@ -250,9 +251,7 @@ impl Engine {
             };
             *state.borrow_mut() = match result {
                 Ok(_) => {
-                    if let Some(performance) = web_sys::window().and_then(|w| w.performance()) {
-                        let _ = performance.mark(PARQUET_READY_MARK);
-                    }
+                    mark(PARQUET_READY_MARK);
                     ParquetLoad::Loaded(now())
                 }
                 Err(_) => ParquetLoad::Idle,
@@ -389,7 +388,7 @@ pub fn start(cx: &mut App) {
     cx.spawn(async move |cx| {
         let status = match warm_up(&engine).await {
             Ok(()) => EngineStatus::Ready {
-                ready_ms: mark_start_time(ENGINE_READY_MARK)
+                ready_ms: mark_time(ENGINE_READY_MARK)
                     .filter(|at| *at >= started)
                     .unwrap_or_else(now),
             },
@@ -400,7 +399,7 @@ pub fn start(cx: &mut App) {
         };
         // The JS host marks when it actually began loading: this attempt's
         // mark, not an earlier one's (a retry can fail before it sets one).
-        let started = mark_start_time(ENGINE_START_MARK)
+        let started = mark_time(ENGINE_START_MARK)
             .filter(|at| *at >= started)
             .unwrap_or(started);
         cx.update(|cx| {
@@ -500,23 +499,4 @@ async fn warm_up(engine: &Engine) -> Result<(), EngineError> {
             "warm-up query returned {other:?}, expected 42"
         ))),
     }
-}
-
-/// `performance.now()`: ms from `performance.timeOrigin`.
-pub(crate) fn now() -> f64 {
-    web_sys::window()
-        .and_then(|window| window.performance())
-        .map_or(0.0, |performance| performance.now())
-}
-
-/// The latest `performance.mark` named `name`, in ms from `timeOrigin`: a
-/// retry sets the engine's marks again.
-fn mark_start_time(name: &str) -> Option<f64> {
-    let performance = web_sys::window()?.performance()?;
-    let entries = performance.get_entries_by_name_with_entry_type(name, "mark");
-    let entry = entries.get(entries.length().checked_sub(1)?);
-    entry
-        .dyn_into::<web_sys::PerformanceEntry>()
-        .ok()
-        .map(|entry| entry.start_time())
 }

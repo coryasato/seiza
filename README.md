@@ -98,7 +98,8 @@ just tycho check    # fmt, clippy, tsc, release build, then the TTFP and wasm-si
 Measurement suites, all against the release build (run `just tycho build` first):
 
 ```sh
-just tycho perf     # cold-load TTFP, reference + throttled, median of 10
+just tycho perf     # the full suite (~1 h 45 min): cold load, panel, table on both samples, jump to row, 1 GB CSV → one results file
+just tycho cold     # cold-load TTFP only, reference + throttled, median of 10
 just tycho sample   # sample click → schema, bytes transferred, early click, failure modes
 just tycho table    # first rows, fling, scrollbar jump, last row, memory (--sweep, --browsers)
 just tycho engine   # DuckDB self-test: types, cancel

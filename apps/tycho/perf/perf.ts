@@ -430,6 +430,8 @@ const summary = {
     Object.entries(results).map(([name, r]) => [name, r.medianEngineReadyMs === null ? null : Number(r.medianEngineReadyMs.toFixed(1))]),
   ),
   runs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, r.runs])),
+  /** Every run's problems; `--check`'s budget failures aren't written. */
+  failures: [...new Set(Object.values(results).flatMap((r) => r.problems))],
 };
 
 console.log(`\nwasm brotli ${wasmKiB.toFixed(1)} KiB`);
@@ -451,7 +453,7 @@ try {
 }
 
 if (!check) {
-  const out = join(perfDir, 'results', `${date}-${label}.json`);
+  const out = option('out') ?? join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, `${JSON.stringify(summary, null, 2)}\n`);
   console.log(`wrote ${out}`);

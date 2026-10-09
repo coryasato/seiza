@@ -561,7 +561,8 @@ try {
   await worker.close();
 }
 
-const out = join(perfDir, 'results', `${date}-${label}.json`);
+output.failures = failures;
+const out = option('out') ?? join(perfDir, 'results', `${date}-${label}.json`);
 writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`);
 console.log(`wrote ${out}`);
 if (failures.length) {

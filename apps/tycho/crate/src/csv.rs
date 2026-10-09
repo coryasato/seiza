@@ -571,7 +571,8 @@ mod web {
     use std::rc::Rc;
 
     use super::*;
-    use crate::engine::{Engine, EngineError, FileSource, RequestId, now};
+    use crate::engine::{Engine, EngineError, FileSource, RequestId};
+    use seiza::marks::now;
 
     /// How much of the file the scanner reads at a time. Each read is an
     /// `await`, so frames draw between them. 256 and 64 KiB didn't change a
