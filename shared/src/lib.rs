@@ -19,7 +19,7 @@ mod frames;
 pub mod marks;
 
 pub use perf::{FrameStats, LoadStep, PerfOverlay, TogglePerfOverlay, frame_stats, sample_stats};
-pub use shell::AppShell;
+pub use shell::{AppShell, ToggleTheme};
 
 #[cfg(target_family = "wasm")]
 pub use bootstrap::Bootstrap;

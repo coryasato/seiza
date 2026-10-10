@@ -63,9 +63,23 @@ fn set_mark(name: &str, at: Option<f64>) -> Option<f64> {
 /// callback (see `first_frame.rs`). Apps use it to time "the user can see X"
 /// rather than "X's data arrived".
 pub fn mark_after_current_task(name: &'static str) -> impl Future<Output = Option<f64>> {
+    mark_after_current_task_then(name, || {})
+}
+
+/// [`mark_after_current_task`], running `then` in the same microtask, right
+/// after the mark: before the browser can render anything in between.
+pub(crate) fn mark_after_current_task_then(
+    name: &'static str,
+    then: impl FnOnce() + 'static,
+) -> impl Future<Output = Option<f64>> {
+    let mut then = Some(then);
     let promise = Promise::new(&mut |resolve, _reject| {
+        let then = then.take();
         let marked = Closure::once_into_js(move || {
             let start_time = mark(name);
+            if let Some(then) = then {
+                then();
+            }
             let _ = resolve.call1(
                 &JsValue::NULL,
                 &start_time.map_or(JsValue::NULL, JsValue::from),

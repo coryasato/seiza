@@ -1,6 +1,12 @@
 //! The `gpui:first-frame` performance mark every TTFP measurement reads.
 
-use crate::marks::mark_after_current_task;
+use crate::marks::mark_after_current_task_then;
+
+/// The id of the page's static placeholder shell (`shared-web/src/placeholder.ts`),
+/// drawn in HTML before the wasm arrives. Don't rename it.
+const PLACEHOLDER_ID: &str = "seiza-placeholder";
+/// The class that starts it leaving. Don't rename it.
+const PLACEHOLDER_LEAVING: &str = "sz-leaving";
 
 /// The `performance.mark` name for the first frame GPUI presents. The perf
 /// overlay and the Playwright suite both read it; don't rename it.
@@ -28,6 +34,23 @@ pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 /// Re-check this on every gpui-kit bump: the Playwright suite's first-draw
 /// probe (`perf/perf.ts`) fails if the mark isn't right after the first GPU
 /// work.
+///
+/// The same microtask starts the page's placeholder shell leaving, if it has
+/// one: it fades out over the first frame, which is already presented, so
+/// the browser never renders a frame with neither. A fade, not a cut: GPUI
+/// and the browser rasterize and round text differently, and an instant swap
+/// read as a jump (Tycho M7 part G).
 pub(crate) fn mark_first_frame() -> impl Future<Output = Option<f64>> {
-    mark_after_current_task(FIRST_FRAME_MARK)
+    mark_after_current_task_then(FIRST_FRAME_MARK, release_placeholder)
+}
+
+/// Adds [`PLACEHOLDER_LEAVING`]; `shared-web`'s placeholder fades out and
+/// removes itself.
+fn release_placeholder() {
+    if let Some(placeholder) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.get_element_by_id(PLACEHOLDER_ID))
+    {
+        let _ = placeholder.class_list().add_1(PLACEHOLDER_LEAVING);
+    }
 }

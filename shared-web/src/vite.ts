@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, join, normalize, resolve, sep } from 'node:path';
 import { mergeConfig, type Plugin, type Rolldown, type UserConfig } from 'vite';
 import { brotli } from './brotli.ts';
+import { placeholderPlugin, type PlaceholderOptions } from './placeholder.ts';
 
 /**
  * Cross-origin isolation headers. Every app sends them in dev, preview, and
@@ -32,6 +33,12 @@ export interface SeizaViteOptions {
    * build fails if one isn't in the bundle, so a rename can't drop a preload.
    */
   preload: string[];
+  /**
+   * The static placeholder shell painted before the wasm arrives
+   * (`placeholder.ts`): the title and the app's empty state as inert HTML.
+   * Optional; without it the page is blank until the first frame.
+   */
+  placeholder?: PlaceholderOptions;
 }
 
 const preloadTypes: Record<string, string> = { '.wasm': 'application/wasm', '.ttf': 'font/ttf', '.woff2': 'font/woff2' };
@@ -156,7 +163,11 @@ function previewBrotli(): Plugin {
  */
 export function seizaViteConfig(options: SeizaViteOptions, overrides: UserConfig = {}): UserConfig {
   const base: UserConfig = {
-    plugins: [preloadCriticalAssets(options.preload), previewBrotli()],
+    plugins: [
+      preloadCriticalAssets(options.preload),
+      previewBrotli(),
+      ...(options.placeholder ? [placeholderPlugin(options.placeholder)] : []),
+    ],
     server: { headers: crossOriginIsolationHeaders },
     preview: { headers: crossOriginIsolationHeaders },
     build: {

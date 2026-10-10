@@ -1,0 +1,981 @@
+{
+  "date": "2026-10-10",
+  "label": "m7-placeholder",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "sizes": {
+    "indexHtmlBytes": 21067,
+    "indexHtmlBrotliBytes": 11417,
+    "fontWoff2Bytes": 8672,
+    "fontBase64Bytes": 11564
+  },
+  "steady": {
+    "light": {
+      "inlined": {
+        "frames": 2,
+        "shown": 1,
+        "jumped": 0
+      },
+      "slowFont": {
+        "frames": 3,
+        "shown": 1,
+        "jumped": 0
+      },
+      "control": {
+        "frames": 3,
+        "shown": 2,
+        "jumped": 1
+      }
+    },
+    "dark": {
+      "inlined": {
+        "frames": 2,
+        "shown": 1,
+        "jumped": 0
+      },
+      "slowFont": {
+        "frames": 3,
+        "shown": 1,
+        "jumped": 0
+      },
+      "control": {
+        "frames": 3,
+        "shown": 2,
+        "jumped": 1
+      }
+    }
+  },
+  "screenshotMatch": {
+    "light@2x": {
+      "regions": [
+        {
+          "name": "Tycho",
+          "kind": "text",
+          "firstFrame": [
+            24,
+            22,
+            96,
+            48
+          ],
+          "placeholder": [
+            24,
+            21,
+            96,
+            47
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 1.0283349503989863
+        },
+        {
+          "name": "Observation panel",
+          "kind": "text",
+          "firstFrame": [
+            2659,
+            24,
+            2853,
+            46
+          ],
+          "placeholder": [
+            2659,
+            24,
+            2853,
+            46
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 1.028955736154442
+        },
+        {
+          "name": "Drop a Parquet or CSV file",
+          "kind": "text",
+          "firstFrame": [
+            1280,
+            815,
+            1600,
+            841
+          ],
+          "placeholder": [
+            1280,
+            815,
+            1600,
+            841
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 1.0244206507113203
+        },
+        {
+          "name": "Files stay on this device.",
+          "kind": "text",
+          "firstFrame": [
+            1290,
+            876,
+            1589,
+            902
+          ],
+          "placeholder": [
+            1290,
+            875,
+            1589,
+            901
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.9788847602500856
+        },
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            1353,
+            1035,
+            1526,
+            1057
+          ],
+          "placeholder": [
+            1353,
+            1036,
+            1526,
+            1058
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.9370378586217095
+        },
+        {
+          "name": "icon sz-theme-dark",
+          "kind": "icon",
+          "firstFrame": [
+            2612,
+            23,
+            2631,
+            42
+          ],
+          "placeholder": [
+            2610,
+            24,
+            2629,
+            43
+          ],
+          "dx": 2,
+          "dy": 1,
+          "mass": 1.063513666780084
+        },
+        {
+          "name": "skeleton 1",
+          "kind": "box",
+          "firstFrame": [
+            948,
+            941,
+            1145,
+            1004
+          ],
+          "placeholder": [
+            948,
+            942,
+            1145,
+            1005
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.045463581396091225
+        },
+        {
+          "name": "skeleton 2",
+          "kind": "box",
+          "firstFrame": [
+            1162,
+            941,
+            1627,
+            1004
+          ],
+          "placeholder": [
+            1162,
+            942,
+            1627,
+            1005
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.4757019395180611
+        },
+        {
+          "name": "skeleton 3",
+          "kind": "box",
+          "firstFrame": [
+            1644,
+            941,
+            1931,
+            1004
+          ],
+          "placeholder": [
+            1644,
+            942,
+            1931,
+            1005
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.4620899232325682
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 5048281,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    },
+    "dark@2x": {
+      "regions": [
+        {
+          "name": "Tycho",
+          "kind": "text",
+          "firstFrame": [
+            24,
+            22,
+            96,
+            48
+          ],
+          "placeholder": [
+            24,
+            21,
+            97,
+            47
+          ],
+          "dx": 1,
+          "dy": 1,
+          "mass": 0.9773461652664489
+        },
+        {
+          "name": "Observation panel",
+          "kind": "text",
+          "firstFrame": [
+            2659,
+            24,
+            2853,
+            46
+          ],
+          "placeholder": [
+            2658,
+            24,
+            2853,
+            46
+          ],
+          "dx": 1,
+          "dy": 0,
+          "mass": 0.982204356444415
+        },
+        {
+          "name": "Drop a Parquet or CSV file",
+          "kind": "text",
+          "firstFrame": [
+            1280,
+            815,
+            1600,
+            841
+          ],
+          "placeholder": [
+            1280,
+            815,
+            1600,
+            841
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 1.0355256124998446
+        },
+        {
+          "name": "Files stay on this device.",
+          "kind": "text",
+          "firstFrame": [
+            1290,
+            876,
+            1589,
+            902
+          ],
+          "placeholder": [
+            1290,
+            875,
+            1589,
+            901
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 1.0126043758587888
+        },
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            1353,
+            1035,
+            1526,
+            1057
+          ],
+          "placeholder": [
+            1353,
+            1036,
+            1526,
+            1058
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.9922428755017952
+        },
+        {
+          "name": "icon sz-theme-light",
+          "kind": "icon",
+          "firstFrame": [
+            2611,
+            22,
+            2632,
+            43
+          ],
+          "placeholder": [
+            2609,
+            23,
+            2630,
+            44
+          ],
+          "dx": 2,
+          "dy": 1,
+          "mass": 0.9382734796143042
+        },
+        {
+          "name": "skeleton 1",
+          "kind": "box",
+          "firstFrame": [
+            948,
+            941,
+            1145,
+            1004
+          ],
+          "placeholder": [
+            948,
+            942,
+            1145,
+            1005
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.056565345293260086
+        },
+        {
+          "name": "skeleton 2",
+          "kind": "box",
+          "firstFrame": [
+            1162,
+            941,
+            1627,
+            1004
+          ],
+          "placeholder": [
+            1162,
+            942,
+            1627,
+            1005
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.3931962629770475
+        },
+        {
+          "name": "skeleton 3",
+          "kind": "box",
+          "firstFrame": [
+            1644,
+            941,
+            1931,
+            1004
+          ],
+          "placeholder": [
+            1644,
+            942,
+            1931,
+            1005
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.38490975138143896
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 5048281,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    },
+    "light@1x": {
+      "regions": [
+        {
+          "name": "Tycho",
+          "kind": "text",
+          "firstFrame": [
+            12,
+            12,
+            48,
+            24
+          ],
+          "placeholder": [
+            12,
+            10,
+            48,
+            23
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.8906862033947482
+        },
+        {
+          "name": "Observation panel",
+          "kind": "text",
+          "firstFrame": [
+            1329,
+            12,
+            1426,
+            22
+          ],
+          "placeholder": [
+            1329,
+            12,
+            1426,
+            23
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.9183015447793517
+        },
+        {
+          "name": "Drop a Parquet or CSV file",
+          "kind": "text",
+          "firstFrame": [
+            640,
+            408,
+            800,
+            420
+          ],
+          "placeholder": [
+            640,
+            406,
+            800,
+            419
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.9201259686614549
+        },
+        {
+          "name": "Files stay on this device.",
+          "kind": "text",
+          "firstFrame": [
+            645,
+            439,
+            794,
+            451
+          ],
+          "placeholder": [
+            645,
+            437,
+            794,
+            450
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.8499054185989748
+        },
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            676,
+            518,
+            762,
+            528
+          ],
+          "placeholder": [
+            677,
+            518,
+            763,
+            529
+          ],
+          "dx": 1,
+          "dy": 1,
+          "mass": 0.82192901150428
+        },
+        {
+          "name": "icon sz-theme-dark",
+          "kind": "icon",
+          "firstFrame": [
+            1306,
+            11,
+            1315,
+            20
+          ],
+          "placeholder": [
+            1305,
+            12,
+            1314,
+            21
+          ],
+          "dx": 1,
+          "dy": 1,
+          "mass": 1.0396070975918885
+        },
+        {
+          "name": "skeleton 1",
+          "kind": "box",
+          "firstFrame": [
+            474,
+            471,
+            572,
+            502
+          ],
+          "placeholder": [
+            474,
+            471,
+            572,
+            502
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 0.04521979116447313
+        },
+        {
+          "name": "skeleton 2",
+          "kind": "box",
+          "firstFrame": [
+            581,
+            471,
+            813,
+            502
+          ],
+          "placeholder": [
+            581,
+            471,
+            813,
+            502
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 0.4378957306818517
+        },
+        {
+          "name": "skeleton 3",
+          "kind": "box",
+          "firstFrame": [
+            822,
+            471,
+            965,
+            502
+          ],
+          "placeholder": [
+            822,
+            471,
+            965,
+            502
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 0.43092058765325064
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 1261444,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    },
+    "dark@1x": {
+      "regions": [
+        {
+          "name": "Tycho",
+          "kind": "text",
+          "firstFrame": [
+            12,
+            12,
+            48,
+            24
+          ],
+          "placeholder": [
+            12,
+            10,
+            48,
+            23
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.9278932747199072
+        },
+        {
+          "name": "Observation panel",
+          "kind": "text",
+          "firstFrame": [
+            1329,
+            12,
+            1426,
+            22
+          ],
+          "placeholder": [
+            1329,
+            12,
+            1426,
+            23
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.9090183260769221
+        },
+        {
+          "name": "Drop a Parquet or CSV file",
+          "kind": "text",
+          "firstFrame": [
+            640,
+            408,
+            800,
+            420
+          ],
+          "placeholder": [
+            640,
+            406,
+            800,
+            419
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.9541235951891389
+        },
+        {
+          "name": "Files stay on this device.",
+          "kind": "text",
+          "firstFrame": [
+            645,
+            439,
+            794,
+            451
+          ],
+          "placeholder": [
+            645,
+            437,
+            794,
+            450
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.9530504951705587
+        },
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            676,
+            518,
+            762,
+            528
+          ],
+          "placeholder": [
+            677,
+            518,
+            763,
+            529
+          ],
+          "dx": 1,
+          "dy": 1,
+          "mass": 0.8690213564890871
+        },
+        {
+          "name": "icon sz-theme-light",
+          "kind": "icon",
+          "firstFrame": [
+            1305,
+            10,
+            1316,
+            21
+          ],
+          "placeholder": [
+            1304,
+            11,
+            1315,
+            22
+          ],
+          "dx": 1,
+          "dy": 1,
+          "mass": 0.8212589796663826
+        },
+        {
+          "name": "skeleton 1",
+          "kind": "box",
+          "firstFrame": [
+            474,
+            471,
+            572,
+            502
+          ],
+          "placeholder": [
+            474,
+            471,
+            572,
+            502
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 0.05594021321024288
+        },
+        {
+          "name": "skeleton 2",
+          "kind": "box",
+          "firstFrame": [
+            581,
+            471,
+            813,
+            502
+          ],
+          "placeholder": [
+            581,
+            471,
+            813,
+            502
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 0.35160028721702014
+        },
+        {
+          "name": "skeleton 3",
+          "kind": "box",
+          "firstFrame": [
+            822,
+            471,
+            965,
+            502
+          ],
+          "placeholder": [
+            822,
+            471,
+            965,
+            502
+          ],
+          "dx": 0,
+          "dy": 0,
+          "mass": 0.34868305273655187
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 1261444,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    }
+  },
+  "themeToggle": {
+    "light": {
+      "first frame": "light",
+      "button": "dark",
+      "system change after a press": "dark",
+      "Ctrl+Shift+L": "light",
+      "Cmd+Shift+L": "dark",
+      "reload": "light",
+      "system change before any press": "dark"
+    },
+    "dark": {
+      "first frame": "dark",
+      "button": "light",
+      "system change after a press": "light",
+      "Ctrl+Shift+L": "dark",
+      "Cmd+Shift+L": "light",
+      "reload": "dark",
+      "system change before any press": "light"
+    }
+  },
+  "controls": [
+    {
+      "name": "skeleton 1px wider",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "\"skeleton 1\" edges are 2 device px from the first frame's (limit 1)"
+      ]
+    },
+    {
+      "name": "skeleton 1px wider",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "\"skeleton 1\" edges are 2 device px from the first frame's (limit 1)"
+      ]
+    },
+    {
+      "name": "heading 1px down",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "\"Drop a Parquet or CSV file\" is 2 device px up or down from the first frame's (limit 1)"
+      ]
+    },
+    {
+      "name": "heading 1px down",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "\"Drop a Parquet or CSV file\" is 2 device px up or down from the first frame's (limit 1)"
+      ]
+    },
+    {
+      "name": "button row 1px down",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "\"skeleton 1\" edges are 3 device px from the first frame's (limit 1)",
+        "\"skeleton 2\" edges are 3 device px from the first frame's (limit 1)",
+        "\"skeleton 3\" edges are 3 device px from the first frame's (limit 1)"
+      ]
+    },
+    {
+      "name": "button row 1px down",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "\"skeleton 1\" edges are 3 device px from the first frame's (limit 1)",
+        "\"skeleton 2\" edges are 3 device px from the first frame's (limit 1)",
+        "\"skeleton 3\" edges are 3 device px from the first frame's (limit 1)"
+      ]
+    },
+    {
+      "name": "title bar 35px",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "0.171% of surface pixels differ (limit 0.04%), within {\"x\":0,\"y\":33,\"width\":1440,\"height\":2.5}"
+      ]
+    },
+    {
+      "name": "title bar 35px",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "0.228% of surface pixels differ (limit 0.04%), within {\"x\":0,\"y\":33,\"width\":1440,\"height\":2.5}"
+      ]
+    },
+    {
+      "name": "muted text #888",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "\"Files stay on this device.\" ink mass is 0.86× the first frame's (limit ×/÷ 1.15)",
+        "\"Engine loading…\" ink mass is 0.83× the first frame's (limit ×/÷ 1.15)"
+      ]
+    },
+    {
+      "name": "muted text #888",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "\"Files stay on this device.\" ink mass is 0.82× the first frame's (limit ×/÷ 1.15)",
+        "\"Engine loading…\" ink mass is 0.79× the first frame's (limit ×/÷ 1.15)"
+      ]
+    },
+    {
+      "name": "title bar flat (dark)",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "0.924% of surface pixels differ (limit 0.04%), within {\"x\":0,\"y\":0,\"width\":1440,\"height\":8.5}"
+      ]
+    },
+    {
+      "name": "system font heading",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "\"Drop a Parquet or CSV file\" is 7 device px across from the first frame's (limit 3)"
+      ]
+    },
+    {
+      "name": "system font heading",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "\"Drop a Parquet or CSV file\" is 7 device px across from the first frame's (limit 3)"
+      ]
+    },
+    {
+      "name": "icon 14px",
+      "scheme": "light",
+      "caught": true,
+      "failures": [
+        "\"icon sz-theme-dark\" is 4 device px across from the first frame's (limit 3)",
+        "\"icon sz-theme-dark\" is 3 device px up or down from the first frame's (limit 1)",
+        "\"icon sz-theme-dark\" ink mass is 1.36× the first frame's (limit ×/÷ 1.15)"
+      ]
+    },
+    {
+      "name": "icon 14px",
+      "scheme": "dark",
+      "caught": true,
+      "failures": [
+        "\"icon sz-theme-light\" is 4 device px across from the first frame's (limit 3)",
+        "\"icon sz-theme-light\" is 3 device px up or down from the first frame's (limit 1)",
+        "\"icon sz-theme-light\" ink mass is 1.21× the first frame's (limit ×/÷ 1.15)"
+      ]
+    }
+  ],
+  "ab-reference": {
+    "other": {
+      "ttfpMs": {
+        "median": 188.4,
+        "min": 180.3,
+        "max": 1392.7
+      },
+      "placeholderPaintMs": null
+    },
+    "this": {
+      "ttfpMs": {
+        "median": 195.6,
+        "min": 188.2,
+        "max": 229.5
+      },
+      "placeholderPaintMs": {
+        "median": 77.8,
+        "min": 35.3,
+        "max": 118.2
+      }
+    }
+  },
+  "ab-throttled": {
+    "other": {
+      "ttfpMs": {
+        "median": 3680,
+        "min": 3669.7,
+        "max": 3692.6
+      },
+      "placeholderPaintMs": null
+    },
+    "this": {
+      "ttfpMs": {
+        "median": 3715.5,
+        "min": 3709.2,
+        "max": 3731.4
+      },
+      "placeholderPaintMs": {
+        "median": 243.1,
+        "min": 229.3,
+        "max": 257.8
+      }
+    }
+  },
+  "ab": {
+    "other": "/private/tmp/claude-501/-Users-coryasato-Code-rust-seiza/a5e7ea65-282b-4df2-b2f2-835db2b18ab5/scratchpad/head/apps/tycho/web/dist",
+    "runs": 10,
+    "interleaved": true
+  },
+  "failures": []
+}

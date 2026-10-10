@@ -20,27 +20,29 @@ Tycho, measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median
 
 | Metric | Budget | Now |
 |---|---|---|
-| Time to first paint | ≤ 195 ms (baseline + 10%) | 170 ms |
-| App wasm (brotli) | ≤ 3012 KiB | 2806 KiB (M7: +88 KiB for the jump input, +6 KiB for error states and limits) |
+| Time to first paint | ≤ 215 ms (baseline + 10%) | 195 ms (baseline re-recorded on a quiet machine 2026-10-09; it was 177 ms in September) |
+| App wasm (brotli) | ≤ 3247 KiB (baseline + 15%) | 2824 KiB (M7: +88 KiB for the jump input, +6 KiB for error states and limits, +12 KiB for the theme toggle's icons) |
 | Sample click → first rows (1.57 M rows, engine warm) | ≤ 500 ms | 239 ms |
 | Fling top → bottom in 3 s: p95 / worst frame | ≤ 20 / 50 ms | 16.7 / 33.3 ms |
 | Scrollbar jump to 90% → real rows | ≤ 400 ms | 133 ms |
 | App memory after scrolling every row twice | ≤ 128 MiB | 89 MiB |
 
-On a throttled run (4× CPU, Fast 4G), frames stay smooth, but rows arrive slowly: first rows 3.4 s, a jump 2.2 s. Details in [`apps/tycho/perf/results/`](apps/tycho/perf/results/).
+On a throttled run (4× CPU, Fast 4G), frames stay smooth, but rows arrive slowly: first rows 3.4 s, a jump 2.2 s. The first frame takes 3.7 s there, but a static copy of the shell paints at 0.24 s, so the page is never blank for long. Details in [`apps/tycho/perf/results/`](apps/tycho/perf/results/).
 
 ## Canvas tradeoffs (Tycho, as of M7)
 
 Drawing to a canvas gives up things the DOM does for free. Here's where Tycho stands on each, what it does today, and what closing the gap would take.
 
-- **Accessibility:** screen readers see nothing: the canvas has no accessibility tree, so the table, the buttons, and the jump input are invisible to them. *Today:* everything works from the keyboard. Arrows, Page Up/Down, Space, and Home/End scroll the focused table. Cmd/Ctrl+G jumps to a row, and Enter there hands the keys back to the table. *To close it:* a hidden DOM mirror of the visible rows and controls, kept in step with each frame.
+- **Accessibility:** screen readers see nothing: the canvas has no accessibility tree, so the table, the buttons, and the jump input are invisible to them. *Today:* everything works from the keyboard. Arrows, Page Up/Down, Space, and Home/End scroll the focused table. Cmd/Ctrl+G jumps to a row, and Enter there hands the keys back to the table. Cmd/Ctrl+Shift+L switches between the light and dark themes, and Cmd/Ctrl+Shift+P opens the observation panel. Tab doesn't move between controls: GPUI Kit 0.7.1 binds nothing to it. *To close it:* a hidden DOM mirror of the visible rows and controls, kept in step with each frame.
 - **Text input and IME:** the jump-to-row input is GPUI Kit's canvas-drawn text field. A hidden browser input underneath it carries keys, composition, and paste. *Today:* typing, selection, undo, and IME composition work. A Japanese IME's full-width digits (`１２３`) are accepted, as are thousands separators (`1,000,000`). In a Mac browser, GPUI Kit 0.7.1's web build doesn't bind Cmd+A/C/X/Z in inputs, so Tycho binds them itself. Keys typed in the input never scroll the table.
 - **Paste:** Cmd/Ctrl+V works with no permission prompt, because it's the browser's own paste event. The right-click menu is drawn by GPUI Kit, not the browser. Its Paste item reads the clipboard through the async Clipboard API, so the browser has to grant clipboard access first. If access is refused, nothing is pasted and nothing says why. The menu labels its shortcuts "Ctrl+…" even in a Mac browser, where Cmd works too.
 - **Text selection and copy:** cells can't be selected or copied yet. Column resizing, selection, and sorting are a researched-first goal after v1 ([`PLAN.md`](apps/tycho/PLAN.md), "Long-term goals").
 - **Values wider than their column:** Tycho handles these like a spreadsheet. A double too long for its column is rounded to the digits that fit (`45.00497837174552` shows as `45.004978372`), and goes scientific (`1.7014118e38`) only when its whole part doesn't fit. Integers are never rounded: their columns fit the type's widest value. An integer or decimal still too wide is cut in the middle (`9999999…999`), keeping its magnitude and its last digits; text ends in "…", and its line breaks show as ¶ (a cell is one line). Rest the pointer on a rounded or cut cell for half a second and a tooltip shows the exact value. Like the cells, the tooltip is drawn on the canvas, so screen readers don't see it, and only the pointer opens it (not the keyboard).
 - **Non-Latin scripts:** the canvas has only the bundled UI font (IBM Plex Sans: Latin, Greek, Cyrillic) plus emoji. Chinese, Japanese, Korean, and other scripts outside it draw as empty boxes, in cells and tooltips alike. *To close it:* a fallback font for those scripts, loaded after first paint.
 - **Ctrl+F:** the browser's find doesn't see the rows, and there's no in-app search (v1 scope excludes filtering). Jump to row is the way to get somewhere. It takes Cmd/Ctrl+G, which in a browser is "find next", since find has nothing to search here anyway.
-- **Bundle size:** the app wasm is 2.75 MiB brotli, downloaded and compiled before first paint. The jump input's text engine (editing, undo, selection, IME) is 88 KiB of that, ~3 ms of first paint on a fast machine and ~100 ms on Fast 4G. GPUI Kit's styled text field would have been 194 KiB, because it also links its multi-line and code-editor engines, so Tycho styles GPUI Kit's bare single-line field itself. DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after first paint.
+- **Before the app arrives:** until the wasm has downloaded and drawn its first frame, the page shows a static HTML copy of the empty shell, so a visitor on a slow link sees the app's layout at ~0.25 s instead of a blank page for ~3.7 s (Fast 4G). It's a DOM layer over the canvas, and it's inert: its buttons are skeletons that can't be pressed, nothing in it can be selected, and screen readers skip it. It fades into the first frame over 120 ms (instantly with "reduce motion"). It can't be a perfect copy: the browser and GPUI draw the same font differently (GPUI's text is crisper and sits up to 2 px lower on a DPR 1 display), so the buttons are drawn as skeletons at GPUI's exact sizes rather than as text that would visibly shift. A file dropped before the app starts isn't caught.
+- **Bundle size:** the app wasm is 2.76 MiB brotli, downloaded and compiled before first paint. The jump input's text engine (editing, undo, selection, IME) is 88 KiB of that, ~3 ms of first paint on a fast machine and ~100 ms on Fast 4G. GPUI Kit's styled text field would have been 194 KiB, because it also links its multi-line and code-editor engines, so Tycho styles GPUI Kit's bare single-line field itself. DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after first paint.
+- **The placeholder's cost:** it adds 10.7 KiB brotli to `index.html` (0.4 → 11.1 KiB), most of it an inlined 8.5 KiB subset of the UI font, and it paints before the wasm and UI font downloads it shares the connection with. TTFP, measured to GPUI's first frame, is unchanged within noise.
 - **Overlapping panel:** the observation panel floats over the window's lower right, and a click there lands on the panel. *Today:* it keeps clear of the table's scrollbars, so a thumb at the bottom stays grabbable, but it still covers the cells under it. Hide it with its button or Cmd/Ctrl+Shift+P. While it's open it redraws the window 4 times a second (~20 ms of work each), even when nothing else moves; closed, an idle window draws nothing.
 
 ## File size limits (Tycho, as of M7)
@@ -120,7 +122,9 @@ The `CLAUDE.md` files (root and per app) are the project's working rules and are
 
 ## Fonts
 
-The UI face is [IBM Plex Sans](https://github.com/IBM/plex), © IBM Corp., under the SIL Open Font License 1.1 ([`shared-web/fonts/OFL.txt`](shared-web/fonts/OFL.txt)).
+The UI face is [IBM Plex Sans](https://github.com/IBM/plex), © IBM Corp., under the SIL Open Font License 1.1 ([`shared-web/fonts/OFL.txt`](shared-web/fonts/OFL.txt)). The static placeholder uses a subset of it (printable ASCII and "…"), renamed "Seiza Placeholder" as the license requires of a modified version; [`shared-web/fonts/make-placeholder-font.py`](shared-web/fonts/make-placeholder-font.py) makes it.
+
+The theme button's sun and moon are [Lucide](https://lucide.dev) icons (ISC license), embedded through GPUI Kit's assets.
 
 ## Data credits
 

@@ -167,9 +167,12 @@ check: lint build
 perf *args:
     node {{app_dir}}/perf/suite.ts {{args}}
 
-# M7 part E experiment: HEAD's release build against a copy whose index.html
-# paints a static HTML placeholder of the shell before the wasm, interleaved:
-# TTFP and the placeholder's paint. Run `just tycho build` first.
+# M7 part G checks on the release build: the static placeholder shell against
+# GPUI's first frame in screenshots (light and dark), its font's character
+# set, its bytes, and the theme toggle (button, Cmd/Ctrl+Shift+L, system
+# changes, reload). --controls: negative controls for the screenshot match.
+# --ab <dist>: interleaved TTFP and placeholder-paint A/B against another
+# build's web/dist (--runs, --reference-only). Run `just tycho build` first.
 placeholder *args:
     node {{app_dir}}/perf/placeholder.ts {{args}}
 

@@ -90,6 +90,7 @@ impl Bootstrap {
                 bind_mac_input_keys(cx);
             }
             crate::perf::init(cx);
+            crate::shell::init(cx);
             Theme::sync_system_appearance(None, cx);
 
             let options = WindowOptions {
@@ -132,8 +133,16 @@ fn web_application() -> Application {
         CanvasFontFallback::Emoji,
     ));
     let http_client = Arc::new(platform.fetch_http_client());
-    Application::with_platform(platform).with_http_client(http_client)
+    Application::with_platform(platform)
+        .with_http_client(http_client)
+        .with_assets(Icons)
 }
+
+// The icons the shell draws, embedded in the wasm. gpui-kit's default
+// `Assets` fetches each icon from a CDN on first use on the web, which would
+// put a request between the first frame and its icons. Unlisted icons draw
+// nothing.
+gpui_kit::assets::icon_assets!(Icons, [Sun, Moon]);
 
 /// Whether the page runs in a Mac browser (`navigator.platform`), where Cmd
 /// and Opt are the editing modifiers.

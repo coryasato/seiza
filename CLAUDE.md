@@ -44,6 +44,8 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 - **GPUI doesn't deliver browser file drops.** gpui-pre-web (0.3.5 through 0.3.8) `preventDefault`s `dragover`/`drop` on its canvas (so the tab doesn't navigate to the file) and drops them: a browser gives `File` objects, not the paths `ExternalPaths` wants. Listen on `window` yourself and enter GPUI through its foreground executor; Tycho's `crate/src/files.rs` does this. A GPUI click handler runs inside the DOM's pointer event, so it can open a file dialog (`input.click()`).
 - **The web platform maps `.SystemUIFont` to IBM Plex Sans.** That's the family `shared-web/fonts/` bundles, so no theme font override is needed.
 - **`shared/` uses GPUI's `Auto` backend:** WebGPU when the browser has a usable adapter, WebGL2 otherwise. It beat forced WebGL2 on cold-start TTFP by 40% in Chromium and 28% in WebKit (Tycho M1). Check both paths when debugging rendering: headless Firefox falls back to WebGL2.
+- **GPUI lays out in whole device pixels and draws its own glyphs.** Line heights are rounded to device pixels and positions of exactly x.5 round down (the browser rounds up); its text is measured with its own advances (a 14 px label ran ~1 px narrower than Chrome's) and rasterized by gpui-pre-web, crisper and up to ~2 px lower at DPR 1. An HTML copy of a GPUI view can match its boxes exactly but not its text. `shared-web/src/placeholder.ts` copies the rounding; read it before building another HTML twin of a GPUI screen.
+- **The static placeholder shell (`shared-web/src/placeholder.ts`) is opt-in per app** (`seizaViteConfig`'s `placeholder`). `shared/` releases it in the microtask that sets `gpui:first-frame`; it fades out over that frame. It must stay inert, in the placeholder font's characters (printable ASCII and "…"; the build fails otherwise), and match the app's first frame; each app's check compares them.
 - **GPUI's first real draw isn't in a `requestAnimationFrame`.** The window starts at 0×0. The first draw with a real size happens in gpui-pre-web's `ResizeObserver` callback, which renders and presents synchronously. With WebGPU it can be GPUI's rAF instead. Don't time anything off rAF ordering. See `shared/src/first_frame.rs`.
 
 ## Repo layout
@@ -56,8 +58,8 @@ seiza/
   package.json          # npm workspaces: shared-web, apps/*/web
   tsconfig.base.json    # strict TS settings every host extends
   .gitignore            # target/, node_modules/, .wrangler/, pkg/, dist/, per-app data/raw, generated data, perf/results/raw
-  shared/               # crate `seiza`: wasm bootstrap, app shell, theme, perf overlay, file helpers
-  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), fonts/, scripts/asset-sizes.ts
+  shared/               # crate `seiza`: wasm bootstrap, app shell (title bar, theme toggle), perf overlay, file helpers
+  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), placeholder.ts (static shell before the wasm), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts
   apps/
     tycho/
       crate/            # Rust (cdylib)

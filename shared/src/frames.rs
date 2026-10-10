@@ -50,6 +50,10 @@ thread_local! {
     static REFRESH: RefCell<Option<Task<()>>> = const { RefCell::new(None) };
     /// Whether the first frame is out; nothing samples before it.
     static STARTED: Cell<bool> = const { Cell::new(false) };
+    /// The page has a placeholder whose paint mark hadn't arrived by the
+    /// first frame: Element Timing entries reach their observer
+    /// asynchronously, sometimes after it, though the paint came first.
+    static PLACEHOLDER_PENDING: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Called once, after the first frame: records the page-load steps up to
@@ -110,6 +114,9 @@ fn refresh(cx: &mut App) {
             memory: Some(memory().into()),
         },
     );
+    if PLACEHOLDER_PENDING.get() {
+        PLACEHOLDER_PENDING.set(!record_placeholder(cx));
+    }
     for callback in crate::perf::refresh_callbacks(cx) {
         callback(cx);
     }
@@ -182,8 +189,9 @@ fn run_loop() {
 
 /// The page-load steps up to the first frame, from the navigation's and the
 /// wasm's timings and the bootstrap's marks (`shared-web/src/bootstrap.ts`):
-/// the HTML, the wasm's download, its compile (what's left of it once the
-/// download ends: compilation streams), and the first frame.
+/// the HTML, the static placeholder's paint (when the page has one; its
+/// own metric, never TTFP), the wasm's download, its compile (what's left of
+/// it once the download ends: compilation streams), and the first frame.
 fn record_page_load(cx: &mut App, ttfp_ms: Option<f64>) {
     let html = navigation_response_end();
     let requested = mark_time("seiza:wasm-requested");
@@ -192,6 +200,7 @@ fn record_page_load(cx: &mut App, ttfp_ms: Option<f64>) {
     if let Some(end) = html {
         crate::perf::set_load_step(cx, PAGE_LOAD, "HTML", LoadStep::done(0.0, end));
     }
+    PLACEHOLDER_PENDING.set(has_placeholder() && !record_placeholder(cx));
     if let (Some(start), Some(end)) = (requested, downloaded) {
         crate::perf::set_load_step(cx, PAGE_LOAD, "Wasm download", LoadStep::done(start, end));
     }
@@ -201,6 +210,25 @@ fn record_page_load(cx: &mut App, ttfp_ms: Option<f64>) {
     if let (Some(start), Some(end)) = (ready.or(html), ttfp_ms) {
         crate::perf::set_load_step(cx, PAGE_LOAD, "First frame", LoadStep::done(start, end));
     }
+}
+
+/// The placeholder's paint step, if its mark is set (`shared-web`'s
+/// placeholder sets it). Returns whether it was.
+fn record_placeholder(cx: &mut App) -> bool {
+    let Some(end) = mark_time("seiza:placeholder-painted") else {
+        return false;
+    };
+    crate::perf::set_load_step(cx, PAGE_LOAD, "Placeholder", LoadStep::done(0.0, end));
+    true
+}
+
+/// Whether the page was served with a placeholder: it's still in the page at
+/// the first frame (it fades out after).
+fn has_placeholder() -> bool {
+    web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.get_element_by_id("seiza-placeholder"))
+        .is_some()
 }
 
 fn navigation_response_end() -> Option<f64> {

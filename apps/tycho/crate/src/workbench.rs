@@ -1427,6 +1427,7 @@ impl Workbench {
                                     Button::new("retry-engine")
                                         .primary()
                                         .label("Retry")
+                                        .cursor_pointer()
                                         .on_click(cx.listener(|this, _, window, cx| {
                                             this.retry_engine(window, cx)
                                         })),
@@ -1439,6 +1440,12 @@ impl Workbench {
                                     .label("Open a file…")
                                     .loading(self.load.opening(Origin::Device))
                                     .disabled(engine_down)
+                                    // The web's pointer, only while it can
+                                    // be pressed (gpui-kit keeps the arrow).
+                                    .when(
+                                        !engine_down && !self.load.opening(Origin::Device),
+                                        |button| button.cursor_pointer(),
+                                    )
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.pick_file(window, cx)
                                     })),
@@ -1451,6 +1458,11 @@ impl Workbench {
                                         .label(sample.label)
                                         .loading(self.load.opening(Origin::Sample(sample)))
                                         .disabled(engine_down)
+                                        .when(
+                                            !engine_down
+                                                && !self.load.opening(Origin::Sample(sample)),
+                                            |button| button.cursor_pointer(),
+                                        )
                                         .on_click(cx.listener(move |this, _, window, cx| {
                                             this.open_sample(sample, window, cx)
                                         })),
@@ -1569,6 +1581,7 @@ impl Workbench {
                             .ghost()
                             .small()
                             .label("Open file…")
+                            .cursor_pointer()
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.pick_file(window, cx)),
                             ),

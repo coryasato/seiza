@@ -91,6 +91,7 @@ impl Render for PerfPanel {
                             .ghost()
                             .xsmall()
                             .label("Hide")
+                            .cursor_pointer()
                             .tooltip("Cmd/Ctrl+Shift+P")
                             .on_click(|_, _, cx| crate::perf::toggle(cx)),
                     ),

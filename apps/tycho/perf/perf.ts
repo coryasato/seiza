@@ -7,6 +7,13 @@
 // must match the `gpui:first-frame` mark within 5 ms, and the mark must land
 // right after the first GPU work GPUI issued (see `probe` below).
 //
+// It also checks the static placeholder shell (M7 part G): it painted before
+// the first frame (its `seiza:placeholder-painted` mark, Element Timing on its
+// title), the overlay's "Placeholder" row matches that mark, it was released
+// (began fading out over the first frame) inside the task that presented
+// that frame, so the browser had no chance to render a frame with neither
+// (the probe times it), and it's gone from the page afterwards.
+//
 // Each run then waits for DuckDB (M2): the overlay's "Engine ready" must match
 // the `tycho:engine-ready` mark within 5 ms, and no request outside the
 // first-paint set (the document, entry JS, app wasm, and UI font) may start
@@ -34,6 +41,8 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, median, option, throttle, type Profile } from './common.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
+// Set by shared-web/src/placeholder.ts.
+const PLACEHOLDER_PAINT_MARK = 'seiza:placeholder-painted';
 // Set by web/src/engine.ts.
 const ENGINE_START_MARK = 'tycho:engine-start';
 const ENGINE_READY_MARK = 'tycho:engine-ready';
@@ -69,7 +78,20 @@ const check = flag('check');
  */
 function probe(): void {
   type GpuTask = { lastGpuCall: number; end: number | null };
-  const state = { firstGpuWork: null as number | null, gpuTasks: [] as GpuTask[], api: '', current: null as GpuTask | null };
+  const state = {
+    firstGpuWork: null as number | null,
+    gpuTasks: [] as GpuTask[],
+    api: '',
+    current: null as GpuTask | null,
+    placeholderReleased: null as number | null,
+  };
+  // When the placeholder shell is released, timed here rather than by the
+  // app: shared/ adds `sz-leaving` to it, and it fades out.
+  const add = DOMTokenList.prototype.add;
+  DOMTokenList.prototype.add = function (this: DOMTokenList, ...tokens: string[]) {
+    if (tokens.includes('sz-leaving') && state.placeholderReleased === null) state.placeholderReleased = performance.now();
+    return add.apply(this, tokens);
+  };
   (globalThis as { __seizaProbe?: typeof state }).__seizaProbe = state;
   const hook = (proto: object | undefined, names: string[], api: string) => {
     if (!proto) return;
@@ -124,6 +146,15 @@ interface Run {
   gpuTaskCount: number;
   /** Which API drew the first frame: `webgl2` or `webgpu`. */
   api: string;
+  placeholder: {
+    paintMs: number | null;
+    overlayMs: number | null;
+    releasedMs: number | null;
+    /** Released inside the task that presented the first frame. */
+    releasedInPresentingTask: boolean;
+    /** Gone from the page by the end of the run (after its fade). */
+    gone: boolean;
+  };
   backing: string;
   consoleProblems: string[];
 }
@@ -208,6 +239,11 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
 
     // The overlay learns TTFP one frame after the mark; wait for it to draw it.
     const overlayTtfpMs = await overlayMs(page, 'TTFP', 10_000);
+    const placeholderPaintMs = await page.evaluate(
+      (mark) => performance.getEntriesByName(mark, 'mark').at(-1)?.startTime ?? null,
+      PLACEHOLDER_PAINT_MARK,
+    );
+    const placeholderOverlayMs = await overlayMs(page, 'Placeholder', 10_000);
 
     // DuckDB loads after first paint; wait for it, then read the waterfall.
     const readyMs = (await page
@@ -253,11 +289,16 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
     };
     if (tracePath) await context.tracing.stop({ path: tracePath });
 
-    const { firstGpuWorkMs, gpuTasks, api, backing } = await page.evaluate(() => {
+    const { firstGpuWorkMs, gpuTasks, api, backing, releasedMs, gone } = await page.evaluate(() => {
       const canvas = document.querySelector('canvas');
       const state = (
         globalThis as {
-          __seizaProbe?: { firstGpuWork: number | null; gpuTasks: { lastGpuCall: number; end: number | null }[]; api: string };
+          __seizaProbe?: {
+            firstGpuWork: number | null;
+            gpuTasks: { lastGpuCall: number; end: number | null }[];
+            api: string;
+            placeholderReleased: number | null;
+          };
         }
       ).__seizaProbe;
       return {
@@ -265,8 +306,11 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
         gpuTasks: state?.gpuTasks ?? [],
         api: state?.api ?? '',
         backing: canvas ? `${canvas.width}x${canvas.height}` : 'none',
+        releasedMs: state?.placeholderReleased ?? null,
+        gone: !document.getElementById('seiza-placeholder'),
       };
     });
+    const presenting = gpuTasks.find((task) => task.end !== null && task.lastGpuCall <= ttfpMs && ttfpMs <= task.end);
     return {
       ttfpMs,
       overlayTtfpMs,
@@ -278,6 +322,16 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
           .map((task) => ({ lastGpuCallMs: task.lastGpuCall, endMs: task.end! }))[0] ?? null,
       gpuTaskCount: gpuTasks.length,
       api,
+      placeholder: {
+        paintMs: placeholderPaintMs,
+        overlayMs: placeholderOverlayMs,
+        releasedMs,
+        // The release must fall after the presenting task's last GPU call and
+        // before its microtask checkpoint ended.
+        releasedInPresentingTask:
+          !!presenting && releasedMs !== null && presenting.lastGpuCall <= releasedMs && releasedMs <= presenting.end!,
+        gone,
+      },
       backing,
       consoleProblems,
     };
@@ -301,6 +355,16 @@ function runProblems(run: Run): string[] {
   else if (run.presentingTask === null)
     problems.push(`mark ${run.ttfpMs.toFixed(1)} ms isn't right after any of the ${run.gpuTaskCount} tasks that did GPU work`);
   if (run.backing !== '2880x1800') problems.push(`backing store ${run.backing}, expected 2880x1800`);
+  const { placeholder } = run;
+  if (placeholder.paintMs === null) problems.push('the placeholder never painted');
+  else if (placeholder.paintMs > run.ttfpMs) problems.push(`the placeholder painted at ${placeholder.paintMs.toFixed(1)} ms, after the first frame`);
+  else if (placeholder.overlayMs === null) problems.push('overlay never showed Placeholder');
+  else if (Math.abs(placeholder.overlayMs - placeholder.paintMs) > OVERLAY_TOLERANCE_MS)
+    problems.push(`overlay Placeholder ${placeholder.overlayMs} ms vs mark ${placeholder.paintMs.toFixed(1)} ms`);
+  if (placeholder.releasedMs === null) problems.push('the placeholder was never released');
+  else if (!placeholder.releasedInPresentingTask)
+    problems.push(`the placeholder was released at ${placeholder.releasedMs.toFixed(1)} ms, outside the task that presented the first frame`);
+  if (!placeholder.gone) problems.push('the placeholder was still on the page at the end of the run');
   const { engine } = run;
   if (engine.readyMs === null) problems.push('engine never became ready');
   else if (engine.overlayReadyMs === null) problems.push('overlay never showed Engine ready');
@@ -377,7 +441,10 @@ const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async
   return version;
 });
 
-const results: Record<string, { runs: Run[]; medianTtfpMs: number; medianEngineReadyMs: number | null; problems: string[] }> = {};
+const results: Record<
+  string,
+  { runs: Run[]; medianTtfpMs: number; medianPlaceholderMs: number | null; medianEngineReadyMs: number | null; problems: string[] }
+> = {};
 try {
   for (const profile of profiles) {
     const profileRuns: Run[] = [];
@@ -394,7 +461,7 @@ try {
       profileRuns.push(run);
       const problems = runProblems(run);
       console.log(
-        `${profile.name} ${String(i + 1).padStart(2)}/${runs}  TTFP ${run.ttfpMs.toFixed(1)} ms  ` +
+        `${profile.name} ${String(i + 1).padStart(2)}/${runs}  TTFP ${run.ttfpMs.toFixed(1)} ms  placeholder ${run.placeholder.paintMs?.toFixed(1) ?? '—'} ms  ` +
           `overlay ${run.overlayTtfpMs ?? '—'}  engine ready ${run.engine.readyMs?.toFixed(0) ?? '—'} ms (first request +${run.engine.firstRequest ? (run.engine.firstRequest.startMs - run.ttfpMs).toFixed(1) : '—'} ms after mark)  first GPU work (${run.api || '?'}) ${run.firstGpuWorkMs?.toFixed(1) ?? '—'} ms  presenting task ${run.presentingTask ? `${run.presentingTask.lastGpuCallMs.toFixed(1)}–${run.presentingTask.endMs.toFixed(1)}` : '—'} ms` +
           (problems.length ? `  PROBLEMS: ${problems.join('; ')}` : ''),
       );
@@ -402,6 +469,9 @@ try {
     results[profile.name] = {
       runs: profileRuns,
       medianTtfpMs: median(profileRuns.map((run) => run.ttfpMs)),
+      medianPlaceholderMs: profileRuns.every((run) => run.placeholder.paintMs !== null)
+        ? median(profileRuns.map((run) => run.placeholder.paintMs!))
+        : null,
       medianEngineReadyMs: profileRuns.every((run) => run.engine.readyMs !== null)
         ? median(profileRuns.map((run) => run.engine.readyMs!))
         : null,
@@ -426,6 +496,10 @@ const summary = {
   protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },
   wasmBrotliKiB: Number(wasmKiB.toFixed(1)),
   ttfpMs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, Number(r.medianTtfpMs.toFixed(1))])),
+  /** The static placeholder shell's paint (its own metric; TTFP stays GPUI's first frame). */
+  placeholderPaintMs: Object.fromEntries(
+    Object.entries(results).map(([name, r]) => [name, r.medianPlaceholderMs === null ? null : Number(r.medianPlaceholderMs.toFixed(1))]),
+  ),
   engineReadyMs: Object.fromEntries(
     Object.entries(results).map(([name, r]) => [name, r.medianEngineReadyMs === null ? null : Number(r.medianEngineReadyMs.toFixed(1))]),
   ),
@@ -439,6 +513,7 @@ for (const [name, r] of Object.entries(results)) {
   const ttfps = r.runs.map((run) => run.ttfpMs);
   console.log(
     `${name}: median TTFP ${r.medianTtfpMs.toFixed(1)} ms (min ${Math.min(...ttfps).toFixed(1)}, max ${Math.max(...ttfps).toFixed(1)}, n=${ttfps.length}); ` +
+      `median placeholder paint ${r.medianPlaceholderMs?.toFixed(1) ?? '—'} ms; ` +
       `median engine ready ${r.medianEngineReadyMs?.toFixed(1) ?? '—'} ms`,
   );
 }
