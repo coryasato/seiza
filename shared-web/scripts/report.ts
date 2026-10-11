@@ -129,7 +129,7 @@ class Reporter {
     this.appDir = appDir;
     this.budgets = JSON.parse(readFileSync(join(appDir, 'perf', 'budgets.json'), 'utf8'));
     this.results = loadResults(appDir, this.budgets.exclude ?? []);
-    // No baseline until the app's first `--write-baseline` (M1).
+    // No baseline until the app's first `--write-baseline`.
     const baselinePath = join(appDir, 'perf', 'baseline.json');
     this.baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : {};
   }

@@ -157,7 +157,7 @@ function wireBytes(url: string): Promise<number> {
  * the page, wasm, JS, and font come as the deploy's quality-11 brotli (the size
  * matches the `.br` beside it); the oversize files (`oversize`, from R2) too.
  * A missing DuckDB extension and the R2 assets under /data/ are 404s.
- * Logs each wasm's Content-Encoding and bytes on the wire, which M8 records.
+ * Logs each wasm's Content-Encoding and bytes on the wire, which the deploy results record.
  */
 export async function checkAssets(origin: string, dist: string, oversize?: string[]): Promise<string[]> {
   const failures: string[] = [];

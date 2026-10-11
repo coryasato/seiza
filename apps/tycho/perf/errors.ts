@@ -1,4 +1,4 @@
-// M7 part D checks: error states and hardening, on the release build
+// Checks: error states and hardening, on the release build
 // (Chromium headless=new, 1440×900 at DPR 2).
 //
 // 1. Engine didn't load: DuckDB's wasm blocked, then (a second run) the

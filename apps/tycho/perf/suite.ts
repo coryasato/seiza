@@ -1,4 +1,4 @@
-// The full perf suite (`just tycho perf`, M7 part E): every protocol
+// The full perf suite (`just tycho perf`): every protocol
 // measurement Tycho has a budget for, on the release build, into one results
 // file.
 //
@@ -22,7 +22,7 @@
 //
 // Usage: node apps/tycho/perf/suite.ts [--runs 10] [--label m7-suite] [--only cold,panel,table,jump,csv]
 //                                      [--reference-only] [--update] [--url <origin>]
-// --url runs every part that can against that origin (production, M8): all
+// --url runs every part that can against that origin (production): all
 // but panel, whose "Read" check counts /data/ bytes at the server, which only
 // the local `wrangler dev` allows; it stays on the local build. Cold then
 // also measures the local build, interleaved, and records the app's part of

@@ -60,7 +60,7 @@ export async function clickTarget(page: Page, id: string, timeout = 60_000): Pro
  * Sends a wheel event that arrives with this `deltaY` (and `deltaX`) in CSS
  * pixels. Under Playwright's `deviceScaleFactor` emulation, Chromium divides
  * synthetic wheel deltas by the scale: at DPR 2, `mouse.wheel(0, 1000)`
- * arrives as `deltaY` 500 (checked 2026-09-25, M4). The reference run is at
+ * arrives as `deltaY` 500 (checked 2026-09-25). The reference run is at
  * DPR 2, so every scripted scroll goes through this.
  */
 export async function wheel(page: Page, deltaY: number, deltaX = 0): Promise<void> {
@@ -141,7 +141,7 @@ export interface AppServer {
 }
 
 /**
- * The app under test. With `given` (a script's `--url`: production, M8)
+ * The app under test. With `given` (a script's `--url`: production)
  * nothing starts, and nothing counts /data/ bytes. Otherwise the release
  * build (web/dist) through `vite preview` on `previewPort`, and, with
  * `worker`, its /data/* (proxied by vite.config.ts to WORKER_DEV_PORT) through
@@ -384,7 +384,7 @@ export function percentiles(values: number[]): { n: number; p50: number; p95: nu
 }
 
 /**
- * The M4 fling: wheel events from the top to the bottom of a `rows`-row
+ * The fling: wheel events from the top to the bottom of a `rows`-row
  * table in ~3 s, the pointer over the table. Returns the page times it
  * started and ended. Press Home and wait for the rows first.
  */

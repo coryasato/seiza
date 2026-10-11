@@ -3,7 +3,7 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
 
 /**
  * The static placeholder shell: an HTML/CSS copy of the app's empty shell,
- * painted before the wasm arrives (Tycho M7 part G). It sits above the canvas
+ * painted before the wasm arrives. It sits above the canvas
  * and is inert: nothing in it can be clicked, focused, or selected (clicks
  * reach the canvas). `shared/` adds `sz-leaving` in the same microtask that
  * sets `gpui:first-frame`, right after GPUI presents its first frame
@@ -19,7 +19,7 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
  *
  * GPUI and the browser can't draw the same text identically: they rasterize
  * glyphs differently, and GPUI measures text its own way and rounds layout
- * to whole device pixels. What part G's review settled on: the boxes match
+ * to whole device pixels. What review settled on: the boxes match
  * exactly (GPUI's line-height rounding, below), components whose label would
  * move are skeletons with GPUI's widths, and the swap is a fade, not a cut.
  */

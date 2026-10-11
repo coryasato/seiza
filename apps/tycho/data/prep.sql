@@ -1,10 +1,10 @@
 -- Turns the raw SBDB pages (fetch_asteroids.ts) into Tycho's asteroid sample:
 -- asteroids.parquet (the "Try sample" button) and fixtures/asteroids.csv (the
--- M6 fixture). prep.ts runs this with native DuckDB (@duckdb/node-api, 1.4.x
+-- CSV fixture). prep.ts runs this with native DuckDB (@duckdb/node-api, 1.4.x
 -- like the wasm engine) from apps/tycho/data/. From raw/asteroids/fetch.json
 -- it sets the variable api_count (rows the API reported) and substitutes
 -- ${fetched} (the fetch date, YYYY-MM-DD; COPY options must be constants).
--- The writer settings: ZSTD, and 30,720-row groups, chosen in M4 by measured
+-- The writer settings: ZSTD, and 30,720-row groups, chosen by measured
 -- page latency and bytes (perf/results/2026-09-25-m4.md): the table reads one
 -- page with a file_row_number filter, which DuckDB answers from one group.
 
@@ -89,7 +89,7 @@ COPY (SELECT * FROM asteroids ORDER BY spkid) TO 'asteroids.parquet' (
     }
 );
 
--- The M6 fixture: the same rows as CSV, then the hand-written tricky rows
+-- The CSV fixture: the same rows as CSV, then the hand-written tricky rows
 -- (quoted commas, newlines, and quotes in names). INSERT casts their text
 -- to the table's types.
 CREATE TEMP TABLE fixture AS SELECT *, 0 AS part FROM asteroids;

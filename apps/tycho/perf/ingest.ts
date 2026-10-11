@@ -1,4 +1,4 @@
-// M6 ingest experiment: how the table should read a dropped CSV.
+// CSV ingest experiment: how the table should read a dropped CSV.
 //
 //   raw      register the whole file and page it with read_csv(...) LIMIT/OFFSET
 //            (and count(*) for the row count): nothing ingested
@@ -18,7 +18,7 @@
 // here in JS with a quote-parity scan (the app does it in Rust). Every
 // approach must count the file's rows (MANIFEST.json).
 //
-// Options that isolate where the time goes (M6 used each):
+// Options that isolate where the time goes (each was used):
 //   --no-auto-detect  read_csv with every option fixed (auto_detect = false):
 //                     the app's setting; without it each chunk is sniffed again
 //   --compress        chunks into ATTACH ':memory:' (COMPRESS)

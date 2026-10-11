@@ -72,8 +72,8 @@ impl std::error::Error for EngineError {}
 impl EngineError {
     /// Whether DuckDB failed to read the file's bytes, which registering it
     /// again under a new name can fix: a failed HTTP range read, the Thrift
-    /// errors every later read of those bytes gives under the old name
-    /// (M7), or a dropped file the browser can no longer read. Not a query
+    /// errors every later read of those bytes gives under the old name,
+    /// or a dropped file the browser can no longer read. Not a query
     /// or decode error, nor a stopped engine: registering again can't help.
     pub fn is_read_failure(&self) -> bool {
         const SIGNS: [&str; 4] = [

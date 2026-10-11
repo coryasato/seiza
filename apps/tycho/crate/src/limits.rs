@@ -1,4 +1,4 @@
-//! How big a file Tycho opens (M7, `perf/results/2026-10-08-m7-hardening.md`).
+//! How big a file Tycho opens (`perf/results/2026-10-08-m7-hardening.md`).
 //!
 //! A Parquet file is read where it lies, so its size barely touches memory:
 //! DuckDB held 2.8 MiB for a 4.6 GB file (1,659 row groups). What grows is

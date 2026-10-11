@@ -6,7 +6,7 @@ main = "src/index.ts"
 compatibility_date = "2026-09-24"
 
 # Served only from the custom domain. The account's default subdomain names
-# its owner, so it's off and never committed (docs/milestones.md, M8), and so are
+# its owner, so it's off and never committed (docs/DECISIONS.md, Hosting), and so are
 # preview URLs, which live on it.
 routes = [{ pattern = "tycho.seiza.io", custom_domain = true }]
 workers_dev = false

@@ -18,7 +18,7 @@ js-sys = "0.3"
 web-sys = "0.3"
 
 # Cargo reads this only from the workspace root, so it applies to every app.
-# M1 tunes these by measurement (opt-level "z" vs "s").
+# They were tuned by measurement (opt-level "z" vs "s").
 [profile.release]
 opt-level = "z"
 lto = true

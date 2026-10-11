@@ -1,24 +1,24 @@
 // Builds the drop-test files. They're files a visitor could drop, so
 // `perf/drop.ts` and `perf/csv.ts` open them from disk, never R2.
 //
-// M5, from asteroids.parquet: the asteroid table repeated k times, in file
+// Row-group layouts, from asteroids.parquet: the asteroid table repeated k times, in file
 // order, to ~100 MB and ~1 GB. The 1 GB file comes in three row-group
 // layouts, since a dropped file's layout isn't ours to choose and a page read
 // decodes whole row groups: our samples' 30,720 rows, DuckDB's default
 // 122,880, and pyarrow's 1,048,576.
 //
-// M6, from fixtures/asteroids.csv (tricky rows included): its header once,
+// The CSV, from fixtures/asteroids.csv (tricky rows included): its header once,
 // then its body 6 times, byte for byte, to ~1 GB. The row count is DuckDB's
 // (quoted newlines make it differ from the line count), with the quote set:
 // DuckDB's sniffer reads only the head, sees no quotes, and picks none, and
 // the quoted rows at the end then fail to parse.
 //
-// M7, the size ceiling: the Parquet table repeated to ~2.2 GB and ~4.5 GB
+// The size ceiling: the Parquet table repeated to ~2.2 GB and ~4.5 GB
 // (DuckDB's default 122,880-row groups, as a visitor's file would most
 // likely have), ~4.6 GB (past 2^32 bytes), and ~9.6 GB, and the CSV fixture to ~2,
 // ~4, ~5.4, ~8.6, and ~10.7 GB.
 //
-// M7 part F, cell overflow: overflow.parquet, 2,000 rows of values too wide
+// Cell overflow: overflow.parquet, 2,000 rows of values too wide
 // for their columns, of every kind the table formats differently: long,
 // non-Latin, and multi-line text, integers at their types' ends (BIGINT, UBIGINT; Parquet
 // has no 128-bit integer: DuckDB writes a HUGEINT as DOUBLE), doubles that
@@ -129,7 +129,7 @@ for (const [name, copies] of Object.entries(CSV_FILES)) {
   };
   console.log(`${name}: ${(statSync(path).size / 2 ** 20).toFixed(1)} MiB, ${rows} rows (${((performance.now() - started) / 1000).toFixed(1)} s)`);
 }
-// M7: a CSV that compresses badly (random hex), ~4.6 GB: under the 6 GB
+// A CSV that compresses badly (random hex), ~4.6 GB: under the 6 GB
 // limit, over DuckDB's memory budget, so its load must stop at the budget.
 const RANDOM_CSV = 'drop/random-hex.csv';
 if (wanted(RANDOM_CSV)) {
@@ -196,7 +196,7 @@ if (wanted(OVERFLOW)) {
     rows: 2000,
     bytes: statSync(path).size,
     sha256: await sha256(path),
-    source: 'drop_files.ts: generated values too wide for their columns (M7 part F)',
+    source: 'drop_files.ts: generated values too wide for their columns',
     writer: `${writer}, ZSTD`,
   };
   console.log(`${OVERFLOW}: ${statSync(path).size} bytes, 2000 rows`);

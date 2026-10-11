@@ -1,4 +1,4 @@
-// M3 checks: the asteroid sample over HTTP, on the release build.
+// Checks: the asteroid sample over HTTP, on the release build.
 //
 // 1. /data/* range handling through the Vite preview proxy (worker/scripts/check.ts),
 //    so the proxy provably keeps 206s, Content-Range, and no Content-Encoding.

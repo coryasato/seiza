@@ -1,4 +1,4 @@
-// M6 checks: open a CSV file from this device, on the release build.
+// CSV checks: open a CSV file from this device, on the release build.
 //
 // The files: `drop/asteroids-x6.csv` (~1 GB: the fixture's header, then its
 // body 6 times; `just tycho drop-files`) and `data/fixtures/asteroids.csv`
@@ -12,7 +12,7 @@
 //    - drop → `tycho:file-shown` (schema) and → `tycho:first-rows`: ≤ 1 s
 //      (reference).
 //    - while it loads, a 3 s wheel fling down the rows loaded so far, then
-//      back up: frame intervals p95 ≤ 20 ms, none > 50 ms (M4's budget).
+//      back up: frame intervals p95 ≤ 20 ms, none > 50 ms (the fling budget).
 //    - the row count's updates: the gaps between `tycho:csv-rows` marks
 //      (each set right after a frame showing the count grow), from first
 //      rows to `tycho:csv-done`: every gap ≤ 500 ms (reference). Sampled
@@ -398,7 +398,7 @@ async function formatsCheck(url: string) {
   }
 }
 
-// With --url (production, M8), against that origin; otherwise the local
+// With --url (production), against that origin; otherwise the local
 // release build (a dropped CSV needs no /data).
 const app = await serveApp(option('url'), 4181);
 const url = app.url;

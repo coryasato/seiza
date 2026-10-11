@@ -1,6 +1,6 @@
 /**
  * Tycho's Worker: serves `/data/*` from R2 with byte ranges, and the build
- * (web/dist, `[assets]` in wrangler.toml) precompressed (M8): the page,
+ * (web/dist, `[assets]` in wrangler.toml) precompressed: the page,
  * `/assets/*`, and `/duckdb-ext/*` run this Worker first (`run_worker_first`;
  * any other static asset is served with the headers in `_headers`):
  *
@@ -80,7 +80,7 @@ const MAX_CACHED_BYTES = 4 * 1024 * 1024;
 const SHA_HEADER = 'X-Tycho-Sha256';
 
 /**
- * `/data/*`, through Cloudflare's edge cache (M8). Each read from R2 cost
+ * `/data/*`, through Cloudflare's edge cache. Each read from R2 cost
  * 55–125 ms against 20–35 ms for a static asset, and a page read is several
  * sequential ranges (DuckDB's readahead), so first rows took ~0.9–1.8 s in
  * production. The cache key is the file's content version (`DATA_VERSIONS`)

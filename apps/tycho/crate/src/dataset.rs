@@ -23,9 +23,8 @@ pub const ASTEROIDS: Sample = Sample {
     label: "Try sample: every known asteroid",
 };
 
-/// The big sample: Gaia DR3's 25 M brightest stars (docs/data.md;
-/// M7). Its ESA credit is in the file's metadata, like the
-/// asteroids'.
+/// The big sample: Gaia DR3's 25 M brightest stars (docs/data.md).
+/// Its ESA credit is in the file's metadata, like the asteroids'.
 pub const GAIA: Sample = Sample {
     name: "gaia-dr3-bright.parquet",
     url: "/data/gaia-dr3-bright.parquet",
@@ -82,7 +81,7 @@ pub fn summary_queries(name: &str) -> [String; 3] {
 /// A filter on `file_row_number`, which DuckDB matches against each row
 /// group's range and so reads only the groups that hold the page: 50 ms and
 /// 1.4 MB for a jump to row 90% of the asteroids, vs 61 ms for LIMIT/OFFSET
-/// and a 1.1 s full download to ingest first (M4, perf/results/2026-09-25-m4.md).
+/// and a 1.1 s full download to ingest first (perf/results/2026-09-25-m4.md).
 pub fn page_sql(name: &str, rows: std::ops::Range<u64>) -> String {
     format!(
         "SELECT * EXCLUDE (file_row_number) FROM read_parquet({}, file_row_number = true) \

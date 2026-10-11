@@ -11,7 +11,7 @@ Tycho is a local-first data workbench in the browser. Drop a CSV or Parquet file
 - **Jump to row:** Cmd/Ctrl+G.
 - **Observation panel:** the title bar's "Observation panel" button, Cmd/Ctrl+Shift+P, or `?perf` in the URL. It shows the page-load waterfall, frame times and work per frame, memory, bytes read against the file size, and cache hits, live.
 
-Tycho v1 is done: milestones M0–M8 ([`docs/milestones.md`](docs/milestones.md)). What's next is in [`PLAN.md`](PLAN.md).
+Tycho v1 is done: all its milestones ([`docs/milestones.md`](docs/milestones.md)). What's next is in [`PLAN.md`](PLAN.md).
 
 ## Numbers
 
@@ -122,7 +122,7 @@ just tycho smoke        # Chromium/Firefox/WebKit: paints, cross-origin isolated
 | [`PLAN.md`](PLAN.md) | What's next: status, long-term goals, open questions, and the measurements table. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why Tycho is built the way it is, by area, with the numbers behind each choice. |
 | [`docs/LESSONS.md`](docs/LESSONS.md) | What surprised us, milestone by milestone. |
-| [`docs/milestones.md`](docs/milestones.md) | The specs and evidence of milestones M0–M8. |
+| [`docs/milestones.md`](docs/milestones.md) | The specs and evidence of each milestone. |
 | [`docs/data.md`](docs/data.md), [`docs/hosting.md`](docs/hosting.md) | The samples, and how the app is served. |
 | [`perf/budgets.json`](perf/budgets.json), [`perf/results/`](perf/results/) | Every budget, and every measurement, dated: a JSON per run and a note per milestone. |
 

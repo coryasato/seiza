@@ -126,8 +126,8 @@ export const EXTENSION_REPOSITORY = '/duckdb-ext';
  *
  * Autoload is off: an extension loads only through an explicit `LOAD`, which
  * Rust sends one at a time (`Engine::load_parquet`). Two failing loads of one
- * extension at once crash DuckDB-Wasm 1.32.0's worker without an error event
- * (M4), and with autoload on, any query could start one. A query that needs an
+ * extension at once crash DuckDB-Wasm 1.32.0's worker without an error event,
+ * and with autoload on, any query could start one. A query that needs an
  * extension nobody loaded fails with a clear error instead.
  */
 async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {

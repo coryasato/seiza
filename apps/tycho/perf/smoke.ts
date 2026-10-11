@@ -1,4 +1,4 @@
-// M0 smoke check: the shell paints in Chromium, Firefox, and WebKit with no
+// Smoke check: the shell paints in Chromium, Firefox, and WebKit with no
 // console errors, the page is cross-origin isolated, and every resize ends
 // with a canvas that followed the new viewport (CSS box and backing store)
 // and is painted edge to edge.

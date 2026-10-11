@@ -207,7 +207,7 @@
     "rows": 2000,
     "bytes": 59799,
     "sha256": "e7f61c4a8e6e36c7cb700312cf97fa500a6ced5a29527b80b4711c0beb6f0cef",
-    "source": "drop_files.ts: generated values too wide for their columns (M7 part F)",
+    "source": "drop_files.ts: generated values too wide for their columns",
     "writer": "DuckDB v1.4.5, ZSTD"
   }
 }

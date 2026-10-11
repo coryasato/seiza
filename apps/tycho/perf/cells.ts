@@ -1,4 +1,4 @@
-// M7 part F checks: cell overflow, on the release build.
+// Cell-overflow checks, on the release build.
 //
 // Opens each file with `?cells`, so the table publishes every drawn cell's
 // exact text and the text it handed GPUI (`__tychoCells`), and where its

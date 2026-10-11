@@ -1,4 +1,4 @@
-// M2 engine checks, run from Rust inside the real app (`?selftest`, see
+// Engine checks, run from Rust inside the real app (`?selftest`, see
 // crate/src/selftest.rs): `SELECT 42 AS x` decodes to x = 42, a row of every
 // shown type decodes to the text DuckDB means, and cancelling a query that
 // would run for minutes stops it within 200 ms with the next query still

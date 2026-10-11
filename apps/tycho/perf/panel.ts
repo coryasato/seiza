@@ -1,5 +1,5 @@
-// M7 (part A) checks: the observation panel against independent
-// measurements, and the M4 fling with the panel open and closed.
+// Checks: the observation panel against independent
+// measurements, and the fling with the panel open and closed.
 //
 // Per run (a new browser, Chromium headless=new, 1440×900 at DPR 2, `?perf`):
 // 1. Page load: each waterfall step against the page's own timings: the
@@ -20,7 +20,7 @@
 //      must fall between them (± the tolerance); `range` records both.
 // 4. Bytes read: once the scroll's reads settle, the panel's "Read" against
 //    the /data/ bytes counted at the server (a proxy in front of the Worker).
-// 5. Fling (M4 budget: p95 ≤ 20 ms, none > 50 ms), panel open and closed
+// 5. Fling (the fling budget: p95 ≤ 20 ms, none > 50 ms), panel open and closed
 //    (Cmd/Ctrl+Shift+P), in alternating order, with work per frame from the
 //    wrapper both times: what watching costs.
 // A value matches within 5% of the measurement, or half the panel's display
@@ -182,7 +182,7 @@ async function steadyScroll(page: Page) {
   // Wasm memory only grows, and the panel read it at its refresh. A read
   // made before that refresh and the first read after it bound what it saw:
   // on a throttled run, pages arriving between the refresh and a later read
-  // grew it 1.3 MiB (part E).
+  // grew it 1.3 MiB.
   let memory: { before: number | null; after: number | null } | null = null;
   let previous: { at: number; memory: number | null } | null = null;
   while (Date.now() - wallStart < 4_000) {

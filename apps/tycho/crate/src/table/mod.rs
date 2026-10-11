@@ -64,7 +64,7 @@ pub struct Paging {
     pub max_in_flight: usize,
 }
 
-/// 1024-row pages, 2 pages of prefetch. The M4 sweep (256/1024/4096 rows ×
+/// 1024-row pages, 2 pages of prefetch. The page-size sweep (256/1024/4096 rows ×
 /// 1/2/4 pages, perf/results/2026-09-25-m4-sweep.json) didn't separate them:
 /// every config met every budget, with the same frame times, the same share
 /// of placeholder frames in a fling (~84%: a 3 s fling outruns any
@@ -85,7 +85,7 @@ impl Default for Paging {
 
 impl Paging {
     /// The defaults, with `?page=`, `?prefetch=`, and `?budget_mib=` from the
-    /// URL applied (the M4 sweep sets them).
+    /// URL applied (the page-size sweep sets them).
     pub fn from_url() -> Self {
         let number = |key: &str| {
             seiza::url::param(key)
@@ -133,7 +133,7 @@ impl RowSource {
 }
 
 /// How a column's values are aligned, and what happens to one too wide for
-/// it (M7 part F). Cells are cut by GPUI (`text_overflow`), never by
+/// it. Cells are cut by GPUI (`text_overflow`), never by
 /// clipping: a right-aligned value clipped by its cell loses its front.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum CellKind {
@@ -348,7 +348,7 @@ pub enum TableEvent {
     /// A page read failed to read the file ([`EngineError::is_read_failure`]).
     /// A failed HTTP range read leaves
     /// DuckDB-Wasm's handle on the file broken, and every later read of
-    /// those bytes fails too, network or not (M7): the owner registers the
+    /// those bytes fails too, network or not: the owner registers the
     /// file again under a new name, then calls [`RowTable::read_from`].
     ReadFailed,
 }
@@ -721,7 +721,7 @@ impl RowTable {
             // can't be taken back once DuckDB starts it (its worker reads
             // with sync XHRs; cancel lands between query slices), and on a
             // slow network it holds up the page the drag ends on: on Fast 4G,
-            // a jump waited 2.1 s behind one such read (M4). So load only
+            // a jump waited 2.1 s behind one such read. So load only
             // once the pointer rests, or on release.
             self.drag_settle = Some(cx.spawn(async move |this, cx| {
                 cx.background_executor().timer(DRAG_SETTLE).await;
@@ -1372,7 +1372,7 @@ impl RowTable {
                         // started: a quick click on the track delivers the
                         // press and the release before the next paint, and a
                         // release missed that way left the drag on, so the
-                        // next pointer move scrolled the table (M4, WebKit).
+                        // next pointer move scrolled the table (WebKit).
                         let moving = entity.clone();
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
@@ -1519,7 +1519,7 @@ impl RowTable {
     /// A cell holding a value. A plain block, not a flex container: GPUI
     /// cuts text only when its width is definite, and a flex item's isn't,
     /// so a right-aligned value spilled out the cell's left side and lost its
-    /// front with no sign (M7 part F). The line height centers it.
+    /// front with no sign. The line height centers it.
     fn value_cell(&self, column: &TableColumn, top: Pixels, height: Pixels) -> Div {
         let cell = self.cell(column, top, height).line_height(height);
         match column.kind {

@@ -2,7 +2,7 @@
 //!
 //! DuckDB's query results cross the bridge as Arrow IPC stream bytes. This
 //! reads them without the arrow-rs crates, which cost more wasm than the app
-//! can afford before first paint (see `docs/DECISIONS.md`, M2). It reads the
+//! can afford before first paint (see `docs/DECISIONS.md`, Engine and bridge). It reads the
 //! flatbuffer metadata by hand and keeps the body where it is: a column is a
 //! set of byte ranges into the one shared buffer, and cells are decoded on
 //! access.

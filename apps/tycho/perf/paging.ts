@@ -1,9 +1,9 @@
-// M4 paging experiment: how the table should fetch a page of rows from a
+// Paging experiment: how the table should fetch a page of rows from a
 // Parquet file over HTTP, and what row-group size the samples should use.
 //
 // For each file (a sample rewritten at several row-group sizes, loaded into
 // local R2 under bench/: the asteroids, or with --dataset gaia, the Gaia
-// sample, M7) and each strategy:
+// sample) and each strategy:
 //   A  LIMIT/OFFSET on the raw Parquet
 //   B  a filter on file_row_number (read_parquet(..., file_row_number = true)),
 //      which DuckDB can match against row-group ranges

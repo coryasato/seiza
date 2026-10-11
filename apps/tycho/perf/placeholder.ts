@@ -1,4 +1,4 @@
-// M7 part G checks: the static placeholder shell (shared-web/src/placeholder.ts)
+// Checks: the static placeholder shell (shared-web/src/placeholder.ts)
 // and the theme toggle, on the release build (web/dist).
 //
 // Checks (always):
@@ -134,7 +134,7 @@ async function themeToggle(browser: Browser, scheme: Scheme): Promise<Record<str
 }
 
 /** CSS errors the screenshot match must catch, each against the real first
- *  frame, at DPR 2. Found by trying them (part G): a 1 px move or size
+ *  frame, at DPR 2. Found by trying them: a 1 px move or size
  *  change, a wrong fill, border, or muted color, a fallback font, a bigger
  *  icon. */
 const P = '#seiza-placeholder';

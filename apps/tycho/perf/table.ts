@@ -1,4 +1,4 @@
-// M4 checks: the virtualized table over paged queries, on the release build.
+// Table checks: the virtualized table over paged queries, on the release build.
 //
 // Per run (a new browser, Chromium headless=new, 1440×900 at DPR 2, engine
 // warm, i.e. "Parquet ready"):
@@ -17,8 +17,8 @@
 // 5. Steady scroll (recorded): ~1,800 rows/s for 3 s from row 400,000; the
 //    share of frames that showed a placeholder.
 // Fling and steady scroll also record per-frame work time (`workRecorder`:
-// every rAF callback that drew), p50/p95, next to the intervals (M7).
-// --sample gaia runs all of it on the big sample (M7 part B).
+// every rAF callback that drew), p50/p95, next to the intervals.
+// --sample gaia runs all of it on the big sample.
 // The memory pass (--memory) drags the thumb one pixel at a time through the
 // whole file twice, waiting for each viewport to fill, and records wasm
 // memory, JS heap, the page cache, and measureUserAgentSpecificMemory (which
@@ -72,11 +72,11 @@ const SAMPLE = SAMPLES[sampleName as keyof typeof SAMPLES];
 const FILE = manifest[SAMPLE.name]!;
 
 /**
- * Includes the M4 memory cap (`memoryCapMiB`): wasm memory + live main-thread
+ * Includes the memory cap (`memoryCapMiB`): wasm memory + live main-thread
  * JS heap after scrolling the whole sample. The page cache holds at most 64 MiB (`Paging`'s budget)
  * and the shell ~16 MiB. Wasm memory never shrinks, and the allocator's
  * fragmentation adds ~21 MiB on top of the cache by the second pass, then
- * holds (M4: 101.2 MiB wasm from pass 2 through 5, JS ~4 MiB). DuckDB's
+ * holds (101.2 MiB wasm from pass 2 through 5, JS ~4 MiB). DuckDB's
  * worker is recorded, not capped.
  */
 const BUDGET = limits('table', ['firstRowsMs', 'jumpMs', 'flingP95Ms', 'flingMaxMs', 'memoryCapMiB', 'memoryGrowthPerPass']);
@@ -189,7 +189,7 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
 
     // 5. Steady scroll from row 400,000: ~1,800 rows/s. Home first: the
     // fling left the thumb at the bottom of its track, under the open
-    // observation panel, where a press lands on the panel (M7).
+    // observation panel, where a press lands on the panel.
     const homeAgain = await now(page);
     await page.keyboard.press('Home');
     await waitFilled(page, homeAgain).catch(() => null);
@@ -224,7 +224,7 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
 
 /** Shows or hides the observation panel (Ctrl+Shift+P). The memory passes
  *  drag with it hidden: it covers the bottom of the scrollbar track, where
- *  a press on the thumb would land on the panel (M7). */
+ *  a press on the thumb would land on the panel. */
 async function setPanel(page: Page, open: boolean): Promise<void> {
   const visible = () => page.evaluate(() => (globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined);
   if ((await visible()) === open) return;
@@ -240,7 +240,7 @@ async function setPanel(page: Page, open: boolean): Promise<void> {
 async function memorySnapshot(page: Page) {
   await setPanel(page, true);
   // Live memory, not GC timing: dropped result buffers otherwise swing the JS
-  // heap by ~20 MiB between identical passes (M4). Wasm memory only grows,
+  // heap by ~20 MiB between identical passes. Wasm memory only grows,
   // so it's exact either way.
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('HeapProfiler.collectGarbage');
@@ -381,7 +381,7 @@ async function browserCheck(engine: BrowserType, url: string) {
   }
 }
 
-// With --url (production, M8), against that origin; otherwise the local
+// With --url (production), against that origin; otherwise the local
 // release build and a fresh `wrangler dev` (its byte counts unused here).
 const app = await serveApp(option('url'), 4179, { port: 8792, requireObject: SAMPLE.name });
 const url = app.url;
@@ -454,7 +454,7 @@ try {
           failures.push(`${where}: overlay first rows ${run.overlayFirstRowsMs} ms vs the marks' ${run.appFirstRowsMs.toFixed(1)} ms`);
         }
       }
-      // The reference profile's first run, recorded apart (M8): against --url
+      // The reference profile's first run, recorded apart: against --url
       // it reads the edge cache cold only if nothing read these ranges at that
       // data center since new data was deployed, so it's a cold-edge number
       // only for the first run after a deploy. The throttled profile runs
@@ -469,7 +469,7 @@ try {
     // Budgets apply to the local build only (root CLAUDE.md, measurement
     // protocol): against --url (production) every number is recorded, none
     // enforced. A page read there is ~8 sequential round trips, and a Gaia
-    // page 5.6 MB over the link (M8).
+    // page 5.6 MB over the link.
     if (option('url')) {
       console.log(
         `budgets apply to the local build; recorded here (reference): first rows ${reference.firstRowsMs!.median} ms, jump ${reference.jumpMs!.median} ms, ` +

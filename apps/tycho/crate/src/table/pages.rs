@@ -224,9 +224,9 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// The first `visible` pages of `wanted` are on screen. While any of them
     /// isn't loaded, no prefetch page starts: DuckDB-Wasm runs one query
     /// slice at a time, round-robin, so a prefetch in flight next to a
-    /// visible page makes it finish as late as both. At 50 ms a page (M4's
-    /// sample) that never showed; at ~540 ms (a 1 GB file with 1,378 row
-    /// groups, M5) first rows took 2.7 s instead of one page's time.
+    /// visible page makes it finish as late as both. At 50 ms a page (the
+    /// asteroids' sample) that never showed; at ~540 ms (a 1 GB file with
+    /// 1,378 row groups) first rows took 2.7 s instead of one page's time.
     pub fn plan(&mut self, wanted: &[u64], visible: usize) -> Plan<R> {
         let mut cancel = Vec::new();
         self.slots.retain(|page, slot| match slot {

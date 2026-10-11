@@ -39,7 +39,7 @@ pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 /// one: it fades out over the first frame, which is already presented, so
 /// the browser never renders a frame with neither. A fade, not a cut: GPUI
 /// and the browser rasterize and round text differently, and an instant swap
-/// read as a jump (Tycho M7 part G).
+/// read as a jump.
 pub(crate) fn mark_first_frame() -> impl Future<Output = Option<f64>> {
     mark_after_current_task_then(FIRST_FRAME_MARK, release_placeholder)
 }

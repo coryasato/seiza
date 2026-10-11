@@ -210,7 +210,7 @@ impl Engine {
     ///
     /// DuckDB-Wasm 1.32.0 crashes inside its worker ("table index is out of
     /// bounds") when two loads of an extension fail at once, and no worker
-    /// error fires, so every later query hangs. M4 found it: with the
+    /// error fires, so every later query hangs. Found by testing: with the
     /// extension unreachable, a sample click racing the prefetch hung the
     /// retry in 4 of 8 runs. Only one attempt ever runs at a time here.
     pub fn load_parquet(&self) -> impl Future<Output = Result<(), EngineError>> + 'static {
@@ -357,12 +357,12 @@ const LOAD_PARQUET_SQL: &str = "LOAD parquet";
 /// once, not by every query. Off by default, and `GLOBAL` because every
 /// query has its own connection. On a 1 GB file with 1,378 row groups, each
 /// parse costs ~165 ms in the worker: the three summary queries paid it three
-/// times and every page read once more (M5, `perf/results/2026-09-27-m5.md`).
+/// times and every page read once more (`perf/results/2026-09-27-m5.md`).
 /// The cache keeps a footer as long as its file stays registered, which is the
 /// rest of the session: each dropped file registers under a new name, and
 /// unregistering would be a fourth bridge call. So each opened file costs its
 /// parsed footer in the worker (a few MB at 1,378 row groups). Known cost,
-/// recorded in M5's results; revisit if a session opens many big files.
+/// recorded in `perf/results/2026-09-27-m5.md`; revisit if a session opens many big files.
 const PARQUET_METADATA_CACHE_SQL: &str = "SET GLOBAL parquet_metadata_cache = true";
 
 /// Starts the engine: called from the post-paint callback. Runs the warm-up

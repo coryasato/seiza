@@ -1,4 +1,4 @@
-// M7 part D experiments, on the release build:
+// Hardening experiments, on the release build:
 //
 // footers: does a session that opens many big Parquet files pile up parsed
 //   footers in DuckDB's worker, and what frees them? Drops the ~1 GB file
@@ -14,7 +14,7 @@
 // wheel-end: wheels against the last row (nothing can move) with the panel
 //   closed, and counts the frames that drew, against the same wheeling
 //   mid-table and no input at all.
-// csv-scan (removed): the M6 fling during a ~1 GB CSV's load, throttled, by
+// csv-scan (removed): the CSV-load fling during a ~1 GB CSV's load, throttled, by
 //   the record scanner's window. It ran once, 2026-10-08, on a build with a
 //   `?scan_kib=` override (results: 2026-10-08-m7-csv-scan.json); the window
 //   made no difference, so the override and this experiment went.

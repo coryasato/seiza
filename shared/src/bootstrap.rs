@@ -59,8 +59,8 @@ impl Bootstrap {
     pub fn run(self, content: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static) {
         #[cfg(debug_assertions)]
         console_error_panic_hook::set_once();
-        // Kept in release: it costs 0.8 KiB brotli and no measurable TTFP
-        // (M1), and it's how a graphics-backend fallback or failure shows up.
+        // Kept in release: it costs 0.8 KiB brotli and no measurable TTFP,
+        // and it's how a graphics-backend fallback or failure shows up.
         gpui_kit::web::init_logging();
 
         let content: BuildContent = Box::new(content);
@@ -122,7 +122,7 @@ impl Bootstrap {
 /// A single-threaded web platform: WebGPU where the browser offers a usable
 /// adapter, WebGL2 otherwise (GPUI's `Auto`).
 ///
-/// Chosen by cold-start TTFP in Tycho's M1, reference run (Chromium): Auto
+/// Chosen by cold-start TTFP, measured on Tycho's reference run (Chromium): Auto
 /// 173.5 ms vs forced WebGL2 291.0 ms. WebKit: 296 vs 412 ms. Firefox, whose
 /// headless adapter is blocklisted, falls back to WebGL2 at no measurable cost
 /// (550 vs 551 ms). See Tycho's `perf/results/2026-09-23-m1.md`.
@@ -161,7 +161,7 @@ fn is_mac_browser() -> bool {
 /// gpui-kit 0.7.1 binds an input's Mac shortcuts only under
 /// `cfg(target_os = "macos")`, which a wasm build never is: the web build
 /// gets the Windows/Linux set, so in a Mac browser Cmd+A, Cmd+C, Cmd+Z and
-/// friends did nothing (Tycho M7 part C; no upstream issue found
+/// friends did nothing (found in Tycho; no upstream issue found
 /// 2026-10-08). These are gpui-base's macOS input bindings, minus Cmd+V: a
 /// Cmd+V that nothing binds reaches the browser's own paste event, which
 /// needs no clipboard permission, while the `Paste` action reads the

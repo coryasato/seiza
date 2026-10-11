@@ -1,10 +1,10 @@
-//! CSV files (M6): cut into chunks at record boundaries, each chunk copied
+//! CSV files: cut into chunks at record boundaries, each chunk copied
 //! into its own DuckDB table as it's read, so the first rows show after one
 //! small chunk and the row count grows while the rest loads.
 //!
 //! Why not query the file where it lies, as Parquet is: CSV has no index, so
 //! every page read parses from the top. On the 1 GB test file a page at 90%
-//! took 5.1 s, and `count(*)` 3.3 s (`perf/ingest.ts`, M6 results).
+//! took 5.1 s, and `count(*)` 3.3 s (`perf/ingest.ts` results).
 //!
 //! Why one table per chunk, not one table appended to: appends into one
 //! growing table stalled for 200–600 ms every few chunks inside DuckDB (not
@@ -210,7 +210,7 @@ impl Dialect {
     }
 
     /// `read_csv`'s options for a chunk: everything fixed, nothing sniffed
-    /// again. Sniffing each chunk cost ~20 ms of a ~55 ms chunk (4 MiB, M6),
+    /// again. Sniffing each chunk cost ~20 ms of a ~55 ms chunk (4 MiB),
     /// and could pick different types per chunk. Only the first chunk has
     /// the header and the skipped lines.
     pub fn read_options(&self, columns: &[ColumnInfo], first: bool) -> String {
@@ -366,7 +366,7 @@ impl Records {
 /// How many bytes the next chunk should hold: aimed at [`Sizer::TARGET_MS`]
 /// per chunk, since the row count updates only between chunks (budget: every
 /// 500 ms), and a page read waits for the chunk DuckDB is on (it doesn't
-/// interleave with a CREATE TABLE, M6). Smoothed, so one slow chunk doesn't
+/// interleave with a CREATE TABLE). Smoothed, so one slow chunk doesn't
 /// halve the next.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sizer {
@@ -378,7 +378,7 @@ impl Sizer {
     /// reads it whole (its default sample, 20,480 rows, is ~2 MiB here).
     pub const FIRST: u64 = 1 << 20;
     pub const MIN: u64 = 1 << 20;
-    /// The best of 4/8/16/32 MiB in M6's experiment: 16.3 s for 1 GB, the
+    /// The best of 4/8/16/32 MiB in the ingest experiment: 16.3 s for 1 GB, the
     /// slowest chunk 215 ms, the least memory.
     pub const MAX: u64 = 8 << 20;
     pub const TARGET_MS: f64 = 200.0;
@@ -533,7 +533,7 @@ pub const MEMORY_SQL: &str = "SELECT sum(memory_usage_bytes)::BIGINT AS bytes FR
 /// How much memory DuckDB may hold before a CSV's load stops: 1.5 GiB.
 /// DuckDB-Wasm 1.32.0 (memory limit 3.1 GiB) stops storing rows at ~2.1 GiB
 /// of in-memory tables, and doesn't say so: `CREATE TABLE … AS` answers
-/// with an empty table, chunk after chunk, until one finally errors (M7: an
+/// with an empty table, chunk after chunk, until one finally errors (an
 /// 8.6 GB CSV lost 57 chunks that way). The asteroid CSV takes 0.28 bytes of
 /// memory per byte of file, so 1.5 GiB holds ~5.4 GB of it; a CSV that
 /// compresses worse stops sooner.
@@ -576,7 +576,7 @@ mod web {
 
     /// How much of the file the scanner reads at a time. Each read is an
     /// `await`, so frames draw between them. 256 and 64 KiB didn't change a
-    /// fling during the load, and slowed it (M7 part D).
+    /// fling during the load, and slowed it.
     const WINDOW: f64 = (1 << 20) as f64;
 
     /// Stops an ingest: its next query isn't sent, and the one DuckDB is

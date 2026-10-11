@@ -1,4 +1,4 @@
-// Deploys Tycho to Cloudflare (`just tycho deploy`, M8): uploads what changed
+// Deploys Tycho to Cloudflare (`just tycho deploy`): uploads what changed
 // to R2, deploys the Worker with web/dist as its static assets, then checks
 // production.
 //
@@ -35,7 +35,7 @@ import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { PRECOMPRESSED } from '../src/precompressed.ts';
 import { checkAssets, checkDataEndpoint } from './check.ts';
 
-/** The public origin. Never the account's default Workers subdomain (docs/milestones.md, M8). */
+/** The public origin. Never the account's default Workers subdomain (docs/DECISIONS.md, Hosting). */
 export const PRODUCTION_URL = 'https://tycho.seiza.io';
 const BUCKET = 'tycho-data';
 /** The data files the app opens (crate/src/dataset.rs). */
@@ -133,7 +133,7 @@ console.log(`worker: DATA_VERSIONS ${dataVersions}`);
 execFileSync(wrangler, ['deploy', '--var', `DATA_VERSIONS:${dataVersions}`, ...(dryRun ? ['--dry-run'] : [])], { cwd: workerDir, stdio: 'inherit', env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
 
 if (!dryRun && !process.argv.includes('--skip-check')) {
-  // A new version takes a few seconds to reach the edge (the first M8 deploy
+  // A new version takes a few seconds to reach the edge (the first deploy
   // read the old one's responses right after `wrangler deploy`), so a failing
   // check retries for a minute before it counts.
   let failures: string[] = [];

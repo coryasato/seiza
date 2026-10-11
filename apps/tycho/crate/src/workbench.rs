@@ -3,8 +3,8 @@
 //!
 //! A file comes from a drop anywhere on the page, the file dialog, or the
 //! sample button. A Parquet file goes through one pipeline (register, read
-//! the footer's metadata, page rows: M3/M4); a CSV through another (cut into
-//! chunks, each copied into a table, the rows growing as they come: M6,
+//! the footer's metadata, page rows); a CSV through another (cut into
+//! chunks, each copied into a table, the rows growing as they come;
 //! `crate::csv`). A new file replaces the current one, whether it's still
 //! opening or already showing rows: its queries are cancelled, its answers
 //! ignored, and a CSV's tables dropped.
@@ -1014,7 +1014,7 @@ impl Workbench {
     }
 
     /// Marks each frame that shows a CSV's row count change, and the one
-    /// that shows its load done: the M6 checks time the updates by them.
+    /// that shows its load done: the CSV checks time the updates by them.
     #[cfg(target_family = "wasm")]
     fn mark_csv_shown(&mut self) {
         let shown = match &self.load {
@@ -1098,7 +1098,7 @@ impl Workbench {
     /// again under a new SQL name, then has the table read from it. After a
     /// failed HTTP range read, DuckDB-Wasm reads those bytes wrong under
     /// that name for good ("TProtocolException: Invalid data"), network or
-    /// not, even registered again under it (M7); a new name starts clean,
+    /// not, even registered again under it; a new name starts clean,
     /// at the cost of parsing the footer again. If registering fails too
     /// (still offline), the rows keep their error, and it tries again when
     /// its window ([`reregister_window_ms`]) passes.
@@ -1557,7 +1557,7 @@ impl Workbench {
                         // `Input`: that element renders any of three
                         // input states, so one single-line field linked
                         // the textarea and code-editor engines too
-                        // (+194 KiB brotli, M7 part C).
+                        // (+194 KiB brotli).
                         div()
                             .w(px(168.))
                             .h(px(26.))

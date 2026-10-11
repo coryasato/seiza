@@ -1,4 +1,4 @@
-// M5 checks: open a Parquet file from this device, on the release build.
+// Drop checks: open a Parquet file from this device, on the release build.
 //
 // The files come from `just tycho drop-files` (data/drop/, recorded in
 // MANIFEST.json): the asteroid table repeated to ~100 MB (x3) and ~1 GB (x27).
@@ -71,9 +71,9 @@ const base = (name: string) => name.split('/').pop()!;
  * Memory: app memory (wasm + JS heap) is steady to ~1 MiB, so its bound is
  * tight. Every agent together (DuckDB's worker included) swings ~20 MiB
  * between snapshots of one file, and grows with the footer DuckDB keeps
- * parsed (2.2 MB serialized at 1,378 row groups vs 0.24 MB at 154): M5 read
- * +14 MiB. Its bound is what a copy would break: a fraction of the size
- * difference between the two files (M5 chose 10%, ~86 MiB). The negative control shows a held copy
+ * parsed (2.2 MB serialized at 1,378 row groups vs 0.24 MB at 154): the
+ * first run read +14 MiB. Its bound is what a copy would break: a fraction of the size
+ * difference between the two files (10%, ~86 MiB). The negative control shows a held copy
  * reads at its full size.
  */
 const BUDGET = limits('drop', ['schemaMs', 'firstRowsMs', 'appDeltaMiB', 'allAgentsDeltaOfSizeDiff', 'copyDetect']);

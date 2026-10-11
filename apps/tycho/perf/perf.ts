@@ -7,14 +7,14 @@
 // must match the `gpui:first-frame` mark within 5 ms, and the mark must land
 // right after the first GPU work GPUI issued (see `probe` below).
 //
-// It also checks the static placeholder shell (M7 part G): it painted before
+// It also checks the static placeholder shell: it painted before
 // the first frame (its `seiza:placeholder-painted` mark, Element Timing on its
 // title), the overlay's "Placeholder" row matches that mark, it was released
 // (began fading out over the first frame) inside the task that presented
 // that frame, so the browser had no chance to render a frame with neither
 // (the probe times it), and it's gone from the page afterwards.
 //
-// Each run then waits for DuckDB (M2): the overlay's "Engine ready" must match
+// Each run then waits for DuckDB: the overlay's "Engine ready" must match
 // the `tycho:engine-ready` mark within 5 ms, and no request outside the
 // first-paint set (the document, entry JS, app wasm, and UI font) may start
 // before the first-frame mark. Engine requests from the main thread come from
@@ -23,15 +23,15 @@
 //
 // Every run also splits TTFP at the `seiza:wasm-ready` mark: before it is
 // mostly network (the document, then the app wasm's download), after it is
-// the app's own work to the first frame (M8).
+// the app's own work to the first frame.
 //
 // Usage: node apps/tycho/perf/perf.ts [--url <url>] [--runs 10] [--label <name>]
 //                                     [--reference-only] [--check] [--write-baseline]
 //                                     [--trace] [--vs-local]
-// --vs-local (with --url, M8) also measures the local release build, each
+// --vs-local (with --url) also measures the local release build, each
 // run right before the remote one, and records the remote's app part
 // (wasm-ready → first frame) against the local's, per profile. Budgets apply
-// to the local build only (M8): production's numbers are recorded, never
+// to the local build only: production's numbers are recorded, never
 // enforced.
 // --trace adds one uncounted run per profile that saves a Playwright trace
 // (network waterfall included) to perf/results/raw/ (gitignored).
@@ -218,8 +218,8 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
     page.on('response', async (response) => {
       if (response.status() >= 400) consoleProblems.push(`${response.status()} ${response.url()}`);
       // The wasm must arrive as br at quality 11, the size the budgets
-      // measure: the local preview serves it, and so does production's Worker
-      // (M8). Anything else (raw, or Cloudflare's own zstd when the deploy's
+      // measure: the local preview serves it, and so does production's Worker.
+      // Anything else (raw, or Cloudflare's own zstd when the deploy's
       // .br is missing) measured the wrong thing.
       if (response.url().endsWith('.wasm')) {
         const encoding = await response.headerValue('content-encoding');

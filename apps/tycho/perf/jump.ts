@@ -1,4 +1,4 @@
-// M7 part C checks: jump to row, the app's first text input, on the release
+// Checks: jump to row, the app's first text input, on the release
 // build.
 //
 // Per run (a new browser, Chromium headless=new, 1440×900 at DPR 2, the
@@ -475,7 +475,7 @@ async function browserCheck(engine: BrowserType, sample: SampleName) {
   }
 }
 
-// With --url (production, M8), against that origin; otherwise the local
+// With --url (production), against that origin; otherwise the local
 // release build and a fresh `wrangler dev`.
 const app = await serveApp(option('url'), 4180, { port: 8793, requireObject: SAMPLES[samples.at(-1)!].name });
 const url = app.url;

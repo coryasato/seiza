@@ -40,7 +40,7 @@ export function createBridge(): Bridge {
   // an engine whose worker stopped, but only once a call has been told
   // (rejected with `EngineStopped`): Rust then sends nothing until its
   // Retry, whose call starts the new engine. Forgetting it sooner would let
-  // any stray call start one unseen (M7).
+  // any stray call start one unseen.
   // Where the engine chunk failed to load, if it did. A browser remembers a
   // failed dynamic import (Chromium does): importing the same URL again
   // fails at once, without a request. Retry imports it under a new query.

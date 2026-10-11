@@ -12,7 +12,7 @@ const worker = { '/data/': { target: 'http://127.0.0.1:8787' } };
  * autoloads any extension a query needs from `/duckdb-ext/`, and only the
  * pinned ones are there (duckdb-extensions.json). Without this, a query that
  * needs, say, `json` would get `index.html` with a 200 and try to load it as
- * wasm. M8's Worker needs the same rule.
+ * wasm. The Worker needs the same rule.
  */
 function extensionMisses(): Plugin {
   const notFound =
@@ -45,7 +45,7 @@ function extensionMisses(): Plugin {
  * for a few hundred ms at most, too short to read a different line, which
  * only looked like one more jump. The three buttons ("Open a file…", the two
  * samples) are skeletons, gpui-kit's look: the browser and GPUI draw glyphs
- * differently, and the labels jumped at the swap (part G review). Their
+ * differently, and the labels jumped at the swap. Their
  * widths are GPUI's, which measures text its own way and lays out in whole
  * pixels; read them from `__tychoTargets` (`?bench`) after a label change.
  * The check's box comparison fails until they match.

@@ -23,7 +23,7 @@ import { fetchGaia, rawDir as gaiaRawDir, type GaiaFetchInfo } from './fetch_gai
 /** Gaia's magnitude cut: 25,067,889 stars at G < 14.5, docs/data.md's ~25 M target. */
 const GAIA_CUT = 14.5;
 /**
- * Gaia's row-group size (M7 part B, perf/results/2026-10-07-m7-gaia.md): a
+ * Gaia's row-group size (perf/results/2026-10-07-m7-gaia.md): a
  * page read costs the same 5.6 MB at 30,720 and 61,440 rows (DuckDB-Wasm's
  * readahead reaches its 4 MB step either way) and 22.4 MB from 122,880, while
  * each page's per-row-group setup halves with each doubling (next page 165.8 → 67.5 ms).
