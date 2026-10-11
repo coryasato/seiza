@@ -15,7 +15,7 @@ pub struct Sample {
     pub label: &'static str,
 }
 
-/// The default sample: every known asteroid (PLAN.md, Sample datasets).
+/// The default sample: every known asteroid (docs/data.md).
 pub const ASTEROIDS: Sample = Sample {
     name: "asteroids.parquet",
     url: "/data/asteroids.parquet",
@@ -23,8 +23,8 @@ pub const ASTEROIDS: Sample = Sample {
     label: "Try sample: every known asteroid",
 };
 
-/// The big sample: Gaia DR3's 25 M brightest stars (PLAN.md, Sample
-/// datasets; M7). Its ESA credit is in the file's metadata, like the
+/// The big sample: Gaia DR3's 25 M brightest stars (docs/data.md;
+/// M7). Its ESA credit is in the file's metadata, like the
 /// asteroids'.
 pub const GAIA: Sample = Sample {
     name: "gaia-dr3-bright.parquet",

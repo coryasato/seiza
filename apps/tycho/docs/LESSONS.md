@@ -1,28 +1,19 @@
 # Lessons learned
 
-One entry per milestone, written before starting the next one: what surprised us, the numbers, and the decisions made. Raw measurements live in `perf/results/`.
+One entry per milestone, written before starting the next one: what surprised us, and what it taught us. The milestone's numbers are in its results note (linked from each entry), and the decisions it made are in [`DECISIONS.md`](DECISIONS.md). Entries before 2026-10-11 also repeated their numbers and decisions here; those copies were removed in favour of the results notes and `DECISIONS.md`.
 
-<!-- Template:
+<!-- Template (docs/templates/app/docs/LESSONS.md):
 ## M<n>: <title> (YYYY-MM-DD)
 
-**Numbers:** TTFP ref/throttled, wasm brotli, plus milestone-specific metrics.
-**Decisions:** what we chose and the measurement behind it.
-**Surprises:** what didn't go as expected, including upstream issues hit.
+**Results:** [`perf/results/<date>-m<n>.md`](../perf/results/<date>-m<n>.md)
+
+**Surprises:**
+- What didn't go as expected, and what it taught us. Numbers only where the surprise needs them; the rest are in the results note.
 -->
 
 ## M0: Empty GPUI Kit shell on the web (2026-09-23)
 
-**Numbers:** release wasm 9522.8 KiB raw / 3740.2 KiB gzip / **2615.6 KiB brotli** (first build 2589.2 KiB; the overlay-layer fix added +26.4 KiB brotli); JS 18.9 KiB brotli; UI font 69.3 KiB brotli (full IBM Plex Sans Regular, not subset). TTFP isn't measured to protocol until M1. Single cold smoke runs saw the first-frame mark at 437–1147 ms (release, headless). Details: `perf/results/2026-09-23-m0.md`.
-
-**Decisions:**
-- **Nightly Rust, dated** (`nightly-2026-09-20` in `rust-toolchain.toml`). `gpui-pre-web` enables its `multithreaded` feature by default. That pulls in `wasm_thread`, which uses `#![feature(stdarch_wasm_atomic_wait)]`, and we can't turn it off through `gpui-kit`. Upstream's story-web is on nightly for the same reason.
-- **Lockfile pinned to gpui-kit 0.6.4's published set.** `gpui-kit = "=0.6.4"` alone still let caret requirements float `gpui-component`/`gpui-base` to 0.6.6 and `gpui-pre-*` to 0.3.6. We seeded `Cargo.lock` from the crate's own published lock, so the whole family (gpui-pre 0.3.5, wasm-bindgen 0.2.121) is what 0.6.4 shipped with. `wasm-bindgen-cli` must match the lock exactly (0.2.121).
-- **WebGL2 forced, single-threaded platform.** `WebPlatform::new_with_backend_and_font_fallback(false, WebGl, Emoji)`. GPUI's default probes WebGPU first and falls back to WebGL2; the project targets WebGL2, and the probe costs an adapter request on every cold start. M1 should measure `Auto` vs `WebGl` before this is final.
-- **The one UI face is IBM Plex Sans Regular,** because `gpui-pre-web` maps `.SystemUIFont` to that family. Bundling it means no theme font override is needed. The JS host fetches it in parallel with the wasm and passes the bytes to `start`, rather than `include_bytes!`. That keeps it out of the wasm, and lets M1 preload it.
-- **First-frame mark:** `AppShell`'s first render requests a rAF. That callback sets `performance.mark("gpui:first-frame")` directly, then resolves a promise the post-paint hook awaits, so the mark never waits on executor scheduling. The first draw happens synchronously inside `cx.open_window`, outside any rAF, and presents nothing. It's presented by GPUI's frame-loop rAF, which `WebWindow::new` requested earlier. rAF callbacks run in request order, so the mark lands just after the first present. That depends on the order of registration: re-check it on every gpui-kit bump, and M1's overlay-vs-Playwright comparison is the guard. (Our first write-up said the first render ran inside a rAF. The code review caught that it doesn't.)
-- **`AppShell` renders the overlay layers.** In 0.6.4, `Root` doesn't draw the sheet, dialog, or notification layers; the view under it must call `Root::render_*_layer`. Without that, `open_dialog`/`push_notification` update state but nothing appears. Cost: +26.4 KiB brotli. Verified by pushing a notification from `after_first_paint`.
-- **The theme follows live light/dark changes** through `observe_window_appearance` → `Theme::sync_system_appearance`. gpui-pre-web listens to `prefers-color-scheme` and fires the observer.
-- **Smoke checks that the canvas followed each resize, not exact device pixels.** It checks the CSS box matches the viewport and the backing/CSS ratio holds from first paint. A negative control (canvas pinned at 1440×900) fails in every engine.
+**Results:** [`perf/results/2026-09-23-m0.md`](../perf/results/2026-09-23-m0.md)
 
 **Surprises:**
 - `wasm-opt` rejected the release wasm ("Atomic operations require threads") until we passed `--enable-threads`. `wasm_thread`'s atomics end up in the binary even on the single-threaded platform. Browsers accept atomics on non-shared memory.
@@ -35,14 +26,7 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## M1: First-paint baseline and perf overlay skeleton (2026-09-23)
 
-**Numbers:** baseline TTFP **177.3 ms** reference and **3465.2 ms** throttled (median of 10, Chromium headless=new, true DPR 2), wasm **2619.5 KiB** brotli. M0's single cold runs were 437–1147 ms, at DPR 1 with WebGL2. The overlay added +2.1 KiB brotli. Details and every experiment: `perf/results/2026-09-23-m1.md`.
-
-**Decisions:**
-- **The graphics backend mattered most, not the profile.** GPUI's `Auto` (WebGPU, WebGL2 fallback) beat forced WebGL2 by 40% reference (173.5 vs 291.0 ms) and 8% throttled, at the same size. WebKit: 296 vs 412 ms. Firefox's headless adapter is blocklisted, so it falls back at no measurable cost. M0 forced WebGL2 to skip the probe. The probe turned out to be cheap, and the WebGL2 path's first draw is what's slow.
-- **`opt-level = "z"`** over "s": "s" is 8.6% bigger and slower on both runs. The other profile settings (`lto`, `codegen-units = 1`, `panic = "abort"`, `strip`, `wasm-opt -Oz`) were already on from M0 and weren't re-tested one by one.
-- **Preloading the wasm and font** saves ~10 ms reference and ~188 ms (5%) throttled. They must be `as=fetch crossorigin` to match the `fetch()` that uses them, or they download twice.
-- **Kept:** the full font face (a subset saves 0.6% throttled but loses Greek and Cyrillic for user data) and release logging (0.8 KiB, no TTFP cost, and it's how a backend fallback shows up).
-- **Budget check:** `just tycho check` = lint + build + a 10-run reference perf pass against `perf/baseline.json`. Size increases are accepted by a row in `perf/budget-notes.md`.
+**Results:** [`perf/results/2026-09-23-m1.md`](../perf/results/2026-09-23-m1.md)
 
 **Surprises:**
 - **M0's first-frame mark was right on WebGL2 only by luck.** GPUI's window starts at 0×0, so `open_window`'s synchronous draw shows nothing. The first real draw happens in gpui-pre-web's `ResizeObserver` callback, which renders and presents synchronously. With WebGPU it can happen in GPUI's rAF instead, and GPUI first presents an empty frame there. The M0 mark (a rAF requested from the first render, via a spawned task) landed a frame late on WebGPU. Requesting that rAF synchronously made it a frame *early* on WebGL2. The fix is a microtask queued by the first render with a real viewport. It runs right after the callback that presents. The probe in `perf.ts` found both bugs: it hooks WebGL2 draws and WebGPU submits and checks the mark against them on every run. My first two versions of the probe were wrong too: "within 8 ms of the first GPU call" fails when a long callback is still one frame. The right check is a window from a GPU task's last call to its microtask checkpoint.
@@ -54,14 +38,7 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## M2: DuckDB in a worker, prefetched after first paint (2026-09-23)
 
-**Numbers:** reference TTFP **168.7 ms** (−4.8% vs the 177.3 ms baseline; earlier runs of M2 gave 170.7 and 180.7 ms, so this is noise, not a speedup), throttled **3493.0 ms** (+0.8%). Interleaved A/B against a rebuilt M1, 20 runs each: 170.0 vs 173.8 ms median (+2.2%). App wasm **2631.8 KiB** brotli (+12.3 KiB for all of M2's Rust). Engine ready **622 ms** reference, **9.7 s** throttled. `SELECT 42` round trip 3.0 ms; cancel stops a query in 4.7 ms (Chromium median). DuckDB loads 5.3 MB brotli after first paint (EH wasm 5065 KiB, worker 152 KiB, JS 38 KiB). Details: `perf/results/2026-09-23-m2.md`.
-
-**Decisions:**
-- **Hand-rolled Arrow IPC reader.** arrow-rs 60 (ipc + array + schema, default features off) costs +127.3 KiB brotli more, because it brings chrono, half, flatbuffers, and arrow-select/data/buffer. The reader walks the flatbuffer metadata by hand and keeps each column as byte ranges into the one IPC buffer, decoded per cell. Types it doesn't show decode as a named placeholder column instead of failing the whole result.
-- **No fourth bridge call to start the engine.** `bridge.ts` loads DuckDB on its first call, and the post-paint callback's warm-up (`SELECT 42 AS x`) is that call. The warm-up's answer is checked in Rust before the UI says "Engine ready", so "ready" means a query made the whole round trip.
-- **Pending-query API, one connection per query.** `startPendingQuery` → `pollPendingQuery` → `fetchQueryResults` gives raw IPC bytes, so JS never decodes Arrow. Separate connections let queries interleave and be cancelled one at a time, which M4's page cache needs.
-- **DuckDB-Wasm 1.32.0, pinned exactly.** npm's `latest` tag is a dev build.
-- **The DuckDB wasm bundles go to R2 in M8** (32.7 and 37.5 MiB, over Cloudflare's 25 MiB asset limit). The build names them instead of failing.
+**Results:** [`perf/results/2026-09-23-m2.md`](../perf/results/2026-09-23-m2.md)
 
 **Surprises:**
 - **A failed engine load hung the UI forever.** The negative control (block DuckDB's wasm or worker in Playwright) caught it: DuckDB-Wasm never rejects `instantiate` when its worker dies. The worker fetches its wasm in a promise nothing awaits, so a failed fetch is just an unhandled rejection inside the worker. Fix: run DuckDB's worker script inside a small classic worker that reports unhandled rejections as errors, and race `instantiate` against the `Worker`'s `error` event. The wrapper had to be a blob: URL: as a Vite worker entry, Vite's dev server serves it as an ES module, which can't `importScripts`. Both controls now run in `just tycho engine`.
@@ -72,19 +49,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - The decoder matched DuckDB's real output for all 17 test columns on the first try; the unit tests against arrow-rs-written streams had already caught the two bugs. One: Rust's `Display` for `f64` writes 1e300 as 301 digits, so floats print with `Debug` (shortest round-trip, with an exponent). Two: float32 must stay `f32`, or 0.1 prints as 0.10000000149.
 - Playwright traces record no network unless `snapshots: true`.
 - **Parquet isn't built into DuckDB-Wasm.** Only `core_functions` is statically linked. The first Parquet call silently autoloaded the extension from extensions.duckdb.org, which the self-hosting rule forbids and which would have made M3 depend on a third-party CDN. The code review caught it; autoload is now off, and M3 self-hosts the extension.
-- **The code review found gaps the tests didn't:** a cancel during the result-fetch phase was ignored; a worker dying after load would hang its queries; `registerFile(url)` accepted a 404 (and Vite's SPA fallback answers every unknown path with `index.html` and a 200); the reader's offset math could wrap on wasm32's 32-bit `usize` (the native tests run 64-bit); and the traced perf run counted toward the median. All fixed; see the decisions log.
+- **The code review found gaps the tests didn't:** a cancel during the result-fetch phase was ignored; a worker dying after load would hang its queries; `registerFile(url)` accepted a 404 (and Vite's SPA fallback answers every unknown path with `index.html` and a 200); the reader's offset math could wrap on wasm32's 32-bit `usize` (the native tests run 64-bit); and the traced perf run counted toward the median. All fixed; see `DECISIONS.md`.
 - The engine JS chunk (38 KiB br) carries apache-arrow, which DuckDB's JS API imports but Tycho never calls. It loads after first paint, so it only costs engine-ready time. It could be trimmed later.
 
 ## M3: Asteroid sample over HTTP (2026-09-24)
 
-**Numbers:** sample click → schema **87.8 ms** median reference (budget 300), 1012.0 ms throttled. **34,759 bytes (0.098%)** of the 35.5 MB file transferred before the schema showed. Reference TTFP 190.1 ms (+7.2%), but an interleaved A/B against a rebuilt M2 gives 186.2 vs 186.9 ms (+0.4%): the machine was loaded, not slower code. App wasm **2637.6 KiB** brotli (+5.8 KiB). The Parquet extension (EH) is 487 KiB brotli, loaded right after engine ready. Data: 1,567,523 asteroids, fetched 2026-09-24. Details: `perf/results/2026-09-24-m3.md`.
-
-**Decisions:**
-- **Range reads only.** DuckDB-Wasm 1.32.0 with default settings downloaded the *entire* file to show its schema: it misreads its own `bytes=0-0` probe (it looks for the total in Content-Length) and falls back to a full GET. `filesystem: { reliableHeadRequests: true, allowFullHTTPReads: false, forceFullHTTPReads: false }` makes it size files with a ranged HEAD and read only the footer. The Worker answers a ranged HEAD with 206.
-- **The Worker parses `Range` itself.** R2's `get(key, { range: request.headers })` returns the whole object for a multi-range or past-the-end header, with no error. That would go out as a false 206. PLAN.md's Hosting section is corrected.
-- **Self-hosted Parquet extension**, pinned by SHA-256, served from our origin; DuckDB's extension repository points there with autoload on. Rust prefetches it (`LOAD parquet`) right after the warm-up, so a warm click doesn't wait for it, and an early click still works through autoload.
-- **The credit rides in the Parquet file** (`tycho.credit`, `tycho.fetched` key/value metadata), so the header reads it with SQL: no manifest fetch, no new bridge call.
-- **Data scripts in TypeScript**, `prep.sql` on `@duckdb/node-api` 1.4.x (same DuckDB line as the wasm engine). Dev keeps one origin by proxying `/data/*` from Vite to `wrangler dev`, and the Worker falls through to static assets, so M8 adds config, not code.
+**Results:** [`perf/results/2026-09-24-m3.md`](../perf/results/2026-09-24-m3.md)
 
 **Surprises:**
 - **Playwright doesn't see DuckDB's requests** (sync XHRs inside its worker). Its network log showed one "200, whole file" request that the server never sent. Bytes are now counted at the server, with a counting proxy in `perf/sample.ts`.
@@ -97,16 +67,7 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## M4: Virtualized table over paged queries (2026-09-25)
 
-**Numbers:** file → first rows **239.2 ms** median (budget 500). Scrollbar jump to 90% **133.0 ms** (budget 400). A top-to-bottom fling in 3 s holds **p95 16.7 ms**, with no frame over 50 ms. App memory after two full passes is **89.4 MiB** (cap 128). Reference TTFP 170.2 ms (protocol run). App wasm +16.3 KiB brotli (2653.9 KiB). Details: `perf/results/2026-09-25-m4.md`.
-
-**Decisions:**
-- **Our own table, not gpui-kit's `DataTable`.** `uniform_list` positions rows in f32 pixels. At 1.5 M rows that's 47 M px, where f32 steps by 4 px; at Gaia's 25 M rows, by 64 px. `crate/src/table/` keeps the scroll position as an f64 row index and draws only the visible rows and columns. It owns its scrollbars, wheel, and keys.
-- **Paging strategy B, a `file_row_number` filter**, at **30,720-row groups**. A and B read the same bytes, since DuckDB skips row groups for `OFFSET` too, but B is 10–25 ms faster. C (ingest first) costs a 1.1 s full download before the first row. 30,720 beat 122,880 on every latency and read 3.6× fewer bytes per jump, for a 6% bigger file.
-- **1024-row pages, prefetch 2.** The sweep didn't separate the nine configs beyond noise. The choice rests on structure: 1024 divides the row groups, and small pages evict in finer steps.
-- **Drags load on rest or release**, not on every move. A page read can't be taken back once DuckDB's worker starts it.
-- **One `LOAD parquet` at a time** (`Engine::load_parquet`): the prefetch and every file open share one attempt, and no Parquet query runs before it. A first fix only waited for the prefetch; the code review caught that the three metadata queries could still autoload the extension together after a failed prefetch.
-- **Extension autoload is off.** A second review pointed out that waiting for `load_parquet` was only a convention while autoload stayed on. Any query that skipped it could still start a second, concurrent load. Now `LOAD` is the only way in.
-- **Cancelled page queries still count as in flight** until DuckDB answers them, for wheel and keys too, not just drags.
+**Results:** [`perf/results/2026-09-25-m4.md`](../perf/results/2026-09-25-m4.md)
 
 **Surprises:**
 - **DuckDB-Wasm's readahead sets a 1.39 MB floor per page read.** `WebFileSystem` reads sequential regions in growing requests (16 K, 64 K, 256 K, 1 M), and no `db.open` option or Parquet setting changes it. So the M3 goal "first rows under 2% of the file" can't hold for a 38 MB file at any row-group size. On Fast 4G that ramp is four round trips, ~2.1 s per page.
@@ -119,16 +80,7 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## M5: Drop a Parquet file (2026-09-27)
 
-**Numbers:** dropping a 969.7 MiB Parquet (42.3 M rows) shows its schema in **213.6 ms** and first rows in **796.0 ms** (budget 1 s; throttled 893.7). Peak memory for the 1 GB file matches the 100 MB one: app 17.5 vs 17.6 MiB, every agent 129.2 vs 135.1 MiB; holding a copy in the page reads +127.6 MiB, so a copy would show. Reference TTFP 173.9 ms in the final `check`. App wasm +7.4 KiB brotli (2661.3 KiB). Details: `perf/results/2026-09-27-m5.md`.
-
-**Decisions:**
-- **Drops and the file dialog live in `crate/src/files.rs`, not the JS host.** GPUI doesn't deliver browser drops (gpui-pre-web only `preventDefault`s them), so Tycho listens on `window` with web-sys and enters GPUI through its foreground executor. The dialog is a hidden `<input type=file>` clicked from a GPUI click handler, which works because GPUI dispatches inside the DOM's own pointer event. No bridge call was added: a `File` goes through `registerFile` as before.
-- **Sniff `PAR1` at both ends before the engine sees a file.** Two 4-byte slices, under a millisecond at any size, answered even while DuckDB loads. Wrong files keep the current file open and get an inline line saying why.
-- **Every open registers under its own SQL name** (`file-<n>.parquet`). A file's own name could be a glob to `read_parquet`, and a fresh name means a cached footer never outlives its file.
-- **A new open replaces the old one:** the open task is dropped, its metadata queries cancelled, and an open table closed (`RowTable::close`). Registered file handles stay registered; unregistering would be a fourth bridge call, and a handle holds no bytes.
-- **`SET GLOBAL parquet_metadata_cache = true`** after `LOAD parquet`, in the same load attempt.
-- **Visible pages first:** no prefetch page starts while a visible page isn't loaded (`PageCache::plan`).
-- **The every-agent memory bound is 10% of the two files' size difference**, not a fixed 16 MiB: that number swings ~20 MiB between snapshots of one file. The bound was changed after seeing that; the results note says so.
+**Results:** [`perf/results/2026-09-27-m5.md`](../perf/results/2026-09-27-m5.md)
 
 **Surprises:**
 - **Our own row-group size was the slowest layout for a local 1 GB file.** First measurement: first rows 2.66 s at 30,720-row groups vs 0.59 s at 122,880 and 0.48 s at 1,048,576. M4 picked 30,720 for HTTP, where the readahead's bytes dominate; locally, per-row-group CPU does.
@@ -141,15 +93,7 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## M6: Drop a CSV with progressive loading (2026-09-30)
 
-**Numbers:** dropping a 1,021.7 MiB CSV (9.4 M rows) shows its schema in **143.0 ms** and first rows in **183.8 ms** (budget 1 s; throttled 342.9). The whole file loads in **15.4 s (69.5 MB/s)**. The row count updates 130 times, never more than **202.4 ms** apart (budget 500). A fling mid-load holds p95 16.7 ms, worst 16.7. The fixture's count is exact (1,567,531) and its tricky rows read back byte for byte. DuckDB holds ~300 MiB for the loaded file (every agent 589 MiB). App wasm +11.9 KiB brotli (2673.2 KiB); reference TTFP 173.3 ms in the final `check` (−2.2%). Details: `perf/results/2026-09-30-m6.md`.
-
-**Decisions:**
-- **Chunked ingest, not raw-file queries.** Querying the CSV where it lies gave first rows in 167 ms, but a page at 90% took 5.1 s and `count(*)` 3.3 s: every read parses from the top. Ingested, a page at 90% reads in ~4 ms.
-- **One table per chunk, not one table appended to** (the plan's `INSERT INTO t`). Appends stalled for 200–600 ms every few chunks, which broke the 500 ms budget, and cost memory in proportion to the chunk count. Per-chunk `CREATE TABLE … AS` never stalled. A page spanning two chunks reads both with `UNION ALL`.
-- **Compressed.** In-memory tables aren't compressed unless the database is attached with `(COMPRESS)`. Per-chunk tables took 2.1 GiB for the 1 GB file without it and 300 MiB with it, for ~40% slower chunks. At wasm32's 4 GB, that's the difference between a 1 GB CSV fitting and not.
-- **Sniff once, then fix every option** (`auto_detect = false`). One `sniff_csv` of the first 1 MiB chunk gives the dialect and types. Sniffing again per chunk cost ~20 ms of a ~55 ms chunk and could pick different types per chunk.
-- **Chunks aim at 200 ms**, from 1 MiB (first rows) up to 8 MiB. A page read waits for the chunk in progress, so the chunk time is also the worst page latency during a load.
-- **Record boundaries are found in Rust**, quote-aware, reading 1 MiB at a time so frames draw between reads. The next chunk's end is found while DuckDB reads the current one. Chunks are `File` slices through `registerFile`: no new bridge call.
+**Results:** [`perf/results/2026-09-30-m6.md`](../perf/results/2026-09-30-m6.md)
 
 **Surprises:**
 - **DuckDB's sniffer reads only the head.** The asteroid CSV quotes nothing until its last 8 rows, so the sniffer picked *no* quote character, and the file failed to parse at line 1,567,525: even native DuckDB can't read the fixture with defaults. Its types were wrong too: `pdes` is numeric for 895,910 rows, then "1988 PF1". Tycho forces RFC 4180 quoting, and widens a column to text when a chunk's value doesn't fit (the error names the column; a failed `CREATE TABLE` leaves nothing behind).
@@ -161,8 +105,8 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## Upgrade: gpui-kit 0.6.4 → 0.7.1 (2026-10-07)
 
-**Numbers:** app wasm **2704.4 KiB** brotli, **+31.2 KiB** (+1.2%). TTFP unchanged: interleaved A/B, 20 runs each, 190.0 ms (0.7.1) vs 191.4 ms (0.6.4) under load 3–8 (`perf/results/2026-10-07-gpui-kit-0.7.1-ab.json`). Table fling p95 16.7 ms, worst 16.7 ms, as before; throttled 3565.1 vs 3536.5 ms. Details: `perf/results/2026-10-07-gpui-kit-0.7.1.md`.
-**Decisions:** take the 0.7 window API as designed. `gpui_kit::open_window` wraps the shell in `Root`, and `AppShell` stops rendering overlay layers. DuckDB-Wasm stays at 1.32.0 (no newer stable build).
+**Results:** [`perf/results/2026-10-07-gpui-kit-0.7.1.md`](../perf/results/2026-10-07-gpui-kit-0.7.1.md)
+
 **Surprises:**
 - **A full perf run right after the bump read +6% TTFP. It was load.** A single before/after pair minutes apart under a load of ~4 isn't a comparison. Alternating the builds (after, before, after, before) showed no difference.
 - **The overlay code is now linked whether or not it's used.** 0.6.4 made the app render the layers (+26.4 KiB in M0). 0.7 registers per-window presentation for every component in `Root` and cost +31.2 KiB more, though Tycho opens no dialog yet.
@@ -171,10 +115,10 @@ One entry per milestone, written before starting the next one: what surprised us
 
 ## M7 part A: Observation panel (2026-10-07)
 
-M7 is split into five parts, one session each (PLAN.md). Part E writes the milestone's full entry; this one covers part A.
+M7 is split into five parts, one session each (`milestones.md`, M7). Part E writes the milestone's full entry; this one covers part A.
 
-**Numbers:** 340/340 panel values matched an independent measurement within 5% (10 reference + 10 throttled runs). Fling p95 16.7 ms, worst 16.7, with the panel open and closed. Work per frame: fling 5.2 / 7.3 ms (p50/p95), steady scroll 12.7 / 15.1 ms (reference). App wasm +6.8 KiB brotli. TTFP unchanged in an interleaved A/B (195.5 vs 195.8 ms). Details: `perf/results/2026-10-07-m7-panel.md`.
-**Decisions:** DuckDB's reads are counted in its worker wrapper and reach Rust as a shared counter on `FileInfo`, with no fourth bridge call. The panel is a cached view refreshed at 4 Hz. The table reports through an event and `stats()`, and the workbench decides what the panel shows.
+**Results:** [`perf/results/2026-10-07-m7-panel.md`](../perf/results/2026-10-07-m7-panel.md)
+
 **Surprises:**
 - **The frame interval hid the real cost of scrolling.** Both a fling and a steady scroll pin at 16.7 ms. Work per frame shows the steady scroll at 12.7 ms p50 and 15.1 p95, ~1.6 ms from a dropped frame, while the fling (mostly placeholders) is at 5.2. Loaded rows are what's expensive; part B checks whether that's cell formatting.
 - **js-sys's `Atomics::load_bigint` passes its index as a BigInt, which `Atomics.load` rejects.** The JS exception unwound through a GPUI update, and every later `cx.update` panicked "RefCell already borrowed". The first error in the log was the real one. Tycho declares its own `Atomics.load` binding with a number index.
@@ -186,8 +130,8 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 
 ## M7 part B: Gaia sample (2026-10-07)
 
-**Numbers:** 25,067,889 stars (G < 14.5, matching the ESA archive's count), 1.57 GB, 409 row groups of 61,440. Reference, 10 runs: first rows **290.6 ms**, jump to 90% **136.8 ms**, fling p95 16.7 ms, worst 16.7. App memory 71.2 MiB after two full passes. Work per frame: fling 5.7 / 7.9 ms, steady scroll 12.6 / 14.7 ms, the same as the asteroids. Throttled: first rows 8.5 s, jump 6.6 s. The first fetch read ~90 GB from AWS in 48 min. App wasm −0.6 KiB. Details: `perf/results/2026-10-07-m7-gaia.md`.
-**Decisions:** cut at G < 14.5. 61,440-row groups: the same bytes per page as 30,720 at under half the CPU. No cell-string cache (formatting is 0.6% of a draw). Pages stay 1024 × 2. The ESA credit rides in the file's metadata.
+**Results:** [`perf/results/2026-10-07-m7-gaia.md`](../perf/results/2026-10-07-m7-gaia.md)
+
 **Surprises:**
 - **The readahead doesn't stop at 1 MB.** M4 saw 16 K/64 K/256 K/1 M and called 1.39 MB the floor. It keeps growing ×4 (4 M, 16 M) while reads stay sequential, so bytes per page jump in steps with the row-group size: 5.6 MB for Gaia at 30,720 and 61,440 rows, 22.4 MB from 122,880. The row-group choice became "the biggest group under a step", not a curve.
 - **A filter pushdown can't help a sky-sorted catalog.** Every HATS partition holds every magnitude, so keeping 2% of Gaia meant reading 100% of its columns. Keeping one extract per partition made every later build local (4–5 s).
@@ -196,11 +140,10 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 - **A wrong number came from a script, not the app.** The first Gaia runs read 21 ms of steady-scroll work against 12.7 in a probe. It took a bisection to find: since part A, the panel covers the scrollbar's bottom, so the script's drag after a fling pressed the panel, and the "steady scroll" wheeled against the last row. Its memory pass hung for the same reason. The script now checks where the scroll starts. A visitor hits the same wall (part D).
 - `rows += await …` in a pool of concurrent jobs loses updates: the fetch's progress log read 4.6 M rows when the extracts held 36.9 M.
 
-
 ## M7 part C: Jump to row (2026-10-08)
 
-**Numbers:** first, middle, last, and out of range all landed or refused in 10 reference + 10 throttled Chromium runs per sample, and in Firefox and WebKit. Enter → rows shown: asteroids 79.4 ms (middle) / 68.7 ms (last), Gaia 153.2 / 151.1 ms (reference). The input costs **88.0 KiB brotli**, **+3.4 ms TTFP**, and +101.0 ms throttled in an interleaved A/B. gpui-kit's `Input`, tried first, cost 194.1 KiB, +9.5 ms, and +199.7 ms. `just tycho check` reads 196.5 ms against 195.0, with HEAD at 194.9 right after. The cost is accepted, and the baseline gets re-recorded in a quiet session. Details: `perf/results/2026-10-08-m7-jump.md`.
-**Decisions:** gpui-base's unstyled single-line `Input` with our own styling and right-click menu, not gpui-kit's `Input`. It sits in the header strip's top row, clear of the panel. Enter scrolls the row to the top, highlights it, and hands the table focus. Full-width digits and separators are accepted. Cmd/Ctrl+G focuses the input. Lost focus goes back to the workbench. `shared/` binds the Mac Cmd editing keys.
+**Results:** [`perf/results/2026-10-08-m7-jump.md`](../perf/results/2026-10-08-m7-jump.md)
+
 **Surprises:**
 - **One single-line input links three editors.** gpui-kit's `Input` element dispatches over its single-line, textarea, and code-editor states, so all three engines come along: search panels, LSP sync, completion lists, ropey. That's 194 KiB brotli for a box that takes digits, the largest single addition since M1. gpui-base's own `Input` element renders only the single-line state: with the menu rebuilt in 30 lines, it costs 88 KiB, and the menu is 2.1 KiB of that. The bulk was never the features we use.
 - **Cmd shortcuts are compiled out of the web build.** gpui-kit gates them on `target_os = "macos"`, which wasm never is, so a Mac user's Cmd+A did nothing and their next Backspace ate one character. Cmd+V worked anyway, because an unbound Cmd+V falls through to the browser's paste event. That's also why `shared/` must not bind it: the `Paste` action reads the clipboard asynchronously, behind a permission.
@@ -213,8 +156,8 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 
 ## M7 part D: Hardening (2026-10-08)
 
-**Numbers:** Parquet opens to 9.6 GB (423 M rows) with DuckDB holding 5.6 MiB, but first rows take 3.5 s at 3,445 row groups. A CSV costs 0.28–0.47 bytes of DuckDB memory per byte of file. Limits: Parquet 10 GB; CSV 6 GB at the drop and 1.5 GiB of memory during the load. All 7 error-state checks pass; failed rows recover by themselves 5.1 s after the network returns. App wasm +6.4 KiB brotli (2805.7 KiB); `check` PASS at 193.1 ms. Details: `perf/results/2026-10-08-m7-hardening.md`.
-**Decisions:** Retry for a failed engine load and for a stopped worker; Rust refuses calls while the engine is down. A failed Parquet read re-registers the file under a new SQL name. Files stay registered: nothing frees a parsed footer. No in-flight tracking. The CSV scanner stays at 1 MiB. The panel keeps clear of the scrollbars.
+**Results:** [`perf/results/2026-10-08-m7-hardening.md`](../perf/results/2026-10-08-m7-hardening.md)
+
 **Surprises:**
 - **DuckDB-Wasm lost rows without an error.** Past ~2.1 GiB of in-memory tables (its `memory_limit` says 3.1 GiB), `CREATE TABLE … AS` answered normally with empty tables: an 8.6 GB CSV reported "done" with 8.8 M rows missing. The plan expected the tab to run out of memory, loudly. The guard checks DuckDB's memory after every chunk and treats an empty chunk as out of memory.
 - **One failed read breaks a file for good.** After a dropped connection, every later read of those bytes failed with a Thrift error, online, after re-registering the same URL under the same name, and with the external file cache off. Only a new SQL name read again. The first fix (same name) passed a probe that re-registered before anything re-read the bytes, and failed in the app, which re-registers after.
@@ -231,8 +174,8 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 
 ## M7 part E: Close-out (2026-10-08)
 
-**Numbers:** one `just tycho perf` run checks every M7 budget, and all pass: TTFP 201.8 ms ref (load 7.5) / 3703.3 throttled; asteroids first rows 201.8 ms, jump to 90% 82.6 ms; Gaia 295.7 / 135.7 ms; fling p95 16.7 ms in every run on both samples, panel open or closed; jump to row 82.3 / 150.3 ms (middle, asteroids / Gaia); 1 GB CSV first rows 205.2 ms, count gaps ≤ 300 ms; the panel 340/340 values within 5%. ~1 h 45 min. The static placeholder shell paints at 234.5 ms throttled, against GPUI's 3696.9 ms, at no TTFP cost. Details: `perf/results/2026-10-08-m7-close-out.md`.
-**Decisions:** `just tycho perf` is the suite (one child process per script, one results file, `--update` to re-run a part); the cold load alone is `just tycho cold`. `seiza::marks` is the one clock and mark helper, last entry wins. The placeholder shell: yes, built in part G, with its font, pixel match, and swap as checks.
+**Results:** [`perf/results/2026-10-08-m7-close-out.md`](../perf/results/2026-10-08-m7-close-out.md)
+
 **Surprises:**
 - **The decision the plan expected to be close wasn't.** On Fast 4G the HTML arrives at 171 ms and the 2.8 MiB of wasm keeps the canvas blank until 3.7 s; an HTML copy of the shell paints 63 ms after the HTML. 3.46 s of blank page is the biggest number M7 has moved, and it moves without touching TTFP, so the metric the repo is built on never saw it.
 - **The font can't be shared for free.** GPUI gets its font bytes through `fetch`, so the preload is `as=fetch`; CSS `@font-face` needs `as=font` and won't reuse it. A placeholder in Plex downloads Plex twice on the slow link it exists for.
@@ -246,8 +189,8 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 
 ## M7 part F: Cell overflow (2026-10-09)
 
-**Numbers:** no value spills out of its cell in 8,490 checked cells (both samples and `overflow.parquet`, top to end, every column; screenshot ink in each cell's padding), against 1,650 spills in Gaia's 2,622 with the old cells. 1,722 Gaia doubles rounded to fit, each within half a unit of its last digit. Tooltips show the exact value ~545 ms after the pointer rests. Wasm +7.6 KiB brotli (2812.6). Frames and loads (measured before the code review fixes, not re-run) within noise of part E: Gaia fling work 5.6 / 7.6 ms (p50 / p95, ref), steady 12.4 / 15.2, first rows 297.6 ms, jump 135.2 ms; asteroids 5.9 / 7.9, 12.4 / 15.8, 206.9, 83.6. TTFP: an interleaved A/B against HEAD read 194.9 vs 193.7 ms reference (n=30) and 3707.3 vs 3695.2 throttled (n=10); `check` read 209.5 right after its build, under load.
-**Decisions:** format by type instead of measuring (decisions log). Doubles round like a spreadsheet's automatic format; integers are never rounded (an ID isn't a quantity) and their columns fit the type's widest value; integers and DECIMAL still too wide are cut in the middle, text ends in "…" with line breaks as `¶`; one tooltip for the hovered cell, mapped from the scroll model.
+**Results:** [`perf/results/2026-10-09-m7-cells.md`](../perf/results/2026-10-09-m7-cells.md)
+
 **Surprises:**
 - **`.truncate()` was on every cell all along.** GPUI cuts text only when the text node's width is definite, and a flex item's isn't: it's measured at its full width. The fix was taking the flex off, not adding truncation.
 - **Measuring first was the wrong plan.** Sizing each column to its widest value in the first pages covers only those pages: a jump, a sorted file, or a later CSV chunk shows wider ones. Rounding to a budget has no such gap, and costs a float format per too-long double instead of a measured page.
@@ -260,8 +203,8 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 
 ## M7 part G: Static placeholder shell and theme toggle (2026-10-09)
 
-**Numbers:** on Fast 4G the shell paints at 243 ms against GPUI's first frame at 3716 ms (interleaved A/B, median of 10): 3.47 s less blank page. Reference: 78 ms vs 196. It costs `index.html` 10.7 KiB brotli and no measurable TTFP. The theme toggle's icons cost the wasm +11.9 KiB brotli and TTFP ~40 ms throttled, +7.2 reference (a four-way A/B split it from the placeholder). `check` read 202.7 ms (FAIL, load 3–5); the A/B puts this change at 195.6 vs HEAD 188.4. Details: `perf/results/2026-10-10-m7-placeholder.md`.
-**Decisions:** a fade over the first frame, not a cut; the buttons as gpui-kit skeletons at GPUI's widths; GPUI's line-height rounding copied into the placeholder; contents hidden until its font loads; no smoothing overrides; "Engine loading…" as the status line; a Sun/Moon icon toggle and Cmd/Ctrl+Shift+L, no Tab; pointer cursors on buttons. All in the decisions log.
+**Results:** [`perf/results/2026-10-10-m7-placeholder.md`](../perf/results/2026-10-10-m7-placeholder.md)
+
 **Surprises:**
 - **Every DPR 2 check passed while a DPR 1 screen jumped.** GPUI and the browser round half-pixels in opposite directions: half a CSS pixel at DPR 2, invisible; a whole one at DPR 1. A headed window, opened at the screen's real scale, showed it at once. The checks now run at both.
 - **An inlined font still races the first paint.** A `data:` URL decodes asynchronously; Chrome sometimes painted the placeholder laid out in the fallback font's metrics (text invisible under `font-display: block`), then re-laid it out. `document.fonts.check()` said true before that paint. The first steadiness control missed it because the race is timing-dependent; serving the font 300 ms late made both arms deterministic.
@@ -273,8 +216,8 @@ M7 is split into five parts, one session each (PLAN.md). Part E writes the miles
 
 ## M8: Deploy to Cloudflare (2026-10-10)
 
-**Numbers:** live at https://tycho.seiza.io. TTFP 327.2 ms reference, 3778.5 throttled, against 211.4 / 3741.7 for the local build measured interleaved; from wasm ready to the first frame the two match (100.5 vs 97.9 ms, 370.1 vs 369.8), so production adds only network. First rows 506.8 ms (asteroids) and 810.8 (Gaia) with the edge cache, 1031.4 and 1447.0 without; jump to 90% 200.9 / 362.8 ms. The app wasm goes out as 2,891,331 B of br-11; Cloudflare's own compression sent 3,920,772 B of zstd and cost +1.1 s TTFP throttled. `crossOriginIsolated` in Chromium, Firefox, and WebKit. Details: `perf/results/2026-10-10-m8.md`.
-**Decisions:** budgets apply to the local build only, production is recorded (now a repo-wide rule); br-11 precompressed at deploy and served by the Worker; the page `no-transform`; stable data names with an edge cache keyed by content SHA; DuckDB's oversize bundles in R2, their `.br` in static assets; `perf --url` for every part but panel. All in the decisions log.
+**Results:** [`perf/results/2026-10-10-m8.md`](../perf/results/2026-10-10-m8.md)
+
 **Surprises:**
 - **Cloudflare's compression undid the budget.** Every local number assumed br at quality 11, which the preview server serves. Cloudflare compresses on the fly at a low level and picks zstd when Chromium offers it: the app wasm grew by a third on the wire, and the throttled TTFP gap to local (+1.1 s) was almost exactly that extra megabyte at Fast 4G. Static assets can't serve precompressed files; running the Worker first for the build can, at ~5 ms.
 - **The zone injected a script.** Cloudflare Web Analytics added `beacon.min.js` to the HTML, which loaded before first paint and failed every cold run. curl never saw it (it was injected only into what Chromium got), and `Cache-Control: no-transform` on the page stopped it whatever the zone's settings.

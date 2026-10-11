@@ -18,10 +18,11 @@
 // 2. Memory (Chromium): for the 100 MB and the 1 GB file, drop, first rows,
 //    End (last rows), Home; after each, wasm + JS heap (the overlay) and
 //    measureUserAgentSpecificMemory (every agent, DuckDB's worker included).
-//    Peak app memory for 1 GB must be within 16 MiB of 100 MB's, and every
-//    agent's within 10% of the files' size difference. A negative control
-//    holds the 100 MB file's bytes in the page (`file.arrayBuffer()`) and
-//    must read at least 90% of the file higher, so a copy would show.
+//    Peak app memory for 1 GB must be within BUDGET.appDeltaMiB of 100 MB's,
+//    and every agent's within BUDGET.allAgentsDeltaOfSizeDiff of the files'
+//    size difference (perf/budgets.json). A negative control holds the 100 MB
+//    file's bytes in the page (`file.arrayBuffer()`) and must read at least
+//    BUDGET.copyDetect of the file higher, so a copy would show.
 // 3. Unsupported files (Chromium): a text file, a gzipped CSV, junk named .parquet,
 //    a 5-byte file, and an encrypted-Parquet shape, dropped on the empty
 //    state and over an open file: each shows its inline notice, and an open
@@ -46,7 +47,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
 import { preview } from 'vite';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
+import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
 import { clickTarget, dropFile, open, overlayValue, waitMark, waitOverlay } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
@@ -71,11 +72,11 @@ const base = (name: string) => name.split('/').pop()!;
  * tight. Every agent together (DuckDB's worker included) swings ~20 MiB
  * between snapshots of one file, and grows with the footer DuckDB keeps
  * parsed (2.2 MB serialized at 1,378 row groups vs 0.24 MB at 154): M5 read
- * +14 MiB. Its bound is what a copy would break: 10% of the size difference
- * between the two files (~86 MiB). The negative control shows a held copy
+ * +14 MiB. Its bound is what a copy would break: a fraction of the size
+ * difference between the two files (M5 chose 10%, ~86 MiB). The negative control shows a held copy
  * reads at its full size.
  */
-const BUDGET = { schemaMs: 1000, firstRowsMs: 1000, appDeltaMiB: 16, allAgentsDeltaOfSizeDiff: 0.1, copyDetect: 0.9 };
+const BUDGET = limits('drop', ['schemaMs', 'firstRowsMs', 'appDeltaMiB', 'allAgentsDeltaOfSizeDiff', 'copyDetect']);
 const runs = Number(option('runs') ?? 10);
 const layoutRuns = Number(option('layout-runs') ?? 5);
 const label = option('label') ?? 'm5-drop';
@@ -412,7 +413,7 @@ try {
     output.memory = { small, big, delta, control: { ...control, copyMiB, fileMiB } };
     const sizeDiffMiB = (big.bytes - small.bytes) / 2 ** 20;
     const allAgentsBound = sizeDiffMiB * BUDGET.allAgentsDeltaOfSizeDiff;
-    console.log(`memory bounds: app ±${BUDGET.appDeltaMiB} MiB; all agents ±${allAgentsBound.toFixed(1)} MiB (10% of the ${sizeDiffMiB.toFixed(1)} MiB size difference)`);
+    console.log(`memory bounds: app ±${BUDGET.appDeltaMiB} MiB; all agents ±${allAgentsBound.toFixed(1)} MiB (${BUDGET.allAgentsDeltaOfSizeDiff * 100}% of the ${sizeDiffMiB.toFixed(1)} MiB size difference)`);
     if (Math.abs(delta.allAgentsMiB) > allAgentsBound) failures.push(`memory: 1 GB peak is ${delta.allAgentsMiB.toFixed(1)} MiB off 100 MB's (all agents; bound ${allAgentsBound.toFixed(1)})`);
     if (Math.abs(delta.appMiB) > BUDGET.appDeltaMiB) failures.push(`memory: 1 GB peak is ${delta.appMiB.toFixed(1)} MiB off 100 MB's (app)`);
     if (copyMiB < fileMiB * BUDGET.copyDetect) failures.push(`memory control: a held copy read only +${copyMiB.toFixed(1)} MiB of ${fileMiB.toFixed(1)}`);

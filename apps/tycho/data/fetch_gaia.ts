@@ -1,7 +1,7 @@
 // Fetches the bright end of Gaia DR3 from its HATS-partitioned Parquet on AWS
 // Open Data (s3://stpubdata/gaia/, anonymous) into data/raw/gaia/: one small
 // Parquet file per HATS partition, holding only the stars brighter than
-// RAW_CUT and only the columns PLAN.md names. prep-gaia.sql picks the final
+// RAW_CUT and only the columns docs/data.md names. prep-gaia.sql picks the final
 // magnitude cut from these, so the cut can move below RAW_CUT without a
 // refetch.
 //
@@ -23,7 +23,7 @@ export const SOURCE = 's3://stpubdata/gaia/gaia_dr3/public/hats/gaia';
 const HTTPS = 'https://stpubdata.s3.amazonaws.com/gaia/gaia_dr3/public/hats/gaia';
 /** Stars kept in the raw extracts: phot_g_mean_mag below this (36.9 M in DR3). */
 export const RAW_CUT = 15;
-/** PLAN.md's Gaia columns, as stored; prep-gaia.sql adds distance_pc. */
+/** docs/data.md's Gaia columns, as stored; prep-gaia.sql adds distance_pc. */
 export const COLUMNS = [
   'source_id', 'ra', 'dec', 'parallax', 'pmra', 'pmdec', 'phot_g_mean_mag', 'bp_rp', 'radial_velocity', 'teff_gspphot',
 ];

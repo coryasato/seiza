@@ -36,8 +36,8 @@
 // --trace adds one uncounted run per profile that saves a Playwright trace
 // (network waterfall included) to perf/results/raw/ (gitignored).
 // With no --url it starts `vite preview` on the release build in web/dist
-// (brotli, like production). --check applies the budgets in perf/baseline.json
-// and exits non-zero on a regression. --write-baseline records this run as the
+// (brotli, like production). --check compares this run with perf/baseline.json
+// within the limits in perf/budgets.json, and exits non-zero on a regression. --write-baseline records this run as the
 // new baseline.
 
 import { execFileSync } from 'node:child_process';
@@ -46,7 +46,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Request } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
-import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, median, option, throttle, type Profile } from './common.ts';
+import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, limits, machineInfo, median, option, throttle, type Profile } from './common.ts';
 import { serveApp } from './harness.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
@@ -63,9 +63,11 @@ const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
 const baselinePath = join(perfDir, 'baseline.json');
 const notesPath = join(perfDir, 'budget-notes.md');
-const TTFP_BUDGET = 0.1;
-const WASM_BUDGET = 0.15;
-const OVERLAY_TOLERANCE_MS = 5;
+const {
+  ttfpOverBaseline: TTFP_BUDGET,
+  wasmOverBaseline: WASM_BUDGET,
+  overlayToleranceMs: OVERLAY_TOLERANCE_MS,
+} = limits('perf', ['ttfpOverBaseline', 'wasmOverBaseline', 'overlayToleranceMs']);
 
 const runs = Number(option('runs') ?? 10);
 const label = option('label') ?? 'cold-load';
@@ -656,7 +658,7 @@ if (check) {
     );
   }
   console.log(
-    `budget: TTFP ${reference.toFixed(1)} ms vs limit ${ttfpLimit.toFixed(1)} ms (baseline ${baseline.ttfpMs.reference} + 10%); ` +
+    `budget: TTFP ${reference.toFixed(1)} ms vs limit ${ttfpLimit.toFixed(1)} ms (baseline ${baseline.ttfpMs.reference} + ${TTFP_BUDGET * 100}%); ` +
       `wasm ${wasmKiB.toFixed(1)} KiB vs limit ${wasmLimit.toFixed(1)} KiB`,
   );
   if (sameMachine && reference > ttfpLimit) failures.push(`reference TTFP ${reference.toFixed(1)} ms is over ${ttfpLimit.toFixed(1)} ms`);

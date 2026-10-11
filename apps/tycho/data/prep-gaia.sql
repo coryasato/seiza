@@ -2,11 +2,11 @@
 -- partition, stars brighter than its RAW_CUT) into Tycho's big sample,
 -- gaia-dr3-bright.parquet (the "Big: 25M Gaia stars" button). prep.ts runs
 -- this with native DuckDB from apps/tycho/data/ and substitutes ${cut} (the
--- magnitude cut, PLAN.md's pending decision) and, in the write section, ${out}
+-- magnitude cut, docs/data.md) and, in the write section, ${out}
 -- and ${row_group} (COPY options must be constants). It sets the variable
 -- archive_rows: the ESA archive's own count of DR3 sources under the cut.
 
--- One row per star, PLAN.md's columns in its order. distance_pc is
+-- One row per star, docs/data.md's columns in its order. distance_pc is
 -- 1000 / parallax, only where the parallax is positive: an approximation
 -- (it ignores parallax errors, and is poor where they're large).
 -- DISTINCT: two HATS partitions (Norder=3/Npix=29, Norder=4/Npix=115) hold
@@ -37,7 +37,7 @@ END;
 
 -- @write
 -- Run once per output file.
--- The credit is ESA's required acknowledgement, word for word (PLAN.md);
+-- The credit is ESA's required acknowledgement, word for word (docs/data.md);
 -- the app adds the final period. It rides in the key/value metadata, like
 -- the asteroids' credit, so the app reads it with parquet_kv_metadata.
 -- The table is already in source_id order, and a plain scan keeps it

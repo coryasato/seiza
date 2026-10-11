@@ -46,7 +46,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
+import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
 import { dropFile, frameRecorder, framesBetween, open, overlayValue, serveApp, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
@@ -64,7 +64,7 @@ for (const name of Object.values(FILES)) {
 const path = (name: string) => join(dataDir, name);
 const base = (name: string) => name.split('/').pop()!;
 
-const BUDGET = { schemaMs: 1000, firstRowsMs: 1000, updateGapMs: 500, flingP95Ms: 20, flingMaxMs: 50 };
+const BUDGET = limits('csv', ['schemaMs', 'firstRowsMs', 'updateGapMs', 'flingP95Ms', 'flingMaxMs']);
 const runs = Number(option('runs') ?? 10);
 const throttledRuns = Number(option('throttled-runs') ?? runs);
 const label = option('label') ?? 'm6-csv';

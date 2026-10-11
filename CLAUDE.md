@@ -4,7 +4,7 @@
 
 The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
 
-This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE.md` (app context and rules) and `apps/<app>/PLAN.md` (milestones, build data, decisions, measurements). Both apply when working inside an app.
+This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE.md` (app context and rules) and `apps/<app>/PLAN.md` (what's next); both apply when working inside an app. Where every other kind of fact lives is under "Docs: one home per fact" below.
 
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table).
@@ -13,7 +13,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 ## Repo-wide rules
 
-1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/` affects every app, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `PLAN.md` and `perf/baseline.json`.
+1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/` affects every app, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `perf/budgets.json` (every budget) and `perf/baseline.json` (the TTFP and wasm baselines `check` compares against).
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame appears. The UI stays usable and says what's still loading.
 3. **Measure before and after.** Every milestone ends with a measurement using the protocol below. The numbers go in `apps/<app>/perf/results/` (committed; large raw Playwright traces go in `perf/results/raw/`, which is gitignored) and a short note goes in `apps/<app>/docs/LESSONS.md`.
 4. **Handle the canvas tradeoffs in the open** (a11y, IME, text selection, Ctrl+F, bundle size). When an app falls short on one, it says so in the UI or in its own `README.md` ("Canvas tradeoffs"). It never hides the gap.
@@ -23,7 +23,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 - **UI:** `gpui-kit` (longbridge/gpui-kit), **pinned to an exact version** in the workspace `Cargo.toml` (0.7.1 was current on 2026-10-07). All apps use the same pin. Target `wasm32-unknown-unknown`.
 - **The pin covers the whole gpui family through `Cargo.lock`.** `=0.7.1` on `gpui-kit` alone lets its caret deps float (`gpui-component`, `gpui-base`, `gpui-pre-*`). `Cargo.lock` is committed and was seeded from gpui-kit 0.7.1's published lock. To bump, copy the new release's `Cargo.lock` from the registry source, then `cargo fetch`. Don't run a bare `cargo update`.
 - **Toolchain:** dated nightly in `rust-toolchain.toml`, because `gpui-pre-web` pulls in `wasm_thread`, which needs `#![feature]`. `wasm-bindgen-cli` must match the locked `wasm-bindgen` exactly (`cargo install wasm-bindgen-cli --version <locked> --locked`). Also needed: `just`, `wasm-opt` (binaryen), Node.js.
-- **Release profile:** Cargo reads `[profile.release]` only from the workspace root `Cargo.toml`, so its settings apply to every app. If an app needs different settings, use `[profile.release.package.<crate>]` and note why in that app's `PLAN.md`. Per-package overrides can't set `lto`, `panic`, or `rpath`; those stay workspace-wide.
+- **Release profile:** Cargo reads `[profile.release]` only from the workspace root `Cargo.toml`, so its settings apply to every app. If an app needs different settings, use `[profile.release.package.<crate>]` and note why in that app's `docs/DECISIONS.md`. Per-package overrides can't set `lto`, `panic`, or `rpath`; those stay workspace-wide.
 - **JS host:** a thin Vite layer per app (`apps/<app>/web/`), built on `shared-web/`. Keep it thin: new logic goes in Rust unless it must touch a JS-only API.
 - **Headers everywhere, dev included:** `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. `shared-web/` provides the dev-server config so every app gets them from day one, and cross-origin problems show up early instead of at deploy.
 - **Hosting:** Cloudflare Workers (static assets + R2 where needed), one Worker per app in `apps/<app>/worker/`.
@@ -77,7 +77,10 @@ seiza/
       data/  perf/  docs/
       README.md         # the app for visitors: numbers, canvas tradeoffs, limits, how to run it
       CLAUDE.md         # Tycho context and rules
-      PLAN.md           # Tycho milestones, datasets, hosting, decisions, measurements
+      PLAN.md           # what's next: status, the active milestone, long-term goals, open questions
+  docs/
+    DECISIONS.md        # repo-wide decisions, by area
+    templates/app/      # the docs skeleton a new app starts from
   CLAUDE.md             # this file: repo-wide rules
   justfile              # `just tycho dev`, `just tycho perf`, …
 ```
@@ -99,7 +102,7 @@ Each app has its own justfile, loaded as a `just` module from the root:
 just <app> <recipe>   # e.g. just tycho dev, just tycho perf
 ```
 
-Each app's recipes are listed in its CLAUDE.md.
+Each app's recipes are listed in its CLAUDE.md. Every app has `just <app> report`, which regenerates the numbers in its README, its PLAN.md, and the root README's apps table from `perf/budgets.json` and `perf/results/`.
 
 ## Measurement protocol
 
@@ -112,9 +115,27 @@ Every "done when" check that includes a number, in every app, uses this protocol
 - **Cross-browser check:** each milestone also gets a manual check in Firefox and Safari. Note any differences.
 - **Budgets apply to the local release build only** (decided in Tycho M8). Runs against production (`--url`) record their numbers next to the local ones and never fail on a budget: the network, the CDN, and the edge cache upstream vary too much. Optimizing production is a goal for its own session, not a gate on a milestone.
 
+## Docs: one home per fact
+
+Each kind of fact has one home. Everywhere else links to it rather than repeating it: a number or a reason copied into a second file goes stale there.
+
+| Kind of fact | Home | Rules |
+|---|---|---|
+| The app for a visitor | `apps/<app>/README.md` | Current state only. Numbers between `<!-- report:… -->` markers are generated; don't type them. Canvas tradeoffs and limits live here (rule 4). |
+| Rules, architecture, gotchas, commands | `CLAUDE.md` (root and app) | Current state, no history. Say what to do and point to the decision behind it; don't retell the measurement. |
+| What's next | `apps/<app>/PLAN.md` | Status table, the active milestone's "done when" checks, long-term goals, open questions. Nothing finished. |
+| Why it's built this way | `docs/DECISIONS.md` (repo-wide) and `apps/<app>/docs/DECISIONS.md` | One bullet per decision under its area, oldest first: what, the numbers, *[source]*. Replaced decisions are marked *Superseded*, never deleted. A decision binding every app (toolchain, `shared/`, `shared-web/`, protocol) goes in the root file. |
+| What surprised us | `apps/<app>/docs/LESSONS.md` | One entry per milestone: surprises only, plus a link to its results note. The numbers and the decisions have their own homes. |
+| Finished milestones | `apps/<app>/docs/milestones.md` | A milestone's spec, checks, and evidence move here when it closes. History: never edited. |
+| Reference (data, hosting, …) | `apps/<app>/docs/<topic>.md` | How it works now. Research for a long-term goal goes in `docs/research/<goal>.md`. |
+| Budgets | `apps/<app>/perf/budgets.json` | Every budget and recorded metric: its limit, whether `check` or the suite gates it, and which results file holds its current value. |
+| Measurements | `apps/<app>/perf/results/` | Dated and append-only: a JSON per run (scripts write it), a note per milestone or experiment (`docs/templates/app/perf/results-note.md`). A metric's history is these files; no doc keeps a running "latest" list. |
+
+A new app starts from `docs/templates/app/`.
+
 ## Working agreements for Claude Code
 
 - Work on one app milestone at a time. At the start, restate the "done when" checks. At the end, show the evidence for each check (numbers, trace excerpts, screenshots).
 - Keep JS small and typed. Any logic that could live in Rust lives in Rust.
-- Before starting an app's next milestone, add an entry to its `docs/LESSONS.md`: what surprised us, the numbers, and the decisions made.
-- Update the app's `PLAN.md` as checks pass and decisions land.
+- Before starting an app's next milestone, close the last one: its results note in `perf/results/`, new decisions in `docs/DECISIONS.md`, a `docs/LESSONS.md` entry (surprises), `just <app> report`, and its spec and evidence moved from `PLAN.md` to `docs/milestones.md`.
+- Tick `PLAN.md`'s checks as they pass, with their evidence; log each decision in `docs/DECISIONS.md` as it lands.

@@ -35,7 +35,7 @@ import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { PRECOMPRESSED } from '../src/precompressed.ts';
 import { checkAssets, checkDataEndpoint } from './check.ts';
 
-/** The public origin. Never the account's default Workers subdomain (PLAN.md, M8). */
+/** The public origin. Never the account's default Workers subdomain (docs/milestones.md, M8). */
 export const PRODUCTION_URL = 'https://tycho.seiza.io';
 const BUCKET = 'tycho-data';
 /** The data files the app opens (crate/src/dataset.rs). */

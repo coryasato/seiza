@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { preview } from 'vite';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { PROFILES, flag, machineInfo, median, option, type Profile } from './common.ts';
+import { PROFILES, flag, limits, machineInfo, median, option, type Profile } from './common.ts';
 import {
   clickTarget,
   fling,
@@ -61,8 +61,8 @@ const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number; bytes: number }>;
 const FILE = manifest['asteroids.parquet']!;
-const BUDGET = { flingP95Ms: 20, flingMaxMs: 50 };
-const TOLERANCE = 0.05;
+const BUDGET = limits('panel', ['flingP95Ms', 'flingMaxMs', 'tolerance']);
+const TOLERANCE = BUDGET.tolerance;
 /** The panel's window for its live rows (`seiza::perf::WINDOW_MS`). */
 const WINDOW_MS = 2_000;
 const runs = Number(option('runs') ?? 10);

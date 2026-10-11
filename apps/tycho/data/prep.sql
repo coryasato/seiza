@@ -13,7 +13,7 @@ CREATE TEMP TABLE raw AS
 SELECT unnest(data) AS r, filename AS page
 FROM read_json('raw/asteroids/page-*.json', columns = {data: 'JSON[]'}, filename = true, maximum_object_size = 200000000);
 
--- Typed columns, in PLAN.md's order, spkid first (the key and the sort).
+-- Typed columns, in docs/data.md's order, spkid first (the key and the sort).
 -- The API sends numbers as strings; every non-null value must cast (checked
 -- below). full_name comes left-padded to align numbers; trimmed here.
 -- first_obs is sometimes year-only ('2015-??-??'); those become NULL and are

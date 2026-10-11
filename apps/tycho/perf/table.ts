@@ -23,7 +23,8 @@
 // whole file twice, waiting for each viewport to fill, and records wasm
 // memory, JS heap, the page cache, and measureUserAgentSpecificMemory (which
 // includes DuckDB's worker) after each pass. Wasm + JS heap must stay under
-// MEMORY_CAP_MIB and not grow more than 10% between passes.
+// BUDGET.memoryCapMiB and not grow more than BUDGET.memoryGrowthPerPass
+// between passes (perf/budgets.json).
 //
 // Usage: node apps/tycho/perf/table.ts [--runs 10] [--label m4-table] [--reference-only] [--sample asteroids|gaia]
 //                                      [--sweep] [--sweep-runs 5] [--memory] [--passes 2]
@@ -39,7 +40,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
+import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
 import {
   clickTarget,
   fling,
@@ -70,16 +71,15 @@ if (!(sampleName in SAMPLES)) throw new Error(`--sample ${sampleName}: ${Object.
 const SAMPLE = SAMPLES[sampleName as keyof typeof SAMPLES];
 const FILE = manifest[SAMPLE.name]!;
 
-const BUDGET = { firstRowsMs: 500, jumpMs: 400, flingP95Ms: 20, flingMaxMs: 50 };
 /**
- * The M4 memory cap: wasm memory + live main-thread JS heap after scrolling
- * the whole sample. The page cache holds at most 64 MiB (`Paging`'s budget)
+ * Includes the M4 memory cap (`memoryCapMiB`): wasm memory + live main-thread
+ * JS heap after scrolling the whole sample. The page cache holds at most 64 MiB (`Paging`'s budget)
  * and the shell ~16 MiB. Wasm memory never shrinks, and the allocator's
  * fragmentation adds ~21 MiB on top of the cache by the second pass, then
  * holds (M4: 101.2 MiB wasm from pass 2 through 5, JS ~4 MiB). DuckDB's
  * worker is recorded, not capped.
  */
-const MEMORY_CAP_MIB = 128;
+const BUDGET = limits('table', ['firstRowsMs', 'jumpMs', 'flingP95Ms', 'flingMaxMs', 'memoryCapMiB', 'memoryGrowthPerPass']);
 const runs = Number(option('runs') ?? 10);
 const passes = Number(option('passes') ?? 2);
 const sweepRuns = Number(option('sweep-runs') ?? 5);
@@ -415,7 +415,7 @@ const log = (name: string, run: Run) =>
       (run.problems.length ? `  PROBLEMS: ${run.problems.join('; ')}` : ''),
   );
 
-const output: Record<string, unknown> = { date, label, ...machineInfo(), file: { name: SAMPLE.name, ...FILE }, budgets: { ...BUDGET, memoryCapMiB: MEMORY_CAP_MIB } };
+const output: Record<string, unknown> = { date, label, ...machineInfo(), file: { name: SAMPLE.name, ...FILE }, budgets: BUDGET };
 try {
   if (flag('memory-only') || flag('browsers-only')) {
     // Just the passes below.
@@ -505,9 +505,10 @@ try {
     // Growth is judged from the second-to-last pass, after the cache first filled.
     const first = memory.afterPass.at(-2) ?? memory.afterPass[0]!;
     const app = (snapshot: typeof last) => (snapshot.wasmMiB ?? Infinity) + (snapshot.jsHeapMiB ?? Infinity);
-    if (app(last) > MEMORY_CAP_MIB) failures.push(`app memory ${app(last).toFixed(1)} MiB after ${memory.afterPass.length} passes > cap ${MEMORY_CAP_MIB} MiB`);
+    if (app(last) > BUDGET.memoryCapMiB) failures.push(`app memory ${app(last).toFixed(1)} MiB after ${memory.afterPass.length} passes > cap ${BUDGET.memoryCapMiB} MiB`);
     // A leak grows every pass; a full cache doesn't.
-    if (app(last) > app(first) * 1.1) failures.push(`app memory grew ${app(first).toFixed(1)} → ${app(last).toFixed(1)} MiB between passes`);
+    if (app(last) > app(first) * (1 + BUDGET.memoryGrowthPerPass))
+      failures.push(`app memory grew ${app(first).toFixed(1)} → ${app(last).toFixed(1)} MiB between passes, over +${BUDGET.memoryGrowthPerPass * 100}%`);
     output.memory = memory;
   }
 } finally {

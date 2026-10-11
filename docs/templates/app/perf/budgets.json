@@ -1,0 +1,34 @@
+{
+  "about": "Every budget <App>'s perf scripts enforce (limits, read through common.ts's limits()) and every number its docs show (metrics, rendered by `just <app> report`). Source forms are documented at the top of shared-web/scripts/report.ts.",
+  "app": "<App>",
+  "exclude": ["*-control*", "*-ab.json", "*-ab-*", "*-before*"],
+  "limits": {
+    "perf": {
+      "ttfpOverBaseline": { "value": 0.1, "what": "`check`: reference TTFP over perf/baseline.json's, as a fraction" },
+      "wasmOverBaseline": { "value": 0.15, "what": "`check`: app wasm (brotli) over the baseline's, as a fraction, unless a perf/budget-notes.md row accepts the size" },
+      "overlayToleranceMs": { "value": 5, "what": "every cold run: the panel's TTFP (and other load rows) against the page's own marks" }
+    }
+  },
+  "metrics": [
+    {
+      "id": "ttfp",
+      "label": "Time to first paint",
+      "unit": "ms",
+      "budget": { "overBaseline": "perf.ttfpOverBaseline", "baseline": "ttfpMs.reference" },
+      "gate": "`check`",
+      "local": [["headline.cold.ttfpMs.reference", { "baseline": "ttfpMs.reference" }]],
+      "production": ["headline.cold.ttfpMs.reference"],
+      "show": ["readme", "plan"],
+      "headline": "first paint {local}"
+    },
+    {
+      "id": "wasm",
+      "label": "App wasm (brotli)",
+      "unit": "KiB",
+      "budget": { "overBaseline": "perf.wasmOverBaseline", "baseline": "wasmBrotliKiB", "note": "or a `budget-notes.md` row" },
+      "gate": "`check`",
+      "local": [["headline.cold.wasmBrotliKiB", { "baseline": "wasmBrotliKiB" }]],
+      "show": ["readme", "plan"]
+    }
+  ]
+}

@@ -195,8 +195,15 @@ cold *args:
 engine *args:
     node {{app_dir}}/perf/engine.ts {{args}}
 
-# fmt, clippy (wasm target and native host), and TypeScript (host, perf, data, and worker scripts, shared-web scripts).
+# Regenerate the numbers in README.md, PLAN.md, and the root README from
+# perf/budgets.json and the newest matching perf/results/ files. Run it after a
+# measurement lands; `lint` fails while they're stale. --check: report only.
+report *args:
+    cd {{root}} && node shared-web/scripts/report.ts apps/tycho {{args}}
+
+# fmt, clippy (wasm target and native host), TypeScript (host, perf, data, and worker scripts, shared-web scripts), and the generated numbers in the docs.
 lint:
+    cd {{root}} && node shared-web/scripts/report.ts apps/tycho --check
     cargo fmt --all --check
     cargo clippy -p tycho -p seiza --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tycho -p seiza -- -D warnings

@@ -1,0 +1,237 @@
+{
+  "about": "Every budget Tycho's perf scripts enforce (limits) and every number its docs show (metrics). The scripts read limits through common.ts's limits(); `just tycho report` (shared-web/scripts/report.ts) renders metrics into README.md, PLAN.md, and the root README. Budgets apply to the local release build only; production is recorded (root docs/DECISIONS.md, 'Measurement protocol').",
+  "app": "Tycho",
+  "exclude": ["*-control*", "*-ab.json", "*-ab-*", "*-before*", "*-no-edge-cache*"],
+  "limits": {
+    "perf": {
+      "ttfpOverBaseline": { "value": 0.1, "what": "`check`: reference TTFP over perf/baseline.json's, as a fraction" },
+      "wasmOverBaseline": { "value": 0.15, "what": "`check`: app wasm (brotli) over the baseline's, as a fraction, unless a perf/budget-notes.md row accepts the size" },
+      "overlayToleranceMs": { "value": 5, "what": "every cold run: the panel's TTFP, placeholder, and engine-ready rows against the page's own marks" }
+    },
+    "sample": {
+      "clickToSchemaMs": { "value": 300, "what": "sample click → schema shown, engine warm, reference median" },
+      "transferFraction": { "value": 0.02, "what": "bytes of the file transferred before the schema shows, as a fraction (max over runs)" }
+    },
+    "table": {
+      "firstRowsMs": { "value": 500, "what": "sample click → first rows painted, reference median" },
+      "jumpMs": { "value": 400, "what": "scrollbar release at ~90% → real rows, reference median" },
+      "flingP95Ms": { "value": 20, "what": "top → bottom fling in ~3 s: frame interval p95, worst reference run" },
+      "flingMaxMs": { "value": 50, "what": "the same fling: longest frame, worst reference run" },
+      "memoryCapMiB": { "value": 128, "what": "app memory (wasm + live JS heap) after scrolling every row twice" },
+      "memoryGrowthPerPass": { "value": 0.1, "what": "app memory growth from the second-to-last pass to the last, as a fraction (a leak grows every pass; a full cache doesn't)" }
+    },
+    "drop": {
+      "schemaMs": { "value": 1000, "what": "drop a ~1 GB Parquet → schema, reference median" },
+      "firstRowsMs": { "value": 1000, "what": "drop a ~1 GB Parquet → first rows, reference median" },
+      "appDeltaMiB": { "value": 16, "what": "app peak memory, 1 GB file vs 100 MB file" },
+      "allAgentsDeltaOfSizeDiff": { "value": 0.1, "what": "every agent's peak memory difference, as a fraction of the two files' size difference" },
+      "copyDetect": { "value": 0.9, "what": "negative control: a held copy must read at least this fraction of the file" }
+    },
+    "csv": {
+      "schemaMs": { "value": 1000, "what": "drop a ~1 GB CSV → schema, reference median" },
+      "firstRowsMs": { "value": 1000, "what": "drop a ~1 GB CSV → first rows, reference median" },
+      "updateGapMs": { "value": 500, "what": "longest gap between row-count updates during the load, worst run" },
+      "flingP95Ms": { "value": 20, "what": "a fling while the CSV loads: frame interval p95, worst reference run" },
+      "flingMaxMs": { "value": 50, "what": "the same fling: longest frame, worst reference run" }
+    },
+    "panel": {
+      "flingP95Ms": { "value": 20, "what": "fling with the panel open and closed: frame interval p95, reference" },
+      "flingMaxMs": { "value": 50, "what": "the same fling: longest frame, reference" },
+      "tolerance": { "value": 0.05, "what": "each panel value against an independent measurement (or half its display step)" }
+    }
+  },
+  "metrics": [
+    {
+      "id": "ttfp",
+      "label": "Time to first paint",
+      "unit": "ms",
+      "budget": { "overBaseline": "perf.ttfpOverBaseline", "baseline": "ttfpMs.reference" },
+      "gate": "`check`",
+      "local": [["headline.cold.ttfpMs.reference", { "baseline": "ttfpMs.reference" }]],
+      "production": ["headline.cold.ttfpMs.reference"],
+      "show": ["readme", "plan"],
+      "headline": "first paint {local}"
+    },
+    {
+      "id": "ttfp-throttled",
+      "label": "Time to first paint, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [["headline.cold.ttfpMs.throttled", { "baseline": "ttfpMs.throttled" }]],
+      "production": ["headline.cold.ttfpMs.throttled"],
+      "show": ["plan"]
+    },
+    {
+      "id": "wasm",
+      "label": "App wasm (brotli)",
+      "unit": "KiB",
+      "budget": { "overBaseline": "perf.wasmOverBaseline", "baseline": "wasmBrotliKiB", "note": "or a `budget-notes.md` row" },
+      "gate": "`check`",
+      "local": [["headline.cold.wasmBrotliKiB", { "baseline": "wasmBrotliKiB" }]],
+      "show": ["readme", "plan"]
+    },
+    {
+      "id": "placeholder",
+      "label": "Static shell painted, reference / throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        ["parts.cold.summary.placeholderPaintMs.reference", { "glob": "*baseline*.json", "path": "placeholderPaintMs.reference" }],
+        ["parts.cold.summary.placeholderPaintMs.throttled", { "glob": "*baseline*.json", "path": "placeholderPaintMs.throttled" }]
+      ],
+      "production": ["parts.cold.summary.placeholderPaintMs.reference", "parts.cold.summary.placeholderPaintMs.throttled"],
+      "show": ["plan"]
+    },
+    {
+      "id": "engine-ready",
+      "label": "DuckDB engine ready (after first paint)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [["headline.cold.engineReadyMs.reference", { "baseline": "engineReadyMs.reference" }]],
+      "production": ["headline.cold.engineReadyMs.reference"],
+      "show": ["plan"]
+    },
+    {
+      "id": "sample-schema",
+      "label": "Sample click → schema (asteroids)",
+      "unit": "ms",
+      "budget": "≤ {sample.clickToSchemaMs} ms",
+      "gate": "`sample`",
+      "local": [{ "glob": "*-sample.json", "path": "profiles.reference.clickToSchemaMs.median" }],
+      "show": ["plan"]
+    },
+    {
+      "id": "first-rows",
+      "label": "Sample click → first rows: asteroids / Gaia",
+      "unit": "ms",
+      "budget": "≤ {table.firstRowsMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.table-asteroids.reference.firstRowsMs", "headline.table-gaia.reference.firstRowsMs"],
+      "production": ["headline.table-asteroids.reference.firstRowsMs", "headline.table-gaia.reference.firstRowsMs"],
+      "show": ["readme", "plan"],
+      "headline": "{rows:gaia-dr3-bright.parquet} rows → first rows {local.1}"
+    },
+    {
+      "id": "jump",
+      "label": "Scrollbar jump to 90% → real rows: asteroids / Gaia",
+      "unit": "ms",
+      "budget": "≤ {table.jumpMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.table-asteroids.reference.jumpTo90Ms", "headline.table-gaia.reference.jumpTo90Ms"],
+      "production": ["headline.table-asteroids.reference.jumpTo90Ms", "headline.table-gaia.reference.jumpTo90Ms"],
+      "show": ["readme", "plan"]
+    },
+    {
+      "id": "fling",
+      "label": "Fling top → bottom in 3 s, asteroids: p95 / worst frame",
+      "unit": "ms",
+      "budget": "≤ {table.flingP95Ms} / {table.flingMaxMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.table-asteroids.reference.flingP95MsWorstRun", "headline.table-asteroids.reference.flingMaxMsWorstRun"],
+      "production": ["headline.table-asteroids.reference.flingP95MsWorstRun", "headline.table-asteroids.reference.flingMaxMsWorstRun"],
+      "show": ["readme", "plan"],
+      "headline": "fling p95 {local.0}"
+    },
+    {
+      "id": "fling-gaia",
+      "label": "Fling top → bottom in 3 s, Gaia: p95 / worst frame",
+      "unit": "ms",
+      "budget": "≤ {table.flingP95Ms} / {table.flingMaxMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.table-gaia.reference.flingP95MsWorstRun", "headline.table-gaia.reference.flingMaxMsWorstRun"],
+      "production": ["headline.table-gaia.reference.flingP95MsWorstRun", "headline.table-gaia.reference.flingMaxMsWorstRun"],
+      "show": ["plan"]
+    },
+    {
+      "id": "fling-work",
+      "label": "Work per frame, fling p50 / p95 (asteroids)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": ["headline.table-asteroids.reference.flingWorkP50Ms", "headline.table-asteroids.reference.flingWorkP95Ms"],
+      "show": ["plan"]
+    },
+    {
+      "id": "steady-work",
+      "label": "Work per frame, steady scroll p50 / p95 (asteroids)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": ["headline.table-asteroids.reference.steadyWorkP50Ms", "headline.table-asteroids.reference.steadyWorkP95Ms"],
+      "show": ["plan"]
+    },
+    {
+      "id": "jump-to-row",
+      "label": "Jump to row, Enter → rows (middle): asteroids / Gaia",
+      "unit": "ms",
+      "budget": "lands on the row",
+      "gate": "`perf` suite",
+      "local": ["headline.jump.asteroids.reference.middleMs", "headline.jump.gaia.reference.middleMs"],
+      "production": ["headline.jump.asteroids.reference.middleMs", "headline.jump.gaia.reference.middleMs"],
+      "show": ["plan"]
+    },
+    {
+      "id": "drop-parquet",
+      "label": "Drop a 1 GB Parquet → first rows",
+      "unit": "ms",
+      "budget": "≤ {drop.firstRowsMs} ms",
+      "gate": "`drop`",
+      "local": [{ "glob": "*m5-drop.json", "path": "drop.reference.firstRowsMs.median" }],
+      "show": ["readme", "plan"]
+    },
+    {
+      "id": "drop-csv",
+      "label": "Drop a 1 GB CSV → first rows",
+      "unit": "ms",
+      "budget": "≤ {csv.firstRowsMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.csv.reference.firstRowsMs"],
+      "production": ["headline.csv.reference.firstRowsMs"],
+      "show": ["readme", "plan"]
+    },
+    {
+      "id": "csv-gap",
+      "label": "CSV row count, longest gap between updates",
+      "unit": "ms",
+      "budget": "≤ {csv.updateGapMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.csv.reference.updateGapMaxMsWorstRun"],
+      "show": ["readme", "plan"]
+    },
+    {
+      "id": "csv-fling",
+      "label": "Fling while a CSV loads: p95 / worst frame",
+      "unit": "ms",
+      "budget": "≤ {csv.flingP95Ms} / {csv.flingMaxMs} ms",
+      "gate": "`perf` suite",
+      "local": ["headline.csv.reference.flingP95MsWorstRun", "headline.csv.reference.flingMaxMsWorstRun"],
+      "show": ["plan"]
+    },
+    {
+      "id": "csv-throughput",
+      "label": "CSV load throughput (1 GB)",
+      "unit": "MB/s",
+      "gate": "recorded",
+      "local": ["headline.csv.reference.mbPerS"],
+      "show": ["plan"]
+    },
+    {
+      "id": "memory",
+      "label": "App memory after scrolling every row twice: asteroids / Gaia",
+      "unit": "MiB",
+      "budget": "≤ {table.memoryCapMiB} MiB",
+      "gate": "`table --memory`",
+      "local": [
+        { "glob": "*table*.json", "where": { "file.name": "asteroids.parquet" }, "sum": ["memory.afterPass.-1.wasmMiB", "memory.afterPass.-1.jsHeapMiB"] },
+        { "glob": "*table*.json", "where": { "file.name": "gaia-dr3-bright.parquet" }, "sum": ["memory.afterPass.-1.wasmMiB", "memory.afterPass.-1.jsHeapMiB"] }
+      ],
+      "show": ["readme", "plan"]
+    },
+    {
+      "id": "panel",
+      "label": "Observation panel vs independent measurements: reference / throttled",
+      "budget": "all within {panel.tolerance%}",
+      "gate": "`perf` suite",
+      "local": ["headline.panel.reference.matched", "headline.panel.throttled.matched"],
+      "show": ["readme", "plan"]
+    }
+  ]
+}

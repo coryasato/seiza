@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const API = 'https://ssd-api.jpl.nasa.gov/sbdb_query.api';
-/** The columns PLAN.md's Sample datasets section names, `spkid` first (the key). */
+/** The columns docs/data.md names, `spkid` first (the key). */
 export const FIELDS = [
   'spkid', 'full_name', 'pdes', 'name', 'neo', 'pha', 'class', 'H', 'diameter', 'albedo',
   'a', 'e', 'i', 'q', 'per_y', 'first_obs', 'last_obs', 'n_obs_used',

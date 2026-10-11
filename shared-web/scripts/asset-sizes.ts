@@ -2,7 +2,7 @@
 // kind, and flags any file over Cloudflare's 25 MiB static-asset limit.
 // Usage: node shared-web/scripts/asset-sizes.ts <dist-dir> [--r2 <name-part>]…
 // An oversize file fails the build unless a --r2 part matches its path: that
-// says the app serves it from R2 instead of static assets (see the app's PLAN.md).
+// says the app serves it from R2 instead of static assets (see the app's docs/hosting.md).
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';

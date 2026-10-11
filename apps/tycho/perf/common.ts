@@ -3,8 +3,27 @@
 // the throttling profiles, the DPR shim, and how runs are summarized and
 // labeled.
 
+import { readFileSync } from 'node:fs';
 import { arch, cpus, release, type } from 'node:os';
 import type { BrowserContext, Page } from '@playwright/test';
+
+/**
+ * A script's budgets, from perf/budgets.json, the one place they're set (root
+ * CLAUDE.md, "Docs: one home per fact"). `just tycho report` shows them in the
+ * docs from the same file. Throws on a name budgets.json doesn't have.
+ */
+export function limits<K extends string>(script: string, names: readonly K[]): Record<K, number> {
+  const budgets = JSON.parse(readFileSync(new URL('./budgets.json', import.meta.url), 'utf8')) as {
+    limits: Record<string, Record<string, { value: number }> | undefined>;
+  };
+  return Object.fromEntries(
+    names.map((name) => {
+      const value = budgets.limits[script]?.[name]?.value;
+      if (typeof value !== 'number') throw new Error(`perf/budgets.json has no limits.${script}.${name}`);
+      return [name, value];
+    }),
+  ) as Record<K, number>;
+}
 
 export function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);

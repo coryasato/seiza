@@ -6,11 +6,15 @@ The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than th
 
 ## Apps
 
-| App | What it is | Headline numbers | Status |
-|---|---|---|---|
-| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | First paint 195 ms; 25.1 M rows → first rows 296 ms; fling p95 16.7 ms | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
+| App | What it is | Status |
+|---|---|---|
+| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
 
-Numbers are local release builds under the protocol below; each app's README has the full tables, production numbers included.
+Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
+
+<!-- report:headlines:start -->
+- **[Tycho](apps/tycho/)**: first paint 195.3 ms · 25.1 M rows → first rows 297.6 ms · fling p95 16.7 ms
+<!-- report:headlines:end -->
 
 ## Principles
 
@@ -46,13 +50,16 @@ seiza/
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands
-      PLAN.md           # milestones, decisions log, measurements
+      PLAN.md           # what's next: status, the active milestone, open questions
       crate/            # Rust (cdylib)
       web/              # Vite host
       worker/           # Cloudflare Worker
       data/             # dataset scripts (generated data is gitignored)
-      perf/             # Playwright suite, baseline.json, results/
-      docs/LESSONS.md   # what each milestone taught us
+      perf/             # Playwright suite, budgets.json, baseline.json, results/
+      docs/             # DECISIONS.md, LESSONS.md, milestones.md, reference docs
+  docs/
+    DECISIONS.md        # repo-wide decisions
+    templates/app/      # the docs skeleton a new app starts from
 ```
 
 ## Getting started
@@ -81,9 +88,14 @@ Each fact has one home, and everything else links to it.
 | `CLAUDE.md` (here) | Repo-wide rules, the stack and its pins, the measurement protocol, GPUI Kit and Cloudflare gotchas. Written for contributors and [Claude Code](https://claude.com/claude-code) alike. |
 | `apps/<app>/README.md` | The app for a visitor: what it does, its numbers, its canvas tradeoffs and limits, how to run it. |
 | `apps/<app>/CLAUDE.md` | The app's rules, architecture, gotchas, and commands. |
-| `apps/<app>/PLAN.md` | Milestones and their checks, the decisions log, the measurements table. |
-| `apps/<app>/docs/LESSONS.md` | What each milestone taught us. |
-| `apps/<app>/perf/results/` | Every measurement, dated. |
+| `apps/<app>/PLAN.md` | What's next: status, the active milestone's checks, long-term goals, open questions. |
+| `docs/DECISIONS.md`, `apps/<app>/docs/DECISIONS.md` | Why things are built the way they are, by area, with the numbers. Repo-wide here, app-specific in the app. |
+| `apps/<app>/docs/LESSONS.md` | What surprised us, milestone by milestone. |
+| `apps/<app>/docs/milestones.md` | Finished milestones' specs and evidence. |
+| `apps/<app>/perf/budgets.json` | Every budget, and where its current number comes from. |
+| `apps/<app>/perf/results/` | Every measurement, dated. Numbers in the READMEs and PLANs are generated from these (`just <app> report`). |
+
+The full rules are in [`CLAUDE.md`](CLAUDE.md), "Docs: one home per fact". A new app starts from [`docs/templates/app/`](docs/templates/app/).
 
 ## Fonts
 

@@ -20,7 +20,7 @@ import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { fetchAsteroids, type FetchInfo } from './fetch_asteroids.ts';
 import { fetchGaia, rawDir as gaiaRawDir, type GaiaFetchInfo } from './fetch_gaia.ts';
 
-/** Gaia's magnitude cut: 25,067,889 stars at G < 14.5, PLAN.md's ~25 M target. */
+/** Gaia's magnitude cut: 25,067,889 stars at G < 14.5, docs/data.md's ~25 M target. */
 const GAIA_CUT = 14.5;
 /**
  * Gaia's row-group size (M7 part B, perf/results/2026-10-07-m7-gaia.md): a

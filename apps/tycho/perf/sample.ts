@@ -30,7 +30,7 @@ import { chromium, firefox, webkit, type BrowserType } from '@playwright/test';
 import { preview } from 'vite';
 import { checkDataEndpoint } from '../worker/scripts/check.ts';
 import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
+import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
 import { clickTarget, open, overlayValue, settled, startCountingProxy, waitMark, waitOverlay } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
@@ -38,8 +38,7 @@ const webDir = join(perfDir, '../web');
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { bytes: number; sha256: string; fetched: string }>;
 const FILE = manifest['asteroids.parquet']!;
 
-const CLICK_BUDGET_MS = 300;
-const TRANSFER_BUDGET = 0.02;
+const { clickToSchemaMs: CLICK_BUDGET_MS, transferFraction: TRANSFER_BUDGET } = limits('sample', ['clickToSchemaMs', 'transferFraction']);
 const SHOWN_MARK = 'tycho:sample-shown';
 const TARGET = 'try-sample-asteroids';
 

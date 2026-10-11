@@ -19,7 +19,7 @@ use crate::arrow::Value;
 use crate::engine::{Engine, EngineError, WARM_UP_SQL};
 use seiza::marks::now;
 
-/// Cancel must stop a query within this long (PLAN.md, M2).
+/// Cancel must stop a query within this long (docs/milestones.md, M2).
 const CANCEL_BUDGET_MS: f64 = 200.0;
 
 /// How long the long query runs before it's cancelled.
@@ -53,7 +53,7 @@ const TYPES_EXPECTED: &[&str] = &[
     "NULL",
 ];
 
-/// PLAN.md's `range(1e10)`: DuckDB won't bind `range(DOUBLE)`, so the count
+/// M2's spec said `range(1e10)`: DuckDB won't bind `range(DOUBLE)`, so the count
 /// is written as a BIGINT literal.
 const LONG_SQL: &str = "SELECT count(*) FROM range(10000000000)";
 

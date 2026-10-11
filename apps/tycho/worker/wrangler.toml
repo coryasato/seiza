@@ -1,4 +1,4 @@
-# Tycho's Worker: one origin for the app and its data (PLAN.md, Hosting).
+# Tycho's Worker: one origin for the app and its data (docs/hosting.md).
 # No account ID here (the repo is public): wrangler takes it from the login,
 # or CLOUDFLARE_ACCOUNT_ID with an API token.
 name = "tycho"
@@ -6,7 +6,7 @@ main = "src/index.ts"
 compatibility_date = "2026-09-24"
 
 # Served only from the custom domain. The account's default subdomain names
-# its owner, so it's off and never committed (PLAN.md, M8), and so are
+# its owner, so it's off and never committed (docs/milestones.md, M8), and so are
 # preview URLs, which live on it.
 routes = [{ pattern = "tycho.seiza.io", custom_domain = true }]
 workers_dev = false
