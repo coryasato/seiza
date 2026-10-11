@@ -2,102 +2,57 @@
 
 **seiza** ("constellation") is a monorepo of heavy web apps built with [GPUI](https://www.gpui.rs/) (via [GPUI Kit](https://github.com/longbridge/gpui-kit)), compiled to WebAssembly, and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available).
 
-The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a perf overlay and a reproducible measurement suite.
-
-> **Status:** Tycho v1 is live at **[tycho.seiza.io](https://tycho.seiza.io)** (all 8 milestones done). It opens a 1.57-million-row asteroid catalog or 25 million Gaia stars over HTTP, or a file from your device, and scrolls every row, queried locally. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
+The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a live observation panel and a reproducible measurement suite, and its README says where the canvas still falls short.
 
 ## Apps
 
-| App | What it is | Status |
-|---|---|---|
-| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
+| App | What it is | Headline numbers | Status |
+|---|---|---|---|
+| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | First paint 195 ms; 25.1 M rows → first rows 296 ms; fling p95 16.7 ms | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
 
-> *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
-
-## Numbers
-
-### From the public site
-
-Tycho at [tycho.seiza.io](https://tycho.seiza.io), measured 2026-10-10 from an Apple M1 over a home connection (~25 ms to Cloudflare, ~100 Mbit/s): headless Chromium, cold cache, 1440×900 at DPR 2, median of 10. These are the observation panel's numbers (the suite checks the panel against its own marks). Your network decides most of them, so they're recorded, not budgeted ([`perf/results/2026-10-10-m8.md`](apps/tycho/perf/results/2026-10-10-m8.md)).
-
-| Metric | Public site | Same build, locally |
-|---|---|---|
-| Time to first paint | 327 ms | 211 ms |
-| …of which the app's own work (wasm ready → first frame) | 100 ms | 98 ms |
-| Static shell painted (before the app arrives) | 106 ms | 66 ms |
-| App wasm on the wire (brotli, quality 11) | 2.76 MiB | 2.76 MiB |
-| DuckDB engine ready (loads after first paint) | 985 ms | — |
-| Sample click → first rows: asteroids (1.57 M rows) / Gaia (25.1 M) | 507 / 811 ms | 202 / 296 ms |
-| Scrollbar jump to 90% → real rows: asteroids / Gaia | 201 / 363 ms | 83 / 136 ms |
-| Fling top → bottom in 3 s: p95 / worst frame | 16.7 / 16.7 ms | 16.7 / 33.3 ms |
-| Drop a 1 GB CSV → first rows | 200 ms | 205 ms |
-
-The extra time on the public site comes before the app's code runs: the connection, the HTML, and the wasm crossing the network. A page of rows is about eight sequential range requests, cached at Cloudflare's edge after the first visitor; at a cold edge, first rows took 874 ms (asteroids) and 1.97 s (Gaia). On a throttled run (4× CPU, Fast 4G) the network dominates both, and the public site matches local: first paint 3.78 s, the static shell at 0.29 s.
-
-### Local budgets
-
-Measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median of 10) against the release build. Budgets apply here only: the network upstream of production varies too much to gate on.
-
-| Metric | Budget | Now |
-|---|---|---|
-| Time to first paint | ≤ 215 ms (baseline + 10%) | 195 ms (baseline re-recorded on a quiet machine 2026-10-09; it was 177 ms in September) |
-| App wasm (brotli) | ≤ 3247 KiB (baseline + 15%) | 2824 KiB (M7: +88 KiB for the jump input, +6 KiB for error states and limits, +12 KiB for the theme toggle's icons) |
-| Sample click → first rows (1.57 M rows, engine warm) | ≤ 500 ms | 239 ms |
-| Fling top → bottom in 3 s: p95 / worst frame | ≤ 20 / 50 ms | 16.7 / 33.3 ms |
-| Scrollbar jump to 90% → real rows | ≤ 400 ms | 133 ms |
-| App memory after scrolling every row twice | ≤ 128 MiB | 89 MiB |
-
-On a throttled run (4× CPU, Fast 4G), frames stay smooth, but rows arrive slowly: first rows 3.4 s, a jump 2.2 s. The first frame takes 3.7 s there, but a static copy of the shell paints at 0.24 s, so the page is never blank for long. Details in [`apps/tycho/perf/results/`](apps/tycho/perf/results/).
-
-## Canvas tradeoffs (Tycho, as of M7)
-
-Drawing to a canvas gives up things the DOM does for free. Here's where Tycho stands on each, what it does today, and what closing the gap would take.
-
-- **Accessibility:** screen readers see nothing: the canvas has no accessibility tree, so the table, the buttons, and the jump input are invisible to them. *Today:* everything works from the keyboard. Arrows, Page Up/Down, Space, and Home/End scroll the focused table. Cmd/Ctrl+G jumps to a row, and Enter there hands the keys back to the table. Cmd/Ctrl+Shift+L switches between the light and dark themes, and Cmd/Ctrl+Shift+P opens the observation panel. Tab doesn't move between controls: GPUI Kit 0.7.1 binds nothing to it. *To close it:* a hidden DOM mirror of the visible rows and controls, kept in step with each frame.
-- **Text input and IME:** the jump-to-row input is GPUI Kit's canvas-drawn text field. A hidden browser input underneath it carries keys, composition, and paste. *Today:* typing, selection, undo, and IME composition work. A Japanese IME's full-width digits (`１２３`) are accepted, as are thousands separators (`1,000,000`). In a Mac browser, GPUI Kit 0.7.1's web build doesn't bind Cmd+A/C/X/Z in inputs, so Tycho binds them itself. Keys typed in the input never scroll the table.
-- **Paste:** Cmd/Ctrl+V works with no permission prompt, because it's the browser's own paste event. The right-click menu is drawn by GPUI Kit, not the browser. Its Paste item reads the clipboard through the async Clipboard API, so the browser has to grant clipboard access first. If access is refused, nothing is pasted and nothing says why. The menu labels its shortcuts "Ctrl+…" even in a Mac browser, where Cmd works too.
-- **Text selection and copy:** cells can't be selected or copied yet. Column resizing, selection, and sorting are a researched-first goal after v1 ([`PLAN.md`](apps/tycho/PLAN.md), "Long-term goals").
-- **Values wider than their column:** Tycho handles these like a spreadsheet. A double too long for its column is rounded to the digits that fit (`45.00497837174552` shows as `45.004978372`), and goes scientific (`1.7014118e38`) only when its whole part doesn't fit. Integers are never rounded: their columns fit the type's widest value. An integer or decimal still too wide is cut in the middle (`9999999…999`), keeping its magnitude and its last digits; text ends in "…", and its line breaks show as ¶ (a cell is one line). Rest the pointer on a rounded or cut cell for half a second and a tooltip shows the exact value. Like the cells, the tooltip is drawn on the canvas, so screen readers don't see it, and only the pointer opens it (not the keyboard).
-- **Non-Latin scripts:** the canvas has only the bundled UI font (IBM Plex Sans: Latin, Greek, Cyrillic) plus emoji. Chinese, Japanese, Korean, and other scripts outside it draw as empty boxes, in cells and tooltips alike. *To close it:* a fallback font for those scripts, loaded after first paint.
-- **Ctrl+F:** the browser's find doesn't see the rows, and there's no in-app search (v1 scope excludes filtering). Jump to row is the way to get somewhere. It takes Cmd/Ctrl+G, which in a browser is "find next", since find has nothing to search here anyway.
-- **Before the app arrives:** until the wasm has downloaded and drawn its first frame, the page shows a static HTML copy of the empty shell, so a visitor on a slow link sees the app's layout at ~0.25 s instead of a blank page for ~3.7 s (Fast 4G). It's a DOM layer over the canvas, and it's inert: its buttons are skeletons that can't be pressed, nothing in it can be selected, and screen readers skip it. It fades into the first frame over 120 ms (instantly with "reduce motion"). It can't be a perfect copy: the browser and GPUI draw the same font differently (GPUI's text is crisper and sits up to 2 px lower on a DPR 1 display), so the buttons are drawn as skeletons at GPUI's exact sizes rather than as text that would visibly shift. A file dropped before the app starts isn't caught.
-- **Bundle size:** the app wasm is 2.76 MiB brotli, downloaded and compiled before first paint. The jump input's text engine (editing, undo, selection, IME) is 88 KiB of that, ~3 ms of first paint on a fast machine and ~100 ms on Fast 4G. GPUI Kit's styled text field would have been 194 KiB, because it also links its multi-line and code-editor engines, so Tycho styles GPUI Kit's bare single-line field itself. DuckDB (~5.6 MiB brotli: its wasm, worker, and JS, plus the Parquet extension) loads after first paint.
-- **The placeholder's cost:** it adds 10.7 KiB brotli to `index.html` (0.4 → 11.1 KiB), most of it an inlined 8.5 KiB subset of the UI font, and it paints before the wasm and UI font downloads it shares the connection with. TTFP, measured to GPUI's first frame, is unchanged within noise.
-- **Overlapping panel:** the observation panel floats over the window's lower right, and a click there lands on the panel. *Today:* it keeps clear of the table's scrollbars, so a thumb at the bottom stays grabbable, but it still covers the cells under it. Hide it with its button or Cmd/Ctrl+Shift+P. While it's open it redraws the window 4 times a second (~20 ms of work each), even when nothing else moves; closed, an idle window draws nothing.
-
-## File size limits (Tycho, as of M7)
-
-Everything runs in one browser tab, and a tab's engine (DuckDB-Wasm, a 32-bit wasm build) has about 4 GB of address space. Measured on an Apple M1 in Chromium ([`apps/tycho/perf/results/2026-10-08-m7-hardening.md`](apps/tycho/perf/results/2026-10-08-m7-hardening.md)):
-
-- **Parquet: up to 10 GB.** A Parquet file is read where it lies, so its size barely touches memory: a 9.6 GB file (423 M rows) held 5.6 MiB in DuckDB and 147 MiB across the tab. What grows is time, with the number of row groups: every page read sets up every row group. At DuckDB's default 122,880-row groups, first rows took 0.44 s at 2 GB, 1.0 s at 4.6 GB, and 3.5 s at 9.6 GB (3,445 row groups). Files over 10 GB, untested, are refused with a message.
-- **CSV: up to 6 GB, and up to 1.5 GiB in memory.** A CSV has no index, so Tycho copies it into DuckDB's memory as it loads: about 0.28 bytes per byte for the asteroid CSV (a 5.4 GB file took 1.5 GiB), more for data that compresses badly (random text took 0.47). Past ~2.1 GiB, DuckDB-Wasm 1.32.0 silently stores empty tables instead of failing, and an 8.6 GB CSV lost 8.8 M rows that way with no error. So Tycho stops a load at 1.5 GiB of DuckDB memory, keeps the rows before it, and says why. It also refuses files over 6 GB before reading them. To open a bigger CSV, convert it to Parquet first.
-- **Many files in one session:** each opened Parquet file's parsed footer stays in DuckDB for the session (2.2 MiB for a 1 GB file with 1,378 row groups; across the tab, ~16 MiB per open). Neither unregistering the file nor resetting DuckDB's metadata cache frees it. That's ~250 opens of such a file before the tab runs out; reload the page to start fresh.
-- **When the engine stops anyway:** if DuckDB's worker dies (out of memory, say), the open file closes, the page says so, and Retry starts a new engine without a reload. Tycho notices at its next query, such as the next scroll.
+Numbers are local release builds under the protocol below; each app's README has the full tables, production numbers included.
 
 ## Principles
 
-1. **Time to first paint is the deciding metric.** Nothing delays first paint: not engines, not data, not extra fonts. Every app has TTFP and wasm-size budgets that fail the build on regression.
+1. **Time to first paint is the deciding metric.** Nothing delays first paint: not engines, not data, not extra fonts. Every app has TTFP and wasm-size budgets that fail the build on a regression.
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame. The UI stays usable and says what's still loading.
 3. **Measure before and after.** Every milestone ends with a measurement, committed to `apps/<app>/perf/results/`.
-4. **Canvas tradeoffs in the open.** Accessibility, IME, text selection, Ctrl+F, and bundle size are real costs of drawing to a canvas. Where an app falls short, it says so in the UI and README.
+4. **Canvas tradeoffs in the open.** Accessibility, IME, text selection, Ctrl+F, and bundle size are real costs of drawing to a canvas. Where an app falls short, it says so in its UI and README.
+
+## How we measure
+
+Playwright with headless Chromium, cold cache, 1440×900 at DPR 2, median of 10 runs, plus a throttled run (4× CPU, Fast 4G). Time to first paint (TTFP) runs from `performance.timeOrigin` to a `gpui:first-frame` mark set right after GPUI presents its first real frame, checked against the page's actual GPU calls on every run. Browser FP/FCP aren't used: a canvas makes them meaningless. Firefox and Safari get a manual check each milestone.
+
+Budgets gate the local release build only. Production numbers are recorded next to the local ones, never enforced: the network and the CDN vary too much to gate on.
 
 ## Stack
 
-- **UI:** `gpui-kit`, pinned to an exact version, targeting `wasm32-unknown-unknown`.
-- **Shared foundation:** `shared/` (crate `seiza`): wasm bootstrap, app shell, theme, perf overlay. `shared-web/`: JS bootstrap and COOP/COEP dev-server config.
+- **UI:** `gpui-kit`, pinned to an exact version (0.7.1) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
+- **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the app shell (title bar, theme toggle), the observation panel, and the page clock and marks. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, and the UI font.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
-- **Hosting:** Cloudflare Workers (static assets + R2), one Worker per app on its own subdomain of seiza.io, cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and prod. The Worker serves the build precompressed at brotli quality 11 (Cloudflare's own compression is far weaker) and caches data ranges at the edge.
+- **Hosting:** Cloudflare Workers (static assets + R2), one Worker per app on its own subdomain of seiza.io, cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each Worker serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker.
 
 ## Layout
 
 ```
 seiza/
-  Cargo.toml     # workspace; pins gpui-kit
-  justfile       # `just <app> <recipe>`
-  shared/        # crate `seiza`, app-agnostic
-  shared-web/    # reusable JS host bits
+  Cargo.toml            # workspace; pins gpui-kit; release profile
+  Cargo.lock            # committed; pins the whole gpui family
+  rust-toolchain.toml   # dated nightly + wasm32 target
+  justfile              # `just <app> <recipe>`; one module per app
+  shared/               # crate `seiza`: app-agnostic Rust
+  shared-web/           # app-agnostic JS host pieces, fonts
   apps/
-    tycho/       # crate/, web/, worker/, data/, perf/, docs/
+    <app>/
+      README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
+      CLAUDE.md         # rules, architecture, gotchas, commands
+      PLAN.md           # milestones, decisions log, measurements
+      crate/            # Rust (cdylib)
+      web/              # Vite host
+      worker/           # Cloudflare Worker
+      data/             # dataset scripts (generated data is gitignored)
+      perf/             # Playwright suite, baseline.json, results/
+      docs/LESSONS.md   # what each milestone taught us
 ```
 
 ## Getting started
@@ -108,50 +63,33 @@ Prerequisites:
 - `wasm-bindgen-cli` matching the locked version: `cargo install wasm-bindgen-cli --version 0.2.121 --locked`
 - [`just`](https://github.com/casey/just) and `wasm-opt` from [Binaryen](https://github.com/WebAssembly/binaryen) (`brew install just binaryen`)
 - Node.js 22.18+ (scripts are TypeScript run by Node's built-in type stripping)
+- For the measurement suites, Playwright's browsers: `npx playwright install chromium firefox webkit`
 
 ```sh
-just setup          # npm install
-just tycho data     # fetch the asteroid catalog once (~2.5 min, network), build the sample Parquet, load it into local R2
-just tycho data gaia  # the big sample: Gaia DR3's 25 M brightest stars (first run reads ~90 GB from AWS Open Data, ~50 min)
-just tycho dev      # debug wasm + Vite dev server with COOP/COEP → http://localhost:5173 (+ the Worker for /data/*)
-just tycho build    # release build, prints raw/gzip/brotli asset sizes
-just tycho preview  # serve the release build → http://localhost:4173
-just tycho check    # fmt, clippy, tsc, release build, then the TTFP and wasm-size budgets
+just setup                      # npm install for every app host
+just --list --list-submodules   # every recipe, per app
 ```
 
-Measurement suites, all against the release build (run `just tycho build` first):
+Then follow the app's README (Tycho: [Run it locally](apps/tycho/README.md#run-it-locally)).
 
-```sh
-just tycho perf     # the full suite (~1 h 45 min): cold load, panel, table on both samples, jump to row, 1 GB CSV → one results file
-just tycho cold     # cold-load TTFP only, reference + throttled, median of 10
-just tycho sample   # sample click → schema, bytes transferred, early click, failure modes
-just tycho table    # first rows, fling, scrollbar jump, last row, memory (--sweep, --browsers)
-just tycho engine   # DuckDB self-test: types, cancel
-just tycho smoke    # Chromium/Firefox/WebKit shell check against a running server
-```
+## Docs
 
-Add `?perf` to the URL (or press Cmd/Ctrl+Shift+P) for the perf overlay. For Playwright's browsers, run `npx playwright install chromium firefox webkit` once. The full list of recipes is in [`apps/tycho/CLAUDE.md`](apps/tycho/CLAUDE.md).
+Each fact has one home, and everything else links to it.
 
-## How we measure
-
-Playwright + headless Chromium, cold cache, 1440×900 at DPR 2, median of 10 runs, plus a throttled run (4× CPU, Fast 4G). TTFP is measured from `performance.timeOrigin` to a `gpui:first-frame` mark set right after GPUI presents its first real frame (checked against the page's actual GPU calls on every run). Browser FP/FCP aren't used, since a canvas makes them meaningless. Firefox and Safari get a manual check each milestone.
-
-## Working with this repo
-
-The `CLAUDE.md` files (root and per app) are the project's working rules and are written for both humans and [Claude Code](https://claude.com/claude-code). Each app's `PLAN.md` holds its milestones, "done when" checks, decisions log, and measurements; `docs/LESSONS.md` records what each milestone taught us.
+| Where | What |
+|---|---|
+| `CLAUDE.md` (here) | Repo-wide rules, the stack and its pins, the measurement protocol, GPUI Kit and Cloudflare gotchas. Written for contributors and [Claude Code](https://claude.com/claude-code) alike. |
+| `apps/<app>/README.md` | The app for a visitor: what it does, its numbers, its canvas tradeoffs and limits, how to run it. |
+| `apps/<app>/CLAUDE.md` | The app's rules, architecture, gotchas, and commands. |
+| `apps/<app>/PLAN.md` | Milestones and their checks, the decisions log, the measurements table. |
+| `apps/<app>/docs/LESSONS.md` | What each milestone taught us. |
+| `apps/<app>/perf/results/` | Every measurement, dated. |
 
 ## Fonts
 
 The UI face is [IBM Plex Sans](https://github.com/IBM/plex), © IBM Corp., under the SIL Open Font License 1.1 ([`shared-web/fonts/OFL.txt`](shared-web/fonts/OFL.txt)). The static placeholder uses a subset of it (printable ASCII and "…"), renamed "Seiza Placeholder" as the license requires of a modified version; [`shared-web/fonts/make-placeholder-font.py`](shared-web/fonts/make-placeholder-font.py) makes it.
 
 The theme button's sun and moon are [Lucide](https://lucide.dev) icons (ISC license), embedded through GPUI Kit's assets.
-
-## Data credits
-
-Tycho's sample datasets are re-hosted copies of public data:
-
-- **Asteroids:** NASA/JPL Small-Body Database.
-- **Stars:** This work has made use of data from the European Space Agency (ESA) mission Gaia, processed by the Gaia Data Processing and Analysis Consortium (DPAC).
 
 ## License
 

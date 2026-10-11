@@ -234,7 +234,7 @@ M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scroll
 - **Frame cost:** what each adds per frame while scrolling (hit-testing, resize handles, selection state across 25 M rows).
 - **Sorting's data cost:** the table pages by row-group ranges (`file_row_number`). A sort needs `ORDER BY` over the whole file, which reads all of it (37.7 MB for the asteroids, far more for Gaia), or a sorted copy in DuckDB's memory, against rule 3 (never load the whole result). Measure time, bytes, and memory on both samples.
 - **Reuse:** whether gpui-kit's column and selection pieces can sit on top of the row-based scroll model, or have to be rebuilt.
-- **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) the README tracks.
+- **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) `README.md` tracks.
 
 Record the decision (build all, some, or none) in the decisions log with the numbers, and only then add a milestone with "done when" checks.
 

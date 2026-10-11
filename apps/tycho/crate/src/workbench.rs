@@ -33,7 +33,7 @@ const CONTEXT: &str = "Workbench";
 
 /// Binds the workbench's keys: Cmd/Ctrl+G focuses jump to row ("go to",
 /// as in editors). The browser's own Cmd/Ctrl+G is find-next, and its find
-/// can't see the canvas anyway (README, "Canvas tradeoffs").
+/// can't see the canvas anyway (apps/tycho/README.md, "Canvas tradeoffs").
 #[cfg_attr(
     not(target_family = "wasm"),
     expect(dead_code, reason = "only the web entry point binds keys")

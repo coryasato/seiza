@@ -85,6 +85,7 @@ apps/tycho/
   data/             # fetch_asteroids.ts, fetch_gaia.ts, prep.sql + prep-gaia.sql + prep.ts (native DuckDB), drop_files.ts (M5 test files), fixtures-src/, MANIFEST.json (committed); raw/, drop/, bench/, + generated data gitignored
   perf/             # Playwright scripts (common.ts: the protocol's shared pieces; harness.ts: page, overlay, and /data helpers), baseline.json, budget-notes.md, results/
   docs/LESSONS.md   # lessons-learned log, one entry per milestone
+  README.md         # for visitors: numbers, canvas tradeoffs, file size limits, how to run it
   CLAUDE.md         # this file: context and rules
   PLAN.md           # milestones, datasets, hosting, decisions, measurements
   justfile          # loaded from the root as the `tycho` module
