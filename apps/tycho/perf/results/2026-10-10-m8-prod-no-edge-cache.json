@@ -1,0 +1,972 @@
+{
+  "date": "2026-10-10",
+  "label": "m8-prod-no-edge-cache",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "url": "https://tycho.seiza.io/",
+  "protocol": "root CLAUDE.md, \"Measurement protocol\": Chromium headless=new, cold cache, 1440×900 at DPR 2, median of 10; reference + throttled (CPU 4×, Fast 4G)",
+  "loadAverage": {
+    "before": [
+      4.66,
+      3.58,
+      2.97
+    ],
+    "after": [
+      2.71,
+      3.13,
+      2.92
+    ]
+  },
+  "headline": {
+    "cold": {
+      "ttfpMs": {
+        "reference": 327.2,
+        "throttled": 3778.5
+      },
+      "ttfpSplitMs": {
+        "reference": {
+          "wasmReadyMs": 232.2,
+          "afterWasmReadyMs": 100.5
+        },
+        "throttled": {
+          "wasmReadyMs": 3406.4,
+          "afterWasmReadyMs": 370.1
+        }
+      },
+      "localTtfpMs": {
+        "reference": 211.4,
+        "throttled": 3741.7
+      },
+      "localTtfpSplitMs": {
+        "reference": {
+          "wasmReadyMs": 114.2,
+          "afterWasmReadyMs": 97.9
+        },
+        "throttled": {
+          "wasmReadyMs": 3372.3,
+          "afterWasmReadyMs": 369.8
+        }
+      },
+      "afterWasmReadyVsLocalPct": {
+        "reference": 2.7,
+        "throttled": 0.1
+      },
+      "engineReadyMs": {
+        "reference": 985.1,
+        "throttled": 10034.7
+      },
+      "wasmBrotliKiB": 2823.6
+    },
+    "panel": null,
+    "table-asteroids": {
+      "reference": {
+        "firstRowsMs": 1031.4,
+        "jumpTo90Ms": 410.6,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 6.1,
+        "flingWorkP95Ms": 8.5,
+        "steadyWorkP50Ms": 10.4,
+        "steadyWorkP95Ms": 13.4
+      },
+      "throttled": {
+        "firstRowsMs": 3373,
+        "jumpTo90Ms": 2200.3,
+        "flingP95MsWorstRun": 33.3,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 24,
+        "flingWorkP95Ms": 30.5,
+        "steadyWorkP50Ms": 25.3,
+        "steadyWorkP95Ms": 35.6
+      }
+    },
+    "table-gaia": {
+      "reference": {
+        "firstRowsMs": 1447,
+        "jumpTo90Ms": 670,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 16.7,
+        "flingWorkP50Ms": 6.7,
+        "flingWorkP95Ms": 9,
+        "steadyWorkP50Ms": 11.1,
+        "steadyWorkP95Ms": 12.9
+      },
+      "throttled": {
+        "firstRowsMs": 8440.5,
+        "jumpTo90Ms": 6552.4,
+        "flingP95MsWorstRun": 33.3,
+        "flingMaxMsWorstRun": 50,
+        "flingWorkP50Ms": 22.5,
+        "flingWorkP95Ms": 31.7,
+        "steadyWorkP50Ms": 21.8,
+        "steadyWorkP95Ms": 29.4
+      }
+    },
+    "jump": {
+      "asteroids": {
+        "reference": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 372.2,
+          "lastMs": 173
+        },
+        "throttled": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 2172.6,
+          "lastMs": 515.5
+        },
+        "edgeProblems": 0
+      },
+      "gaia": {
+        "reference": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 686,
+          "lastMs": 812.1
+        },
+        "throttled": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 6555.5,
+          "lastMs": 4911.8
+        },
+        "edgeProblems": 0
+      }
+    },
+    "csv": {
+      "reference": {
+        "schemaMs": 156.6,
+        "firstRowsMs": 199.7,
+        "updateGapMaxMsWorstRun": 359.1,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 16.7,
+        "ingestS": 16.5,
+        "mbPerS": 65
+      },
+      "throttled": {
+        "schemaMs": 221.1,
+        "firstRowsMs": 362.7,
+        "updateGapMaxMsWorstRun": 708.2,
+        "flingP95MsWorstRun": 50,
+        "flingMaxMsWorstRun": 50,
+        "ingestS": 21.6,
+        "mbPerS": 49.7
+      }
+    }
+  },
+  "parts": {
+    "cold": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": true,
+      "seconds": 248,
+      "failures": [],
+      "raw": "raw/2026-10-10-m8-prod-no-edge-cache/cold.json",
+      "summary": {
+        "date": "2026-10-10",
+        "label": "m8-prod-cold",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "browser": "Chromium 153.0.8010.12 (headless=new)",
+        "tools": {
+          "rustc": "rustc 1.100.0-nightly (feaadeeac 2026-09-19)",
+          "wasmOpt": "wasm-opt version 133",
+          "node": "v26.0.0"
+        },
+        "url": "https://tycho.seiza.io/",
+        "protocol": {
+          "viewport": "1440x900",
+          "deviceScaleFactor": 2,
+          "runs": 10,
+          "throttled": {
+            "cpuSlowdown": 4,
+            "network": "Fast 4G",
+            "download": 1012500,
+            "upload": 168750,
+            "latency": 165
+          }
+        },
+        "wasmBrotliKiB": 2823.6,
+        "wasmEncodings": [
+          "/assets/duckdb-eh-9ubY-jlA.wasm: br",
+          "/assets/tycho_bg--669zUb6.wasm: br",
+          "/duckdb-ext/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm: br"
+        ],
+        "ttfpMs": {
+          "reference": 327.2,
+          "throttled": 3778.5
+        },
+        "placeholderPaintMs": {
+          "reference": 106.1,
+          "throttled": 294.9
+        },
+        "engineReadyMs": {
+          "reference": 985.1,
+          "throttled": 10034.7
+        },
+        "ttfpSplitMs": {
+          "reference": {
+            "wasmReadyMs": 232.2,
+            "afterWasmReadyMs": 100.5
+          },
+          "throttled": {
+            "wasmReadyMs": 3406.4,
+            "afterWasmReadyMs": 370.1
+          }
+        },
+        "local": {
+          "ttfpMs": {
+            "reference": 211.4,
+            "throttled": 3741.7
+          },
+          "ttfpSplitMs": {
+            "reference": {
+              "wasmReadyMs": 114.2,
+              "afterWasmReadyMs": 97.9
+            },
+            "throttled": {
+              "wasmReadyMs": 3372.3,
+              "afterWasmReadyMs": 369.8
+            }
+          }
+        },
+        "afterWasmReadyVsLocalPct": {
+          "reference": 2.7,
+          "throttled": 0.1
+        },
+        "failures": []
+      }
+    },
+    "panel": {
+      "origin": "local",
+      "passed": false,
+      "seconds": 4,
+      "failures": [
+        "wrote no results (exit 1: Node.js v26.0.0)"
+      ],
+      "raw": "raw/2026-10-10-m8-prod-no-edge-cache/panel.json",
+      "summary": null
+    },
+    "table-asteroids": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": false,
+      "seconds": 1610,
+      "failures": [
+        "reference first rows 1031.4 ms > 500 ms",
+        "reference jump 410.6 ms > 400 ms"
+      ],
+      "raw": "raw/2026-10-10-m8-prod-no-edge-cache/table-asteroids.json",
+      "summary": {
+        "date": "2026-10-10",
+        "label": "m8-prod-table-asteroids",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "asteroids.parquet",
+          "rows": 1567523,
+          "bytes": 37692103,
+          "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+          "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+          "fetched": "2026-09-24",
+          "rowGroups": 52,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+          "notes": [
+            "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+            "0 rows have no first_obs in the source"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 1031.4,
+              "min": 875.2,
+              "max": 1817.8
+            },
+            "jumpMs": {
+              "median": 410.6,
+              "min": 317,
+              "max": 586.8
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.848,
+              "min": 0.843,
+              "max": 0.85
+            },
+            "flingWorkP50Ms": {
+              "median": 6.1,
+              "min": 6,
+              "max": 6.7
+            },
+            "flingWorkP95Ms": {
+              "median": 8.5,
+              "min": 8.1,
+              "max": 8.9
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 10.4,
+              "min": 10,
+              "max": 11.1
+            },
+            "steadyWorkP95Ms": {
+              "median": 13.4,
+              "min": 11.9,
+              "max": 14.4
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 3373,
+              "min": 3363.6,
+              "max": 3418.9
+            },
+            "jumpMs": {
+              "median": 2200.3,
+              "min": 2177.5,
+              "max": 2294.5
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.846,
+              "min": 0.836,
+              "max": 0.849
+            },
+            "flingWorkP50Ms": {
+              "median": 24,
+              "min": 23.6,
+              "max": 26
+            },
+            "flingWorkP95Ms": {
+              "median": 30.5,
+              "min": 30,
+              "max": 35.2
+            },
+            "steadyP95Ms": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 25.3,
+              "min": 23.4,
+              "max": 27.7
+            },
+            "steadyWorkP95Ms": {
+              "median": 35.6,
+              "min": 35.2,
+              "max": 42.2
+            },
+            "steadyPlaceholderShare": {
+              "median": 0.654,
+              "min": 0.612,
+              "max": 0.68
+            }
+          }
+        },
+        "failures": [
+          "reference first rows 1031.4 ms > 500 ms",
+          "reference jump 410.6 ms > 400 ms"
+        ]
+      }
+    },
+    "table-gaia": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": false,
+      "seconds": 1751,
+      "failures": [
+        "reference first rows 1447 ms > 500 ms",
+        "reference jump 670 ms > 400 ms"
+      ],
+      "raw": "raw/2026-10-10-m8-prod-no-edge-cache/table-gaia.json",
+      "summary": {
+        "date": "2026-10-10",
+        "label": "m8-prod-table-gaia",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "gaia-dr3-bright.parquet",
+          "rows": 25067889,
+          "bytes": 1572736231,
+          "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+          "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+          "fetched": "2026-10-07",
+          "rowGroups": 409,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+          "notes": [
+            "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+            "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+            "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 1447,
+              "min": 1139.4,
+              "max": 2287.2
+            },
+            "jumpMs": {
+              "median": 670,
+              "min": 508.2,
+              "max": 920
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.849,
+              "min": 0.848,
+              "max": 0.849
+            },
+            "flingWorkP50Ms": {
+              "median": 6.7,
+              "min": 6.5,
+              "max": 7
+            },
+            "flingWorkP95Ms": {
+              "median": 9,
+              "min": 8.1,
+              "max": 10.1
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 11.1,
+              "min": 10.4,
+              "max": 11.2
+            },
+            "steadyWorkP95Ms": {
+              "median": 12.9,
+              "min": 12.5,
+              "max": 13.5
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0.12
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 8440.5,
+              "min": 8385.2,
+              "max": 8515.4
+            },
+            "jumpMs": {
+              "median": 6552.4,
+              "min": 6546.6,
+              "max": 6602.6
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 50
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.846,
+              "min": 0.844,
+              "max": 0.848
+            },
+            "flingWorkP50Ms": {
+              "median": 22.5,
+              "min": 21.5,
+              "max": 25.5
+            },
+            "flingWorkP95Ms": {
+              "median": 31.7,
+              "min": 27.6,
+              "max": 36.9
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 21.8,
+              "min": 21,
+              "max": 23.6
+            },
+            "steadyWorkP95Ms": {
+              "median": 29.4,
+              "min": 26.2,
+              "max": 32.9
+            },
+            "steadyPlaceholderShare": {
+              "median": 1,
+              "min": 1,
+              "max": 1
+            }
+          }
+        },
+        "failures": [
+          "reference first rows 1447 ms > 500 ms",
+          "reference jump 670 ms > 400 ms"
+        ]
+      }
+    },
+    "jump": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": true,
+      "seconds": 782,
+      "failures": [],
+      "raw": "raw/2026-10-10-m8-prod-no-edge-cache/jump.json",
+      "summary": {
+        "date": "2026-10-10",
+        "label": "m8-prod-jump",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "samples": {
+          "asteroids": {
+            "reference": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 372.2,
+                "min": 295.4,
+                "max": 737.6,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 173,
+                "min": 151.7,
+                "max": 204.5,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "throttled": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 2172.6,
+                "min": 2162.9,
+                "max": 2330.6,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 515.5,
+                "min": 511.2,
+                "max": 575.3,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "edges": {
+              "sample": "asteroids",
+              "ime": {
+                "row": 123,
+                "ok": true,
+                "detail": "top 122, marked 122, refusal null",
+                "filledMs": null
+              },
+              "keys": {
+                "Control+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Control+A, Backspace"
+                },
+                "Control+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Control+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Control+Z"
+                },
+                "Meta+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+                },
+                "Meta+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Meta+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Meta+Z"
+                },
+                "Alt+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+                },
+                "Meta+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+                },
+                "Alt+Backspace (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+                }
+              },
+              "ctrlV": {
+                "landed": true,
+                "detail": "input \"4242\", focus jump"
+              },
+              "cmdV": {
+                "landed": true,
+                "detail": "input \"4141\", focus jump"
+              },
+              "menuPaste": {
+                "landed": true,
+                "detail": "input \"4343\", focus jump"
+              },
+              "menuPasteDenied": {
+                "landed": false,
+                "detail": "input \"\", focus jump"
+              },
+              "focus": {
+                "ok": true,
+                "detail": "focus table → workbench (state failed)"
+              },
+              "problems": []
+            }
+          },
+          "gaia": {
+            "reference": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 686,
+                "min": 524.6,
+                "max": 1002.1,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 812.1,
+                "min": 587.6,
+                "max": 1133.2,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "throttled": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 6555.5,
+                "min": 6543.2,
+                "max": 6594.3,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 4911.8,
+                "min": 4857.9,
+                "max": 4949.1,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "edges": {
+              "sample": "gaia",
+              "ime": {
+                "row": 123,
+                "ok": true,
+                "detail": "top 122, marked 122, refusal null",
+                "filledMs": null
+              },
+              "keys": {
+                "Control+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Control+A, Backspace"
+                },
+                "Control+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Control+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Control+Z"
+                },
+                "Meta+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+                },
+                "Meta+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Meta+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Meta+Z"
+                },
+                "Alt+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+                },
+                "Meta+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+                },
+                "Alt+Backspace (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+                }
+              },
+              "ctrlV": {
+                "landed": true,
+                "detail": "input \"4242\", focus jump"
+              },
+              "cmdV": {
+                "landed": true,
+                "detail": "input \"4141\", focus jump"
+              },
+              "menuPaste": {
+                "landed": true,
+                "detail": "input \"4343\", focus jump"
+              },
+              "menuPasteDenied": {
+                "landed": false,
+                "detail": "input \"\", focus jump"
+              },
+              "focus": {
+                "ok": true,
+                "detail": "focus table → workbench (state failed)"
+              },
+              "problems": []
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "csv": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": true,
+      "seconds": 728,
+      "failures": [],
+      "raw": "raw/2026-10-10-m8-prod-no-edge-cache/csv.json",
+      "summary": {
+        "date": "2026-10-10",
+        "label": "m8-prod-csv",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "files": {
+          "drop/asteroids-x6.csv": {
+            "rows": 9405186,
+            "bytes": 1071352470,
+            "sha256": "7177b6bbea5c2963629d8ed0732656a5090cd37958a7c4e67f4165550ecb0a54",
+            "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 6",
+            "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+          },
+          "fixtures/asteroids.csv": {
+            "rows": 1567531,
+            "bytes": 178558830,
+            "sha256": "4a471e3d88f430cdf136d8b47df4c81625f68b92b6a2d92a1066a11bbb0efc72",
+            "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+            "fetched": "2026-09-24",
+            "writer": "DuckDB v1.4.5, CSV with header; the asteroid rows, then fixtures-src/tricky_rows.csv"
+          },
+          "drop/asteroids-x3.parquet": {
+            "rows": 4702569,
+            "bytes": 113067110,
+            "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+            "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+            "rowGroups": 154,
+            "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+          }
+        },
+        "budgets": {
+          "schemaMs": 1000,
+          "firstRowsMs": 1000,
+          "updateGapMs": 500,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50
+        },
+        "drop": {
+          "reference": {
+            "schemaMs": {
+              "median": 156.6,
+              "min": 140.9,
+              "max": 197.1
+            },
+            "firstRowsMs": {
+              "median": 199.7,
+              "min": 173.7,
+              "max": 263.4
+            },
+            "ingestMs": {
+              "median": 16486,
+              "min": 15866.4,
+              "max": 18387.8
+            },
+            "mbPerS": {
+              "median": 65,
+              "min": 58.3,
+              "max": 67.5
+            },
+            "updateGapMaxMs": {
+              "median": 271.9,
+              "min": 216.9,
+              "max": 359.1
+            },
+            "updateGapP50Ms": {
+              "median": 114.9,
+              "min": 98.7,
+              "max": 117.4
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "allAgentsMiB": {
+              "median": 554.6,
+              "min": 552.6,
+              "max": 574.3
+            }
+          },
+          "throttled": {
+            "schemaMs": {
+              "median": 221.1,
+              "min": 216.2,
+              "max": 253.3
+            },
+            "firstRowsMs": {
+              "median": 362.7,
+              "min": 328.5,
+              "max": 421.9
+            },
+            "ingestMs": {
+              "median": 21572.2,
+              "min": 20994,
+              "max": 22614.6
+            },
+            "mbPerS": {
+              "median": 49.7,
+              "min": 47.4,
+              "max": 51
+            },
+            "updateGapMaxMs": {
+              "median": 366.1,
+              "min": 298.5,
+              "max": 708.2
+            },
+            "updateGapP50Ms": {
+              "median": 162.9,
+              "min": 159.1,
+              "max": 166.5
+            },
+            "flingP95Ms": {
+              "median": 50,
+              "min": 33.3,
+              "max": 50
+            },
+            "flingMaxMs": {
+              "median": 50,
+              "min": 50,
+              "max": 50
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 2
+            },
+            "allAgentsMiB": {
+              "median": 572.8,
+              "min": 545.5,
+              "max": 585.7
+            }
+          }
+        },
+        "failures": []
+      }
+    }
+  }
+}

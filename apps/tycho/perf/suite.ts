@@ -21,7 +21,13 @@
 // read slow; see LESSONS).
 //
 // Usage: node apps/tycho/perf/suite.ts [--runs 10] [--label m7-suite] [--only cold,panel,table,jump,csv]
-//                                      [--reference-only] [--update]
+//                                      [--reference-only] [--update] [--url <origin>]
+// --url runs every part that can against that origin (production, M8): all
+// but panel, whose "Read" check counts /data/ bytes at the server, which only
+// the local `wrangler dev` allows; it stays on the local build. Cold then
+// also measures the local build, interleaved, and records the app's part of
+// TTFP (wasm ready → first frame) against it (perf.ts --vs-local). Budgets
+// apply to the local build only; production's numbers are recorded.
 // --update re-runs the parts named by --only (required) into an existing
 // results file of the same date and label, keeping the others (and noting it).
 // Writes perf/results/<date>-<label>.json. Exits non-zero if any part
@@ -39,6 +45,7 @@ const date = new Date().toISOString().slice(0, 10);
 const label = option('label') ?? 'suite';
 const runs = option('runs');
 const only = option('only')?.split(',');
+const url = option('url');
 const rawDir = join(perfDir, 'results', 'raw', `${date}-${label}`);
 if (flag('update') && !only) throw new Error('--update re-runs the parts named by --only; pass --only');
 mkdirSync(rawDir, { recursive: true });
@@ -53,6 +60,10 @@ interface Part {
   args: string[];
   /** The numbers worth reading first, from the part's own output. */
   headline: (output: Json) => Json;
+  /** Takes `--url`. Panel doesn't: it counts bytes at a local server. */
+  remote: boolean;
+  /** Added with `--url`: cold also measures the local build (`--vs-local`). */
+  remoteArgs?: string[];
 }
 
 const median = (summary: Json | undefined) => summary?.median ?? null;
@@ -77,13 +88,22 @@ const PARTS: Part[] = [
     group: 'cold',
     script: 'perf.ts',
     args: [],
-    headline: (o) => ({ ttfpMs: o.ttfpMs, engineReadyMs: o.engineReadyMs, wasmBrotliKiB: o.wasmBrotliKiB }),
+    remote: true,
+    remoteArgs: ['--vs-local'],
+    headline: (o) => ({
+      ttfpMs: o.ttfpMs,
+      ttfpSplitMs: o.ttfpSplitMs,
+      ...(o.local ? { localTtfpMs: o.local.ttfpMs, localTtfpSplitMs: o.local.ttfpSplitMs, afterWasmReadyVsLocalPct: o.afterWasmReadyVsLocalPct } : {}),
+      engineReadyMs: o.engineReadyMs,
+      wasmBrotliKiB: o.wasmBrotliKiB,
+    }),
   },
   {
     name: 'panel',
     group: 'panel',
     script: 'panel.ts',
     args: [],
+    remote: false,
     headline: (o) =>
       byProfile(o.summary, (p) => ({
         matched: p.matched,
@@ -92,13 +112,14 @@ const PARTS: Part[] = [
         steadyWork: p.steadyWork,
       })),
   },
-  { name: 'table-asteroids', group: 'table', script: 'table.ts', args: ['--sample', 'asteroids'], headline: tableHeadline },
-  { name: 'table-gaia', group: 'table', script: 'table.ts', args: ['--sample', 'gaia'], headline: tableHeadline },
+  { name: 'table-asteroids', group: 'table', script: 'table.ts', args: ['--sample', 'asteroids'], remote: true, headline: tableHeadline },
+  { name: 'table-gaia', group: 'table', script: 'table.ts', args: ['--sample', 'gaia'], remote: true, headline: tableHeadline },
   {
     name: 'jump',
     group: 'jump',
     script: 'jump.ts',
     args: [],
+    remote: true,
     headline: (o) =>
       Object.fromEntries(
         Object.entries((o.samples ?? {}) as Json).map(([sample, s]) => [
@@ -117,6 +138,7 @@ const PARTS: Part[] = [
     group: 'csv',
     script: 'csv.ts',
     args: ['--only', 'drop'],
+    remote: true,
     headline: (o) =>
       byProfile(o.drop, (p) => ({
         schemaMs: median(p.schemaMs),
@@ -145,6 +167,7 @@ function summaries(value: unknown): unknown {
 function run(part: Part, out: string): Promise<{ code: number; lastError: string; seconds: number }> {
   const args = [join(perfDir, part.script), ...part.args, '--label', `${label}-${part.name}`, '--out', out];
   if (runs) args.push('--runs', runs);
+  if (url && part.remote) args.push('--url', url, ...(part.remoteArgs ?? []));
   if (flag('reference-only')) args.push('--reference-only');
   const started = Date.now();
   return new Promise((resolve) => {
@@ -168,6 +191,8 @@ const results: Json = {
   date,
   label,
   ...machineInfo(),
+  // Where the parts ran: `url` for the remote ones, the local release build otherwise.
+  url: url ?? null,
   protocol: 'root CLAUDE.md, "Measurement protocol": Chromium headless=new, cold cache, 1440×900 at DPR 2, median of 10; reference + throttled (CPU 4×, Fast 4G)',
   loadAverage: { before: load() },
   headline: {} as Json,
@@ -203,6 +228,7 @@ for (const part of PARTS.filter((p) => !only || only.includes(p.group) || only.i
   else if (outcome.code !== 0 && partFailures.length === 0) partFailures.push(`exited with ${outcome.code}: ${outcome.lastError}`);
   results.headline[part.name] = output ? part.headline(output) : null;
   results.parts[part.name] = {
+    origin: url && part.remote ? url : 'local',
     passed: partFailures.length === 0,
     seconds: outcome.seconds,
     failures: partFailures,

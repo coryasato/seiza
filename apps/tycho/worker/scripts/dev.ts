@@ -3,6 +3,7 @@
 // /data: the Vite dev and preview proxies, perf/sample.ts, and check.ts.
 
 import { spawn } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +49,9 @@ export async function startWorkerDev(options: { port?: number; requireObject?: s
   const port = options.port ?? WORKER_DEV_PORT;
   const url = `http://127.0.0.1:${port}`;
   await assertPortFree(port);
+  // wrangler.toml's [assets] directory: wrangler won't start without it, and
+  // `just tycho dev` runs before any release build.
+  mkdirSync(join(workerDir, '../web/dist'), { recursive: true });
   const child = spawn(wrangler, ['dev', '--ip', '127.0.0.1', '--port', String(port), '--show-interactive-dev-session=false', '--log-level', 'warn'], {
     cwd: workerDir,
     env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },

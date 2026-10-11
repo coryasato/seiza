@@ -20,9 +20,10 @@ Tycho's build plan: milestones (with done-when checks), sample datasets, hosting
 | M5 | Drop a Parquet file | Done 2026-09-27 |
 | M6 | Drop a CSV with progressive loading | Done 2026-09-30 |
 | M7 | Observation panel, jump to row, and hardening | Parts A (panel) and B (Gaia sample) done 2026-10-07; part C (jump to row) done 2026-10-08: checks 4 and 8 pass, its TTFP cost accepted; part D (hardening) done 2026-10-08; part E (close-out) done 2026-10-08: every check passes, one suite (`just tycho perf`), placeholder shell decided yes; part F (cell overflow) done 2026-10-09: no value spills out of its cell, doubles round to fit, one tooltip; part G (placeholder shell, theme toggle) built 2026-10-09: every check passes, the shell paints 3.47 s before the first frame on Fast 4G, the icons' TTFP cost accepted. **Done 2026-10-09** (TTFP re-baseline still pending) |
-| M8 | Deploy to Cloudflare | Not started |
+| M8 | Deploy to Cloudflare | **Done 2026-10-10**: https://tycho.seiza.io; every check passes; budgets stay on the local build, production is recorded |
 | Later | Table interactions: column resizing, selection, sorting | Not started; research first, after M8 |
 | Later | Side-by-side comparison: WASM \| React | Not started; research first, after M8 |
+| Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
 
 Complete them in order. Each one closes with: measurements committed to `perf/results/`, and an entry in `docs/LESSONS.md`.
 
@@ -209,12 +210,14 @@ Deploy to Cloudflare as one Worker on one origin (see Hosting below). The app sh
 *Carried from M3:* the Worker's static-asset fallthrough must answer a missing `/duckdb-ext/*` file with 404, never an SPA `index.html`: DuckDB autoloads any extension a query needs from there, and only the pinned ones exist. `web/vite.config.ts` does this for dev and preview.
 
 **Done when:**
-- [ ] The app is served from a custom domain, and `git grep workers.dev` finds nothing but this note and the Hosting section.
-- [ ] The public URL passes `just tycho perf` against production, with TTFP within 15% of the local release build. *(Since M7 part E, `perf` is the full suite and only its `cold` part takes `--url`; give the other parts `--url` here, or name which parts run against production.)*
-- [ ] `crossOriginIsolated === true` in production.
-- [ ] Range requests to `/data/*` return `206` with a correct `Content-Range`. `HEAD` returns `Content-Length` and `Accept-Ranges: bytes`. Both samples load and scroll in production.
-- [ ] The wasm is served compressed (`Content-Encoding: br`, or `zstd` if that's what Cloudflare negotiates on our plan; record which).
-- [ ] The perf-overlay numbers from the public URL are recorded in the README as the headline results.
+- [x] The app is served from a custom domain, and `git grep workers.dev` finds nothing but this note and the Hosting section. *`https://tycho.seiza.io`; `workers_dev = false`, `preview_urls = false`; `git grep -F workers.dev` (fixed-string: unquoted, the dot also matches `workers_dev`) finds only those three lines, and the results files record only the custom domain.*
+- [x] The public URL passes `just tycho perf` against production, with TTFP within 15% of the local release build. *Every part but panel runs with `--url` (panel counts bytes at a local server; it passes locally, 170/170). All pass (`2026-10-10-m8-prod.json`, table in `2026-10-11-m8-prod-table.json`). Decided during M8: budgets apply to the local build only, and production is recorded. TTFP split at wasm ready, interleaved with the local build: the app's part matched (+2.7% ref, +0.1% throttled); the part before it is the network (327.2 vs 211.4 ms ref, 3778.5 vs 3741.7 throttled).*
+- [x] `crossOriginIsolated === true` in production. *Chromium, Firefox, and WebKit (`just tycho smoke https://tycho.seiza.io/`).*
+- [x] Range requests to `/data/*` return `206` with a correct `Content-Range`. `HEAD` returns `Content-Length` and `Accept-Ranges: bytes`. Both samples load and scroll in production. *`check.ts --url` (also run by every deploy), plus the table part on both samples.*
+- [x] The wasm is served compressed (`Content-Encoding: br`, or `zstd` if that's what Cloudflare negotiates on our plan; record which). *br at quality 11, the deploy's own `.br` (2,891,331 B for the app wasm). Cloudflare's own compression negotiated zstd with Chromium at 3,920,772 B, +1.1 s TTFP throttled, so the Worker serves precompressed copies.*
+- [x] The perf-overlay numbers from the public URL are recorded in the README as the headline results. *The suite's numbers are the overlay's (each part checks the panel against the marks).*
+
+Results: `perf/results/2026-10-10-m8.md`.
 
 ---
 
@@ -249,6 +252,35 @@ The "React comparison mode" in Pending decisions. One page shows Tycho next to a
 - **Frame cost:** fling frame intervals and per-frame work time, measured as for Tycho.
 
 Record the decision in the decisions log, and only then add a milestone with "done when" checks.
+
+### Production performance: servers, edge, and data layout
+
+M8 measured production and stopped there: **budgets apply to the local build only**, and production numbers are recorded, never gates (decisions log, 2026-10-10; root CLAUDE.md, measurement protocol). Making production faster is goal work for its own session(s), with its own token budget: the upstream variables (network, edge, R2) are unknowns. Numbers below are from `perf/results/2026-10-10-m8.md`: one Apple M1 on a home connection, ~25 ms to Cloudflare's SJC data center, ~100 Mbit/s, reference run.
+
+**Where production's time goes (M8):**
+- **First paint:** 327 ms against 211 locally (interleaved). All of the gap comes before wasm ready: connection 27 ms, HTML +28, the wasm's first byte 81 ms after its request (one round trip plus the edge), its transfer 65 ms. From wasm ready to the first frame, production matches local (100.5 vs 97.9 ms).
+- **First page of rows:** ~8 sequential round trips. The app's `bytes=0-0` size probe (`engine.ts`, `remoteSize`), DuckDB's sizing HEAD, two footer reads, then the readahead steps (16 KB, 64 KB, 256 KB, 1 MB, plus 4 MB for Gaia; not configurable, see the DuckDB gotchas in CLAUDE.md). First rows: 506.8 ms asteroids, 810.8 Gaia (local 201.8 / 295.7).
+- **R2 is the slow hop:** a range read takes 55–125 ms, a static asset 20–35, an edge-cache hit 40–75.
+- **The edge cache is per data center** (Cache API). The first visitor at one pays R2: 873.8 ms first rows (asteroids), 1971.3 (Gaia). Reads over 4 MiB are never cached (the tee/isolate-memory cap), so Gaia's 16 MB readahead step always reads R2.
+- **A Gaia page is 5.6 MB:** on a normal link, most of its time is transfer.
+- **Engine ready:** 985 ms (local ~680 in a single run), much of it DuckDB's 5.2 MB br bundle.
+
+**Ideas, roughly cheapest first** (each needs measuring before and after, and a decisions-log entry):
+1. **Drop the app's `bytes=0-0` size probe:** DuckDB's ranged HEAD already sizes the file. One round trip per open. First check why M3 added it (the decisions log and LESSONS).
+2. **Worker-side readahead prefetch:** DuckDB's step pattern is predictable, so on a miss the Worker could read the next step from R2 into the edge cache (`ctx.waitUntil`) before DuckDB asks. Helps at a cold edge too.
+3. **Prefetch the default sample's footer after the engine is ready,** before a click: saves ~3 round trips on the first click. It's a product decision: it downloads bytes a visitor may never ask for (repo rule 2 allows it after first paint; still say so in the UI's loading line).
+4. **Tiered caching for R2 reads** instead of the per-colo Cache API: the Worker fetches R2 through a cached route (an R2 custom domain, read only by the Worker as a subrequest), so a miss here can come from Cloudflare's upper tier, not R2. The browser still sees one origin (COEP). Check range support and cache keys there.
+5. **Cache big reads in 4 MiB chunks,** so the 16 MB step is cached without the tee buffering risk.
+6. **Re-tune Gaia's row-group size for the network:** M7 chose 61,440 rows on per-group CPU cost (local, no network); in production, bytes per page weigh more. Rerun the M7 trade-off with the network in it.
+7. **Zone settings:** 103 Early Hints for the wasm and font preloads, HTTP/3. Measure; don't assume.
+8. **Engine ready:** whether DuckDB's bundle and worker can start sooner after first paint, or share the connection better with the app's own requests.
+
+**Fix the method first:**
+- **A deliberate cold-edge measurement:** today the edge state depends on what ran before (the table part's `firstRun` is cold only on the first run after a deploy). A cache-key salt (a query parameter or a `DATA_VERSIONS` suffix) would make cold-edge runs repeatable.
+- **More than one vantage point:** every production number so far comes from one home connection near SJC. Add at least one far-away run (a CI runner or a remote browser) before generalizing.
+- **Keep interleaving with the local build** (`perf.ts --vs-local`): the same build read 304.8 and 327.2 ms TTFP an hour apart.
+
+Record each decision with its numbers in the decisions log; production stays recorded, not budgeted, unless that rule is revisited on purpose.
 
 ---
 
@@ -296,9 +328,12 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 
 **Decided 2026-09-22.** One Worker (`worker/`) handles one origin.
 
-- **Names (2026-09-24):** Worker `tycho` (public on a custom domain; the account's `*.workers.dev` subdomain exposes a personal handle, so it's never committed, see M8), R2 bucket `tycho-data`, bound as `TYCHO_DATA`. `wrangler.toml` doesn't commit the account ID; deploys read `CLOUDFLARE_ACCOUNT_ID` from the environment, and API tokens never go in the repo.
+- **Names (2026-09-24):** Worker `tycho` (public on a custom domain; the account's `*.workers.dev` subdomain exposes a personal handle, so it's never committed, see M8), R2 bucket `tycho-data`, bound as `TYCHO_DATA`. `wrangler.toml` doesn't commit the account ID; wrangler takes it from `wrangler login` (or `CLOUDFLARE_ACCOUNT_ID` with an API token), and API tokens never go in the repo.
+- **Origin (M8, 2026-10-10):** **https://tycho.seiza.io**, a Workers custom domain on the `seiza.io` zone (`routes` in `wrangler.toml`), with `workers_dev = false` and `preview_urls = false`. Workers Logs stay on (`[observability]`).
+- **Deploy (M8):** `just tycho deploy` (`worker/scripts/deploy.ts`): release build; R2 uploads first (the samples when R2's stored SHA-256 differs from MANIFEST.json's; the oversize build files), through R2's S3 API with the AWS CLI profile named by `TYCHO_R2_PROFILE` (multipart; Gaia's 1.5 GB took 26 s); a quality-11 `.br` beside every wasm, JS, font, and HTML file; `.assetsignore` for the oversize files; `wrangler deploy`; then `check.ts` against production, retried for a minute while the version propagates.
 
-- **Worker static assets** serve `index.html`, JS, fonts, and the app wasm. Set COOP/COEP in `_headers`. The limit is **25 MiB per file**, so check the release wasm size and each DuckDB bundle against it in `just tycho build`. Any file over the limit moves to R2 and is served like the data.
+- **Worker static assets** serve the build (web/dist). The limit is **25 MiB per file**, so `just tycho build` checks the release wasm and each DuckDB bundle against it. DuckDB's two wasm bundles (33 and 38 MiB) are over it: they're in R2 under `assets/<name>` (their own path) and the Worker serves them; their `.br` (5 and 6 MiB) are static assets. `_headers` (written by `shared-web`'s Vite config) sets COOP/COEP/CORP on every asset and `immutable` on `assets/`.
+- **Precompressed build files (M8):** the Worker runs first (`run_worker_first`) for `/`, `/index.html`, `/assets/*`, and `/duckdb-ext/*`. To a browser that takes br (`cf.clientAcceptEncoding`) it returns the file's quality-11 `.br` as is (`encodeBody: 'manual'`); otherwise the file itself, which Cloudflare compresses (zstd or gzip), from static assets or R2. Cloudflare's own compression sent the app wasm as 3.7 MiB of zstd (3.6 as br) against 2.8 MiB at quality 11: +1.1 s TTFP throttled. The page goes out `no-cache, no-transform`: the zone's Web Analytics injected a beacon script (`static.cloudflareinsights.com`) that loaded before first paint, and `no-transform` stops that. A path no asset matches (a missing `/duckdb-ext/*` extension) is a 404, never `index.html` (`not_found_handling = "none"`).
 - **R2** holds the datasets (and oversize engine files) and is read through a Worker binding at `/data/*`. R2 has **no egress fees**, which matters when every visitor may pull hundreds of MB of Gaia rows. That's the main reason to choose it over Google Cloud Storage/Firebase.
 - **The Worker's range handling is ours to get right:**
   - Parse `Range` in the Worker and call `env.TYCHO_DATA.get(key, { range: { offset, length } | { suffix } })`. Don't pass `request.headers`: for several ranges or a start past the end, R2 returns the whole object with no error (M3, Miniflare).
@@ -306,10 +341,11 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
   - Return `206`.
   - Answer `HEAD` with `Content-Length` and `Accept-Ranges: bytes`, and a ranged `HEAD` with the 206 headers the ranged GET would get: DuckDB-Wasm sizes files with `HEAD` + `Range: bytes=0-` and needs the 206 (M3).
   - Add COOP/COEP (or `Cross-Origin-Resource-Policy: same-origin`) to these responses too.
-  - Set `Cache-Control: public, max-age=31536000, immutable` on content-hashed files. The data files keep stable names for now and go out as `no-cache, no-transform`; M8 decides on hashed names.
+  - Set `Cache-Control: public, max-age=31536000, immutable` on content-hashed files. The data files keep stable names and go out as `no-cache, no-transform` (decided in M8; see the decisions log).
   - Multi-range requests aren't needed; answer them with a single range or `416`.
-- **Compression:** Cloudflare compresses `application/wasm` automatically. Which encoding (br or zstd) depends on the plan and Compression Rules. Record what production actually serves. Parquet is already compressed: send it with `Cache-Control: no-transform` so Cloudflare doesn't re-encode it and break byte ranges.
-- **Local dev:** `wrangler dev` runs the same Worker, so the headers and range behavior in dev match production. `just tycho dev` should use it, or at least the M3 checks must also pass under `wrangler dev`.
+  - **Edge cache (M8):** HEADs and closed ranges up to 4 MiB are kept in Cloudflare's per-colo cache (Cache API), keyed by `DATA_VERSIONS` (the sample's content SHA, set at deploy) + method + `Range`; the 206 is stored as a 200 with its status and headers alongside. A miss is kept only if the R2 object's stored `sha256` matches the key's version: a deploy uploads data before the new Worker is live, and the old one must not store new bytes under the old key (code review). The 4 MiB cap bounds what a tee to a slow client can buffer in the isolate; DuckDB's 16 MB readahead step goes uncached. `X-Tycho-Cache: hit|miss|bypass` says which path answered. The first visitor at a data center still reads R2.
+- **Compression:** production serves br at quality 11 (above). Without the Worker's `.br`, Cloudflare compresses `application/wasm` itself, as zstd when the browser offers it (Chromium does), at a low level. Parquet is already compressed: it goes out with `Cache-Control: no-transform` so Cloudflare doesn't re-encode it and break byte ranges.
+- **Local dev:** `wrangler dev` runs the same Worker (the `[assets]` directory included; `scripts/dev.ts` creates an empty `web/dist` before the first build), so the headers and range behavior in dev match production. Vite's dev and preview servers proxy `/data/*` to it.
 
 ---
 
@@ -423,6 +459,13 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 | 2026-10-09 | The panel's "Placeholder" row is filled at a later refresh when the paint mark arrives after the first frame: Element Timing entries reach their observer asynchronously, and one run of 20 in the baseline attempt missed the row (+1.0 KiB). A baseline recorded at load 2–4 (210.3 ms) was discarded: the user's open apps keep the machine there, so it measured them, not the code | M7 part G |
 | 2026-10-09 | **TTFP baseline re-recorded: 195.3 ms reference, 3727.7 throttled**, with every app but the editor and terminal closed (load under 1). Budget checks run in that state, or are judged by an interleaved A/B against HEAD. The wasm baseline reset with it (2823.6 KiB) | M7 part G, close-out |
 | 2026-10-09 | **Placeholder checks** (`just tycho placeholder`): screenshot match by region at DPR 2 and DPR 1, light and dark (text and icons as ink: edges within 3 device px across, 1 up/down at DPR 2 and 2 at DPR 1, mass ×/÷1.15 or 1.25; skeleton edges 0 device px at DPR 1, 1 at DPR 2; surfaces ≤ 0.04% outside a 1-px shift); steadiness over the placeholder's life, with its font served late to force the race; the theme toggle. Every limit was set from negative controls, each caught. `perf.ts` checks every cold run: painted before the first frame, the panel's "Placeholder" row within 5 ms of the mark, released inside the task that presented the first frame, gone afterwards | M7 part G |
+| 2026-10-10 | **Production origin: `tycho.seiza.io`, a Workers custom domain**, `workers_dev = false`, `preview_urls = false`. The account's default subdomain names its owner; it's off and never committed | M8 |
+| 2026-10-10 | **Production wasm encoding: br at quality 11, precompressed at deploy** and served by the Worker (`run_worker_first` for the page, `/assets/*`, `/duckdb-ext/*`; `encodeBody: 'manual'`), not Cloudflare's own: it sent zstd to Chromium (which offers it) at a low level, the app wasm 3.92 MB against 2.89 MB, and TTFP read 455.4 / 4837.9 ms (ref / throttled) against 304.8 / 3804.9 with the `.br`. A browser without br gets Cloudflare's zstd or gzip. Rejected: zstd at a high level (3.11 MB at level 19, still over br's 2.89) | M8 `m8-prod-cold`, `m8-prod-cold-br` |
+| 2026-10-10 | **The page is served `no-cache, no-transform` through the Worker**: the zone's Web Analytics injected `static.cloudflareinsights.com/beacon.min.js` into the HTML, a request before first paint (repo rule 1) that every cold run failed on. `no-transform` stops it whatever the zone's settings; `check.ts` fails on an injected script | M8 |
+| 2026-10-10 | **Budgets apply to the local build only; production is recorded** (user's decision, repo-wide: root CLAUDE.md, measurement protocol). Production TTFP is split at wasm ready (`perf.ts --vs-local`, interleaved with the local build): before it is the network (connection, HTML, the 2.9 MB wasm over the link), zero for local preview, so "TTFP within 15% of local" couldn't hold on any remote host (15% of 195 ms is ~one TLS handshake); after it is the app's work, which matched local (+2.7% ref, +0.1% throttled). The table's load budgets (first rows, jump) likewise: a first page in production is ~8 sequential round trips, and a Gaia page 5.6 MB over the link. Optimizing production gets its own session, as a goal | M8 |
+| 2026-10-10 | **Data file names stay stable** (`asteroids.parquet`, `no-cache, no-transform` to browsers), and the Worker keeps `/data` range reads in Cloudflare's edge cache keyed by content: `DATA_VERSIONS` (each sample's SHA-256 prefix from MANIFEST.json, passed by the deploy after the upload) + method + `Range`. Hashed names would have meant threading the hash into the Rust build for nothing more: a browser barely reuses cached 206s, and the edge key already changes with the bytes. Each R2 read cost 55–125 ms (a static asset 20–35), and a page read is a chain of them | M8 |
+| 2026-10-10 | **DuckDB's wasm bundles (33 and 38 MiB) live in R2 under `assets/<name>`**, their own path, served by the Worker when static assets have no match; their quality-11 `.br` (5 and 6 MiB) are static assets, so a browser with br never reaches R2 for them. `/data/assets/*` is a 404 (not data) | M8 |
+| 2026-10-10 | **`perf` takes `--url`** for every part but panel (`serveApp` in `harness.ts`): panel's "Read" check counts `/data/` bytes at a local server, which production can't offer; it stays on the local build. Uploads go through R2's S3 API (`aws s3`, the profile in `TYCHO_R2_PROFILE`): `wrangler r2 object put` has no multipart and stops at ~300 MiB, under Gaia's 1.5 GB | M8 |
 
 ### Pending decisions
 
@@ -434,7 +477,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [x] Arrow IPC decoder approach (M2): hand-rolled reader
 - [x] Paging strategy A/B/C (M4): B, a `file_row_number` filter
 - [x] Row-group size for the samples (M4): 30,720
-- [ ] Data file names: stable + `no-cache`, or content-hashed + `immutable` (M8)
+- [x] Data file names: stable + `no-cache`, or content-hashed + `immutable` (M8): stable, with an edge cache keyed by content (decisions log)
 - [x] Page size and prefetch depth (M4): 1024 rows × 2 pages
 - [x] Memory cap for page cache (M4): 64 MiB cache; 128 MiB app (wasm + JS heap)
 - [x] Chunked CSV ingest vs raw-file queries (M6): chunked, one compressed table per chunk
@@ -447,7 +490,7 @@ The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plai
 - [x] **Part G's TTFP cost (2026-10-09): accepted.** The theme icons' wasm (+11.9 KiB brotli) costs +7.2 ms reference and ~+40 ms throttled; the placeholder itself costs nothing. Interleaved A/B: 195.6 vs HEAD 188.4 ms, just over the 195.0 limit, which the pending re-baseline will re-measure
 - [x] **Re-record the TTFP baseline** (2026-10-09, after part G): **195.3 ms reference, 3727.7 throttled**, recorded with every app but the editor and terminal closed (load 0.97 at the start). It agrees with part G's interleaved A/B (195.6). `check` then read 194.2 against the new 214.8 limit, PASS. `--write-baseline` also reset the wasm baseline to 2823.6 KiB, so the wasm limit is now 3247.1 (was 3012.4) and older `budget-notes.md` acceptances retire, as designed. With the user's usual apps open the machine idles at load 2–4 and reads 195–210 ms: run budget checks with them closed, or compare against HEAD with an interleaved A/B
 - [x] **Win back part C's throttled +101 ms** (part E): not in TTFP, which the placeholder leaves unchanged; a visitor on Fast 4G sees the shell 3.46 s sooner instead (part G builds it)
-- [ ] Production wasm encoding, br vs zstd (M8)
+- [x] Production wasm encoding, br vs zstd (M8): br at quality 11, precompressed at deploy; Cloudflare's own was zstd at a low level (decisions log)
 - [ ] React comparison mode: build the side-by-side page or not, after research (after M8; see Long-term goals)
 
 ---
@@ -502,6 +545,10 @@ Filled in as milestones close. Raw results live in `perf/results/`.
 | Observation panel vs independent measurements | all within 5% | — | 340/340 values, reference + throttled; wasm memory is a range check since part E (M7 E suite; 340/340 in M7 A) |
 | Static placeholder shell: its paint vs TTFP | recorded only | — | 77.8 vs 195.6 ms ref, 243.1 vs 3715.5 ms throttled (M7 G A/B); 66.2 / 262.9 ms in `perf.ts` (median of 10); prototype: 66.5 vs 193.3, 234.5 vs 3668.5 (M7 E) |
 | Placeholder `index.html` (brotli) | recorded only | 0.4 KiB | 11.1 KiB (M7 G; 8.5 KiB font subset inlined) |
+| Production TTFP (tycho.seiza.io), ref / throttled | recorded only (budgets are local) | — | 327.2 / 3778.5 ms; local interleaved 211.4 / 3741.7; wasm ready → first frame 100.5 / 370.1 vs local 97.9 / 369.8 (M8) |
+| Production first rows, asteroids / Gaia, ref | recorded only | — | 506.8 / 810.8 ms with the edge cache, 873.8 / 1971.3 at a cold edge; 1031.4 / 1447.0 before it (M8) |
+| Production jump to 90%, asteroids / Gaia, ref | recorded only | — | 200.9 / 362.8 ms (M8) |
+| Production app wasm on the wire | recorded only | — | 2,891,331 B br-11 (Cloudflare's own: 3,920,772 B zstd) (M8) |
 
 ---
 

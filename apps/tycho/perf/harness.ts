@@ -4,8 +4,11 @@
 // and counting /data/ bytes at the server.
 
 import { createServer, request as httpRequest } from 'node:http';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type BrowserType, type Page } from '@playwright/test';
-import { assertPortFree } from '../worker/scripts/dev.ts';
+import { preview } from 'vite';
+import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { hideDevicePixelContentBox, throttle, type Profile } from './common.ts';
 
 type OverlayRows = [string, string][];
@@ -128,6 +131,52 @@ export async function startCountingProxy(listenPort: number, workerPort: number)
     server.once('error', (error) => reject(new Error(`counting proxy can't listen on ${listenPort}: ${error.message}`)));
     server.listen(listenPort, '127.0.0.1', () => resolve({ log, close: () => server.close() }));
   });
+}
+
+export interface AppServer {
+  url: string;
+  /** /data/ responses counted at the server; null against `--url`. */
+  proxy: CountingProxy | null;
+  close(): Promise<void>;
+}
+
+/**
+ * The app under test. With `given` (a script's `--url`: production, M8)
+ * nothing starts, and nothing counts /data/ bytes. Otherwise the release
+ * build (web/dist) through `vite preview` on `previewPort`, and, with
+ * `worker`, its /data/* (proxied by vite.config.ts to WORKER_DEV_PORT) through
+ * a counting proxy there to a fresh `wrangler dev` on `worker.port`.
+ */
+export async function serveApp(
+  given: string | undefined,
+  previewPort: number,
+  worker?: { port: number; requireObject: string },
+): Promise<AppServer> {
+  if (given) return { url: given, proxy: null, close: async () => {} };
+  // Before starting anything: a `just tycho dev` already there would
+  // otherwise fail the proxy and leave this script's Worker running.
+  await assertPortFree(previewPort);
+  if (worker) await assertPortFree(WORKER_DEV_PORT);
+  const dev = worker ? await startWorkerDev(worker) : null;
+  let proxy: CountingProxy | null = null;
+  try {
+    if (worker) proxy = await startCountingProxy(WORKER_DEV_PORT, worker.port);
+    const webDir = join(dirname(fileURLToPath(import.meta.url)), '../web');
+    const server = await preview({ root: webDir, preview: { port: previewPort, strictPort: true }, logLevel: 'warn' });
+    return {
+      url: `http://localhost:${previewPort}/`,
+      proxy,
+      close: async () => {
+        await server.close();
+        proxy?.close();
+        await dev?.close();
+      },
+    };
+  } catch (error) {
+    proxy?.close();
+    await dev?.close();
+    throw error;
+  }
 }
 
 /** Waits (up to `timeout`) for these requests' bodies to finish. */

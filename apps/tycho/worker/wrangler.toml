@@ -1,16 +1,40 @@
 # Tycho's Worker: one origin for the app and its data (PLAN.md, Hosting).
-# The account ID comes from CLOUDFLARE_ACCOUNT_ID, never this file (the repo
-# is public). M8 adds [assets] (web/dist) and a custom domain; see PLAN.md M8
-# for why the workers.dev hostname is never committed.
+# No account ID here (the repo is public): wrangler takes it from the login,
+# or CLOUDFLARE_ACCOUNT_ID with an API token.
 name = "tycho"
 main = "src/index.ts"
 compatibility_date = "2026-09-24"
 
-# The datasets. In `wrangler dev` (local mode) this is Miniflare's R2, stored
-# under .wrangler/state/ and filled by `just tycho data`.
+# Served only from the custom domain. The account's default subdomain names
+# its owner, so it's off and never committed (PLAN.md, M8), and so are
+# preview URLs, which live on it.
+routes = [{ pattern = "tycho.seiza.io", custom_domain = true }]
+workers_dev = false
+preview_urls = false
+
+# The release build (`just tycho build`). The page and the build's wasm, JS,
+# and font run the Worker first, which serves the quality-11 `.br` copies
+# `just tycho deploy` writes (and the page as no-transform); deploy also
+# leaves the files over 25 MiB out (.assetsignore) and puts them in R2. Any
+# other asset is served directly with the headers in `_headers` (shared-web's
+# Vite config writes it); any path no asset matches runs the Worker (a 404). `wrangler dev` needs the
+# directory to exist; scripts/dev.ts makes it.
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "none"
+run_worker_first = ["/", "/index.html", "/assets/*", "/duckdb-ext/*"]
+
+# The datasets, and the oversize assets under assets/. In `wrangler dev`
+# (local mode) this is Miniflare's R2, stored under .wrangler/state/ and
+# filled by `just tycho data`.
 [[r2_buckets]]
 binding = "TYCHO_DATA"
 bucket_name = "tycho-data"
 
 [dev]
 port = 8787
+
+# Workers Logs (the dashboard had them on before the first deploy from here).
+[observability]
+enabled = true

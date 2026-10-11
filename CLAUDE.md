@@ -48,6 +48,15 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 - **The static placeholder shell (`shared-web/src/placeholder.ts`) is opt-in per app** (`seizaViteConfig`'s `placeholder`). `shared/` releases it in the microtask that sets `gpui:first-frame`; it fades out over that frame. It must stay inert, in the placeholder font's characters (printable ASCII and "…"; the build fails otherwise), and match the app's first frame; each app's check compares them.
 - **GPUI's first real draw isn't in a `requestAnimationFrame`.** The window starts at 0×0. The first draw with a real size happens in gpui-pre-web's `ResizeObserver` callback, which renders and presents synchronously. With WebGPU it can be GPUI's rAF instead. Don't time anything off rAF ordering. See `shared/src/first_frame.rs`.
 
+### Known Cloudflare gotchas (Tycho M8)
+
+- **Cloudflare's own compression is weak.** It compresses on the fly at a low level and prefers zstd when the browser offers it: Tycho's app wasm went out as 3.7 MiB (3.6 as br) against 2.8 MiB at brotli quality 11, the size the budgets measure, ~1 s more before first paint on Fast 4G. Workers static assets can't serve precompressed files, so Tycho's Worker runs first (`run_worker_first`) for the page and build files and returns a quality-11 `.br` (written at deploy) with `Content-Encoding: br` and `encodeBody: 'manual'`; browsers without br fall through to Cloudflare's compression.
+- **Cloudflare Web Analytics injects a script into HTML** (`static.cloudflareinsights.com/beacon.min.js`, then `/cdn-cgi/rum`), before first paint, when the zone has it on. Serving the page with `Cache-Control: no-transform` stops it. Tycho's check fails if the page holds an injected script.
+- **Never commit or print the account's default Workers hostname:** it names the account's owner. Apps run on a custom domain with `workers_dev = false` and `preview_urls = false`.
+- **A ranged or encoded response loses `Content-Length` on HEAD** through Cloudflare's edge; count wire bytes from a raw GET (Tycho's `worker/scripts/check.ts`, `wireBytes`).
+- **A new version takes seconds to reach the edge.** Checks right after `wrangler deploy` read the old version; retry before failing.
+- **Static assets: 25 MiB per file.** Bigger files (DuckDB-Wasm's bundles) go in R2 and are served by the Worker; `.assetsignore` keeps them out of the upload.
+
 ## Repo layout
 
 ```
@@ -100,6 +109,7 @@ Every "done when" check that includes a number, in every app, uses this protocol
 - **First paint (TTFP):** from `performance.timeOrigin` to the first frame GPUI actually presents. `shared/` sets `performance.mark("gpui:first-frame")` in a microtask queued by the first render with a real viewport, so it lands right after the callback that draws and presents that frame. Tycho's `perf/perf.ts` checks this independently on every run: it hooks WebGL2 draw calls and WebGPU submits, and fails if the mark isn't right after a task that did GPU work. Don't use the browser's FP/FCP metrics, because the canvas makes them meaningless. If an app paints an HTML placeholder before the wasm arrives, TTFP still means GPUI's first frame; record the placeholder paint as its own metric.
 - **Frame cost:** record per-frame work time (main-thread time spent in our frame: layout, drawing, GPUI present) next to rAF intervals. Intervals pin at the display's refresh period and can't show headroom.
 - **Cross-browser check:** each milestone also gets a manual check in Firefox and Safari. Note any differences.
+- **Budgets apply to the local release build only** (decided in Tycho M8). Runs against production (`--url`) record their numbers next to the local ones and never fail on a budget: the network, the CDN, and the edge cache upstream vary too much. Optimizing production is a goal for its own session, not a gate on a milestone.
 
 ## Working agreements for Claude Code
 

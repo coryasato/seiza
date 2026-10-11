@@ -4,19 +4,39 @@
 
 The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a perf overlay and a reproducible measurement suite.
 
-> **Status:** Tycho is at M4 of 8. It opens a 1.57-million-row asteroid catalog over HTTP and scrolls every row, all local. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
+> **Status:** Tycho v1 is live at **[tycho.seiza.io](https://tycho.seiza.io)** (all 8 milestones done). It opens a 1.57-million-row asteroid catalog or 25 million Gaia stars over HTTP, or a file from your device, and scrolls every row, queried locally. Follow along in [`apps/tycho/PLAN.md`](apps/tycho/PLAN.md).
 
 ## Apps
 
 | App | What it is | Status |
 |---|---|---|
-| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | M4: asteroid sample and virtualized table; file drop next |
+| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row instantly. Queried locally with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
 
 > *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
 
-## Numbers so far
+## Numbers
 
-Tycho, measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median of 10) against the release build. The headline numbers will come from the deployed site in M8.
+### From the public site
+
+Tycho at [tycho.seiza.io](https://tycho.seiza.io), measured 2026-10-10 from an Apple M1 over a home connection (~25 ms to Cloudflare, ~100 Mbit/s): headless Chromium, cold cache, 1440×900 at DPR 2, median of 10. These are the observation panel's numbers (the suite checks the panel against its own marks). Your network decides most of them, so they're recorded, not budgeted ([`perf/results/2026-10-10-m8.md`](apps/tycho/perf/results/2026-10-10-m8.md)).
+
+| Metric | Public site | Same build, locally |
+|---|---|---|
+| Time to first paint | 327 ms | 211 ms |
+| …of which the app's own work (wasm ready → first frame) | 100 ms | 98 ms |
+| Static shell painted (before the app arrives) | 106 ms | 66 ms |
+| App wasm on the wire (brotli, quality 11) | 2.76 MiB | 2.76 MiB |
+| DuckDB engine ready (loads after first paint) | 985 ms | — |
+| Sample click → first rows: asteroids (1.57 M rows) / Gaia (25.1 M) | 507 / 811 ms | 202 / 296 ms |
+| Scrollbar jump to 90% → real rows: asteroids / Gaia | 201 / 363 ms | 83 / 136 ms |
+| Fling top → bottom in 3 s: p95 / worst frame | 16.7 / 16.7 ms | 16.7 / 33.3 ms |
+| Drop a 1 GB CSV → first rows | 200 ms | 205 ms |
+
+The extra time on the public site comes before the app's code runs: the connection, the HTML, and the wasm crossing the network. A page of rows is about eight sequential range requests, cached at Cloudflare's edge after the first visitor; at a cold edge, first rows took 874 ms (asteroids) and 1.97 s (Gaia). On a throttled run (4× CPU, Fast 4G) the network dominates both, and the public site matches local: first paint 3.78 s, the static shell at 0.29 s.
+
+### Local budgets
+
+Measured locally (Apple M1, headless Chromium, 1440×900 at DPR 2, median of 10) against the release build. Budgets apply here only: the network upstream of production varies too much to gate on.
 
 | Metric | Budget | Now |
 |---|---|---|
@@ -66,7 +86,7 @@ Everything runs in one browser tab, and a tab's engine (DuckDB-Wasm, a 32-bit wa
 - **UI:** `gpui-kit`, pinned to an exact version, targeting `wasm32-unknown-unknown`.
 - **Shared foundation:** `shared/` (crate `seiza`): wasm bootstrap, app shell, theme, perf overlay. `shared-web/`: JS bootstrap and COOP/COEP dev-server config.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
-- **Hosting:** Cloudflare Workers (static assets + R2), one Worker per app, cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and prod.
+- **Hosting:** Cloudflare Workers (static assets + R2), one Worker per app on its own subdomain of seiza.io, cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and prod. The Worker serves the build precompressed at brotli quality 11 (Cloudflare's own compression is far weaker) and caches data ranges at the edge.
 
 ## Layout
 

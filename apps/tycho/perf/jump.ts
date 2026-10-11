@@ -33,13 +33,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { preview } from 'vite';
-import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, dropFile, open, startCountingProxy, targetRect, waitMark, waitOverlay, type TableProbe } from './harness.ts';
+import { clickTarget, dropFile, open, serveApp, targetRect, waitMark, waitOverlay, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
-const webDir = join(perfDir, '../web');
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number }>;
 const SAMPLES = {
   asteroids: { name: 'asteroids.parquet', target: 'try-sample-asteroids' },
@@ -478,19 +475,10 @@ async function browserCheck(engine: BrowserType, sample: SampleName) {
   }
 }
 
-const WORKER_PORT = 8793;
-await assertPortFree(WORKER_DEV_PORT);
-const worker = await startWorkerDev({ port: WORKER_PORT, requireObject: SAMPLES[samples.at(-1)!].name });
-let proxy: Awaited<ReturnType<typeof startCountingProxy>>;
-let server: Awaited<ReturnType<typeof preview>>;
-try {
-  proxy = await startCountingProxy(WORKER_DEV_PORT, WORKER_PORT);
-  server = await preview({ root: webDir, preview: { port: 4180, strictPort: true }, logLevel: 'warn' });
-} catch (error) {
-  await worker.close();
-  throw error;
-}
-const url = 'http://localhost:4180/';
+// With --url (production, M8), against that origin; otherwise the local
+// release build and a fresh `wrangler dev`.
+const app = await serveApp(option('url'), 4180, { port: 8793, requireObject: SAMPLES[samples.at(-1)!].name });
+const url = app.url;
 const date = new Date().toISOString().slice(0, 10);
 const failures: string[] = [];
 const output: Record<string, unknown> = { date, label, ...machineInfo() };
@@ -556,9 +544,7 @@ try {
     output.browsers = checks;
   }
 } finally {
-  await server.close();
-  proxy.close();
-  await worker.close();
+  await app.close();
 }
 
 output.failures = failures;

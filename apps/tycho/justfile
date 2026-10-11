@@ -23,6 +23,13 @@ build: (wasm "release") extensions
 preview:
     node {{worker_scripts}}/with-worker.ts npm run preview --workspace @seiza/tycho-web
 
+# Deploy to Cloudflare (M8): release build, then upload changed samples and
+# the oversize DuckDB wasm to R2, `wrangler deploy`, and check production
+# (worker/scripts/deploy.ts). Needs `wrangler login` and TYCHO_R2_PROFILE (an
+# AWS CLI profile with the R2 bucket's S3 keys). Flags: --dry-run, --skip-check.
+deploy *args: build
+    node {{worker_scripts}}/deploy.ts {{args}}
+
 # Download the pinned DuckDB extensions (web/duckdb-extensions.json) into
 # web/public/duckdb-ext/, checking each SHA-256. A no-op once they're there.
 extensions:

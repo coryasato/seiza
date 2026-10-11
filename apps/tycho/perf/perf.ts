@@ -21,9 +21,18 @@
 // Resource Timing (the same clock as the marks); the worker's own requests
 // (DuckDB's wasm) come from Playwright's network events.
 //
+// Every run also splits TTFP at the `seiza:wasm-ready` mark: before it is
+// mostly network (the document, then the app wasm's download), after it is
+// the app's own work to the first frame (M8).
+//
 // Usage: node apps/tycho/perf/perf.ts [--url <url>] [--runs 10] [--label <name>]
 //                                     [--reference-only] [--check] [--write-baseline]
-//                                     [--trace]
+//                                     [--trace] [--vs-local]
+// --vs-local (with --url, M8) also measures the local release build, each
+// run right before the remote one, and records the remote's app part
+// (wasm-ready → first frame) against the local's, per profile. Budgets apply
+// to the local build only (M8): production's numbers are recorded, never
+// enforced.
 // --trace adds one uncounted run per profile that saves a Playwright trace
 // (network waterfall included) to perf/results/raw/ (gitignored).
 // With no --url it starts `vite preview` on the release build in web/dist
@@ -36,11 +45,12 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Request } from '@playwright/test';
-import { preview } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, median, option, throttle, type Profile } from './common.ts';
+import { serveApp } from './harness.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
+const WASM_READY_MARK = 'seiza:wasm-ready';
 // Set by shared-web/src/placeholder.ts.
 const PLACEHOLDER_PAINT_MARK = 'seiza:placeholder-painted';
 // Set by web/src/engine.ts.
@@ -137,6 +147,8 @@ interface EngineLoad {
 
 interface Run {
   ttfpMs: number;
+  /** `seiza:wasm-ready`: the app wasm downloaded and instantiated. */
+  wasmReadyMs: number | null;
   overlayTtfpMs: number | null;
   engine: EngineLoad;
   firstGpuWorkMs: number | null;
@@ -180,6 +192,9 @@ async function overlayMs(page: import('@playwright/test').Page, row: string, tim
     .catch(() => null);
 }
 
+/** How each wasm arrived, across runs (recorded in the results). */
+const wasmEncodings = new Set<string>();
+
 async function measure(url: string, profile: Profile, tracePath: string | null): Promise<Run> {
   // A new browser per run: empty HTTP cache and no compiled-wasm cache.
   const browser = await chromium.launch({ channel: 'chromium' });
@@ -200,10 +215,14 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
     });
     page.on('response', async (response) => {
       if (response.status() >= 400) consoleProblems.push(`${response.status()} ${response.url()}`);
-      // Production serves the wasm compressed; a run that downloaded it raw
-      // measured the wrong thing.
-      if (response.url().endsWith('.wasm') && (await response.headerValue('content-encoding')) !== 'br') {
-        consoleProblems.push(`wasm served without brotli: ${response.url()}`);
+      // The wasm must arrive as br at quality 11, the size the budgets
+      // measure: the local preview serves it, and so does production's Worker
+      // (M8). Anything else (raw, or Cloudflare's own zstd when the deploy's
+      // .br is missing) measured the wrong thing.
+      if (response.url().endsWith('.wasm')) {
+        const encoding = await response.headerValue('content-encoding');
+        if (encoding !== 'br') consoleProblems.push(`wasm served as ${encoding ?? 'raw'}, not br: ${response.url()}`);
+        else wasmEncodings.add(`${new URL(response.url()).pathname}: ${encoding}`);
       }
     });
     page.on('pageerror', (error) => consoleProblems.push(`pageerror: ${error.message}`));
@@ -231,7 +250,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
     target.searchParams.set('perf', '');
     await page.goto(target.toString());
     const ttfpMs = (await page
-      .waitForFunction((mark) => performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? false, FIRST_FRAME_MARK, {
+      .waitForFunction((mark) => performance.getEntriesByName(mark, 'mark').at(-1)?.startTime ?? false, FIRST_FRAME_MARK, {
         timeout: 120_000,
         polling: 50,
       })
@@ -239,6 +258,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
 
     // The overlay learns TTFP one frame after the mark; wait for it to draw it.
     const overlayTtfpMs = await overlayMs(page, 'TTFP', 10_000);
+    const wasmReadyMs = await page.evaluate((mark) => performance.getEntriesByName(mark, 'mark').at(-1)?.startTime ?? null, WASM_READY_MARK);
     const placeholderPaintMs = await page.evaluate(
       (mark) => performance.getEntriesByName(mark, 'mark').at(-1)?.startTime ?? null,
       PLACEHOLDER_PAINT_MARK,
@@ -247,7 +267,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
 
     // DuckDB loads after first paint; wait for it, then read the waterfall.
     const readyMs = (await page
-      .waitForFunction((mark) => performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? false, ENGINE_READY_MARK, {
+      .waitForFunction((mark) => performance.getEntriesByName(mark, 'mark').at(-1)?.startTime ?? false, ENGINE_READY_MARK, {
         timeout: 120_000,
         polling: 50,
       })
@@ -260,7 +280,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
         .map((entry) => ({ url: entry.name, startMs: entry.startTime }));
       return {
         timeOrigin: performance.timeOrigin,
-        startMs: performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? null,
+        startMs: performance.getEntriesByName(mark, 'mark').at(-1)?.startTime ?? null,
         resources,
       };
     }, ENGINE_START_MARK);
@@ -313,6 +333,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
     const presenting = gpuTasks.find((task) => task.end !== null && task.lastGpuCall <= ttfpMs && ttfpMs <= task.end);
     return {
       ttfpMs,
+      wasmReadyMs,
       overlayTtfpMs,
       engine,
       firstGpuWorkMs,
@@ -430,8 +451,14 @@ function toolVersions(): Record<string, string> {
 // --- main ---
 
 let url = option('url');
-const server = url ? null : await preview({ root: webDir, preview: { port: 4174, strictPort: true }, logLevel: 'warn' });
-url ??= 'http://localhost:4174/';
+const vsLocal = flag('vs-local');
+if (vsLocal && !url) throw new Error('--vs-local compares a --url against the local build; pass --url');
+// Budgets and the baseline are the local build's only (root CLAUDE.md,
+// measurement protocol): production is recorded, never judged.
+if (url && (check || flag('write-baseline'))) throw new Error('--check and --write-baseline measure the local build; drop --url');
+const local = url && !vsLocal ? null : await serveApp(undefined, 4174);
+const localUrl = local?.url ?? '';
+url ??= localUrl;
 
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
 const { machine, cpu, os } = machineInfo();
@@ -441,10 +468,36 @@ const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async
   return version;
 });
 
-const results: Record<
-  string,
-  { runs: Run[]; medianTtfpMs: number; medianPlaceholderMs: number | null; medianEngineReadyMs: number | null; problems: string[] }
-> = {};
+interface ProfileResult {
+  runs: Run[];
+  medianTtfpMs: number;
+  medianPlaceholderMs: number | null;
+  medianEngineReadyMs: number | null;
+  /** Medians of each run's TTFP split at wasm-ready (null if a run lacks the mark). */
+  split: { wasmReadyMs: number; afterWasmReadyMs: number } | null;
+  problems: string[];
+}
+
+function profileResult(profileRuns: Run[]): ProfileResult {
+  const split = profileRuns.every((run) => run.wasmReadyMs !== null)
+    ? {
+        wasmReadyMs: Number(median(profileRuns.map((run) => run.wasmReadyMs!)).toFixed(1)),
+        afterWasmReadyMs: Number(median(profileRuns.map((run) => run.ttfpMs - run.wasmReadyMs!)).toFixed(1)),
+      }
+    : null;
+  return {
+    runs: profileRuns,
+    medianTtfpMs: median(profileRuns.map((run) => run.ttfpMs)),
+    medianPlaceholderMs: profileRuns.every((run) => run.placeholder.paintMs !== null) ? median(profileRuns.map((run) => run.placeholder.paintMs!)) : null,
+    medianEngineReadyMs: profileRuns.every((run) => run.engine.readyMs !== null) ? median(profileRuns.map((run) => run.engine.readyMs!)) : null,
+    split,
+    problems: profileRuns.flatMap(runProblems),
+  };
+}
+
+const results: Record<string, ProfileResult> = {};
+/** --vs-local: the local build's runs, each measured right before the remote one. */
+const localResults: Record<string, ProfileResult> = {};
 try {
   for (const profile of profiles) {
     const profileRuns: Run[] = [];
@@ -456,7 +509,13 @@ try {
       await measure(url, profile, tracePath);
       console.log(`${profile.name} trace run (not counted) → ${tracePath}`);
     }
+    const localRuns: Run[] = [];
     for (let i = 0; i < runs; i++) {
+      if (vsLocal) {
+        const local = await measure(localUrl, profile, null);
+        localRuns.push(local);
+        console.log(`${profile.name} ${String(i + 1).padStart(2)}/${runs}  local TTFP ${local.ttfpMs.toFixed(1)} ms (wasm ready ${local.wasmReadyMs?.toFixed(1) ?? '—'} ms)`);
+      }
       const run = await measure(url, profile, null);
       profileRuns.push(run);
       const problems = runProblems(run);
@@ -466,20 +525,11 @@ try {
           (problems.length ? `  PROBLEMS: ${problems.join('; ')}` : ''),
       );
     }
-    results[profile.name] = {
-      runs: profileRuns,
-      medianTtfpMs: median(profileRuns.map((run) => run.ttfpMs)),
-      medianPlaceholderMs: profileRuns.every((run) => run.placeholder.paintMs !== null)
-        ? median(profileRuns.map((run) => run.placeholder.paintMs!))
-        : null,
-      medianEngineReadyMs: profileRuns.every((run) => run.engine.readyMs !== null)
-        ? median(profileRuns.map((run) => run.engine.readyMs!))
-        : null,
-      problems: profileRuns.flatMap(runProblems),
-    };
+    results[profile.name] = profileResult(profileRuns);
+    if (vsLocal) localResults[profile.name] = profileResult(localRuns);
   }
 } finally {
-  await server?.close();
+  await local?.close();
 }
 
 const wasmKiB = wasmBrotliKiB();
@@ -495,6 +545,7 @@ const summary = {
   url,
   protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },
   wasmBrotliKiB: Number(wasmKiB.toFixed(1)),
+  wasmEncodings: [...wasmEncodings].sort(),
   ttfpMs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, Number(r.medianTtfpMs.toFixed(1))])),
   /** The static placeholder shell's paint (its own metric; TTFP stays GPUI's first frame). */
   placeholderPaintMs: Object.fromEntries(
@@ -503,6 +554,25 @@ const summary = {
   engineReadyMs: Object.fromEntries(
     Object.entries(results).map(([name, r]) => [name, r.medianEngineReadyMs === null ? null : Number(r.medianEngineReadyMs.toFixed(1))]),
   ),
+  /** Median TTFP split at wasm-ready: before it is mostly network, after it the app's work. */
+  ttfpSplitMs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, r.split])),
+  ...(vsLocal
+    ? {
+        /** The local release build, each run right before the remote one (--vs-local). */
+        local: {
+          ttfpMs: Object.fromEntries(Object.entries(localResults).map(([name, r]) => [name, Number(r.medianTtfpMs.toFixed(1))])),
+          ttfpSplitMs: Object.fromEntries(Object.entries(localResults).map(([name, r]) => [name, r.split])),
+          runs: Object.fromEntries(Object.entries(localResults).map(([name, r]) => [name, r.runs])),
+        },
+        /** The remote's app part (wasm-ready → first frame) over the local's; recorded, not budgeted. */
+        afterWasmReadyVsLocalPct: Object.fromEntries(
+          Object.entries(results).map(([name, r]) => {
+            const local = localResults[name]?.split?.afterWasmReadyMs;
+            return [name, r.split && local ? Number(((r.split.afterWasmReadyMs / local - 1) * 100).toFixed(1)) : null];
+          }),
+        ),
+      }
+    : {}),
   runs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, r.runs])),
   /** Every run's problems; `--check`'s budget failures aren't written. */
   failures: [...new Set(Object.values(results).flatMap((r) => r.problems))],
@@ -514,8 +584,15 @@ for (const [name, r] of Object.entries(results)) {
   console.log(
     `${name}: median TTFP ${r.medianTtfpMs.toFixed(1)} ms (min ${Math.min(...ttfps).toFixed(1)}, max ${Math.max(...ttfps).toFixed(1)}, n=${ttfps.length}); ` +
       `median placeholder paint ${r.medianPlaceholderMs?.toFixed(1) ?? '—'} ms; ` +
-      `median engine ready ${r.medianEngineReadyMs?.toFixed(1) ?? '—'} ms`,
+      `median engine ready ${r.medianEngineReadyMs?.toFixed(1) ?? '—'} ms; ` +
+      `split ${r.split ? `${r.split.wasmReadyMs} ms to wasm ready + ${r.split.afterWasmReadyMs} ms after` : '—'}`,
   );
+  const local = localResults[name];
+  if (local) {
+    console.log(
+      `${name} local: median TTFP ${local.medianTtfpMs.toFixed(1)} ms; split ${local.split ? `${local.split.wasmReadyMs} + ${local.split.afterWasmReadyMs} ms` : '—'}`,
+    );
+  }
 }
 try {
   const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
@@ -526,6 +603,18 @@ try {
 } catch {
   // No baseline yet.
 }
+
+// --vs-local's comparison: recorded, not a budget. The local runs' own
+// problems (a mark in the wrong place) still fail.
+const vsLocalFailures: string[] = [];
+if (vsLocal) {
+  vsLocalFailures.push(...Object.values(localResults).flatMap((r) => r.problems.map((problem) => `local: ${problem}`)));
+  for (const [name, r] of Object.entries(results)) {
+    const local = localResults[name]?.split;
+    if (r.split && local) console.log(`${name}: app part ${r.split.afterWasmReadyMs} ms vs local ${local.afterWasmReadyMs} ms (recorded)`);
+  }
+}
+summary.failures.push(...vsLocalFailures);
 
 if (!check) {
   const out = option('out') ?? join(perfDir, 'results', `${date}-${label}.json`);
@@ -550,7 +639,7 @@ if (flag('write-baseline')) {
   console.log(`wrote ${baselinePath}`);
 }
 
-const failures = Object.values(results).flatMap((r) => r.problems);
+const failures = [...Object.values(results).flatMap((r) => r.problems), ...vsLocalFailures];
 if (check) {
   const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
   const reference = results.reference!.medianTtfpMs;

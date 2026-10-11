@@ -155,6 +155,33 @@ function previewBrotli(): Plugin {
 }
 
 /**
+ * Writes `_headers` into the build for Cloudflare Workers static assets
+ * (every app's host; root CLAUDE.md, "Hosting"), which serve a matched asset
+ * without running the app's Worker: the isolation headers on every asset, and
+ * `immutable` on Vite's content-hashed `assets/`. Cloudflare reads the file
+ * and doesn't serve it. HTML keeps Cloudflare's default (revalidate).
+ */
+function cloudflareHeaders(): Plugin {
+  let base = '/';
+  return {
+    name: 'seiza:cloudflare-headers',
+    apply: 'build',
+    configResolved(config) {
+      base = config.base;
+    },
+    generateBundle() {
+      const rule = (path: string, headers: Record<string, string>) =>
+        [path, ...Object.entries(headers).map(([name, value]) => `  ${name}: ${value}`)].join('\n');
+      const source = [
+        rule(`${base}*`, { ...crossOriginIsolationHeaders, 'Cross-Origin-Resource-Policy': 'same-origin' }),
+        rule(`${base}assets/*`, { 'Cache-Control': 'public, max-age=31536000, immutable' }),
+      ].join('\n');
+      this.emitFile({ type: 'asset', fileName: '_headers', source: `${source}\n` });
+    },
+  };
+}
+
+/**
  * The Vite config every app's host starts from. `options.preload` names the
  * assets first paint waits on. `overrides` are deep-merged with Vite's
  * `mergeConfig`. The COOP/COEP headers and the wasm-bindgen
@@ -166,6 +193,7 @@ export function seizaViteConfig(options: SeizaViteOptions, overrides: UserConfig
     plugins: [
       preloadCriticalAssets(options.preload),
       previewBrotli(),
+      cloudflareHeaders(),
       ...(options.placeholder ? [placeholderPlugin(options.placeholder)] : []),
     ],
     server: { headers: crossOriginIsolationHeaders },

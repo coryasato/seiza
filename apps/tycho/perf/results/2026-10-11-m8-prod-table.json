@@ -1,0 +1,414 @@
+{
+  "date": "2026-10-11",
+  "label": "m8-prod-table",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "url": "https://tycho.seiza.io/",
+  "protocol": "root CLAUDE.md, \"Measurement protocol\": Chromium headless=new, cold cache, 1440×900 at DPR 2, median of 10; reference + throttled (CPU 4×, Fast 4G)",
+  "loadAverage": {
+    "before": [
+      6.23,
+      4.14,
+      2.94
+    ],
+    "after": [
+      1.56,
+      2.37,
+      2.8
+    ]
+  },
+  "headline": {
+    "table-asteroids": {
+      "reference": {
+        "firstRowsMs": 506.8,
+        "jumpTo90Ms": 200.9,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 16.7,
+        "flingWorkP50Ms": 6,
+        "flingWorkP95Ms": 8,
+        "steadyWorkP50Ms": 10.5,
+        "steadyWorkP95Ms": 13.5
+      },
+      "throttled": {
+        "firstRowsMs": 3424.7,
+        "jumpTo90Ms": 2195.2,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 23.8,
+        "flingWorkP95Ms": 30.3,
+        "steadyWorkP50Ms": 24.8,
+        "steadyWorkP95Ms": 35.4
+      }
+    },
+    "table-gaia": {
+      "reference": {
+        "firstRowsMs": 810.8,
+        "jumpTo90Ms": 362.8,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 16.7,
+        "flingWorkP50Ms": 6.7,
+        "flingWorkP95Ms": 8.8,
+        "steadyWorkP50Ms": 11.1,
+        "steadyWorkP95Ms": 13
+      },
+      "throttled": {
+        "firstRowsMs": 8465.1,
+        "jumpTo90Ms": 6564.4,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 21.8,
+        "flingWorkP95Ms": 28.7,
+        "steadyWorkP50Ms": 21.2,
+        "steadyWorkP95Ms": 27
+      }
+    }
+  },
+  "parts": {
+    "table-asteroids": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": true,
+      "seconds": 1599,
+      "failures": [],
+      "raw": "raw/2026-10-11-m8-prod-table/table-asteroids.json",
+      "summary": {
+        "date": "2026-10-11",
+        "label": "m8-prod-table-table-asteroids",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "asteroids.parquet",
+          "rows": 1567523,
+          "bytes": 37692103,
+          "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+          "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+          "fetched": "2026-09-24",
+          "rowGroups": 52,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+          "notes": [
+            "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+            "0 rows have no first_obs in the source"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 506.8,
+              "min": 431.9,
+              "max": 582.3
+            },
+            "jumpMs": {
+              "median": 200.9,
+              "min": 168.5,
+              "max": 370.4
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.844,
+              "min": 0.834,
+              "max": 0.849
+            },
+            "flingWorkP50Ms": {
+              "median": 6,
+              "min": 6,
+              "max": 6.1
+            },
+            "flingWorkP95Ms": {
+              "median": 8,
+              "min": 7.8,
+              "max": 8.6
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 10.5,
+              "min": 8.7,
+              "max": 11.1
+            },
+            "steadyWorkP95Ms": {
+              "median": 13.5,
+              "min": 12.8,
+              "max": 15.7
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "firstRun": {
+              "firstRowsMs": 501.1349997520447,
+              "jumpMs": 201.05499982833862
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 3424.7,
+              "min": 3348.4,
+              "max": 3507.6
+            },
+            "jumpMs": {
+              "median": 2195.2,
+              "min": 2177.3,
+              "max": 2229.6
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.842,
+              "min": 0.833,
+              "max": 0.852
+            },
+            "flingWorkP50Ms": {
+              "median": 23.8,
+              "min": 23.6,
+              "max": 25.7
+            },
+            "flingWorkP95Ms": {
+              "median": 30.3,
+              "min": 29.2,
+              "max": 32.2
+            },
+            "steadyP95Ms": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 24.8,
+              "min": 23.5,
+              "max": 30
+            },
+            "steadyWorkP95Ms": {
+              "median": 35.4,
+              "min": 34.3,
+              "max": 39.3
+            },
+            "steadyPlaceholderShare": {
+              "median": 0.654,
+              "min": 0.594,
+              "max": 0.705
+            },
+            "firstRun": {
+              "firstRowsMs": 3484.050000190735,
+              "jumpMs": 2229.5649995803833
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "table-gaia": {
+      "origin": "https://tycho.seiza.io/",
+      "passed": true,
+      "seconds": 1734,
+      "failures": [],
+      "raw": "raw/2026-10-11-m8-prod-table/table-gaia.json",
+      "summary": {
+        "date": "2026-10-11",
+        "label": "m8-prod-table-table-gaia",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "gaia-dr3-bright.parquet",
+          "rows": 25067889,
+          "bytes": 1572736231,
+          "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+          "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+          "fetched": "2026-10-07",
+          "rowGroups": 409,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+          "notes": [
+            "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+            "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+            "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 810.8,
+              "min": 660.2,
+              "max": 1239.9
+            },
+            "jumpMs": {
+              "median": 362.8,
+              "min": 302.3,
+              "max": 488.2
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.849,
+              "min": 0.848,
+              "max": 0.854
+            },
+            "flingWorkP50Ms": {
+              "median": 6.7,
+              "min": 6.5,
+              "max": 6.9
+            },
+            "flingWorkP95Ms": {
+              "median": 8.8,
+              "min": 8.3,
+              "max": 9.2
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 11.1,
+              "min": 10.8,
+              "max": 11.3
+            },
+            "steadyWorkP95Ms": {
+              "median": 13,
+              "min": 12.1,
+              "max": 14.6
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "firstRun": {
+              "firstRowsMs": 704.3049998283386,
+              "jumpMs": 352.41000032424927
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 8465.1,
+              "min": 8402.7,
+              "max": 8516.5
+            },
+            "jumpMs": {
+              "median": 6564.4,
+              "min": 6548.6,
+              "max": 6660.1
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.848,
+              "min": 0.844,
+              "max": 0.853
+            },
+            "flingWorkP50Ms": {
+              "median": 21.8,
+              "min": 21.3,
+              "max": 22.5
+            },
+            "flingWorkP95Ms": {
+              "median": 28.7,
+              "min": 27.9,
+              "max": 31
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 21.2,
+              "min": 20.6,
+              "max": 23.1
+            },
+            "steadyWorkP95Ms": {
+              "median": 27,
+              "min": 25.8,
+              "max": 30.2
+            },
+            "steadyPlaceholderShare": {
+              "median": 1,
+              "min": 1,
+              "max": 1
+            },
+            "firstRun": {
+              "firstRowsMs": 8502.074999809265,
+              "jumpMs": 6565.510000228882
+            }
+          }
+        },
+        "failures": []
+      }
+    }
+  }
+}

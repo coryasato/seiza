@@ -46,13 +46,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { preview } from 'vite';
-import { assertPortFree } from '../worker/scripts/dev.ts';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { dropFile, frameRecorder, framesBetween, open, overlayValue, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
+import { dropFile, frameRecorder, framesBetween, open, overlayValue, serveApp, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
-const webDir = join(perfDir, '../web');
 const dataDir = join(perfDir, '../data');
 const manifest = JSON.parse(readFileSync(join(dataDir, 'MANIFEST.json'), 'utf8')) as Record<string, { rows: number; bytes: number }>;
 
@@ -401,10 +398,10 @@ async function formatsCheck(url: string) {
   }
 }
 
-const port = 4181;
-await assertPortFree(port);
-const server = await preview({ root: webDir, preview: { port, strictPort: true }, logLevel: 'warn' });
-const url = `http://localhost:${port}/`;
+// With --url (production, M8), against that origin; otherwise the local
+// release build (a dropped CSV needs no /data).
+const app = await serveApp(option('url'), 4181);
+const url = app.url;
 const date = new Date().toISOString().slice(0, 10);
 const failures: string[] = [];
 const output: Record<string, unknown> = {
@@ -453,7 +450,11 @@ try {
         if (r.shrankSamples) failures.push(`${where}: the row count went down ${r.shrankSamples} times`);
         failures.push(...r.problems.map((p) => `${where}: ${p}`));
       }
-      if (profile.name === 'reference') {
+      // Budgets apply to the local build only (root CLAUDE.md, measurement
+      // protocol); against --url they're recorded in the results, not enforced.
+      if (profile.name === 'reference' && option('url')) {
+        console.log(`budgets apply to the local build; recorded here (reference): schema ${summary.schemaMs!.median} ms, first rows ${summary.firstRowsMs!.median} ms`);
+      } else if (profile.name === 'reference') {
         if (summary.schemaMs!.median > BUDGET.schemaMs) failures.push(`drop → schema ${summary.schemaMs!.median} ms > ${BUDGET.schemaMs} ms`);
         if (summary.firstRowsMs!.median > BUDGET.firstRowsMs) failures.push(`drop → first rows ${summary.firstRowsMs!.median} ms > ${BUDGET.firstRowsMs} ms`);
         if (summary.updateGapMaxMs!.max > BUDGET.updateGapMs) failures.push(`row count went ${summary.updateGapMaxMs!.max} ms without an update > ${BUDGET.updateGapMs} ms`);
@@ -499,7 +500,7 @@ try {
     output.browsers = browsers;
   }
 } finally {
-  await server.close();
+  await app.close();
 }
 
 output.failures = failures;
