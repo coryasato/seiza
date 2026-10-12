@@ -7,6 +7,7 @@ import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { oversizeAssets, writeAssetsIgnore } from './assets.ts';
 
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const wrangler = join(workerDir, '../../../node_modules/.bin/wrangler');
@@ -50,8 +51,12 @@ export async function startWorkerDev(options: { port?: number; requireObject?: s
   const url = `http://127.0.0.1:${port}`;
   await assertPortFree(port);
   // wrangler.toml's [assets] directory: wrangler won't start without it, and
-  // `just tycho dev` runs before any release build.
-  mkdirSync(join(workerDir, '../web/dist'), { recursive: true });
+  // `just tycho dev` runs before any release build. Nor with a file over the
+  // asset limit in it, and the build leaves DuckDB's wasm there without the
+  // .assetsignore that names it (Vite empties dist/).
+  const dist = join(workerDir, '../web/dist');
+  mkdirSync(dist, { recursive: true });
+  writeAssetsIgnore(dist, oversizeAssets(dist));
   const child = spawn(wrangler, ['dev', '--ip', '127.0.0.1', '--port', String(port), '--show-interactive-dev-session=false', '--log-level', 'warn'], {
     cwd: workerDir,
     env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },

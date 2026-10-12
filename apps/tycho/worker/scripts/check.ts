@@ -9,10 +9,11 @@
 // same checks through the Vite preview proxy; deploy.ts runs them on production.
 
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { get as httpsGet } from 'node:https';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { oversizeAssets, walk } from './assets.ts';
 import { startWorkerDev } from './dev.ts';
 
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -128,7 +129,6 @@ export async function checkDataEndpoint(origin: string, options: { file?: string
   return failures;
 }
 
-const ASSET_LIMIT = 25 * 1024 * 1024;
 /** What Chromium sends, so Cloudflare picks what a visitor gets. */
 const BROWSER_ENCODINGS = 'gzip, deflate, br, zstd';
 const assetTypes: Record<string, string> = {
@@ -164,12 +164,10 @@ export async function checkAssets(origin: string, dist: string, oversize?: strin
   const expect = (name: string, ok: boolean, detail: string) => {
     if (!ok) failures.push(`${name}: ${detail}`);
   };
-  const walk = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]));
   const files = walk(dist)
     .map((file) => relative(dist, file))
     .filter((path) => path !== '_headers' && path !== '.assetsignore' && !path.endsWith('.br'));
-  const big = oversize ?? files.filter((path) => statSync(join(dist, path)).size > ASSET_LIMIT);
+  const big = oversize ?? oversizeAssets(dist);
   for (const path of files) {
     const target = path === 'index.html' ? `${origin}/` : `${origin}/${path}`;
     const response = await fetch(target, { headers: { 'Accept-Encoding': BROWSER_ENCODINGS } });

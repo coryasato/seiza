@@ -28,11 +28,12 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { PRECOMPRESSED } from '../src/precompressed.ts';
+import { ASSET_LIMIT, oversizeAssets, walk, writeAssetsIgnore } from './assets.ts';
 import { checkAssets, checkDataEndpoint } from './check.ts';
 
 /** The public origin. Never the account's default Workers subdomain (docs/DECISIONS.md, Hosting). */
@@ -40,7 +41,6 @@ export const PRODUCTION_URL = 'https://tycho.seiza.io';
 const BUCKET = 'tycho-data';
 /** The data files the app opens (crate/src/dataset.rs). */
 const SAMPLES = ['asteroids.parquet', 'gaia-dr3-bright.parquet'];
-const ASSET_LIMIT = 25 * 1024 * 1024;
 
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = join(workerDir, '../data');
@@ -96,13 +96,8 @@ async function upload(file: string, key: string, expected: string | null): Promi
   console.log(`r2: ${key} uploaded in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 }
 
-const walk = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]));
-
 if (!existsSync(join(dist, 'index.html')) || !existsSync(join(dist, '_headers'))) throw new Error('web/dist has no build (index.html, _headers); run `just tycho build`');
-const oversize = walk(dist)
-  .filter((file) => statSync(file).size > ASSET_LIMIT)
-  .map((file) => relative(dist, file));
+const oversize = oversizeAssets(dist);
 const strays = oversize.filter((path) => !path.startsWith('assets/'));
 if (strays.length) throw new Error(`over the 25 MiB asset limit outside assets/ (not content-hashed, so the Worker can't serve them from R2): ${strays.join(', ')}`);
 
@@ -123,7 +118,7 @@ for (const path of walk(dist).map((file) => relative(dist, file))) {
   writeFileSync(join(dist, `${path}.br`), compressed);
 }
 
-writeFileSync(join(dist, '.assetsignore'), `# Served from R2 by the Worker (scripts/deploy.ts)\n${oversize.map((path) => `/${path}`).join('\n')}\n`);
+writeAssetsIgnore(dist, oversize);
 console.log(`assets: ${oversize.length} file(s) left to R2: ${oversize.join(', ')}`);
 
 // The samples' content versions key the Worker's edge cache of /data reads
