@@ -30,6 +30,17 @@ preview:
 deploy *args: build
     node {{worker_scripts}}/deploy.ts {{args}}
 
+# Production: pause the samples (docs/hosting.md, "Abuse guards"). Every
+# /data/* request answers 503 and the page says to drop a file instead, so
+# nothing reads R2; the page and dropped files keep working. A Worker secret:
+# it takes effect in seconds and survives deploys. Needs `wrangler login`.
+pause:
+    cd {{app_dir}}/worker && printf 1 | {{root}}/node_modules/.bin/wrangler secret put DATA_PAUSED
+
+# Production: serve the samples again after `just tycho pause`.
+resume:
+    cd {{app_dir}}/worker && printf 0 | {{root}}/node_modules/.bin/wrangler secret put DATA_PAUSED
+
 # Download the pinned DuckDB extensions (web/duckdb-extensions.json) into
 # web/public/duckdb-ext/, checking each SHA-256. A no-op once they're there.
 extensions:
@@ -158,6 +169,13 @@ ingest *args:
 # row-group sizes (bench/ files in local R2; see perf/results/2026-09-25-m4.md).
 paging *args:
     node {{app_dir}}/perf/paging.ts {{args}}
+
+# Request bursts on the release build: the most requests one visitor sends
+# in any 10 s (the WAF rate limit's window) across a fling visit, random
+# jumps, held PageDown, and reloads. Needs `just tycho build` and
+# `just tycho data gaia`. Writes perf/results/<date>-<label>.json.
+burst *args:
+    node {{app_dir}}/perf/burst.ts {{args}}
 
 # Lint, release build, then the perf budgets: fails if reference TTFP regresses
 # more than 10% from perf/baseline.json, or the wasm grows more than 15% (brotli)

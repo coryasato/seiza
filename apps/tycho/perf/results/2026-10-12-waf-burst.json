@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-12T21:24:55.409Z",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "windowMs": 10000,
+  "scenarios": {
+    "visit": {
+      "requests": 26,
+      "data": 18,
+      "build": 8,
+      "peak10s": 26,
+      "peakData10s": 18
+    },
+    "jumps": {
+      "requests": 114,
+      "data": 106,
+      "build": 8,
+      "peak10s": 93,
+      "peakData10s": 90
+    },
+    "pagedown": {
+      "requests": 21,
+      "data": 13,
+      "build": 8,
+      "peak10s": 21,
+      "peakData10s": 13
+    },
+    "reloads": {
+      "requests": 48,
+      "data": 0,
+      "build": 48,
+      "peak10s": 48,
+      "peakData10s": 0
+    }
+  },
+  "peak10s": 93
+}

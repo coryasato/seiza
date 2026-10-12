@@ -288,3 +288,24 @@ test('reads over 4 MiB bypass the edge cache', async () => {
     assert.equal(response.headers.get('X-Tycho-Cache'), 'bypass');
   });
 });
+
+test('paused, every /data read is a 503 that touches neither R2 nor the cache; the build still serves', async () => {
+  const { calls, env } = strictBucket();
+  const paused = { ...env, DATA_PAUSED: '1', DATA_VERSIONS: 'f.parquet=abc123' };
+  const call = (path: string, init: RequestInit = {}) =>
+    (worker.fetch as unknown as (request: Request, env: unknown) => Promise<Response>)(new Request(`http://x${path}`, init), paused);
+  for (const init of [{}, { headers: { Range: 'bytes=0-0' } }, { method: 'HEAD' }]) {
+    const response = await call('/data/f.parquet', init);
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('X-Tycho-Paused'), '1');
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.equal(response.headers.get('Cross-Origin-Resource-Policy'), 'same-origin');
+  }
+  assert.deepEqual(calls, { get: 0, head: 0 });
+  assert.equal((await call('/assets/app-1.wasm')).status, 200);
+  const resumed = await (worker.fetch as unknown as (request: Request, env: unknown) => Promise<Response>)(
+    new Request('http://x/data/f.parquet', { headers: { Range: 'bytes=0-0' } }),
+    { ...env, DATA_PAUSED: '0' },
+  );
+  assert.equal(resumed.status, 206);
+});

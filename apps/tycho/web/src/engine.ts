@@ -162,6 +162,10 @@ async function remoteSize(url: string): Promise<number | null> {
   }
   // Only the headers are needed; a server that ignored the range would send it all.
   void response.body?.cancel();
+  // The Worker's pause switch (`just tycho pause`, worker/src/index.ts).
+  if (response.status === 503 && response.headers.get('X-Tycho-Paused') === '1') {
+    throw new Error('the samples are paused for now. Drop your own Parquet or CSV file instead');
+  }
   if (response.status !== 206) {
     throw new Error(`Can't read ${url}: expected a byte-range (206) response, got ${response.status} ${response.statusText}`);
   }

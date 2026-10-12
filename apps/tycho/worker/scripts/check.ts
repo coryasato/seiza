@@ -2,9 +2,10 @@
 // open, suffix, clamped), 416s (past the end, multiple ranges, reversed),
 // 404s, headers (isolation, Accept-Ranges, no Content-Encoding), and that the
 // whole file matches MANIFEST.json's SHA-256. With --url, also the deployed
-// assets (`checkAssets`): every web/dist file, the oversize ones from R2.
+// assets (`checkAssets`): every web/dist file, the oversize ones from R2, and
+// the WAF's 403s (`--no-waf` for an origin without the zone's rules).
 //
-// Usage: node apps/tycho/worker/scripts/check.ts [--url <origin>]
+// Usage: node apps/tycho/worker/scripts/check.ts [--url <origin> [--no-waf]]
 // With no --url it starts `wrangler dev` (local R2). perf/sample.ts runs the
 // same checks through the Vite preview proxy; deploy.ts runs them on production.
 
@@ -19,8 +20,17 @@ import { startWorkerDev } from './dev.ts';
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(readFileSync(join(workerDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { bytes: number; sha256: string }>;
 
-/** Returns one line per failed check; empty means all passed. */
-export async function checkDataEndpoint(origin: string, options: { file?: string; viaProxy?: boolean; edgeCache?: boolean } = {}): Promise<string[]> {
+/** The one failure while the samples are paused (`just tycho pause`): every
+ *  other /data check would fail too, and it lasts until `resume`. */
+export const PAUSED = '/data/*: the samples are paused (`just tycho resume`)';
+
+/**
+ * Returns one line per failed check; empty means all passed. `behindWaf`:
+ * production, where the WAF allowlist (docs/hosting.md, "Abuse guards")
+ * answers a POST and a path that resolves outside /data/ with 403 before the
+ * Worker could answer 405 or 404.
+ */
+export async function checkDataEndpoint(origin: string, options: { file?: string; viaProxy?: boolean; edgeCache?: boolean; behindWaf?: boolean } = {}): Promise<string[]> {
   const file = options.file ?? 'asteroids.parquet';
   const expected = manifest[file];
   if (!expected) return [`MANIFEST.json has no ${file}`];
@@ -46,6 +56,7 @@ export async function checkDataEndpoint(origin: string, options: { file?: string
 
   {
     const { response, header } = await request({ method: 'HEAD' });
+    if (header('X-Tycho-Paused') === '1') return [PAUSED];
     expect('HEAD', response.status === 200, `status ${response.status}`);
     expect('HEAD', header('Content-Length') === String(size), `Content-Length ${header('Content-Length')}, expected ${size}`);
     expect('HEAD', header('Accept-Ranges') === 'bytes', `Accept-Ranges ${header('Accept-Ranges')}`);
@@ -120,11 +131,14 @@ export async function checkDataEndpoint(origin: string, options: { file?: string
     ...(options.viaProxy ? [] : [['dot segments', `${origin}/data/%2e%2e/secret`, {}] as const]),
   ] as const) {
     const { response } = await request(init, target);
-    expect(name, response.status === 404, `status ${response.status}, expected 404`);
+    // Cloudflare resolves the dot segments to /secret, outside the allowlist.
+    const status = options.behindWaf && name === 'dot segments' ? 403 : 404;
+    expect(name, response.status === status, `status ${response.status}, expected ${status}`);
   }
   {
     const { response } = await request({ method: 'POST' });
-    expect('POST', response.status === 405, `status ${response.status}, expected 405`);
+    const status = options.behindWaf ? 403 : 405;
+    expect('POST', response.status === status, `status ${response.status}, expected ${status}`);
   }
   return failures;
 }
@@ -156,10 +170,11 @@ function wireBytes(url: string): Promise<number> {
  * (SHA-256), its type, the isolation headers, and `immutable` under assets/;
  * the page, wasm, JS, and font come as the deploy's quality-11 brotli (the size
  * matches the `.br` beside it); the oversize files (`oversize`, from R2) too.
- * A missing DuckDB extension and the R2 assets under /data/ are 404s.
+ * A missing DuckDB extension and the R2 assets under /data/ are 404s; a probe
+ * outside the app's paths is the WAF's 403.
  * Logs each wasm's Content-Encoding and bytes on the wire, which the deploy results record.
  */
-export async function checkAssets(origin: string, dist: string, oversize?: string[]): Promise<string[]> {
+export async function checkAssets(origin: string, dist: string, oversize?: string[], options: { behindWaf?: boolean } = {}): Promise<string[]> {
   const failures: string[] = [];
   const expect = (name: string, ok: boolean, detail: string) => {
     if (!ok) failures.push(`${name}: ${detail}`);
@@ -210,16 +225,26 @@ export async function checkAssets(origin: string, dist: string, oversize?: strin
     await response.body?.cancel();
     expect(name, response.status === 404, `status ${response.status}, expected 404`);
   }
+  // The WAF's path allowlist (docs/hosting.md, "Abuse guards") blocks probes
+  // at the edge, before the Worker runs; the Worker itself would answer 404.
+  // Every real path passed above, so a path the rule forgot fails there.
+  for (const path of options.behindWaf ? ['/.env', '/wp-login.php'] : []) {
+    const response = await fetch(`${origin}${path}`);
+    await response.body?.cancel();
+    expect(`probe ${path}`, response.status === 403, `status ${response.status}, expected 403 from the WAF allowlist`);
+  }
   return failures;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const index = process.argv.indexOf('--url');
   const given = index > 0 ? process.argv[index + 1] : undefined;
+  // Any --url is production, behind the WAF, unless --no-waf says otherwise.
+  const behindWaf = Boolean(given) && !process.argv.includes('--no-waf');
   const worker = given ? null : await startWorkerDev({ port: 8788, requireObject: 'asteroids.parquet' });
   try {
-    const failures = await checkDataEndpoint(given ?? worker!.url, { edgeCache: Boolean(given) });
-    if (given) failures.push(...(await checkAssets(given, join(workerDir, '../web/dist'))));
+    const failures = await checkDataEndpoint(given ?? worker!.url, { edgeCache: Boolean(given), behindWaf });
+    if (given) failures.push(...(await checkAssets(given, join(workerDir, '../web/dist'), undefined, { behindWaf })));
     if (failures.length > 0) {
       console.error(`FAIL\n${failures.map((failure) => `  ${failure}`).join('\n')}`);
       process.exitCode = 1;

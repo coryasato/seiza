@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { PRECOMPRESSED } from '../src/precompressed.ts';
 import { ASSET_LIMIT, oversizeAssets, walk, writeAssetsIgnore } from './assets.ts';
-import { checkAssets, checkDataEndpoint } from './check.ts';
+import { PAUSED, checkAssets, checkDataEndpoint } from './check.ts';
 
 /** The public origin. Never the account's default Workers subdomain (docs/DECISIONS.md, Hosting). */
 export const PRODUCTION_URL = 'https://tycho.seiza.io';
@@ -133,8 +133,9 @@ if (!dryRun && !process.argv.includes('--skip-check')) {
   // check retries for a minute before it counts.
   let failures: string[] = [];
   for (let attempt = 1; attempt <= 7; attempt++) {
-    failures = [...(await checkAssets(PRODUCTION_URL, dist, oversize)), ...(await checkDataEndpoint(PRODUCTION_URL, { edgeCache: true }))];
-    if (!failures.length || attempt === 7) break;
+    failures = [...(await checkAssets(PRODUCTION_URL, dist, oversize, { behindWaf: true })), ...(await checkDataEndpoint(PRODUCTION_URL, { edgeCache: true, behindWaf: true }))];
+    // A pause lasts until `just tycho resume`; retrying would only spend requests.
+    if (!failures.length || failures.includes(PAUSED) || attempt === 7) break;
     console.log(`check: ${failures.length} failure(s), retrying in 10 s (attempt ${attempt} of 7)`);
     await new Promise((resolve) => setTimeout(resolve, 10_000));
   }

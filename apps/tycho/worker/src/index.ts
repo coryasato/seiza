@@ -33,9 +33,17 @@ interface Env {
    * cached. Unset in `wrangler dev`, whose local R2 is fast anyway.
    */
   DATA_VERSIONS?: string;
+  /**
+   * `1` while the samples are paused (`just tycho pause`; `resume` sets `0`):
+   * every `/data/*` request is a 503, so no read reaches R2, and the page
+   * says to drop a file instead. A secret, not a var, so a deploy keeps it.
+   */
+  DATA_PAUSED?: string;
 }
 
 const DATA_PREFIX = '/data/';
+/** On a `/data/*` 503 while paused; `web/src/engine.ts` turns it into the page's message. */
+const PAUSED_HEADER = 'X-Tycho-Paused';
 /** Oversize build assets live in R2 under this key prefix, which is also
  *  their path: Vite's `assets/<name>-<hash>.<ext>`. */
 const ASSET_PREFIX = 'assets/';
@@ -98,6 +106,10 @@ const SHA_HEADER = 'X-Tycho-Sha256';
  * new bytes under the old version's key, next to old bytes already there.
  */
 async function serveData(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
+  if (env.DATA_PAUSED === '1') {
+    // no-store: a cached 503 would outlive the pause.
+    return text(503, 'The samples are paused. Drop your own Parquet or CSV file instead.', { [PAUSED_HEADER]: '1', 'Cache-Control': 'no-store' });
+  }
   const rawKey = url.pathname.slice(DATA_PREFIX.length);
   const cache = (globalThis as { caches?: { default?: Cache } }).caches?.default;
   const entry = cache ? dataCacheKey(request, env, url) : null;
