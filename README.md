@@ -31,7 +31,7 @@ Budgets gate the local release build only. Production numbers are recorded next 
 
 ## Stack
 
-- **UI:** `gpui-kit`, pinned to an exact version (0.7.1) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
+- **UI:** `gpui-kit`, pinned to an exact version (0.7.3) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
 - **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the app shell (title bar, theme toggle), the observation panel, and the page clock and marks. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, and the UI font.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
 - **Hosting:** Cloudflare Workers (static assets + R2), one Worker per app on its own subdomain of seiza.io, cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each Worker serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker.

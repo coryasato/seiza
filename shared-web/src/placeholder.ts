@@ -11,7 +11,7 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
  * neither; it then fades out over that frame and removes itself.
  *
  * It must look like the first frame: the title bar `shared/src/shell.rs`
- * draws, and the app's empty state in gpui-kit 0.7.1's default theme, light
+ * draws, and the app's empty state in gpui-kit 0.7.3's default theme, light
  * or dark by `prefers-color-scheme` (the shell follows the system until the
  * visitor picks a theme, and a reload follows it again). Each app's check
  * (`apps/<app>/perf/placeholder.ts`) compares screenshots of both. TTFP keeps
@@ -60,7 +60,7 @@ const fontUrl = new URL('../fonts/SeizaPlaceholder-Regular.woff2', import.meta.u
 
 /**
  * gpui-kit's `Skeleton` pulse: `opacity = 1 − 0.5 · bounce(ease_in_out)(t)`
- * over 2 s, repeating (gpui-component 0.7.1 `skeleton.rs`, gpui's
+ * over 2 s, repeating (gpui-component 0.7.3 `skeleton.rs`, gpui's
  * `ease_in_out` and `bounce`). CSS has no quadratic ease-in-out curve, so
  * it's sampled every 50 ms, linear between: within 0.06% of GPUI's curve.
  */
@@ -71,7 +71,7 @@ const SKELETON_KEYFRAMES = (() => {
 })();
 
 /**
- * gpui-kit 0.7.1's default theme and the components the shells use, in CSS.
+ * gpui-kit 0.7.3's default theme and the components the shells use, in CSS.
  * Colors are the default light and dark themes' (`theme/default-theme.json`);
  * sizes are GPUI's (1 rem = 16 px; `text_xs` 12 px, `text_sm` 14 px; GPUI's
  * default line height is φ). Only Regular is loaded in GPUI, so nothing here
@@ -167,7 +167,7 @@ function placeholderText(html: string): string {
     );
 }
 
-/** Lucide's moon and sun (ISC license), as gpui-kit-assets 0.7.1 embeds
+/** Lucide's moon and sun (ISC license), as gpui-kit-assets 0.7.3 embeds
  *  them: the shell's theme button (`shared/src/bootstrap.rs`, `Icons`). */
 const ICONS = {
   moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>',

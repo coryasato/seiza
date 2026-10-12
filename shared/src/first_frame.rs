@@ -17,7 +17,7 @@ pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 /// the TTFP the overlay shows.
 ///
 /// Call it from the first render that has a real (non-zero) viewport. In
-/// gpui-pre 0.3.8 that render always runs inside a draw that presents before
+/// gpui-pre 0.3.9 that render always runs inside a draw that presents before
 /// its callback returns, so the microtask queued here lands right after the
 /// first present, on either graphics backend:
 ///

@@ -7,10 +7,11 @@ One bullet per decision, under its area, oldest first: what was chosen, the numb
 ## Toolchain and build
 
 - **2026-09-23** · Rust toolchain: dated nightly (`nightly-2026-09-20`), because `gpui-pre-web`'s default `multithreaded` feature pulls in `wasm_thread` (`#![feature]`). *[M0 build failure on stable]*
-- **2026-09-23** · `Cargo.lock` seeded from gpui-kit 0.6.4's published lock, so the whole gpui family is what 0.6.4 shipped with (gpui-pre 0.3.5, wasm-bindgen 0.2.121). *Superseded 2026-10-07: re-seeded from 0.7.1's lock (below).* *[caret deps floated to 0.6.6 / 0.3.6]*
+- **2026-09-23** · `Cargo.lock` seeded from gpui-kit 0.6.4's published lock, so the whole gpui family is what 0.6.4 shipped with (gpui-pre 0.3.5, wasm-bindgen 0.2.121). *Superseded 2026-10-07: re-seeded from 0.7.1's lock, then 0.7.3's (below).* *[caret deps floated to 0.6.6 / 0.3.6]*
 - **2026-09-23** · `opt-level = "z"`: "s" is 8.6% bigger (2842 vs 2618 KiB br) and slower (291.5 vs 284.6 ms ref, 3963 vs 3741 ms throttled). *[M1 `m1-opt-*`]*
 - **2026-09-23** · Release logging stays on: 0.8 KiB br, no measurable TTFP, and it reports backend fallbacks and graphics failures. *[M1 `m1-no-release-logging`]*
-- **2026-10-07** · gpui-kit 0.6.4 → **0.7.1**, `Cargo.lock` re-seeded from its published lock (gpui-pre 0.3.8, wasm-bindgen still 0.2.121). `shared/` uses `gpui_kit::open_window`; 0.7's `Root` hosts the overlay layers. +31.2 KiB brotli, TTFP unchanged (interleaved A/B). *[`apps/tycho/perf/results/2026-10-07-gpui-kit-0.7.1.md`]*
+- **2026-10-07** · gpui-kit 0.6.4 → **0.7.1**, `Cargo.lock` re-seeded from its published lock (gpui-pre 0.3.8, wasm-bindgen still 0.2.121). `shared/` uses `gpui_kit::open_window`; 0.7's `Root` hosts the overlay layers. +31.2 KiB brotli, TTFP unchanged (interleaved A/B). *Superseded 2026-10-12: 0.7.3 (below).* *[`apps/tycho/perf/results/2026-10-07-gpui-kit-0.7.1.md`]*
+- **2026-10-12** · gpui-kit 0.7.1 → **0.7.3** (0.7.2 was yanked), `Cargo.lock` re-seeded from its published lock (gpui-pre 0.3.9, wasm-bindgen still 0.2.121). No code changes. +12.9 KiB brotli, TTFP unchanged (interleaved A/B: 194.0 vs 195.3 ms reference). *[`apps/tycho/perf/results/2026-10-12-gpui-kit-0.7.3.md`]*
 
 ## Rendering and first paint
 
