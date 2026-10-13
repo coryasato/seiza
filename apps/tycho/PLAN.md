@@ -2,7 +2,7 @@
 
 What's next for Tycho: milestone status, the active milestone's "done when" checks, long-term goals, and open questions. Only what's still open lives here. Context and rules are in `CLAUDE.md` here and at the repo root.
 
-**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGPU, WebGL2 fallback) that proves WebAssembly + GPU-rendered UI beats the DOM for heavy apps, with a number on screen for every claim.
+**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGPU, WebGL2 fallback) that people use as a real tool: a utility app (root `CLAUDE.md`, "Tiers"), with a number on screen for every claim. Its table and DuckDB layer become the repo's first component and engine, and the observatory compares that component with React ([`../observatory/PLAN.md`](../observatory/PLAN.md)).
 
 **Deciding metric:** time to first paint (TTFP), measured as `performance.mark("gpui:first-frame")`.
 
@@ -28,9 +28,11 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | M6 | Drop a CSV with progressive loading | Done 2026-09-30 |
 | M7 | Observation panel, jump to row, and hardening (parts A–G) | Done 2026-10-09 |
 | M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
-| Later | Table interactions: column resizing, selection, sorting | Not started; research first |
-| Later | Side-by-side comparison: WASM \| React | Not started; research first |
+| M9 | Extract the table component and the DuckDB engine | Active |
+| Later | Table features: column resizing, selection, sorting | Not started; research first |
 | Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
+
+The side-by-side comparison with React moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)); it needs this milestone's component and engine first.
 
 **Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` (a dated JSON per run and a note, from [`docs/templates/app/perf/results-note.md`](../../docs/templates/app/perf/results-note.md)); new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; `just tycho report` has refreshed the generated numbers; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above.
 
@@ -38,17 +40,44 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 
 ## Active milestone
 
-None. The next one comes out of the research for a long-term goal below.
+### M9: Extract the table component and the DuckDB engine
+
+Tycho's table becomes `components/table/` (crate `seiza-table`) and its DuckDB layer becomes `engines/duckdb/` (crate `seiza-duckdb` and npm package `@seiza/duckdb`), as root `docs/DECISIONS.md`, "Repo structure", decided. The observatory's GPUI contender will be their second consumer, so it runs Tycho's code, not a copy. **No behavior change:** Tycho looks, measures, and deploys as before. Do the parts in order and keep every check passing between them.
+
+**Part A: the perf harness to `shared-web/perf/`.** The pieces of `perf/common.ts` and `perf/harness.ts` that know no app move there: throttle profiles and the DPR shim, run summaries and labels, `limits()` (taking the app's `budgets.json`), `wheel()`, `waitMark`, the frame and work recorders, `percentiles`, `fling`, the counting proxy, and `serveApp`. Target clicks read `__seizaTargets` (renamed from `__tychoTargets`, in `crate/src/targets.rs` and every script), so every app and contender publishes targets the same way. Tycho-only helpers (`dropFile`, the `__tychoTable` probe, panel helpers that read Tycho rows) stay in `perf/`.
+
+**Part B: the engine to `engines/duckdb/`.**
+- `web/`: `engine.ts` and `bridge.ts` become `@seiza/duckdb` (an npm workspace), with `duckdb-extensions.json` and `scripts/extensions.ts`, and a Vite plugin for what Tycho's config does for DuckDB today (`extensionMisses`), so any host serves DuckDB the same way. Tycho's `web/` imports it.
+- `crate/`: `crate/src/engine/` and `crate/src/arrow.rs` become `seiza-duckdb`. Its `seiza::perf::set_load_step` and `seiza::marks` calls become events (engine ready, Parquet ready, and their times) that Tycho's workbench turns into load steps and marks.
+- Docs: the bridge rule (Tycho rule 2), the DuckDB-Wasm gotchas, and the "Engine and bridge" decisions move to the engine's `CLAUDE.md`, `README.md`, and `docs/DECISIONS.md` (from `docs/templates/component/`); Tycho's files keep pointers.
+
+**Part C: the table to `components/table/`.**
+- `crate/src/table/` (scroll model, page cache, view, format, activity) becomes `seiza-table`, with a `RowSource` delegate in place of `crate::arrow` and `crate::dataset` types: columns, row count, and pages of the component's own values. GPUI Kit's `TableDelegate` is the model; read the gpui-kit skill's Coding Guides (public API, naming, state ownership) before designing it.
+- Its `seiza` calls leave: `seiza::url::param` paging overrides become a `Paging` the host passes in; `seiza::perf::is_visible` and `WINDOW_MS` become settings the host passes; the first-rows and viewport-filled marks become events the host marks (see Open questions for marks that must sit in render).
+- The Parquet source (`dataset::page_sql` and the file summary) becomes `seiza-duckdb`'s `table` feature. The CSV source stays in Tycho, wrapping it.
+- Docs: the table paragraph of Tycho's `CLAUDE.md` and the "Table and paging" decisions move to the component's files; the component's `README.md` holds its API, its (no) features, and the canvas tradeoffs that are the table's.
+
+**Throughout:** the Cargo workspace and npm workspaces gain the new members; `report.ts` and `check-terms.ts` cover `components/` and `engines/` where they need to; the root `CLAUDE.md` layout and the root, Tycho, component, and engine READMEs describe what exists after each part.
+
+**Done when:**
+- [ ] **No regression against pre-M9 HEAD**, interleaved A/B in a quiet session (load under 1, recorded), reference and throttled, median of 10: TTFP within 3% of HEAD's, app wasm (brotli) within +1% (the size effect recorded either way).
+- [ ] **The full suite passes every budget** (`just tycho perf`), and first rows, jump to 90%, and fling on both samples are within 10% of the newest suite before M9.
+- [ ] **Every check script passes** on the extracted build: `check`, `smoke`, `engine`, `sample`, `errors`, `cells`, `jump --browsers`, `drop`, `csv`, `placeholder`, `worker-check`.
+- [ ] **Native tests pass where they now live:** `cargo test -p seiza-table -p seiza-duckdb --all-features -p tycho` (scroll model, page cache, format, Arrow reader, page SQL, CSV).
+- [ ] **The boundaries hold:** `cargo tree -p seiza-table` and `cargo tree -p seiza-duckdb --all-features` contain neither `seiza` nor `tycho`; `seiza-table` builds without `seiza-duckdb`; `seiza-duckdb` builds with and without `table`; `shared-web/perf/` and `engines/duckdb/web/` mention no app.
+- [ ] **No copies:** no Tycho script redefines a helper that moved to `shared-web/perf/`, and no Tycho file keeps a moved gotcha or decision (a pointer only).
+- [ ] **Production unchanged:** `just tycho deploy` succeeds, and `node worker/scripts/check.ts --url https://tycho.seiza.io` and `just tycho smoke https://tycho.seiza.io/` pass.
+- [ ] **Docs current:** `just tycho lint` passes (check-terms, `report --check`), and every README and `CLAUDE.md` touched describes the new layout.
 
 ---
 
-## Long-term goals (after M8)
+## Long-term goals
 
 Not milestones yet. Each starts with research, and becomes a milestone only if the research says it's worth building.
 
-### Table interactions: column resizing, selection, sorting
+### Table features: column resizing, selection, sorting
 
-M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scrolling breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions: resizable columns, row/cell selection (and copying it), and sorting. Sorting is also out of v1 scope (Tycho rule 4), so this is post-v1 work.
+M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scrolling breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions: resizable columns, row/cell selection (and copying it), and sorting. After M9 each would be a Cargo feature of the table component, off by default (root `docs/DECISIONS.md`, "Repo structure"): Tycho turns on what it adopts, and the observatory adds a feature level only when both its sides are built. Sorting is also out of v1 scope (Tycho rule 4), so this is post-v1 work.
 
 **Research costs first, then decide whether it's worth building.** Before writing any of it, measure or estimate and record in `docs/research/<goal>.md`:
 - **Size and first paint:** the added wasm (brotli) for each feature, against the TTFP and size budgets.
@@ -58,21 +87,6 @@ M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scroll
 - **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) `README.md` tracks.
 
 Record the decision (build all, some, or none) in `docs/DECISIONS.md` with the numbers, and only then add a milestone with "done when" checks.
-
-### Side-by-side comparison: WASM | React
-
-The "React comparison mode" in Open questions. One page shows Tycho next to a React version (TanStack Virtual over a DOM grid), each with its own observation panel (M7). An optional third column: React with a canvas grid (Glide Data Grid), which separates "canvas vs DOM" from "wasm vs JS".
-
-- **Only the UI differs.** Same DuckDB engine layer, same file, same paging logic. Likely a separate host, `apps/tycho-react/`, reusing Tycho's engine layer; check what would have to move to a shared place (`web/engine.ts`, the page SQL and paging now in Rust) and whether that breaks the `shared/` rules.
-- **Not a live race in one tab.** Two apps in one tab share a main thread and a GPU and distort each other's numbers. Use a **replay mode**: the same scripted run (load, fling, jump to 90%) on each side in turn, with results side by side. Visitors can use either side, one active at a time.
-- **Show where React wins,** not only where Tycho does: first paint and bundle size are likely React's.
-
-**Research first, then decide.** Before building the page, measure through the same Playwright harness and record in `docs/research/<goal>.md`:
-- **Size and first paint:** the React app's bundle (brotli) and TTFP, reference and throttled.
-- **Row counts:** how its grid handles 1.5 M and 25 M rows. Browsers cap element height at roughly 33 M px in Chrome and under 18 M px in Firefox, below 25 M rows at any usable row height, so check what TanStack Virtual does past the cap (scaling, paging, or breaking).
-- **Frame cost:** fling frame intervals and per-frame work time, measured as for Tycho.
-
-Record the decision in `docs/DECISIONS.md`, and only then add a milestone with "done when" checks.
 
 ### Production performance: servers, edge, and data layout
 
@@ -107,8 +121,8 @@ Record each decision with its numbers in `docs/DECISIONS.md`; production stays r
 
 ## Open questions
 
-- **React comparison mode:** build the side-by-side page or not, after research (see Long-term goals).
-- **Possible later extraction of the table and engine as a standalone GPUI component.** Undecided. Until then, `table/` and `engine/` report what happened through events, and the workbench decides what to display; they don't call `seiza::perf` directly.
+- **Marks that must sit in render.** The first-rows and viewport-filled marks are set after the frame that shows them is presented (`seiza::mark_after_current_task`, queued in render). An event handled after render may not be the same task. Decide in M9 part C, with a check that the moved marks land where they did: an event the host marks in time, or an optional `seiza` feature on the component.
+- **Crate names:** whether `seiza-table` and `seiza-duckdb` are free on crates.io. Only matters if they're published; nothing is yet.
 
 ---
 

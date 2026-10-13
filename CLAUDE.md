@@ -1,22 +1,34 @@
 # seiza (星座)
 
-**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`).
+**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`). There are four kinds of thing here ("Tiers" below): utility apps people use, the observatory that compares their components with React, and the components and engines they're built from.
 
 The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
 
 This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE.md` (app context and rules) and `apps/<app>/PLAN.md` (what's next); both apply when working inside an app. Where every other kind of fact lives is under "Docs: one home per fact" below.
 
 **Apps**
-- `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table).
+- `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
+- `apps/observatory/`: the Observatory, the comparison site (seiza.io/observatory). Planned: only its `PLAN.md` and `README.md` exist.
 
 ---
 
 ## Repo-wide rules
 
-1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/` affects every app, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `perf/budgets.json` (every budget) and `perf/baseline.json` (the TTFP and wasm baselines `check` compares against).
+1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/`, a component, or an engine affects every app that builds it, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `perf/budgets.json` (every budget) and `perf/baseline.json` (the TTFP and wasm baselines `check` compares against).
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame appears. The UI stays usable and says what's still loading.
 3. **Measure before and after.** Every milestone ends with a measurement using the protocol below. The numbers go in `apps/<app>/perf/results/` (committed; large raw Playwright traces go in `perf/results/raw/`, which is gitignored) and a short note goes in `apps/<app>/docs/LESSONS.md`.
 4. **Handle the canvas tradeoffs in the open** (a11y, IME, text selection, Ctrl+F, bundle size). When an app falls short on one, it says so in the UI or in its own `README.md` ("Canvas tradeoffs"). It never hides the gap.
+
+## Tiers
+
+The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
+
+- **Components** (`components/<name>/`): generic UI libraries in the style of GPUI Kit's components: a view, a state entity, and a delegate trait for the data. Plain names (`table`). A minimal base; every further capability (sorting, filtering, …) is a Cargo feature, off by default. A component knows no app and doesn't depend on `seiza`, so it stays publishable: it reports through events, and the host turns them into panel rows and marks.
+- **Engines** (`engines/<name>/`, with `crate/` and/or `web/`): non-UI data layers that GPUI and React consumers share. An adapter between an engine and a component lives in the engine, behind an optional feature named for the component.
+- **Utility apps** (`apps/<star>/`): tools people use, star-named, each on its own subdomain. They turn on component features as they need them, and usually get a feature first.
+- **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 React equivalent, under the comparison protocol below.
+- **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. No component or engine exists yet; Tycho's table and DuckDB layer come out first (`apps/tycho/PLAN.md`).
+- **Build each wasm on its own** (`cargo build -p <crate>`). Cargo unifies features across the packages in one build, so a workspace-wide build would compile one app's features into another's. Clippy and tests may run workspace-wide.
 
 ## Stack and pins
 
@@ -26,7 +38,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 - **Release profile:** Cargo reads `[profile.release]` only from the workspace root `Cargo.toml`, so its settings apply to every app. If an app needs different settings, use `[profile.release.package.<crate>]` and note why in that app's `docs/DECISIONS.md`. Per-package overrides can't set `lto`, `panic`, or `rpath`; those stay workspace-wide.
 - **JS host:** a thin Vite layer per app (`apps/<app>/web/`), built on `shared-web/`. Keep it thin: new logic goes in Rust unless it must touch a JS-only API.
 - **Headers everywhere, dev included:** `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. `shared-web/` provides the dev-server config so every app gets them from day one, and cross-origin problems show up early instead of at deploy.
-- **Hosting:** Cloudflare Workers (static assets + R2 where needed), one Worker per app in `apps/<app>/worker/`.
+- **Hosting:** Cloudflare Workers (static assets + R2 where needed), one Worker per app in `apps/<app>/worker/`. Each utility app has its own subdomain of seiza.io (a custom domain); the observatory lives at `seiza.io/observatory`, and the root is kept for a static landing page. The apex origin is shared, so nothing registers a service worker scoped to `/` (scope each to its own path). Every Worker that serves data sits behind the zone's WAF rules (one rate-limiting rule, the free plan's only one, and one path allowlist) and honours the same pause switch; it widens those rules rather than adding its own. Decisions: `docs/DECISIONS.md`, "Hosting".
 
 ### Known GPUI Kit web gotchas (check before debugging)
 
@@ -70,6 +82,7 @@ seiza/
   shared/               # crate `seiza`: wasm bootstrap, app shell (title bar, theme toggle), perf overlay, file helpers
   shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), placeholder.ts (static shell before the wasm), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts
   apps/
+    observatory/        # the comparison site (planned): PLAN.md and README.md so far
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host, bridge.ts, engine.ts (DuckDB-Wasm)
@@ -81,9 +94,12 @@ seiza/
   docs/
     DECISIONS.md        # repo-wide decisions, by area
     templates/app/      # the docs skeleton a new app starts from
+    templates/component/ # the docs skeleton a new component or engine starts from
   CLAUDE.md             # this file: repo-wide rules
   justfile              # `just tycho dev`, `just tycho perf`, …
 ```
+
+`components/` and `engines/` appear with the first extraction (see "Tiers").
 
 ## `shared/` and `shared-web/` conventions
 
@@ -92,7 +108,7 @@ seiza/
 - `shared/` owns the web bootstrap order (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame` mark → post-paint callback). Apps hook into the post-paint callback to start heavy loads. `shared-web`'s `boot` takes the app's `wasmUrl` for the waterfall's download step.
 - The page clock and `performance.mark`s go through `seiza::marks` (`now`, `mark`, `mark_at`, `mark_time`, `mark_after_current_task`); no crate keeps its own copy. A mark may be set more than once (a retry); readers take the **last** entry.
 - When a GPUI Kit web bug blocks progress, check upstream issues first. Work around it in `shared/` with a comment linking the issue. Don't fork unless there's no other way.
-- Code starts in the app. Move it to `shared/` once it's clearly app-agnostic. Don't build abstractions for apps that don't exist yet.
+- Code starts in the app. Move it to `shared/` once it's clearly app-agnostic foundation; UI and data layers become a component or an engine instead ("Tiers"). Don't build abstractions for apps that don't exist yet.
 
 ## Commands
 
@@ -115,6 +131,17 @@ Every "done when" check that includes a number, in every app, uses this protocol
 - **Cross-browser check:** each milestone also gets a manual check in Firefox and Safari. Note any differences.
 - **Budgets apply to the local release build only** (decided deploying Tycho). Runs against production (`--url`) record their numbers next to the local ones and never fail on a budget: the network, the CDN, and the edge cache upstream vary too much. Optimizing production is a goal for its own session, not a gate on a milestone.
 
+## Comparison protocol
+
+How the observatory compares a component with React. It adds to the measurement protocol; the reasons are in `docs/DECISIONS.md`, "Comparison protocol".
+
+- **Base level against a 1:1 React equivalent.** The GPUI side is the component in a minimal host, never a utility app. A feature level (base + sorting, …) is a GPUI build and a React build with identical features, and neither bundle carries code for a feature it doesn't have. The GPUI contender builds `seiza` without its title bar and observation panel.
+- **Only the UI differs.** Same engine, same SQL. The component's paging numbers are the controlled variable, the same on both sides; everything else is idiomatic to each stack. Each side decodes results in its own language, and that counts as UI cost. A shared scenario fixture (scroll and jump steps → the page requests they should make) runs against both sides' caches, which must request the same pages in the same order.
+- **Placeholders on both sides, each idiomatic:** the GPUI side's HTML placeholder shell, React's prerendered first screen.
+- **Three metrics, defined by meaning:** first pixels, first usable UI, first rows painted. The GPUI side's marks are checked against its GPU calls, as TTFP's is; the DOM side's with Element Timing on the first real cell plus a presented-frame check.
+- **Contender pages are bare** (no site chrome) and publish the same marks, targets, and replay hooks (load, fling, jump to 90%). The observatory runs one contender at a time (two in one tab share a main thread and a GPU) and draws the results itself. Playwright's runs are cold; a replay in a visitor's browser is labelled warm.
+- **Show where React wins.** First pixels and bundle size are likely React's, and the page says so.
+
 ## Docs: one home per fact
 
 Each kind of fact has one home. Everywhere else links to it rather than repeating it: a number or a reason copied into a second file goes stale there.
@@ -122,6 +149,7 @@ Each kind of fact has one home. Everywhere else links to it rather than repeatin
 | Kind of fact | Home | Rules |
 |---|---|---|
 | The app for a visitor | `apps/<app>/README.md` | Current state only. Numbers between `<!-- report:… -->` markers are generated; don't type them. Canvas tradeoffs and limits live here (rule 4). |
+| A component or engine for its user | `components/<name>/README.md`, `engines/<name>/README.md` | Current state only: API, features, limits, canvas tradeoffs. Its rules and gotchas are in its `CLAUDE.md`, its decisions in its `docs/DECISIONS.md`. It has no `PLAN.md`, `LESSONS.md`, or `perf/`: its work is a milestone in the app that drives it, measured there. |
 | Rules, architecture, gotchas, commands | `CLAUDE.md` (root and app) | Current state, no history. Say what to do and point to the decision behind it; don't retell the measurement. |
 | What's next | `apps/<app>/PLAN.md` | Status table, the active milestone's "done when" checks, long-term goals, open questions. Nothing finished. |
 | Why it's built this way | `docs/DECISIONS.md` (repo-wide) and `apps/<app>/docs/DECISIONS.md` | One bullet per decision under its area, oldest first: what, the numbers, *[source]*. Replaced decisions are marked *Superseded*, never deleted. A decision binding every app (toolchain, `shared/`, `shared-web/`, protocol) goes in the root file. |
@@ -133,11 +161,11 @@ Each kind of fact has one home. Everywhere else links to it rather than repeatin
 
 Milestone IDs (`M<n>`, `part <X>`) belong only in `PLAN.md`, `milestones.md`, `LESSONS.md`, the *[source]* tags of `DECISIONS.md`, `perf/results/`, and commit messages. Code, `CLAUDE.md`, READMEs, and justfiles describe the current state without them: name the thing ("the fling budget"), not the milestone that built it. `shared-web/scripts/check-terms.ts`, run by `just <app> lint`, enforces it.
 
-A new app starts from `docs/templates/app/`.
+A new app starts from `docs/templates/app/`; a new component or engine, from `docs/templates/component/`. A directory is documented in the change that creates it, not before.
 
 ## Working agreements for Claude Code
 
-- Work on one app milestone at a time. At the start, restate the "done when" checks. At the end, show the evidence for each check (numbers, trace excerpts, screenshots).
+- Work on one app milestone at a time. Work on a component or engine is a milestone of the app that drives it. At the start, restate the "done when" checks. At the end, show the evidence for each check (numbers, trace excerpts, screenshots).
 - Keep JS small and typed. Any logic that could live in Rust lives in Rust.
 - Before starting an app's next milestone, close the last one: its results note in `perf/results/`, new decisions in `docs/DECISIONS.md`, a `docs/LESSONS.md` entry (surprises), `just <app> report`, and its spec and evidence moved from `PLAN.md` to `docs/milestones.md`.
 - Tick `PLAN.md`'s checks as they pass, with their evidence; log each decision in `docs/DECISIONS.md` as it lands.

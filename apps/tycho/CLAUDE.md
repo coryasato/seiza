@@ -4,7 +4,7 @@
 
 **Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file, or click a sample, and scroll through every row instantly. The data is queried locally with DuckDB-Wasm and drawn by GPUI (via GPUI Kit) on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
 
-The project's goal is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
+The project's goal is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up. Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a tool people use, which grows features as it needs them. Moving its table and DuckDB layer out into a component and an engine is the active milestone (`PLAN.md`).
 
 ---
 

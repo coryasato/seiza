@@ -2,13 +2,21 @@
 
 **seiza** ("constellation") is a monorepo of heavy web apps built with [GPUI](https://www.gpui.rs/) (via [GPUI Kit](https://github.com/longbridge/gpui-kit)), compiled to WebAssembly, and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available).
 
-The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each app ships with a live observation panel and a reproducible measurement suite, and its README says where the canvas still falls short.
+The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each utility app ships with a live observation panel and a reproducible measurement suite, its README says where the canvas still falls short, and the observatory measures its components against React.
+
+The repo holds four kinds of thing:
+
+- **Utility apps:** tools meant to be used, each on its own subdomain and named for an astronomer. They grow into real tools.
+- **The observatory:** one comparison site, at seiza.io/observatory. It puts each component's base level next to a 1:1 React equivalent with the same engine and data, and shows where each side wins.
+- **Components:** generic UI libraries in the style of GPUI Kit's components (a table, later others). A minimal base, plus capabilities like sorting as features a build turns on.
+- **Engines:** the data layers both sides of a comparison share (DuckDB-Wasm today).
 
 ## Apps
 
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
+| [**Observatory**](apps/observatory/) | The comparison site: a component's base level in GPUI against the same component in React, same engine, same data, measured the same way. | Planned |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -34,7 +42,7 @@ Budgets gate the local release build only. Production numbers are recorded next 
 - **UI:** `gpui-kit`, pinned to an exact version (0.7.3) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
 - **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the app shell (title bar, theme toggle), the observation panel, and the page clock and marks. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, and the UI font.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
-- **Hosting:** Cloudflare Workers (static assets + R2), one Worker per app on its own subdomain of seiza.io, cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each Worker serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker.
+- **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io; the observatory will live at seiza.io/observatory. Each Worker serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker.
 
 ## Layout
 
@@ -47,6 +55,7 @@ seiza/
   shared/               # crate `seiza`: app-agnostic Rust
   shared-web/           # app-agnostic JS host pieces, fonts
   apps/
+    observatory/        # the comparison site (planned: its PLAN.md and README.md so far)
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands
@@ -60,7 +69,10 @@ seiza/
   docs/
     DECISIONS.md        # repo-wide decisions
     templates/app/      # the docs skeleton a new app starts from
+    templates/component/ # the docs skeleton a new component or engine starts from
 ```
+
+Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). Neither exists yet. The first ones, Tycho's table and its DuckDB layer, are next in [Tycho's plan](apps/tycho/PLAN.md); the observatory's GPUI side will be their second consumer.
 
 ## Getting started
 
@@ -87,6 +99,7 @@ Each fact has one home, and everything else links to it.
 |---|---|
 | `CLAUDE.md` (here) | Repo-wide rules, the stack and its pins, the measurement protocol, GPUI Kit and Cloudflare gotchas. Written for contributors and [Claude Code](https://claude.com/claude-code) alike. |
 | `apps/<app>/README.md` | The app for a visitor: what it does, its numbers, its canvas tradeoffs and limits, how to run it. |
+| `components/<name>/`, `engines/<name>/` | A README for its user (API, features, limits), a CLAUDE.md, and a `docs/DECISIONS.md`. Its work is planned and measured in the app that drives it. |
 | `apps/<app>/CLAUDE.md` | The app's rules, architecture, gotchas, and commands. |
 | `apps/<app>/PLAN.md` | What's next: status, the active milestone's checks, long-term goals, open questions. |
 | `docs/DECISIONS.md`, `apps/<app>/docs/DECISIONS.md` | Why things are built the way they are, by area, with the numbers. Repo-wide here, app-specific in the app. |
@@ -95,7 +108,7 @@ Each fact has one home, and everything else links to it.
 | `apps/<app>/perf/budgets.json` | Every budget, and where its current number comes from. |
 | `apps/<app>/perf/results/` | Every measurement, dated. Numbers in the READMEs and PLANs are generated from these (`just <app> report`). |
 
-The full rules are in [`CLAUDE.md`](CLAUDE.md), "Docs: one home per fact". A new app starts from [`docs/templates/app/`](docs/templates/app/).
+The full rules are in [`CLAUDE.md`](CLAUDE.md), "Docs: one home per fact". A new app starts from [`docs/templates/app/`](docs/templates/app/); a new component or engine from [`docs/templates/component/`](docs/templates/component/).
 
 ## Fonts
 
