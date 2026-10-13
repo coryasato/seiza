@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType } from '@playwright/test';
 import { preview } from 'vite';
-import { machineInfo, option, summarize } from './common.ts';
+import { machineInfo, option, summarize } from '../../../shared-web/perf/protocol.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');

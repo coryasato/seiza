@@ -46,9 +46,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, dropFile, open, overlayValue, waitMark, waitOverlay } from './harness.ts';
+import { PROFILES, flag, machineInfo, option, summarize, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { clickTarget, open, overlayValue, waitMark, waitOverlay } from '../../../shared-web/perf/harness.ts';
+import { assertPortFree } from '../../../shared-web/perf/serve.ts';
+import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
+import { dropFile, limits } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');

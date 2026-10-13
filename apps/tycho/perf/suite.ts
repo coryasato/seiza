@@ -38,7 +38,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { loadavg } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { flag, machineInfo, option } from './common.ts';
+import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const date = new Date().toISOString().slice(0, 10);

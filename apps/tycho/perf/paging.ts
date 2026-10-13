@@ -28,9 +28,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { machineInfo, option, summarize } from './common.ts';
-import { open, settled, startCountingProxy, waitOverlay, type CountingProxy } from './harness.ts';
+import { machineInfo, option, summarize } from '../../../shared-web/perf/protocol.ts';
+import { open, waitOverlay } from '../../../shared-web/perf/harness.ts';
+import { assertPortFree, settled, startCountingProxy, type CountingProxy } from '../../../shared-web/perf/serve.ts';
+import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');

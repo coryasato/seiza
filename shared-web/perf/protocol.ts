@@ -1,28 +1,33 @@
 // The measurement protocol's shared pieces (root CLAUDE.md, "Measurement
-// protocol"), used by perf.ts, engine.ts, and sample.ts so they can't drift:
-// the throttling profiles, the DPR shim, and how runs are summarized and
+// protocol"), used by every app's perf scripts so they can't drift: the
+// throttling profiles, the DPR shim, budgets, and how runs are summarized and
 // labeled.
 
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { arch, cpus, release, type } from 'node:os';
 import type { BrowserContext, Page } from '@playwright/test';
 
 /**
- * A script's budgets, from perf/budgets.json, the one place they're set (root
- * CLAUDE.md, "Docs: one home per fact"). `just tycho report` shows them in the
- * docs from the same file. Throws on a name budgets.json doesn't have.
+ * An app's budgets, from its perf/budgets.json, the one place they're set
+ * (root CLAUDE.md, "Docs: one home per fact"). `just <app> report` shows them
+ * in the docs from the same file. Returns `limits(script, names)`, which
+ * throws on a name the file doesn't have.
  */
-export function limits<K extends string>(script: string, names: readonly K[]): Record<K, number> {
-  const budgets = JSON.parse(readFileSync(new URL('./budgets.json', import.meta.url), 'utf8')) as {
-    limits: Record<string, Record<string, { value: number }> | undefined>;
+export function budgetLimits(budgetsJson: URL): <K extends string>(script: string, names: readonly K[]) => Record<K, number> {
+  const path = fileURLToPath(budgetsJson);
+  return <K extends string>(script: string, names: readonly K[]) => {
+    const budgets = JSON.parse(readFileSync(path, 'utf8')) as {
+      limits: Record<string, Record<string, { value: number }> | undefined>;
+    };
+    return Object.fromEntries(
+      names.map((name) => {
+        const value = budgets.limits[script]?.[name]?.value;
+        if (typeof value !== 'number') throw new Error(`${path} has no limits.${script}.${name}`);
+        return [name, value];
+      }),
+    ) as Record<K, number>;
   };
-  return Object.fromEntries(
-    names.map((name) => {
-      const value = budgets.limits[script]?.[name]?.value;
-      if (typeof value !== 'number') throw new Error(`perf/budgets.json has no limits.${script}.${name}`);
-      return [name, value];
-    }),
-  ) as Record<K, number>;
 }
 
 export function flag(name: string): boolean {
@@ -55,8 +60,8 @@ export const PROFILES: Profile[] = [
  * `device-pixel-content-box` in CSS pixels, so GPUI would draw 2× layout into
  * a 1× backing store. Hiding `devicePixelContentBoxSize` sends gpui-pre-web
  * down its Safari path (`contentRect × devicePixelRatio`), which gives a
- * consistent 2× backing store. Real browsers don't need it. See
- * perf/results/2026-09-23-m0.md.
+ * consistent 2× backing store. Real browsers don't need it (root CLAUDE.md,
+ * "Known GPUI Kit web gotchas").
  */
 export function hideDevicePixelContentBox(): void {
   delete (ResizeObserverEntry.prototype as { devicePixelContentBoxSize?: unknown }).devicePixelContentBoxSize;
@@ -89,6 +94,13 @@ export function summarize(values: number[], digits = 1): { median: number; min: 
   if (values.length === 0) return null;
   const round = (value: number) => Number(value.toFixed(digits));
   return { median: round(median(values)), min: round(Math.min(...values)), max: round(Math.max(...values)) };
+}
+
+/** Nearest-rank percentiles, as the perf panel computes them (`seiza::sample_stats`). */
+export function percentiles(values: number[]): { n: number; p50: number; p95: number; max: number } {
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = (p: number) => sorted[Math.min(sorted.length, Math.max(1, Math.ceil(p * sorted.length))) - 1] ?? 0;
+  return { n: sorted.length, p50: rank(0.5), p95: rank(0.95), max: sorted.at(-1) ?? 0 };
 }
 
 /**

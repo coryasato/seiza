@@ -3,7 +3,7 @@
 // for the other) and their comparison. Used by `placeholder.ts`.
 
 import { type Browser, type Page } from '@playwright/test';
-import { hideDevicePixelContentBox } from './common.ts';
+import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 
 export type Scheme = 'light' | 'dark';
 export const SCHEMES: Scheme[] = ['light', 'dark'];

@@ -40,7 +40,7 @@ Budgets gate the local release build only. Production numbers are recorded next 
 ## Stack
 
 - **UI:** `gpui-kit`, pinned to an exact version (0.7.3) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
-- **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the app shell (title bar, theme toggle), the observation panel, and the page clock and marks. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, and the UI font.
+- **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the app shell (title bar, theme toggle), the observation panel, and the page clock and marks. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, the UI font, and the perf harness every app's scripts share.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
 - **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io; the observatory will live at seiza.io/observatory. Each Worker serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker.
 
@@ -53,7 +53,7 @@ seiza/
   rust-toolchain.toml   # dated nightly + wasm32 target
   justfile              # `just <app> <recipe>`; one module per app
   shared/               # crate `seiza`: app-agnostic Rust
-  shared-web/           # app-agnostic JS host pieces, fonts
+  shared-web/           # app-agnostic JS host pieces, fonts, the shared perf harness
   apps/
     observatory/        # the comparison site (planned: its PLAN.md and README.md so far)
     <app>/

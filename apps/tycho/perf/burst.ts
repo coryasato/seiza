@@ -26,8 +26,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
-import { hideDevicePixelContentBox, machineInfo, option } from './common.ts';
-import { clickTarget, fling, serveApp, waitMark, waitOverlay, type DataResponse } from './harness.ts';
+import { hideDevicePixelContentBox, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { clickTarget, fling, waitMark, waitOverlay } from '../../../shared-web/perf/harness.ts';
+import { type DataResponse } from '../../../shared-web/perf/serve.ts';
+import { serveTycho } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number }>;
@@ -95,7 +97,7 @@ const scenarios: Record<string, (page: Page) => Promise<void>> = {
 const unknown = only?.filter((name) => !(name in scenarios)) ?? [];
 if (unknown.length) throw new Error(`--only ${unknown.join(',')}: the scenarios are ${Object.keys(scenarios).join(', ')}`);
 
-const app = await serveApp(undefined, 4186, { port: 8796, requireObject: 'gaia-dr3-bright.parquet' });
+const app = await serveTycho(undefined, 4186, { port: 8796, requireObject: 'gaia-dr3-bright.parquet' });
 const results: Record<string, { requests: number; data: number; build: number; peak10s: number; peakData10s: number }> = {};
 try {
   for (const [name, run] of Object.entries(scenarios)) {

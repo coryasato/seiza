@@ -35,27 +35,24 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { PROFILES, flag, limits, machineInfo, median, option, type Profile } from './common.ts';
+import { PROFILES, flag, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import {
   clickTarget,
   fling,
   frameRecorder,
-  framesBetween,
   open,
   panelSnapshot,
-  percentiles,
   recordedBetween,
-  settled,
-  startCountingProxy,
   targetRect,
   waitMark,
   waitOverlay,
   wheel,
   workBetween,
   workRecorder,
-  type CountingProxy,
-} from './harness.ts';
+} from '../../../shared-web/perf/harness.ts';
+import { assertPortFree, settled, startCountingProxy, type CountingProxy } from '../../../shared-web/perf/serve.ts';
+import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
+import { framesBetween, limits, tableFrames, type TableFrame } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -202,7 +199,7 @@ async function steadyScroll(page: Page) {
   }
   if (!snapshot) throw new Error('no panel refresh fell inside the steady scroll');
   const from = snapshot.at - WINDOW_MS;
-  const frames = await recordedBetween(page, from, snapshot.at);
+  const frames = await recordedBetween<TableFrame>(page, from, snapshot.at);
   const work = await workBetween(page, from, snapshot.at);
   return { snapshot, frames, work, memory };
 }
@@ -270,7 +267,7 @@ async function measureFling(page: Page, panel: 'open' | 'closed'): Promise<Fling
 }
 
 async function measure(url: string, profile: Profile, proxy: CountingProxy, index: number): Promise<Run> {
-  const run = await open(chromium, url, { profile, params: { bench: '' }, init: [frameRecorder, workRecorder] });
+  const run = await open(chromium, url, { profile, params: { bench: '' }, init: [tableFrames, frameRecorder, workRecorder] });
   const { page } = run;
   try {
     await waitOverlay(page, 'Parquet ready', /ms$/, 180_000);

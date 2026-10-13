@@ -31,9 +31,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { assertPortFree, startWorkerDev, WORKER_DEV_PORT } from '../worker/scripts/dev.ts';
-import { machineInfo, option } from './common.ts';
-import { clickTarget, dropFile, open, startCountingProxy, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
+import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { clickTarget, open, targetRect, waitMark, waitOverlay, wheel } from '../../../shared-web/perf/harness.ts';
+import { assertPortFree, startCountingProxy } from '../../../shared-web/perf/serve.ts';
+import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
+import { dropFile, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -77,7 +79,7 @@ type Global = {
   __tychoTable?: TableProbe & { tooltip: string | null; scrollX: number };
   __tychoTableLayout?: Layout;
   __tychoCells?: Cell[];
-  __tychoTargets?: Record<string, [number, number, number, number]>;
+  __seizaTargets?: Record<string, [number, number, number, number]>;
   __seizaPerfOverlay?: unknown;
 };
 

@@ -4,9 +4,9 @@
 
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertPortFree } from '../../../../shared-web/perf/serve.ts';
 import { oversizeAssets, writeAssetsIgnore } from './assets.ts';
 
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,28 +18,6 @@ export const WORKER_DEV_PORT = 8787;
 export interface WorkerDev {
   url: string;
   close(): Promise<void>;
-}
-
-/**
- * Fails with a clear message if something already listens on `port`, such as
- * the `wrangler dev` of a running `just tycho dev`. Without this, a second
- * Worker would exit with EADDRINUSE while the readiness probe happily talked
- * to the first one.
- */
-export function assertPortFree(port: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once('error', (error: NodeJS.ErrnoException) =>
-      reject(
-        new Error(
-          error.code === 'EADDRINUSE'
-            ? `port ${port} is in use (another \`just tycho dev\` or \`preview\`?); stop it first`
-            : `can't check port ${port}: ${error.message}`,
-        ),
-      ),
-    );
-    probe.listen(port, '127.0.0.1', () => probe.close(() => resolve()));
-  });
 }
 
 /**

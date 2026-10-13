@@ -40,24 +40,21 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
+import { PROFILES, flag, machineInfo, option, percentiles, summarize, type Profile } from '../../../shared-web/perf/protocol.ts';
 import {
   clickTarget,
   fling,
   frameRecorder,
-  framesBetween,
   open,
   overlayValue,
-  percentiles,
-  serveApp,
   targetRect,
   waitMark,
   waitOverlay,
   wheel,
   workBetween,
   workRecorder,
-  type TableProbe,
-} from './harness.ts';
+} from '../../../shared-web/perf/harness.ts';
+import { framesBetween, limits, serveTycho, tableFrames, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number; bytes: number; sha256: string }>;
@@ -147,6 +144,7 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
   const run = await open(chromium, url, { profile, params: { bench: '', ...params }, init: [workRecorder] });
   const { page } = run;
   try {
+    await page.evaluate(tableFrames);
     await page.evaluate(frameRecorder);
     await waitOverlay(page, 'Parquet ready', /ms$/, 180_000);
     // 1. File → first rows.
@@ -383,7 +381,7 @@ async function browserCheck(engine: BrowserType, url: string) {
 
 // With --url (production), against that origin; otherwise the local
 // release build and a fresh `wrangler dev` (its byte counts unused here).
-const app = await serveApp(option('url'), 4179, { port: 8792, requireObject: SAMPLE.name });
+const app = await serveTycho(option('url'), 4179, { port: 8792, requireObject: SAMPLE.name });
 const url = app.url;
 const date = new Date().toISOString().slice(0, 10);
 const failures: string[] = [];

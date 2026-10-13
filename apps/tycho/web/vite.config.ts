@@ -47,7 +47,7 @@ function extensionMisses(): Plugin {
  * samples) are skeletons, gpui-kit's look: the browser and GPUI draw glyphs
  * differently, and the labels jumped at the swap. Their
  * widths are GPUI's, which measures text its own way and lays out in whole
- * pixels; read them from `__tychoTargets` (`?bench`) after a label change.
+ * pixels; read them from `__seizaTargets` (`?bench`) after a label change.
  * The check's box comparison fails until they match.
  */
 const placeholderBody = `

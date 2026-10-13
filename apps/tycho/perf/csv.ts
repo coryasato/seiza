@@ -46,8 +46,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { PROFILES, flag, limits, machineInfo, option, summarize, type Profile } from './common.ts';
-import { dropFile, frameRecorder, framesBetween, open, overlayValue, serveApp, targetRect, waitMark, waitOverlay, wheel, type TableProbe } from './harness.ts';
+import { PROFILES, flag, machineInfo, option, summarize, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { frameRecorder, open, overlayValue, targetRect, waitMark, waitOverlay, wheel } from '../../../shared-web/perf/harness.ts';
+import { dropFile, framesBetween, limits, serveTycho, tableFrames, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(perfDir, '../data');
@@ -137,8 +138,10 @@ async function dropRun(url: string, profile: Profile) {
   const run = await open(chromium, url, { profile });
   try {
     const { page, context } = run;
-    await context.addInitScript(frameRecorder);
-    await page.evaluate(frameRecorder);
+    for (const script of [tableFrames, frameRecorder]) {
+      await context.addInitScript(script);
+      await page.evaluate(script);
+    }
     await warm(page);
     // Sample the header's count and the table's extent every 100 ms.
     await page.evaluate(() => {
@@ -400,7 +403,7 @@ async function formatsCheck(url: string) {
 
 // With --url (production), against that origin; otherwise the local
 // release build (a dropped CSV needs no /data).
-const app = await serveApp(option('url'), 4181);
+const app = await serveTycho(option('url'), 4181);
 const url = app.url;
 const date = new Date().toISOString().slice(0, 10);
 const failures: string[] = [];

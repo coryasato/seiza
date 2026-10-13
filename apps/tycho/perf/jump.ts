@@ -33,8 +33,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
-import { PROFILES, flag, machineInfo, option, summarize, type Profile } from './common.ts';
-import { clickTarget, dropFile, open, serveApp, targetRect, waitMark, waitOverlay, type TableProbe } from './harness.ts';
+import { PROFILES, flag, machineInfo, option, summarize, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { clickTarget, open, targetRect, waitMark, waitOverlay } from '../../../shared-web/perf/harness.ts';
+import { dropFile, serveTycho, type TableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number }>;
@@ -477,7 +478,7 @@ async function browserCheck(engine: BrowserType, sample: SampleName) {
 
 // With --url (production), against that origin; otherwise the local
 // release build and a fresh `wrangler dev`.
-const app = await serveApp(option('url'), 4180, { port: 8793, requireObject: SAMPLES[samples.at(-1)!].name });
+const app = await serveTycho(option('url'), 4180, { port: 8793, requireObject: SAMPLES[samples.at(-1)!].name });
 const url = app.url;
 const date = new Date().toISOString().slice(0, 10);
 const failures: string[] = [];

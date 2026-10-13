@@ -35,7 +35,7 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { preview } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { PLACEHOLDER_CHARS } from '../../../shared-web/src/placeholder.ts';
-import { PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from './common.ts';
+import { PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { SCHEMES, compare, shoot, type Scheme } from './placeholder-shots.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));

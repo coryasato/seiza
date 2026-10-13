@@ -1,5 +1,5 @@
 {
-  "about": "Every budget Tycho's perf scripts enforce (limits) and every number its docs show (metrics). The scripts read limits through common.ts's limits(); `just tycho report` (shared-web/scripts/report.ts) renders metrics into README.md, PLAN.md, and the root README. Budgets apply to the local release build only; production is recorded (root docs/DECISIONS.md, 'Measurement protocol').",
+  "about": "Every budget Tycho's perf scripts enforce (limits) and every number its docs show (metrics). The scripts read limits through perf/harness.ts's limits(); `just tycho report` (shared-web/scripts/report.ts) renders metrics into README.md, PLAN.md, and the root README. Budgets apply to the local release build only; production is recorded (root docs/DECISIONS.md, 'Measurement protocol').",
   "app": "Tycho",
   "exclude": ["*-control*", "*-ab.json", "*-ab-*", "*-before*", "*-no-edge-cache*"],
   "limits": {

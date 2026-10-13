@@ -29,7 +29,7 @@ apps/<app>/
   crate/            # Rust (cdylib)
   web/              # Vite host
   worker/           # Cloudflare Worker + wrangler.toml
-  perf/             # Playwright scripts, budgets.json, baseline.json, budget-notes.md, results/
+  perf/             # Playwright scripts (on shared-web/perf/), budgets.json, baseline.json, budget-notes.md, results/
   docs/             # DECISIONS.md, LESSONS.md, milestones.md, reference docs; private/ is gitignored
   README.md         # for visitors
   CLAUDE.md         # this file

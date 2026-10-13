@@ -46,8 +46,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Request } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
-import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, limits, machineInfo, median, option, throttle, type Profile } from './common.ts';
-import { serveApp } from './harness.ts';
+import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { limits, serveTycho } from './harness.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
 const WASM_READY_MARK = 'seiza:wasm-ready';
@@ -76,7 +76,7 @@ const check = flag('check');
 /**
  * The first-draw probe, an independent check of the first-frame mark. Runs
  * before any page script, after the DPR shim (`hideDevicePixelContentBox`,
- * common.ts). It records the first GPU work (a WebGL2 draw call or a WebGPU queue
+ * shared-web/perf/protocol.ts). It records the first GPU work (a WebGL2 draw call or a WebGPU queue
  * submit), and for every task that did GPU work, its last GPU call and the
  * end of its microtask checkpoint (a microtask queued at its first GPU
  * call), in any callback: GPUI's first real draw can run in a
@@ -458,7 +458,7 @@ if (vsLocal && !url) throw new Error('--vs-local compares a --url against the lo
 // Budgets and the baseline are the local build's only (root CLAUDE.md,
 // measurement protocol): production is recorded, never judged.
 if (url && (check || flag('write-baseline'))) throw new Error('--check and --write-baseline measure the local build; drop --url');
-const local = url && !vsLocal ? null : await serveApp(undefined, 4174);
+const local = url && !vsLocal ? null : await serveTycho(undefined, 4174);
 const localUrl = local?.url ?? '';
 url ??= localUrl;
 

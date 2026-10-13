@@ -40,9 +40,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { assertPortFree } from '../worker/scripts/dev.ts';
-import { machineInfo, option } from './common.ts';
-import { open, waitOverlay } from './harness.ts';
+import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { open, waitOverlay } from '../../../shared-web/perf/harness.ts';
+import { assertPortFree } from '../../../shared-web/perf/serve.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');

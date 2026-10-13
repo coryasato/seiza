@@ -1,5 +1,5 @@
 {
-  "about": "Every budget <App>'s perf scripts enforce (limits, read through common.ts's limits()) and every number its docs show (metrics, rendered by `just <app> report`). Source forms are documented at the top of shared-web/scripts/report.ts.",
+  "about": "Every budget <App>'s perf scripts enforce (limits, read through shared-web/perf/'s budgetLimits()) and every number its docs show (metrics, rendered by `just <app> report`). Source forms are documented at the top of shared-web/scripts/report.ts.",
   "app": "<App>",
   "exclude": ["*-control*", "*-ab.json", "*-ab-*", "*-before*"],
   "limits": {

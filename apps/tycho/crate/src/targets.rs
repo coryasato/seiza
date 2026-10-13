@@ -2,7 +2,7 @@
 //!
 //! The UI is drawn on a canvas, so there's no DOM element to click. Views
 //! publish a control's bounds (CSS pixels, from the canvas's top-left) to
-//! `globalThis.__tychoTargets[id] = [x, y, width, height]`, and the scripts
+//! `globalThis.__seizaTargets[id] = [x, y, width, height]`, and the scripts
 //! click its center. Written only when the bounds change.
 
 use gpui_kit::{Bounds, Pixels};
@@ -47,7 +47,7 @@ pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
             return;
         }
         let global = js_sys::global();
-        let key = JsValue::from_str("__tychoTargets");
+        let key = JsValue::from_str("__seizaTargets");
         let targets = Reflect::get(&global, &key)
             .ok()
             .filter(JsValue::is_object)
