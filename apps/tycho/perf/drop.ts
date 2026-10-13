@@ -309,7 +309,7 @@ async function supersedeCheck(url: string) {
   await attempt('drop before the engine is ready', async (page) => {
     await page.waitForFunction(() => performance.getEntriesByName('gpui:first-frame', 'mark').length > 0, null, { timeout: 60_000, polling: 10 });
     const at = await drop(page, path(FILES.small));
-    const readyAtDrop = await page.evaluate(() => performance.getEntriesByName('tycho:engine-ready', 'mark').length > 0);
+    const readyAtDrop = await page.evaluate(() => performance.getEntriesByName('duckdb:engine-ready', 'mark').length > 0);
     // The sniff runs first; then the open waits on the engine.
     const waiting = await page
       .waitForFunction(() => ((globalThis as Global).__tychoWorkbench?.state === 'opening' ? (globalThis as Global).__tychoWorkbench : false), null, { timeout: 10_000, polling: 5 })

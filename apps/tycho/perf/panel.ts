@@ -5,7 +5,7 @@
 // 1. Page load: each waterfall step against the page's own timings: the
 //    navigation's responseEnd (HTML), the app wasm's Resource Timing entry
 //    (download), the bootstrap's `seiza:wasm-ready` mark (compile), and the
-//    `gpui:first-frame`, `tycho:engine-ready`, and `tycho:parquet-ready` marks.
+//    `gpui:first-frame`, `duckdb:engine-ready`, and `tycho:parquet-ready` marks.
 // 2. Open: "Try sample" → "Sample → schema" and "Sample → first rows"
 //    against the app's click, shown, and first-rows marks.
 // 3. Live rows: a steady scroll (~3 s), and one panel refresh taken while it
@@ -138,7 +138,7 @@ async function pageLoad(page: Page): Promise<Match[]> {
       wasm: wasm?.responseEnd ?? null,
       compiled: mark('seiza:wasm-ready'),
       firstFrame: mark('gpui:first-frame'),
-      engine: mark('tycho:engine-ready'),
+      engine: mark('duckdb:engine-ready'),
       parquet: mark('tycho:parquet-ready'),
     };
   });

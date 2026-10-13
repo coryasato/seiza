@@ -15,7 +15,7 @@
 // (the probe times it), and it's gone from the page afterwards.
 //
 // Each run then waits for DuckDB: the overlay's "Engine ready" must match
-// the `tycho:engine-ready` mark within 5 ms, and no request outside the
+// the `duckdb:engine-ready` mark within 5 ms, and no request outside the
 // first-paint set (the document, entry JS, app wasm, and UI font) may start
 // before the first-frame mark. Engine requests from the main thread come from
 // Resource Timing (the same clock as the marks); the worker's own requests
@@ -53,9 +53,9 @@ const FIRST_FRAME_MARK = 'gpui:first-frame';
 const WASM_READY_MARK = 'seiza:wasm-ready';
 // Set by shared-web/src/placeholder.ts.
 const PLACEHOLDER_PAINT_MARK = 'seiza:placeholder-painted';
-// Set by web/src/engine.ts.
-const ENGINE_START_MARK = 'tycho:engine-start';
-const ENGINE_READY_MARK = 'tycho:engine-ready';
+// Set by @seiza/duckdb (engines/duckdb/web/src/engine.ts).
+const ENGINE_START_MARK = 'duckdb:engine-start';
+const ENGINE_READY_MARK = 'duckdb:engine-ready';
 /** What first paint may wait on; any other request must start after the
  *  first-frame mark. Matched against the URL's path. */
 const FIRST_PAINT_REQUESTS = [/^\/(\?.*)?$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/tycho_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];

@@ -1,13 +1,14 @@
-// Downloads the DuckDB extensions pinned in duckdb-extensions.json into
-// public/duckdb-ext/, where Vite serves them in dev and copies them into the
-// build. Each file is checked against its pinned SHA-256; files already
-// present and matching are kept, so this is a no-op after the first run.
+// Downloads the DuckDB extensions pinned in duckdb-extensions.json into a
+// host's public/duckdb-ext/, where Vite serves them in dev and copies them
+// into the build. Each file is checked against its pinned SHA-256; files
+// already present and matching are kept, so this is a no-op after the first
+// run.
 //
-// Usage: node apps/tycho/web/scripts/extensions.ts
+// Usage: node engines/duckdb/web/scripts/extensions.ts <host's public dir>
 
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 interface Pins {
@@ -16,6 +17,8 @@ interface Pins {
   extensions: Record<string, Record<string, string>>;
 }
 
+const publicDir = process.argv[2];
+if (!publicDir) throw new Error('usage: extensions.ts <public dir>: where the host serves static files from');
 const webDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pins = JSON.parse(readFileSync(join(webDir, 'duckdb-extensions.json'), 'utf8')) as Pins;
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
@@ -23,7 +26,7 @@ const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest(
 for (const [name, platforms] of Object.entries(pins.extensions)) {
   for (const [platform, expected] of Object.entries(platforms)) {
     const path = `${pins.duckdbVersion}/${platform}/${name}.duckdb_extension.wasm`;
-    const file = join(webDir, 'public/duckdb-ext', path);
+    const file = join(resolve(publicDir), 'duckdb-ext', path);
     try {
       if (sha256(readFileSync(file)) === expected) continue;
     } catch {

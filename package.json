@@ -4,6 +4,7 @@
   "type": "module",
   "workspaces": [
     "shared-web",
+    "engines/*/web",
     "apps/*/web",
     "apps/*/worker"
   ],

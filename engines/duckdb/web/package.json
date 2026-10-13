@@ -1,0 +1,17 @@
+{
+  "name": "@seiza/duckdb",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DuckDB-Wasm behind a three-call bridge (registerFile, query, cancel), self-hosted, loaded on first use; and the Vite plugin a host serves it with.",
+  "exports": {
+    "./bridge": "./src/bridge.ts",
+    "./vite": "./src/vite.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . && tsc -p scripts"
+  },
+  "dependencies": {
+    "@duckdb/duckdb-wasm": "1.32.0"
+  }
+}

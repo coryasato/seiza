@@ -21,8 +21,8 @@
 
 use std::ops::Range;
 
-use crate::arrow::{QueryResult, Value};
 use crate::dataset::{ColumnInfo, column, count, sql_string, text};
+use seiza_duckdb::arrow::{QueryResult, Value};
 
 /// The attached database the chunk tables live in. In memory, compressed:
 /// DuckDB doesn't compress an in-memory database unless asked.
@@ -571,8 +571,8 @@ mod web {
     use std::rc::Rc;
 
     use super::*;
-    use crate::engine::{Engine, EngineError, FileSource, RequestId};
     use seiza::marks::now;
+    use seiza_duckdb::{Engine, EngineError, FileSource, RequestId};
 
     /// How much of the file the scanner reads at a time. Each read is an
     /// `await`, so frames draw between them. 256 and 64 KiB didn't change a
@@ -900,7 +900,7 @@ mod tests {
     use arrow::record_batch::RecordBatch;
 
     use super::*;
-    use crate::arrow::decode;
+    use seiza_duckdb::arrow::decode;
 
     fn result(columns: Vec<(&str, ArrayRef)>) -> QueryResult {
         let batch = RecordBatch::try_from_iter(columns).unwrap();

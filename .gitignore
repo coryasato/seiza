@@ -30,7 +30,7 @@ apps/*/data/fixtures/*.csv
 apps/*/data/drop/
 apps/*/data/bench/
 
-# DuckDB extensions, downloaded and checked against pinned hashes (apps/*/web/duckdb-extensions.json)
+# DuckDB extensions, downloaded and checked against pinned hashes (engines/duckdb/web/duckdb-extensions.json)
 apps/*/web/public/duckdb-ext/
 
 # Perf: raw Playwright traces (everything else under perf/results/ is committed)

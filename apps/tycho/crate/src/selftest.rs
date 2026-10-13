@@ -15,9 +15,9 @@ use js_sys::{Array, Object, Promise, Reflect};
 use wasm_bindgen::{JsCast as _, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
-use crate::arrow::Value;
-use crate::engine::{Engine, EngineError, WARM_UP_SQL};
 use seiza::marks::now;
+use seiza_duckdb::arrow::Value;
+use seiza_duckdb::{Engine, EngineError, WARM_UP_SQL};
 
 /// Cancel must stop a query within this long (docs/milestones.md).
 const CANCEL_BUDGET_MS: f64 = 200.0;

@@ -1,0 +1,1012 @@
+{
+  "date": "2026-10-13",
+  "label": "m9-b-sample",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "name": "asteroids.parquet",
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+    "fetched": "2026-09-24"
+  },
+  "budgets": {
+    "clickToSchemaMs": 300,
+    "transferPercent": 2
+  },
+  "profiles": {
+    "reference": {
+      "runs": 10,
+      "clickToSchemaMs": {
+        "median": 121.6,
+        "min": 103.3,
+        "max": 134.4
+      },
+      "appClickToSchemaMs": {
+        "median": 112,
+        "min": 95,
+        "max": 124
+      },
+      "dataBytes": {
+        "median": 99017,
+        "min": 90824,
+        "max": 434889
+      },
+      "dataFraction": {
+        "median": 0.263,
+        "min": 0.241,
+        "max": 1.154
+      }
+    },
+    "throttled": {
+      "runs": 10,
+      "clickToSchemaMs": {
+        "median": 1085.1,
+        "min": 1075.4,
+        "max": 1094
+      },
+      "appClickToSchemaMs": {
+        "median": 1067.5,
+        "min": 1062,
+        "max": 1080
+      },
+      "dataBytes": {
+        "median": 90825,
+        "min": 90824,
+        "max": 90825
+      },
+      "dataFraction": {
+        "median": 0.241,
+        "min": 0.241,
+        "max": 0.241
+      }
+    }
+  },
+  "earlyClick": [
+    {
+      "browser": "chromium",
+      "ok": true,
+      "detail": "clicked while loading (overlay \"…\"), engine ready 647 ms, schema shown 845 ms",
+      "problems": []
+    },
+    {
+      "browser": "firefox",
+      "ok": true,
+      "detail": "clicked while loading (overlay \"…\"), engine ready 1495 ms, schema shown 1657 ms",
+      "problems": []
+    },
+    {
+      "browser": "webkit",
+      "ok": true,
+      "detail": "clicked while loading (overlay \"…\"), engine ready 1471 ms, schema shown 1675 ms",
+      "problems": []
+    }
+  ],
+  "failureModes": [
+    {
+      "name": "DuckDB wasm blocked",
+      "ok": true,
+      "detail": "sample: failed; engine: failed"
+    },
+    {
+      "name": "Parquet extension blocked, then retried",
+      "ok": true,
+      "detail": "sample: failed; engine: 685 ms; retry after unblocking: 176 ms"
+    },
+    {
+      "name": "data file blocked",
+      "ok": true,
+      "detail": "sample: failed; engine: 661 ms"
+    }
+  ],
+  "runs": {
+    "reference": [
+      {
+        "clickToShownMs": 134.44500017166138,
+        "overlayMs": 124,
+        "dataBytes": 107209,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-16383",
+            "status": 206,
+            "bytes": 16384
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 130.18000030517578,
+        "overlayMs": 112,
+        "dataBytes": 107209,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-16383",
+            "status": 206,
+            "bytes": 16384
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 103.34000015258789,
+        "overlayMs": 96,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 116.00500011444092,
+        "overlayMs": 107,
+        "dataBytes": 90824,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 121.38500022888184,
+        "overlayMs": 112,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 131.53000020980835,
+        "overlayMs": 113,
+        "dataBytes": 107209,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-16383",
+            "status": 206,
+            "bytes": 16384
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 121.80999994277954,
+        "overlayMs": 113,
+        "dataBytes": 172745,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-16383",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=16384-81919",
+            "status": 206,
+            "bytes": 65536
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 117.05499982833862,
+        "overlayMs": 108,
+        "dataBytes": 90824,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 104.75,
+        "overlayMs": 95,
+        "dataBytes": 90824,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 127.31999969482422,
+        "overlayMs": 118,
+        "dataBytes": 434889,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-16383",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=16384-81919",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=81920-344063",
+            "status": 206,
+            "bytes": 262144
+          }
+        ],
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "clickToShownMs": 1088.159999847412,
+        "overlayMs": 1074,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1091.994999885559,
+        "overlayMs": 1079,
+        "dataBytes": 90824,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1078.4900002479553,
+        "overlayMs": 1065,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1075.4000000953674,
+        "overlayMs": 1062,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1093.9800000190735,
+        "overlayMs": 1080,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1076.7300000190735,
+        "overlayMs": 1064,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1088.6200003623962,
+        "overlayMs": 1063,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1093.3799996376038,
+        "overlayMs": 1072,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1082.0700001716614,
+        "overlayMs": 1068,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      },
+      {
+        "clickToShownMs": 1079.340000152588,
+        "overlayMs": 1067,
+        "dataBytes": 90825,
+        "dataRequests": [
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          },
+          {
+            "method": "HEAD",
+            "range": "bytes=0-",
+            "status": 206,
+            "bytes": 0
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37683200-37692102",
+            "status": 206,
+            "bytes": 8903
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37601280-37617663",
+            "status": 206,
+            "bytes": 16384
+          },
+          {
+            "method": "GET",
+            "range": "bytes=37617664-37683199",
+            "status": 206,
+            "bytes": 65536
+          },
+          {
+            "method": "GET",
+            "range": "bytes=0-0",
+            "status": 206,
+            "bytes": 1
+          }
+        ],
+        "problems": []
+      }
+    ]
+  }
+}

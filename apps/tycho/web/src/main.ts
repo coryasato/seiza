@@ -5,9 +5,16 @@ import init, { start } from '../pkg/tycho.js';
 // The same asset wasm-bindgen would resolve; named here so the HTML preload and
 // `init` fetch one URL (instantiateStreaming needs `application/wasm`).
 import wasmUrl from '../pkg/tycho_bg.wasm?url';
-import { createBridge } from './bridge.ts';
+import { createBridge } from '@seiza/duckdb/bridge';
 
-const bridge = createBridge();
+// The Worker's pause switch (`just tycho pause`, worker/src/index.ts) answers
+// a sample's range probe with a 503 that says so.
+const bridge = createBridge({
+  refusal: (response) =>
+    response.status === 503 && response.headers.get('X-Tycho-Paused') === '1'
+      ? 'the samples are paused for now. Drop your own Parquet or CSV file instead'
+      : undefined,
+});
 // `?bench`: the perf scripts query the same engine the app uses (row counts,
 // paging experiments), and read the app's wasm memory to check the perf
 // panel's. The bridge loads nothing until its first call.

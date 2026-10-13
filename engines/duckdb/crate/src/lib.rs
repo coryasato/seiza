@@ -1,21 +1,25 @@
-//! The DuckDB engine as the UI sees it: its load status, and (on the web) the
-//! client that queries it through the JS bridge.
+//! DuckDB-Wasm for GPUI apps: the engine as the UI sees it (its load status
+//! and errors), the Arrow IPC reader for its results, and (on the web) the
+//! client that queries it through `@seiza/duckdb`'s bridge
+//! (`engines/duckdb/web/`).
+//!
+//! It knows no app and doesn't depend on `seiza`: what the host shows about
+//! the engine's load (panel rows, marks) comes from [`EngineEvent`]s.
 
 use std::fmt;
 
 use gpui_kit::{Global, SharedString};
 
-use crate::arrow::DecodeError;
-
+pub mod arrow;
 #[cfg(target_family = "wasm")]
 mod bridge;
 
-#[cfg(target_family = "wasm")]
-pub(crate) use bridge::WARM_UP_SQL;
+use arrow::DecodeError;
+
 #[cfg(target_family = "wasm")]
 pub use bridge::{
-    Bridge, ENGINE_READY_MARK, Engine, FileInfo, FileSource, ReadCounter, RequestId, retry,
-    show_parquet_ready, start,
+    Bridge, ENGINE_READY_MARK, ENGINE_START_MARK, Engine, FileInfo, FileSource, ReadCounter,
+    RequestId, WARM_UP_SQL, init, retry, start,
 };
 
 /// Whether DuckDB can take queries yet. The engine starts loading right after
@@ -41,6 +45,31 @@ impl EngineStatus {
 }
 
 impl Global for EngineStatus {}
+
+/// What the engine reports to its host, for its load steps and marks. Times
+/// are in ms from `performance.timeOrigin`. Each start (and each retry)
+/// reports `Loading`, then `Ready` or `Failed`; after `Ready`, exactly one of
+/// `ParquetReady` or `ParquetFailed` for the prefetch, then, after a
+/// `ParquetFailed`, a `ParquetReady` when a later load succeeds. The host gets them through the
+/// handler it passes to [`start`]; [`EngineStatus`] is the global to
+/// observe for what the UI says.
+#[derive(Debug, Clone, PartialEq)]
+pub enum EngineEvent {
+    /// The warm-up query was sent, which starts the load.
+    Loading { at: f64 },
+    /// DuckDB is open: `started_ms` is when the JS side began loading it,
+    /// `ready_ms` when it opened.
+    Ready { started_ms: f64, ready_ms: f64 },
+    /// It didn't open: its code, worker, or wasm didn't load.
+    Failed { started_ms: f64, at: f64 },
+    /// The Parquet extension loaded and its metadata cache is on: the
+    /// prefetch after [`EngineEvent::Ready`], or a later caller's
+    /// [`Engine::load_parquet`] after the prefetch failed.
+    ParquetReady { at: f64 },
+    /// The prefetch couldn't load the Parquet extension. The next
+    /// `load_parquet` tries again.
+    ParquetFailed { at: f64 },
+}
 
 /// Why a bridge call didn't produce a result.
 #[derive(Debug, Clone, PartialEq)]

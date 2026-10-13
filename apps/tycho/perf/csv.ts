@@ -338,7 +338,7 @@ async function supersedeCheck(url: string) {
     // `warm` already ran here; this case reloads and drops at once.
     await page.reload();
     await waitMark(page, 'gpui:first-frame', 0, 30_000);
-    const ready = await page.evaluate(() => performance.getEntriesByName('tycho:engine-ready', 'mark').length > 0);
+    const ready = await page.evaluate(() => performance.getEntriesByName('duckdb:engine-ready', 'mark').length > 0);
     const at = await dropFile(page, path(FILES.fixture));
     const probe = await waitLoaded(page, base(FILES.fixture), 180_000);
     const firstRows = await waitMark(page, 'tycho:first-rows', at, 10_000);

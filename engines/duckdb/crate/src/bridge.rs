@@ -1,21 +1,20 @@
 //! The Rust half of the bridge to DuckDB (`web/src/bridge.ts`).
 //!
-//! Only three calls cross it: `registerFile`, `query`, and `cancel` (see
-//! Tycho's CLAUDE.md, rule 2). The JS side loads DuckDB on the first call, so
-//! the engine starts when [`start`] runs its warm-up query from the post-paint
-//! callback, and never earlier.
+//! Only three calls cross it: `registerFile`, `query`, and `cancel` (the
+//! engine's CLAUDE.md, rule 2). The JS side loads DuckDB on the first call,
+//! so the engine starts when [`start`] runs its warm-up query (the host calls
+//! it after first paint), and never earlier.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use gpui_kit::{App, Global};
+use gpui_kit::{App, AsyncApp, Global};
 use js_sys::{Promise, Uint8Array};
-use seiza::marks::{mark, mark_time, now};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-use super::{EngineError, EngineStatus};
 use crate::arrow::{self, QueryResult, Value};
+use crate::{EngineError, EngineEvent, EngineStatus};
 
 #[wasm_bindgen]
 extern "C" {
@@ -49,13 +48,13 @@ extern "C" {
     fn atomics_load(array: &js_sys::BigInt64Array, index: u32) -> JsValue;
 }
 
-/// The `performance.mark` the JS host sets once DuckDB is instantiated and
-/// open. Must match `ENGINE_READY_MARK` in `web/src/engine.ts`.
-pub const ENGINE_READY_MARK: &str = "tycho:engine-ready";
+/// The `performance.mark` the JS side sets when DuckDB starts loading. Must
+/// match `ENGINE_START_MARK` in `web/src/engine.ts`.
+pub const ENGINE_START_MARK: &str = "duckdb:engine-start";
 
-/// Set when the Parquet extension has loaded (and its metadata cache is
-/// on); the perf scripts check the panel's "Parquet ready" against it.
-pub const PARQUET_READY_MARK: &str = "tycho:parquet-ready";
+/// The `performance.mark` the JS side sets once DuckDB is instantiated and
+/// open. Must match `ENGINE_READY_MARK` in `web/src/engine.ts`.
+pub const ENGINE_READY_MARK: &str = "duckdb:engine-ready";
 
 /// The name of the error every bridge call rejects with once DuckDB's worker
 /// has stopped. Must match `ENGINE_STOPPED` in `web/src/engine.ts`.
@@ -63,7 +62,27 @@ const ENGINE_STOPPED: &str = "EngineStopped";
 
 /// The warm-up query. It starts the engine load, and its answer proves a query
 /// makes the whole round trip: bridge, worker, Arrow IPC, decoder.
-pub(crate) const WARM_UP_SQL: &str = "SELECT 42 AS x";
+pub const WARM_UP_SQL: &str = "SELECT 42 AS x";
+
+/// `performance.now()`: ms from `performance.timeOrigin`, the clock every
+/// [`EngineEvent`] time is on.
+fn now() -> f64 {
+    web_sys::window()
+        .and_then(|window| window.performance())
+        .map_or(0.0, |performance| performance.now())
+}
+
+/// The last `performance.mark` named `name` (the JS side's; a retry sets
+/// them again), in ms from `timeOrigin`.
+fn mark_time(name: &str) -> Option<f64> {
+    let performance = web_sys::window()?.performance()?;
+    let entries = performance.get_entries_by_name_with_entry_type(name, "mark");
+    let entry = entries.get(entries.length().checked_sub(1)?);
+    entry
+        .dyn_into::<web_sys::PerformanceEntry>()
+        .ok()
+        .map(|entry| entry.start_time())
+}
 
 /// Identifies one query, so it can be cancelled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -89,7 +108,7 @@ pub struct FileInfo {
 /// The bytes DuckDB has read from one registered file, counted inside its
 /// worker as they arrive (`web/src/engine.ts`, `readCounter`): a URL's
 /// range responses, or a dropped file's slices. Rides on `registerFile`'s
-/// answer, so reading it isn't a bridge call (Tycho rule 2).
+/// answer, so reading it isn't a bridge call (rule 2).
 #[derive(Debug, Clone)]
 pub struct ReadCounter {
     counter: js_sys::BigInt64Array,
@@ -124,8 +143,12 @@ pub struct Engine {
     /// Counts engine starts: an answer from an engine a retry replaced
     /// can't report the new one stopped.
     generation: Rc<Cell<u32>>,
-    /// Runs when a call reports [`EngineError::Stopped`] (set by [`start`]).
-    on_stopped: Rc<RefCell<Option<OnStopped>>>,
+    /// Where [`EngineEvent`]s and [`EngineStatus`] changes go (set by [`start`]).
+    host: Rc<RefCell<Option<Host>>>,
+    /// The Parquet prefetch has reported its result. Until then, `run`
+    /// reports whichever load finished first; after, a load reports itself.
+    /// So every start reports Ready (or Failed) before any Parquet event.
+    prefetch_settled: Rc<Cell<bool>>,
     /// The engine failed to load or stopped: calls fail here, without
     /// reaching the bridge, until [`retry`]. The bridge starts a new engine
     /// on its next call, and that must be the retry's, not a stray page read
@@ -133,8 +156,15 @@ pub struct Engine {
     down: Rc<Cell<bool>>,
 }
 
-/// What [`start`] has the engine call when its worker stops.
-type OnStopped = Rc<dyn Fn(String)>;
+/// The handler [`start`] was given for [`EngineEvent`]s.
+type OnEvent = Rc<dyn Fn(&EngineEvent, &mut App)>;
+
+/// The app, and its handler for [`EngineEvent`]s.
+#[derive(Clone)]
+struct Host {
+    cx: AsyncApp,
+    on_event: OnEvent,
+}
 
 /// Where loading the Parquet extension is.
 #[derive(Default)]
@@ -157,8 +187,38 @@ impl Engine {
             next_request: Rc::new(Cell::new(1)),
             parquet: Rc::default(),
             generation: Rc::default(),
-            on_stopped: Rc::default(),
+            host: Rc::default(),
+            prefetch_settled: Rc::default(),
             down: Rc::default(),
+        }
+    }
+
+    /// Runs `update` in an app update of its own: the engine's futures
+    /// don't run inside one.
+    fn update_later(&self, update: impl FnOnce(&mut App, &OnEvent) + 'static) {
+        let Some(Host { cx, on_event }) = self.host.borrow().clone() else {
+            return;
+        };
+        cx.spawn(async move |cx| {
+            cx.update(|cx| update(cx, &on_event));
+        })
+        .detach();
+    }
+
+    /// Tells the host about `event`, in an update of its own.
+    fn emit_later(&self, event: EngineEvent) {
+        self.update_later(move |cx, on_event| on_event(&event, cx));
+    }
+
+    /// Tells the host about `event` now, from inside an app update.
+    fn emit(&self, event: EngineEvent, cx: &mut App) {
+        let on_event = self
+            .host
+            .borrow()
+            .as_ref()
+            .map(|host| host.on_event.clone());
+        if let Some(on_event) = on_event {
+            on_event(&event, cx);
         }
     }
 
@@ -180,10 +240,8 @@ impl Engine {
             self.generation.set(generation.wrapping_add(1));
             self.down.set(true);
             *self.parquet.borrow_mut() = ParquetLoad::Idle;
-            let on_stopped = self.on_stopped.borrow().clone();
-            if let Some(on_stopped) = on_stopped {
-                on_stopped(message.clone());
-            }
+            let message = message.clone();
+            self.update_later(move |cx, _| cx.set_global(EngineStatus::Stopped(message.into())));
         }
         result
     }
@@ -233,7 +291,7 @@ impl Engine {
     }
 
     /// When the Parquet extension loaded (ms from `timeOrigin`), if it has.
-    pub fn parquet_loaded_at(&self) -> Option<f64> {
+    fn parquet_loaded_at(&self) -> Option<f64> {
         match *self.parquet.borrow() {
             ParquetLoad::Loaded(at) => Some(at),
             _ => None,
@@ -251,8 +309,12 @@ impl Engine {
             };
             *state.borrow_mut() = match result {
                 Ok(_) => {
-                    mark(PARQUET_READY_MARK);
-                    ParquetLoad::Loaded(now())
+                    let at = now();
+                    // Before the prefetch settles, `run` reports this load.
+                    if engine.prefetch_settled.get() {
+                        engine.emit_later(EngineEvent::ParquetReady { at });
+                    }
+                    ParquetLoad::Loaded(at)
                 }
                 Err(_) => ParquetLoad::Idle,
             };
@@ -356,35 +418,40 @@ const LOAD_PARQUET_SQL: &str = "LOAD parquet";
 /// Keeps each Parquet file's parsed footer, so a file's metadata is parsed
 /// once, not by every query. Off by default, and `GLOBAL` because every
 /// query has its own connection. On a 1 GB file with 1,378 row groups, each
-/// parse costs ~165 ms in the worker: the three summary queries paid it three
-/// times and every page read once more (`perf/results/2026-09-27-m5.md`).
+/// parse costs ~165 ms in the worker: a file's summary queries paid it once each,
+/// and every page read once more (`apps/tycho/perf/results/2026-09-27-m5.md`).
 /// The cache keeps a footer as long as its file stays registered, which is the
 /// rest of the session: each dropped file registers under a new name, and
 /// unregistering would be a fourth bridge call. So each opened file costs its
 /// parsed footer in the worker (a few MB at 1,378 row groups). Known cost,
-/// recorded in `perf/results/2026-09-27-m5.md`; revisit if a session opens many big files.
+/// recorded in `apps/tycho/perf/results/2026-09-27-m5.md`; revisit if a session opens many big files.
 const PARQUET_METADATA_CACHE_SQL: &str = "SET GLOBAL parquet_metadata_cache = true";
 
-/// Starts the engine: called from the post-paint callback. Runs the warm-up
-/// query (which makes the bridge load DuckDB), then sets [`EngineStatus`] and
-/// the panel's "Engine ready" step, then prefetches the Parquet extension
-/// ("Parquet ready"). With `?selftest` in the URL, it then runs the bridge
-/// self-test.
-pub fn start(cx: &mut App) {
-    use seiza::LoadStep;
+/// Installs the engine as a global, with [`EngineStatus::Loading`]. Loads
+/// nothing: `bridge` (`@seiza/duckdb`'s `createBridge()`) loads DuckDB on its
+/// first call, which [`start`] makes.
+pub fn init(cx: &mut App, bridge: Bridge) {
+    cx.set_global(Engine::new(bridge));
+    cx.set_global(EngineStatus::Loading);
+}
 
+/// Starts the engine: call it after first paint (DuckDB must never delay
+/// it). Runs the warm-up query, which makes the bridge load DuckDB, then
+/// sets [`EngineStatus`], then prefetches the Parquet extension. `on_event`
+/// hears each step ([`EngineEvent`]), now and after a [`retry`].
+pub fn start(cx: &mut App, on_event: impl Fn(&EngineEvent, &mut App) + 'static) {
     let engine = cx.global::<Engine>().clone();
-    *engine.on_stopped.borrow_mut() = Some({
-        let cx = cx.to_async();
-        Rc::new(move |message| {
-            cx.spawn(async move |cx| {
-                cx.update(|cx| cx.set_global(EngineStatus::Stopped(message.into())));
-            })
-            .detach();
-        })
+    *engine.host.borrow_mut() = Some(Host {
+        cx: cx.to_async(),
+        on_event: Rc::new(on_event),
     });
+    run(cx);
+}
+
+fn run(cx: &mut App) {
+    let engine = cx.global::<Engine>().clone();
     let started = now();
-    seiza::perf::set_load_step(cx, PAGE_LOAD, ENGINE_READY_STEP, LoadStep::running(started));
+    engine.emit(EngineEvent::Loading { at: started }, cx);
     cx.spawn(async move |cx| {
         let status = match warm_up(&engine).await {
             Ok(()) => EngineStatus::Ready {
@@ -397,51 +464,48 @@ pub fn start(cx: &mut App) {
                 EngineStatus::Failed(error.to_string().into())
             }
         };
-        // The JS host marks when it actually began loading: this attempt's
+        // The JS side marks when it actually began loading: this attempt's
         // mark, not an earlier one's (a retry can fail before it sets one).
         let started = mark_time(ENGINE_START_MARK)
             .filter(|at| *at >= started)
             .unwrap_or(started);
         cx.update(|cx| {
-            let step = match &status {
-                EngineStatus::Ready { ready_ms } => LoadStep::done(started, *ready_ms),
-                _ => LoadStep::failed(started, now()),
+            let event = match &status {
+                EngineStatus::Ready { ready_ms } => EngineEvent::Ready {
+                    started_ms: started,
+                    ready_ms: *ready_ms,
+                },
+                _ => EngineEvent::Failed {
+                    started_ms: started,
+                    at: now(),
+                },
             };
-            seiza::perf::set_load_step(cx, PAGE_LOAD, ENGINE_READY_STEP, step);
-            // Without an engine, the extension never loads: "—".
-            let parquet = match &status {
-                EngineStatus::Ready { ready_ms } => LoadStep::running(*ready_ms),
-                _ => LoadStep::skipped(started),
-            };
-            seiza::perf::set_load_step(cx, PAGE_LOAD, PARQUET_READY_STEP, parquet);
+            engine.emit(event, cx);
             cx.set_global(status.clone());
         });
         if !matches!(status, EngineStatus::Ready { .. }) {
             return;
         }
-        let loaded = engine.load_parquet().await;
-        cx.update(|cx| match loaded {
-            Ok(()) => show_parquet_ready(cx, &engine),
-            // Opening a file tries again: `show_parquet_ready` then.
-            Err(_) => {
-                let since = engine_ready_ms(cx).unwrap_or_else(now);
-                seiza::perf::set_load_step(
-                    cx,
-                    PAGE_LOAD,
-                    PARQUET_READY_STEP,
-                    LoadStep::failed(since, now()),
-                );
+        // A load that an open started can finish before the prefetch's
+        // answer comes back, or after it failed: either way it's reported
+        // here, after Ready, and loads that finish later report themselves.
+        let failed = engine.load_parquet().await.is_err().then(now);
+        cx.update(|cx| {
+            engine.prefetch_settled.set(true);
+            if let Some(at) = failed {
+                engine.emit(EngineEvent::ParquetFailed { at }, cx);
+            }
+            if let Some(at) = engine.parquet_loaded_at() {
+                engine.emit(EngineEvent::ParquetReady { at }, cx);
             }
         });
-        if crate::selftest::requested() {
-            crate::selftest::run(&engine, cx).await;
-        }
     })
     .detach();
 }
 
 /// Starts the engine again after it failed to load or stopped: the bridge
-/// forgot the dead one, so the warm-up starts a new worker.
+/// forgot the dead one, so the warm-up starts a new worker. The handler
+/// given to [`start`] hears this start too.
 pub fn retry(cx: &mut App) {
     if !cx
         .try_global::<EngineStatus>()
@@ -454,40 +518,10 @@ pub fn retry(cx: &mut App) {
         .generation
         .set(engine.generation.get().wrapping_add(1));
     engine.down.set(false);
+    engine.prefetch_settled.set(false);
     *engine.parquet.borrow_mut() = ParquetLoad::Idle;
     cx.set_global(EngineStatus::Loading);
-    start(cx);
-}
-
-/// The panel's page-load section; the engine's steps follow the shell's.
-const PAGE_LOAD: &str = seiza::perf::PAGE_LOAD;
-/// Step names the perf scripts read; don't rename them.
-const ENGINE_READY_STEP: &str = "Engine ready";
-const PARQUET_READY_STEP: &str = "Parquet ready";
-
-/// Set by `web/src/engine.ts` when DuckDB starts loading.
-const ENGINE_START_MARK: &str = "tycho:engine-start";
-
-fn engine_ready_ms(cx: &App) -> Option<f64> {
-    match cx.try_global::<EngineStatus>()? {
-        EngineStatus::Ready { ready_ms } => Some(*ready_ms),
-        _ => None,
-    }
-}
-
-/// Sets the panel's "Parquet ready" step to when the extension loaded. The
-/// prefetch calls it, and so does a file open that succeeds: after a failed
-/// prefetch, the open's own load is the one that works.
-pub fn show_parquet_ready(cx: &mut App, engine: &Engine) {
-    if let Some(at) = engine.parquet_loaded_at() {
-        let since = engine_ready_ms(cx).unwrap_or(at);
-        seiza::perf::set_load_step(
-            cx,
-            PAGE_LOAD,
-            PARQUET_READY_STEP,
-            seiza::LoadStep::done(since, at),
-        );
-    }
+    run(cx);
 }
 
 async fn warm_up(engine: &Engine) -> Result<(), EngineError> {

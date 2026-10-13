@@ -41,10 +41,11 @@ pause:
 resume:
     cd {{app_dir}}/worker && printf 0 | {{root}}/node_modules/.bin/wrangler secret put DATA_PAUSED
 
-# Download the pinned DuckDB extensions (web/duckdb-extensions.json) into
-# web/public/duckdb-ext/, checking each SHA-256. A no-op once they're there.
+# Download the DuckDB extensions the engine pins
+# (engines/duckdb/web/duckdb-extensions.json) into web/public/duckdb-ext/,
+# checking each SHA-256. A no-op once they're there.
 extensions:
-    node {{web}}/scripts/extensions.ts
+    node {{root}}/engines/duckdb/web/scripts/extensions.ts {{web}}/public
 
 # Build a sample (fetch once, then prep → Parquet + MANIFEST.json) and load
 # it into the local R2 that `wrangler dev` serves. `asteroids` (the default)
@@ -219,13 +220,13 @@ engine *args:
 report *args:
     cd {{root}} && node shared-web/scripts/report.ts apps/tycho {{args}}
 
-# fmt, clippy (wasm target and native host), TypeScript (host, perf, data, and worker scripts, shared-web scripts), and the generated numbers in the docs, plus no milestone references outside the history files (check-terms).
+# fmt, clippy (wasm target and native host; Tycho, seiza, and the DuckDB engine), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), and the generated numbers in the docs, plus no milestone references outside the history files (check-terms).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/tycho --check
     cargo fmt --all --check
-    cargo clippy -p tycho -p seiza --target wasm32-unknown-unknown -- -D warnings
-    cargo clippy -p tycho -p seiza -- -D warnings
+    cargo clippy -p tycho -p seiza -p seiza-duckdb --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tycho -p seiza -p seiza-duckdb -- -D warnings
     npm run typecheck --workspace @seiza/tycho-web
     @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data\` (or \`just tycho data-deps\`)"; fi
 

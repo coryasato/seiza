@@ -81,7 +81,7 @@ async function measure(engine: BrowserType, url: string, block?: string): Promis
         return null;
       })) as Report | null;
     const engineReadyMs = await page.evaluate(
-      () => performance.getEntriesByName('tycho:engine-ready', 'mark')[0]?.startTime ?? null,
+      () => performance.getEntriesByName('duckdb:engine-ready', 'mark')[0]?.startTime ?? null,
     );
     return { browser: engine.name(), report, engineReadyMs, errors };
   } finally {

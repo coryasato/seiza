@@ -103,14 +103,14 @@ async function earlyRun(engine: BrowserType, url: string): Promise<EarlyRun> {
   try {
     const { page } = run;
     await clickTarget(page, TARGET);
-    const readyAtClick = await page.evaluate(() => performance.getEntriesByName('tycho:engine-ready', 'mark').length > 0);
+    const readyAtClick = await page.evaluate(() => performance.getEntriesByName('duckdb:engine-ready', 'mark').length > 0);
     // The loading state: the app sets the row to "…" when the click lands.
     const waiting = await waitOverlay(page, 'Sample → schema', /…|ms$|failed/, 10_000).catch(() => null);
     const shown = await page
       .waitForFunction((mark) => performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? false, SHOWN_MARK, { timeout: 120_000, polling: 20 })
       .then((handle) => handle.jsonValue() as Promise<number>)
       .catch(() => null);
-    const engineReady = await page.evaluate(() => performance.getEntriesByName('tycho:engine-ready', 'mark')[0]?.startTime ?? null);
+    const engineReady = await page.evaluate(() => performance.getEntriesByName('duckdb:engine-ready', 'mark')[0]?.startTime ?? null);
     const ok = !readyAtClick && waiting === '…' && shown !== null && run.problems.length === 0;
     const detail = readyAtClick
       ? 'engine was already ready at the click (not an early click)'

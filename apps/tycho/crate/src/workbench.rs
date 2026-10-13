@@ -20,12 +20,12 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::dataset::{ASTEROIDS, FileSummary, GAIA, Sample, format_bytes, format_count};
-use crate::engine::EngineStatus;
 #[cfg(target_family = "wasm")]
 use crate::table::RowSource;
 use crate::table::RowTable;
 #[cfg(target_family = "wasm")]
 use crate::table::TableEvent;
+use seiza_duckdb::EngineStatus;
 
 actions!(tycho_workbench, [FocusJump]);
 
@@ -157,7 +157,7 @@ enum Load {
         _task: Option<Task<()>>,
         /// The metadata queries sent so far, to cancel if a new file comes.
         #[cfg(target_family = "wasm")]
-        sent: std::rc::Rc<std::cell::RefCell<Vec<crate::engine::RequestId>>>,
+        sent: std::rc::Rc<std::cell::RefCell<Vec<seiza_duckdb::RequestId>>>,
         #[cfg(target_family = "wasm")]
         csv: Option<crate::csv::Stop>,
     },
@@ -313,13 +313,13 @@ pub struct Workbench {
     shown_csv: Option<(u64, &'static str)>,
     /// What DuckDB has read of the open Parquet file (a CSV counts its own).
     #[cfg(target_family = "wasm")]
-    read_counter: Option<crate::engine::ReadCounter>,
+    read_counter: Option<seiza_duckdb::ReadCounter>,
     /// The open Parquet file's SQL name and source, to register it again
     /// after a failed read (`TableEvent::ReadFailed`), and when that last
     /// started (ms from `timeOrigin`). The next waits
     /// [`reregister_window_ms`], so a file that keeps failing can't loop.
     #[cfg(target_family = "wasm")]
-    parquet_source: Option<(String, crate::engine::FileSource)>,
+    parquet_source: Option<(String, seiza_duckdb::FileSource)>,
     #[cfg(target_family = "wasm")]
     reregistered_at: Option<f64>,
     /// Registrations since the open: each one's SQL name is new.
@@ -459,7 +459,7 @@ impl Workbench {
     /// Retry, after the engine failed to load or stopped.
     fn retry_engine(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(target_family = "wasm")]
-        crate::engine::retry(cx);
+        seiza_duckdb::retry(cx);
         #[cfg(not(target_family = "wasm"))]
         let _ = cx;
     }
@@ -513,7 +513,7 @@ impl Workbench {
     /// Opens a sample by URL.
     #[cfg(target_family = "wasm")]
     fn open_sample(&mut self, sample: Sample, window: &mut Window, cx: &mut Context<Self>) {
-        use crate::engine::FileSource;
+        use seiza_duckdb::FileSource;
 
         if self.load.opening(Origin::Sample(sample)) {
             return;
@@ -610,7 +610,7 @@ impl Workbench {
                     Origin::Device,
                     name,
                     sql_name,
-                    crate::engine::FileSource::File(file),
+                    seiza_duckdb::FileSource::File(file),
                     at,
                     window,
                     cx,
@@ -623,7 +623,7 @@ impl Workbench {
     #[cfg(target_family = "wasm")]
     fn close_current(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.reset_jump(window, cx);
-        let engine = cx.global::<crate::engine::Engine>().clone();
+        let engine = cx.global::<seiza_duckdb::Engine>().clone();
         match std::mem::replace(&mut self.load, Load::Idle) {
             Load::Opening { sent, csv, .. } => {
                 // The task is dropped with the state; its sent queries go on
@@ -675,7 +675,7 @@ impl Workbench {
         origin: Origin,
         name: SharedString,
         sql_name: String,
-        source: crate::engine::FileSource,
+        source: seiza_duckdb::FileSource,
         started_at: f64,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -683,7 +683,7 @@ impl Workbench {
         use std::cell::RefCell;
         use std::rc::Rc;
 
-        use crate::engine::Engine;
+        use seiza_duckdb::Engine;
 
         self.close_current(window, cx);
         let marks = origin.marks();
@@ -707,7 +707,6 @@ impl Workbench {
                             this.mark_shown = Some(marks);
                             this.read_counter = read_counter;
                             this.parquet_source = Some((sql_name.clone(), kept));
-                            crate::engine::show_parquet_ready(cx, &engine);
                             let table = cx.new(|cx| {
                                 RowTable::new(
                                     RowSource::Parquet(sql_name),
@@ -743,7 +742,7 @@ impl Workbench {
                                 name,
                                 engine_stopped: matches!(
                                     error,
-                                    crate::engine::EngineError::Stopped(_)
+                                    seiza_duckdb::EngineError::Stopped(_)
                                 ),
                                 message: error.to_string().into(),
                             }
@@ -778,7 +777,7 @@ impl Workbench {
         cx: &mut Context<Self>,
     ) {
         use crate::csv::Ingest;
-        use crate::engine::{Engine, EngineError};
+        use seiza_duckdb::{Engine, EngineError};
 
         self.close_current(window, cx);
         let marks = Origin::Device.marks();
@@ -899,7 +898,7 @@ impl Workbench {
         };
         let mut chunks = crate::csv::Chunks::new(ingest.row_column());
         chunks.push(chunk.table, chunk.rows);
-        let engine = cx.global::<crate::engine::Engine>().clone();
+        let engine = cx.global::<seiza_duckdb::Engine>().clone();
         let table = cx.new(|cx| {
             RowTable::new(
                 RowSource::Csv(chunks),
@@ -943,7 +942,7 @@ impl Workbench {
     #[cfg(target_family = "wasm")]
     fn csv_progress(
         &mut self,
-        next: Option<Result<crate::csv::Chunk, crate::engine::EngineError>>,
+        next: Option<Result<crate::csv::Chunk, seiza_duckdb::EngineError>>,
         cx: &mut Context<Self>,
     ) {
         let Load::Open {
@@ -1143,7 +1142,7 @@ impl Workbench {
             name.trim_end_matches(".parquet"),
             self.reregistrations
         );
-        let engine = cx.global::<crate::engine::Engine>().clone();
+        let engine = cx.global::<seiza_duckdb::Engine>().clone();
         cx.spawn(async move |this, cx| {
             let Ok(info) = engine.register_file(&name, source).await else {
                 // Still offline, say: try again once the window passes.
@@ -1184,7 +1183,7 @@ impl Workbench {
                     None => self
                         .read_counter
                         .as_ref()
-                        .map(crate::engine::ReadCounter::get),
+                        .map(seiza_duckdb::ReadCounter::get),
                 },
                 summary.bytes,
                 Some(table.clone()),

@@ -15,12 +15,13 @@ import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url
 import ehModule from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
 import mvpModule from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
 import type { FileInfo } from './bridge.ts';
+import { EXTENSION_REPOSITORY } from './extensions.ts';
 
-/** Set when the engine starts loading and when it's open. Rust reads the
- *  second (`ENGINE_READY_MARK` in `crate/src/engine/bridge.rs`); the perf
- *  suite reads both. */
-export const ENGINE_START_MARK = 'tycho:engine-start';
-export const ENGINE_READY_MARK = 'tycho:engine-ready';
+/** Set when the engine starts loading and when it's open. Rust reads both
+ *  (`ENGINE_START_MARK` and `ENGINE_READY_MARK` in `seiza-duckdb`'s
+ *  `bridge.rs`) for its events' times; a host's perf scripts can too. */
+export const ENGINE_START_MARK = 'duckdb:engine-start';
+export const ENGINE_READY_MARK = 'duckdb:engine-ready';
 
 /**
  * HTTP files are read by byte range, never downloaded whole. With DuckDB-Wasm
@@ -30,7 +31,7 @@ export const ENGINE_READY_MARK = 'tycho:engine-ready';
  * sample to show its schema. With these settings it sizes the file with a
  * ranged HEAD (the Worker answers 206) and reads only what queries need; a
  * server without range support fails instead of silently downloading
- * everything. See perf/results/2026-09-24-m3.md.
+ * everything. See docs/DECISIONS.md, "Engine and bridge".
  */
 const RANGE_READS_ONLY = { reliableHeadRequests: true, allowFullHTTPReads: false, forceFullHTTPReads: false };
 
@@ -39,13 +40,23 @@ export interface Engine {
   query(sql: string, signal: AbortSignal): Promise<Uint8Array>;
 }
 
+export interface EngineOptions {
+  /**
+   * The message `registerFile` rejects with when a URL's server answers its
+   * range probe with `response` (anything but a 206), or undefined for the
+   * generic one. A host whose server can refuse on purpose (a pause switch,
+   * say) says so to its users here.
+   */
+  refusal?: (response: Response) => string | undefined;
+}
+
 /** The name of the error every call rejects with once DuckDB's worker has
  *  stopped after loading (Rust: `EngineError::Stopped`). */
 export const ENGINE_STOPPED = 'EngineStopped';
 
 /** Starts DuckDB. If its worker stops after loading, the engine is dead,
  *  and every call rejects with `ENGINE_STOPPED` (bridge.ts then forgets it). */
-export async function startEngine(): Promise<Engine> {
+export async function startEngine(options: EngineOptions = {}): Promise<Engine> {
   performance.mark(ENGINE_START_MARK);
   const bundle = await selectBundle({
     mvp: { mainModule: mvpModule, mainWorker: mvpWorker },
@@ -98,7 +109,7 @@ export async function startEngine(): Promise<Engine> {
         (async () => {
           if (typeof source === 'string') {
             const url = new URL(source, location.href).href;
-            const size = await remoteSize(url);
+            const size = await remoteSize(url, options.refusal);
             const bytesRead = countReads(url);
             await db.registerFileURL(name, url, DuckDBDataProtocol.HTTP, false);
             return { name, size, bytesRead };
@@ -113,15 +124,11 @@ export async function startEngine(): Promise<Engine> {
   };
 }
 
-/** Where DuckDB loads extensions from: our origin, `public/duckdb-ext/`,
- *  filled by `scripts/extensions.ts` from the pins in `duckdb-extensions.json`. */
-export const EXTENSION_REPOSITORY = '/duckdb-ext';
-
 /**
  * Points DuckDB's extension loading at our origin. Parquet isn't built into
  * DuckDB-Wasm; by default DuckDB would fetch it from extensions.duckdb.org the
- * first time a query needs it. Tycho self-hosts everything (CLAUDE.md), so
- * the repository is ours. DuckDB builds the URL as
+ * first time a query needs it. The engine self-hosts everything (its
+ * CLAUDE.md), so the repository is the host's own origin. DuckDB builds the URL as
  * `<repository>/<version>/<platform>/<name>.duckdb_extension.wasm`.
  *
  * Autoload is off: an extension loads only through an explicit `LOAD`, which
@@ -152,7 +159,7 @@ async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {
  * file, a server without range support, or an SPA fallback that answers every
  * path with `index.html` (Vite's dev and preview servers do).
  */
-async function remoteSize(url: string): Promise<number | null> {
+async function remoteSize(url: string, refusal: EngineOptions['refusal']): Promise<number | null> {
   let response: Response;
   try {
     response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
@@ -162,11 +169,9 @@ async function remoteSize(url: string): Promise<number | null> {
   }
   // Only the headers are needed; a server that ignored the range would send it all.
   void response.body?.cancel();
-  // The Worker's pause switch (`just tycho pause`, worker/src/index.ts).
-  if (response.status === 503 && response.headers.get('X-Tycho-Paused') === '1') {
-    throw new Error('the samples are paused for now. Drop your own Parquet or CSV file instead');
-  }
   if (response.status !== 206) {
+    const message = refusal?.(response);
+    if (message !== undefined) throw new Error(message);
     throw new Error(`Can't read ${url}: expected a byte-range (206) response, got ${response.status} ${response.statusText}`);
   }
   const total = response.headers.get('Content-Range')?.match(/\/(\d+)$/)?.[1];
@@ -175,7 +180,7 @@ async function remoteSize(url: string): Promise<number | null> {
 
 /** The message `readCounter` sends the worker; the worker's wrapper keeps it
  *  from DuckDB. */
-const COUNT_MESSAGE = '__tychoCountReads';
+const COUNT_MESSAGE = '__duckdbCountReads';
 
 /** How the worker's wrapper names a dropped file. The worker gets its own
  *  copy of the `File`, so identity can't match; these fields do. */
@@ -188,8 +193,8 @@ const fileKey = (file: File) => `file:${file.name}\0${file.size}\0${file.lastMod
  * the page never sees them. The worker's wrapper (`startWorker`) counts both
  * into a shared counter per file, which Rust reads with `Atomics.load`: the
  * counter rides on `registerFile`'s answer, so the bridge stays at three calls
- * (Tycho rule 2). Null without cross-origin isolation (no
- * `SharedArrayBuffer`), which Tycho always has.
+ * (rule 2). Null without cross-origin isolation (no `SharedArrayBuffer`),
+ * which every host has (it must send COOP/COEP; the engine's CLAUDE.md).
  */
 function readCounter(worker: Worker): (key: string) => BigInt64Array | null {
   return (key) => {
@@ -223,13 +228,13 @@ self.addEventListener('message', (event) => {
 });
 const open = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-  this.__tychoKey = String(method).toUpperCase() === 'GET' ? String(url) : null;
+  this.__duckdbCountKey = String(method).toUpperCase() === 'GET' ? String(url) : null;
   return open.call(this, method, url, ...rest);
 };
 const send = XMLHttpRequest.prototype.send;
 XMLHttpRequest.prototype.send = function (...args) {
   const result = send.apply(this, args);
-  if (this.__tychoKey && this.readyState === 4 && this.response) add(this.__tychoKey, this.response.byteLength);
+  if (this.__duckdbCountKey && this.readyState === 4 && this.response) add(this.__duckdbCountKey, this.response.byteLength);
   return result;
 };
 const slice = Blob.prototype.slice;

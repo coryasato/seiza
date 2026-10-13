@@ -1,14 +1,16 @@
 /**
- * The Rust ↔ JS bridge. Only three calls cross it (Tycho's CLAUDE.md, rule 2):
- * `registerFile`, `query`, and `cancel`. Rust's side is
- * `crate/src/engine/bridge.rs`.
+ * The Rust ↔ JS bridge. Only three calls cross it (the engine's CLAUDE.md,
+ * rule 2): `registerFile`, `query`, and `cancel`. Rust's side is
+ * `seiza-duckdb` (`engines/duckdb/crate/src/bridge.rs`).
  *
  * Creating the bridge loads nothing. DuckDB (its JS, worker, and wasm) loads
- * on the first call, which Rust makes from the post-paint callback, so
- * nothing about the engine can delay first paint.
+ * on the first call, which the host makes after first paint, so nothing
+ * about the engine can delay it.
  */
 
-import type { Engine } from './engine.ts';
+import type { Engine, EngineOptions } from './engine.ts';
+
+export type { EngineOptions as BridgeOptions } from './engine.ts';
 
 export interface FileInfo {
   name: string;
@@ -34,7 +36,7 @@ export interface Bridge {
  *  stopped (`ENGINE_STOPPED` in engine.ts, which loads only on first use). */
 const ENGINE_STOPPED = 'EngineStopped';
 
-export function createBridge(): Bridge {
+export function createBridge(options: EngineOptions = {}): Bridge {
   let engine: Promise<Engine> | null = null;
   // A load that fails is forgotten, so the next call starts a new one. So is
   // an engine whose worker stopped, but only once a call has been told
@@ -50,7 +52,7 @@ export function createBridge(): Bridge {
     failedChunk ? import(/* @vite-ignore */ `${failedChunk}?retry=${++retries}`) : import('./engine.ts');
   const load = () => {
     if (!engine) {
-      const started: Promise<Engine> = importEngine().then(({ startEngine }) => startEngine());
+      const started: Promise<Engine> = importEngine().then(({ startEngine }) => startEngine(options));
       started.catch((error: unknown) => {
         if (engine === started) engine = null;
         // Chromium and Firefox name the module in the message; Safari's

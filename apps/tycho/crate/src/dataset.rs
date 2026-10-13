@@ -1,8 +1,8 @@
 //! A registered file as the header strip shows it: schema, row count, size,
 //! row groups, and the data credit, all read from Parquet metadata with SQL
-//! (Tycho rule 2: no bridge call beyond the three).
+//! (the engine's rule 2: no bridge call beyond the three).
 
-use crate::arrow::{QueryResult, Value};
+use seiza_duckdb::arrow::{QueryResult, Value};
 
 /// A sample dataset hosted on our origin (`/data/*`, served by the Worker).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -147,17 +147,17 @@ impl FileSummary {
 /// Registers `source` under the SQL name `name` and reads its summary, shown
 /// as `display_name`. The three metadata queries go out together, each on its
 /// own connection, once the Parquet extension is loaded
-/// ([`crate::engine::Engine::load_parquet`]), so none of them autoloads it.
+/// ([`seiza_duckdb::Engine::load_parquet`]), so none of them autoloads it.
 /// Each query's id goes to `sent` as it's sent, so a caller that gives up on
 /// the open can cancel them. Also returns the file's live read counter.
 #[cfg(target_family = "wasm")]
 pub async fn open(
-    engine: &crate::engine::Engine,
+    engine: &seiza_duckdb::Engine,
     name: &str,
     display_name: &str,
-    source: crate::engine::FileSource,
-    sent: impl Fn(crate::engine::RequestId),
-) -> Result<(FileSummary, Option<crate::engine::ReadCounter>), crate::engine::EngineError> {
+    source: seiza_duckdb::FileSource,
+    sent: impl Fn(seiza_duckdb::RequestId),
+) -> Result<(FileSummary, Option<seiza_duckdb::ReadCounter>), seiza_duckdb::EngineError> {
     // Independent: the extension download (several round trips on a slow
     // network) overlaps the registration. Both are sent before either is
     // awaited.
@@ -174,7 +174,7 @@ pub async fn open(
     let (describe, metadata, kv) = (describe.await?, metadata.await?, kv.await?);
     FileSummary::from_results(display_name, info.size, &describe, &metadata, &kv)
         .map(|summary| (summary, info.bytes_read))
-        .map_err(crate::engine::EngineError::Engine)
+        .map_err(seiza_duckdb::EngineError::Engine)
 }
 
 pub(crate) fn column(result: &QueryResult, name: &str) -> Result<usize, String> {
@@ -239,7 +239,7 @@ mod tests {
     use arrow::record_batch::RecordBatch;
 
     use super::*;
-    use crate::arrow::decode;
+    use seiza_duckdb::arrow::decode;
 
     fn result(columns: Vec<(&str, ArrayRef)>) -> QueryResult {
         let batch = RecordBatch::try_from_iter(columns).unwrap();

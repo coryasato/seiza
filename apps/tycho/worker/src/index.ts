@@ -15,7 +15,7 @@
  *   extension a query needs from `/duckdb-ext/`, and only the pinned ones exist.
  *
  * DuckDB-Wasm reads remote Parquet by range: a probe (`bytes=0-0`, from
- * `web/src/engine.ts`), then the footer, then column chunks. So this must
+ * `@seiza/duckdb`'s `engine.ts`), then the footer, then column chunks. So this must
  * answer ranges exactly: `206` with a correct `Content-Range`, `416` for a
  * range past the end, and `HEAD` with `Content-Length` and
  * `Accept-Ranges: bytes`. Multi-range requests aren't needed and get `416`.
@@ -42,7 +42,7 @@ interface Env {
 }
 
 const DATA_PREFIX = '/data/';
-/** On a `/data/*` 503 while paused; `web/src/engine.ts` turns it into the page's message. */
+/** On a `/data/*` 503 while paused; `web/src/main.ts` (the bridge's `refusal`) turns it into the page's message. */
 const PAUSED_HEADER = 'X-Tycho-Paused';
 /** Oversize build assets live in R2 under this key prefix, which is also
  *  their path: Vite's `assets/<name>-<hash>.<ext>`. */

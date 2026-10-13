@@ -19,11 +19,11 @@ use gpui_kit::component::{ActiveTheme as _, Size as KitSize};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::arrow::{QueryResult, Value};
 use crate::dataset::{ColumnInfo, format_count};
 pub use activity::{Activity, ActivityStats};
 pub use pages::{Direction, PageCache, RowState};
 pub use scroll::RowScroll;
+use seiza_duckdb::arrow::{QueryResult, Value};
 
 actions!(
     tycho_table,
@@ -49,7 +49,7 @@ pub fn init(cx: &mut App) {
 }
 
 #[cfg(target_family = "wasm")]
-type Request = crate::engine::RequestId;
+type Request = seiza_duckdb::RequestId;
 #[cfg(not(target_family = "wasm"))]
 type Request = u32;
 
@@ -434,7 +434,7 @@ pub struct RowTable {
     /// the end of the file keeps it from reaching the top.
     marked: Option<u64>,
     #[cfg(target_family = "wasm")]
-    engine: crate::engine::Engine,
+    engine: seiza_duckdb::Engine,
 }
 
 impl RowTable {
@@ -444,7 +444,7 @@ impl RowTable {
         source: RowSource,
         rows: u64,
         columns: &[ColumnInfo],
-        #[cfg(target_family = "wasm")] engine: crate::engine::Engine,
+        #[cfg(target_family = "wasm")] engine: seiza_duckdb::Engine,
         cx: &mut Context<Self>,
     ) -> Self {
         let paging = Paging::from_url();
@@ -781,7 +781,7 @@ impl RowTable {
         &mut self,
         page: u64,
         request: Request,
-        result: Result<QueryResult, crate::engine::EngineError>,
+        result: Result<QueryResult, seiza_duckdb::EngineError>,
         cx: &mut Context<Self>,
     ) {
         if self.closed {
@@ -793,7 +793,7 @@ impl RowTable {
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, &wanted);
             }
-            Err(crate::engine::EngineError::Cancelled) => self.cache.finished(request),
+            Err(seiza_duckdb::EngineError::Cancelled) => self.cache.finished(request),
             Err(error) => {
                 let read_failure = error.is_read_failure();
                 self.cache.failed(page, request, error.to_string());

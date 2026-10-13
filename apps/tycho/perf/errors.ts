@@ -119,7 +119,7 @@ async function engineDidntLoad(url: string, what: 'wasm' | 'js'): Promise<Check>
     // A drop while it's down is refused, and starts no engine.
     const dropAt = await dropFile(page, join(dataDir, 'drop/asteroids-x3.parquet'));
     const dropped = await waitWorkbench(page, "w.state === 'failed'", 10_000).catch(() => null);
-    const starts = await page.evaluate((at) => performance.getEntriesByName('tycho:engine-start', 'mark').filter((m) => m.startTime >= at).length, dropAt);
+    const starts = await page.evaluate((at) => performance.getEntriesByName('duckdb:engine-start', 'mark').filter((m) => m.startTime >= at).length, dropAt);
     details.push(`drop while down: ${dropped?.message ?? 'no failure shown'}; engine starts ${starts}`);
     ok &&= !!dropped && starts === 0;
     await context.unroute(block);
@@ -158,7 +158,7 @@ async function engineStopped(url: string): Promise<Check> {
     ok &&= /stopped while asteroids\.parquet was open/.test(stopped.status);
     // Nothing starts an engine until Retry: no stray call may.
     await page.waitForTimeout(1_000);
-    const unasked = await page.evaluate((at) => performance.getEntriesByName('tycho:engine-start', 'mark').filter((m) => m.startTime >= at).length, thrownAt);
+    const unasked = await page.evaluate((at) => performance.getEntriesByName('duckdb:engine-start', 'mark').filter((m) => m.startTime >= at).length, thrownAt);
     details.push(`engines started before Retry: ${unasked}`);
     ok &&= unasked === 0;
     await clickTarget(page, 'retry-engine');
@@ -194,7 +194,7 @@ async function engineStoppedUnderOpen(url: string): Promise<Check> {
     await dropFile(page, join(dataDir, 'drop/asteroids-x3.parquet'));
     const probe = await waitWorkbench(page, "w.engine === 'stopped'", 10_000);
     await page.waitForTimeout(1_000);
-    const starts = await page.evaluate((at) => performance.getEntriesByName('tycho:engine-start', 'mark').filter((m) => m.startTime >= at).length, thrownAt);
+    const starts = await page.evaluate((at) => performance.getEntriesByName('duckdb:engine-start', 'mark').filter((m) => m.startTime >= at).length, thrownAt);
     await clickTarget(page, 'retry-engine');
     await waitWorkbench(page, "w.engine === 'ready'", 120_000);
     await openSample(page);
