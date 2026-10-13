@@ -21,7 +21,7 @@ The repo holds four kinds of thing:
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
 <!-- report:headlines:start -->
-- **[Tycho](apps/tycho/)**: first paint 193.2 ms · 25.1 M rows → first rows 297.4 ms · fling p95 16.7 ms
+- **[Tycho](apps/tycho/)**: first paint 193.2 ms · 25.1 M rows → first rows 283.9 ms · fling p95 16.7 ms
 <!-- report:headlines:end -->
 
 ## Principles
