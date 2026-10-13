@@ -31,7 +31,9 @@
 //                                      [--memory-only] [--browsers] [--browsers-only]
 // --browsers adds a table check in Chromium, Firefox, and WebKit (first rows,
 // scrollbar jump, a track click and a cancelled pointer that must not leave a
-// drag on, wheel, End → last row); the frame budgets are Chromium's.
+// drag on, wheel, End → last row), with its marks checked against the GPU
+// calls (first rows and the viewport filled must land in the task that
+// presented their frame); the frame budgets are Chromium's.
 // --sweep runs page size {256, 1024, 4096} × prefetch {1, 2, 4} (`?page=`,
 // `?prefetch=`) instead of the protocol runs. Writes
 // perf/results/<date>-<label>.json. Run `just tycho build` first.
@@ -47,6 +49,8 @@ import {
   frameRecorder,
   open,
   overlayValue,
+  presentedMark,
+  presentingTaskRecorder,
   targetRect,
   waitMark,
   waitOverlay,
@@ -306,9 +310,12 @@ async function memoryPass(url: string, passes = 2) {
 }
 
 /** The table in another engine: it opens, jumps, scrolls by wheel, and
- *  reaches the last row, with no console errors. */
+ *  reaches the last row, with no console errors. Its marks (first rows, and
+ *  the viewport filled after the jump and after End) must land right after
+ *  the frame that shows them is presented: Tycho sets them from the table's
+ *  events, which GPUI delivers in the task that presents the frame. */
 async function browserCheck(engine: BrowserType, url: string) {
-  const run = await open(engine, url, { params: { bench: '' } });
+  const run = await open(engine, url, { params: { bench: '' }, init: [presentingTaskRecorder] });
   const { page } = run;
   try {
     await waitOverlay(page, 'Parquet ready', /ms$/, 180_000);
@@ -316,9 +323,17 @@ async function browserCheck(engine: BrowserType, url: string) {
     await setPanel(page, false);
     const clickedAt = await now(page);
     await clickTarget(page, SAMPLE.target);
-    const firstRows = (await waitMark(page, 'tycho:first-rows', clickedAt, 60_000)) - clickedAt;
+    const firstRowsAt = await waitMark(page, 'tycho:first-rows', clickedAt, 60_000);
+    const firstRows = firstRowsAt - clickedAt;
+    const marks = [{ name: 'first rows', ...(await presentedMark(page, firstRowsAt)) }];
+    // Negative control: a time taken in a later task (a timer after the
+    // mark) must fail the same test.
+    const laterTask = await page.evaluate(() => new Promise<number>((resolve) => setTimeout(() => resolve(performance.now()), 0)));
+    const controlCaught = !(await presentedMark(page, laterTask)).ok;
     const released = await dragThumbTo(page, 0.9);
-    const jump = (await waitFilled(page, released)) - released;
+    const jumpFilledAt = await waitFilled(page, released);
+    const jump = jumpFilledAt - released;
+    marks.push({ name: 'filled after the jump', ...(await presentedMark(page, jumpFilledAt)) });
     const jumped = await probe(page);
     // A quick click on the track, below the thumb, then the pointer moves
     // off: the table must jump once and then stay put (a release missed in
@@ -354,14 +369,18 @@ async function browserCheck(engine: BrowserType, url: string) {
     const wheeled = await probe(page);
     const endPressed = await now(page);
     await page.keyboard.press('End');
-    await waitFilled(page, endPressed).catch(() => null);
+    const endFilledAt = await waitFilled(page, endPressed).catch(() => null);
+    if (endFilledAt !== null) marks.push({ name: 'filled after End', ...(await presentedMark(page, endFilledAt)) });
     await page.waitForTimeout(200);
     const atEnd = await probe(page);
+    const marksOk = marks.length === 3 && marks.every((mark) => mark.ok);
     const rowsMoved = (wheeled?.top ?? 0) - (afterCancel?.top ?? 0);
     const ok =
       run.problems.length === 0 &&
       staysPut &&
       cancelEnds &&
+      marksOk &&
+      controlCaught &&
       Math.abs((jumped?.top ?? 0) / FILE.rows - 0.9) < 0.01 &&
       Math.abs(rowsMoved - 100) < 1 &&
       atEnd?.end === FILE.rows &&
@@ -371,7 +390,8 @@ async function browserCheck(engine: BrowserType, url: string) {
       ok,
       detail:
         `first rows ${firstRows.toFixed(0)} ms, jump ${jump.toFixed(0)} ms, track click ${clicked?.top.toFixed(0)} → after moving off ${afterMove?.top.toFixed(0)}` +
-        ` (${staysPut ? 'stayed' : 'MOVED'}), cancelled drag ${cancelEnds ? 'ended' : `MOVED ${cancelledAt?.top.toFixed(0)} → ${afterCancel?.top.toFixed(0)}`}, 3000 px wheel moved ${rowsMoved.toFixed(2)} rows, end ${atEnd?.end}/${FILE.rows}`,
+        ` (${staysPut ? 'stayed' : 'MOVED'}), cancelled drag ${cancelEnds ? 'ended' : `MOVED ${cancelledAt?.top.toFixed(0)} → ${afterCancel?.top.toFixed(0)}`}, 3000 px wheel moved ${rowsMoved.toFixed(2)} rows, end ${atEnd?.end}/${FILE.rows}` +
+        `; marks after their frame: ${marks.map((mark) => `${mark.name} ${mark.ok ? 'ok' : 'NOT'} (${mark.detail})`).join(', ')}${marks.length < 3 ? ', End never filled' : ''}; a later task's time ${controlCaught ? 'caught' : 'NOT caught'}`,
       problems: run.problems,
     };
   } finally {

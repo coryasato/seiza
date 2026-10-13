@@ -29,13 +29,15 @@ These add to the repo-wide rules.
 - **`web/src/vite.ts`** (`@seiza/duckdb/vite`): `duckdb()`, the plugin a Vite host adds: a missing extension under `/duckdb-ext/` is a 404, not the SPA fallback. A host's production server needs the same rule. **`web/scripts/extensions.ts <public dir>`** downloads the pinned extensions into the host's `public/duckdb-ext/`.
 - **`crate/src/lib.rs`**: `EngineStatus` (a global: Loading, Ready, Failed, Stopped), `EngineError` (`is_read_failure` tells a failed file read, which registering again under a new name can fix, from the rest), and `EngineEvent` (Loading, Ready, Failed, ParquetReady, ParquetFailed, with their times in ms from `timeOrigin`).
 - **`crate/src/bridge.rs`** (web only): `init(cx, bridge)` installs the `Engine` global; `start(cx, on_event)` runs the warm-up, sets `EngineStatus`, then prefetches the Parquet extension; `retry(cx)` starts a new engine after a failure, reporting to the same handler. `Engine` has `query` (returns its `RequestId` and its decoded result), `cancel`, `register_file`, and `load_parquet`. `ReadCounter` reads a file's live byte count.
+- **`crate/src/sql.rs`**: `ColumnInfo` and the helpers a host's SQL needs (`string_literal`, and typed reads of metadata results).
+- **`crate/src/table.rs`** (feature `table`): the `seiza-table` source. `QueryResult` is a `TablePage`; `QueryRows<Q: PageQuery>` is the `TableDelegate` (engine `query`/`cancel`, errors mapped to `PageError`); `ParquetFile` is the page query (a `file_row_number` filter, `docs/DECISIONS.md`, "Table source"); `ParquetSummary`/`open_parquet` read a file's footer, with the metadata keys the host asks for; `ColumnInfo::table_column` maps DuckDB types to `ColumnKind`s. It knows no app: Tycho's CSV source is a `PageQuery` of its own.
 - **`crate/src/arrow.rs`**: the hand-rolled Arrow IPC stream reader (arrow-rs cost +127 KiB brotli). It reads the flatbuffer metadata by hand and decodes cells on access; unsupported types decode as a named placeholder column. New column types go here, with a test.
 
 ## DuckDB-Wasm 1.32.0 gotchas (check before debugging)
 
 Each was found in Tycho, and the paths to what handles it there are under `apps/tycho/`.
 
-- **A started page read can't be cancelled.** DuckDB's worker reads over HTTP with synchronous XHRs, and `cancel` lands between query slices. A cancelled query still occupies the worker until it answers. So Tycho's page cache counts cancelled requests as in flight until they answer (`PageCache::draining`), and a scrollbar drag loads only when the pointer rests (`DRAG_SETTLE`).
+- **A started page read can't be cancelled.** DuckDB's worker reads over HTTP with synchronous XHRs, and `cancel` lands between query slices. A cancelled query still occupies the worker until it answers. So the table component's page cache counts cancelled requests as in flight until they answer (`PageCache::draining`), and a scrollbar drag loads only when the pointer rests (`DRAG_SETTLE`): `components/table/`.
 - **Every page read costs at least ~1.39 MB.** The HTTP readahead (`WebFileSystem`'s `ReadAheadBuffer`) reads 16 KB, 64 KB, 256 KB, 1 MB, then 4 MB and 16 MB while the reads stay sequential, so a page read stops at the step that covers its row group: 1.39 MB for the asteroids' 0.7 MB groups, 5.59 MB for Gaia's 3.8 MB groups (at 30,720 or 61,440 rows), 22.4 MB from 122,880. No `db.open` option or Parquet setting changes it (`useDirectIO` and `disable_parquet_prefetching` were tested). On Fast 4G that's four round trips, ~2.1 s per page for the asteroids. It's also why "first rows under 2% of the file" can't hold for the 38 MB sample.
 - **Two failing loads of one extension at once crash the worker** ("table index is out of bounds"), with no worker `error` event, and every later query hangs. That's why autoload is off and `Engine::load_parquet` runs one attempt at a time.
 - **With default settings, a URL is downloaded whole** (`RANGE_READS_ONLY` in `web/src/engine.ts`). The server must answer a ranged `HEAD` with 206.
@@ -57,7 +59,7 @@ Each was found in Tycho, and the paths to what handles it there are under `apps/
 
 ```
 engines/duckdb/
-  crate/            # seiza-duckdb: src/lib.rs (status, errors, events), bridge.rs (the client; web only), arrow.rs (Arrow IPC reader)
+  crate/            # seiza-duckdb: src/lib.rs (status, errors, events), bridge.rs (the client; web only), arrow.rs (Arrow IPC reader), sql.rs (SQL helpers), table.rs (the `table` feature: seiza-table source)
   web/              # @seiza/duckdb: src/bridge.ts, engine.ts, vite.ts, extensions.ts; duckdb-extensions.json + scripts/extensions.ts
   docs/             # DECISIONS.md
   README.md         # for the crate's and the package's user
@@ -67,7 +69,7 @@ engines/duckdb/
 ## Tests
 
 ```
-cargo test -p seiza-duckdb   # native tests: the Arrow reader, read-failure errors
+cargo test -p seiza-duckdb --all-features   # native tests: the Arrow reader, read-failure errors, SQL helpers, the table source (page SQL, summary, column kinds, values)
 ```
 
 The client itself runs only in a browser: Tycho's `just tycho engine` (the self-test: `SELECT 42`, every shown type, cancel) and `just tycho errors` (failed load, stopped worker, Retry) check it end to end.

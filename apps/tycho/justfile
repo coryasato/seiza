@@ -198,7 +198,8 @@ perf *args:
 # set, its bytes, and the theme toggle (button, Cmd/Ctrl+Shift+L, system
 # changes, reload). --controls: negative controls for the screenshot match.
 # --ab <dist>: interleaved TTFP and placeholder-paint A/B against another
-# build's web/dist (--runs, --reference-only). Run `just tycho build` first.
+# build's web/dist (--runs, --reference-only); fails when either side's TTFP
+# spread is 6% or more. Run `just tycho build` first.
 placeholder *args:
     node {{app_dir}}/perf/placeholder.ts {{args}}
 
@@ -220,13 +221,13 @@ engine *args:
 report *args:
     cd {{root}} && node shared-web/scripts/report.ts apps/tycho {{args}}
 
-# fmt, clippy (wasm target and native host; Tycho, seiza, and the DuckDB engine), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), and the generated numbers in the docs, plus no milestone references outside the history files (check-terms).
+# fmt, clippy (wasm target and native host; Tycho, seiza, the DuckDB engine, and the table component), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), and the generated numbers in the docs, plus no milestone references outside the history files (check-terms).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/tycho --check
     cargo fmt --all --check
-    cargo clippy -p tycho -p seiza -p seiza-duckdb --target wasm32-unknown-unknown -- -D warnings
-    cargo clippy -p tycho -p seiza -p seiza-duckdb -- -D warnings
+    cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-table --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-table --all-features --all-targets -- -D warnings
     npm run typecheck --workspace @seiza/tycho-web
     @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data\` (or \`just tycho data-deps\`)"; fi
 

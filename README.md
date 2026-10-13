@@ -54,6 +54,8 @@ seiza/
   justfile              # `just <app> <recipe>`; one module per app
   shared/               # crate `seiza`: app-agnostic Rust
   shared-web/           # app-agnostic JS host pieces, fonts, the shared perf harness
+  components/
+    table/              # the table for tens of millions of rows (seiza-table)
   engines/
     duckdb/             # DuckDB-Wasm for every app: a Rust crate (seiza-duckdb) and an npm package (@seiza/duckdb)
   apps/
@@ -74,7 +76,7 @@ seiza/
     templates/component/ # the docs skeleton a new component or engine starts from
 ```
 
-Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). The first engine is [`engines/duckdb/`](engines/duckdb/), Tycho's DuckDB layer; the first component, Tycho's table, is next in [Tycho's plan](apps/tycho/PLAN.md). The observatory's GPUI side will be their second consumer.
+Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). The first engine is [`engines/duckdb/`](engines/duckdb/), Tycho's DuckDB layer, and the first component [`components/table/`](components/table/), Tycho's table. The observatory's GPUI side will be their second consumer.
 
 ## Getting started
 

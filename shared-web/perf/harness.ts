@@ -174,6 +174,73 @@ export interface WorkSample {
   ms: number;
 }
 
+/** A task that made GPU calls: its last GPU call, and when the next task
+ *  started (a message posted at its first GPU call). */
+interface PresentingTask {
+  lastGpuCall: number;
+  next: number | null;
+}
+type PresentingGlobal = { __seizaPresentingTasks?: PresentingTask[] };
+
+/**
+ * Records every task that makes GPU calls (WebGL2 draws, WebGPU submits):
+ * its last GPU call and when the next task started. With `presentedMark`,
+ * it checks that a mark set "right after the frame is presented" landed in
+ * the presenting task's own microtask checkpoint: after its last GPU call,
+ * before anything else could run or render. Install with
+ * `context.addInitScript` (before the app's scripts). It wraps every GPU
+ * call, so keep it out of timing runs.
+ */
+export function presentingTaskRecorder(): void {
+  const tasks: PresentingTask[] = [];
+  (globalThis as PresentingGlobal).__seizaPresentingTasks = tasks;
+  const channel = new MessageChannel();
+  const waiting: PresentingTask[] = [];
+  channel.port1.onmessage = () => {
+    const task = waiting.shift();
+    if (task) task.next = performance.now();
+  };
+  let current: PresentingTask | null = null;
+  const hook = (proto: object | undefined, names: string[]) => {
+    if (!proto) return;
+    const methods = proto as Record<string, (...args: unknown[]) => unknown>;
+    for (const name of names) {
+      const original = methods[name];
+      if (!original) continue;
+      methods[name] = function (this: unknown, ...args: unknown[]) {
+        if (!current) {
+          const task: PresentingTask = { lastGpuCall: 0, next: null };
+          current = task;
+          tasks.push(task);
+          if (tasks.length > 2000) tasks.shift();
+          waiting.push(task);
+          channel.port2.postMessage(0);
+          queueMicrotask(() => (current = null));
+        }
+        const result = original.apply(this, args);
+        if (current) current.lastGpuCall = performance.now();
+        return result;
+      };
+    }
+  };
+  hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']);
+  hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit']);
+}
+
+/** Whether a mark at `at` (page time) landed right after a presented frame
+ *  (see `presentingTaskRecorder`): after the last GPU task's last call
+ *  before it, and before the next task started. */
+export async function presentedMark(page: Page, at: number): Promise<{ ok: boolean; detail: string }> {
+  // The next task may not have run yet when this is called right after the mark.
+  await page.waitForTimeout(50);
+  const tasks = await page.evaluate(() => (globalThis as PresentingGlobal).__seizaPresentingTasks ?? []);
+  const task = tasks.filter((candidate) => candidate.lastGpuCall <= at).at(-1);
+  if (!task) return { ok: false, detail: 'no GPU task before it' };
+  const ok = task.next !== null && at < task.next;
+  const after = (at - task.lastGpuCall).toFixed(2);
+  return { ok, detail: ok ? `${after} ms after its last GPU call, same task` : `${after} ms after the last GPU call, a later task` };
+}
+
 /**
  * Times every `requestAnimationFrame` callback that does GPU work: GPUI's
  * frames. An independent check of the perf panel's "work per frame", which

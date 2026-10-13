@@ -88,6 +88,7 @@ impl RowScroll {
         if max > 0.0 { self.top / max } else { 0.0 }
     }
 
+    #[cfg(test)]
     pub fn set_fraction(&mut self, fraction: f64) -> bool {
         self.set_top(fraction.clamp(0.0, 1.0) * self.max_top())
     }

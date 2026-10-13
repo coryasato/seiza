@@ -78,10 +78,6 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         }
     }
 
-    pub fn page_rows(&self) -> u64 {
-        self.page_rows
-    }
-
     pub fn pages(&self) -> u64 {
         self.rows.div_ceil(self.page_rows)
     }

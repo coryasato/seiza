@@ -11,7 +11,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 gpui-kit.workspace = true
 seiza.workspace = true
-seiza-duckdb.workspace = true
+seiza-duckdb = { workspace = true, features = ["table"] }
+seiza-table.workspace = true
 
 # The entry point and the bootstrap are web-only; the views compile natively for clippy and tests.
 [target.'cfg(target_family = "wasm")'.dependencies]

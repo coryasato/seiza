@@ -61,14 +61,14 @@ Tycho's table becomes `components/table/` (crate `seiza-table`) and its DuckDB l
 
 **Throughout:** the Cargo workspace and npm workspaces gain the new members; `report.ts` and `check-terms.ts` cover `components/` and `engines/` where they need to; the root `CLAUDE.md` layout and the root, Tycho, component, and engine READMEs describe what exists after each part.
 
-**Measuring between parts:** the full suite (about 1 h 45 min) runs once, on the final build, in the same quiet window as the final A/B; part A's run (`perf/results/2026-10-13-m9-a-suite.json`) showed the moved harness reproduces the pre-M9 numbers. After each change: `just tycho check` and the behavior checks the part touches. At the end of a part, the A/B and only the suite parts it touches, at 3 runs, reference only: part B (the engine) `just tycho perf --only table-asteroids,csv --runs 3 --reference-only`, plus `sample` and `drop`; part C (the table) `--only table-asteroids,table-gaia,jump`.
+**Measuring between parts:** the full suite (about 1 h 45 min) runs once, on the final build, in the same session as the final A/B; part A's run (`perf/results/2026-10-13-m9-a-suite.json`) showed the moved harness reproduces the pre-M9 numbers. After each change: `just tycho check` and the behavior checks the part touches. At the end of a part, the A/B and only the suite parts it touches, at 3 runs, reference only: part B (the engine) `just tycho perf --only table-asteroids,csv --runs 3 --reference-only`, plus `sample` and `drop`; part C (the table) `--only table-asteroids,table-gaia,jump`.
 
 **Done when:**
-- [ ] **No regression against pre-M9 HEAD**, interleaved A/B in a quiet session (load under 1, recorded), reference and throttled, median of 10: TTFP within 3% of HEAD's, app wasm (brotli) within +1% (the size effect recorded either way).
+- [ ] **No regression against pre-M9 HEAD**, interleaved A/B (`placeholder --ab`), reference and throttled, median of 10: TTFP within 3% of HEAD's, with each side's TTFP spread under 6% (the script fails a noisier run; the load average is recorded, not gated), app wasm (brotli) within +1% (the size effect recorded either way).
 - [ ] **The full suite passes every budget** (`just tycho perf`), and first rows, jump to 90%, and fling on both samples are within 10% of the newest suite before M9.
 - [ ] **Every check script passes** on the extracted build: `check`, `smoke`, `engine`, `sample`, `errors`, `cells`, `jump --browsers`, `drop`, `csv`, `placeholder`, `worker-check`.
-- [ ] **Native tests pass where they now live:** `cargo test -p seiza-table -p seiza-duckdb --all-features -p tycho` (scroll model, page cache, format, Arrow reader, page SQL, CSV).
-- [ ] **The boundaries hold:** `cargo tree -p seiza-table` and `cargo tree -p seiza-duckdb --all-features` contain neither `seiza` nor `tycho`; `seiza-table` builds without `seiza-duckdb`; `seiza-duckdb` builds with and without `table`; `shared-web/perf/` and `engines/duckdb/web/` mention no app.
+- [x] **Native tests pass where they now live:** `cargo test -p seiza-table -p seiza-duckdb --all-features -p tycho` (scroll model, page cache, format, Arrow reader, page SQL, CSV). *2026-10-13 (part C):* `seiza-table` 29, `seiza-duckdb --all-features` 18, `tycho` 25 pass.
+- [x] **The boundaries hold:** `cargo tree -p seiza-table` and `cargo tree -p seiza-duckdb --all-features` contain neither `seiza` nor `tycho`; `seiza-table` builds without `seiza-duckdb`; `seiza-duckdb` builds with and without `table`; `shared-web/perf/` and `engines/duckdb/web/` mention no app. *2026-10-13 (part C):* neither tree (native or wasm32) holds `seiza` or `tycho`; `seiza-table`, and `seiza-duckdb` with and without `table`, each build alone for wasm32; the only app names in `engines/duckdb/` and `shared-web/perf/` are paths to Tycho's results files in doc comments.
 - [ ] **No copies:** no Tycho script redefines a helper that moved to `shared-web/perf/`, and no Tycho file keeps a moved gotcha or decision (a pointer only).
 - [ ] **Production unchanged:** `just tycho deploy` succeeds, and `node worker/scripts/check.ts --url https://tycho.seiza.io` and `just tycho smoke https://tycho.seiza.io/` pass.
 - [ ] **Docs current:** `just tycho lint` passes (check-terms, `report --check`), and every README and `CLAUDE.md` touched describes the new layout.
@@ -125,7 +125,6 @@ Record each decision with its numbers in `docs/DECISIONS.md`; production stays r
 
 ## Open questions
 
-- **Marks that must sit in render.** The first-rows and viewport-filled marks are set after the frame that shows them is presented (`seiza::mark_after_current_task`, queued in render). An event handled after render may not be the same task. Decide in M9 part C, with a check that the moved marks land where they did: an event the host marks in time, or an optional `seiza` feature on the component.
 - **Crate names:** whether `seiza-table` and `seiza-duckdb` are free on crates.io. Only matters if they're published; nothing is yet.
 
 ---
@@ -142,7 +141,7 @@ Generated by `just tycho report` from [`perf/budgets.json`](perf/budgets.json) a
 | App wasm (brotli) | ≤ 3247.1 KiB (baseline 2823.6 + 15%, or a `budget-notes.md` row) | `check` | 2838 KiB | — | [2026-10-13-m9-a-suite](perf/results/2026-10-13-m9-a-suite.json) |
 | Static shell painted, reference / throttled | — | recorded | 39.3 / 258 ms | 106.1 / 294.9 ms | [2026-10-13-m9-a-suite](perf/results/2026-10-13-m9-a-suite.json), [2026-10-10-m8-prod](perf/results/2026-10-10-m8-prod.json) |
 | DuckDB engine ready (after first paint) | — | recorded | 634.5 ms | 985.1 ms | [2026-10-13-m9-a-suite](perf/results/2026-10-13-m9-a-suite.json), [2026-10-10-m8-prod](perf/results/2026-10-10-m8-prod.json) |
-| Sample click → schema (asteroids) | ≤ 300 ms | `sample` | 121.6 ms | — | [2026-10-13-m9-b-sample](perf/results/2026-10-13-m9-b-sample.json) |
+| Sample click → schema (asteroids) | ≤ 300 ms | `sample` | 108 ms | — | [2026-10-13-m9-c-sample](perf/results/2026-10-13-m9-c-sample.json) |
 | Sample click → first rows: asteroids / Gaia | ≤ 500 ms | `perf` suite | 200.3 / 297.4 ms | 506.8 / 810.8 ms | [2026-10-13-m9-b-suite](perf/results/2026-10-13-m9-b-suite.json), [2026-10-13-m9-a-suite](perf/results/2026-10-13-m9-a-suite.json), [2026-10-11-m8-prod-table](perf/results/2026-10-11-m8-prod-table.json) |
 | Scrollbar jump to 90% → real rows: asteroids / Gaia | ≤ 400 ms | `perf` suite | 84.9 / 134.5 ms | 200.9 / 362.8 ms | [2026-10-13-m9-b-suite](perf/results/2026-10-13-m9-b-suite.json), [2026-10-13-m9-a-suite](perf/results/2026-10-13-m9-a-suite.json), [2026-10-11-m8-prod-table](perf/results/2026-10-11-m8-prod-table.json) |
 | Fling top → bottom in 3 s, asteroids: p95 / worst frame | ≤ 20 / 50 ms | `perf` suite | 16.7 / 16.7 ms | 16.7 / 16.7 ms | [2026-10-13-m9-b-suite](perf/results/2026-10-13-m9-b-suite.json), [2026-10-11-m8-prod-table](perf/results/2026-10-11-m8-prod-table.json) |

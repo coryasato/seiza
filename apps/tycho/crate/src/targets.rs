@@ -6,6 +6,7 @@
 //! click its center. Written only when the bounds change.
 
 use gpui_kit::{Bounds, Pixels};
+use seiza_table::{CellProbe, TableLayout, TableProbe};
 
 #[cfg(target_family = "wasm")]
 thread_local! {
@@ -71,24 +72,16 @@ pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
     let _ = (id, bounds);
 }
 
-/// Publishes what the table shows to `globalThis.__tychoTable`, when it
-/// changes: `{rows, top, first, end, loaded, pending, failed, lastCell,
-/// marked, scrollX, tooltip}`.
-/// The table calls it only while [`measuring`].
-pub fn publish_table(probe: &crate::table::TableProbe) {
+/// Publishes what the table shows to `globalThis.__tychoTable`: `{rows,
+/// top, first, end, loaded, pending, failed, lastCell, marked, scrollX,
+/// tooltip}`. The table reports it when it changes, and only while
+/// [`measuring`].
+pub fn publish_table(probe: &TableProbe) {
     #[cfg(target_family = "wasm")]
     {
         use js_sys::{Object, Reflect};
         use wasm_bindgen::JsValue;
 
-        thread_local! {
-            static LAST: std::cell::RefCell<Option<crate::table::TableProbe>> =
-                const { std::cell::RefCell::new(None) };
-        }
-        if LAST.with_borrow(|last| last.as_ref() == Some(probe)) {
-            return;
-        }
-        LAST.set(Some(probe.clone()));
         let object = Object::new();
         let set = |key: &str, value: JsValue| {
             let _ = Reflect::set(&object, &JsValue::from_str(key), &value);
@@ -134,6 +127,10 @@ pub fn publish_table(probe: &crate::table::TableProbe) {
 /// Whether the page asked for every visible cell's text (`?cells`, with
 /// `?perf` or `?bench`): [`publish_cells`], every frame. Off in the perf
 /// runs, which it would slow.
+#[cfg_attr(
+    not(target_family = "wasm"),
+    expect(dead_code, reason = "only the web build makes tables")
+)]
 pub fn probing_cells() -> bool {
     thread_local! {
         static CELLS: bool = measuring() && seiza::url::has_param("cells");
@@ -141,35 +138,11 @@ pub fn probing_cells() -> bool {
     CELLS.with(|cells| *cells)
 }
 
-/// Where the table's cells are, for [`publish_table_layout`]: CSS pixels
-/// from the canvas's top-left.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TableLayout {
-    /// The cells area's left edge (right of the row numbers) and top edge.
-    pub left: f32,
-    pub top: f32,
-    /// Row `r`'s top is `top + (r - __tychoTable.top) * row_height`, and
-    /// column `c`'s left edge is `left + columns[c].x - __tychoTable.scrollX`.
-    pub row_height: f32,
-    pub cells_width: f32,
-    pub columns: Vec<ColumnProbe>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ColumnProbe {
-    pub name: String,
-    pub x: f32,
-    pub width: f32,
-    /// `text`, `integer`, `float`, or `decimal`.
-    pub kind: &'static str,
-    /// The characters a float may take.
-    pub budget: usize,
-}
-
 /// Publishes the table's layout to `globalThis.__tychoTableLayout`: `{left,
-/// top, rowHeight, cellsWidth, columns: [{name, x, width, kind, budget}]}`.
-/// The table calls it only while [`measuring`], and only when the layout
-/// changed (the scroll position is in [`publish_table`]).
+/// top, rowHeight, cellsWidth, columns: [{name, x, width, kind, budget}]}`
+/// (CSS pixels from the canvas's top-left). The table reports it only while
+/// [`measuring`], and only when the layout changed (the scroll position is
+/// in [`publish_table`]).
 pub fn publish_table_layout(layout: &TableLayout) {
     #[cfg(target_family = "wasm")]
     {
@@ -207,17 +180,6 @@ pub fn publish_table_layout(layout: &TableLayout) {
     }
     #[cfg(not(target_family = "wasm"))]
     let _ = layout;
-}
-
-/// A drawn cell's value and the text handed to GPUI for it (which GPUI may
-/// still cut to the column's width).
-#[derive(Debug, Clone, PartialEq)]
-pub struct CellProbe {
-    pub row: u64,
-    pub column: usize,
-    /// The value's exact text (a float's shortest round-trip text).
-    pub exact: String,
-    pub shown: String,
 }
 
 /// Publishes the drawn cells to `globalThis.__tychoCells`: `[{row, column,

@@ -1,9 +1,9 @@
-//! What the table did over the last few seconds, for the perf panel: how
+//! What the table did over the last few seconds, for a host's stats: how
 //! fast the rows moved, and how many frames found every visible row loaded.
 
 use std::collections::VecDeque;
 
-/// One drawn frame: when (ms from `timeOrigin`), the top row, and whether
+/// One drawn frame: when (ms, on the host's clock), the top row, and whether
 /// every visible row was loaded.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Frame {

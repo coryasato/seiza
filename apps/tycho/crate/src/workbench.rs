@@ -20,12 +20,11 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::dataset::{ASTEROIDS, FileSummary, GAIA, Sample, format_bytes, format_count};
-#[cfg(target_family = "wasm")]
-use crate::table::RowSource;
 use crate::table::RowTable;
-#[cfg(target_family = "wasm")]
-use crate::table::TableEvent;
 use seiza_duckdb::EngineStatus;
+use seiza_table::Table;
+#[cfg(target_family = "wasm")]
+use seiza_table::TableEvent;
 
 actions!(tycho_workbench, [FocusJump]);
 
@@ -636,7 +635,7 @@ impl Workbench {
                 }
             }
             Load::Open { table, csv, .. } => {
-                table.update(cx, |table, _| table.close());
+                table.update(cx, |table, cx| table.close(cx));
                 match csv {
                     // Still loading: the load task drops the tables once its
                     // query answers.
@@ -708,8 +707,10 @@ impl Workbench {
                             this.read_counter = read_counter;
                             this.parquet_source = Some((sql_name.clone(), kept));
                             let table = cx.new(|cx| {
-                                RowTable::new(
-                                    RowSource::Parquet(sql_name),
+                                crate::table::new(
+                                    crate::table::Source::Parquet(
+                                        seiza_duckdb::table::ParquetFile::new(sql_name),
+                                    ),
                                     summary.rows,
                                     &summary.columns,
                                     engine,
@@ -900,8 +901,8 @@ impl Workbench {
         chunks.push(chunk.table, chunk.rows);
         let engine = cx.global::<seiza_duckdb::Engine>().clone();
         let table = cx.new(|cx| {
-            RowTable::new(
-                RowSource::Csv(chunks),
+            crate::table::new(
+                crate::table::Source::Csv(chunks),
                 summary.rows,
                 &summary.columns,
                 engine,
@@ -965,13 +966,19 @@ impl Workbench {
                             summary.rows,
                         ));
                     }
-                    table.update(cx, |table, cx| table.widen(column, cx));
+                }
+                if !chunk.widened.is_empty() {
+                    table.update(cx, |table, cx| {
+                        crate::table::widen(table, &chunk.widened, &summary.columns, cx)
+                    });
                 }
                 summary.rows += chunk.rows;
                 load.read = chunk.bytes_read as u64;
                 load.chunks += 1;
                 load.slowest_ms = load.slowest_ms.max(chunk.ms);
-                table.update(cx, |table, cx| table.grow(chunk.table, chunk.rows, cx));
+                table.update(cx, |table, cx| {
+                    crate::table::grow(table, chunk.table, chunk.rows, cx)
+                });
             }
             None => {
                 load.state = IngestState::Done;
@@ -1075,19 +1082,38 @@ impl Workbench {
     ) {
         cx.subscribe(table, move |this, table, event, cx| {
             let current = matches!(&this.load, Load::Open { table: shown, .. } if *shown == table);
+            // Only the table on screen: a replaced one's late report would
+            // overwrite the probes, and the shown one sends them only when
+            // they change.
+            if current {
+                crate::table::publish(event);
+            }
             match event {
-                TableEvent::FirstRows { shown_ms } if current => seiza::perf::set_load_step(
-                    cx,
-                    OPEN_STEPS,
-                    marks.first_rows_step,
-                    match shown_ms {
-                        Some(shown) => seiza::LoadStep::done(started_at, *shown),
-                        None => seiza::LoadStep::skipped(started_at),
-                    },
-                ),
-                TableEvent::FirstRows { .. } => {}
+                // Delivered in the task that presents the frame (the table
+                // emits it while rendering), so the mark lands right after it.
+                TableEvent::Filled { first: true } => {
+                    let first_rows = seiza::mark_after_current_task(crate::table::FIRST_ROWS_MARK);
+                    cx.spawn(async move |this, cx| {
+                        let shown_ms = first_rows.await;
+                        let _ = this.update(cx, |this, cx| {
+                            let current = matches!(&this.load, Load::Open { table: shown, .. } if *shown == table);
+                            if current {
+                                seiza::perf::set_load_step(
+                                    cx,
+                                    OPEN_STEPS,
+                                    marks.first_rows_step,
+                                    match shown_ms {
+                                        Some(shown) => seiza::LoadStep::done(started_at, shown),
+                                        None => seiza::LoadStep::skipped(started_at),
+                                    },
+                                );
+                            }
+                        });
+                    })
+                    .detach();
+                }
                 TableEvent::ReadFailed if current => this.register_again(table, cx),
-                TableEvent::ReadFailed => {}
+                _ => {}
             }
         })
         .detach();
@@ -1160,7 +1186,7 @@ impl Workbench {
                 }
                 // The failures that scheduled it are being retried now.
                 this.reregister_later = None;
-                table.update(cx, |table, cx| table.read_from(name, cx));
+                table.update(cx, |table, cx| crate::table::read_from(table, name, cx));
             });
         })
         .detach();
@@ -1710,7 +1736,7 @@ impl Render for Workbench {
                 .p_4()
                 .gap_3()
                 .child(self.render_summary(summary, csv.as_ref(), window, cx))
-                .child(div().flex_1().min_h_0().child(table.clone())),
+                .child(div().flex_1().min_h_0().child(Table::new(table))),
             _ => v_flex().size_full().p_4().child(self.render_empty(cx)),
         };
         div()

@@ -27,7 +27,7 @@ The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 - **Engines** (`engines/<name>/`, with `crate/` and/or `web/`): non-UI data layers that GPUI and React consumers share. An adapter between an engine and a component lives in the engine, behind an optional feature named for the component.
 - **Utility apps** (`apps/<star>/`): tools people use, star-named, each on its own subdomain. They turn on component features as they need them, and usually get a feature first.
 - **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 React equivalent, under the comparison protocol below.
-- **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. The first engine is `engines/duckdb/` (from Tycho); Tycho's table becomes the first component (`apps/tycho/PLAN.md`).
+- **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. The first engine is `engines/duckdb/` and the first component `components/table/`, both from Tycho.
 - **Build each wasm on its own** (`cargo build -p <crate>`). Cargo unifies features across the packages in one build, so a workspace-wide build would compile one app's features into another's. Clippy and tests may run workspace-wide.
 
 ## Stack and pins
@@ -81,13 +81,15 @@ seiza/
   .gitignore            # target/, node_modules/, .wrangler/, pkg/, dist/, per-app data/raw, generated data, perf/results/raw
   shared/               # crate `seiza`: wasm bootstrap, app shell (title bar, theme toggle), perf overlay, file helpers
   shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), placeholder.ts (static shell before the wasm), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts, perf/ (the perf harness every app's scripts share)
+  components/
+    table/              # `seiza-table`: the paged f64-row table (state entity, element, delegate); README.md, CLAUDE.md, docs/
   engines/
-    duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
+    duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
     observatory/        # the comparison site (planned): PLAN.md and README.md so far
     tycho/
       crate/            # Rust (cdylib)
-      web/              # Vite host, bridge.ts, engine.ts (DuckDB-Wasm)
+      web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts
       worker/           # Cloudflare Worker + wrangler.toml
       data/  perf/  docs/
       README.md         # the app for visitors: numbers, canvas tradeoffs, limits, how to run it
@@ -101,15 +103,13 @@ seiza/
   justfile              # `just tycho dev`, `just tycho perf`, …
 ```
 
-`components/` appears with the first component (see "Tiers").
-
 ## `shared/` and `shared-web/` conventions
 
 - Code goes in `shared/` only if it has no knowledge of any app: no DuckDB, no app types, no app strings. Apps depend on `shared/`, never the reverse.
 - The perf panel ("Observation panel", `shared/src/perf.rs` + `panel.rs` + `frames.rs`) lives in `shared/`. It owns the common metrics (the page-load waterfall up to first frame from the bootstrap's `seiza:wasm-*` marks, TTFP, frame intervals and per-frame work time, memory) and lets apps add load steps (`set_load_step`, one time axis per section), rows (`set_metric`), rows recomputed at each refresh (`on_refresh`), and how far it keeps from the window's right and bottom edges, to leave their controls reachable (`set_clearance`). It refreshes at ~4 Hz, not every frame, and is a cached GPUI view: frames it wasn't refreshed in replay its last drawing. It samples nothing while hidden. Its toggle is in the shell's title bar.
 - `shared/` owns the web bootstrap order (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame` mark → post-paint callback). Apps hook into the post-paint callback to start heavy loads. `shared-web`'s `boot` takes the app's `wasmUrl` for the waterfall's download step.
 - The page clock and `performance.mark`s go through `seiza::marks` (`now`, `mark`, `mark_at`, `mark_time`, `mark_after_current_task`); no crate that can depend on `seiza` keeps its own copy. A component or engine can't, so it reads the clock and its own JS side's marks itself and never sets a mark from Rust: the host marks from its events (`docs/DECISIONS.md`, "Repo structure"). A mark may be set more than once (a retry); readers take the **last** entry.
-- `shared-web/perf/` is the perf harness's app-agnostic half: `protocol.ts` (throttle profiles, the DPR shim, `budgetLimits` over an app's `budgets.json`, run summaries, machine labels), `harness.ts` (opening a page per the protocol, the perf panel's rows, target clicks, `wheel`, `waitMark`, the frame and work recorders, `fling`), and `serve.ts` (`serveApp`, the counting proxy). An app's `perf/` keeps only what knows the app, and never redefines a helper from here. Canvas controls are clicked through the bounds the app publishes to `globalThis.__seizaTargets[id] = [x, y, width, height]` (CSS pixels); `frameRecorder` records whatever an app's `globalThis.__seizaFrameSample()` returns with each rAF.
+- `shared-web/perf/` is the perf harness's app-agnostic half: `protocol.ts` (throttle profiles, the DPR shim, `budgetLimits` over an app's `budgets.json`, run summaries, machine labels), `harness.ts` (opening a page per the protocol, the perf panel's rows, target clicks, `wheel`, `waitMark`, the frame and work recorders, `presentingTaskRecorder` and `presentedMark` for marks set right after a presented frame, `fling`), and `serve.ts` (`serveApp`, the counting proxy). An app's `perf/` keeps only what knows the app, and never redefines a helper from here. Canvas controls are clicked through the bounds the app publishes to `globalThis.__seizaTargets[id] = [x, y, width, height]` (CSS pixels); `frameRecorder` records whatever an app's `globalThis.__seizaFrameSample()` returns with each rAF.
 - When a GPUI Kit web bug blocks progress, check upstream issues first. Work around it in `shared/` with a comment linking the issue. Don't fork unless there's no other way.
 - Code starts in the app. Move it to `shared/` once it's clearly app-agnostic foundation; UI and data layers become a component or an engine instead ("Tiers"). Don't build abstractions for apps that don't exist yet.
 

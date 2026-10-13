@@ -1,16 +1,6 @@
-//! The row table: every row of a registered file, fetched a page at a time
-//! and drawn only where the viewport is.
-//!
-//! Not gpui-kit's `DataTable`: its `uniform_list` positions rows in f32
-//! pixels, which loses precision past ~16 M px (see [`scroll`]). This view
-//! keeps the scroll position in rows, draws the visible rows and columns
-//! itself, and owns its scrollbars. Rows whose page isn't loaded yet draw as
-//! placeholders; a frame never waits on data.
-
-mod activity;
-mod format;
-mod pages;
-mod scroll;
+//! The table's state entity: scroll position, page cache, hover and tooltip,
+//! and the drawing of its header and body. [`Table`](crate::Table) wraps it
+//! with its focus, keys, and border.
 
 use gpui_kit::base::TooltipPositioner;
 use gpui_kit::component::scroll::Scrollbar;
@@ -19,18 +9,20 @@ use gpui_kit::component::{ActiveTheme as _, Size as KitSize};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::dataset::{ColumnInfo, format_count};
-pub use activity::{Activity, ActivityStats};
-pub use pages::{Direction, PageCache, RowState};
-pub use scroll::RowScroll;
-use seiza_duckdb::arrow::{QueryResult, Value};
+use crate::activity::{Activity, ActivityStats};
+use crate::column::{CELL_PADDING, CellKind, Column, LaidOutColumn, layout_columns};
+use crate::delegate::{CellValue, PageError, TableDelegate, TablePage as _};
+use crate::format;
+use crate::pages::{Direction, PageCache, RowState};
+use crate::probe::{CellProbe, ColumnProbe, TableLayout, TableProbe};
+use crate::scroll::{self, RowScroll};
 
 actions!(
-    tycho_table,
+    seiza_table,
     [LineUp, LineDown, PageUp, PageDown, ScrollToTop, ScrollToEnd]
 );
 
-const CONTEXT: &str = "RowTable";
+pub(crate) const CONTEXT: &str = "RowTable";
 
 /// Binds the table's scrolling keys.
 pub fn init(cx: &mut App) {
@@ -48,30 +40,23 @@ pub fn init(cx: &mut App) {
     ]);
 }
 
-#[cfg(target_family = "wasm")]
-type Request = seiza_duckdb::RequestId;
-#[cfg(not(target_family = "wasm"))]
-type Request = u32;
-
-/// How the table pages through a file.
+/// How the table pages through its rows.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct Paging {
     pub page_rows: u64,
     /// Pages kept loaded on each side of the viewport (twice that ahead
     /// while scrolling).
     pub prefetch: u64,
+    /// Loaded pages past this many bytes are evicted, least recently used
+    /// first.
     pub budget_bytes: usize,
+    /// Reads in flight at once, cancelled ones still answering included.
     pub max_in_flight: usize,
 }
 
-/// 1024-row pages, 2 pages of prefetch. The page-size sweep (256/1024/4096 rows ×
-/// 1/2/4 pages, perf/results/2026-09-25-m4-sweep.json) didn't separate them:
-/// every config met every budget, with the same frame times, the same share
-/// of placeholder frames in a fling (~84%: a 3 s fling outruns any
-/// prefetch), none while scrolling steadily, and first rows and jumps within
-/// noise. 1024 divides the 30,720-row groups, so a page never reads two
-/// groups; smaller pages evict in finer steps; prefetch 2 leaves headroom for
-/// faster scrolling than the sweep's steady 1,800 rows/s.
+/// 1024-row pages, 2 pages of prefetch, 64 MiB, 3 reads in flight
+/// (`docs/DECISIONS.md`, "Table and paging").
 impl Default for Paging {
     fn default() -> Self {
         Self {
@@ -83,153 +68,33 @@ impl Default for Paging {
     }
 }
 
-impl Paging {
-    /// The defaults, with `?page=`, `?prefetch=`, and `?budget_mib=` from the
-    /// URL applied (the page-size sweep sets them).
-    pub fn from_url() -> Self {
-        let number = |key: &str| {
-            seiza::url::param(key)
-                .and_then(|value| value.parse::<u64>().ok())
-                .filter(|value| *value > 0)
-        };
-        let mut paging = Self::default();
-        if let Some(rows) = number("page") {
-            paging.page_rows = rows;
-        }
-        if let Some(pages) = number("prefetch") {
-            paging.prefetch = pages;
-        }
-        // Checked: `usize` is 32 bits on wasm32, and 4096 MiB would wrap to 0.
-        if let Some(bytes) = number("budget_mib")
-            .and_then(|mib| usize::try_from(mib).ok())
-            .and_then(|mib| mib.checked_mul(1 << 20))
-        {
-            paging.budget_bytes = bytes;
-        }
-        paging
-    }
+/// How the table records its scrolling for [`TableState::stats`]. Without
+/// it, nothing is recorded.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct ActivityOptions {
+    /// The span [`TableState::stats`] covers, in ms.
+    pub window_ms: f64,
+    /// The clock frames are timed by, in ms (the clock `stats` gets `now` from).
+    pub clock: fn() -> f64,
+    /// Whether to record this frame: the host's stats are on show. While
+    /// it's false, nothing is kept.
+    pub is_recording: fn(&App) -> bool,
 }
 
-/// Where the table's rows come from.
-#[derive(Debug, Clone, PartialEq)]
-pub enum RowSource {
-    /// A registered Parquet file, by its SQL name; read where it lies.
-    Parquet(String),
-    /// A CSV file's chunk tables, growing while it loads.
-    Csv(crate::csv::Chunks),
-}
-
-impl RowSource {
-    #[cfg_attr(
-        not(target_family = "wasm"),
-        expect(dead_code, reason = "only the web build loads pages")
-    )]
-    fn page_sql(&self, rows: std::ops::Range<u64>) -> String {
-        match self {
-            Self::Parquet(file) => crate::dataset::page_sql(file, rows),
-            Self::Csv(chunks) => chunks.page_sql(rows),
+impl ActivityOptions {
+    pub fn new(window_ms: f64, clock: fn() -> f64, is_recording: fn(&App) -> bool) -> Self {
+        Self {
+            window_ms,
+            clock,
+            is_recording,
         }
     }
 }
 
-/// How a column's values are aligned, and what happens to one too wide for
-/// it. Cells are cut by GPUI (`text_overflow`), never by
-/// clipping: a right-aligned value clipped by its cell loses its front.
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum CellKind {
-    /// Left-aligned, cut at the end.
-    Text,
-    /// Right-aligned and never rounded (an ID isn't a quantity). The column
-    /// fits the type's widest value; anything wider (a HUGEINT) is cut in
-    /// the middle, keeping both ends: its magnitude and its last digits.
-    Integer,
-    /// Right-aligned, rounded to the digits that fit ([`format::fit_float`]).
-    Float,
-    /// Right-aligned, exact, and cut in the middle like an integer: an end
-    /// cut would lose its magnitude (`99999…` for 10^12 and 10^37 alike).
-    Decimal,
-}
-
-impl CellKind {
-    fn numeric(self) -> bool {
-        self != Self::Text
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Text => "text",
-            Self::Integer => "integer",
-            Self::Float => "float",
-            Self::Decimal => "decimal",
-        }
-    }
-}
-
-/// A column as drawn: its left edge in the scrolled content, and its width.
-#[derive(Debug, Clone, PartialEq)]
-struct TableColumn {
-    name: SharedString,
-    x: f32,
-    width: f32,
-    kind: CellKind,
-    /// How many characters a float may take ([`format::fit_float`]).
-    budget: usize,
-}
-
-/// A cell's horizontal padding (`px_2` on each side).
-const CELL_PADDING: f32 = 16.0;
 /// The table's text size (`text_sm`), in rems: drawn at it, and measured at
 /// it ([`Glyphs::read`]), so the two can't drift apart.
-const TEXT_REMS: f32 = 0.875;
-
-/// Width and kind by DuckDB type. An integer column fits its type's widest
-/// value at `number_px` a character. The name's width is estimated at the UI
-/// font's average advance; a longer name is cut.
-fn column_layout(column: &ColumnInfo, number_px: f32) -> (f32, CellKind) {
-    let digits = |chars: f32| chars * number_px + CELL_PADDING + 1.0;
-    let data_type = column.data_type.as_str();
-    let (width, kind) = match data_type {
-        "BOOLEAN" => (72.0, CellKind::Text),
-        "DATE" => (104.0, CellKind::Text),
-        // `-128`, `-32768`, `-2147483648`, and so on.
-        "TINYINT" => (digits(4.0), CellKind::Integer),
-        "SMALLINT" => (digits(6.0), CellKind::Integer),
-        "INTEGER" => (digits(11.0), CellKind::Integer),
-        "UTINYINT" => (digits(3.0), CellKind::Integer),
-        "USMALLINT" => (digits(5.0), CellKind::Integer),
-        "UINTEGER" => (digits(10.0), CellKind::Integer),
-        // HUGEINT's 40 digits would be a wall; they're cut in the middle.
-        "BIGINT" | "UBIGINT" | "HUGEINT" | "UHUGEINT" => (digits(20.0), CellKind::Integer),
-        "FLOAT" | "DOUBLE" => (120.0, CellKind::Float),
-        _ if data_type.starts_with("DECIMAL") => (120.0, CellKind::Decimal),
-        _ if data_type.starts_with("TIMESTAMP") => (184.0, CellKind::Text),
-        _ => (200.0, CellKind::Text),
-    };
-    let name = column.name.chars().count() as f32 * 7.5 + 24.0;
-    (width.max(name), kind)
-}
-
-fn layout_columns(columns: &[ColumnInfo], number_px: f32) -> (Vec<TableColumn>, f32) {
-    let mut x = 0.0;
-    let columns = columns
-        .iter()
-        .map(|column| {
-            let (width, kind) = column_layout(column, number_px);
-            // A pixel short of the room, for rounding in the shaped width.
-            let budget = ((width - CELL_PADDING - 1.0) / number_px).floor().max(1.0) as usize;
-            let laid_out = TableColumn {
-                name: column.name.clone().into(),
-                x,
-                width,
-                kind,
-                budget,
-            };
-            x += width;
-            laid_out
-        })
-        .collect();
-    (columns, x)
-}
+pub(crate) const TEXT_REMS: f32 = 0.875;
 
 /// The cells' font, and the widest advance of the characters a number is
 /// written with, read from the font once (not per value).
@@ -281,17 +146,18 @@ impl Glyphs {
 /// What a loaded cell shows. It differs from the value's exact text (the
 /// tooltip's) when a float is rounded, or when text has line breaks: a cell
 /// is one line, so they show as `¶` (U+21B5 `↵` isn't in IBM Plex Sans).
-fn cell_text(column: &TableColumn, value: Value<'_>) -> String {
+fn cell_text(column: &LaidOutColumn, value: CellValue<'_>) -> String {
     match (column.kind, value) {
-        (CellKind::Float, Value::Float(value)) => {
+        (CellKind::Float, CellValue::Float(value)) => {
             format::fit_float(value, format!("{value:?}"), column.budget)
         }
-        (CellKind::Float, Value::Float32(value)) => {
+        (CellKind::Float, CellValue::Float32(value)) => {
             format::fit_float(f64::from(value), format!("{value:?}"), column.budget)
         }
-        (_, Value::Str(text)) if text.contains(['\n', '\r']) => {
+        (_, CellValue::Text(text)) if text.contains(['\n', '\r']) => {
             text.replace("\r\n", "¶").replace(['\n', '\r'], "¶")
         }
+        (_, CellValue::Text(text)) => text.into_owned(),
         (_, value) => value.to_string(),
     }
 }
@@ -338,125 +204,115 @@ enum Drag {
     Horizontal { grab: f32 },
 }
 
-/// What the table reports. The workbench decides what to show for it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// What the table reports. The host decides what to show for it.
+#[derive(Debug, Clone, PartialEq)]
 pub enum TableEvent {
-    /// The first frame with every visible row loaded was presented at
-    /// `shown_ms` (ms from `timeOrigin`), or `None` if its mark couldn't be
-    /// set (no time to report). Once per table.
-    FirstRows { shown_ms: Option<f64> },
-    /// A page read failed to read the file ([`EngineError::is_read_failure`]).
-    /// A failed HTTP range read leaves
-    /// DuckDB-Wasm's handle on the file broken, and every later read of
-    /// those bytes fails too, network or not: the owner registers the
-    /// file again under a new name, then calls [`RowTable::read_from`].
+    /// A frame with every visible row loaded is being drawn, after one that
+    /// wasn't; `first` for the table's first. Emitted while the frame
+    /// renders, so it reaches subscribers in the task that presents the
+    /// frame: a mark set right after that task lands right after it's on
+    /// screen.
+    Filled { first: bool },
+    /// A page read failed with [`PageError::Failed`]'s `read_failure`: the
+    /// source is broken (a file it can no longer read). The host repairs
+    /// it, then calls [`TableState::retry_failed`].
     ReadFailed,
+    /// The vertical scrollbar's track and thumb, in window pixels, when they
+    /// change: for scripts that drag it.
+    Scrollbar {
+        track: Bounds<Pixels>,
+        thumb: Bounds<Pixels>,
+    },
+    /// What the frame shows, when it changes. Only while
+    /// [`TableState::probe_frames`] is on.
+    Probe(TableProbe),
+    /// Where the cells are, when it changes. Only while
+    /// [`TableState::probe_frames`] is on.
+    Layout(TableLayout),
+    /// Every drawn cell's exact and shown text, every frame. Only while
+    /// [`TableState::probe_cells`] is on.
+    Cells(Vec<CellProbe>),
 }
 
-/// The table's paging and scrolling, for the perf panel.
+/// The table's paging and scrolling, for a host's stats.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct TableStats {
     pub loaded_pages: usize,
     pub in_flight: usize,
-    /// Cancelled reads DuckDB is still running (see `PageCache::draining`).
+    /// Cancelled reads the delegate is still answering.
     pub draining: usize,
     pub cache_bytes: usize,
-    /// Over the last [`seiza::perf::WINDOW_MS`]: rows/s and filled frames.
+    /// Over [`ActivityOptions::window_ms`]: rows/s and filled frames.
     pub activity: ActivityStats,
 }
 
-/// What the Playwright checks read from `globalThis.__tychoTable`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TableProbe {
-    pub rows: u64,
-    pub top: f64,
-    pub first: u64,
-    pub end: u64,
-    pub loaded: u64,
-    pub pending: u64,
-    pub failed: u64,
-    /// The last visible row's first cell, if loaded.
-    pub last_cell: Option<String>,
-    /// The row the last jump landed on (0-based), highlighted.
-    pub marked: Option<u64>,
-    /// The cells' sideways scroll, in pixels.
-    pub scroll_x: f32,
-    /// The shown tooltip's text.
-    pub tooltip: Option<String>,
-}
-
-#[cfg_attr(
-    not(target_family = "wasm"),
-    expect(dead_code, reason = "only the web build loads pages")
-)]
-pub struct RowTable {
-    source: RowSource,
-    /// As the header strip shows them; [`RowTable::widen`] changes a type.
-    column_info: Vec<ColumnInfo>,
-    columns: Vec<TableColumn>,
+pub struct TableState<D: TableDelegate> {
+    delegate: D,
+    /// As the host gave them; [`TableState::set_columns`] replaces them.
+    column_info: Vec<Column>,
+    columns: Vec<LaidOutColumn>,
     content_width: f32,
     /// Read from the window's font at render; columns are laid out by it.
     glyphs: Glyphs,
     hover: Option<Hover>,
     /// Running for [`TOOLTIP_GRACE`] after a tooltip went.
     tooltip_grace: Option<Task<()>>,
-    /// Bumped by [`RowTable::lay_out`]. With the body's bounds and the
-    /// gutter's width, what the layout probe last published: it's rebuilt
+    /// Bumped by [`TableState::lay_out`]. With the body's bounds and the
+    /// gutter's width, what the layout probe last reported: it's rebuilt
     /// only when that changes, not every frame of a perf run.
     layout_generation: u64,
     published_layout: Option<(Bounds<Pixels>, u64, f32)>,
+    published_probe: Option<TableProbe>,
+    published_scrollbar: Option<(Bounds<Pixels>, Bounds<Pixels>)>,
+    probe_frames: bool,
+    probe_cells: bool,
     scroll: RowScroll,
     scroll_x: f32,
     direction: Direction,
-    cache: PageCache<QueryResult, Request>,
+    cache: PageCache<D::Page, D::Request>,
     paging: Paging,
     /// The body (rows and scrollbars), measured each frame.
     body: Bounds<Pixels>,
     drag: Option<Drag>,
     /// While a scrollbar drag moves, page loads wait for the pointer to rest
     /// (see [`DRAG_SETTLE`]); this is that wait.
-    #[cfg(target_family = "wasm")]
     drag_settle: Option<Task<()>>,
     /// Resets `direction` to still once the rows stop moving (see
     /// [`SCROLL_SETTLE`]).
-    #[cfg(target_family = "wasm")]
     scroll_settle: Option<Task<()>>,
-    focus_handle: FocusHandle,
+    pub(crate) focus_handle: FocusHandle,
     /// Whether the last frame had every visible row loaded.
     filled: bool,
-    /// Until the first filled frame: it emits [`TableEvent::FirstRows`].
-    first_rows_pending: bool,
-    /// The frames drawn while the perf panel is open.
+    /// Until the first filled frame: it emits [`TableEvent::Filled`] with
+    /// `first`.
+    first_fill_pending: bool,
+    /// The frames drawn while recording ([`ActivityOptions`]).
     activity: Activity,
-    /// Set by [`RowTable::close`]: no more page loads.
+    activity_options: Option<ActivityOptions>,
+    /// Set by [`TableState::close`]: no more page loads.
     closed: bool,
     /// The row the last jump landed on, highlighted so it can be found when
-    /// the end of the file keeps it from reaching the top.
+    /// the end of the rows keeps it from reaching the top.
     marked: Option<u64>,
-    #[cfg(target_family = "wasm")]
-    engine: seiza_duckdb::Engine,
 }
 
-impl RowTable {
-    /// A table over `rows` rows of `source`. Its first filled frame emits
-    /// [`TableEvent::FirstRows`].
+impl<D: TableDelegate> TableState<D> {
+    /// A table over `rows` rows of `delegate`, read `paging`'s way. It starts
+    /// loading its first pages now. Its first filled frame emits
+    /// [`TableEvent::Filled`] with `first`.
     pub fn new(
-        source: RowSource,
+        delegate: D,
+        columns: Vec<Column>,
         rows: u64,
-        columns: &[ColumnInfo],
-        #[cfg(target_family = "wasm")] engine: seiza_duckdb::Engine,
+        paging: Paging,
         cx: &mut Context<Self>,
     ) -> Self {
-        let paging = Paging::from_url();
         let glyphs = Glyphs::estimate();
-        let (laid_out, content_width) = layout_columns(columns, glyphs.number_px);
-        #[cfg_attr(
-            not(target_family = "wasm"),
-            expect(unused_mut, reason = "only the web build loads pages")
-        )]
+        let (laid_out, content_width) = layout_columns(&columns, glyphs.number_px);
         let mut table = Self {
-            source,
-            column_info: columns.to_vec(),
+            delegate,
+            column_info: columns,
             columns: laid_out,
             content_width,
             glyphs,
@@ -464,6 +320,10 @@ impl RowTable {
             tooltip_grace: None,
             layout_generation: 0,
             published_layout: None,
+            published_probe: None,
+            published_scrollbar: None,
+            probe_frames: false,
+            probe_cells: false,
             scroll: RowScroll::new(rows),
             scroll_x: 0.0,
             direction: Direction::Still,
@@ -476,22 +336,47 @@ impl RowTable {
             paging,
             body: Bounds::default(),
             drag: None,
-            #[cfg(target_family = "wasm")]
             drag_settle: None,
-            #[cfg(target_family = "wasm")]
             scroll_settle: None,
             focus_handle: cx.focus_handle(),
             filled: false,
-            first_rows_pending: true,
-            activity: Activity::new(seiza::perf::WINDOW_MS),
+            first_fill_pending: true,
+            activity: Activity::new(0.0),
+            activity_options: None,
             closed: false,
             marked: None,
-            #[cfg(target_family = "wasm")]
-            engine,
         };
-        #[cfg(target_family = "wasm")]
         table.load_pages(cx);
         table
+    }
+
+    /// Records scrolling for [`TableState::stats`].
+    pub fn with_activity(mut self, options: ActivityOptions) -> Self {
+        self.activity = Activity::new(options.window_ms);
+        self.activity_options = Some(options);
+        self
+    }
+
+    /// Reports [`TableEvent::Probe`] and [`TableEvent::Layout`]. Off by
+    /// default: they cost a little every frame.
+    pub fn probe_frames(mut self, probe: bool) -> Self {
+        self.probe_frames = probe;
+        self
+    }
+
+    /// Reports [`TableEvent::Cells`] every frame. Off by default: it slows
+    /// every frame.
+    pub fn probe_cells(mut self, probe: bool) -> Self {
+        self.probe_cells = probe;
+        self
+    }
+
+    pub fn delegate(&self) -> &D {
+        &self.delegate
+    }
+
+    pub fn delegate_mut(&mut self) -> &mut D {
+        &mut self.delegate
     }
 
     pub fn focus_handle(&self) -> &FocusHandle {
@@ -502,7 +387,11 @@ impl RowTable {
         self.scroll.rows()
     }
 
-    /// Scrolls `row` (0-based) to the top, or as near as the end of the file
+    pub fn columns(&self) -> &[Column] {
+        &self.column_info
+    }
+
+    /// Scrolls `row` (0-based) to the top, or as near as the end of the rows
     /// allows, and highlights it.
     pub fn jump_to(&mut self, row: u64, cx: &mut Context<Self>) {
         self.marked = Some(row);
@@ -511,46 +400,26 @@ impl RowTable {
         cx.notify();
     }
 
-    /// A CSV chunk became `table`, holding `rows` more rows: the row count
-    /// and the scrollbar grow, and pages that were short or missing load.
-    pub fn grow(&mut self, table: String, rows: u64, cx: &mut Context<Self>) {
-        let RowSource::Csv(chunks) = &mut self.source else {
-            return;
-        };
-        chunks.push(table, rows);
-        let total = chunks.rows();
+    /// The delegate holds `rows` rows now (a source that grows while it
+    /// loads): the scrollbar follows, and pages that were short or missing
+    /// load.
+    pub fn set_rows(&mut self, rows: u64, cx: &mut Context<Self>) {
         let top = self.scroll.top();
-        self.scroll.set_rows(total);
+        self.scroll.set_rows(rows);
         if self.scroll.top() != top {
             self.hover = None;
         }
-        #[cfg_attr(
-            not(target_family = "wasm"),
-            expect(unused_variables, reason = "only the web build loads pages")
-        )]
-        let stale = self.cache.set_rows(total);
-        #[cfg(target_family = "wasm")]
-        {
-            if let Some(request) = stale {
-                self.engine.cancel(request);
-            }
-            self.load_pages(cx);
+        if let Some(request) = self.cache.set_rows(rows) {
+            self.delegate.cancel(request, cx);
         }
+        self.load_pages(cx);
         cx.notify();
     }
 
-    /// A later CSV chunk had a value `column`'s type couldn't hold, so the
-    /// column is text from here on. Pages already loaded keep their values;
-    /// new reads cast the earlier chunks' values to text too.
-    pub fn widen(&mut self, column: &str, cx: &mut Context<Self>) {
-        if let RowSource::Csv(chunks) = &mut self.source {
-            chunks.widen(column);
-        }
-        for info in &mut self.column_info {
-            if info.name == column {
-                info.data_type = "VARCHAR".into();
-            }
-        }
+    /// Replaces the columns (a column's kind changed, say). Pages already
+    /// loaded keep their values.
+    pub fn set_columns(&mut self, columns: Vec<Column>, cx: &mut Context<Self>) {
+        self.column_info = columns;
         self.lay_out();
         cx.notify();
     }
@@ -563,28 +432,22 @@ impl RowTable {
         self.layout_generation += 1;
     }
 
-    /// Stops the table for good: cancels its page queries and sends no more.
-    /// Called when another file replaces it. The entity can outlive this (the
-    /// last frame still holds it), and a page answering meanwhile must not
-    /// start new reads of a file nobody shows.
-    pub fn close(&mut self) {
+    /// Stops the table for good: cancels its page reads and starts no more.
+    /// For a table being replaced: the entity can outlive this (the last
+    /// frame still holds it), and a page answering meanwhile must not start
+    /// new reads of rows nobody shows.
+    pub fn close(&mut self, cx: &mut App) {
         self.closed = true;
         self.hover = None;
-        #[cfg(target_family = "wasm")]
         for request in self.cache.requests() {
-            self.engine.cancel(request);
+            self.delegate.cancel(request, cx);
         }
     }
 
-    /// Reads a Parquet table's rows from `name` from now on (the same file,
-    /// registered again), and loads the pages whose reads failed again, if
-    /// they're still wanted.
-    pub fn read_from(&mut self, name: String, cx: &mut Context<Self>) {
-        if let RowSource::Parquet(current) = &mut self.source {
-            *current = name;
-        }
+    /// Loads the pages whose reads failed again, if they're still wanted:
+    /// after the host repaired the source ([`TableEvent::ReadFailed`]).
+    pub fn retry_failed(&mut self, cx: &mut Context<Self>) {
         if self.cache.forget_failed() {
-            #[cfg(target_family = "wasm")]
             self.load_pages(cx);
             cx.notify();
         }
@@ -595,8 +458,8 @@ impl RowTable {
         self.cache.has_failed()
     }
 
-    /// Paging and the last seconds' scrolling, as of `now` (ms from
-    /// `timeOrigin`). Scrolling is recorded only while the panel is open.
+    /// Paging and the last [`ActivityOptions::window_ms`]' scrolling, as of
+    /// `now` (on [`ActivityOptions::clock`]).
     pub fn stats(&mut self, now: f64) -> TableStats {
         TableStats {
             loaded_pages: self.cache.loaded_pages(),
@@ -692,37 +555,28 @@ impl RowTable {
     }
 
     /// The visible rows changed: fetch what they need.
-    #[cfg_attr(
-        not(target_family = "wasm"),
-        expect(unused_variables, reason = "only the web build loads pages")
-    )]
     fn rows_moved(&mut self, cx: &mut Context<Self>) {
-        #[cfg(target_family = "wasm")]
-        {
-            // Prefetch reaches further ahead while scrolling; once the rows
-            // rest, it goes back to even on both sides.
-            if self.direction != Direction::Still {
-                self.scroll_settle = Some(cx.spawn(async move |this, cx| {
-                    cx.background_executor().timer(SCROLL_SETTLE).await;
-                    let _ = this.update(cx, |this, cx| {
-                        this.direction = Direction::Still;
-                        this.load_pages(cx);
-                    });
-                }));
-            }
-            self.load_or_settle(cx);
+        // Prefetch reaches further ahead while scrolling; once the rows
+        // rest, it goes back to even on both sides.
+        if self.direction != Direction::Still {
+            self.scroll_settle = Some(cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(SCROLL_SETTLE).await;
+                let _ = this.update(cx, |this, cx| {
+                    this.direction = Direction::Still;
+                    this.load_pages(cx);
+                });
+            }));
         }
+        self.load_or_settle(cx);
     }
 
-    #[cfg(target_family = "wasm")]
     fn load_or_settle(&mut self, cx: &mut Context<Self>) {
         if self.drag.is_some() {
-            // A drag passes through positions it won't stop at. A page read
-            // can't be taken back once DuckDB starts it (its worker reads
-            // with sync XHRs; cancel lands between query slices), and on a
-            // slow network it holds up the page the drag ends on: on Fast 4G,
-            // a jump waited 2.1 s behind one such read. So load only
-            // once the pointer rests, or on release.
+            // A drag passes through positions it won't stop at. A source may
+            // not be able to take a read back once it starts (DuckDB-Wasm's
+            // can't), and on a slow network such a read holds up the page
+            // the drag ends on. So load only once the pointer rests, or on
+            // release.
             self.drag_settle = Some(cx.spawn(async move |this, cx| {
                 cx.background_executor().timer(DRAG_SETTLE).await;
                 let _ = this.update(cx, |this, cx| this.load_pages(cx));
@@ -734,27 +588,23 @@ impl RowTable {
 
     fn end_drag(&mut self, cx: &mut Context<Self>) {
         self.drag = None;
-        #[cfg(target_family = "wasm")]
         if self.drag_settle.take().is_some() {
             self.load_pages(cx);
         }
         cx.notify();
     }
 
-    #[cfg(target_family = "wasm")]
     fn wanted(&self) -> Vec<u64> {
         self.cache
             .wanted(self.scroll.visible(), self.direction, self.paging.prefetch)
     }
 
-    /// Sends the queries the viewport needs and cancels the ones it doesn't.
-    #[cfg(target_family = "wasm")]
+    /// Sends the reads the viewport needs and cancels the ones it doesn't.
     fn load_pages(&mut self, cx: &mut Context<Self>) {
         let wanted = self.wanted();
         self.load_wanted(&wanted, cx);
     }
 
-    #[cfg(target_family = "wasm")]
     fn load_wanted(&mut self, wanted: &[u64], cx: &mut Context<Self>) {
         if self.closed {
             return;
@@ -762,11 +612,10 @@ impl RowTable {
         let visible = self.cache.visible_pages(self.scroll.visible());
         let plan = self.cache.plan(wanted, visible);
         for request in plan.cancel {
-            self.engine.cancel(request);
+            self.delegate.cancel(request, cx);
         }
         for page in plan.fetch {
-            let sql = self.source.page_sql(self.cache.rows_of(page));
-            let (request, result) = self.engine.query(&sql);
+            let (request, result) = self.delegate.load_page(self.cache.rows_of(page), cx);
             self.cache.started(page, request);
             cx.spawn(async move |this, cx| {
                 let result = result.await;
@@ -776,12 +625,11 @@ impl RowTable {
         }
     }
 
-    #[cfg(target_family = "wasm")]
     fn page_done(
         &mut self,
         page: u64,
-        request: Request,
-        result: Result<QueryResult, seiza_duckdb::EngineError>,
+        request: D::Request,
+        result: Result<D::Page, PageError>,
         cx: &mut Context<Self>,
     ) {
         if self.closed {
@@ -793,10 +641,12 @@ impl RowTable {
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, &wanted);
             }
-            Err(seiza_duckdb::EngineError::Cancelled) => self.cache.finished(request),
-            Err(error) => {
-                let read_failure = error.is_read_failure();
-                self.cache.failed(page, request, error.to_string());
+            Err(PageError::Cancelled) => self.cache.finished(request),
+            Err(PageError::Failed {
+                message,
+                read_failure,
+            }) => {
+                self.cache.failed(page, request, message);
                 if read_failure {
                     cx.emit(TableEvent::ReadFailed);
                 }
@@ -821,27 +671,37 @@ impl RowTable {
         (self.scroll.viewport_rows() - 1.0).max(1.0)
     }
 
-    fn line_up(&mut self, _: &LineUp, _: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn line_up(&mut self, _: &LineUp, _: &mut Window, cx: &mut Context<Self>) {
         self.scroll_by(-1.0, 0.0, cx);
     }
 
-    fn line_down(&mut self, _: &LineDown, _: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn line_down(&mut self, _: &LineDown, _: &mut Window, cx: &mut Context<Self>) {
         self.scroll_by(1.0, 0.0, cx);
     }
 
-    fn page_up(&mut self, _: &PageUp, _: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn page_up(&mut self, _: &PageUp, _: &mut Window, cx: &mut Context<Self>) {
         self.scroll_by(-self.page_rows(), 0.0, cx);
     }
 
-    fn page_down(&mut self, _: &PageDown, _: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn page_down(&mut self, _: &PageDown, _: &mut Window, cx: &mut Context<Self>) {
         self.scroll_by(self.page_rows(), 0.0, cx);
     }
 
-    fn scroll_to_top(&mut self, _: &ScrollToTop, _: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn scroll_to_top(
+        &mut self,
+        _: &ScrollToTop,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.scroll_to_fraction(0.0, cx);
     }
 
-    fn scroll_to_end(&mut self, _: &ScrollToEnd, _: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn scroll_to_end(
+        &mut self,
+        _: &ScrollToEnd,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.scroll_to_fraction(1.0, cx);
     }
 
@@ -984,7 +844,7 @@ impl RowTable {
 
     /// The pointer left the cells or went to another: the tooltip goes, and
     /// the next one within [`TOOLTIP_GRACE`] shows at once.
-    fn hide_tooltip(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn hide_tooltip(&mut self, cx: &mut Context<Self>) {
         if self
             .hover
             .take()
@@ -1032,11 +892,11 @@ impl RowTable {
         };
         let laid_out = self.columns.get(column)?;
         let value = page.value(index, column)?;
-        if value == Value::Null {
+        if value == CellValue::Null {
             return None;
         }
-        let shown = cell_text(laid_out, value);
         let exact = value.to_string();
+        let shown = cell_text(laid_out, value);
         let cut = shown == exact && {
             let run = TextRun {
                 len: shown.len(),
@@ -1100,7 +960,7 @@ impl RowTable {
     }
 
     /// Visible columns: those overlapping the cells area at `scroll_x`.
-    fn visible_columns(&self) -> impl Iterator<Item = (usize, &TableColumn)> {
+    fn visible_columns(&self) -> impl Iterator<Item = (usize, &LaidOutColumn)> {
         let (left, right) = (self.scroll_x, self.scroll_x + self.cells_width());
         self.columns
             .iter()
@@ -1108,30 +968,15 @@ impl RowTable {
             .filter(move |(_, column)| column.x + column.width > left && column.x < right)
     }
 
-    /// Marks the frames where the viewport becomes fully loaded: every one
-    /// sets `tycho:viewport-filled` once presented, and the first also sets
-    /// `tycho:first-rows` and emits [`TableEvent::FirstRows`].
+    /// Emits [`TableEvent::Filled`] for the frames where the viewport becomes
+    /// fully loaded.
     fn track_filled(&mut self, filled: bool, cx: &mut Context<Self>) {
         let became_filled = filled && !self.filled;
         self.filled = filled;
-        #[cfg(target_family = "wasm")]
         if became_filled {
-            // The microtask is queued now; the mark is what the checks read,
-            // so it's set only while measuring (marks are never cleared).
-            if crate::targets::measuring() {
-                drop(seiza::mark_after_current_task(VIEWPORT_FILLED_MARK));
-            }
-            if std::mem::take(&mut self.first_rows_pending) {
-                let first_rows = seiza::mark_after_current_task(FIRST_ROWS_MARK);
-                cx.spawn(async move |this, cx| {
-                    let shown_ms = first_rows.await;
-                    let _ = this.update(cx, |_, cx| cx.emit(TableEvent::FirstRows { shown_ms }));
-                })
-                .detach();
-            }
+            let first = std::mem::take(&mut self.first_fill_pending);
+            cx.emit(TableEvent::Filled { first });
         }
-        #[cfg(not(target_family = "wasm"))]
-        let _ = (became_filled, cx);
     }
 
     fn render_header(&self, cx: &App) -> Div {
@@ -1174,7 +1019,7 @@ impl RowTable {
         let row_h = row_height();
         let gutter = self.gutter_width();
         let visible = self.scroll.visible();
-        let columns: Vec<(usize, TableColumn)> = self
+        let columns: Vec<(usize, LaidOutColumn)> = self
             .visible_columns()
             .map(|(index, column)| (index, column.clone()))
             .collect();
@@ -1184,8 +1029,8 @@ impl RowTable {
         let mut gutter_cells = Vec::new();
         let mut cells = Vec::new();
         let mut last_cell = None;
-        let measuring = crate::targets::measuring();
-        let mut cell_probes = crate::targets::probing_cells().then(Vec::new);
+        let probe_frames = self.probe_frames;
+        let mut cell_probes = self.probe_cells.then(Vec::new);
         {
             let theme = cx.theme();
             for row in visible.clone() {
@@ -1219,20 +1064,21 @@ impl RowTable {
                 match self.cache.row(row) {
                     RowState::Loaded(page, index) => {
                         loaded += 1;
-                        if measuring && row + 1 == visible.end {
+                        if probe_frames && row + 1 == visible.end {
                             last_cell = page.value(index, 0).map(|value| value.to_string());
                         }
                         for (column_index, column) in &columns {
-                            let value = page.value(index, *column_index).unwrap_or(Value::Null);
+                            let value = page.value(index, *column_index).unwrap_or(CellValue::Null);
+                            let exact = cell_probes.is_some().then(|| value.to_string());
                             let (text, color) = match value {
-                                Value::Null => ("NULL".to_string(), theme.muted_foreground),
+                                CellValue::Null => ("NULL".to_string(), theme.muted_foreground),
                                 value => (cell_text(column, value), theme.foreground),
                             };
-                            if let Some(probes) = cell_probes.as_mut() {
-                                probes.push(crate::targets::CellProbe {
+                            if let (Some(probes), Some(exact)) = (cell_probes.as_mut(), exact) {
+                                probes.push(CellProbe {
                                     row,
                                     column: *column_index,
-                                    exact: value.to_string(),
+                                    exact,
                                     shown: text.clone(),
                                 });
                             }
@@ -1282,22 +1128,22 @@ impl RowTable {
             }
         }
 
-        // An empty file shows no rows, and is complete as soon as it's open.
+        // No rows to show, and complete as soon as it's open.
         let filled = if self.scroll.rows() == 0 {
             true
         } else {
             !visible.is_empty() && loaded == visible.end - visible.start
         };
         self.track_filled(filled, cx);
-        #[cfg(target_family = "wasm")]
-        if seiza::perf::is_visible(cx) {
-            self.activity
-                .record(seiza::marks::now(), self.scroll.top(), filled);
-        } else {
-            self.activity.clear();
+        match self.activity_options {
+            Some(options) if (options.is_recording)(cx) => {
+                self.activity
+                    .record((options.clock)(), self.scroll.top(), filled);
+            }
+            _ => self.activity.clear(),
         }
-        if measuring {
-            crate::targets::publish_table(&TableProbe {
+        if probe_frames {
+            let probe = TableProbe {
                 rows: self.scroll.rows(),
                 top: self.scroll.top(),
                 first: visible.start,
@@ -1313,11 +1159,15 @@ impl RowTable {
                     .as_ref()
                     .and_then(|hover| hover.tooltip.as_ref())
                     .map(|(text, _)| text.to_string()),
-            });
+            };
+            if self.published_probe.as_ref() != Some(&probe) {
+                self.published_probe = Some(probe.clone());
+                cx.emit(TableEvent::Probe(probe));
+            }
             let key = (self.body, self.layout_generation, gutter);
             if self.published_layout != Some(key) {
                 self.published_layout = Some(key);
-                crate::targets::publish_table_layout(&crate::targets::TableLayout {
+                cx.emit(TableEvent::Layout(TableLayout {
                     left: f32::from(self.body.origin.x) + gutter,
                     top: f32::from(self.body.origin.y),
                     row_height: f32::from(row_h),
@@ -1325,7 +1175,7 @@ impl RowTable {
                     columns: self
                         .columns
                         .iter()
-                        .map(|column| crate::targets::ColumnProbe {
+                        .map(|column| ColumnProbe {
                             name: column.name.to_string(),
                             x: column.x,
                             width: column.width,
@@ -1333,11 +1183,11 @@ impl RowTable {
                             budget: column.budget,
                         })
                         .collect(),
-                });
+                }));
             }
         }
         if let Some(probes) = cell_probes {
-            crate::targets::publish_cells(&probes);
+            cx.emit(TableEvent::Cells(probes));
         }
 
         let entity = cx.entity();
@@ -1366,7 +1216,7 @@ impl RowTable {
                                     entity.update(cx, |this, cx| this.set_body(bounds, cx));
                                 });
                             }
-                            this.publish_scrollbar_targets(bounds);
+                            this.report_scrollbar(bounds, cx);
                         });
                         // Registered every frame, not only once a drag has
                         // started: a quick click on the track delivers the
@@ -1506,7 +1356,7 @@ impl RowTable {
             })
     }
 
-    fn cell(&self, column: &TableColumn, top: Pixels, height: Pixels) -> Div {
+    fn cell(&self, column: &LaidOutColumn, top: Pixels, height: Pixels) -> Div {
         div()
             .absolute()
             .top(top)
@@ -1520,7 +1370,7 @@ impl RowTable {
     /// cuts text only when its width is definite, and a flex item's isn't,
     /// so a right-aligned value spilled out the cell's left side and lost its
     /// front with no sign. The line height centers it.
-    fn value_cell(&self, column: &TableColumn, top: Pixels, height: Pixels) -> Div {
+    fn value_cell(&self, column: &LaidOutColumn, top: Pixels, height: Pixels) -> Div {
         let cell = self.cell(column, top, height).line_height(height);
         match column.kind {
             CellKind::Text => cell.truncate(),
@@ -1533,49 +1383,53 @@ impl RowTable {
         }
     }
 
-    /// Publishes the vertical scrollbar's track and thumb for the Playwright
-    /// checks (`table-scroll-track`, `table-scroll-thumb`).
-    fn publish_scrollbar_targets(&self, body: Bounds<Pixels>) {
+    /// Reports the vertical scrollbar's track and thumb when they move
+    /// ([`TableEvent::Scrollbar`]).
+    fn report_scrollbar(&mut self, body: Bounds<Pixels>, cx: &mut Context<Self>) {
         let bar = Scrollbar::width();
         let track = Bounds::new(
             point(body.origin.x + body.size.width - bar, body.origin.y),
             size(bar, (body.size.height - bar).max(px(0.))),
         );
         let thumb = self.vertical_thumb();
-        crate::targets::publish("table-scroll-track", track);
-        crate::targets::publish(
-            "table-scroll-thumb",
-            Bounds::new(
-                point(track.origin.x, track.origin.y + px(thumb.offset)),
-                size(bar, px(thumb.length)),
-            ),
+        let thumb = Bounds::new(
+            point(track.origin.x, track.origin.y + px(thumb.offset)),
+            size(bar, px(thumb.length)),
         );
+        if self.published_scrollbar != Some((track, thumb)) {
+            self.published_scrollbar = Some((track, thumb));
+            cx.emit(TableEvent::Scrollbar { track, thumb });
+        }
     }
 }
 
 /// How long a dragged scrollbar thumb must rest before its rows load.
-#[cfg(target_family = "wasm")]
 const DRAG_SETTLE: std::time::Duration = std::time::Duration::from_millis(80);
 /// How long the rows must rest before prefetch stops leaning ahead.
-#[cfg(target_family = "wasm")]
 const SCROLL_SETTLE: std::time::Duration = std::time::Duration::from_millis(250);
 
-/// Set right after each frame in which the viewport becomes fully loaded.
-#[cfg(target_family = "wasm")]
-const VIEWPORT_FILLED_MARK: &str = "tycho:viewport-filled";
-/// Set right after the first such frame for a file.
-#[cfg(target_family = "wasm")]
-const FIRST_ROWS_MARK: &str = "tycho:first-rows";
+/// `1567523` → `1,567,523`: the row numbers' format.
+pub(crate) fn format_count(value: u64) -> String {
+    let digits = value.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
+}
 
-impl EventEmitter<TableEvent> for RowTable {}
+impl<D: TableDelegate> EventEmitter<TableEvent> for TableState<D> {}
 
-impl Focusable for RowTable {
+impl<D: TableDelegate> Focusable for TableState<D> {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Render for RowTable {
+impl<D: TableDelegate> Render for TableState<D> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Before anything is drawn, so the first frame is laid out by the
         // font itself. Read only when the font or the rem size changes.
@@ -1588,39 +1442,43 @@ impl Render for RowTable {
             }
         }
         self.decide_tooltip(window, cx);
-        let focused = self.focus_handle.is_focused(window);
         let header = self.render_header(cx);
         let body = self.render_body(cx);
         let tooltip = self.render_tooltip();
-        let theme = cx.theme();
         div()
-            .id("row-table")
-            .key_context(CONTEXT)
-            .track_focus(&self.focus_handle)
-            .on_action(cx.listener(Self::line_up))
-            .on_action(cx.listener(Self::line_down))
-            .on_action(cx.listener(Self::page_up))
-            .on_action(cx.listener(Self::page_down))
-            .on_action(cx.listener(Self::scroll_to_top))
-            .on_action(cx.listener(Self::scroll_to_end))
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, _, window, cx| {
-                    this.hide_tooltip(cx);
-                    window.focus(&this.focus_handle, cx);
-                }),
-            )
             .size_full()
             .flex()
             .flex_col()
-            .overflow_hidden()
-            .text_size(rems(TEXT_REMS))
-            .bg(theme.tokens.table)
-            .rounded(theme.radius)
-            .border_1()
-            .border_color(if focused { theme.ring } else { theme.border })
             .child(header)
             .child(body)
             .children(tooltip)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Not `super::*`: it brings gpui-kit's `test` attribute, which shadows `#[test]`.
+    use super::{CellKind, CellValue, LaidOutColumn, cell_text, format_count};
+
+    #[test]
+    fn counts() {
+        assert_eq!(format_count(0), "0");
+        assert_eq!(format_count(999), "999");
+        assert_eq!(format_count(1_000), "1,000");
+        assert_eq!(format_count(1_567_523), "1,567,523");
+    }
+
+    #[test]
+    fn cells_are_one_line() {
+        let column = LaidOutColumn {
+            name: "note".into(),
+            x: 0.0,
+            width: 200.0,
+            kind: CellKind::Text,
+            budget: 21,
+        };
+        let text = |value: &str| cell_text(&column, CellValue::Text(value.into()));
+        assert_eq!(text("a\r\nb\nc\rd"), "a¶b¶c¶d");
+        assert_eq!(text("plain"), "plain");
     }
 }

@@ -23,13 +23,18 @@
 //   built in a worktree with its own target/; see CLAUDE.md, "Perf script
 //   gotchas"), the protocol's page, reference and throttled (--runs 10,
 //   --reference-only): TTFP and the placeholder's paint. The no-blank-frame
-//   check at the swap runs in every perf.ts run.
+//   check at the swap runs in every perf.ts run. Each side's TTFP spread
+//   ((max − min) / median) must stay under AB_MAX_SPREAD, or the run can't
+//   resolve a 3% difference and fails as too noisy: rerun it. The load
+//   average is recorded, not gated (docs/DECISIONS.md, "Measurement
+//   protocol"). The other build's path is recorded relative to the repo.
 //
 // Usage: node apps/tycho/perf/placeholder.ts [--controls] [--ab <dist>] [--runs 10] [--reference-only] [--label m7-placeholder]
 // Writes perf/results/<date>-<label>.json. Run `just tycho build` first.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { loadavg } from 'node:os';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { preview } from 'vite';
@@ -47,6 +52,18 @@ const rawDir = join(perfDir, 'results/raw/placeholder');
 const PORT = 4190;
 const url = `http://localhost:${PORT}/`;
 const fontPath = join(perfDir, '../../../shared-web/fonts/SeizaPlaceholder-Regular.woff2');
+const repoRoot = resolve(perfDir, '../../..');
+/** An A/B side's TTFP spread, (max − min) / median, above which the run is too noisy to resolve 3%. */
+const AB_MAX_SPREAD = 0.06;
+const load = () => loadavg().map((value) => Number(value.toFixed(2)));
+
+/** The other build's dist as the results may record it: never a home or temp path (the repo is public). */
+function publicPath(dir: string): string {
+  const inRepo = relative(repoRoot, dir);
+  if (!inRepo.startsWith('..') && !isAbsolute(inRepo)) return inRepo.split(sep).join('/');
+  // Only the directory's own name: any parent could be a home directory.
+  return `(outside the repo)/${dir.split(sep).filter(Boolean).at(-1) ?? ''}`;
+}
 
 const output: Record<string, unknown> = { date, label, ...machineInfo() };
 const failures: string[] = [];
@@ -268,10 +285,10 @@ async function abRun(target: string, variant: string, profile: Profile): Promise
 // --- main ---
 
 const abDist = option('ab');
+const abDistDir = abDist ? (isAbsolute(abDist) ? abDist : resolve(process.cwd(), abDist)) : undefined;
 const servers = [await preview({ root: webDir, preview: { port: PORT, strictPort: true }, logLevel: 'warn' })];
-if (abDist) {
-  const outDir = isAbsolute(abDist) ? abDist : resolve(process.cwd(), abDist);
-  servers.push(await preview({ root: webDir, build: { outDir }, preview: { port: PORT + 1, strictPort: true }, logLevel: 'warn' }));
+if (abDistDir) {
+  servers.push(await preview({ root: webDir, build: { outDir: abDistDir }, preview: { port: PORT + 1, strictPort: true }, logLevel: 'warn' }));
 }
 const browser = await chromium.launch({ channel: 'chromium' });
 try {
@@ -337,6 +354,7 @@ try {
   }
 
   if (abDist) {
+    const loadBefore = load();
     const variants: Record<string, string> = { other: `http://localhost:${PORT + 1}/`, this: url };
     for (const profile of flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES) {
       const list: AbRun[] = [];
@@ -359,10 +377,22 @@ try {
         ]),
       );
       console.log(profile.name, JSON.stringify(output[`ab-${profile.name}`]));
+      const summaries = output[`ab-${profile.name}`] as Record<string, { ttfpMs: ReturnType<typeof summarize> }>;
+      for (const name of Object.keys(variants)) {
+        const ttfp = summaries[name]?.ttfpMs;
+        if (!ttfp) {
+          failures.push(`${profile.name} A/B: no TTFP for ${name}`);
+          continue;
+        }
+        const spread = (ttfp.max - ttfp.min) / ttfp.median;
+        console.log(`${profile.name} ${name} TTFP spread ${(spread * 100).toFixed(1)}%`);
+        if (spread >= AB_MAX_SPREAD)
+          failures.push(`${profile.name} A/B too noisy: ${name}'s TTFP spread ${(spread * 100).toFixed(1)}% (limit ${AB_MAX_SPREAD * 100}%); rerun on a quieter machine`);
+      }
       if (of('this').some((run) => run.placeholderPaintMs === null || run.placeholderPaintMs > run.ttfpMs))
         failures.push(`${profile.name}: a run's placeholder didn't paint before the first frame`);
     }
-    output.ab = { other: abDist, runs, interleaved: true };
+    output.ab = { other: publicPath(abDistDir!), runs, interleaved: true, maxSpread: AB_MAX_SPREAD, loadAverage: { before: loadBefore, after: load() } };
   }
 } finally {
   await browser.close();

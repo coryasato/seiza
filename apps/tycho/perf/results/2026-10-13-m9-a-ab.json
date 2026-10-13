@@ -849,7 +849,7 @@
     }
   },
   "ab": {
-    "other": "/Users/coryasato/Code/rust/seiza/apps/tycho/perf/results/raw/pre-m9-e0faf21/dist",
+    "other": "apps/tycho/perf/results/raw/pre-m9-e0faf21/dist",
     "runs": 10,
     "interleaved": true
   },

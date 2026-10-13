@@ -849,7 +849,7 @@
     }
   },
   "ab": {
-    "other": "/private/tmp/claude-501/-Users-coryasato-Code-rust-seiza/96228875-ae76-444e-a32b-719abd426a7c/scratchpad/head/apps/tycho/web/dist",
+    "other": "(outside the repo)/tycho/web/dist",
     "runs": 10,
     "interleaved": true
   },

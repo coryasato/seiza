@@ -11,7 +11,7 @@ Tycho is a local-first data workbench in the browser. Drop a CSV or Parquet file
 - **Jump to row:** Cmd/Ctrl+G.
 - **Observation panel:** the title bar's "Observation panel" button, Cmd/Ctrl+Shift+P, or `?perf` in the URL. It shows the page-load waterfall, frame times and work per frame, memory, bytes read against the file size, and cache hits, live.
 
-Tycho is seiza's first utility app: a tool meant to grow with its users, not a fixed demo. v1 is done: all its milestones ([`docs/milestones.md`](docs/milestones.md)). Next, its table and its DuckDB layer become reusable pieces (a table component and a DuckDB engine) that the [observatory](../observatory/) will measure against the same table built in React. What's next is in [`PLAN.md`](PLAN.md).
+Tycho is seiza's first utility app: a tool meant to grow with its users, not a fixed demo. v1 is done: all its milestones ([`docs/milestones.md`](docs/milestones.md)). Its table and its DuckDB layer are now reusable pieces, a [table component](../../components/table/) and a [DuckDB engine](../../engines/duckdb/), which the [observatory](../observatory/) will measure against the same table built in React. What's next is in [`PLAN.md`](PLAN.md).
 
 ## Numbers
 
@@ -68,7 +68,7 @@ The reasoning and the measurements behind each choice are in [`docs/DECISIONS.md
 
 ## Canvas tradeoffs
 
-Drawing to a canvas gives up things the DOM does for free. Here's where Tycho stands on each, what it does today, and what closing the gap would take.
+Drawing to a canvas gives up things the DOM does for free. Here's where Tycho stands on each, what it does today, and what closing the gap would take. The table's own are also in [its component's README](../../components/table/README.md#canvas-tradeoffs).
 
 - **Accessibility:** screen readers see nothing. The canvas has no accessibility tree, so the table, the buttons, and the jump input are invisible to them. *Today:* everything works from the keyboard. Arrows, Page Up/Down, Space, and Home/End scroll the focused table. Cmd/Ctrl+G jumps to a row, and Enter there hands the keys back to the table. Cmd/Ctrl+Shift+L switches between the light and dark themes, and Cmd/Ctrl+Shift+P opens the observation panel. Tab doesn't move between controls: GPUI Kit 0.7.3 binds nothing to it. *To close it:* a hidden DOM mirror of the visible rows and controls, kept in step with each frame.
 - **Text input and IME:** the jump-to-row input is a canvas-drawn text field. A hidden browser input underneath it carries keys, composition, and paste. *Today:* typing, selection, undo, and IME composition work. A Japanese IME's full-width digits (`１２３`) are accepted, as are thousands separators (`1,000,000`). In a Mac browser, GPUI Kit 0.7.3's web build doesn't bind Cmd+A/C/X/Z in inputs, so Tycho binds them itself. Keys typed in the input never scroll the table.

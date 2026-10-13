@@ -1,0 +1,381 @@
+{
+  "date": "2026-10-13",
+  "label": "m9-c-engine",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "url": "http://localhost:4175/",
+  "chromium": {
+    "runs": 10,
+    "select42Ms": {
+      "median": 0.6,
+      "min": 0.5,
+      "max": 4.6
+    },
+    "typesMs": {
+      "median": 8.4,
+      "min": 7.6,
+      "max": 26.8
+    },
+    "cancelStopMs": {
+      "median": 4.4,
+      "min": 3.2,
+      "max": 14.6
+    },
+    "engineReadyMs": {
+      "median": 705.6,
+      "min": 651.7,
+      "max": 762.2
+    }
+  },
+  "negativeControls": [
+    {
+      "block": "duckdb-eh-*.wasm",
+      "ok": true,
+      "detail": "engine failed to load"
+    },
+    {
+      "block": "duckdb-browser-eh.worker-*.js",
+      "ok": true,
+      "detail": "engine failed to load"
+    }
+  ],
+  "runs": [
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 4.6 ms",
+            "ms": 4.625
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 8.1 ms",
+            "ms": 8.114999771118164
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 3.2 ms; next query ok in 1.0 ms",
+            "ms": 3.2049999237060547
+          }
+        ]
+      },
+      "engineReadyMs": 652.1099996566772,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.6 ms",
+            "ms": 0.5800004005432129
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 7.9 ms",
+            "ms": 7.914999961853027
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 3.9 ms; next query ok in 0.7 ms",
+            "ms": 3.8600001335144043
+          }
+        ]
+      },
+      "engineReadyMs": 686.2799997329712,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.6 ms",
+            "ms": 0.5550003051757812
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 7.6 ms",
+            "ms": 7.625
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 3.2 ms; next query ok in 0.8 ms",
+            "ms": 3.205000400543213
+          }
+        ]
+      },
+      "engineReadyMs": 724.8550000190735,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.6 ms",
+            "ms": 0.619999885559082
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 8.5 ms",
+            "ms": 8.490000247955322
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 3.7 ms; next query ok in 0.7 ms",
+            "ms": 3.7199997901916504
+          }
+        ]
+      },
+      "engineReadyMs": 652.710000038147,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 1.8 ms",
+            "ms": 1.8400001525878906
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 8.4 ms",
+            "ms": 8.394999980926514
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 9.4 ms; next query ok in 0.9 ms",
+            "ms": 9.440000057220459
+          }
+        ]
+      },
+      "engineReadyMs": 757.7800002098083,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.9 ms",
+            "ms": 0.9100003242492676
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 26.8 ms",
+            "ms": 26.765000343322754
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 14.6 ms; next query ok in 1.4 ms",
+            "ms": 14.575000286102295
+          }
+        ]
+      },
+      "engineReadyMs": 762.1749997138977,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.5 ms",
+            "ms": 0.5300002098083496
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 8.5 ms",
+            "ms": 8.485000133514404
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 3.9 ms; next query ok in 0.8 ms",
+            "ms": 3.9099998474121094
+          }
+        ]
+      },
+      "engineReadyMs": 656.5700001716614,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.8 ms",
+            "ms": 0.8000001907348633
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 8.7 ms",
+            "ms": 8.724999904632568
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 9.2 ms; next query ok in 1.3 ms",
+            "ms": 9.239999771118164
+          }
+        ]
+      },
+      "engineReadyMs": 651.6900000572205,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.5 ms",
+            "ms": 0.5099997520446777
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 11.1 ms",
+            "ms": 11.079999923706055
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 5.2 ms; next query ok in 0.7 ms",
+            "ms": 5.15500020980835
+          }
+        ]
+      },
+      "engineReadyMs": 739.7199997901917,
+      "errors": []
+    },
+    {
+      "browser": "chromium",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.6 ms",
+            "ms": 0.565000057220459
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 8.2 ms",
+            "ms": 8.169999599456787
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 4.8 ms; next query ok in 0.7 ms",
+            "ms": 4.800000190734863
+          }
+        ]
+      },
+      "engineReadyMs": 738.0599999427795,
+      "errors": []
+    },
+    {
+      "browser": "firefox",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 0.8 ms",
+            "ms": 0.8000000000001819
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 6.5 ms",
+            "ms": 6.5
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 100.2 ms; next query ok in 1.1 ms",
+            "ms": 100.17999999999984
+          }
+        ]
+      },
+      "engineReadyMs": 1525.34,
+      "errors": []
+    },
+    {
+      "browser": "webkit",
+      "report": {
+        "ok": true,
+        "checks": [
+          {
+            "name": "SELECT 42",
+            "ok": true,
+            "detail": "x = 42 in 2.5 ms",
+            "ms": 2.480000000000018
+          },
+          {
+            "name": "types",
+            "ok": true,
+            "detail": "17 columns in 13.6 ms",
+            "ms": 13.639999999999873
+          },
+          {
+            "name": "cancel",
+            "ok": true,
+            "detail": "stopped in 5.1 ms; next query ok in 2.1 ms",
+            "ms": 5.140000000000327
+          }
+        ]
+      },
+      "engineReadyMs": 2892.82,
+      "errors": []
+    }
+  ]
+}

@@ -21,8 +21,8 @@
 
 use std::ops::Range;
 
-use crate::dataset::{ColumnInfo, column, count, sql_string, text};
 use seiza_duckdb::arrow::{QueryResult, Value};
+use seiza_duckdb::sql::{ColumnInfo, column, count, quote_identifier, string_literal, text};
 
 /// The attached database the chunk tables live in. In memory, compressed:
 /// DuckDB doesn't compress an in-memory database unless asked.
@@ -57,7 +57,7 @@ pub fn sniff_sql(file: &str) -> String {
     format!(
         "SELECT Delimiter, Quote, Escape, NewLineDelimiter, Comment, SkipRows, HasHeader, \
          DateFormat, TimestampFormat, unnest(Columns, recursive := true) FROM sniff_csv({})",
-        sql_string(file)
+        string_literal(file)
     )
 }
 
@@ -72,7 +72,7 @@ pub fn create_sql(table: &str, file: &str, options: &str, numbered: bool) -> Str
     };
     format!(
         "CREATE TABLE {table} AS SELECT {number}* FROM read_csv({}, {options})",
-        sql_string(file)
+        string_literal(file)
     )
 }
 
@@ -193,10 +193,10 @@ impl Dialect {
         let (name, data_type) = (at("name")?, at("type")?);
         let columns = (0..result.num_rows())
             .map(|row| {
-                Ok(ColumnInfo {
-                    name: text(result, row, name)?,
-                    data_type: text(result, row, data_type)?,
-                })
+                Ok(ColumnInfo::new(
+                    text(result, row, name)?,
+                    text(result, row, data_type)?,
+                ))
             })
             .collect::<Result<Vec<_>, String>>()?;
         Ok((dialect, columns))
@@ -215,7 +215,7 @@ impl Dialect {
     /// the header and the skipped lines.
     pub fn read_options(&self, columns: &[ColumnInfo], first: bool) -> String {
         let byte = |byte: Option<u8>| {
-            sql_string(
+            string_literal(
                 &byte
                     .map(|byte| char::from(byte).to_string())
                     .unwrap_or_default(),
@@ -225,10 +225,10 @@ impl Dialect {
             "auto_detect = false, header = {}, skip = {}, delim = {}, quote = {}, escape = {}, new_line = {}",
             first && self.header,
             if first { self.skip_rows } else { 0 },
-            sql_string(&self.delimiter),
+            string_literal(&self.delimiter),
             byte(self.quote),
             byte(self.escape),
-            sql_string(&self.new_line),
+            string_literal(&self.new_line),
         );
         for (option, value) in [
             ("comment", &self.comment),
@@ -236,7 +236,7 @@ impl Dialect {
             ("timestampformat", &self.timestamp_format),
         ] {
             if let Some(value) = value {
-                options.push_str(&format!(", {option} = {}", sql_string(value)));
+                options.push_str(&format!(", {option} = {}", string_literal(value)));
             }
         }
         let columns: Vec<String> = columns
@@ -244,8 +244,8 @@ impl Dialect {
             .map(|column| {
                 format!(
                     "{}: {}",
-                    sql_string(&column.name),
-                    sql_string(&column.data_type)
+                    string_literal(&column.name),
+                    string_literal(&column.data_type)
                 )
             })
             .collect();
@@ -516,10 +516,6 @@ impl Chunks {
             }
         }
     }
-}
-
-fn quote_identifier(name: &str) -> String {
-    format!("\"{}\"", name.replace('"', "\"\""))
 }
 
 /// Reads [`create_sql`]'s answer: the rows the chunk held.
@@ -1044,10 +1040,7 @@ mod tests {
 
     #[test]
     fn a_file_with_its_own_rowid_numbers_its_rows() {
-        let column = |name: &str| ColumnInfo {
-            name: name.into(),
-            data_type: "BIGINT".into(),
-        };
+        let column = |name: &str| ColumnInfo::new(name, "BIGINT");
         assert_eq!(row_column(&[column("a"), column("b")]), "rowid");
         assert_eq!(row_column(&[column("a"), column("RowID")]), NUMBER_COLUMN);
         assert_eq!(

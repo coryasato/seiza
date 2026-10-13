@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-13",
+  "label": "m9-c-table-browsers",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "name": "asteroids.parquet",
+    "rows": 1567523,
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+    "notes": [
+      "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+      "0 rows have no first_obs in the source"
+    ]
+  },
+  "budgets": {
+    "firstRowsMs": 500,
+    "jumpMs": 400,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50,
+    "memoryCapMiB": 128,
+    "memoryGrowthPerPass": 0.1
+  },
+  "browsers": [
+    {
+      "browser": "chromium",
+      "ok": true,
+      "detail": "first rows 211 ms, jump 69 ms, track click 1545713 → after moving off 1545713 (stayed), cancelled drag ended, 3000 px wheel moved 100.00 rows, end 1567523/1567523; marks after their frame: first rows ok (0.44 ms after its last GPU call, same task), filled after the jump ok (0.16 ms after its last GPU call, same task), filled after End ok (0.26 ms after its last GPU call, same task); a later task's time caught",
+      "problems": []
+    },
+    {
+      "browser": "firefox",
+      "ok": true,
+      "detail": "first rows 146 ms, jump 85 ms, track click 1545763 → after moving off 1545763 (stayed), cancelled drag ended, 3000 px wheel moved 100.00 rows, end 1567523/1567523; marks after their frame: first rows ok (0.48 ms after its last GPU call, same task), filled after the jump ok (0.84 ms after its last GPU call, same task), filled after End ok (0.40 ms after its last GPU call, same task); a later task's time caught",
+      "problems": []
+    },
+    {
+      "browser": "webkit",
+      "ok": true,
+      "detail": "first rows 192 ms, jump 88 ms, track click 1545763 → after moving off 1545763 (stayed), cancelled drag ended, 3000 px wheel moved 100.00 rows, end 1567523/1567523; marks after their frame: first rows ok (1.36 ms after its last GPU call, same task), filled after the jump ok (0.32 ms after its last GPU call, same task), filled after End ok (0.18 ms after its last GPU call, same task); a later task's time caught",
+      "problems": []
+    }
+  ],
+  "failures": []
+}

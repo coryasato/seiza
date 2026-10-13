@@ -47,6 +47,26 @@ let (id, result) = engine.query("SELECT count(*) FROM 'a.parquet'");
 - `Engine::load_parquet()`: loads the Parquet extension, or joins the load running. Every Parquet query waits for it.
 - `EngineError::is_read_failure()`: whether registering the file again under a new name could fix the error.
 - `arrow::decode(bytes)`: the Arrow IPC reader, for null, bool, ints, floats, decimal128, utf8, binary, dates, times, and timestamps; any other type decodes as a column that shows its type name.
+- `sql`: `ColumnInfo` (a column's name and DuckDB type), `string_literal`, and typed reads of metadata results (`column`, `text`, `count`).
+
+**The `table` feature** makes DuckDB a [`seiza-table`](../../components/table/) source (in the browser; natively there's no engine, so `QueryRows::new` takes only the query and every page fails):
+
+```rust
+use seiza_duckdb::table::{ParquetFile, QueryRows};
+
+let (summary, read_counter) =
+    seiza_duckdb::table::open_parquet(&engine, "file-1.parquet", source, &["my.credit"], |_| {}).await?;
+let columns = summary.columns.iter().map(ColumnInfo::table_column).collect();
+let state = cx.new(|cx| {
+    TableState::new(QueryRows::new(engine, ParquetFile::new("file-1.parquet")), columns, summary.rows, Paging::default(), cx)
+});
+```
+
+- `QueryRows<Q: PageQuery>`: a `TableDelegate` that reads each page with `Q::page_sql(rows)` through the engine; a read failure (`EngineError::is_read_failure`) becomes the table's `ReadFailed`. `query_mut()` changes the query (a source that grows, a file registered again).
+- `ParquetFile`: the page query for a registered Parquet file, filtered on `file_row_number` (reads only the row groups that hold the page). `set_name` points it at the file registered again.
+- `ParquetSummary` and `open_parquet`: register a file and read its columns, row and row-group counts, and the key/value metadata under the keys you ask for, from the footer only.
+- `ColumnInfo::table_column()`: the table's `ColumnKind` for a DuckDB type.
+- `QueryResult` is a `TablePage`.
 
 **JS (`@seiza/duckdb`):**
 
@@ -60,7 +80,8 @@ A host must be cross-origin isolated (COOP/COEP): the read counters are `SharedA
 
 | Feature | What it adds | Cost (wasm, brotli) | Measured in |
 |---|---|---|---|
-| *(base)* | The client, its status and events, and the Arrow reader | +12.3 KiB when first built, with Tycho's bridge self-test (arrow-rs would have added 127 KiB more) | [Tycho's 2026-09-23 note](../../apps/tycho/perf/results/2026-09-23-m2.md) |
+| *(base)* | The client, its status and events, the Arrow reader, and the SQL helpers | +12.3 KiB when first built, with Tycho's bridge self-test (arrow-rs would have added 127 KiB more) | [Tycho's 2026-09-23 note](../../apps/tycho/perf/results/2026-09-23-m2.md) |
+| `table` | A `seiza-table` source: query results as pages, Parquet files read a page at a time, their summary | — | [Tycho's results](../../apps/tycho/perf/results/) |
 
 The JS side loads after first paint and costs no first-paint bytes: the engine chunk (38.8 KiB br), DuckDB's worker (~152 KiB br), its wasm (~5 MiB br, EH), and the Parquet extension (~487 KiB br), as Tycho's `just tycho build` reports them.
 
