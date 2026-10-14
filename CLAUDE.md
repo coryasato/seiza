@@ -1,6 +1,6 @@
 # seiza (星座)
 
-**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`). There are four kinds of thing here ("Tiers" below): utility apps people use, the observatory that compares their components with React, and the components and engines they're built from.
+**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit) compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a common foundation crate (`shared/`). There are four kinds of thing here ("Tiers" below): utility apps people use, the observatory that compares their components with DOM equivalents, and the components and engines they're built from.
 
 The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
 
@@ -8,13 +8,13 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
-- `apps/observatory/`: the Observatory, the comparison site (seiza.io/observatory). Planned: only its `PLAN.md` and `README.md` exist.
+- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Planned: only its `PLAN.md` and `README.md` exist.
 
 ---
 
 ## Repo-wide rules
 
-1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/`, a component, or an engine affects every app that builds it, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `perf/budgets.json` (every budget) and `perf/baseline.json` (the TTFP and wasm baselines `check` compares against).
+1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. If a change adds bytes to an app's wasm, record its size effect in that app's `perf/results/` notes, not the commit message. A change to `shared/`, a component, or an engine affects every app that builds it, so record the effect for each one. Each app's `just <app> check` enforces its TTFP and wasm-size budgets and fails the build on a regression. Budgets live in that app's `perf/budgets.json` (every budget) and `perf/baseline.json` (the TTFP and wasm baselines `check` compares against). This rule gates every build, the observatory's contenders included; what the observatory's comparison headlines is per-use cost ("Comparison protocol" below).
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame appears. The UI stays usable and says what's still loading.
 3. **Measure before and after.** Every milestone ends with a measurement using the protocol below. The numbers go in `apps/<app>/perf/results/` (committed; large raw Playwright traces go in `perf/results/raw/`, which is gitignored) and a short note goes in `apps/<app>/docs/LESSONS.md`.
 4. **Handle the canvas tradeoffs in the open** (a11y, IME, text selection, Ctrl+F, bundle size). When an app falls short on one, it says so in the UI or in its own `README.md` ("Canvas tradeoffs"). It never hides the gap.
@@ -24,9 +24,9 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 
 - **Components** (`components/<name>/`): generic UI libraries in the style of GPUI Kit's components: a view, a state entity, and a delegate trait for the data. Plain names (`tall-table`). A minimal base; every further capability (sorting, filtering, …) is a Cargo feature, off by default. A component knows no app and doesn't depend on `seiza`, so it stays publishable: it reports through events, and the host turns them into panel rows and marks.
-- **Engines** (`engines/<name>/`, with `crate/` and/or `web/`): non-UI data layers that GPUI and React consumers share. An adapter between an engine and a component lives in the engine, behind an optional feature named for the component.
+- **Engines** (`engines/<name>/`, with `crate/` and/or `web/`): non-UI data layers that GPUI and DOM consumers share. An adapter between an engine and a component lives in the engine, behind an optional feature named for the component.
 - **Utility apps** (`apps/<star>/`): tools people use, star-named, each on its own subdomain. They turn on component features as they need them, and usually get a feature first.
-- **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 React equivalent, under the comparison protocol below.
+- **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 DOM equivalent, under the comparison protocol below. It only consumes components and engines: it may ask one to expose what its metrics need, but never to change how a utility app behaves, and a change to a component's internals for it stays small, defaults unchanged.
 - **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. The first engine is `engines/duckdb/` and the first component `components/tall-table/`, both from Tycho.
 - **Build each wasm on its own** (`cargo build -p <crate>`). Cargo unifies features across the packages in one build, so a workspace-wide build would compile one app's features into another's. Clippy and tests may run workspace-wide.
 
@@ -36,9 +36,9 @@ The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 - **The pin covers the whole gpui family through `Cargo.lock`.** `=0.7.3` on `gpui-kit` alone lets its caret deps float (`gpui-component`, `gpui-base`, `gpui-pre-*`). `Cargo.lock` is committed and was seeded from gpui-kit 0.7.3's published lock. To bump, copy the new release's `Cargo.lock` from the registry source, then `cargo fetch`. Don't run a bare `cargo update`.
 - **Toolchain:** dated nightly in `rust-toolchain.toml`, because `gpui-pre-web` pulls in `wasm_thread`, which needs `#![feature]`. `wasm-bindgen-cli` must match the locked `wasm-bindgen` exactly (`cargo install wasm-bindgen-cli --version <locked> --locked`). Also needed: `just`, `wasm-opt` (binaryen), Node.js.
 - **Release profile:** Cargo reads `[profile.release]` only from the workspace root `Cargo.toml`, so its settings apply to every app. If an app needs different settings, use `[profile.release.package.<crate>]` and note why in that app's `docs/DECISIONS.md`. Per-package overrides can't set `lto`, `panic`, or `rpath`; those stay workspace-wide.
-- **JS host:** a thin Vite layer per app (`apps/<app>/web/`), built on `shared-web/`. Keep it thin: new logic goes in Rust unless it must touch a JS-only API.
+- **JS host:** a thin Vite layer per app (`apps/<app>/web/`), built on `shared-web/`. Keep it thin: new logic goes in Rust unless it must touch a JS-only API. The exception, on purpose: the observatory's page and its DOM contenders are JS throughout (`docs/DECISIONS.md`, "Comparison protocol").
 - **Headers everywhere, dev included:** `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. `shared-web/` provides the dev-server config so every app gets them from day one, and cross-origin problems show up early instead of at deploy.
-- **Hosting:** Cloudflare Workers (static assets + R2 where needed), one Worker per app in `apps/<app>/worker/`. Each utility app has its own subdomain of seiza.io (a custom domain); the observatory lives at `seiza.io/observatory`, and the root is kept for a static landing page. The apex origin is shared, so nothing registers a service worker scoped to `/` (scope each to its own path). Every Worker that serves data sits behind the zone's WAF rules (one rate-limiting rule, the free plan's only one, and one path allowlist) and honours the same pause switch; it widens those rules rather than adding its own. Decisions: `docs/DECISIONS.md`, "Hosting".
+- **Hosting:** Cloudflare Workers (static assets + R2 where needed), one Worker per app in `apps/<app>/worker/`. The observatory's data is a static asset, never R2. Each utility app has its own subdomain of seiza.io (a custom domain); the observatory lives at `seiza.io/observatory`, and the root is kept for a static landing page. The apex origin is shared, so nothing registers a service worker scoped to `/` (scope each to its own path). Every Worker that serves data sits behind the zone's WAF rules (one rate-limiting rule, the free plan's only one, and one path allowlist) and honours the same pause switch; it widens those rules rather than adding its own. Decisions: `docs/DECISIONS.md`, "Hosting".
 
 ### Known GPUI Kit web gotchas (check before debugging)
 
@@ -86,7 +86,7 @@ seiza/
   engines/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
-    observatory/        # the comparison site (planned): PLAN.md and README.md so far
+    observatory/        # the comparison page (planned): PLAN.md and README.md so far
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts
@@ -136,14 +136,19 @@ Every "done when" check that includes a number, in every app, uses this protocol
 
 ## Comparison protocol
 
-How the observatory compares a component with React. It adds to the measurement protocol; the reasons are in `docs/DECISIONS.md`, "Comparison protocol".
+How the observatory compares a component with a DOM equivalent. It adds to the measurement protocol; the reasons are in `docs/DECISIONS.md`, "Comparison protocol".
 
-- **Base level against a 1:1 React equivalent.** The GPUI side is the component in a minimal host, never a utility app. A feature level (base + sorting, …) is a GPUI build and a React build with identical features, and neither bundle carries code for a feature it doesn't have. The GPUI contender builds `seiza` without its title bar and observation panel.
-- **Only the UI differs.** Same engine, same SQL. The component's paging numbers are the controlled variable, the same on both sides; everything else is idiomatic to each stack. Each side decodes results in its own language, and that counts as UI cost. A shared scenario fixture (scroll and jump steps → the page requests they should make) runs against both sides' caches, which must request the same pages in the same order.
-- **Placeholders on both sides, each idiomatic:** the GPUI side's HTML placeholder shell, React's prerendered first screen.
-- **Three metrics, defined by meaning:** first pixels, first usable UI, first rows painted. The GPUI side's marks are checked against its GPU calls, as TTFP's is; the DOM side's with Element Timing on the first real cell plus a presented-frame check.
-- **Contender pages are bare** (no site chrome) and publish the same marks, targets, and replay hooks (load, fling, jump to 90%). The observatory runs one contender at a time (two in one tab share a main thread and a GPU) and draws the results itself. Playwright's runs are cold; a replay in a visitor's browser is labelled warm.
-- **Show where React wins.** First pixels and bundle size are likely React's, and the page says so.
+- **Contenders are named for their stack:** the GPUI contender, and a DOM contender (first the TanStack contender: React, TanStack Virtual, its own CSS, and the Arrow library; no Wasm of its own, no UI kit). A comparison reads GPUI | TanStack. The GPUI contender is the component in a minimal host, never a utility app, and builds `seiza` without its title bar and observation panel.
+- **The same scope:** a comparison level is the base level, or base plus features (sorting, …) built identically on both sides; neither bundle carries code for a feature it doesn't have.
+- **Only the UI differs.** Same engine, same file, same SQL. The component's paging numbers are the controlled variable, the same on both sides (the tall table's: 1024-row pages, prefetch 2, 3 reads in flight, no prefetch while a visible page loads, prefetch leaning ahead until the rows rest 250 ms, a scrollbar drag loading once the pointer rests 80 ms, and a 64 MiB cache counted in the Arrow IPC bytes each page arrived as); everything else is idiomatic to each stack. Each side decodes results in its own language, and that counts as UI cost.
+- **Fixtures prove "the same".** They live in the component (`components/<name>/fixtures/`), run natively against it, and run in TS against each DOM contender, each with a negative control: paging scenarios (scroll, jump, rest, and drag steps → the page requests, in order), cell text (values and each column's character budget, pinned from the GPUI contender → the text shown), and the page SQL.
+- **The DOM side scrolls natively,** on the compositor, as a DOM grid would: past the browser's element-height cap, a spacer scaled under the cap with the content moving 1:1 with the input within a page. It doesn't copy the component's scroll model.
+- **Headline: per-use cost**, defined by meaning and measured per side: time to first usable (a probe input right after the candidate moment changes state within a frame or two), time to data (open → every visible row painted, the engine warm), input to visible response (the event's timestamp → the first presented frame at the new position, and → that frame's rows being real data), behavior under load (in a fling: late frames, the share of frames with placeholder rows, whether the view keeps up with the input), reach and correctness (the last row is reachable, and the row count equals `count(*)`), and cost (memory, main-thread CPU, bytes). One-time costs (first pixels, bundle size) are footnotes.
+- **Placeholders on both sides, each idiomatic:** the GPUI side's HTML placeholder shell, the DOM side's prerendered first screen, whose first usable is its hydration commit (confirmed by the probe).
+- **Measured the same way on both sides.** Per-frame work comes from the browser's trace (`shared-web/perf/`'s `workRecorder` sees only GPU frames, so it only cross-checks the GPUI side). The GPUI side's marks are checked against its GPU calls, as TTFP's is; the DOM side's with Element Timing on newly created cells (never a placeholder turned real in place), set only during measured runs, plus a presented-frame check.
+- **Contender pages are bare** (no site chrome) and publish the same marks, targets, and replay hooks (load, fling, jump to 90%). Contenders set marks only; one metrics module does the math, for the Playwright scripts and the page's readouts alike. **Published numbers come only from cold Playwright runs** of the bare pages, one contender at a time.
+- **The page runs one contender at a time** (two in one tab share a main thread and a GPU), each in a same-origin iframe that a switch destroys, not hides. Both load the engine from one shared path, so the second to load is warm, and its numbers are labelled warm. A split view runs both at once and is labelled not measured.
+- **Show where the DOM side wins.** First pixels and bundle size are likely its, and the page says so.
 
 ## Docs: one home per fact
 
@@ -169,6 +174,6 @@ A new app starts from `docs/templates/app/`; a new component or engine, from `do
 ## Working agreements for Claude Code
 
 - Work on one app milestone at a time. Work on a component or engine is a milestone of the app that drives it. At the start, restate the "done when" checks. At the end, show the evidence for each check (numbers, trace excerpts, screenshots).
-- Keep JS small and typed. Any logic that could live in Rust lives in Rust.
+- Keep JS small and typed. Any logic that could live in Rust lives in Rust (except in the observatory's page and DOM contenders, above).
 - Before starting an app's next milestone, close the last one: its results note in `perf/results/`, new decisions in `docs/DECISIONS.md`, a `docs/LESSONS.md` entry (surprises), `just <app> report`, and its spec and evidence moved from `PLAN.md` to `docs/milestones.md`.
 - Tick `PLAN.md`'s checks as they pass, with their evidence; log each decision in `docs/DECISIONS.md` as it lands.

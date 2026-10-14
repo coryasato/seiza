@@ -2,7 +2,7 @@
 
 What's next for Tycho: milestone status, the active milestone's "done when" checks, long-term goals, and open questions. Only what's still open lives here. Context and rules are in `CLAUDE.md` here and at the repo root.
 
-**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGPU, WebGL2 fallback) that people use as a real tool: a utility app (root `CLAUDE.md`, "Tiers"), with a number on screen for every claim. Its table and DuckDB layer become the repo's first component and engine, and the observatory compares that component with React ([`../observatory/PLAN.md`](../observatory/PLAN.md)).
+**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGPU, WebGL2 fallback) that people use as a real tool: a utility app (root `CLAUDE.md`, "Tiers"), with a number on screen for every claim. Its table and DuckDB layer become the repo's first component and engine, and the observatory compares that component with a DOM equivalent, GPUI | TanStack ([`../observatory/PLAN.md`](../observatory/PLAN.md)).
 
 **Deciding metric:** time to first paint (TTFP), measured as `performance.mark("gpui:first-frame")`.
 
@@ -32,7 +32,7 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | Later | Table features: column resizing, selection, sorting | Not started; research first |
 | Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
 
-The side-by-side comparison with React moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)), which builds on M9's component and engine.
+The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)), which builds on M9's component and engine.
 
 **Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` (a dated JSON per run and a note, from [`docs/templates/app/perf/results-note.md`](../../docs/templates/app/perf/results-note.md)); new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; `just tycho report` has refreshed the generated numbers; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above.
 

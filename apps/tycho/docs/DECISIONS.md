@@ -8,7 +8,7 @@ One bullet per decision, under its area, oldest first: what was chosen, the numb
 
 - **2026-09-25** · M7's overlay becomes a user-facing **observation panel**: live load waterfall, bytes read vs file size, and while scrolling rows/s, pages in flight, cache hits, memory, and a sparkline of both rAF interval and per-frame work time. It refreshes at ~4 Hz; the fling budget is checked with it open and closed. *[M7 planning]*
 - **2026-09-25** · **Jump to row** is navigation, not analysis, so it's inside v1 scope (Tycho rule 4). It's the first text input. *[M7 planning]*
-- **2026-09-25** · The React comparison, if built, is a **replay mode** (the same scripted run on each side in turn), not a live race in one tab, where both sides would share a main thread and GPU. Research first; see Long-term goals. *[planning]*
+- **2026-09-25** · The React comparison, if built, is a **replay mode** (the same scripted run on each side in turn), not a live race in one tab, where both sides would share a main thread and GPU. Research first; see Long-term goals. *[planning]* *Superseded 2026-10-12 and 2026-10-14: the comparison moved to the observatory, which runs one contender at a time and replays them with a benchmark button (root `docs/DECISIONS.md`, "Comparison protocol").*
 
 ## Engine and bridge
 

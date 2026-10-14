@@ -2,12 +2,12 @@
 
 **seiza** ("constellation") is a monorepo of heavy web apps built with [GPUI](https://www.gpui.rs/) (via [GPUI Kit](https://github.com/longbridge/gpui-kit)), compiled to WebAssembly, and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available).
 
-The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each utility app ships with a live observation panel and a reproducible measurement suite, its README says where the canvas still falls short, and the observatory measures its components against React.
+The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each utility app ships with a live observation panel and a reproducible measurement suite, its README says where the canvas still falls short, and the observatory measures its components against DOM equivalents.
 
 The repo holds four kinds of thing:
 
 - **Utility apps:** tools meant to be used, each on its own subdomain and named for an astronomer. They grow into real tools.
-- **The observatory:** one comparison site, at seiza.io/observatory. It puts each component's base level next to a 1:1 React equivalent with the same engine and data, and shows where each side wins.
+- **The observatory:** one comparison page, at seiza.io/observatory. It runs each component's base level against a 1:1 DOM equivalent (first GPUI | TanStack: React + TanStack Virtual), one at a time, on the same engine and data, measures what each costs over a session of use, and shows where each side wins.
 - **Components:** generic UI libraries in the style of GPUI Kit's components (a table, later others). A minimal base, plus capabilities like sorting as features a build turns on.
 - **Engines:** the data layers both sides of a comparison share (DuckDB-Wasm today).
 
@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison site: a component's base level in GPUI against the same component in React, same engine, same data, measured the same way. | Planned |
+| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Planned |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -59,7 +59,7 @@ seiza/
   engines/
     duckdb/             # DuckDB-Wasm for every app: a Rust crate (seiza-duckdb) and an npm package (@seiza/duckdb)
   apps/
-    observatory/        # the comparison site (planned: its PLAN.md and README.md so far)
+    observatory/        # the comparison page (planned: its PLAN.md and README.md so far)
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands
@@ -76,7 +76,7 @@ seiza/
     templates/component/ # the docs skeleton a new component or engine starts from
 ```
 
-Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). The first engine is [`engines/duckdb/`](engines/duckdb/), Tycho's DuckDB layer, and the first component [`components/tall-table/`](components/tall-table/), Tycho's table. The observatory's GPUI side will be their second consumer.
+Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). The first engine is [`engines/duckdb/`](engines/duckdb/), Tycho's DuckDB layer, and the first component [`components/tall-table/`](components/tall-table/), Tycho's table. The observatory's GPUI contender will be their second consumer.
 
 ## Getting started
 

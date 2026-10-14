@@ -4,11 +4,12 @@
 
 **Planned, not built yet.** It will live at `seiza.io/observatory`.
 
-The Observatory is seiza's comparison site. For each component in the repo (first [the tall table](../../components/tall-table/) behind [Tycho](../tycho/)), it will put the component's base level, drawn by GPUI on a canvas from WebAssembly, next to a 1:1 React equivalent drawn in the DOM, and measure both the same way.
+The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, over all 1.57 M known asteroids.
 
-- **Only the UI differs:** both sides read the same data through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers.
+- **What it measures: use, not page load.** A data component is judged over a session: how soon it's usable, how long data takes to appear, how fast a scroll or a jump shows up, what a fling looks like, whether the last row is reachable, and what it costs in memory, CPU, and bytes. First pixels and bundle size are footnotes.
+- **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.
-- **Measured, not raced:** contenders run one at a time, since two in one tab share a main thread and a GPU. The recorded numbers come from cold Playwright runs; a replay in your browser is labelled warm.
-- **Where React wins, too:** first pixels and bundle size are likely React's, and the page will say so.
+- **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm. A split view shows both at once, labelled not measured.
+- **Where TanStack wins, too:** first pixels and bundle size are likely TanStack's, and the page will say so.
 
-The rules are the root [`CLAUDE.md`](../../CLAUDE.md)'s "Comparison protocol", and the decisions behind them are in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md). What's next, and what has to happen first, is in [`PLAN.md`](PLAN.md).
+The rules are the root [`CLAUDE.md`](../../CLAUDE.md)'s "Comparison protocol", and the decisions behind them are in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md). What's next is in [`PLAN.md`](PLAN.md).

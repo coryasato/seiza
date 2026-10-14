@@ -4,7 +4,7 @@ DuckDB-Wasm for seiza's apps: the database runs in a Web Worker, behind a three-
 
 ---
 
-This is the DuckDB engine's context. Why it's built this way is in `docs/DECISIONS.md`; what it offers its users, in `README.md`. Its work is a milestone in the app that drives it (Tycho, `apps/tycho/PLAN.md`), measured in that app's `perf/`. The repo-wide rules in the root `CLAUDE.md` apply here too. Paths below are relative to this directory.
+This is the DuckDB engine's context. Why it's built this way is in `docs/DECISIONS.md`; what it offers its users, in `README.md`. Its work is a milestone in the app that drives it (Tycho, `apps/tycho/PLAN.md`, or the observatory, `apps/observatory/PLAN.md`, which only consumes it: root `CLAUDE.md`, "Tiers"), measured in that app's `perf/`. The repo-wide rules in the root `CLAUDE.md` apply here too. Paths below are relative to this directory.
 
 Current state only: say what to do and point to the decision behind it (`docs/DECISIONS.md`, "Engine and bridge"); don't retell its measurements.
 
