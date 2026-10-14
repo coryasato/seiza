@@ -1,0 +1,1047 @@
+{
+  "date": "2026-10-13",
+  "label": "m9-suite",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "url": null,
+  "protocol": "root CLAUDE.md, \"Measurement protocol\": Chromium headless=new, cold cache, 1440×900 at DPR 2, median of 10; reference + throttled (CPU 4×, Fast 4G)",
+  "loadAverage": {
+    "before": [
+      2.95,
+      2.08,
+      2.02
+    ],
+    "after": [
+      3.08,
+      2.36,
+      1.99
+    ]
+  },
+  "headline": {
+    "cold": {
+      "ttfpMs": {
+        "reference": 187.5,
+        "throttled": 3727.2
+      },
+      "ttfpSplitMs": {
+        "reference": {
+          "wasmReadyMs": 96.3,
+          "afterWasmReadyMs": 92.4
+        },
+        "throttled": {
+          "wasmReadyMs": 3376.1,
+          "afterWasmReadyMs": 350.7
+        }
+      },
+      "engineReadyMs": {
+        "reference": 626,
+        "throttled": 9946.1
+      },
+      "wasmBrotliKiB": 2840.2
+    },
+    "panel": {
+      "reference": {
+        "matched": "170/170",
+        "flingPanelOpen": {
+          "intervalP95Ms": 16.7,
+          "intervalMaxMs": 16.7,
+          "over50": 0,
+          "workP50Ms": 5.8,
+          "workP95Ms": 7.5
+        },
+        "flingPanelClosed": {
+          "intervalP95Ms": 16.7,
+          "intervalMaxMs": 16.7,
+          "over50": 0,
+          "workP50Ms": 5.1,
+          "workP95Ms": 6.7
+        },
+        "steadyWork": {
+          "p50Ms": 12.4,
+          "p95Ms": 14.5
+        }
+      },
+      "throttled": {
+        "matched": "170/170",
+        "flingPanelOpen": {
+          "intervalP95Ms": 16.7,
+          "intervalMaxMs": 16.7,
+          "over50": 0,
+          "workP50Ms": 22.7,
+          "workP95Ms": 27.9
+        },
+        "flingPanelClosed": {
+          "intervalP95Ms": 16.7,
+          "intervalMaxMs": 16.7,
+          "over50": 0,
+          "workP50Ms": 20,
+          "workP95Ms": 21.6
+        },
+        "steadyWork": {
+          "p50Ms": 31.9,
+          "p95Ms": 37.5
+        }
+      }
+    },
+    "table-asteroids": {
+      "reference": {
+        "firstRowsMs": 198.8,
+        "jumpTo90Ms": 81.7,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 5.8,
+        "flingWorkP95Ms": 7.6,
+        "steadyWorkP50Ms": 12.6,
+        "steadyWorkP95Ms": 15.8
+      },
+      "throttled": {
+        "firstRowsMs": 3370.7,
+        "jumpTo90Ms": 2184.4,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 23,
+        "flingWorkP95Ms": 28.5,
+        "steadyWorkP50Ms": 22.8,
+        "steadyWorkP95Ms": 33.3
+      }
+    },
+    "table-gaia": {
+      "reference": {
+        "firstRowsMs": 289.4,
+        "jumpTo90Ms": 134.9,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 5.6,
+        "flingWorkP95Ms": 7.4,
+        "steadyWorkP50Ms": 12.2,
+        "steadyWorkP95Ms": 15.1
+      },
+      "throttled": {
+        "firstRowsMs": 8403,
+        "jumpTo90Ms": 6548.9,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "flingWorkP50Ms": 20.7,
+        "flingWorkP95Ms": 26.6,
+        "steadyWorkP50Ms": 20.3,
+        "steadyWorkP95Ms": 25.4
+      }
+    },
+    "jump": {
+      "asteroids": {
+        "reference": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 77.4,
+          "lastMs": 66.2
+        },
+        "throttled": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 2161.9,
+          "lastMs": 511.3
+        },
+        "edgeProblems": 0
+      },
+      "gaia": {
+        "reference": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 131.4,
+          "lastMs": 158.3
+        },
+        "throttled": {
+          "firstMs": "in view (10 runs)",
+          "middleMs": 6562.1,
+          "lastMs": 4944.4
+        },
+        "edgeProblems": 0
+      }
+    },
+    "csv": {
+      "reference": {
+        "schemaMs": 151.3,
+        "firstRowsMs": 185.6,
+        "updateGapMaxMsWorstRun": 219.5,
+        "flingP95MsWorstRun": 16.7,
+        "flingMaxMsWorstRun": 33.3,
+        "ingestS": 15.3,
+        "mbPerS": 70.2
+      },
+      "throttled": {
+        "schemaMs": 217,
+        "firstRowsMs": 347.7,
+        "updateGapMaxMsWorstRun": 428.8,
+        "flingP95MsWorstRun": 50,
+        "flingMaxMsWorstRun": 50,
+        "ingestS": 20.3,
+        "mbPerS": 52.9
+      }
+    }
+  },
+  "parts": {
+    "cold": {
+      "origin": "local",
+      "passed": true,
+      "seconds": 118,
+      "failures": [],
+      "raw": "raw/2026-10-13-m9-suite/cold.json",
+      "summary": {
+        "date": "2026-10-13",
+        "label": "m9-suite-cold",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "browser": "Chromium 153.0.8010.12 (headless=new)",
+        "tools": {
+          "rustc": "rustc 1.100.0-nightly (feaadeeac 2026-09-19)",
+          "wasmOpt": "wasm-opt version 133",
+          "node": "v26.0.0"
+        },
+        "url": "http://localhost:4174/",
+        "protocol": {
+          "viewport": "1440x900",
+          "deviceScaleFactor": 2,
+          "runs": 10,
+          "throttled": {
+            "cpuSlowdown": 4,
+            "network": "Fast 4G",
+            "download": 1012500,
+            "upload": 168750,
+            "latency": 165
+          }
+        },
+        "wasmBrotliKiB": 2840.2,
+        "wasmEncodings": [
+          "/assets/duckdb-eh-9ubY-jlA.wasm: br",
+          "/assets/tycho_bg-DYOqUrEt.wasm: br"
+        ],
+        "ttfpMs": {
+          "reference": 187.5,
+          "throttled": 3727.2
+        },
+        "placeholderPaintMs": {
+          "reference": 33.4,
+          "throttled": 254
+        },
+        "engineReadyMs": {
+          "reference": 626,
+          "throttled": 9946.1
+        },
+        "ttfpSplitMs": {
+          "reference": {
+            "wasmReadyMs": 96.3,
+            "afterWasmReadyMs": 92.4
+          },
+          "throttled": {
+            "wasmReadyMs": 3376.1,
+            "afterWasmReadyMs": 350.7
+          }
+        },
+        "failures": []
+      }
+    },
+    "panel": {
+      "origin": "local",
+      "passed": true,
+      "seconds": 1369,
+      "failures": [],
+      "raw": "raw/2026-10-13-m9-suite/panel.json",
+      "summary": {
+        "date": "2026-10-13",
+        "label": "m9-suite-panel",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "browser": "Chromium (headless=new)",
+        "protocol": {
+          "viewport": "1440x900",
+          "deviceScaleFactor": 2,
+          "runs": 10,
+          "tolerance": 0.05,
+          "windowMs": 2000
+        },
+        "file": {
+          "name": "asteroids.parquet",
+          "rows": 1567523,
+          "bytes": 37692103,
+          "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+          "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+          "fetched": "2026-09-24",
+          "rowGroups": 52,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+          "notes": [
+            "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+            "0 rows have no first_obs in the source"
+          ]
+        },
+        "summary": {
+          "reference": {
+            "runs": 10,
+            "matched": "170/170",
+            "steadyWork": {
+              "p50Ms": 12.4,
+              "p95Ms": 14.5
+            },
+            "flingPanelOpen": {
+              "intervalP95Ms": 16.7,
+              "intervalMaxMs": 16.7,
+              "over50": 0,
+              "workP50Ms": 5.8,
+              "workP95Ms": 7.5
+            },
+            "flingPanelClosed": {
+              "intervalP95Ms": 16.7,
+              "intervalMaxMs": 16.7,
+              "over50": 0,
+              "workP50Ms": 5.1,
+              "workP95Ms": 6.7
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "matched": "170/170",
+            "steadyWork": {
+              "p50Ms": 31.9,
+              "p95Ms": 37.5
+            },
+            "flingPanelOpen": {
+              "intervalP95Ms": 16.7,
+              "intervalMaxMs": 16.7,
+              "over50": 0,
+              "workP50Ms": 22.7,
+              "workP95Ms": 27.9
+            },
+            "flingPanelClosed": {
+              "intervalP95Ms": 16.7,
+              "intervalMaxMs": 16.7,
+              "over50": 0,
+              "workP50Ms": 20,
+              "workP95Ms": 21.6
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "table-asteroids": {
+      "origin": "local",
+      "passed": true,
+      "seconds": 1586,
+      "failures": [],
+      "raw": "raw/2026-10-13-m9-suite/table-asteroids.json",
+      "summary": {
+        "date": "2026-10-13",
+        "label": "m9-suite-table-asteroids",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "asteroids.parquet",
+          "rows": 1567523,
+          "bytes": 37692103,
+          "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+          "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+          "fetched": "2026-09-24",
+          "rowGroups": 52,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+          "notes": [
+            "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+            "0 rows have no first_obs in the source"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128,
+          "memoryGrowthPerPass": 0.1
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 198.8,
+              "min": 189.5,
+              "max": 202.7
+            },
+            "jumpMs": {
+              "median": 81.7,
+              "min": 79.7,
+              "max": 96.7
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.829,
+              "min": 0.816,
+              "max": 0.84
+            },
+            "flingWorkP50Ms": {
+              "median": 5.8,
+              "min": 5.7,
+              "max": 5.8
+            },
+            "flingWorkP95Ms": {
+              "median": 7.6,
+              "min": 7.3,
+              "max": 7.8
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 12.6,
+              "min": 12.2,
+              "max": 13.5
+            },
+            "steadyWorkP95Ms": {
+              "median": 15.8,
+              "min": 15.1,
+              "max": 16.5
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "firstRun": {
+              "firstRowsMs": 199.29500007629395,
+              "jumpMs": 81.65999984741211
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 3370.7,
+              "min": 3348.7,
+              "max": 3455.6
+            },
+            "jumpMs": {
+              "median": 2184.4,
+              "min": 2158.1,
+              "max": 2212.7
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 25,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.842,
+              "min": 0.837,
+              "max": 0.845
+            },
+            "flingWorkP50Ms": {
+              "median": 23,
+              "min": 22.8,
+              "max": 23.1
+            },
+            "flingWorkP95Ms": {
+              "median": 28.5,
+              "min": 28.1,
+              "max": 29.2
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 22.8,
+              "min": 22.6,
+              "max": 23.3
+            },
+            "steadyWorkP95Ms": {
+              "median": 33.3,
+              "min": 32.5,
+              "max": 35.1
+            },
+            "steadyPlaceholderShare": {
+              "median": 0.659,
+              "min": 0.634,
+              "max": 0.674
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "table-gaia": {
+      "origin": "local",
+      "passed": true,
+      "seconds": 1716,
+      "failures": [],
+      "raw": "raw/2026-10-13-m9-suite/table-gaia.json",
+      "summary": {
+        "date": "2026-10-13",
+        "label": "m9-suite-table-gaia",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "file": {
+          "name": "gaia-dr3-bright.parquet",
+          "rows": 25067889,
+          "bytes": 1572736231,
+          "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+          "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+          "fetched": "2026-10-07",
+          "rowGroups": 409,
+          "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+          "notes": [
+            "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+            "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+            "distance_pc = 1000 / parallax where parallax > 0, else NULL"
+          ]
+        },
+        "budgets": {
+          "firstRowsMs": 500,
+          "jumpMs": 400,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50,
+          "memoryCapMiB": 128,
+          "memoryGrowthPerPass": 0.1
+        },
+        "profiles": {
+          "reference": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 289.4,
+              "min": 282.6,
+              "max": 302.2
+            },
+            "jumpMs": {
+              "median": 134.9,
+              "min": 134.3,
+              "max": 151.1
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.848,
+              "min": 0.844,
+              "max": 0.852
+            },
+            "flingWorkP50Ms": {
+              "median": 5.6,
+              "min": 5.5,
+              "max": 5.8
+            },
+            "flingWorkP95Ms": {
+              "median": 7.4,
+              "min": 7.1,
+              "max": 7.6
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "steadyWorkP50Ms": {
+              "median": 12.2,
+              "min": 12.1,
+              "max": 12.6
+            },
+            "steadyWorkP95Ms": {
+              "median": 15.1,
+              "min": 14.4,
+              "max": 16.5
+            },
+            "steadyPlaceholderShare": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "firstRun": {
+              "firstRowsMs": 288.76500034332275,
+              "jumpMs": 134.77500009536743
+            }
+          },
+          "throttled": {
+            "runs": 10,
+            "firstRowsMs": {
+              "median": 8403,
+              "min": 8368.6,
+              "max": 8473.4
+            },
+            "jumpMs": {
+              "median": 6548.9,
+              "min": 6545.2,
+              "max": 6567.8
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "flingPlaceholderShare": {
+              "median": 0.843,
+              "min": 0.836,
+              "max": 0.848
+            },
+            "flingWorkP50Ms": {
+              "median": 20.7,
+              "min": 20.5,
+              "max": 21.1
+            },
+            "flingWorkP95Ms": {
+              "median": 26.6,
+              "min": 25.8,
+              "max": 29.2
+            },
+            "steadyP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "steadyWorkP50Ms": {
+              "median": 20.3,
+              "min": 20.2,
+              "max": 20.5
+            },
+            "steadyWorkP95Ms": {
+              "median": 25.4,
+              "min": 25.3,
+              "max": 25.9
+            },
+            "steadyPlaceholderShare": {
+              "median": 1,
+              "min": 1,
+              "max": 1
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "jump": {
+      "origin": "local",
+      "passed": true,
+      "seconds": 721,
+      "failures": [],
+      "raw": "raw/2026-10-13-m9-suite/jump.json",
+      "summary": {
+        "date": "2026-10-13",
+        "label": "m9-suite-jump",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "samples": {
+          "asteroids": {
+            "reference": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 77.4,
+                "min": 68.6,
+                "max": 83.7,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 66.2,
+                "min": 63.5,
+                "max": 73.5,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "throttled": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 2161.9,
+                "min": 2150,
+                "max": 2207.9,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 511.3,
+                "min": 501.2,
+                "max": 519.3,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "edges": {
+              "sample": "asteroids",
+              "ime": {
+                "row": 123,
+                "ok": true,
+                "detail": "top 122, marked 122, refusal null",
+                "filledMs": null
+              },
+              "keys": {
+                "Control+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Control+A, Backspace"
+                },
+                "Control+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Control+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Control+Z"
+                },
+                "Meta+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+                },
+                "Meta+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Meta+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Meta+Z"
+                },
+                "Alt+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+                },
+                "Meta+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+                },
+                "Alt+Backspace (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+                }
+              },
+              "ctrlV": {
+                "landed": true,
+                "detail": "input \"4242\", focus jump"
+              },
+              "cmdV": {
+                "landed": true,
+                "detail": "input \"4141\", focus jump"
+              },
+              "menuPaste": {
+                "landed": true,
+                "detail": "input \"4343\", focus jump"
+              },
+              "menuPasteDenied": {
+                "landed": false,
+                "detail": "input \"\", focus jump"
+              },
+              "focus": {
+                "ok": true,
+                "detail": "focus table → workbench (state failed)"
+              },
+              "problems": []
+            }
+          },
+          "gaia": {
+            "reference": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 131.4,
+                "min": 118.7,
+                "max": 157.1,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 158.3,
+                "min": 146.7,
+                "max": 169.2,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "throttled": {
+              "runs": 10,
+              "middleFilledMs": {
+                "median": 6562.1,
+                "min": 6530.1,
+                "max": 6594.4,
+                "cached": 0
+              },
+              "lastFilledMs": {
+                "median": 4944.4,
+                "min": 4900.9,
+                "max": 4987.5,
+                "cached": 0
+              },
+              "firstFilledMs": {
+                "cached": 10
+              }
+            },
+            "edges": {
+              "sample": "gaia",
+              "ime": {
+                "row": 123,
+                "ok": true,
+                "detail": "top 122, marked 122, refusal null",
+                "filledMs": null
+              },
+              "keys": {
+                "Control+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Control+A, Backspace"
+                },
+                "Control+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Control+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Control+Z"
+                },
+                "Meta+A selects all": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 98765, Meta+A, Backspace"
+                },
+                "Meta+C copies": {
+                  "ok": true,
+                  "detail": "clipboard \"31415\""
+                },
+                "Meta+Z undoes": {
+                  "ok": true,
+                  "detail": "input \"\" after typing 27, 18, Meta+Z"
+                },
+                "Alt+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Shift+ArrowLeft, Backspace"
+                },
+                "Meta+Shift+ArrowLeft (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"\" after typing \"123 456\", Meta+Shift+ArrowLeft, Backspace"
+                },
+                "Alt+Backspace (Mac word/line)": {
+                  "ok": true,
+                  "detail": "input \"123 \" after typing \"123 456\", Alt+Backspace"
+                }
+              },
+              "ctrlV": {
+                "landed": true,
+                "detail": "input \"4242\", focus jump"
+              },
+              "cmdV": {
+                "landed": true,
+                "detail": "input \"4141\", focus jump"
+              },
+              "menuPaste": {
+                "landed": true,
+                "detail": "input \"4343\", focus jump"
+              },
+              "menuPasteDenied": {
+                "landed": false,
+                "detail": "input \"\", focus jump"
+              },
+              "focus": {
+                "ok": true,
+                "detail": "focus table → workbench (state failed)"
+              },
+              "problems": []
+            }
+          }
+        },
+        "failures": []
+      }
+    },
+    "csv": {
+      "origin": "local",
+      "passed": true,
+      "seconds": 701,
+      "failures": [],
+      "raw": "raw/2026-10-13-m9-suite/csv.json",
+      "summary": {
+        "date": "2026-10-13",
+        "label": "m9-suite-csv",
+        "machine": "local",
+        "cpu": "Apple M1",
+        "os": "Darwin 25.6.0 arm64",
+        "files": {
+          "drop/asteroids-x6.csv": {
+            "rows": 9405186,
+            "bytes": 1071352470,
+            "sha256": "7177b6bbea5c2963629d8ed0732656a5090cd37958a7c4e67f4165550ecb0a54",
+            "source": "fixtures/asteroids.csv (sha256 4a471e3d88f4…): header, then its body × 6",
+            "writer": "drop_files.ts, byte for byte; rows counted by DuckDB v1.4.5"
+          },
+          "fixtures/asteroids.csv": {
+            "rows": 1567531,
+            "bytes": 178558830,
+            "sha256": "4a471e3d88f430cdf136d8b47df4c81625f68b92b6a2d92a1066a11bbb0efc72",
+            "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+            "fetched": "2026-09-24",
+            "writer": "DuckDB v1.4.5, CSV with header; the asteroid rows, then fixtures-src/tricky_rows.csv"
+          },
+          "drop/asteroids-x3.parquet": {
+            "rows": 4702569,
+            "bytes": 113067110,
+            "sha256": "4a28904c7b578abd9a2ab6cccf15967be0e31bfdddf252180fb26ba96c31aa5c",
+            "source": "asteroids.parquet (sha256 4ee7f31ea67b…) × 3",
+            "rowGroups": 154,
+            "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720"
+          }
+        },
+        "budgets": {
+          "schemaMs": 1000,
+          "firstRowsMs": 1000,
+          "updateGapMs": 500,
+          "flingP95Ms": 20,
+          "flingMaxMs": 50
+        },
+        "drop": {
+          "reference": {
+            "schemaMs": {
+              "median": 151.3,
+              "min": 145.9,
+              "max": 158.2
+            },
+            "firstRowsMs": {
+              "median": 185.6,
+              "min": 179.5,
+              "max": 204.2
+            },
+            "ingestMs": {
+              "median": 15252.4,
+              "min": 15195.6,
+              "max": 16344.1
+            },
+            "mbPerS": {
+              "median": 70.2,
+              "min": 65.5,
+              "max": 70.5
+            },
+            "updateGapMaxMs": {
+              "median": 200.6,
+              "min": 185.2,
+              "max": 219.5
+            },
+            "updateGapP50Ms": {
+              "median": 86.6,
+              "min": 84.2,
+              "max": 115.8
+            },
+            "flingP95Ms": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 16.7
+            },
+            "flingMaxMs": {
+              "median": 16.7,
+              "min": 16.7,
+              "max": 33.3
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 0
+            },
+            "allAgentsMiB": {
+              "median": 551.7,
+              "min": 528.7,
+              "max": 575.1
+            }
+          },
+          "throttled": {
+            "schemaMs": {
+              "median": 217,
+              "min": 205.4,
+              "max": 244.4
+            },
+            "firstRowsMs": {
+              "median": 347.7,
+              "min": 329.7,
+              "max": 371
+            },
+            "ingestMs": {
+              "median": 20270.6,
+              "min": 19828.9,
+              "max": 20426.4
+            },
+            "mbPerS": {
+              "median": 52.9,
+              "min": 52.4,
+              "max": 54
+            },
+            "updateGapMaxMs": {
+              "median": 354.5,
+              "min": 277,
+              "max": 428.8
+            },
+            "updateGapP50Ms": {
+              "median": 158.9,
+              "min": 153.6,
+              "max": 162.3
+            },
+            "flingP95Ms": {
+              "median": 33.3,
+              "min": 33.3,
+              "max": 50
+            },
+            "flingMaxMs": {
+              "median": 50,
+              "min": 50,
+              "max": 50
+            },
+            "flingOver50": {
+              "median": 0,
+              "min": 0,
+              "max": 1
+            },
+            "allAgentsMiB": {
+              "median": 547.5,
+              "min": 546.2,
+              "max": 573.4
+            }
+          }
+        },
+        "failures": []
+      }
+    }
+  }
+}
