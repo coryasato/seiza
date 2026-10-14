@@ -226,3 +226,15 @@ M7 is split into five parts, one session each (`milestones.md`, M7). Part E writ
 - **A string export broke `wrangler dev` but not production.** workerd treats every named export of the Worker module as an entrypoint; exporting a constant made the local runtime refuse to start, while the deployed Worker ran. The suite's local panel part caught it; Worker modules now export only functions.
 - **Small Cloudflare details each cost a check run:** HEAD loses `Content-Length` on an encoded response (count a raw GET's bytes), a new version takes seconds to reach the edge (the deploy's check retries), and `git grep workers.dev` matches `workers_dev` (the dot is a regex; use `-F`).
 - **Measurements against production move with the link.** The same build read 304.8 and 327.2 ms TTFP an hour apart; interleaving every production run with a local one is what kept the comparison honest.
+
+## M9: Extract the table component and the DuckDB engine (2026-10-13)
+
+**Results:** [`perf/results/2026-10-13-m9.md`](../perf/results/2026-10-13-m9.md)
+
+**Surprises:**
+- **An event can carry a mark that must sit in render.** The first-rows mark was set in the table's render so it would land right after the frame was presented. GPUI flushes the effects of an update after the draw and the present, in the same JS task, so a host's subscriber marking from an event lands in the same microtask checkpoint, 0.005–0.045 ms later. The probe `perf.ts` uses for first paint couldn't see that difference; a next-task boundary (a `MessageChannel` message) could, and is now `table --browsers`' check.
+- **The load average isn't a quietness gauge on macOS.** It counts runnable threads: this M1 idled at 1.6–2 with only a terminal and Claude Code open, and the benchmark itself raises it. An interleaved A/B's own spread says whether a run resolves 3%; the A/B now gates on that.
+- **`use gpui_kit::*` shadows `#[test]`** with gpui-kit's own `test` attribute ("recursion limit reached while expanding `#[test]`"). A test module beside GPUI code imports by name.
+- **`--only` takes one part.** `csv --only fixture,supersede,browsers` matched nothing, ran nothing, wrote an empty results file, and exited 0; the 1-second runtime gave it away.
+- **The pre-M9 build couldn't be clicked by the new harness:** it published `__tychoTargets`, which part A renamed. An A/B that clicks needs the old name aliased.
+- **The A/B wrote a home-directory path** into four committed results files (`--ab`'s absolute dist path). The script now records it relative to the repo; the pushed history keeps the old ones.
