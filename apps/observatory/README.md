@@ -4,7 +4,7 @@
 
 **Planned, not built yet.** It will live at `seiza.io/observatory`.
 
-The Observatory is seiza's comparison site. For each component in the repo (first the virtualized table behind [Tycho](../tycho/)), it will put the component's base level, drawn by GPUI on a canvas from WebAssembly, next to a 1:1 React equivalent drawn in the DOM, and measure both the same way.
+The Observatory is seiza's comparison site. For each component in the repo (first [the tall table](../../components/tall-table/) behind [Tycho](../tycho/)), it will put the component's base level, drawn by GPUI on a canvas from WebAssembly, next to a 1:1 React equivalent drawn in the DOM, and measure both the same way.
 
 - **Only the UI differs:** both sides read the same data through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.

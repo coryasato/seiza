@@ -48,7 +48,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { frameRecorder, open, overlayValue, targetRect, waitMark, waitOverlay, wheel } from '../../../shared-web/perf/harness.ts';
-import { dropFile, framesBetween, limits, serveTycho, tableFrames, type TableProbe } from './harness.ts';
+import { dropFile, framesBetween, limits, serveTycho, tableFrames, type TallTableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(perfDir, '../data');
@@ -83,7 +83,7 @@ interface WorkbenchProbe {
   chunks: number | null;
 }
 type Bridge = { query(sql: string, id: number): Promise<Uint8Array> };
-type Global = { __tychoWorkbench?: WorkbenchProbe; __tychoTable?: TableProbe; __tychoBridge?: Bridge; __csvSamples?: { t: number; header: number | null; table: number | null }[] };
+type Global = { __tychoWorkbench?: WorkbenchProbe; __tychoTable?: TallTableProbe; __tychoBridge?: Bridge; __csvSamples?: { t: number; header: number | null; table: number | null }[] };
 
 const workbench = (page: Page) => page.evaluate(() => (globalThis as Global).__tychoWorkbench ?? null);
 const now = (page: Page) => page.evaluate(() => performance.now());
@@ -245,7 +245,7 @@ async function fixtureCheck(url: string, engine: BrowserType = chromium) {
         const table = (globalThis as Global).__tychoTable;
         return table && table.end === table.rows && table.pending === 0 ? table : false;
       }, undefined, { timeout: 30_000, polling: 20 })
-      .then((handle) => handle.jsonValue() as Promise<TableProbe>)
+      .then((handle) => handle.jsonValue() as Promise<TallTableProbe>)
       .catch(() => null);
     checks.push({ what: 'End shows the last row', ok: end?.lastCell === '99000008', detail: `last cell ${end?.lastCell ?? 'none'}` });
     if (engine === chromium) {
@@ -381,7 +381,7 @@ async function formatsCheck(url: string) {
           const table = (globalThis as Global).__tychoTable;
           return table && table.end === table.rows && table.pending === 0 ? table : false;
         }, undefined, { timeout: 30_000, polling: 20 })
-        .then((handle) => handle.jsonValue() as Promise<TableProbe>)
+        .then((handle) => handle.jsonValue() as Promise<TallTableProbe>)
         .catch(() => null);
       const last = rows - 1;
       const want = key === 'rowid' ? String(1000 + last * 7) : key === 'inches' && last % 3 === 0 ? `${last % 40}" pizza` : String(last);

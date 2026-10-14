@@ -7,13 +7,13 @@ publish.workspace = true
 description = "DuckDB-Wasm for GPUI apps: the Rust client of the @seiza/duckdb bridge, and an Arrow IPC reader."
 
 [features]
-# A seiza-table source: query results as pages, a registered Parquet file's
+# A seiza-tall-table source: query results as pages, a registered Parquet file's
 # rows and summary.
-table = ["dep:seiza-table"]
+tall-table = ["dep:seiza-tall-table"]
 
 [dependencies]
 gpui-kit.workspace = true
-seiza-table = { workspace = true, optional = true }
+seiza-tall-table = { workspace = true, optional = true }
 
 # The client is web-only; the status, errors, and Arrow reader compile natively for tests.
 [target.'cfg(target_family = "wasm")'.dependencies]

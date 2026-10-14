@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "components/table", "engines/duckdb/crate", "apps/tycho/crate"]
+members = ["shared", "components/tall-table", "engines/duckdb/crate", "apps/tycho/crate"]
 
 [workspace.package]
 edition = "2024"
@@ -12,7 +12,7 @@ publish = false
 gpui-kit = "=0.7.3"
 seiza = { path = "shared" }
 seiza-duckdb = { path = "engines/duckdb/crate" }
-seiza-table = { path = "components/table" }
+seiza-tall-table = { path = "components/tall-table" }
 console_error_panic_hook = "0.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

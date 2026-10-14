@@ -1,10 +1,10 @@
 //! A registered file as the header strip shows it: schema, row count, size,
 //! row groups, and the data credit, all read from Parquet metadata with SQL
 //! (the engine's rule 2: no bridge call beyond the three; the queries are
-//! `seiza_duckdb::table`'s).
+//! `seiza_duckdb::tall_table`'s).
 
 use seiza_duckdb::sql::ColumnInfo;
-use seiza_duckdb::table::ParquetSummary;
+use seiza_duckdb::tall_table::ParquetSummary;
 
 /// A sample dataset hosted on our origin (`/data/*`, served by the Worker).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -78,7 +78,7 @@ fn credit(credit: Option<&str>, fetched: Option<&str>) -> Option<String> {
 }
 
 /// Registers `source` under the SQL name `name` and reads its summary, shown
-/// as `display_name` ([`seiza_duckdb::table::open_parquet`]). Each query's id
+/// as `display_name` ([`seiza_duckdb::tall_table::open_parquet`]). Each query's id
 /// goes to `sent` as it's sent. Also returns the file's live read counter.
 #[cfg(target_family = "wasm")]
 pub async fn open(
@@ -88,9 +88,14 @@ pub async fn open(
     source: seiza_duckdb::FileSource,
     sent: impl Fn(seiza_duckdb::RequestId),
 ) -> Result<(FileSummary, Option<seiza_duckdb::ReadCounter>), seiza_duckdb::EngineError> {
-    let (summary, counter) =
-        seiza_duckdb::table::open_parquet(engine, name, source, &[CREDIT_KEY, FETCHED_KEY], sent)
-            .await?;
+    let (summary, counter) = seiza_duckdb::tall_table::open_parquet(
+        engine,
+        name,
+        source,
+        &[CREDIT_KEY, FETCHED_KEY],
+        sent,
+    )
+    .await?;
     Ok((FileSummary::parquet(display_name, summary), counter))
 }
 

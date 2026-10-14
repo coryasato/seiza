@@ -33,7 +33,7 @@ import { machineInfo, option, percentiles } from '../../../shared-web/perf/proto
 import { clickTarget, open, overlayValue, waitMark, waitOverlay, wheel, workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
 import { assertPortFree } from '../../../shared-web/perf/serve.ts';
 import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
-import { dropFile, type TableProbe } from './harness.ts';
+import { dropFile, type TallTableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -47,7 +47,7 @@ const wanted = (part: string) => !only || only.split(',').includes(part);
 
 type Global = {
   __tychoWorkbench?: { state: string; name: string | null; rows: number | null; message: string | null; notice: string | null; ingest: string | null; readBytes: number | null };
-  __tychoTable?: TableProbe;
+  __tychoTable?: TallTableProbe;
   __tychoBridge?: { query(sql: string, id: number): Promise<Uint8Array> };
 };
 

@@ -1,5 +1,5 @@
 //! The table's state entity: scroll position, page cache, hover and tooltip,
-//! and the drawing of its header and body. [`Table`](crate::Table) wraps it
+//! and the drawing of its header and body. [`TallTable`](crate::TallTable) wraps it
 //! with its focus, keys, and border.
 
 use gpui_kit::base::TooltipPositioner;
@@ -10,19 +10,19 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::activity::{Activity, ActivityStats};
-use crate::column::{CELL_PADDING, CellKind, Column, LaidOutColumn, layout_columns};
-use crate::delegate::{CellValue, PageError, TableDelegate, TablePage as _};
+use crate::column::{CELL_PADDING, CellKind, LaidOutColumn, TallTableColumn, layout_columns};
+use crate::delegate::{CellValue, PageError, TallTableDelegate, TallTablePage as _};
 use crate::format;
 use crate::pages::{Direction, PageCache, RowState};
-use crate::probe::{CellProbe, ColumnProbe, TableLayout, TableProbe};
+use crate::probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
 use crate::scroll::{self, RowScroll};
 
 actions!(
-    seiza_table,
+    seiza_tall_table,
     [LineUp, LineDown, PageUp, PageDown, ScrollToTop, ScrollToEnd]
 );
 
-pub(crate) const CONTEXT: &str = "RowTable";
+pub(crate) const CONTEXT: &str = "TallTable";
 
 /// Binds the table's scrolling keys.
 pub fn init(cx: &mut App) {
@@ -68,12 +68,12 @@ impl Default for Paging {
     }
 }
 
-/// How the table records its scrolling for [`TableState::stats`]. Without
+/// How the table records its scrolling for [`TallTableState::stats`]. Without
 /// it, nothing is recorded.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct ActivityOptions {
-    /// The span [`TableState::stats`] covers, in ms.
+    /// The span [`TallTableState::stats`] covers, in ms.
     pub window_ms: f64,
     /// The clock frames are timed by, in ms (the clock `stats` gets `now` from).
     pub clock: fn() -> f64,
@@ -206,7 +206,7 @@ enum Drag {
 
 /// What the table reports. The host decides what to show for it.
 #[derive(Debug, Clone, PartialEq)]
-pub enum TableEvent {
+pub enum TallTableEvent {
     /// A frame with every visible row loaded is being drawn, after one that
     /// wasn't; `first` for the table's first. Emitted while the frame
     /// renders, so it reaches subscribers in the task that presents the
@@ -215,7 +215,7 @@ pub enum TableEvent {
     Filled { first: bool },
     /// A page read failed with [`PageError::Failed`]'s `read_failure`: the
     /// source is broken (a file it can no longer read). The host repairs
-    /// it, then calls [`TableState::retry_failed`].
+    /// it, then calls [`TallTableState::retry_failed`].
     ReadFailed,
     /// The vertical scrollbar's track and thumb, in window pixels, when they
     /// change: for scripts that drag it.
@@ -224,20 +224,20 @@ pub enum TableEvent {
         thumb: Bounds<Pixels>,
     },
     /// What the frame shows, when it changes. Only while
-    /// [`TableState::probe_frames`] is on.
-    Probe(TableProbe),
+    /// [`TallTableState::probe_frames`] is on.
+    Probe(TallTableProbe),
     /// Where the cells are, when it changes. Only while
-    /// [`TableState::probe_frames`] is on.
-    Layout(TableLayout),
+    /// [`TallTableState::probe_frames`] is on.
+    Layout(TallTableLayout),
     /// Every drawn cell's exact and shown text, every frame. Only while
-    /// [`TableState::probe_cells`] is on.
+    /// [`TallTableState::probe_cells`] is on.
     Cells(Vec<CellProbe>),
 }
 
 /// The table's paging and scrolling, for a host's stats.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
-pub struct TableStats {
+pub struct TallTableStats {
     pub loaded_pages: usize,
     pub in_flight: usize,
     /// Cancelled reads the delegate is still answering.
@@ -247,10 +247,10 @@ pub struct TableStats {
     pub activity: ActivityStats,
 }
 
-pub struct TableState<D: TableDelegate> {
+pub struct TallTableState<D: TallTableDelegate> {
     delegate: D,
-    /// As the host gave them; [`TableState::set_columns`] replaces them.
-    column_info: Vec<Column>,
+    /// As the host gave them; [`TallTableState::set_columns`] replaces them.
+    column_info: Vec<TallTableColumn>,
     columns: Vec<LaidOutColumn>,
     content_width: f32,
     /// Read from the window's font at render; columns are laid out by it.
@@ -258,12 +258,12 @@ pub struct TableState<D: TableDelegate> {
     hover: Option<Hover>,
     /// Running for [`TOOLTIP_GRACE`] after a tooltip went.
     tooltip_grace: Option<Task<()>>,
-    /// Bumped by [`TableState::lay_out`]. With the body's bounds and the
+    /// Bumped by [`TallTableState::lay_out`]. With the body's bounds and the
     /// gutter's width, what the layout probe last reported: it's rebuilt
     /// only when that changes, not every frame of a perf run.
     layout_generation: u64,
     published_layout: Option<(Bounds<Pixels>, u64, f32)>,
-    published_probe: Option<TableProbe>,
+    published_probe: Option<TallTableProbe>,
     published_scrollbar: Option<(Bounds<Pixels>, Bounds<Pixels>)>,
     probe_frames: bool,
     probe_cells: bool,
@@ -284,26 +284,26 @@ pub struct TableState<D: TableDelegate> {
     pub(crate) focus_handle: FocusHandle,
     /// Whether the last frame had every visible row loaded.
     filled: bool,
-    /// Until the first filled frame: it emits [`TableEvent::Filled`] with
+    /// Until the first filled frame: it emits [`TallTableEvent::Filled`] with
     /// `first`.
     first_fill_pending: bool,
     /// The frames drawn while recording ([`ActivityOptions`]).
     activity: Activity,
     activity_options: Option<ActivityOptions>,
-    /// Set by [`TableState::close`]: no more page loads.
+    /// Set by [`TallTableState::close`]: no more page loads.
     closed: bool,
     /// The row the last jump landed on, highlighted so it can be found when
     /// the end of the rows keeps it from reaching the top.
     marked: Option<u64>,
 }
 
-impl<D: TableDelegate> TableState<D> {
+impl<D: TallTableDelegate> TallTableState<D> {
     /// A table over `rows` rows of `delegate`, read `paging`'s way. It starts
     /// loading its first pages now. Its first filled frame emits
-    /// [`TableEvent::Filled`] with `first`.
+    /// [`TallTableEvent::Filled`] with `first`.
     pub fn new(
         delegate: D,
-        columns: Vec<Column>,
+        columns: Vec<TallTableColumn>,
         rows: u64,
         paging: Paging,
         cx: &mut Context<Self>,
@@ -350,21 +350,21 @@ impl<D: TableDelegate> TableState<D> {
         table
     }
 
-    /// Records scrolling for [`TableState::stats`].
+    /// Records scrolling for [`TallTableState::stats`].
     pub fn with_activity(mut self, options: ActivityOptions) -> Self {
         self.activity = Activity::new(options.window_ms);
         self.activity_options = Some(options);
         self
     }
 
-    /// Reports [`TableEvent::Probe`] and [`TableEvent::Layout`]. Off by
+    /// Reports [`TallTableEvent::Probe`] and [`TallTableEvent::Layout`]. Off by
     /// default: they cost a little every frame.
     pub fn probe_frames(mut self, probe: bool) -> Self {
         self.probe_frames = probe;
         self
     }
 
-    /// Reports [`TableEvent::Cells`] every frame. Off by default: it slows
+    /// Reports [`TallTableEvent::Cells`] every frame. Off by default: it slows
     /// every frame.
     pub fn probe_cells(mut self, probe: bool) -> Self {
         self.probe_cells = probe;
@@ -387,7 +387,7 @@ impl<D: TableDelegate> TableState<D> {
         self.scroll.rows()
     }
 
-    pub fn columns(&self) -> &[Column] {
+    pub fn columns(&self) -> &[TallTableColumn] {
         &self.column_info
     }
 
@@ -418,7 +418,7 @@ impl<D: TableDelegate> TableState<D> {
 
     /// Replaces the columns (a column's kind changed, say). Pages already
     /// loaded keep their values.
-    pub fn set_columns(&mut self, columns: Vec<Column>, cx: &mut Context<Self>) {
+    pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         self.column_info = columns;
         self.lay_out();
         cx.notify();
@@ -445,7 +445,7 @@ impl<D: TableDelegate> TableState<D> {
     }
 
     /// Loads the pages whose reads failed again, if they're still wanted:
-    /// after the host repaired the source ([`TableEvent::ReadFailed`]).
+    /// after the host repaired the source ([`TallTableEvent::ReadFailed`]).
     pub fn retry_failed(&mut self, cx: &mut Context<Self>) {
         if self.cache.forget_failed() {
             self.load_pages(cx);
@@ -460,8 +460,8 @@ impl<D: TableDelegate> TableState<D> {
 
     /// Paging and the last [`ActivityOptions::window_ms`]' scrolling, as of
     /// `now` (on [`ActivityOptions::clock`]).
-    pub fn stats(&mut self, now: f64) -> TableStats {
-        TableStats {
+    pub fn stats(&mut self, now: f64) -> TallTableStats {
+        TallTableStats {
             loaded_pages: self.cache.loaded_pages(),
             in_flight: self.cache.in_flight(),
             draining: self.cache.draining(),
@@ -648,7 +648,7 @@ impl<D: TableDelegate> TableState<D> {
             }) => {
                 self.cache.failed(page, request, message);
                 if read_failure {
-                    cx.emit(TableEvent::ReadFailed);
+                    cx.emit(TallTableEvent::ReadFailed);
                 }
             }
         }
@@ -968,14 +968,14 @@ impl<D: TableDelegate> TableState<D> {
             .filter(move |(_, column)| column.x + column.width > left && column.x < right)
     }
 
-    /// Emits [`TableEvent::Filled`] for the frames where the viewport becomes
+    /// Emits [`TallTableEvent::Filled`] for the frames where the viewport becomes
     /// fully loaded.
     fn track_filled(&mut self, filled: bool, cx: &mut Context<Self>) {
         let became_filled = filled && !self.filled;
         self.filled = filled;
         if became_filled {
             let first = std::mem::take(&mut self.first_fill_pending);
-            cx.emit(TableEvent::Filled { first });
+            cx.emit(TallTableEvent::Filled { first });
         }
     }
 
@@ -1143,7 +1143,7 @@ impl<D: TableDelegate> TableState<D> {
             _ => self.activity.clear(),
         }
         if probe_frames {
-            let probe = TableProbe {
+            let probe = TallTableProbe {
                 rows: self.scroll.rows(),
                 top: self.scroll.top(),
                 first: visible.start,
@@ -1162,12 +1162,12 @@ impl<D: TableDelegate> TableState<D> {
             };
             if self.published_probe.as_ref() != Some(&probe) {
                 self.published_probe = Some(probe.clone());
-                cx.emit(TableEvent::Probe(probe));
+                cx.emit(TallTableEvent::Probe(probe));
             }
             let key = (self.body, self.layout_generation, gutter);
             if self.published_layout != Some(key) {
                 self.published_layout = Some(key);
-                cx.emit(TableEvent::Layout(TableLayout {
+                cx.emit(TallTableEvent::Layout(TallTableLayout {
                     left: f32::from(self.body.origin.x) + gutter,
                     top: f32::from(self.body.origin.y),
                     row_height: f32::from(row_h),
@@ -1187,7 +1187,7 @@ impl<D: TableDelegate> TableState<D> {
             }
         }
         if let Some(probes) = cell_probes {
-            cx.emit(TableEvent::Cells(probes));
+            cx.emit(TallTableEvent::Cells(probes));
         }
 
         let entity = cx.entity();
@@ -1258,7 +1258,7 @@ impl<D: TableDelegate> TableState<D> {
             .children(row_backgrounds)
             .child(
                 div()
-                    .id("row-table-cells")
+                    .id("tall-table-cells")
                     .absolute()
                     .top_0()
                     .bottom(bar)
@@ -1289,7 +1289,7 @@ impl<D: TableDelegate> TableState<D> {
             )
             .child(
                 div()
-                    .id("row-table-vscroll")
+                    .id("tall-table-vscroll")
                     .absolute()
                     .top_0()
                     .bottom(bar)
@@ -1323,7 +1323,7 @@ impl<D: TableDelegate> TableState<D> {
             .when(wide, |body| {
                 body.child(
                     div()
-                        .id("row-table-hscroll")
+                        .id("tall-table-hscroll")
                         .absolute()
                         .bottom_0()
                         .left(px(gutter))
@@ -1384,7 +1384,7 @@ impl<D: TableDelegate> TableState<D> {
     }
 
     /// Reports the vertical scrollbar's track and thumb when they move
-    /// ([`TableEvent::Scrollbar`]).
+    /// ([`TallTableEvent::Scrollbar`]).
     fn report_scrollbar(&mut self, body: Bounds<Pixels>, cx: &mut Context<Self>) {
         let bar = Scrollbar::width();
         let track = Bounds::new(
@@ -1398,7 +1398,7 @@ impl<D: TableDelegate> TableState<D> {
         );
         if self.published_scrollbar != Some((track, thumb)) {
             self.published_scrollbar = Some((track, thumb));
-            cx.emit(TableEvent::Scrollbar { track, thumb });
+            cx.emit(TallTableEvent::Scrollbar { track, thumb });
         }
     }
 }
@@ -1421,15 +1421,15 @@ pub(crate) fn format_count(value: u64) -> String {
     out
 }
 
-impl<D: TableDelegate> EventEmitter<TableEvent> for TableState<D> {}
+impl<D: TallTableDelegate> EventEmitter<TallTableEvent> for TallTableState<D> {}
 
-impl<D: TableDelegate> Focusable for TableState<D> {
+impl<D: TallTableDelegate> Focusable for TallTableState<D> {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl<D: TableDelegate> Render for TableState<D> {
+impl<D: TallTableDelegate> Render for TallTableState<D> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Before anything is drawn, so the first frame is laid out by the
         // font itself. Read only when the font or the rem size changes.

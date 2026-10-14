@@ -15,8 +15,8 @@ pub type PageLoad<P> = Pin<Box<dyn Future<Output = Result<P, PageError>>>>;
 /// The table's rows. The table decides which rows to read and when (the
 /// visible pages first, then prefetch, at most `Paging::max_in_flight` at
 /// once); the delegate reads them.
-pub trait TableDelegate: 'static {
-    type Page: TablePage;
+pub trait TallTableDelegate: 'static {
+    type Page: TallTablePage;
     /// Names a read in flight, so the table can cancel it.
     type Request: Copy + PartialEq + 'static;
 
@@ -35,7 +35,7 @@ pub trait TableDelegate: 'static {
 }
 
 /// A loaded page of rows.
-pub trait TablePage: 'static {
+pub trait TallTablePage: 'static {
     /// The value at `row` (the page's own, from 0) and `column`, or `None`
     /// past its end.
     fn value(&self, row: usize, column: usize) -> Option<CellValue<'_>>;
@@ -74,12 +74,12 @@ impl fmt::Display for CellValue<'_> {
 /// Why a page didn't load.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PageError {
-    /// The table cancelled it ([`TableDelegate::cancel`]).
+    /// The table cancelled it ([`TallTableDelegate::cancel`]).
     Cancelled,
     /// It failed: `message` shows in its rows. `read_failure` says the source
     /// itself is broken (a file it can no longer read): the table emits
-    /// [`TableEvent::ReadFailed`](crate::TableEvent::ReadFailed) so the host
+    /// [`TallTableEvent::ReadFailed`](crate::TallTableEvent::ReadFailed) so the host
     /// can repair it and call
-    /// [`TableState::retry_failed`](crate::TableState::retry_failed).
+    /// [`TallTableState::retry_failed`](crate::TallTableState::retry_failed).
     Failed { message: String, read_failure: bool },
 }

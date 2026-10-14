@@ -1,6 +1,6 @@
-//! The `table` feature: DuckDB as a `seiza-table` source. A query result is
-//! a page of rows ([`TablePage`]), [`QueryRows`] reads pages with whatever
-//! SQL a [`PageQuery`] writes, and [`ParquetFile`] is the query for a
+//! The `tall-table` feature: DuckDB as a `seiza-tall-table` source. A query
+//! result is a page of rows ([`TallTablePage`]), [`QueryRows`] reads pages with
+//! whatever SQL a [`PageQuery`] writes, and [`ParquetFile`] is the query for a
 //! registered Parquet file, with its summary ([`ParquetSummary`]) read from
 //! the footer.
 
@@ -8,12 +8,14 @@ use std::borrow::Cow;
 use std::ops::Range;
 
 use gpui_kit::App;
-use seiza_table::{CellValue, Column, ColumnKind, PageError, PageLoad, TableDelegate, TablePage};
+use seiza_tall_table::{
+    CellValue, ColumnKind, PageError, PageLoad, TallTableColumn, TallTableDelegate, TallTablePage,
+};
 
 use crate::arrow::{QueryResult, Value};
 use crate::sql::{ColumnInfo, column, count, string_literal, text};
 
-impl TablePage for QueryResult {
+impl TallTablePage for QueryResult {
     fn value(&self, row: usize, column: usize) -> Option<CellValue<'_>> {
         QueryResult::value(self, row, column).map(cell_value)
     }
@@ -41,7 +43,7 @@ impl ColumnInfo {
     /// their type's widest value (`-128`, `-32768`, `-2147483648`, …), and a
     /// 128-bit integer's 40 digits would be a wall, so it gets BIGINT's 20
     /// and the rest is cut in the middle.
-    pub fn table_column(&self) -> Column {
+    pub fn tall_table_column(&self) -> TallTableColumn {
         let data_type = self.data_type.as_str();
         let integer = |max_chars| ColumnKind::Integer { max_chars };
         let kind = match data_type {
@@ -59,7 +61,7 @@ impl ColumnInfo {
             _ if data_type.starts_with("TIMESTAMP") => ColumnKind::Timestamp,
             _ => ColumnKind::Text,
         };
-        Column::new(self.name.clone(), kind)
+        TallTableColumn::new(self.name.clone(), kind)
     }
 }
 
@@ -106,7 +108,7 @@ impl<Q: PageQuery> QueryRows<Q> {
     }
 }
 
-impl<Q: PageQuery> TableDelegate for QueryRows<Q> {
+impl<Q: PageQuery> TallTableDelegate for QueryRows<Q> {
     type Page = QueryResult;
     #[cfg(target_family = "wasm")]
     type Request = crate::RequestId;
@@ -439,7 +441,7 @@ mod tests {
 
     #[test]
     fn columns_by_type() {
-        let kind = |data_type: &str| ColumnInfo::new("c", data_type).table_column().kind();
+        let kind = |data_type: &str| ColumnInfo::new("c", data_type).tall_table_column().kind();
         assert_eq!(kind("INTEGER"), ColumnKind::Integer { max_chars: 11 });
         assert_eq!(kind("HUGEINT"), ColumnKind::Integer { max_chars: 20 });
         assert_eq!(kind("DOUBLE"), ColumnKind::Float);

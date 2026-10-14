@@ -58,7 +58,7 @@ import {
   workBetween,
   workRecorder,
 } from '../../../shared-web/perf/harness.ts';
-import { framesBetween, limits, serveTycho, tableFrames, type TableProbe } from './harness.ts';
+import { framesBetween, limits, serveTycho, tableFrames, type TallTableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number; bytes: number; sha256: string }>;
@@ -86,7 +86,7 @@ const passes = Number(option('passes') ?? 2);
 const sweepRuns = Number(option('sweep-runs') ?? 5);
 const label = option('label') ?? (sampleName === 'gaia' ? (flag('sweep') ? 'm7-sweep-gaia' : 'm7-table-gaia') : flag('sweep') ? 'm4-sweep' : 'm4-table');
 
-type Global = { __tychoTable?: TableProbe; __tychoBridge?: { query(sql: string, id: number): Promise<Uint8Array> } };
+type Global = { __tychoTable?: TallTableProbe; __tychoBridge?: { query(sql: string, id: number): Promise<Uint8Array> } };
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 const probe = (page: Page) => page.evaluate(() => (globalThis as Global).__tychoTable ?? null);

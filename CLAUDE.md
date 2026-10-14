@@ -23,11 +23,11 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 
-- **Components** (`components/<name>/`): generic UI libraries in the style of GPUI Kit's components: a view, a state entity, and a delegate trait for the data. Plain names (`table`). A minimal base; every further capability (sorting, filtering, …) is a Cargo feature, off by default. A component knows no app and doesn't depend on `seiza`, so it stays publishable: it reports through events, and the host turns them into panel rows and marks.
+- **Components** (`components/<name>/`): generic UI libraries in the style of GPUI Kit's components: a view, a state entity, and a delegate trait for the data. Plain names (`tall-table`). A minimal base; every further capability (sorting, filtering, …) is a Cargo feature, off by default. A component knows no app and doesn't depend on `seiza`, so it stays publishable: it reports through events, and the host turns them into panel rows and marks.
 - **Engines** (`engines/<name>/`, with `crate/` and/or `web/`): non-UI data layers that GPUI and React consumers share. An adapter between an engine and a component lives in the engine, behind an optional feature named for the component.
 - **Utility apps** (`apps/<star>/`): tools people use, star-named, each on its own subdomain. They turn on component features as they need them, and usually get a feature first.
 - **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 React equivalent, under the comparison protocol below.
-- **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. The first engine is `engines/duckdb/` and the first component `components/table/`, both from Tycho.
+- **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. The first engine is `engines/duckdb/` and the first component `components/tall-table/`, both from Tycho.
 - **Build each wasm on its own** (`cargo build -p <crate>`). Cargo unifies features across the packages in one build, so a workspace-wide build would compile one app's features into another's. Clippy and tests may run workspace-wide.
 
 ## Stack and pins
@@ -82,9 +82,9 @@ seiza/
   shared/               # crate `seiza`: wasm bootstrap, app shell (title bar, theme toggle), perf overlay, file helpers
   shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), placeholder.ts (static shell before the wasm), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts, perf/ (the perf harness every app's scripts share)
   components/
-    table/              # `seiza-table`: the paged f64-row table (state entity, element, delegate); README.md, CLAUDE.md, docs/
+    tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); README.md, CLAUDE.md, docs/
   engines/
-    duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
+    duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
     observatory/        # the comparison site (planned): PLAN.md and README.md so far
     tycho/

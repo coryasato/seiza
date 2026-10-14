@@ -6,7 +6,7 @@
 //! click its center. Written only when the bounds change.
 
 use gpui_kit::{Bounds, Pixels};
-use seiza_table::{CellProbe, TableLayout, TableProbe};
+use seiza_tall_table::{CellProbe, TallTableLayout, TallTableProbe};
 
 #[cfg(target_family = "wasm")]
 thread_local! {
@@ -76,7 +76,7 @@ pub fn publish(id: &'static str, bounds: Bounds<Pixels>) {
 /// top, first, end, loaded, pending, failed, lastCell, marked, scrollX,
 /// tooltip}`. The table reports it when it changes, and only while
 /// [`measuring`].
-pub fn publish_table(probe: &TableProbe) {
+pub fn publish_table(probe: &TallTableProbe) {
     #[cfg(target_family = "wasm")]
     {
         use js_sys::{Object, Reflect};
@@ -143,7 +143,7 @@ pub fn probing_cells() -> bool {
 /// (CSS pixels from the canvas's top-left). The table reports it only while
 /// [`measuring`], and only when the layout changed (the scroll position is
 /// in [`publish_table`]).
-pub fn publish_table_layout(layout: &TableLayout) {
+pub fn publish_table_layout(layout: &TallTableLayout) {
     #[cfg(target_family = "wasm")]
     {
         use js_sys::{Array, Object, Reflect};

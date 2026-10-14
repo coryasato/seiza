@@ -1,11 +1,11 @@
 //! What the table shows, for a host's scripts to read: on a canvas there's
-//! no DOM to inspect. Reported as [`TableEvent`](crate::TableEvent)s while
-//! the host turns them on (`TableState::probe_frames`, `probe_cells`).
+//! no DOM to inspect. Reported as [`TallTableEvent`](crate::TallTableEvent)s while
+//! the host turns them on (`TallTableState::probe_frames`, `probe_cells`).
 
 /// What a frame shows. Reported when it changes.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
-pub struct TableProbe {
+pub struct TallTableProbe {
     pub rows: u64,
     /// The scroll position, in rows.
     pub top: f64,
@@ -27,10 +27,10 @@ pub struct TableProbe {
 }
 
 /// Where the cells are, in window pixels. Reported when it changes (the
-/// scroll position is in [`TableProbe`]).
+/// scroll position is in [`TallTableProbe`]).
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
-pub struct TableLayout {
+pub struct TallTableLayout {
     /// The cells area's left edge (right of the row numbers) and top edge.
     pub left: f32,
     pub top: f32,

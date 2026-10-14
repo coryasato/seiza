@@ -64,7 +64,7 @@ export async function dropFile(page: Page, file: string): Promise<number> {
 }
 
 /** What the table publishes to `globalThis.__tychoTable` with `?perf` or `?bench`. */
-export interface TableProbe {
+export interface TallTableProbe {
   rows: number;
   top: number;
   first: number;
@@ -91,7 +91,7 @@ export interface TableFrame {
  *  every rAF. Install it the same way as the recorder. */
 export function tableFrames(): void {
   (globalThis as { __seizaFrameSample?: () => TableFrame }).__seizaFrameSample = () => {
-    const table = (globalThis as { __tychoTable?: TableProbe }).__tychoTable;
+    const table = (globalThis as { __tychoTable?: TallTableProbe }).__tychoTable;
     const shown = table ? table.loaded + table.pending + table.failed : 0;
     return {
       top: table ? table.top : null,

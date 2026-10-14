@@ -6,12 +6,12 @@ use gpui_kit::SharedString;
 /// A column: its name (the header) and the kind of value it holds, which
 /// sets its width and how its values are aligned, rounded, and cut.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Column {
+pub struct TallTableColumn {
     name: SharedString,
     kind: ColumnKind,
 }
 
-impl Column {
+impl TallTableColumn {
     pub fn new(name: impl Into<SharedString>, kind: ColumnKind) -> Self {
         Self {
             name: name.into(),
@@ -100,7 +100,7 @@ pub(crate) const CELL_PADDING: f32 = 16.0;
 /// Width and cell kind. An integer column fits its widest value at
 /// `number_px` a character. The name's width is estimated at the UI font's
 /// average advance; a longer name is cut.
-fn column_layout(column: &Column, number_px: f32) -> (f32, CellKind) {
+fn column_layout(column: &TallTableColumn, number_px: f32) -> (f32, CellKind) {
     let digits = |chars: f32| chars * number_px + CELL_PADDING + 1.0;
     let (width, kind) = match column.kind {
         ColumnKind::Boolean => (72.0, CellKind::Text),
@@ -116,7 +116,10 @@ fn column_layout(column: &Column, number_px: f32) -> (f32, CellKind) {
 }
 
 /// Lays `columns` out side by side; also returns their total width.
-pub(crate) fn layout_columns(columns: &[Column], number_px: f32) -> (Vec<LaidOutColumn>, f32) {
+pub(crate) fn layout_columns(
+    columns: &[TallTableColumn],
+    number_px: f32,
+) -> (Vec<LaidOutColumn>, f32) {
     let mut x = 0.0;
     let columns = columns
         .iter()

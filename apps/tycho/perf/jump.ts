@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwright/test';
 import { PROFILES, flag, machineInfo, option, summarize, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { clickTarget, open, targetRect, waitMark, waitOverlay } from '../../../shared-web/perf/harness.ts';
-import { dropFile, serveTycho, type TableProbe } from './harness.ts';
+import { dropFile, serveTycho, type TallTableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(readFileSync(join(perfDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { rows: number }>;
@@ -56,7 +56,7 @@ interface WorkbenchProbe {
   jumpRefusal: string | null;
   focused: string | null;
 }
-type Global = { __tychoTable?: TableProbe; __tychoWorkbench?: WorkbenchProbe; __seizaPerfOverlayRect?: number[] };
+type Global = { __tychoTable?: TallTableProbe; __tychoWorkbench?: WorkbenchProbe; __seizaPerfOverlayRect?: number[] };
 type Rect = [number, number, number, number];
 
 const now = (page: Page) => page.evaluate(() => performance.now());

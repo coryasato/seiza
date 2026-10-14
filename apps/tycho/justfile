@@ -226,8 +226,8 @@ lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/tycho --check
     cargo fmt --all --check
-    cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-table --target wasm32-unknown-unknown -- -D warnings
-    cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-table --all-features --all-targets -- -D warnings
+    cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --all-features --all-targets -- -D warnings
     npm run typecheck --workspace @seiza/tycho-web
     @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data\` (or \`just tycho data-deps\`)"; fi
 

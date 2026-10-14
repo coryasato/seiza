@@ -50,7 +50,7 @@ Not milestones yet. Each starts with research, and becomes a milestone only if t
 
 ### Table features: column resizing, selection, sorting
 
-M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scrolling breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions: resizable columns, row/cell selection (and copying it), and sorting. Each would be a Cargo feature of the table component (`components/table/`), off by default (root `docs/DECISIONS.md`, "Repo structure"): Tycho turns on what it adopts, and the observatory adds a feature level only when both its sides are built. Sorting is also out of v1 scope (Tycho rule 4), so this is post-v1 work.
+M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scrolling breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions: resizable columns, row/cell selection (and copying it), and sorting. Each would be a Cargo feature of the table component (`components/tall-table/`), off by default (root `docs/DECISIONS.md`, "Repo structure"): Tycho turns on what it adopts, and the observatory adds a feature level only when both its sides are built. Sorting is also out of v1 scope (Tycho rule 4), so this is post-v1 work.
 
 **Research costs first, then decide whether it's worth building.** Before writing any of it, measure or estimate and record in `docs/research/<goal>.md`:
 - **Size and first paint:** the added wasm (brotli) for each feature, against the TTFP and size budgets.
@@ -94,7 +94,7 @@ Record each decision with its numbers in `docs/DECISIONS.md`; production stays r
 
 ## Open questions
 
-- **Crate names:** whether `seiza-table` and `seiza-duckdb` are free on crates.io. Only matters if they're published; nothing is yet.
+- **Crate names:** whether `seiza-tall-table` and `seiza-duckdb` are free on crates.io. Only matters if they're published; nothing is yet.
 
 ---
 

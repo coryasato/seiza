@@ -1,47 +1,47 @@
-//! The table element: draws a [`TableState`] with its focus, scrolling keys,
+//! The table element: draws a [`TallTableState`] with its focus, scrolling keys,
 //! and border.
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 
-use crate::delegate::TableDelegate;
-use crate::state::{CONTEXT, TEXT_REMS, TableState};
+use crate::delegate::TallTableDelegate;
+use crate::state::{CONTEXT, TEXT_REMS, TallTableState};
 
 /// Draws `state`, filling its parent. Call [`crate::init`] once first, for
 /// the keys.
 ///
 /// ```rust,ignore
-/// let state = cx.new(|cx| TableState::new(delegate, columns, rows, Paging::default(), cx));
-/// Table::new(&state)
+/// let state = cx.new(|cx| TallTableState::new(delegate, columns, rows, Paging::default(), cx));
+/// TallTable::new(&state)
 /// ```
 #[derive(IntoElement)]
-pub struct Table<D: TableDelegate> {
-    state: Entity<TableState<D>>,
+pub struct TallTable<D: TallTableDelegate> {
+    state: Entity<TallTableState<D>>,
 }
 
-impl<D: TableDelegate> Table<D> {
-    pub fn new(state: &Entity<TableState<D>>) -> Self {
+impl<D: TallTableDelegate> TallTable<D> {
+    pub fn new(state: &Entity<TallTableState<D>>) -> Self {
         Self {
             state: state.clone(),
         }
     }
 }
 
-impl<D: TableDelegate> RenderOnce for Table<D> {
+impl<D: TallTableDelegate> RenderOnce for TallTable<D> {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let focus_handle = self.state.read(cx).focus_handle.clone();
         let focused = focus_handle.is_focused(window);
         let theme = cx.theme();
         div()
-            .id("row-table")
+            .id("tall-table")
             .key_context(CONTEXT)
             .track_focus(&focus_handle)
-            .on_action(window.listener_for(&self.state, TableState::line_up))
-            .on_action(window.listener_for(&self.state, TableState::line_down))
-            .on_action(window.listener_for(&self.state, TableState::page_up))
-            .on_action(window.listener_for(&self.state, TableState::page_down))
-            .on_action(window.listener_for(&self.state, TableState::scroll_to_top))
-            .on_action(window.listener_for(&self.state, TableState::scroll_to_end))
+            .on_action(window.listener_for(&self.state, TallTableState::line_up))
+            .on_action(window.listener_for(&self.state, TallTableState::line_down))
+            .on_action(window.listener_for(&self.state, TallTableState::page_up))
+            .on_action(window.listener_for(&self.state, TallTableState::page_down))
+            .on_action(window.listener_for(&self.state, TallTableState::scroll_to_top))
+            .on_action(window.listener_for(&self.state, TallTableState::scroll_to_end))
             .on_mouse_down(
                 MouseButton::Left,
                 window.listener_for(&self.state, |this, _: &MouseDownEvent, window, cx| {

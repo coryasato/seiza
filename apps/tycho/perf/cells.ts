@@ -35,7 +35,7 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { clickTarget, open, targetRect, waitMark, waitOverlay, wheel } from '../../../shared-web/perf/harness.ts';
 import { assertPortFree, startCountingProxy } from '../../../shared-web/perf/serve.ts';
 import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
-import { dropFile, type TableProbe } from './harness.ts';
+import { dropFile, type TallTableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -76,7 +76,7 @@ interface Cell {
   shown: string;
 }
 type Global = {
-  __tychoTable?: TableProbe & { tooltip: string | null; scrollX: number };
+  __tychoTable?: TallTableProbe & { tooltip: string | null; scrollX: number };
   __tychoTableLayout?: Layout;
   __tychoCells?: Cell[];
   __seizaTargets?: Record<string, [number, number, number, number]>;

@@ -2,7 +2,7 @@
 
 What's next for the Observatory: milestone status, the next milestone's "done when" checks, long-term goals, and open questions. Only what's still open lives here. The rules are the root `CLAUDE.md`'s, its "Comparison protocol" above all; this app gets its own `CLAUDE.md` with its first code.
 
-**Goal:** one site, at `seiza.io/observatory`, that puts each component's base level, in a minimal GPUI host, next to a 1:1 React equivalent (same engine, same data, same paging numbers) and shows with measured numbers where each side wins. The first component is the table, coming out of Tycho ([`../tycho/PLAN.md`](../tycho/PLAN.md), M9).
+**Goal:** one site, at `seiza.io/observatory`, that puts each component's base level, in a minimal GPUI host, next to a 1:1 React equivalent (same engine, same data, same paging numbers) and shows with measured numbers where each side wins. The first component is the tall table ([`components/tall-table/`](../../components/tall-table/), at `seiza.io/observatory/tall-table`), coming out of Tycho ([`../tycho/PLAN.md`](../tycho/PLAN.md), M9).
 
 **Deciding metrics:** first pixels, first usable UI, and first rows painted, per side (root `CLAUDE.md`, "Comparison protocol"); TTFP as the protocol defines it for the GPUI side.
 
@@ -29,9 +29,9 @@ None until Tycho's M9 closes: the GPUI contender needs the table component and t
 
 Build both contenders for the table's base level as prototypes, measure them through the shared harness (`shared-web/perf/`, from Tycho's M9), and decide whether the site is worth building. The base level is what the component does with no features on: open a sample, scroll, fling, jump by scrollbar. Nothing from Tycho's app (drops, CSV, jump to row).
 
-- **`contenders/table/gpui/`:** a minimal GPUI host (cdylib) of `seiza-table` with `seiza-duckdb`'s `table` adapter: the samples' buttons and the table. `seiza` gets `shell` and `panel` features (on by default; the contender turns them off), and the bytes they save are recorded. Built with `-p` alone, and a size check guards it against features leaking in through Cargo's unification.
-- **`contenders/table/react/`:** React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`, the same SQL, and the table's paging numbers. Its first screen prerendered to static HTML.
-- **The paging fixture:** a JSON scenario (scroll and jump steps → expected page requests) that a native test runs against `seiza-table`'s page cache and a TS test against the React cache.
+- **`contenders/tall-table/gpui/`:** a minimal GPUI host (cdylib) of `seiza-tall-table` with `seiza-duckdb`'s `tall-table` adapter: the samples' buttons and the table. `seiza` gets `shell` and `panel` features (on by default; the contender turns them off), and the bytes they save are recorded. Built with `-p` alone, and a size check guards it against features leaking in through Cargo's unification.
+- **`contenders/tall-table/react/`:** React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`, the same SQL, and the table's paging numbers. Its first screen prerendered to static HTML.
+- **The paging fixture:** a JSON scenario (scroll and jump steps → expected page requests) that a native test runs against `seiza-tall-table`'s page cache and a TS test against the React cache.
 - **The three metrics** (first pixels, first usable UI, first rows painted), marked on both sides and each checked its own way (GPU calls; Element Timing plus a presented frame).
 
 **Done when:**

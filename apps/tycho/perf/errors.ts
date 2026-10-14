@@ -36,7 +36,7 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { clickTarget, open, overlayValue, targetRect, waitMark, waitOverlay } from '../../../shared-web/perf/harness.ts';
 import { assertPortFree } from '../../../shared-web/perf/serve.ts';
 import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
-import { dropFile, type TableProbe } from './harness.ts';
+import { dropFile, type TallTableProbe } from './harness.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -66,7 +66,7 @@ interface WorkbenchProbe {
   engine: string;
   status: string;
 }
-type Global = { __tychoWorkbench?: WorkbenchProbe; __tychoTable?: TableProbe; __seizaPerfOverlayRect?: number[] };
+type Global = { __tychoWorkbench?: WorkbenchProbe; __tychoTable?: TallTableProbe; __seizaPerfOverlayRect?: number[] };
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 

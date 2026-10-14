@@ -22,9 +22,9 @@ use gpui_kit::*;
 use crate::dataset::{ASTEROIDS, FileSummary, GAIA, Sample, format_bytes, format_count};
 use crate::table::RowTable;
 use seiza_duckdb::EngineStatus;
-use seiza_table::Table;
+use seiza_tall_table::TallTable;
 #[cfg(target_family = "wasm")]
-use seiza_table::TableEvent;
+use seiza_tall_table::TallTableEvent;
 
 actions!(tycho_workbench, [FocusJump]);
 
@@ -314,7 +314,7 @@ pub struct Workbench {
     #[cfg(target_family = "wasm")]
     read_counter: Option<seiza_duckdb::ReadCounter>,
     /// The open Parquet file's SQL name and source, to register it again
-    /// after a failed read (`TableEvent::ReadFailed`), and when that last
+    /// after a failed read (`TallTableEvent::ReadFailed`), and when that last
     /// started (ms from `timeOrigin`). The next waits
     /// [`reregister_window_ms`], so a file that keeps failing can't loop.
     #[cfg(target_family = "wasm")]
@@ -709,7 +709,7 @@ impl Workbench {
                             let table = cx.new(|cx| {
                                 crate::table::new(
                                     crate::table::Source::Parquet(
-                                        seiza_duckdb::table::ParquetFile::new(sql_name),
+                                        seiza_duckdb::tall_table::ParquetFile::new(sql_name),
                                     ),
                                     summary.rows,
                                     &summary.columns,
@@ -1091,7 +1091,7 @@ impl Workbench {
             match event {
                 // Delivered in the task that presents the frame (the table
                 // emits it while rendering), so the mark lands right after it.
-                TableEvent::Filled { first: true } => {
+                TallTableEvent::Filled { first: true } => {
                     let first_rows = seiza::mark_after_current_task(crate::table::FIRST_ROWS_MARK);
                     cx.spawn(async move |this, cx| {
                         let shown_ms = first_rows.await;
@@ -1112,7 +1112,7 @@ impl Workbench {
                     })
                     .detach();
                 }
-                TableEvent::ReadFailed if current => this.register_again(table, cx),
+                TallTableEvent::ReadFailed if current => this.register_again(table, cx),
                 _ => {}
             }
         })
@@ -1736,7 +1736,7 @@ impl Render for Workbench {
                 .p_4()
                 .gap_3()
                 .child(self.render_summary(summary, csv.as_ref(), window, cx))
-                .child(div().flex_1().min_h_0().child(Table::new(table))),
+                .child(div().flex_1().min_h_0().child(TallTable::new(table))),
             _ => v_flex().size_full().p_4().child(self.render_empty(cx)),
         };
         div()

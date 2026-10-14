@@ -5989,14 +5989,14 @@ dependencies = [
  "arrow",
  "gpui-kit",
  "js-sys",
- "seiza-table",
+ "seiza-tall-table",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
 ]
 
 [[package]]
-name = "seiza-table"
+name = "seiza-tall-table"
 version = "0.1.0"
 dependencies = [
  "gpui-kit",
@@ -6986,7 +6986,7 @@ dependencies = [
  "js-sys",
  "seiza",
  "seiza-duckdb",
- "seiza-table",
+ "seiza-tall-table",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

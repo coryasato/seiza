@@ -1,0 +1,10 @@
+[package]
+name = "seiza-tall-table"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "A GPUI table that reads rows a page at a time from a delegate, smooth from a hundred rows to tens of millions."
+
+[dependencies]
+gpui-kit.workspace = true

@@ -6,9 +6,9 @@
 //! It knows no app and doesn't depend on `seiza`: what the host shows about
 //! the engine's load (panel rows, marks) comes from [`EngineEvent`]s.
 //!
-//! The `table` feature makes it a `seiza-table` source ([`table`]): query
-//! results as pages of rows, and registered Parquet files read a page at a
-//! time.
+//! The `tall-table` feature makes it a `seiza-tall-table` source
+//! ([`tall_table`]): query results as pages of rows, and registered Parquet
+//! files read a page at a time.
 
 use std::fmt;
 
@@ -18,8 +18,8 @@ pub mod arrow;
 #[cfg(target_family = "wasm")]
 mod bridge;
 pub mod sql;
-#[cfg(feature = "table")]
-pub mod table;
+#[cfg(feature = "tall-table")]
+pub mod tall_table;
 
 use arrow::DecodeError;
 

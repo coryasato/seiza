@@ -20,10 +20,10 @@ DuckDB-Wasm, the worker, the three bridge calls, and the Arrow reader moved to `
 
 ## Table and paging
 
-The table's own decisions (its scroll model, paging, cache, cells, and API) moved to `components/table/docs/DECISIONS.md`, and the page SQL's to `engines/duckdb/docs/DECISIONS.md`, "Table source", when the table left Tycho (2026-10-13). What stays here is Tycho's.
+The table's own decisions (its scroll model, paging, cache, cells, and API) moved to `components/tall-table/docs/DECISIONS.md`, and the page SQL's to `engines/duckdb/docs/DECISIONS.md`, "Table source", when the table left Tycho (2026-10-13). What stays here is Tycho's.
 
 - **2026-09-25** · App memory cap **128 MiB** (wasm + live JS heap) after scrolling the whole sample: 16 MiB shell + 64 MiB cache + allocator slack. *[M4]*
-- **2026-10-13** · **The table is `components/table/` (`seiza-table`), over `seiza-duckdb`'s `table` feature.** Tycho's `crate/src/table.rs` keeps what's Tycho's: the source (`Source`: a `ParquetFile`, or the CSV's `Chunks`), the `?page=`/`?prefetch=`/`?budget_mib=` overrides, the panel's activity settings, and the table's events turned into the `tycho:first-rows` and `tycho:viewport-filled` marks (set by the workbench's subscriber, in the task that presents the frame) and the `__tychoTable`, `__tychoTableLayout`, and `__tychoCells` probes. *[M9 part C]*
+- **2026-10-13** · **The table is `components/table/` (`seiza-table`), over `seiza-duckdb`'s `table` feature.** Tycho's `crate/src/table.rs` keeps what's Tycho's: the source (`Source`: a `ParquetFile`, or the CSV's `Chunks`), the `?page=`/`?prefetch=`/`?budget_mib=` overrides, the panel's activity settings, and the table's events turned into the `tycho:first-rows` and `tycho:viewport-filled` marks (set by the workbench's subscriber, in the task that presents the frame) and the `__tychoTable`, `__tychoTableLayout`, and `__tychoCells` probes. *[M9 part C]* *Its names were superseded 2026-10-14: the component is `components/tall-table/` (`seiza-tall-table`), over the `tall-table` feature (`components/tall-table/docs/DECISIONS.md`, "Component API").*
 
 ## Files and CSV
 

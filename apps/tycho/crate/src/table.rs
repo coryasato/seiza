@@ -1,14 +1,14 @@
-//! The table Tycho shows: `seiza-table` over DuckDB (`seiza-duckdb`'s
-//! `table` feature), reading a Parquet file where it lies or a CSV's chunk
+//! The table Tycho shows: `seiza-tall-table` over DuckDB (`seiza-duckdb`'s
+//! `tall-table` feature), reading a Parquet file where it lies or a CSV's chunk
 //! tables. Also what Tycho does with the table's events: the first-rows and
 //! viewport-filled marks, and the probes the Playwright checks read.
 
 use std::ops::Range;
 
-use seiza_duckdb::table::{PageQuery, ParquetFile, QueryRows};
-use seiza_table::{TableEvent, TableState};
+use seiza_duckdb::tall_table::{PageQuery, ParquetFile, QueryRows};
+use seiza_tall_table::{TallTableEvent, TallTableState};
 
-pub use seiza_table::init;
+pub use seiza_tall_table::init;
 
 /// Where the table's rows come from.
 #[derive(Debug, Clone, PartialEq)]
@@ -28,7 +28,7 @@ impl PageQuery for Source {
     }
 }
 
-pub type RowTable = TableState<QueryRows<Source>>;
+pub type RowTable = TallTableState<QueryRows<Source>>;
 
 /// Set right after each frame in which the viewport becomes fully loaded,
 /// while [`crate::targets::measuring`].
@@ -41,13 +41,13 @@ pub const FIRST_ROWS_MARK: &str = "tycho:first-rows";
 /// The table's paging: the defaults, with `?page=`, `?prefetch=`, and
 /// `?budget_mib=` from the URL applied (the page-size sweep sets them).
 #[cfg(target_family = "wasm")]
-fn paging() -> seiza_table::Paging {
+fn paging() -> seiza_tall_table::Paging {
     let number = |key: &str| {
         seiza::url::param(key)
             .and_then(|value| value.parse::<u64>().ok())
             .filter(|value| *value > 0)
     };
-    let mut paging = seiza_table::Paging::default();
+    let mut paging = seiza_tall_table::Paging::default();
     if let Some(rows) = number("page") {
         paging.page_rows = rows;
     }
@@ -76,10 +76,10 @@ pub fn new(
 ) -> RowTable {
     let columns = columns
         .iter()
-        .map(seiza_duckdb::sql::ColumnInfo::table_column)
+        .map(seiza_duckdb::sql::ColumnInfo::tall_table_column)
         .collect();
     RowTable::new(QueryRows::new(engine, source), columns, rows, paging(), cx)
-        .with_activity(seiza_table::ActivityOptions::new(
+        .with_activity(seiza_tall_table::ActivityOptions::new(
             seiza::perf::WINDOW_MS,
             seiza::marks::now,
             seiza::perf::is_visible,
@@ -115,7 +115,7 @@ pub fn widen(
     }
     let columns = columns
         .iter()
-        .map(seiza_duckdb::sql::ColumnInfo::table_column)
+        .map(seiza_duckdb::sql::ColumnInfo::tall_table_column)
         .collect();
     table.set_columns(columns, cx);
 }
@@ -134,19 +134,19 @@ pub fn read_from(table: &mut RowTable, name: String, cx: &mut gpui_kit::Context<
 /// mark. The table emits these while its frame renders, so a mark set here
 /// lands right after the frame is presented. The first-rows mark is the
 /// workbench's, which also shows it in the panel.
-pub fn publish(event: &TableEvent) {
+pub fn publish(event: &TallTableEvent) {
     match event {
-        TableEvent::Scrollbar { track, thumb } => {
+        TallTableEvent::Scrollbar { track, thumb } => {
             crate::targets::publish("table-scroll-track", *track);
             crate::targets::publish("table-scroll-thumb", *thumb);
         }
-        TableEvent::Probe(probe) => crate::targets::publish_table(probe),
-        TableEvent::Layout(layout) => crate::targets::publish_table_layout(layout),
-        TableEvent::Cells(cells) => crate::targets::publish_cells(cells),
+        TallTableEvent::Probe(probe) => crate::targets::publish_table(probe),
+        TallTableEvent::Layout(layout) => crate::targets::publish_table_layout(layout),
+        TallTableEvent::Cells(cells) => crate::targets::publish_cells(cells),
         // The mark is what the checks read, so it's set only while measuring
         // (marks are never cleared).
         #[cfg(target_family = "wasm")]
-        TableEvent::Filled { .. } if crate::targets::measuring() => {
+        TallTableEvent::Filled { .. } if crate::targets::measuring() => {
             drop(seiza::mark_after_current_task(VIEWPORT_FILLED_MARK));
         }
         _ => {}
