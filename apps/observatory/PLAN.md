@@ -1,12 +1,12 @@
 # PLAN.md — Observatory
 
-What's next for the Observatory: milestone status, the active milestone's "done when" checks, long-term goals, and open questions. Only what's still open lives here. The rules are the root `CLAUDE.md`'s, its "Comparison protocol" above all; this app gets its own `CLAUDE.md` with its first code.
+What's next for the Observatory: milestone status, the active milestone's "done when" checks, long-term goals, and open questions. Only what's still open lives here. The rules are the root `CLAUDE.md`'s, its "Comparison protocol" above all; this app's own are in its [`CLAUDE.md`](CLAUDE.md).
 
 **Goal:** one page, at `seiza.io/observatory`, that runs each component against a DOM equivalent and shows with measured numbers what each costs over a session of use: opening data, scrolling, flinging, jumping. The first comparison is GPUI | TanStack: the tall table ([`components/tall-table/`](../../components/tall-table/), at `seiza.io/observatory/tall-table`) against React + TanStack Virtual, on the same engine and the same file.
 
 **Deciding metrics:** per-use cost, as the root `CLAUDE.md`'s "Comparison protocol" defines it (time to first usable, time to data, input to visible response, behavior under load, reach and correctness, cost). One-time costs (first pixels, bundle size) are footnotes. TTFP still gates each contender's own build (root rule 1).
 
-**Where everything else lives:** the decisions so far are repo-wide, in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md) ("Comparison protocol", "Hosting", "Repo structure"). `CLAUDE.md`, `docs/`, `perf/budgets.json`, and `perf/results/` come with M0, from [`docs/templates/app/`](../../docs/templates/app/).
+**Where everything else lives:** the decisions so far are repo-wide, in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md) ("Comparison protocol", "Hosting", "Repo structure"). This app's own context and rules are in [`CLAUDE.md`](CLAUDE.md), its decisions in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ---
 
@@ -14,7 +14,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | Next |
+| M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | In progress: part A done |
 | M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Not started |
 | M2 | The GPUI contender and the fixtures (parts A–C) | Not started |
 | M3 | The TanStack contender (parts A–D) | Not started |
@@ -46,8 +46,10 @@ The app's skeleton, and the two assumptions everything after it stands on: that 
 - A production check of static assets at an unlinked path (a deploy: the user's go first).
 
 **Done when:**
-- [ ] *(A)* `apps/observatory/` has its `CLAUDE.md`, `docs/`, and `perf/budgets.json` from the template, `just observatory lint` passes, and its web workspace serves COOP/COEP in dev.
-- [ ] *(A)* `@seiza/duckdb`'s extension repository is an option with today's path as the default; Tycho's build is unchanged (its wasm and JS sizes recorded) and `just tycho engine` passes.
+- [x] *(A)* `apps/observatory/` has its `CLAUDE.md`, `docs/`, and `perf/budgets.json` from the template, `just observatory lint` passes, and its web workspace serves COOP/COEP in dev.
+  *Evidence (2026-10-14):* `just observatory lint`: check-terms clean (and its pattern run by hand over the new, untracked files), "generated numbers are current", `tsc` clean. `budgets.json` has no limits or metrics yet; the root README's headlines list the Observatory as "not measured yet". `just observatory dev` at `/observatory/`: `200`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`; the build's `_headers` scope both, with CORP, to `/observatory/*`. Layout: only `web/` exists so far; `contenders/`, `worker/`, and `data/` come with the code that fills them.
+- [x] *(A)* `@seiza/duckdb`'s extension repository is an option with today's path as the default; Tycho's build is unchanged (its wasm and JS sizes recorded) and `just tycho engine` passes.
+  *Evidence (2026-10-14):* `extensionDir` (one directory name under the Vite base, `duckdb-ext` by default) on `createBridge`, `duckdb()`, and `scripts/extensions.ts` alike; a name with a slash throws in all three (`/observatory/duckdb`, `duckdb/`, `a/b`, `..` rejected). In preview under `base: '/observatory/'` with `extensionDir: 'duckdb'`: the pinned extension 200, `json` 404, a malformed escape 404; Tycho's `/duckdb-ext/…` the same. `previewBrotli` now strips the base too: `/observatory/assets/*` comes back `br`. Tycho's release build before and after: `tycho_bg.wasm` byte-identical (SHA-256 `b416df90…`, 2842.1 KiB br), DuckDB's bundles and workers identical; `engine-*.js` 198,383 → 198,589 B (39,752 → 39,939 B br, after first paint: the name check); `index-*.js` 116,381 B both, identical but for the engine chunk's hashed name. `just tycho engine`: PASS, Chromium ×10 (engine ready median 653.9 ms), Firefox, WebKit ([`2026-10-14-observatory-m0-a-engine-review.json`](../tycho/perf/results/2026-10-14-observatory-m0-a-engine-review.json); the first draft's run is [`…-engine.json`](../tycho/perf/results/2026-10-14-observatory-m0-a-engine.json)). `just tycho lint` passes.
 - [ ] *(B)* The data file: under 25 MiB, `count(*)` = 1,567,523, at least one column of each kind the base level draws (integer, text, boolean, float, date), its row-group size recorded, in the manifest with SHA-256.
 - [ ] *(B)* Served as a Workers static asset in production: a ranged `HEAD` and a `bytes=0-0` GET answer 206 with `Content-Range`; closed ranges come back byte-exact; the Parquet isn't recompressed; COOP/COEP/CORP are present; DuckDB-Wasm, loaded from that origin, opens the file and reads a page. If any of these fails, the fallback is chosen and recorded before M1.
 - [ ] *(B)* The first page read from the static asset, in production, recorded next to Tycho's R2 path for the same rows.
@@ -143,6 +145,17 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 ### M7: The benchmark button
 
 - [ ] "Run benchmark" plays load, fling, and jump to 90% on each side in turn, alternating which goes first between runs, driving each through its own input path (script-made wheel events reach GPUI's listeners but never scroll a native scroller, so the DOM side is driven through its scroll position), and shows the results labelled warm beside the cold ones.
+
+---
+
+## Measurements
+
+Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json) and the newest matching file in `perf/results/`; don't edit between the markers. A metric's history is its dated results files.
+
+<!-- report:plan:start -->
+| Metric | Budget | Gate | Local | Production | From |
+|---|---|---|---|---|---|
+<!-- report:plan:end -->
 
 ---
 

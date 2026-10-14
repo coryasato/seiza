@@ -1,0 +1,21 @@
+# Observatory recipes. Run from the repo root: `just observatory <recipe>`.
+
+app_dir := source_directory()
+root := source_directory() / "../.."
+
+# The page's Vite dev server, with COOP/COEP, at /observatory/.
+dev:
+    npm run dev --workspace @seiza/observatory-web
+
+# Regenerate the numbers in README.md, PLAN.md, and the root README from
+# perf/budgets.json and the newest matching perf/results/ files. --check:
+# report only.
+report *args:
+    cd {{root}} && node shared-web/scripts/report.ts apps/observatory {{args}}
+
+# No milestone references outside the history files (check-terms), the
+# generated numbers in the docs, and TypeScript (the web host).
+lint:
+    cd {{root}} && node shared-web/scripts/check-terms.ts
+    cd {{root}} && node shared-web/scripts/report.ts apps/observatory --check
+    npm run typecheck --workspace @seiza/observatory-web

@@ -8,7 +8,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
-- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Planned: only its `PLAN.md` and `README.md` exist.
+- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Being built: its docs, budgets, and a placeholder page so far.
 
 ---
 
@@ -86,7 +86,7 @@ seiza/
   engines/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
-    observatory/        # the comparison page (planned): PLAN.md and README.md so far
+    observatory/        # the comparison page: web/ (Vite host under /observatory/), perf/, docs/, README.md, CLAUDE.md, PLAN.md, justfile
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts

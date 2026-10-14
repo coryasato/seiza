@@ -1,0 +1,7 @@
+{
+  "about": "Every budget the Observatory's perf scripts enforce (limits, read through shared-web/perf/'s budgetLimits()) and every number its docs show (metrics, rendered by `just observatory report`). Source forms are documented at the top of shared-web/scripts/report.ts. Empty until a contender builds: each contender's TTFP and wasm or JS budgets land with it.",
+  "app": "Observatory",
+  "exclude": ["*-control*", "*-ab.json", "*-ab-*", "*-before*"],
+  "limits": {},
+  "metrics": []
+}

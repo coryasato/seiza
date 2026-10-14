@@ -15,7 +15,7 @@ import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url
 import ehModule from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
 import mvpModule from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
 import type { FileInfo } from './bridge.ts';
-import { EXTENSION_REPOSITORY } from './extensions.ts';
+import { extensionDir } from './extensions.ts';
 
 /** Set when the engine starts loading and when it's open. Rust reads both
  *  (`ENGINE_START_MARK` and `ENGINE_READY_MARK` in `seiza-duckdb`'s
@@ -48,6 +48,12 @@ export interface EngineOptions {
    * say) says so to its users here.
    */
   refusal?: (response: Response) => string | undefined;
+  /**
+   * The directory under the host's Vite `base` DuckDB loads extensions from,
+   * one name with no slashes; `duckdb-ext` by default. Give `duckdb()` and
+   * `scripts/extensions.ts` the same name.
+   */
+  extensionDir?: string;
 }
 
 /** The name of the error every call rejects with once DuckDB's worker has
@@ -58,6 +64,8 @@ export const ENGINE_STOPPED = 'EngineStopped';
  *  and every call rejects with `ENGINE_STOPPED` (bridge.ts then forgets it). */
 export async function startEngine(options: EngineOptions = {}): Promise<Engine> {
   performance.mark(ENGINE_START_MARK);
+  // Before anything loads, so a bad name fails here, not at the first LOAD.
+  const extensions = `${import.meta.env.BASE_URL}${extensionDir(options.extensionDir)}`;
   const bundle = await selectBundle({
     mvp: { mainModule: mvpModule, mainWorker: mvpWorker },
     eh: { mainModule: ehModule, mainWorker: ehWorker },
@@ -93,7 +101,7 @@ export async function startEngine(options: EngineOptions = {}): Promise<Engine> 
       (async () => {
         await db.instantiate(mainModule);
         await db.open({ filesystem: RANGE_READS_ONLY });
-        await useSelfHostedExtensions(db);
+        await useSelfHostedExtensions(db, extensions);
       })(),
     );
   } catch (error) {
@@ -128,8 +136,9 @@ export async function startEngine(options: EngineOptions = {}): Promise<Engine> 
  * Points DuckDB's extension loading at our origin. Parquet isn't built into
  * DuckDB-Wasm; by default DuckDB would fetch it from extensions.duckdb.org the
  * first time a query needs it. The engine self-hosts everything (its
- * CLAUDE.md), so the repository is the host's own origin. DuckDB builds the URL as
- * `<repository>/<version>/<platform>/<name>.duckdb_extension.wasm`.
+ * CLAUDE.md), so the repository is the host's base plus its extension
+ * directory, on its own origin. DuckDB
+ * builds the URL as `<repository>/<version>/<platform>/<name>.duckdb_extension.wasm`.
  *
  * Autoload is off: an extension loads only through an explicit `LOAD`, which
  * Rust sends one at a time (`Engine::load_parquet`). Two failing loads of one
@@ -137,8 +146,8 @@ export async function startEngine(options: EngineOptions = {}): Promise<Engine> 
  * and with autoload on, any query could start one. A query that needs an
  * extension nobody loaded fails with a clear error instead.
  */
-async function useSelfHostedExtensions(db: AsyncDuckDB): Promise<void> {
-  const repository = new URL(EXTENSION_REPOSITORY, location.href).href.replaceAll("'", "''");
+async function useSelfHostedExtensions(db: AsyncDuckDB, path: string): Promise<void> {
+  const repository = new URL(path, location.href).href.replaceAll("'", "''");
   const conn = await db.connectInternal();
   try {
     await db.runQuery(

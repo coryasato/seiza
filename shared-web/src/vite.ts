@@ -134,7 +134,17 @@ function previewBrotli(): Plugin {
 
       server.middlewares.use((req, res, next) => {
         const accepts = String(req.headers['accept-encoding'] ?? '').includes('br');
-        const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
+        let pathname: string;
+        try {
+          pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
+        } catch {
+          return next(); // A malformed escape: Vite answers it.
+        }
+        // Middlewares see the URL before Vite strips its base; the build
+        // directory has no base in its paths.
+        const base = server.config.base.startsWith('/') ? server.config.base : '/';
+        if (!pathname.startsWith(base)) return next();
+        pathname = pathname.slice(base.length - 1);
         const file = join(outDir, normalize(pathname.endsWith('/') ? `${pathname}index.html` : pathname));
         const type = contentTypes[extname(file)];
         if (!accepts || !type || !file.startsWith(outDir + sep)) return next();

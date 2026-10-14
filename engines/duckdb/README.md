@@ -70,8 +70,8 @@ let state = cx.new(|cx| {
 
 **JS (`@seiza/duckdb`):**
 
-- `createBridge({ refusal? })`: the three calls (`registerFile`, `query`, `cancel`). `refusal(response)` gives the message for a URL whose server answered the range probe with something other than 206 on purpose (a pause switch, say).
-- `duckdb()` (`/vite`): answers a missing extension with a 404, not the SPA fallback.
+- `createBridge({ refusal?, extensionDir? })`: the three calls (`registerFile`, `query`, `cancel`). `refusal(response)` gives the message for a URL whose server answered the range probe with something other than 206 on purpose (a pause switch, say). `extensionDir` is the directory under the host's Vite `base` the extensions load from: one name, no slashes, `duckdb-ext` by default. A host that picks another (`duckdb`, served at `/observatory/duckdb/` under its base) gives `duckdb()` and `extensions.ts <public dir> duckdb` the same name; a name with a slash throws.
+- `duckdb({ extensionDir? })` (`/vite`): answers a missing extension under `<base><extensionDir>/` with a 404, not the SPA fallback.
 - Marks: `duckdb:engine-start` when DuckDB starts loading, `duckdb:engine-ready` when it's open.
 
 A host must be cross-origin isolated (COOP/COEP): the read counters are `SharedArrayBuffer`s.
