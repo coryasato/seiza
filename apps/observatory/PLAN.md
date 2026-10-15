@@ -15,8 +15,8 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | Milestone | Title | Status |
 |---|---|---|
 | M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | Done 2026-10-14 ([`docs/milestones.md`](docs/milestones.md)) |
-| M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Checks pass; to close |
-| M2 | The GPUI contender and the fixtures (parts A–C) | Not started |
+| M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Done 2026-10-15 ([`docs/milestones.md`](docs/milestones.md)) |
+| M2 | The GPUI contender and the fixtures (parts A–C) | Active |
 | M3 | The TanStack contender (parts A–D) | Not started |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Not started |
 | M5 | The observatory page, deployed (parts 0, A–C) | Not started |
@@ -33,42 +33,6 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-**Carried from M0, done 2026-10-14: the zone's WAF covers seiza.io.**
-- [x] A path rule for seiza.io, so requests outside the observatory's paths never reach the Worker.
-- [x] The rate limit covers both hosts, as decided (root `docs/DECISIONS.md`, "Hosting").
-- [x] `just observatory worker-check --behind-waf` passes, and Tycho's production check still does; the rules' text is in the gitignored root `docs/private/zone.md`.
-  *Evidence (2026-10-14):* `worker-check --behind-waf` against https://seiza.io: every range check PASS, `/wp-login.php` 403, a POST to the data 403. `node apps/tycho/worker/scripts/check.ts --url https://tycho.seiza.io`: its data endpoint and WAF checks pass (a probe 403); its only failures are four build files, because production still runs the build from before the table component's rename and `extensionDir` (`index.html`, `index-*.js`, `engine-*.js`, `tycho_bg-*.wasm` differ from today's web/dist), which Tycho's next deploy settles.
-
-### M1: Spikes: the DOM scroll model and the input-latency method
-
-The two unknowns that shape both contenders. One throwaway page serves both parts: fake rows, no DuckDB, nothing kept.
-
-**Part A: the DOM scroll model, sized.** A scaled native scroller over 1,567,523 fake 30 px rows: the spacer held under the browser's element-height cap, the content moving 1:1 with the input within a page and re-anchored at page boundaries. The page is `spike/` (`just observatory spike`); results [`perf/results/2026-10-15-m1-a.md`](perf/results/2026-10-15-m1-a.md); the design [`docs/dom-scroll-model.md`](docs/dom-scroll-model.md).
-- [x] It reaches the last row in Chromium, Firefox, and WebKit; per browser, the stretch (spacer to content) and what the re-anchor looks like.
-  *Evidence (2026-10-15):* caps: Chromium and WebKit clamp an element at 33,554,428 px; Firefox lays out anything over 17,895,696 px at 0 px. One spacer for all, 2^24 px: stretch 2.80 overall (3.06 between the 1:1 end zones of 2^20 px). Last row (1,567,522, bottom flush, gap 0 px) reached in all three by End, Ctrl+End, and 50 wheel events from 40,000 px above the end; in Chromium and WebKit also by a thumb drag and by a steady fling of 180 equal events (233–263 re-anchors, every frame's top row matching the model: 0 of 373–388 off, and 0 of 253–259 through the top band; negative control without the forced render: 336 of 374 off). Re-anchor (`scrollBy` past 1,800 px of drift): 200 × 120 px of wheel from the middle moved 24,000–24,001 px in all three, no frame backward, none off the model, exact at rest, the same as the never-re-anchoring control; the thumb moves back ≤ ~0.1 px. Exceptions, all mid-animation or mid-fling: `scrollTop =` lost Page Down input in Firefox (19,884 of 26,040 px) and fling distance in WebKit (the steady fling 260,503 px short), so `scrollBy`; with it, WebKit showed one frame 137 px back during a smooth Page Down (n = 1). Firefox can't be flung top to bottom by script: one page per wheel event.
-- [x] Whether a native scrollbar drag can be told apart from a wheel or key scroll, per browser (the 80 ms drag settle depends on it); if it can't, what the DOM side does instead.
-  *Evidence (2026-10-15):* Chromium and WebKit, scrollbars shown: a press on the scrollbar sends `pointerdown`/`pointerup` to the scroller, no `pointermove` during a drag; the model put the drag's scrolls down to the thumb (Chromium 10 of 10, WebKit 8 of 9, the ninth a sub-screen step after `pointerup`), every track press, wheel, and key scroll to its own source. It doesn't need the events: a step bigger than a screen with no wheel, key, or touch behind it is the thumb (a thumb pixel is ~19,000 px of scroller), and the settle is 80 ms without a scroll event. Firefox, headed (headless draws no scrollbar with width), `ui.useOverlayScrollbars: 0`: the same `pointerdown`/`pointerup`, 20 of 20 drag scrolls to the thumb, a track press a page 1:1, and a drag to the bottom reaching the last row; released 40 px below the window, Firefox reset `scrollTop` to 0 itself (likely its thumb snap-back for a synthetic pointer off the window; not confirmed with a real mouse).
-- [x] TanStack Virtual (pinned exactly) over the full count, through a custom `observeElementOffset`, against a moving window: its memory, the time to build its measurements, and frame work in a fling. The choice recorded.
-  *Evidence (2026-10-15):* `@tanstack/react-virtual` 3.14.19 (`virtual-core` 3.19.4), Chromium at DPR 2, median of 10 cold runs, alternating. Full count against a 4,096-row window: heap + ArrayBuffers after mount 32.33 against 2.51 MiB; measurements held 29.91 MiB against 83.9 KiB, built in 28.4 against 0.37 ms; mount to rows 20.7 against 8.3 ms; steady fling 4.22 against 4.20 ms of main thread per frame (trace), frame p95 16.7 ms and none over 50 ms in both. **Chosen: the window** (`docs/DECISIONS.md`, "Scroll model").
-- [x] A design note for the TanStack contender's scroll model, with a rough size of the build.
-  *Evidence (2026-10-15):* [`docs/dom-scroll-model.md`](docs/dom-scroll-model.md). Size: React + ReactDOM alone 58.0 KB brotli; with TanStack Virtual, the model, the keys, and the rows 68.1 KB (+10.1 KB brotli, +37.6 KB raw), before the data layer and theme.
-
-**Part B: the input-latency method.** On Tycho's canvas (WebGPU and WebGL2) and on the throwaway page. `spike/latency.ts` (`just observatory spike --only latency,work`); results [`perf/results/2026-10-15-m1-b.md`](perf/results/2026-10-15-m1-b.md); the contract and the readings [`docs/contender-contract.md`](docs/contender-contract.md).
-- [x] For a key press and a track press: Event Timing's duration, checked against a presented-frame probe on both.
-  *Evidence (2026-10-15):* Chromium at DPR 2, 3 sessions × 10 inputs per kind and side. The probe: a mark in the first frame drawn at the new position (GPUI after its GPU task, the DOM in a rAF), tied to that animation frame's presentation in the trace. GPUI, WebGPU and WebGL2: the trace's Event Timing duration ended at the probe's frame in 120 of 120 keys and presses (p50 26.7–33.8 ms). DOM: keys 30 of 30 (p50 21.4 ms); track presses (p50 18.1 ms) 30 of 30 on the frame whose compositor first applied the scroll, 28 of 30 on the main-thread probe's: on a session's first press the main thread learned of the scroll 19 ms after it was on screen. The page's observer rounds to 8 ms (up to 3.9 ms off here) and drops events under 16 ms (3 of the DOM's 60). No page or console errors in any session.
-- [x] For the wheel (which Event Timing doesn't report): whether Chromium's trace (`EventLatency`) reports input to presentation for wheel events whose default is prevented (GPUI) and for native scrolls (DOM). The method chosen.
-  *Evidence (2026-10-15):* GPUI: yes, `MOUSE_WHEEL`, at the probe's frame in 60 of 60 (p50 29.5 ms WebGPU, 36.8 WebGL2). DOM native: yes, `FIRST_GESTURE_SCROLL_UPDATE` (p50 10.9 ms), on the compositor's first scrolled frame in 30 of 30 and 23–30 ms before the main thread's probe; the control (the wheel scrolled from a main-thread listener) put it on the probe's frame in 30 of 30. **Chosen:** `EventLatency` for every input kind on both sides, the probe checked on every run (`docs/DECISIONS.md`, "Measurement").
-- [x] Per-frame work read from the trace, the same way on both sides. Its rAF part agrees with `workRecorder` on Tycho within the run's spread; the whole frame adds the input handling and update work `workRecorder` doesn't time, each itemized.
-  *Evidence (2026-10-15):* 10 cold runs per side, no GPU-call wrapper but `workRecorder`. Each frame's `ProxyMain::BeginMainFrame` on both sides. Its rAF callbacks against `workRecorder`: p50 5.28 against 5.26 ms (paired difference 0.02 ms, run spread 0.07), p95 6.62 against 6.60 (spread 0.55). The whole frame, 5.65 ms at p50, adds 0.41: input dispatched in the frame 0.16, lifecycle and commit 0.24. Parts per frame (mean), GPUI: animate 5.11, input 0.13, lifecycle 0.08, other 0.14; DOM: lifecycle 2.64, animate 0.86, input 0.09, other 0.07. Outside any frame, ~8% of busy time on both sides (GPUI: the engine's page results 33 ms, timers 29 of 91), counted in the busy total. Tycho's own work per frame is the rAF part only and doesn't compare.
-- [x] The contender contract written down: the marks, targets, and replay hooks each contender publishes.
-  *Evidence (2026-10-15):* [`docs/contender-contract.md`](docs/contender-contract.md): `?measure`; marks `contender:first-pixels`, `usable`, `open`, `filled` (and `postMessage` to the page); `__contender.state` with the probe; the targets; `replay.open`, `fling`, `jump`; and how each metric is read.
-
----
-
-## Next milestones
-
-The "done when" checks are drafts until their milestone becomes active.
-
 ### M2: The GPUI contender and the fixtures
 
 **Part A: the shared changes, measured on Tycho.**
@@ -84,6 +48,12 @@ The "done when" checks are drafts until their milestone becomes active.
 - [ ] Paging: scroll, jump, rest, and drag steps → the page requests in order, the settle times included.
 - [ ] Cells: values from each float column of the data file and each column's budget, pinned from the GPUI contender's `ColumnProbe` → the shown text.
 - [ ] Page SQL and the summary queries.
+
+---
+
+## Next milestones
+
+The "done when" checks are drafts until their milestone becomes active.
 
 ### M3: The TanStack contender
 
