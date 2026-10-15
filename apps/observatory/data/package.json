@@ -1,0 +1,10 @@
+{
+  "name": "@seiza/observatory-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Builds the Observatory's data file from Tycho's pinned asteroid sample. Not an npm workspace: native DuckDB is installed only by `just observatory data`, with its own lockfile.",
+  "dependencies": {
+    "@duckdb/node-api": "1.4.5-r.1"
+  }
+}

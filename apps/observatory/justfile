@@ -7,6 +7,46 @@ root := source_directory() / "../.."
 dev:
     npm run dev --workspace @seiza/observatory-web
 
+# Build the data file (data/asteroids.parquet, gitignored) from Tycho's
+# pinned asteroid sample (`just tycho data` first), and write
+# data/MANIFEST.json. Installs data/'s native DuckDB (its own lockfile).
+data:
+    npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
+    node {{app_dir}}/data/prep.ts
+
+# Deploy to Cloudflare (seiza.io, the Worker in worker/): stage the data file
+# and _headers into worker/dist/, `wrangler deploy` with the file's SHA-256 as
+# DATA_SHA256 (the edge cache's key), then check production, retrying for a
+# minute while the version reaches the edge. Needs `wrangler login`. Flags
+# pass to the check, e.g. `--resolve-via 1.1.1.1`.
+deploy *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    node {{app_dir}}/worker/scripts/stage.ts
+    sha=$(node -e "console.log(JSON.parse(require('fs').readFileSync('{{app_dir}}/data/MANIFEST.json','utf8'))['asteroids.parquet'].sha256)")
+    cd {{app_dir}}/worker && {{root}}/node_modules/.bin/wrangler deploy --var "DATA_SHA256:$sha"
+    for attempt in $(seq 1 12); do
+        node {{app_dir}}/worker/scripts/check.ts {{args}} && exit 0
+        echo "check failed (attempt $attempt); retrying in 5 s"; sleep 5
+    done
+    exit 1
+
+# The data file as production serves it: ranged HEAD and bytes=0-0 (206 with
+# Content-Range), closed ranges byte-exact on the wire, no Content-Encoding,
+# isolation headers and no-transform, the whole file's SHA-256. --url
+# <origin> (default https://seiza.io), --resolve-via <dns server>.
+worker-check *args:
+    node {{app_dir}}/worker/scripts/check.ts {{args}}
+
+# DuckDB-Wasm reading the data file in production next to Tycho's R2 path for
+# the same rows (Chromium, a cold context per run, sides alternating): register,
+# first page, the page at 90%, bytes read, count(*), and a digest of the first
+# page both must share. Writes perf/results/<date>-<label>.json. Needs
+# `just tycho build` (the page and engine it routes in). --runs, --label,
+# --resolve-via.
+data-read *args:
+    node {{app_dir}}/perf/data-read.ts {{args}}
+
 # Regenerate the numbers in README.md, PLAN.md, and the root README from
 # perf/budgets.json and the newest matching perf/results/ files. --check:
 # report only.
@@ -14,8 +54,12 @@ report *args:
     cd {{root}} && node shared-web/scripts/report.ts apps/observatory {{args}}
 
 # No milestone references outside the history files (check-terms), the
-# generated numbers in the docs, and TypeScript (the web host).
+# generated numbers in the docs, and TypeScript (the web host, the Worker and
+# its scripts, perf/, and data/ once `just observatory data` installed its deps).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/observatory --check
     npm run typecheck --workspace @seiza/observatory-web
+    npm run typecheck --workspace @seiza/observatory-worker
+    cd {{root}} && npx tsc -p apps/observatory/perf
+    @if [ -d {{app_dir}}/data/node_modules ]; then cd {{root}} && npx tsc -p apps/observatory/data; else echo "skipped data/ typecheck: its deps install with \`just observatory data\`"; fi

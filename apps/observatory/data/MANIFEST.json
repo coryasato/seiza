@@ -1,0 +1,14 @@
+{
+  "asteroids.parquet": {
+    "rows": 1567523,
+    "bytes": 22812292,
+    "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
+    "source": "apps/tycho/data/asteroids.parquet (sha256 4ee7f31ea67b…), from https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+    "notes": [
+      "columns: spkid BIGINT, full_name VARCHAR, class VARCHAR, neo BOOLEAN, pha BOOLEAN, H DOUBLE, diameter DOUBLE, albedo DOUBLE, a DOUBLE, e DOUBLE, first_obs DATE"
+    ]
+  }
+}

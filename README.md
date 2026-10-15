@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Planned |
+| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | In progress: its data file is served from seiza.io; no page yet |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -43,7 +43,7 @@ Budgets gate the local release build only. Production numbers are recorded next 
 - **UI:** `gpui-kit`, pinned to an exact version (0.7.3) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
 - **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the app shell (title bar, theme toggle), the observation panel, and the page clock and marks. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, the UI font, and the perf harness every app's scripts share.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
-- **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io; the observatory will live at seiza.io/observatory. Each Worker serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker.
+- **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io, and serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker. The observatory's Worker holds seiza.io itself; today it serves the observatory's data file, by byte range through the edge cache, since Workers static assets don't answer ranges.
 
 ## Layout
 
@@ -60,7 +60,7 @@ seiza/
   engines/
     duckdb/             # DuckDB-Wasm for every app: a Rust crate (seiza-duckdb) and an npm package (@seiza/duckdb)
   apps/
-    observatory/        # the comparison page (planned: its PLAN.md and README.md so far)
+    observatory/        # the comparison page: web/, worker/ (seiza.io), data/, perf/, docs/; no page yet
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands

@@ -1,0 +1,29 @@
+# The Observatory's Worker: static assets, and a script (src/index.ts) that
+# runs first only for /observatory/data/*, which static assets can't serve by
+# range. No account ID here (the repo is public): wrangler
+# takes it from the login, or CLOUDFLARE_ACCOUNT_ID with an API token.
+name = "observatory"
+main = "src/index.ts"
+compatibility_date = "2026-10-13"
+
+# The apex, a Workers custom domain on the seiza.io zone; everything it
+# serves is under /observatory/ (CLAUDE.md, rule 2), and any other path is a
+# 404. The account's default subdomain names its owner, so it's off and
+# never committed, and so are preview URLs, which live on it.
+routes = [{ pattern = "seiza.io", custom_domain = true }]
+workers_dev = false
+preview_urls = false
+
+# Staged by scripts/stage.ts (`just observatory deploy`): the data file at
+# observatory/data/, and `_headers` (isolation headers on everything served
+# directly). The data runs the script first; it reads the file through the
+# binding. DATA_SHA256 (the file's version, the edge cache's key) is passed
+# by the deploy from data/MANIFEST.json, never committed here.
+[assets]
+directory = "dist"
+binding = "ASSETS"
+not_found_handling = "none"
+run_worker_first = ["/observatory/data/*"]
+
+[observability]
+enabled = true

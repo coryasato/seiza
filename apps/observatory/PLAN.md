@@ -14,8 +14,8 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | In progress: part A done |
-| M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Not started |
+| M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | Done 2026-10-14 ([`docs/milestones.md`](docs/milestones.md)) |
+| M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Next |
 | M2 | The GPUI contender and the fixtures (parts A–C) | Not started |
 | M3 | The TanStack contender (parts A–D) | Not started |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Not started |
@@ -27,38 +27,16 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 **Closing a milestone:** as for every app (root `CLAUDE.md`, "Working agreements"): every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md` (repo-wide ones in the root's); a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to `docs/milestones.md`, leaving one row above.
 
-**Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here: `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C), `@seiza/duckdb` takes its extension path as an option (M0 part A), and `seiza` gains `shell` and `panel` features (M2 part A, on by default). Each records its effect on Tycho.
+**Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here: `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C), `@seiza/duckdb` takes its extension directory as an option (done, M0 part A), and `seiza` gains `shell` and `panel` features (M2 part A, on by default). Each records its effect on Tycho.
 
 ---
 
 ## Active milestone
 
-### M0: Groundwork: the app, its data file, and static hosting
-
-The app's skeleton, and the two assumptions everything after it stands on: that a slimmed asteroid file fits Workers static assets, and that static assets answer DuckDB's byte-range reads.
-
-**Part A: the app skeleton and the engine's path.**
-- `apps/observatory/` from [`docs/templates/app/`](../../docs/templates/app/): `CLAUDE.md`, `docs/` (`DECISIONS.md`, `LESSONS.md`, `milestones.md`), `perf/budgets.json`; a justfile module (`just observatory lint`, with `check-terms`); an npm workspace for its web hosts on `shared-web` (COOP/COEP in dev). Layout: `contenders/tall-table/gpui/` and `contenders/tall-table/tanstack/` for the bare pages, `web/` for the page, `worker/`, `data/`, `perf/`.
-- `@seiza/duckdb` takes its extension repository as an option (today `EXTENSION_REPOSITORY = '/duckdb-ext'`, `engines/duckdb/web/src/extensions.ts`), so the observatory can serve the engine from `/observatory/duckdb/`. Tycho keeps the default.
-
-**Part B: the data file and the static-asset check.**
-- The observatory's own asteroid file: the asteroids with fewer columns, small enough for a Workers static asset (25 MiB per file), all 1,567,523 rows, built by a recipe from Tycho's `asteroids.parquet` and listed in a manifest.
-- A production check of static assets at an unlinked path (a deploy: the user's go first).
-
-**Done when:**
-- [x] *(A)* `apps/observatory/` has its `CLAUDE.md`, `docs/`, and `perf/budgets.json` from the template, `just observatory lint` passes, and its web workspace serves COOP/COEP in dev.
-  *Evidence (2026-10-14):* `just observatory lint`: check-terms clean (and its pattern run by hand over the new, untracked files), "generated numbers are current", `tsc` clean. `budgets.json` has no limits or metrics yet; the root README's headlines list the Observatory as "not measured yet". `just observatory dev` at `/observatory/`: `200`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`; the build's `_headers` scope both, with CORP, to `/observatory/*`. Layout: only `web/` exists so far; `contenders/`, `worker/`, and `data/` come with the code that fills them.
-- [x] *(A)* `@seiza/duckdb`'s extension repository is an option with today's path as the default; Tycho's build is unchanged (its wasm and JS sizes recorded) and `just tycho engine` passes.
-  *Evidence (2026-10-14):* `extensionDir` (one directory name under the Vite base, `duckdb-ext` by default) on `createBridge`, `duckdb()`, and `scripts/extensions.ts` alike; a name with a slash throws in all three (`/observatory/duckdb`, `duckdb/`, `a/b`, `..` rejected). In preview under `base: '/observatory/'` with `extensionDir: 'duckdb'`: the pinned extension 200, `json` 404, a malformed escape 404; Tycho's `/duckdb-ext/…` the same. `previewBrotli` now strips the base too: `/observatory/assets/*` comes back `br`. Tycho's release build before and after: `tycho_bg.wasm` byte-identical (SHA-256 `b416df90…`, 2842.1 KiB br), DuckDB's bundles and workers identical; `engine-*.js` 198,383 → 198,589 B (39,752 → 39,939 B br, after first paint: the name check); `index-*.js` 116,381 B both, identical but for the engine chunk's hashed name. `just tycho engine`: PASS, Chromium ×10 (engine ready median 653.9 ms), Firefox, WebKit ([`2026-10-14-observatory-m0-a-engine-review.json`](../tycho/perf/results/2026-10-14-observatory-m0-a-engine-review.json); the first draft's run is [`…-engine.json`](../tycho/perf/results/2026-10-14-observatory-m0-a-engine.json)). `just tycho lint` passes.
-- [ ] *(B)* The data file: under 25 MiB, `count(*)` = 1,567,523, at least one column of each kind the base level draws (integer, text, boolean, float, date), its row-group size recorded, in the manifest with SHA-256.
-- [ ] *(B)* Served as a Workers static asset in production: a ranged `HEAD` and a `bytes=0-0` GET answer 206 with `Content-Range`; closed ranges come back byte-exact; the Parquet isn't recompressed; COOP/COEP/CORP are present; DuckDB-Wasm, loaded from that origin, opens the file and reads a page. If any of these fails, the fallback is chosen and recorded before M1.
-- [ ] *(B)* The first page read from the static asset, in production, recorded next to Tycho's R2 path for the same rows.
-
----
-
-## Next milestones
-
-The "done when" checks are drafts until their milestone becomes active.
+**Carried from M0, before M1's first measurement: the zone's WAF covers seiza.io.** The data path runs a billed Worker request per read, and so does any path no asset matches; nothing limits them yet. In the dashboard (the zone's rules are written in Tycho's [`docs/hosting.md`](../tycho/docs/hosting.md), "Abuse guards", and move to a repo-wide home with this change):
+- [ ] A custom rule (Block) for seiza.io: anything not a `GET` or `HEAD`, or outside `/observatory/`, never reaches the Worker. `(http.host eq "seiza.io" and (not http.request.method in {"GET" "HEAD"} or not starts_with(http.request.uri.path, "/observatory/")))`. The landing page's `/` joins it when it ships (M5).
+- [ ] The rate-limiting rule (the free plan's only one) counts both hosts on one per-IP counter, as decided (root `docs/DECISIONS.md`, "Hosting"): `(http.host in {"tycho.seiza.io" "seiza.io"})`, the limit unchanged.
+- [ ] `just observatory worker-check --behind-waf` passes (a probe and a POST get the WAF's 403), and `node apps/tycho/worker/scripts/check.ts --url https://tycho.seiza.io` still does. The rules' text moves out of Tycho's `hosting.md` into a doc both apps point to.
 
 ### M1: Spikes: the DOM scroll model and the input-latency method
 
@@ -75,6 +53,12 @@ The two unknowns that shape both contenders. One throwaway page serves both part
 - [ ] For the wheel (which Event Timing doesn't report): whether Chromium's trace (`EventLatency`) reports input to presentation for wheel events whose default is prevented (GPUI) and for native scrolls (DOM). The method chosen.
 - [ ] Per-frame work read from the trace, the same way on both sides, agrees with `workRecorder` on Tycho within the run's spread.
 - [ ] The contender contract written down: the marks, targets, and replay hooks each contender publishes.
+
+---
+
+## Next milestones
+
+The "done when" checks are drafts until their milestone becomes active.
 
 ### M2: The GPUI contender and the fixtures
 
@@ -129,6 +113,8 @@ React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`. No Wasm of its own
 
 React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 
+**The seiza.io site build (draft, decided here before part A starts):** `web/` becomes the build for every page on the apex, not just the observatory's: one Vite multi-page app with `base: '/'`, the landing page at `/` and the observatory under `/observatory/`, sharing one stylesheet, its tokens (light and dark), and components. The landing page ships as prerendered HTML with no React runtime (the fastest page on the domain is the one that sells the thesis; root rule 1), and gets React only for a part that needs it; the observatory's page is React. The contenders stay separate bare builds, never part of the site's bundle (root `CLAUDE.md`, "Comparison protocol"). The site starts here and moves to a directory of its own when a third section joins (root `CLAUDE.md`: code starts in an app and moves out on its second consumer). This changes `web/`'s base and the observatory's rule 2 (which then covers the observatory's own paths, the site owning `/`), and adds `/` to the WAF allowlist.
+
 **Part A: the shell.**
 - [ ] A collapsible nav listing components (one entry), `/observatory/tall-table`, one slot with the GPUI | TanStack toggle (disabled until the GPUI contender paints its first rows), a same-origin iframe per contender that a flip destroys and replaces, contenders reporting marks by `postMessage`, a URL parameter choosing which side loads first.
 
@@ -136,7 +122,7 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 - [ ] Passive readouts from M4's metrics module at ~4 Hz, the second contender's labelled warm, beside M4's cold numbers.
 
 **Part C: the deploy.**
-- [ ] The Worker serves the page, the contenders, the engine, and the data file as static assets (precompressed brotli, COOP/COEP/CORP) at `seiza.io/observatory`; the zone's WAF rules cover its paths; a production check passes.
+- [ ] The Worker serves the page, the contenders, and the engine as static assets (precompressed brotli, COOP/COEP/CORP), and the data file by range through the edge cache (as it does today), at `seiza.io/observatory`; the zone's WAF rules cover its paths; a production check passes.
 
 ### M6: Split mode
 
@@ -172,5 +158,5 @@ Not milestones. Each starts with research.
 
 ## Open questions
 
-- **The pause switch.** The observatory's data never reaches R2, so the switch has nothing to stop there. Whether its Worker honours it anyway, for the Worker requests it does serve, is decided at the deploy (M5).
-- **The landing page.** Whether the observatory's Worker also serves the apex root's landing page (root `docs/DECISIONS.md`, "Hosting"), decided at the deploy.
+- **The pause switch.** The observatory's data never reaches R2, but every data read now runs its Worker (static assets can't serve ranges), so each is a billed request. Whether it honours the switch for them is decided at the deploy (M5), with the WAF rules' widening to seiza.io's paths.
+- **The landing page.** The observatory's Worker holds the apex `seiza.io` as its custom domain (everything outside `/observatory/` a 404). The plan is one site build for the apex (M5, above); open: what the landing page says, and whether it ships before M5, as static HTML from the same build.

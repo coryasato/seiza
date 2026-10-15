@@ -40,7 +40,7 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 
 ## Active milestone
 
-None. Next is the observatory's first milestone ([`../observatory/PLAN.md`](../observatory/PLAN.md)), built on the table component and the DuckDB engine; Tycho's own next ones come out of the research for a long-term goal below.
+None. The observatory's milestones come next ([`../observatory/PLAN.md`](../observatory/PLAN.md)), built on the table component and the DuckDB engine; Tycho's own next ones come out of the research for a long-term goal below.
 
 ---
 
