@@ -1,14 +1,17 @@
 // Drives the spike page in Chromium, Firefox, and WebKit and writes what it
 // found to ../perf/results/<date>-<label>-<scenario>.json.
 //
-//   node apps/observatory/spike/run.ts [--only caps,reach,continuity,bar,tanstack] [--runs 10] [--label spike] [--out <dir>]
+//   node apps/observatory/spike/run.ts [--only caps,reach,continuity,bar,tanstack,latency,work] [--runs 10] [--label spike] [--out <dir>]
 //     [--browsers chromium,firefox,webkit] [--anchors set,by] [--variant window|full] [--stale] [--no-build]
+//     [--sessions 3] [--count 10]
 //
 // Builds the page first (vite build; --no-build serves the last dist/), then
 // serves dist/ with `vite preview`. --anchors: the re-anchor methods `reach`
 // compares; --variant: the TanStack layout every scenario but `tanstack`
 // opens; --stale: the negative control (no forced render when the rows'
-// bases move).
+// bases move). `latency` and `work` (latency.ts) also drive Tycho's release
+// build (`just tycho build` first), Chromium only: --sessions browsers per
+// side, --count inputs of each kind per session; `work` takes --runs.
 
 import { writeFileSync } from 'node:fs';
 import { build } from 'vite';
@@ -16,7 +19,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwri
 import { frameRecorder, open, recordedBetween, waitMark, type RecordedFrame } from '../../../shared-web/perf/harness.ts';
 import { flag, machineInfo, option, percentiles } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { nativeFling, nativeWheel, ROW_HEIGHT, steadyFling } from './input.ts';
+import { nativeFling, nativeWheel, openWithScrollbars, ROW_HEIGHT, steadyFling } from './input.ts';
 
 const dir = import.meta.dirname;
 const only = option('only')?.split(',') ?? ['caps', 'reach', 'continuity', 'bar', 'tanstack'];
@@ -44,31 +47,10 @@ type Frame = RecordedFrame<{ v: number; s: number; shown: number; anchors: numbe
 async function openSpike(engine: BrowserType, params: Record<string, string>, init: (() => void)[] = [], scrollbars = false) {
   params = { v: option('variant') ?? 'window', ...params };
   console.log(`${engine.name()} ${new URLSearchParams(params)}`);
-  const browsing = scrollbars ? await openWithScrollbars(engine, params, init) : await open(engine, server.url, { params, init });
+  const browsing = scrollbars ? await openWithScrollbars(engine, server.url, { params, init }) : await open(engine, server.url, { params, init });
   await waitMark(browsing.page, 'spike:rows');
   await browsing.page.focus('.scroller');
   return browsing;
-}
-
-/**
- * The harness's `open`, but with scrollbars a person would see: headless
- * Chromium hides them (`--hide-scrollbars`, a Playwright default) and Firefox
- * on macOS draws overlay ones; both are turned off here. No DPR emulation:
- * nothing here is timed.
- */
-async function openWithScrollbars(engine: BrowserType, params: Record<string, string>, init: (() => void)[]) {
-  const browser = await engine.launch(
-    engine === chromium ? { channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'] } : engine === firefox ? { firefoxUserPrefs: { 'ui.useOverlayScrollbars': 0 } } : {},
-  );
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  for (const script of init) await context.addInitScript(script);
-  const page = await context.newPage();
-  const problems: string[] = [];
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
-  const target = new URL(server.url);
-  for (const [key, value] of Object.entries(params)) target.searchParams.set(key, value);
-  await page.goto(target.toString());
-  return { page, context, problems, close: () => browser.close() };
 }
 
 /** Waits until the model has had no scroll event for its idle time. */
@@ -402,6 +384,8 @@ try {
   if (only.includes('continuity')) save('continuity', await continuity());
   if (only.includes('bar')) save('bar', await bar());
   if (only.includes('tanstack')) save('tanstack', await (await import('./tanstack.ts')).tanstack(server.url, runs));
+  if (only.includes('latency')) save('latency', await (await import('./latency.ts')).latency(server.url, { sessions: Number(option('sessions') ?? 3), count: Number(option('count') ?? 10) }));
+  if (only.includes('work')) save('work', await (await import('./latency.ts')).work(server.url, runs));
 } finally {
   await server.close();
 }

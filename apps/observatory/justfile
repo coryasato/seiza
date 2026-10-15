@@ -50,9 +50,10 @@ data-read *args:
 # The throwaway scroll spike (spike/: fake rows, no DuckDB): builds its page
 # and drives it in Chromium, Firefox, and WebKit, writing
 # perf/results/<date>-<label>-<scenario>.json. Installs spike/'s deps (its
-# own lockfile). --only caps,reach,continuity,bar,tanstack, --runs, --label,
-# --browsers, --anchors, --variant, --stale, --no-build, --out (run.ts lists
-# them). `spike-sizes`: its JS against React alone (--label).
+# own lockfile). --only caps,reach,continuity,bar,tanstack,latency,work,
+# --runs, --label, --browsers, --anchors, --variant, --stale, --sessions,
+# --count, --no-build, --out (run.ts lists them). `latency` and `work` also
+# drive Tycho's release build (`just tycho build` first), in Chromium. `spike-sizes`: its JS against React alone (--label).
 spike *args:
     npm install --prefix {{app_dir}}/spike --no-audit --no-fund --silent
     node {{app_dir}}/spike/run.ts {{args}}

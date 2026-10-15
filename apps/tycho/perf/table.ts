@@ -51,6 +51,7 @@ import {
   overlayValue,
   presentedMark,
   presentingTaskRecorder,
+  setPanel,
   targetRect,
   waitMark,
   waitOverlay,
@@ -224,16 +225,6 @@ async function measure(url: string, profile: Profile | null, params: Record<stri
   }
 }
 
-/** Shows or hides the observation panel (Ctrl+Shift+P). The memory passes
- *  drag with it hidden: it covers the bottom of the scrollbar track, where
- *  a press on the thumb would land on the panel. */
-async function setPanel(page: Page, open: boolean): Promise<void> {
-  const visible = () => page.evaluate(() => (globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined);
-  if ((await visible()) === open) return;
-  await page.keyboard.press('Control+Shift+P');
-  await page.waitForFunction((open) => ((globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined) === open, open, { timeout: 5_000 });
-}
-
 /**
  * App memory: the app's wasm memory and the main thread's live JS heap (after
  * a forced GC), as the overlay shows them (MiB). DuckDB's worker isn't in it; the whole page's
@@ -283,6 +274,8 @@ async function memoryPass(url: string, passes = 2) {
     const started = Date.now();
     const afterPass = [];
     for (let pass = 0; pass < passes; pass++) {
+      // The panel covers the bottom of the scrollbar track, where a press on
+      // the thumb would land on it.
       await setPanel(page, false);
       await page.mouse.move(tx + tw / 2, (pass === 0 ? ty : trackY + travel) + th / 2);
       await hoverSettles(page);

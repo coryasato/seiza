@@ -1,0 +1,1227 @@
+{
+  "date": "2026-10-15",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "scenario": "work",
+  "results": {
+    "profile": "reference (Chromium, 1440×900 at DPR 2), cold",
+    "runs": 10,
+    "categories": [
+      "devtools.timeline",
+      "blink.user_timing",
+      "toplevel",
+      "input",
+      "benchmark",
+      "latencyInfo",
+      "blink"
+    ],
+    "gpui": {
+      "recorderP50Ms": {
+        "median": 5.26,
+        "min": 5.22,
+        "max": 5.29
+      },
+      "recorderP95Ms": {
+        "median": 6.6,
+        "min": 6.32,
+        "max": 6.87
+      },
+      "traceP50Ms": {
+        "median": 5.65,
+        "min": 5.62,
+        "max": 5.67
+      },
+      "traceP95Ms": {
+        "median": 7.1,
+        "min": 6.81,
+        "max": 7.29
+      },
+      "pairedDifferenceP50Ms": {
+        "median": 0.41,
+        "min": 0.35,
+        "max": 0.42
+      },
+      "pairedDifferenceP95Ms": {
+        "median": 0.61,
+        "min": 0.56,
+        "max": 0.64
+      },
+      "pairedShare": {
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "busyPerFrameMs": {
+        "median": 5.95,
+        "min": 5.81,
+        "max": 6.04
+      },
+      "busyShare": {
+        "median": 0.313,
+        "min": 0.305,
+        "max": 0.319
+      },
+      "outsideFramesShare": {
+        "median": 0.082,
+        "min": 0.08,
+        "max": 0.085
+      },
+      "partsPerFrameMs": {
+        "animate": 5.113020000000001,
+        "other": 0.14198,
+        "input": 0.1251,
+        "lifecycle": 0.07703
+      },
+      "outsideFramesMs": {
+        "HandlePostMessage": 33.265,
+        "TimerBase::run": 28.745,
+        "other": 18.125,
+        "V8.GC_HEAP_EXTERNAL_EPILOGUE": 3.81,
+        "BlinkScheduler_PerformMicrotaskCheckpoint": 1.95,
+        "V8.GC_MC_INCREMENTAL": 1.56,
+        "MinorGC": 1.48,
+        "MajorGC": 1.065,
+        "Document::UpdateStyleAndLayout": 0.77,
+        "CanvasPerformanceMonitor::RecordMetrics": 0.09,
+        "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.01
+      },
+      "traceRafP50Ms": {
+        "median": 5.28,
+        "min": 5.24,
+        "max": 5.3
+      },
+      "traceRafP95Ms": {
+        "median": 6.62,
+        "min": 6.35,
+        "max": 6.93
+      },
+      "pairedRafDifferenceP50Ms": {
+        "median": 0.019,
+        "min": 0.018,
+        "max": 0.02
+      },
+      "pairedInputP50Ms": {
+        "median": 0.161,
+        "min": 0.044,
+        "max": 0.183
+      },
+      "pairedRestP50Ms": {
+        "median": 0.236,
+        "min": 0.232,
+        "max": 0.237
+      },
+      "agreementP50": {
+        "difference": 0.39,
+        "recorderSpread": 0.07,
+        "within": false
+      },
+      "agreementP95": {
+        "difference": 0.5,
+        "recorderSpread": 0.55,
+        "within": true
+      },
+      "rafAgreementP50": {
+        "difference": 0.02,
+        "recorderSpread": 0.07,
+        "within": true
+      },
+      "rafAgreementP95": {
+        "difference": 0.02,
+        "recorderSpread": 0.55,
+        "within": true
+      }
+    },
+    "dom": {
+      "traceP50Ms": {
+        "median": 0.56,
+        "min": 0.36,
+        "max": 0.71
+      },
+      "traceP95Ms": {
+        "median": 8.1,
+        "min": 7.76,
+        "max": 8.32
+      },
+      "busyPerFrameMs": {
+        "median": 3.95,
+        "min": 3.9,
+        "max": 4.05
+      },
+      "busyShare": {
+        "median": 0.22,
+        "min": 0.217,
+        "max": 0.226
+      },
+      "outsideFramesShare": {
+        "median": 0.077,
+        "min": 0.076,
+        "max": 0.079
+      },
+      "partsPerFrameMs": {
+        "lifecycle": 2.63646,
+        "animate": 0.86258,
+        "input": 0.08997,
+        "other": 0.06743
+      },
+      "outsideFramesMs": {
+        "other": 72.785,
+        "MajorGC": 14.05,
+        "MessagePort::Accept": 7.68,
+        "MinorGC": 4.61,
+        "HTMLDocumentParser::~HTMLDocumentParser": 4.57,
+        "BlinkScheduler_PerformMicrotaskCheckpoint": 4.075,
+        "Document::UpdateStyleAndLayout": 1.85,
+        "TimerBase::run": 0.52,
+        "V8.GC_MC_INCREMENTAL": 0.395,
+        "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+      }
+    },
+    "problems": [],
+    "raw": {
+      "gpui": [
+        {
+          "flingMs": 3033.1500000953674,
+          "recorder": {
+            "n": 178,
+            "p50": 5.264999866485596,
+            "p95": 6.865000247955322,
+            "max": 8.5
+          },
+          "trace": {
+            "n": 187,
+            "p50": 5.662,
+            "p95": 7.249,
+            "max": 8.886
+          },
+          "traceRaf": {
+            "n": 178,
+            "p50": 5.292,
+            "p95": 6.927,
+            "max": 8.579
+          },
+          "paired": {
+            "n": 178,
+            "of": 178,
+            "difference": {
+              "n": 178,
+              "p50": 0.400000305175781,
+              "p95": 0.5610003623962401,
+              "max": 0.9449998855590822
+            },
+            "rafDifference": {
+              "n": 178,
+              "p50": 0.019000343322753466,
+              "p95": 0.04699979019165035,
+              "max": 0.08099982833862285
+            },
+            "inputMs": {
+              "n": 178,
+              "p50": 0.044,
+              "p95": 0.298,
+              "max": 0.685
+            },
+            "restMs": {
+              "n": 178,
+              "p50": 0.23500000000000032,
+              "p95": 0.27300000000000035,
+              "max": 0.4929999999999993
+            }
+          },
+          "parts": {
+            "input": 0.12495999999999999,
+            "animate": 5.19437,
+            "lifecycle": 0.07755,
+            "other": 0.14412
+          },
+          "busyPerFrame": 6.037914438502334,
+          "busyShare": 0.3191859569813999,
+          "busyMs": 1129.0899999999365,
+          "outsideFramesMs": 92.92199999993659,
+          "outside": {
+            "HandlePostMessage": 33.57,
+            "TimerBase::run": 28.39,
+            "other": 17.61,
+            "MajorGC": 4.31,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 1.97,
+            "MinorGC": 1.97,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.9,
+            "HTMLDocumentParser::~HTMLDocumentParser": 1.77,
+            "Document::UpdateStyleAndLayout": 0.73,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.07,
+            "V8.GC_MC_INCREMENTAL": 0.01
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3029.8599996566772,
+          "recorder": {
+            "n": 175,
+            "p50": 5.260000228881836,
+            "p95": 6.5,
+            "max": 8.639999866485596
+          },
+          "trace": {
+            "n": 186,
+            "p50": 5.656,
+            "p95": 7.122,
+            "max": 9.405
+          },
+          "traceRaf": {
+            "n": 175,
+            "p50": 5.282,
+            "p95": 6.518,
+            "max": 8.66
+          },
+          "paired": {
+            "n": 175,
+            "of": 175,
+            "difference": {
+              "n": 175,
+              "p50": 0.41599975204467743,
+              "p95": 0.6279997329711913,
+              "max": 0.7650001335144037
+            },
+            "rafDifference": {
+              "n": 175,
+              "p50": 0.01900020980834949,
+              "p95": 0.04199990463256853,
+              "max": 0.10000005722045913
+            },
+            "inputMs": {
+              "n": 175,
+              "p50": 0.144,
+              "p95": 0.346,
+              "max": 0.564
+            },
+            "restMs": {
+              "n": 175,
+              "p50": 0.2359999999999999,
+              "p95": 0.2869999999999998,
+              "max": 0.4710000000000002
+            }
+          },
+          "parts": {
+            "input": 0.1277,
+            "animate": 5.101439999999999,
+            "lifecycle": 0.07698999999999999,
+            "other": 0.14196999999999999
+          },
+          "busyPerFrame": 5.93760752688138,
+          "busyShare": 0.3124994694933955,
+          "busyMs": 1104.3949999999368,
+          "outsideFramesMs": 91.048999999937,
+          "outside": {
+            "HandlePostMessage": 33.3,
+            "TimerBase::run": 28.86,
+            "other": 18.07,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 5.15,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.96,
+            "V8.GC_MC_INCREMENTAL": 1.22,
+            "MinorGC": 1.04,
+            "Document::UpdateStyleAndLayout": 0.77,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.08,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3031.539999961853,
+          "recorder": {
+            "n": 177,
+            "p50": 5.285000324249268,
+            "p95": 6.569999694824219,
+            "max": 8.525000095367432
+          },
+          "trace": {
+            "n": 185,
+            "p50": 5.675,
+            "p95": 6.961,
+            "max": 8.857
+          },
+          "traceRaf": {
+            "n": 177,
+            "p50": 5.302,
+            "p95": 6.589,
+            "max": 8.61
+          },
+          "paired": {
+            "n": 177,
+            "of": 177,
+            "difference": {
+              "n": 177,
+              "p50": 0.41499992370605465,
+              "p95": 0.6350000190734866,
+              "max": 0.9630002098083494
+            },
+            "rafDifference": {
+              "n": 177,
+              "p50": 0.018000095367431967,
+              "p95": 0.03800003814697295,
+              "max": 0.6520002098083495
+            },
+            "inputMs": {
+              "n": 177,
+              "p50": 0.169,
+              "p95": 0.305,
+              "max": 0.514
+            },
+            "restMs": {
+              "n": 177,
+              "p50": 0.2320000000000001,
+              "p95": 0.27499999999999986,
+              "max": 0.42499999999999993
+            }
+          },
+          "parts": {
+            "input": 0.12756,
+            "animate": 5.17816,
+            "lifecycle": 0.07517,
+            "other": 0.14061
+          },
+          "busyPerFrame": 6.016297297296951,
+          "busyShare": 0.3147395374550374,
+          "busyMs": 1113.014999999936,
+          "outsideFramesMs": 91.5399999999363,
+          "outside": {
+            "HandlePostMessage": 33.03,
+            "TimerBase::run": 29.12,
+            "other": 17.81,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 4.15,
+            "V8.GC_MC_INCREMENTAL": 2.23,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.88,
+            "MinorGC": 1.86,
+            "Document::UpdateStyleAndLayout": 0.8,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.09,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3043.7800002098083,
+          "recorder": {
+            "n": 172,
+            "p50": 5.25,
+            "p95": 6.355000019073486,
+            "max": 7.989999771118164
+          },
+          "trace": {
+            "n": 186,
+            "p50": 5.641,
+            "p95": 6.813,
+            "max": 8.765
+          },
+          "traceRaf": {
+            "n": 172,
+            "p50": 5.267,
+            "p95": 6.376,
+            "max": 8.007
+          },
+          "paired": {
+            "n": 172,
+            "of": 172,
+            "difference": {
+              "n": 172,
+              "p50": 0.39699994277954076,
+              "p95": 0.6060003242492673,
+              "max": 0.8390002288818357
+            },
+            "rafDifference": {
+              "n": 172,
+              "p50": 0.01999992370605508,
+              "p95": 0.03700041961669953,
+              "max": 0.08499958038330035
+            },
+            "inputMs": {
+              "n": 172,
+              "p50": 0.177,
+              "p95": 0.32,
+              "max": 0.572
+            },
+            "restMs": {
+              "n": 172,
+              "p50": 0.23699999999999952,
+              "p95": 0.28399999999999975,
+              "max": 0.4960000000000001
+            }
+          },
+          "parts": {
+            "input": 0.12387999999999999,
+            "animate": 4.993180000000001,
+            "lifecycle": 0.07636,
+            "other": 0.13941
+          },
+          "busyPerFrame": 5.810768817203939,
+          "busyShare": 0.304635188536169,
+          "busyMs": 1080.8029999999326,
+          "outsideFramesMs": 88.89599999993266,
+          "outside": {
+            "HandlePostMessage": 32.88,
+            "TimerBase::run": 28.63,
+            "other": 16.88,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 3.99,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.95,
+            "V8.GC_MC_INCREMENTAL": 1.55,
+            "MinorGC": 1.43,
+            "Document::UpdateStyleAndLayout": 0.76,
+            "V8.GC_MC_INCREMENTAL_START": 0.14,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.08,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.01
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3038.4400000572205,
+          "recorder": {
+            "n": 176,
+            "p50": 5.265000343322754,
+            "p95": 6.815000057220459,
+            "max": 7.880000114440918
+          },
+          "trace": {
+            "n": 187,
+            "p50": 5.662,
+            "p95": 7.156,
+            "max": 8.666
+          },
+          "traceRaf": {
+            "n": 176,
+            "p50": 5.286,
+            "p95": 6.832,
+            "max": 7.896
+          },
+          "paired": {
+            "n": 176,
+            "of": 176,
+            "difference": {
+              "n": 176,
+              "p50": 0.4120000190734867,
+              "p95": 0.5870001525878905,
+              "max": 0.7859998855590824
+            },
+            "rafDifference": {
+              "n": 176,
+              "p50": 0.018999942779540646,
+              "p95": 0.048000076293945426,
+              "max": 0.08699982833862308
+            },
+            "inputMs": {
+              "n": 176,
+              "p50": 0.127,
+              "p95": 0.293,
+              "max": 0.592
+            },
+            "restMs": {
+              "n": 176,
+              "p50": 0.23399999999999999,
+              "p95": 0.28900000000000015,
+              "max": 0.5359999999999998
+            }
+          },
+          "parts": {
+            "input": 0.12151,
+            "animate": 5.1096,
+            "lifecycle": 0.07707,
+            "other": 0.14199
+          },
+          "busyPerFrame": 5.957320855614632,
+          "busyShare": 0.31447565466417765,
+          "busyMs": 1114.018999999936,
+          "outsideFramesMs": 94.83499999993649,
+          "outside": {
+            "HandlePostMessage": 33.9,
+            "TimerBase::run": 29.43,
+            "other": 18.47,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 3.77,
+            "MajorGC": 2.13,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 2,
+            "HTMLDocumentParser::~HTMLDocumentParser": 1.61,
+            "MinorGC": 1.45,
+            "Document::UpdateStyleAndLayout": 0.8,
+            "V8.GC_MC_INCREMENTAL": 0.5,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.11
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3028.5750002861023,
+          "recorder": {
+            "n": 174,
+            "p50": 5.269999980926514,
+            "p95": 6.724999904632568,
+            "max": 8.470000267028809
+          },
+          "trace": {
+            "n": 185,
+            "p50": 5.649,
+            "p95": 7.288,
+            "max": 9.087
+          },
+          "traceRaf": {
+            "n": 174,
+            "p50": 5.289,
+            "p95": 6.748,
+            "max": 8.549
+          },
+          "paired": {
+            "n": 174,
+            "of": 174,
+            "difference": {
+              "n": 174,
+              "p50": 0.40299971389770484,
+              "p95": 0.5859998664855954,
+              "max": 0.7909998092651369
+            },
+            "rafDifference": {
+              "n": 174,
+              "p50": 0.01900020980834949,
+              "p95": 0.04000013351440401,
+              "max": 0.0880004005432129
+            },
+            "inputMs": {
+              "n": 174,
+              "p50": 0.171,
+              "p95": 0.295,
+              "max": 0.51
+            },
+            "restMs": {
+              "n": 174,
+              "p50": 0.23599999999999946,
+              "p95": 0.28100000000000014,
+              "max": 0.352
+            }
+          },
+          "parts": {
+            "input": 0.12412999999999999,
+            "animate": 5.11643,
+            "lifecycle": 0.07528,
+            "other": 0.14205
+          },
+          "busyPerFrame": 5.951486486486138,
+          "busyShare": 0.311755403523722,
+          "busyMs": 1101.0249999999355,
+          "outsideFramesMs": 91.31599999993534,
+          "outside": {
+            "HandlePostMessage": 33.77,
+            "TimerBase::run": 28.33,
+            "other": 18.39,
+            "MajorGC": 2.51,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.9,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 1.73,
+            "V8.GC_MC_INCREMENTAL": 1.64,
+            "MinorGC": 1.48,
+            "Document::UpdateStyleAndLayout": 0.77,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.09,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.01
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3035.2699999809265,
+          "recorder": {
+            "n": 175,
+            "p50": 5.215000152587891,
+            "p95": 6.794999599456787,
+            "max": 8.710000038146973
+          },
+          "trace": {
+            "n": 186,
+            "p50": 5.618,
+            "p95": 7.085,
+            "max": 9.074
+          },
+          "traceRaf": {
+            "n": 175,
+            "p50": 5.236,
+            "p95": 6.812,
+            "max": 8.809
+          },
+          "paired": {
+            "n": 175,
+            "of": 175,
+            "difference": {
+              "n": 175,
+              "p50": 0.4009999046325685,
+              "p95": 0.6210001525878903,
+              "max": 0.8860001144409182
+            },
+            "rafDifference": {
+              "n": 175,
+              "p50": 0.019000343322753466,
+              "p95": 0.04199965667724648,
+              "max": 0.09899996185302662
+            },
+            "inputMs": {
+              "n": 175,
+              "p50": 0.165,
+              "p95": 0.302,
+              "max": 0.58
+            },
+            "restMs": {
+              "n": 175,
+              "p50": 0.23600000000000018,
+              "p95": 0.28600000000000014,
+              "max": 0.4830000000000003
+            }
+          },
+          "parts": {
+            "input": 0.12525,
+            "animate": 5.06788,
+            "lifecycle": 0.07723000000000001,
+            "other": 0.14303
+          },
+          "busyPerFrame": 5.913682795698583,
+          "busyShare": 0.3107527230640061,
+          "busyMs": 1099.9449999999365,
+          "outsideFramesMs": 93.05699999993703,
+          "outside": {
+            "HandlePostMessage": 33.53,
+            "TimerBase::run": 28.87,
+            "other": 18.78,
+            "MajorGC": 2.39,
+            "V8.GC_MC_INCREMENTAL": 2.38,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 2.07,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 2.07,
+            "MinorGC": 1.48,
+            "Document::UpdateStyleAndLayout": 0.76,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.1,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3046.659999847412,
+          "recorder": {
+            "n": 180,
+            "p50": 5.224999904632568,
+            "p95": 6.409999847412109,
+            "max": 7.920000076293945
+          },
+          "trace": {
+            "n": 188,
+            "p50": 5.631,
+            "p95": 7.004,
+            "max": 9.196
+          },
+          "traceRaf": {
+            "n": 180,
+            "p50": 5.25,
+            "p95": 6.43,
+            "max": 7.967
+          },
+          "paired": {
+            "n": 180,
+            "of": 180,
+            "difference": {
+              "n": 180,
+              "p50": 0.4180002479553222,
+              "p95": 0.612999923706055,
+              "max": 1.8770001525878905
+            },
+            "rafDifference": {
+              "n": 180,
+              "p50": 0.018999923706054744,
+              "p95": 0.036999885559081847,
+              "max": 0.09300013351440395
+            },
+            "inputMs": {
+              "n": 180,
+              "p50": 0.153,
+              "p95": 0.297,
+              "max": 1.018
+            },
+            "restMs": {
+              "n": 180,
+              "p50": 0.23499999999999927,
+              "p95": 0.2770000000000008,
+              "max": 1.8179999999999998
+            }
+          },
+          "parts": {
+            "input": 0.12791,
+            "animate": 5.14962,
+            "lifecycle": 0.07731,
+            "other": 0.14343
+          },
+          "busyPerFrame": 5.997558510637953,
+          "busyShare": 0.3174745431714348,
+          "busyMs": 1127.5409999999351,
+          "outsideFramesMs": 93.86499999993475,
+          "outside": {
+            "HandlePostMessage": 33.23,
+            "TimerBase::run": 29.64,
+            "other": 18.69,
+            "MajorGC": 2.95,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 2.02,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.95,
+            "HTMLDocumentParser::~HTMLDocumentParser": 1.37,
+            "MinorGC": 1.31,
+            "V8.GC_MC_INCREMENTAL": 1.23,
+            "Document::UpdateStyleAndLayout": 0.76,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.07,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.01
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3029.1449999809265,
+          "recorder": {
+            "n": 176,
+            "p50": 5.255000114440918,
+            "p95": 6.320000171661377,
+            "max": 8.03499984741211
+          },
+          "trace": {
+            "n": 186,
+            "p50": 5.652,
+            "p95": 6.825,
+            "max": 8.74
+          },
+          "traceRaf": {
+            "n": 176,
+            "p50": 5.283,
+            "p95": 6.352,
+            "max": 8.049
+          },
+          "paired": {
+            "n": 176,
+            "of": 176,
+            "difference": {
+              "n": 176,
+              "p50": 0.35400019073486355,
+              "p95": 0.5799997329711912,
+              "max": 0.7050001525878908
+            },
+            "rafDifference": {
+              "n": 176,
+              "p50": 0.01800034332275402,
+              "p95": 0.0350001907348636,
+              "max": 0.08299963760376006
+            },
+            "inputMs": {
+              "n": 176,
+              "p50": 0.156,
+              "p95": 0.3,
+              "max": 0.522
+            },
+            "restMs": {
+              "n": 176,
+              "p50": 0.2369999999999996,
+              "p95": 0.26400000000000007,
+              "max": 0.30899999999999994
+            }
+          },
+          "parts": {
+            "input": 0.12282,
+            "animate": 5.08774,
+            "lifecycle": 0.07684,
+            "other": 0.13895
+          },
+          "busyPerFrame": 5.912403225806113,
+          "busyShare": 0.3111381779137541,
+          "busyMs": 1099.706999999937,
+          "outsideFramesMs": 90.40699999993649,
+          "outside": {
+            "HandlePostMessage": 33,
+            "TimerBase::run": 28.56,
+            "other": 18.18,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 3.89,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.95,
+            "V8.GC_MC_INCREMENTAL": 1.76,
+            "MinorGC": 1.53,
+            "Document::UpdateStyleAndLayout": 0.79,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.09,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.01
+          },
+          "problems": []
+        },
+        {
+          "flingMs": 3042.460000038147,
+          "recorder": {
+            "n": 177,
+            "p50": 5.269999980926514,
+            "p95": 6.630000114440918,
+            "max": 8.75
+          },
+          "trace": {
+            "n": 187,
+            "p50": 5.67,
+            "p95": 7.255,
+            "max": 9.546
+          },
+          "traceRaf": {
+            "n": 177,
+            "p50": 5.289,
+            "p95": 6.649,
+            "max": 8.765
+          },
+          "paired": {
+            "n": 177,
+            "of": 177,
+            "difference": {
+              "n": 177,
+              "p50": 0.4239999427795409,
+              "p95": 0.6050000000000004,
+              "max": 0.7959999999999994
+            },
+            "rafDifference": {
+              "n": 177,
+              "p50": 0.01900001907348603,
+              "p95": 0.038000343322753594,
+              "max": 0.19099999999999984
+            },
+            "inputMs": {
+              "n": 177,
+              "p50": 0.183,
+              "p95": 0.307,
+              "max": 0.592
+            },
+            "restMs": {
+              "n": 177,
+              "p50": 0.23700000000000027,
+              "p95": 0.27100000000000024,
+              "max": 0.4450000000000002
+            }
+          },
+          "parts": {
+            "input": 0.12697,
+            "animate": 5.13476,
+            "lifecycle": 0.07712000000000001,
+            "other": 0.14118
+          },
+          "busyPerFrame": 5.958716577539772,
+          "busyShare": 0.31414849513035364,
+          "busyMs": 1114.2799999999374,
+          "outsideFramesMs": 89.51299999993739,
+          "outside": {
+            "HandlePostMessage": 32.83,
+            "TimerBase::run": 28.22,
+            "other": 16.91,
+            "V8.GC_HEAP_EXTERNAL_EPILOGUE": 3.85,
+            "MinorGC": 2.14,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 1.93,
+            "V8.GC_MC_INCREMENTAL": 1.57,
+            "Document::UpdateStyleAndLayout": 0.78,
+            "V8.GC_MC_INCREMENTAL_START": 0.54,
+            "CanvasPerformanceMonitor::RecordMetrics": 0.09,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.01
+          },
+          "problems": []
+        }
+      ],
+      "dom": [
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.509,
+            "p95": 8.149,
+            "max": 24.39
+          },
+          "parts": {
+            "input": 0.08776,
+            "animate": 0.85436,
+            "lifecycle": 2.63206,
+            "other": 0.06714
+          },
+          "busyPerFrame": 3.947883977900094,
+          "busyShare": 0.21900775343477147,
+          "busyMs": 1429.133999999834,
+          "outsideFramesMs": 110.97599999983436,
+          "outside": {
+            "other": 70.49,
+            "MajorGC": 14.72,
+            "MessagePort::Accept": 7.71,
+            "HTMLDocumentParser::~HTMLDocumentParser": 5.11,
+            "MinorGC": 4.57,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 3.95,
+            "Document::UpdateStyleAndLayout": 1.8,
+            "V8.GC_MC_INCREMENTAL": 1.16,
+            "TimerBase::run": 0.43,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.359,
+            "p95": 8.154,
+            "max": 23.335
+          },
+          "parts": {
+            "input": 0.08954000000000001,
+            "animate": 0.86637,
+            "lifecycle": 2.71536,
+            "other": 0.06717000000000001
+          },
+          "busyPerFrame": 4.047201657458083,
+          "busyShare": 0.22550259852992346,
+          "busyMs": 1465.086999999826,
+          "outsideFramesMs": 111.76999999982627,
+          "outside": {
+            "other": 76.62,
+            "MajorGC": 13.31,
+            "MessagePort::Accept": 7.35,
+            "MinorGC": 4.87,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.1,
+            "Document::UpdateStyleAndLayout": 1.85,
+            "V8.GC_MC_INCREMENTAL": 1.34,
+            "HTMLDocumentParser::~HTMLDocumentParser": 0.52,
+            "TimerBase::run": 0.5,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.03
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.632,
+            "p95": 8.119,
+            "max": 25.532
+          },
+          "parts": {
+            "input": 0.0945,
+            "animate": 0.86078,
+            "lifecycle": 2.64206,
+            "other": 0.06928
+          },
+          "busyPerFrame": 3.9717983425409558,
+          "busyShare": 0.22041901030046437,
+          "busyMs": 1437.790999999826,
+          "outsideFramesMs": 110.47699999982706,
+          "outside": {
+            "other": 71.19,
+            "MajorGC": 13.93,
+            "MessagePort::Accept": 7.9,
+            "HTMLDocumentParser::~HTMLDocumentParser": 4.96,
+            "MinorGC": 4.68,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.07,
+            "Document::UpdateStyleAndLayout": 1.87,
+            "TimerBase::run": 0.49,
+            "V8.GC_MC_INCREMENTAL": 0.25,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.03
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.609,
+            "p95": 7.81,
+            "max": 23.44
+          },
+          "parts": {
+            "input": 0.09040000000000001,
+            "animate": 0.85357,
+            "lifecycle": 2.59911,
+            "other": 0.06768
+          },
+          "busyPerFrame": 3.9206823204414563,
+          "busyShare": 0.21780582370807447,
+          "busyMs": 1419.2869999998072,
+          "outsideFramesMs": 112.1919999998072,
+          "outside": {
+            "other": 77.38,
+            "MajorGC": 14.54,
+            "MessagePort::Accept": 7.64,
+            "MinorGC": 4.44,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.18,
+            "Document::UpdateStyleAndLayout": 1.79,
+            "TimerBase::run": 0.54,
+            "HTMLDocumentParser::~HTMLDocumentParser": 0.53,
+            "V8.GC_MC_INCREMENTAL": 0.13,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.501,
+            "p95": 7.762,
+            "max": 29.864
+          },
+          "parts": {
+            "input": 0.08879000000000001,
+            "animate": 0.86438,
+            "lifecycle": 2.61799,
+            "other": 0.06556000000000001
+          },
+          "busyPerFrame": 3.9487651933696477,
+          "busyShare": 0.21917705091098044,
+          "busyMs": 1429.4529999998124,
+          "outsideFramesMs": 112.96299999981215,
+          "outside": {
+            "other": 73.52,
+            "MajorGC": 14.26,
+            "MessagePort::Accept": 7.28,
+            "MinorGC": 4.62,
+            "HTMLDocumentParser::~HTMLDocumentParser": 4.56,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.02,
+            "Document::UpdateStyleAndLayout": 1.78,
+            "V8.GC_MC_INCREMENTAL": 1.34,
+            "TimerBase::run": 0.55,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.03
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.442,
+            "p95": 8.078,
+            "max": 22.307
+          },
+          "parts": {
+            "input": 0.08805,
+            "animate": 0.84736,
+            "lifecycle": 2.6532600000000004,
+            "other": 0.06595000000000001
+          },
+          "busyPerFrame": 3.9610110497232927,
+          "busyShare": 0.22074574580350864,
+          "busyMs": 1433.885999999832,
+          "outsideFramesMs": 110.91499999983102,
+          "outside": {
+            "other": 77.06,
+            "MajorGC": 13.88,
+            "MessagePort::Accept": 7.36,
+            "MinorGC": 4.49,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 3.91,
+            "Document::UpdateStyleAndLayout": 1.85,
+            "TimerBase::run": 0.68,
+            "HTMLDocumentParser::~HTMLDocumentParser": 0.41,
+            "V8.GC_MC_INCREMENTAL": 0.25,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.713,
+            "p95": 7.786,
+            "max": 25.624
+          },
+          "parts": {
+            "input": 0.09040000000000001,
+            "animate": 0.8423999999999999,
+            "lifecycle": 2.6044,
+            "other": 0.06641
+          },
+          "busyPerFrame": 3.9011740331486875,
+          "busyShare": 0.21672241161947717,
+          "busyMs": 1412.2249999998248,
+          "outsideFramesMs": 107.71999999982404,
+          "outside": {
+            "other": 70.98,
+            "MajorGC": 13.13,
+            "MessagePort::Accept": 7.71,
+            "MinorGC": 4.28,
+            "HTMLDocumentParser::~HTMLDocumentParser": 4.03,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 3.94,
+            "Document::UpdateStyleAndLayout": 1.88,
+            "TimerBase::run": 0.66,
+            "V8.GC_MC_INCREMENTAL": 0.07,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.03
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.479,
+            "p95": 7.926,
+            "max": 22.657
+          },
+          "parts": {
+            "input": 0.08954000000000001,
+            "animate": 0.86439,
+            "lifecycle": 2.60877,
+            "other": 0.06770999999999999
+          },
+          "busyPerFrame": 3.931259668507772,
+          "busyShare": 0.21892711384462082,
+          "busyMs": 1423.1159999998135,
+          "outsideFramesMs": 108.90899999981343,
+          "outside": {
+            "other": 69.29,
+            "MajorGC": 14.09,
+            "MessagePort::Accept": 8.25,
+            "HTMLDocumentParser::~HTMLDocumentParser": 4.84,
+            "MinorGC": 4.6,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.08,
+            "Document::UpdateStyleAndLayout": 1.85,
+            "TimerBase::run": 0.73,
+            "V8.GC_MC_INCREMENTAL": 0.08,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.647,
+            "p95": 8.317,
+            "max": 24.481
+          },
+          "parts": {
+            "input": 0.09487000000000001,
+            "animate": 0.8716499999999999,
+            "lifecycle": 2.6539099999999998,
+            "other": 0.06956
+          },
+          "busyPerFrame": 4.0000248618779635,
+          "busyShare": 0.22266853042756132,
+          "busyMs": 1448.0089999998227,
+          "outsideFramesMs": 112.23299999982237,
+          "outside": {
+            "other": 72.87,
+            "MajorGC": 14.19,
+            "MessagePort::Accept": 7.68,
+            "HTMLDocumentParser::~HTMLDocumentParser": 4.75,
+            "MinorGC": 4.7,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.08,
+            "Document::UpdateStyleAndLayout": 1.86,
+            "V8.GC_MC_INCREMENTAL": 0.54,
+            "TimerBase::run": 0.43,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02,
+            "Closed mojo endpoint": 0.01
+          },
+          "problems": []
+        },
+        {
+          "trace": {
+            "n": 362,
+            "p50": 0.603,
+            "p95": 8.136,
+            "max": 24.55
+          },
+          "parts": {
+            "input": 0.09054000000000001,
+            "animate": 0.87062,
+            "lifecycle": 2.64086,
+            "other": 0.06769
+          },
+          "busyPerFrame": 3.9812292817674284,
+          "busyShare": 0.2213501050149646,
+          "busyMs": 1441.2049999998092,
+          "outsideFramesMs": 112.76699999980815,
+          "outside": {
+            "other": 72.7,
+            "MajorGC": 14.01,
+            "MessagePort::Accept": 7.68,
+            "MinorGC": 4.78,
+            "HTMLDocumentParser::~HTMLDocumentParser": 4.58,
+            "BlinkScheduler_PerformMicrotaskCheckpoint": 4.28,
+            "Document::UpdateStyleAndLayout": 1.86,
+            "V8.GC_MC_INCREMENTAL": 1.33,
+            "TimerBase::run": 0.49,
+            "V8.GC_HEAP_EXTERNAL_SECOND_PASS_CALLBACKS": 0.02
+          },
+          "problems": []
+        }
+      ]
+    }
+  }
+}

@@ -42,7 +42,7 @@ A scroll in thumb mode loads nothing until no scroll event has arrived for 80 ms
 
 - **Drive a native scroller with raw `page.mouse.wheel` deltas.** Under Chromium's DPR 2 emulation the page's `deltaY` is half Playwright's delta, but a native scroller moves the whole of it, so the harness's `wheel()` (which doubles the delta for GPUI's listeners) scrolls the DOM side twice as far.
 - **A fling of equal events reaches the end; the harness's `fling()` doesn't.** Its catch-up last event (up to ~4.4 M px) is clamped by the scroller's room. Firefox clamps every event to a page, so no scripted fling crosses the table there.
-- **Headless browsers hide the scrollbar:** Playwright launches Chromium with `--hide-scrollbars`, and headless Firefox has only overlay scrollbars of no width. `spike/run.ts`'s `openWithScrollbars` turns Chromium's off; Firefox's drag needs a headed Firefox with `ui.useOverlayScrollbars: 0`.
+- **Headless browsers hide the scrollbar:** Playwright launches Chromium with `--hide-scrollbars`, and headless Firefox has only overlay scrollbars of no width. `spike/input.ts`'s `openWithScrollbars` turns Chromium's off; Firefox's drag needs a headed Firefox with `ui.useOverlayScrollbars: 0`.
 
 ## Size
 

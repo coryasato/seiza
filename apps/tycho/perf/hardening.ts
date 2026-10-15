@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { preview } from 'vite';
 import { machineInfo, option, percentiles } from '../../../shared-web/perf/protocol.ts';
-import { clickTarget, open, overlayValue, waitMark, waitOverlay, wheel, workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
+import { clickTarget, open, overlayValue, setPanel, waitMark, waitOverlay, wheel, workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
 import { assertPortFree } from '../../../shared-web/perf/serve.ts';
 import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
 import { dropFile, type TallTableProbe } from './harness.ts';
@@ -131,12 +131,6 @@ async function footers(url: string, variant: 'keep' | 'drop' | 'sqlclear') {
 }
 
 // wheel-end
-async function setPanel(page: Page, open: boolean): Promise<void> {
-  const visible = () => page.evaluate(() => (globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined);
-  if ((await visible()) === open) return;
-  await page.keyboard.press('Control+Shift+P');
-  await page.waitForFunction((open) => ((globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined) === open, open, { timeout: 5_000 });
-}
 
 async function wheelEnd(url: string) {
   const run = await open(chromium, url, { init: [workRecorder] });

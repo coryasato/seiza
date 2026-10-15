@@ -34,6 +34,16 @@ export async function panelSnapshot(page: Page): Promise<{ at: number; rows: Rec
   });
 }
 
+/** Shows or hides the perf panel (Ctrl+Shift+P), if it isn't already. It
+ *  swallows clicks under it and draws at every refresh, so scripts hide it
+ *  for presses near its corner and for timing a component alone. */
+export async function setPanel(page: Page, open: boolean): Promise<void> {
+  const visible = () => page.evaluate(() => (globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined);
+  if ((await visible()) === open) return;
+  await page.keyboard.press('Control+Shift+P');
+  await page.waitForFunction((open) => ((globalThis as { __seizaPerfOverlay?: unknown }).__seizaPerfOverlay !== undefined) === open, open, { timeout: 5_000 });
+}
+
 /** A control's published bounds (`globalThis.__seizaTargets[id]`), once
  *  they're inside the viewport: `[x, y, width, height]` in CSS pixels. */
 export async function targetRect(page: Page, id: string, timeout = 60_000): Promise<[number, number, number, number]> {

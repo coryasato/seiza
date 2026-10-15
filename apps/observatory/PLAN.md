@@ -15,7 +15,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | Milestone | Title | Status |
 |---|---|---|
 | M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | Done 2026-10-14 ([`docs/milestones.md`](docs/milestones.md)) |
-| M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Next |
+| M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Checks pass; to close |
 | M2 | The GPUI contender and the fixtures (parts A–C) | Not started |
 | M3 | The TanStack contender (parts A–D) | Not started |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Not started |
@@ -53,11 +53,15 @@ The two unknowns that shape both contenders. One throwaway page serves both part
 - [x] A design note for the TanStack contender's scroll model, with a rough size of the build.
   *Evidence (2026-10-15):* [`docs/dom-scroll-model.md`](docs/dom-scroll-model.md). Size: React + ReactDOM alone 58.0 KB brotli; with TanStack Virtual, the model, the keys, and the rows 68.1 KB (+10.1 KB brotli, +37.6 KB raw), before the data layer and theme.
 
-**Part B: the input-latency method.** On Tycho's canvas (WebGPU and WebGL2) and on the throwaway page.
-- [ ] For a key press and a track press: Event Timing's duration, checked against a presented-frame probe on both.
-- [ ] For the wheel (which Event Timing doesn't report): whether Chromium's trace (`EventLatency`) reports input to presentation for wheel events whose default is prevented (GPUI) and for native scrolls (DOM). The method chosen.
-- [ ] Per-frame work read from the trace, the same way on both sides, agrees with `workRecorder` on Tycho within the run's spread.
-- [ ] The contender contract written down: the marks, targets, and replay hooks each contender publishes.
+**Part B: the input-latency method.** On Tycho's canvas (WebGPU and WebGL2) and on the throwaway page. `spike/latency.ts` (`just observatory spike --only latency,work`); results [`perf/results/2026-10-15-m1-b.md`](perf/results/2026-10-15-m1-b.md); the contract and the readings [`docs/contender-contract.md`](docs/contender-contract.md).
+- [x] For a key press and a track press: Event Timing's duration, checked against a presented-frame probe on both.
+  *Evidence (2026-10-15):* Chromium at DPR 2, 3 sessions × 10 inputs per kind and side. The probe: a mark in the first frame drawn at the new position (GPUI after its GPU task, the DOM in a rAF), tied to that animation frame's presentation in the trace. GPUI, WebGPU and WebGL2: the trace's Event Timing duration ended at the probe's frame in 120 of 120 keys and presses (p50 26.7–33.8 ms). DOM: keys 30 of 30 (p50 21.4 ms); track presses (p50 18.1 ms) 30 of 30 on the frame whose compositor first applied the scroll, 28 of 30 on the main-thread probe's: on a session's first press the main thread learned of the scroll 19 ms after it was on screen. The page's observer rounds to 8 ms (up to 3.9 ms off here) and drops events under 16 ms (3 of the DOM's 60). No page or console errors in any session.
+- [x] For the wheel (which Event Timing doesn't report): whether Chromium's trace (`EventLatency`) reports input to presentation for wheel events whose default is prevented (GPUI) and for native scrolls (DOM). The method chosen.
+  *Evidence (2026-10-15):* GPUI: yes, `MOUSE_WHEEL`, at the probe's frame in 60 of 60 (p50 29.5 ms WebGPU, 36.8 WebGL2). DOM native: yes, `FIRST_GESTURE_SCROLL_UPDATE` (p50 10.9 ms), on the compositor's first scrolled frame in 30 of 30 and 23–30 ms before the main thread's probe; the control (the wheel scrolled from a main-thread listener) put it on the probe's frame in 30 of 30. **Chosen:** `EventLatency` for every input kind on both sides, the probe checked on every run (`docs/DECISIONS.md`, "Measurement").
+- [x] Per-frame work read from the trace, the same way on both sides. Its rAF part agrees with `workRecorder` on Tycho within the run's spread; the whole frame adds the input handling and update work `workRecorder` doesn't time, each itemized.
+  *Evidence (2026-10-15):* 10 cold runs per side, no GPU-call wrapper but `workRecorder`. Each frame's `ProxyMain::BeginMainFrame` on both sides. Its rAF callbacks against `workRecorder`: p50 5.28 against 5.26 ms (paired difference 0.02 ms, run spread 0.07), p95 6.62 against 6.60 (spread 0.55). The whole frame, 5.65 ms at p50, adds 0.41: input dispatched in the frame 0.16, lifecycle and commit 0.24. Parts per frame (mean), GPUI: animate 5.11, input 0.13, lifecycle 0.08, other 0.14; DOM: lifecycle 2.64, animate 0.86, input 0.09, other 0.07. Outside any frame, ~8% of busy time on both sides (GPUI: the engine's page results 33 ms, timers 29 of 91), counted in the busy total. Tycho's own work per frame is the rAF part only and doesn't compare.
+- [x] The contender contract written down: the marks, targets, and replay hooks each contender publishes.
+  *Evidence (2026-10-15):* [`docs/contender-contract.md`](docs/contender-contract.md): `?measure`; marks `contender:first-pixels`, `usable`, `open`, `filled` (and `postMessage` to the page); `__contender.state` with the probe; the targets; `replay.open`, `fling`, `jump`; and how each metric is read.
 
 ---
 

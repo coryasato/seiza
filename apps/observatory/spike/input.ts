@@ -1,7 +1,8 @@
 // Scripted input for a native scroller, shared by run.ts and tanstack.ts.
 
-import type { Page } from '@playwright/test';
-import { targetRect } from '../../../shared-web/perf/harness.ts';
+import { chromium, firefox, type BrowserType, type Page } from '@playwright/test';
+import { targetRect, type Browsing } from '../../../shared-web/perf/harness.ts';
+import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 
 export const ROWS = 1_567_523;
 export const ROW_HEIGHT = 30;
@@ -57,4 +58,35 @@ export async function nativeFling(page: Page): Promise<FlingInput> {
     deltas.push(total - sent);
   }
   return { events: deltas.length, largest: Math.round(Math.max(...deltas)), last: Math.round(deltas.at(-1)!) };
+}
+
+/**
+ * The harness's `open`, but with scrollbars a person would see: headless
+ * Chromium hides them (`--hide-scrollbars`, a Playwright default) and Firefox
+ * on macOS draws overlay ones; both are turned off here. DPR 1 unless `dpr`
+ * (Chromium only, with the harness's DPR shim). Page errors and console
+ * errors are collected in `problems`.
+ */
+export async function openWithScrollbars(
+  engine: BrowserType,
+  url: string,
+  { params = {}, init = [], dpr = 1 }: { params?: Record<string, string>; init?: (() => void)[]; dpr?: number } = {},
+): Promise<Browsing> {
+  const browser = await engine.launch(
+    engine === chromium ? { channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'] } : engine === firefox ? { firefoxUserPrefs: { 'ui.useOverlayScrollbars': 0 } } : {},
+  );
+  const scale = engine === chromium ? dpr : 1;
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: scale });
+  if (scale !== 1) await context.addInitScript(hideDevicePixelContentBox);
+  for (const script of init) await context.addInitScript(script);
+  const page = await context.newPage();
+  const problems: string[] = [];
+  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') problems.push(message.text());
+  });
+  const target = new URL(url);
+  for (const [key, value] of Object.entries(params)) target.searchParams.set(key, value);
+  await page.goto(target.toString());
+  return { page, context, problems, close: () => browser.close() };
 }
