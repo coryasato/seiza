@@ -19,6 +19,7 @@ pkg/
 # Env / secrets
 # Private notes kept out of the public repo (cost and abuse exposure)
 apps/*/docs/private/
+docs/private/
 .env
 .env.*
 !.env.example

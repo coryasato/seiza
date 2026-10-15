@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Not started |
 | M3 | The TanStack contender (parts A–D) | Not started |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Not started |
-| M5 | The observatory page, deployed (parts A–C) | Not started |
+| M5 | The observatory page, deployed (parts 0, A–C) | Not started |
 | M6 | Split mode | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,10 +33,11 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-**Carried from M0, before M1's first measurement: the zone's WAF covers seiza.io.** The data path runs a billed Worker request per read, and so does any path no asset matches; nothing limits them yet. In the dashboard (the zone's rules are written in Tycho's [`docs/hosting.md`](../tycho/docs/hosting.md), "Abuse guards", and move to a repo-wide home with this change):
-- [ ] A custom rule (Block) for seiza.io: anything not a `GET` or `HEAD`, or outside `/observatory/`, never reaches the Worker. `(http.host eq "seiza.io" and (not http.request.method in {"GET" "HEAD"} or not starts_with(http.request.uri.path, "/observatory/")))`. The landing page's `/` joins it when it ships (M5).
-- [ ] The rate-limiting rule (the free plan's only one) counts both hosts on one per-IP counter, as decided (root `docs/DECISIONS.md`, "Hosting"): `(http.host in {"tycho.seiza.io" "seiza.io"})`, the limit unchanged.
-- [ ] `just observatory worker-check --behind-waf` passes (a probe and a POST get the WAF's 403), and `node apps/tycho/worker/scripts/check.ts --url https://tycho.seiza.io` still does. The rules' text moves out of Tycho's `hosting.md` into a doc both apps point to.
+**Carried from M0, done 2026-10-14: the zone's WAF covers seiza.io.**
+- [x] A path rule for seiza.io, so requests outside the observatory's paths never reach the Worker.
+- [x] The rate limit covers both hosts, as decided (root `docs/DECISIONS.md`, "Hosting").
+- [x] `just observatory worker-check --behind-waf` passes, and Tycho's production check still does; the rules' text is in the gitignored root `docs/private/zone.md`.
+  *Evidence (2026-10-14):* `worker-check --behind-waf` against https://seiza.io: every range check PASS, `/wp-login.php` 403, a POST to the data 403. `node apps/tycho/worker/scripts/check.ts --url https://tycho.seiza.io`: its data endpoint and WAF checks pass (a probe 403); its only failures are four build files, because production still runs the build from before the table component's rename and `extensionDir` (`index.html`, `index-*.js`, `engine-*.js`, `tycho_bg-*.wasm` differ from today's web/dist), which Tycho's next deploy settles.
 
 ### M1: Spikes: the DOM scroll model and the input-latency method
 
@@ -113,7 +114,8 @@ React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`. No Wasm of its own
 
 React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 
-**The seiza.io site build (draft, decided here before part A starts):** `web/` becomes the build for every page on the apex, not just the observatory's: one Vite multi-page app with `base: '/'`, the landing page at `/` and the observatory under `/observatory/`, sharing one stylesheet, its tokens (light and dark), and components. The landing page ships as prerendered HTML with no React runtime (the fastest page on the domain is the one that sells the thesis; root rule 1), and gets React only for a part that needs it; the observatory's page is React. The contenders stay separate bare builds, never part of the site's bundle (root `CLAUDE.md`, "Comparison protocol"). The site starts here and moves to a directory of its own when a third section joins (root `CLAUDE.md`: code starts in an app and moves out on its second consumer). This changes `web/`'s base and the observatory's rule 2 (which then covers the observatory's own paths, the site owning `/`), and adds `/` to the WAF allowlist.
+**Part 0: how the web builds sit in the repo, explored before part A.** The apex will hold more than the observatory: a landing page at `/` now (deliberately basic: a title, a catchy line, and a link to the observatory; maybe Astro or another zero-JS build later), and other sections later. Options to weigh, each against first paint, caching, and the comparison protocol: one site app for the apex (a Vite multi-page build, base `/`, shared styles and components); the observatory's `web/` on its own with the landing page as a separate static build (simple, cached hard, no shared bundle); or a site directory of its own that the observatory's page joins. Fixed either way: the contenders are separate bare builds, never in any site bundle (root `CLAUDE.md`, "Comparison protocol"), and one Worker serves the apex. The choice is recorded in root `docs/DECISIONS.md` ("Repo structure") before part A, with what it changes: `web/`'s base, the observatory's rule 2, and `/` in the seiza.io WAF rule (`docs/private/zone.md`).
+- [ ] The options compared and one chosen, with the landing page's first paint and bytes estimated for each.
 
 **Part A: the shell.**
 - [ ] A collapsible nav listing components (one entry), `/observatory/tall-table`, one slot with the GPUI | TanStack toggle (disabled until the GPUI contender paints its first rows), a same-origin iframe per contender that a flip destroys and replaces, contenders reporting marks by `postMessage`, a URL parameter choosing which side loads first.
@@ -159,4 +161,4 @@ Not milestones. Each starts with research.
 ## Open questions
 
 - **The pause switch.** The observatory's data never reaches R2, but every data read now runs its Worker (static assets can't serve ranges), so each is a billed request. Whether it honours the switch for them is decided at the deploy (M5), with the WAF rules' widening to seiza.io's paths.
-- **The landing page.** The observatory's Worker holds the apex `seiza.io` as its custom domain (everything outside `/observatory/` a 404). The plan is one site build for the apex (M5, above); open: what the landing page says, and whether it ships before M5, as static HTML from the same build.
+- **The landing page.** The observatory's Worker holds the apex `seiza.io` (everything outside `/observatory/` a 404). The page is basic (a title, a catchy line, a link to the observatory); where its build lives is M5's part 0, and whether it ships before M5 is open.
