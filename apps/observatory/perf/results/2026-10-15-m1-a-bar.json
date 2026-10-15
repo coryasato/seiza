@@ -1,0 +1,174 @@
+{
+  "date": "2026-10-15",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "scenario": "bar",
+  "results": {
+    "chromium": {
+      "barWidth": 14,
+      "thumbDrag": {
+        "events": {
+          "pointerdown (in bar)": 1,
+          "mousedown (in bar)": 1,
+          "pointerup (in bar)": 1,
+          "mouseup (in bar)": 1
+        },
+        "scrollSources": {
+          "bar": 10
+        },
+        "rowsMoved": 319632
+      },
+      "trackPress": {
+        "events": {
+          "pointerdown (in bar)": 1,
+          "mousedown (in bar)": 1,
+          "pointerup (in bar)": 1,
+          "mouseup (in bar)": 1
+        },
+        "scrollSources": {
+          "other": 6
+        },
+        "rowsMoved": 26
+      },
+      "wheel": {
+        "events": {
+          "wheel": 5
+        },
+        "scrollSources": {
+          "wheel": 5
+        },
+        "rowsMoved": 20
+      },
+      "pageDown": {
+        "events": {
+          "keydown:PageDown": 1
+        },
+        "scrollSources": {
+          "key": 1
+        },
+        "rowsMoved": 30
+      },
+      "arrowDown": {
+        "events": {
+          "keydown:ArrowDown": 5
+        },
+        "scrollSources": {
+          "key": 2
+        },
+        "rowsMoved": 5
+      },
+      "problems": []
+    },
+    "firefox": {
+      "barWidth": 8,
+      "thumbDrag": {
+        "events": {
+          "pointerdown (in bar)": 1,
+          "mousedown (in bar)": 1,
+          "pointermove (in bar)": 10,
+          "pointerup (in bar)": 1,
+          "mouseup (in bar)": 1,
+          "click (in bar)": 1
+        },
+        "scrollSources": {},
+        "rowsMoved": 0
+      },
+      "trackPress": {
+        "events": {
+          "pointerdown (in bar)": 1,
+          "mousedown (in bar)": 1,
+          "pointerup (in bar)": 1,
+          "mouseup (in bar)": 1,
+          "click (in bar)": 1
+        },
+        "scrollSources": {},
+        "rowsMoved": 0
+      },
+      "wheel": {
+        "events": {
+          "wheel": 5
+        },
+        "scrollSources": {
+          "wheel": 5
+        },
+        "rowsMoved": 20
+      },
+      "pageDown": {
+        "events": {
+          "keydown:PageDown": 1
+        },
+        "scrollSources": {
+          "key": 1
+        },
+        "rowsMoved": 30
+      },
+      "arrowDown": {
+        "events": {
+          "keydown:ArrowDown": 5
+        },
+        "scrollSources": {
+          "key": 2
+        },
+        "rowsMoved": 5
+      },
+      "problems": []
+    },
+    "webkit": {
+      "barWidth": 14,
+      "thumbDrag": {
+        "events": {
+          "pointerdown (in bar)": 1,
+          "mousedown (in bar)": 1,
+          "pointerup (in bar)": 1,
+          "mouseup (in bar)": 1
+        },
+        "scrollSources": {
+          "bar": 8,
+          "other": 1
+        },
+        "rowsMoved": 318738
+      },
+      "trackPress": {
+        "events": {
+          "pointerdown (in bar)": 1,
+          "mousedown (in bar)": 1,
+          "pointerup (in bar)": 1,
+          "mouseup (in bar)": 1
+        },
+        "scrollSources": {
+          "other": 12
+        },
+        "rowsMoved": 29
+      },
+      "wheel": {
+        "events": {
+          "wheel": 5
+        },
+        "scrollSources": {
+          "wheel": 5
+        },
+        "rowsMoved": 20
+      },
+      "pageDown": {
+        "events": {
+          "keydown:PageDown": 1
+        },
+        "scrollSources": {
+          "key": 1
+        },
+        "rowsMoved": 30
+      },
+      "arrowDown": {
+        "events": {
+          "keydown:ArrowDown": 5
+        },
+        "scrollSources": {
+          "key": 2
+        },
+        "rowsMoved": 5
+      },
+      "problems": []
+    }
+  }
+}

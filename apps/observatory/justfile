@@ -47,6 +47,20 @@ worker-check *args:
 data-read *args:
     node {{app_dir}}/perf/data-read.ts {{args}}
 
+# The throwaway scroll spike (spike/: fake rows, no DuckDB): builds its page
+# and drives it in Chromium, Firefox, and WebKit, writing
+# perf/results/<date>-<label>-<scenario>.json. Installs spike/'s deps (its
+# own lockfile). --only caps,reach,continuity,bar,tanstack, --runs, --label,
+# --browsers, --anchors, --variant, --stale, --no-build, --out (run.ts lists
+# them). `spike-sizes`: its JS against React alone (--label).
+spike *args:
+    npm install --prefix {{app_dir}}/spike --no-audit --no-fund --silent
+    node {{app_dir}}/spike/run.ts {{args}}
+
+spike-sizes *args:
+    npm install --prefix {{app_dir}}/spike --no-audit --no-fund --silent
+    node {{app_dir}}/spike/sizes.ts {{args}}
+
 # Regenerate the numbers in README.md, PLAN.md, and the root README from
 # perf/budgets.json and the newest matching perf/results/ files. --check:
 # report only.
@@ -55,7 +69,7 @@ report *args:
 
 # No milestone references outside the history files (check-terms), the
 # generated numbers in the docs, and TypeScript (the web host, the Worker and
-# its scripts, perf/, and data/ once `just observatory data` installed its deps).
+# its scripts, perf/, and data/ and spike/ once their recipes installed their deps).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/observatory --check
@@ -63,3 +77,4 @@ lint:
     npm run typecheck --workspace @seiza/observatory-worker
     cd {{root}} && npx tsc -p apps/observatory/perf
     @if [ -d {{app_dir}}/data/node_modules ]; then cd {{root}} && npx tsc -p apps/observatory/data; else echo "skipped data/ typecheck: its deps install with \`just observatory data\`"; fi
+    @if [ -d {{app_dir}}/spike/node_modules ]; then cd {{root}} && npx tsc -p apps/observatory/spike; else echo "skipped spike/ typecheck: its deps install with \`just observatory spike\`"; fi

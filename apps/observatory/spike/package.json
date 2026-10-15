@@ -1,0 +1,16 @@
+{
+  "name": "@seiza/observatory-spike",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A throwaway page that sizes the DOM side's scroll model and the input-latency method: fake rows, no DuckDB. Not an npm workspace (its own lockfile); deleted once the spike's findings are recorded.",
+  "dependencies": {
+    "@tanstack/react-virtual": "3.14.19",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}

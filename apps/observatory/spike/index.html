@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scroll spike</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body, #root { margin: 0; height: 100%; }
+      body { font: 13px/30px system-ui, sans-serif; background: #fff; color: #111; }
+      .scroller { height: 100%; overflow: auto; outline: none; contain: strict; }
+      .spacer { position: relative; }
+      .content { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
+      .row { position: absolute; top: 0; left: 0; height: 30px; display: flex; white-space: nowrap; border-bottom: 1px solid #eee; box-sizing: border-box; }
+      .row span { padding: 0 8px; overflow: hidden; text-overflow: ellipsis; flex: none; box-sizing: border-box; }
+      /* ?bar=classic: an always-visible classic scrollbar in place of macOS's overlay one. */
+      .classic .scroller::-webkit-scrollbar { width: 14px; }
+      .classic .scroller::-webkit-scrollbar-track { background: #eee; }
+      .classic .scroller::-webkit-scrollbar-thumb { background: #999; border-radius: 7px; min-height: 24px; }
+      @supports (-moz-appearance: none) { .classic .scroller { scrollbar-width: auto; scrollbar-color: #999 #eee; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

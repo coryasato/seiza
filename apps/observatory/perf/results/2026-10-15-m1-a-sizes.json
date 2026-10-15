@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-15",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "scenario": "sizes",
+  "results": {
+    "page": {
+      "raw": 256088,
+      "brotli": 68149
+    },
+    "react": {
+      "raw": 218486,
+      "brotli": 58004
+    },
+    "added": {
+      "raw": 37602,
+      "brotli": 10145
+    }
+  }
+}

@@ -1,0 +1,837 @@
+{
+  "date": "2026-10-15",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "scenario": "tanstack",
+  "results": {
+    "profile": "reference",
+    "runs": 10,
+    "rows": 1567523,
+    "windowRows": 4096,
+    "summary": {
+      "full": {
+        "timeToRowsMs": {
+          "median": 52.3,
+          "min": 49.5,
+          "max": 70.6
+        },
+        "mountToRowsMs": {
+          "median": 20.7,
+          "min": 19.1,
+          "max": 24.3
+        },
+        "heapAfterMountMiB": {
+          "median": 32.33,
+          "min": 32.33,
+          "max": 32.33
+        },
+        "flingBusyPerFrameMs": {
+          "median": 4.22,
+          "min": 4.04,
+          "max": 4.27
+        },
+        "flingBusyShare": {
+          "median": 0.253,
+          "min": 0.242,
+          "max": 0.256
+        },
+        "flingTaskP95Ms": {
+          "median": 0.19,
+          "min": 0.04,
+          "max": 0.2
+        },
+        "flingTaskMaxMs": {
+          "median": 23.3,
+          "min": 20.69,
+          "max": 34.25
+        },
+        "flingFrameP95Ms": {
+          "median": 16.7,
+          "min": 16.7,
+          "max": 16.7
+        },
+        "flingFramesOver50": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "scrollHandlerP50Ms": {
+          "median": 1.66,
+          "min": 1.58,
+          "max": 1.72
+        },
+        "scrollHandlerP95Ms": {
+          "median": 1.92,
+          "min": 1.85,
+          "max": 2.53
+        }
+      },
+      "window": {
+        "timeToRowsMs": {
+          "median": 39,
+          "min": 35.8,
+          "max": 57
+        },
+        "mountToRowsMs": {
+          "median": 8.3,
+          "min": 7.7,
+          "max": 9.5
+        },
+        "heapAfterMountMiB": {
+          "median": 2.51,
+          "min": 2.51,
+          "max": 2.51
+        },
+        "flingBusyPerFrameMs": {
+          "median": 4.2,
+          "min": 4.09,
+          "max": 4.27
+        },
+        "flingBusyShare": {
+          "median": 0.252,
+          "min": 0.245,
+          "max": 0.256
+        },
+        "flingTaskP95Ms": {
+          "median": 0.18,
+          "min": 0.07,
+          "max": 0.21
+        },
+        "flingTaskMaxMs": {
+          "median": 24.53,
+          "min": 22.62,
+          "max": 36.5
+        },
+        "flingFrameP95Ms": {
+          "median": 16.7,
+          "min": 16.7,
+          "max": 16.7
+        },
+        "flingFramesOver50": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "scrollHandlerP50Ms": {
+          "median": 1.64,
+          "min": 1.62,
+          "max": 1.7
+        },
+        "scrollHandlerP95Ms": {
+          "median": 1.9,
+          "min": 1.83,
+          "max": 2.49
+        }
+      }
+    },
+    "detached": {
+      "buildFullMs": {
+        "median": 28.39,
+        "min": 17.84,
+        "max": 31.01
+      },
+      "buildWindowMs": {
+        "median": 0.37,
+        "min": 0.305,
+        "max": 0.445
+      },
+      "heldFullMiB": {
+        "median": 29.91,
+        "min": 29.91,
+        "max": 29.91
+      },
+      "heldWindowKiB": {
+        "median": 83.9,
+        "min": 83.5,
+        "max": 93.1
+      }
+    },
+    "raw": {
+      "full": [
+        {
+          "timeToRows": 70.53999996185303,
+          "mountToRows": 24.34000015258789,
+          "heapAfterMount": 33898097,
+          "buildFullMs": 22.84499979019165,
+          "buildWindowMs": 0.41499996185302734,
+          "heldFullBytes": 31358140,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 33.335000000000036,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1531.0879999999377,
+            "mainThreadBusyPerFrame": 4.03981002638506,
+            "busyShare": 0.24164304035442588,
+            "tasks": {
+              "n": 8128,
+              "p50": 0.001,
+              "p95": 0.178,
+              "max": 34.252
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.630000114440918,
+              "p95": 2.5349998474121094,
+              "max": 4.724999904632568
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 52.57000017166138,
+          "mountToRows": 21.614999771118164,
+          "heapAfterMount": 33896963,
+          "buildFullMs": 19.785000324249268,
+          "buildWindowMs": 0.30500030517578125,
+          "heldFullBytes": 31358064,
+          "heldWindowBytes": 85944,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1599.2559999999417,
+            "mainThreadBusyPerFrame": 4.219672823218843,
+            "busyShare": 0.25295197845110956,
+            "tasks": {
+              "n": 7891,
+              "p50": 0.001,
+              "p95": 0.184,
+              "max": 22.712
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6550002098083496,
+              "p95": 1.8550000190734863,
+              "max": 4.240000247955322
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 49.46999979019165,
+          "mountToRows": 20.179999828338623,
+          "heapAfterMount": 33898919,
+          "buildFullMs": 27.605000019073486,
+          "buildWindowMs": 0.35000038146972656,
+          "heldFullBytes": 31358064,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1596.0979999999397,
+            "mainThreadBusyPerFrame": 4.211340369392981,
+            "busyShare": 0.2526692087174294,
+            "tasks": {
+              "n": 8057,
+              "p50": 0.001,
+              "p95": 0.169,
+              "max": 23.355
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6500000953674316,
+              "p95": 1.950000286102295,
+              "max": 2.6649999618530273
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 49.77500009536743,
+          "mountToRows": 20.994999885559082,
+          "heapAfterMount": 33898898,
+          "buildFullMs": 30.22499990463257,
+          "buildWindowMs": 0.37999963760375977,
+          "heldFullBytes": 31358192,
+          "heldWindowBytes": 85880,
+          "fling": {
+            "frames": {
+              "frames": 380,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1542.2659999999378,
+            "mainThreadBusyPerFrame": 4.0585947368419415,
+            "busyShare": 0.24363722071461824,
+            "tasks": {
+              "n": 7835,
+              "p50": 0.001,
+              "p95": 0.199,
+              "max": 23.235
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.5849995613098145,
+              "p95": 1.9250001907348633,
+              "max": 2.2749996185302734
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 70.57499980926514,
+          "mountToRows": 21.480000019073486,
+          "heapAfterMount": 33898045,
+          "buildFullMs": 17.84000015258789,
+          "buildWindowMs": 0.3249998092651367,
+          "heldFullBytes": 31358140,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000528,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1615.2829999998332,
+            "mainThreadBusyPerFrame": 4.261960422163148,
+            "busyShare": 0.25561883101219873,
+            "tasks": {
+              "n": 11234,
+              "p50": 0.001,
+              "p95": 0.041,
+              "max": 20.687
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.7200002670288086,
+              "p95": 2.2699999809265137,
+              "max": 3.0799999237060547
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 55.99000024795532,
+          "mountToRows": 20.710000038146973,
+          "heapAfterMount": 33898081,
+          "buildFullMs": 30.28499984741211,
+          "buildWindowMs": 0.36999988555908203,
+          "heldFullBytes": 31358052,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1610.1639999999372,
+            "mainThreadBusyPerFrame": 4.2484538258573545,
+            "busyShare": 0.2548399625597408,
+            "tasks": {
+              "n": 7860,
+              "p50": 0.001,
+              "p95": 0.191,
+              "max": 23.938
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6599998474121094,
+              "p95": 1.8600001335144043,
+              "max": 2.3550000190734863
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 52.65500020980835,
+          "mountToRows": 20.72499990463257,
+          "heapAfterMount": 33898915,
+          "buildFullMs": 28.490000247955322,
+          "buildWindowMs": 0.3600001335144043,
+          "heldFullBytes": 31358180,
+          "heldWindowBytes": 85892,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1618.0929999999444,
+            "mainThreadBusyPerFrame": 4.26937467018455,
+            "busyShare": 0.2560543968801683,
+            "tasks": {
+              "n": 7735,
+              "p50": 0.001,
+              "p95": 0.194,
+              "max": 22.521
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6700000762939453,
+              "p95": 1.8700003623962402,
+              "max": 2.1549997329711914
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 51.93499994277954,
+          "mountToRows": 19.09000015258789,
+          "heapAfterMount": 33898919,
+          "buildFullMs": 28.295000076293945,
+          "buildWindowMs": 0.375,
+          "heldFullBytes": 31358064,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1570.197999999943,
+            "mainThreadBusyPerFrame": 4.143002638522277,
+            "busyShare": 0.24872768861318423,
+            "tasks": {
+              "n": 7812,
+              "p50": 0.001,
+              "p95": 0.195,
+              "max": 22.943
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.7100000381469727,
+              "p95": 1.9699997901916504,
+              "max": 3.1649999618530273
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 49.545000076293945,
+          "mountToRows": 19.65499973297119,
+          "heapAfterMount": 33899026,
+          "buildFullMs": 30.72499990463257,
+          "buildWindowMs": 0.37000036239624023,
+          "heldFullBytes": 31358104,
+          "heldWindowBytes": 85944,
+          "fling": {
+            "frames": {
+              "frames": 380,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1616.3059999999434,
+            "mainThreadBusyPerFrame": 4.253436842105114,
+            "busyShare": 0.25552471535966803,
+            "tasks": {
+              "n": 7664,
+              "p50": 0.002,
+              "p95": 0.196,
+              "max": 25.969
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6700000762939453,
+              "p95": 1.9099998474121094,
+              "max": 3.1750001907348633
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 49.79499959945679,
+          "mountToRows": 19.789999961853027,
+          "heapAfterMount": 33899027,
+          "buildFullMs": 27.119999885559082,
+          "buildWindowMs": 0.39999961853027344,
+          "heldFullBytes": 31358116,
+          "heldWindowBytes": 85880,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1545.6979999999444,
+            "mainThreadBusyPerFrame": 4.078358839049985,
+            "busyShare": 0.24499322095255752,
+            "tasks": {
+              "n": 7836,
+              "p50": 0.001,
+              "p95": 0.185,
+              "max": 23.539
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6050000190734863,
+              "p95": 1.8500003814697266,
+              "max": 2.1800003051757812
+            }
+          },
+          "problems": []
+        }
+      ],
+      "window": [
+        {
+          "timeToRows": 56.97499990463257,
+          "mountToRows": 9.154999732971191,
+          "heapAfterMount": 2630915,
+          "buildFullMs": 29.545000076293945,
+          "buildWindowMs": 0.36999988555908203,
+          "heldFullBytes": 31358596,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 33.33000000000004,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1616.2819999999372,
+            "mainThreadBusyPerFrame": 4.2645963060684355,
+            "busyShare": 0.255130850135189,
+            "tasks": {
+              "n": 7965,
+              "p50": 0.001,
+              "p95": 0.178,
+              "max": 36.497
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6449999809265137,
+              "p95": 1.8349995613098145,
+              "max": 3.3299999237060547
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 40.230000019073486,
+          "mountToRows": 8.389999866485596,
+          "heapAfterMount": 2630836,
+          "buildFullMs": 31.010000228881836,
+          "buildWindowMs": 0.36499977111816406,
+          "heldFullBytes": 31358636,
+          "heldWindowBytes": 85892,
+          "fling": {
+            "frames": {
+              "frames": 382,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1561.10199999991,
+            "mainThreadBusyPerFrame": 4.086654450261545,
+            "busyShare": 0.24548419576626557,
+            "tasks": {
+              "n": 8507,
+              "p50": 0.001,
+              "p95": 0.071,
+              "max": 27.776
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.619999885559082,
+              "p95": 1.9449996948242188,
+              "max": 3.1800003051757812
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 38.230000019073486,
+          "mountToRows": 7.925000190734863,
+          "heapAfterMount": 2628863,
+          "buildFullMs": 29.510000228881836,
+          "buildWindowMs": 0.36999988555908203,
+          "heldFullBytes": 31358596,
+          "heldWindowBytes": 95316,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1618.649999999935,
+            "mainThreadBusyPerFrame": 4.27084432717661,
+            "busyShare": 0.2561939860058295,
+            "tasks": {
+              "n": 7410,
+              "p50": 0.002,
+              "p95": 0.209,
+              "max": 26.526
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6399998664855957,
+              "p95": 1.9099998474121094,
+              "max": 3.625
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 39.83000040054321,
+          "mountToRows": 9.480000019073486,
+          "heapAfterMount": 2630909,
+          "buildFullMs": 20.59000015258789,
+          "buildWindowMs": 0.3299999237060547,
+          "heldFullBytes": 31358596,
+          "heldWindowBytes": 85880,
+          "fling": {
+            "frames": {
+              "frames": 380,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1555.2079999999316,
+            "mainThreadBusyPerFrame": 4.092652631578767,
+            "busyShare": 0.24537626217762293,
+            "tasks": {
+              "n": 8685,
+              "p50": 0.001,
+              "p95": 0.067,
+              "max": 23.758
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.619999885559082,
+              "p95": 2.494999885559082,
+              "max": 3.7849998474121094
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 35.795000076293945,
+          "mountToRows": 8.025000095367432,
+          "heapAfterMount": 2628908,
+          "buildFullMs": 30.255000114440918,
+          "buildWindowMs": 0.44500017166137695,
+          "heldFullBytes": 31358636,
+          "heldWindowBytes": 85892,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1557.281999999946,
+            "mainThreadBusyPerFrame": 4.108923482849462,
+            "busyShare": 0.2467805095498721,
+            "tasks": {
+              "n": 7911,
+              "p50": 0.002,
+              "p95": 0.18,
+              "max": 22.62
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.625,
+              "p95": 1.9149999618530273,
+              "max": 2.2450003623962402
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 36.46500015258789,
+          "mountToRows": 7.829999923706055,
+          "heapAfterMount": 2628877,
+          "buildFullMs": 30.25499963760376,
+          "buildWindowMs": 0.4100003242492676,
+          "heldFullBytes": 31358636,
+          "heldWindowBytes": 85496,
+          "fling": {
+            "frames": {
+              "frames": 380,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1577.1709999999393,
+            "mainThreadBusyPerFrame": 4.15044999999984,
+            "busyShare": 0.24938995426395394,
+            "tasks": {
+              "n": 7881,
+              "p50": 0.002,
+              "p95": 0.199,
+              "max": 25.307
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6449999809265137,
+              "p95": 1.9000000953674316,
+              "max": 2.7049999237060547
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 40.13499975204468,
+          "mountToRows": 8.414999961853027,
+          "heapAfterMount": 2630905,
+          "buildFullMs": 30.074999809265137,
+          "buildWindowMs": 0.375,
+          "heldFullBytes": 31358648,
+          "heldWindowBytes": 85880,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1612.8319999999405,
+            "mainThreadBusyPerFrame": 4.255493403693775,
+            "busyShare": 0.25533609878624997,
+            "tasks": {
+              "n": 7805,
+              "p50": 0.002,
+              "p95": 0.209,
+              "max": 22.963
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.635000228881836,
+              "p95": 1.875,
+              "max": 3.4000000953674316
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 40.67500019073486,
+          "mountToRows": 8.130000114440918,
+          "heapAfterMount": 2628877,
+          "buildFullMs": 17.869999885559082,
+          "buildWindowMs": 0.36999988555908203,
+          "heldFullBytes": 31358608,
+          "heldWindowBytes": 85880,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1610.3699999999394,
+            "mainThreadBusyPerFrame": 4.248997361477413,
+            "busyShare": 0.25515917085667034,
+            "tasks": {
+              "n": 8012,
+              "p50": 0.001,
+              "p95": 0.192,
+              "max": 22.892
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6999998092651367,
+              "p95": 1.880000114440918,
+              "max": 2.3199996948242188
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 38.05999994277954,
+          "mountToRows": 8.59000015258789,
+          "heapAfterMount": 2628905,
+          "buildFullMs": 19.699999809265137,
+          "buildWindowMs": 0.31999969482421875,
+          "heldFullBytes": 31358636,
+          "heldWindowBytes": 85536,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 33.32999999999993,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1605.930999999941,
+            "mainThreadBusyPerFrame": 4.2372849604220075,
+            "busyShare": 0.25356286126562055,
+            "tasks": {
+              "n": 8303,
+              "p50": 0.001,
+              "p95": 0.103,
+              "max": 33.856
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6649999618530273,
+              "p95": 1.9149999618530273,
+              "max": 3.2950000762939453
+            }
+          },
+          "problems": []
+        },
+        {
+          "timeToRows": 37.55500030517578,
+          "mountToRows": 7.710000038146973,
+          "heapAfterMount": 2628856,
+          "buildFullMs": 17.90000009536743,
+          "buildWindowMs": 0.315000057220459,
+          "heldFullBytes": 31358544,
+          "heldWindowBytes": 85932,
+          "fling": {
+            "frames": {
+              "frames": 379,
+              "p50": 16.664999999999964,
+              "p95": 16.670000000000073,
+              "max": 16.670000000000073,
+              "over50": 0
+            },
+            "mainThreadBusyMs": 1578.8029999999346,
+            "mainThreadBusyPerFrame": 4.165707124010382,
+            "busyShare": 0.25010867381821733,
+            "tasks": {
+              "n": 8147,
+              "p50": 0.001,
+              "p95": 0.154,
+              "max": 22.96
+            },
+            "scrollHandlerMs": {
+              "n": 180,
+              "p50": 1.6500000953674316,
+              "p95": 1.8650002479553223,
+              "max": 2.9250001907348633
+            }
+          },
+          "problems": []
+        }
+      ]
+    }
+  }
+}

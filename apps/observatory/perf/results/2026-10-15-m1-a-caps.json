@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-15",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "scenario": "caps",
+  "results": {
+    "chromium": [
+      {
+        "asked": 17895697,
+        "laidOut": 17895696,
+        "scrollHeight": 17895696,
+        "maxScrollTop": 17895696
+      },
+      {
+        "asked": 17895700,
+        "laidOut": 17895700,
+        "scrollHeight": 17895700,
+        "maxScrollTop": 17895700
+      },
+      {
+        "asked": 33554428,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      },
+      {
+        "asked": 33554432,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      },
+      {
+        "asked": 47025690,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      },
+      {
+        "asked": 1000000000,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      }
+    ],
+    "firefox": [
+      {
+        "asked": 17895697,
+        "laidOut": 17895696,
+        "scrollHeight": 17895696,
+        "maxScrollTop": 17895696
+      },
+      {
+        "asked": 17895700,
+        "laidOut": 0,
+        "scrollHeight": 100,
+        "maxScrollTop": 100
+      },
+      {
+        "asked": 33554428,
+        "laidOut": 0,
+        "scrollHeight": 100,
+        "maxScrollTop": 100
+      },
+      {
+        "asked": 33554432,
+        "laidOut": 0,
+        "scrollHeight": 100,
+        "maxScrollTop": 100
+      },
+      {
+        "asked": 47025690,
+        "laidOut": 0,
+        "scrollHeight": 100,
+        "maxScrollTop": 100
+      },
+      {
+        "asked": 1000000000,
+        "laidOut": 0,
+        "scrollHeight": 100,
+        "maxScrollTop": 100
+      }
+    ],
+    "webkit": [
+      {
+        "asked": 17895697,
+        "laidOut": 17895696,
+        "scrollHeight": 17895696,
+        "maxScrollTop": 17895696
+      },
+      {
+        "asked": 17895700,
+        "laidOut": 17895700,
+        "scrollHeight": 17895700,
+        "maxScrollTop": 17895700
+      },
+      {
+        "asked": 33554428,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      },
+      {
+        "asked": 33554432,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      },
+      {
+        "asked": 47025690,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      },
+      {
+        "asked": 1000000000,
+        "laidOut": 33554428,
+        "scrollHeight": 33554428,
+        "maxScrollTop": 33554428
+      }
+    ]
+  }
+}
