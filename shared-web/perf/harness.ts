@@ -144,6 +144,81 @@ export async function open(
   return { page, context, problems, close: () => browser.close() };
 }
 
+/** What `firstDrawProbe` records: the first GPU work and its API (`webgl2`
+ *  or `webgpu`), each of the first 50 GPU tasks' last GPU call and the end of
+ *  its microtask checkpoint, and when the placeholder shell was released. The
+ *  mark is honest if it lands inside one task's window (last call → end). */
+export interface FirstDrawProbe {
+  firstGpuWork: number | null;
+  gpuTasks: { lastGpuCall: number; end: number | null }[];
+  api: string;
+  placeholderReleased: number | null;
+}
+
+/**
+ * The first-draw probe, an independent check of the first-frame mark
+ * (`gpui:first-frame`). Install with `context.addInitScript`, after the DPR
+ * shim (`hideDevicePixelContentBox`), so it runs before any page script;
+ * read `globalThis.__seizaProbe` (`FirstDrawProbe`) after the mark. It
+ * records the first GPU work (a WebGL2 draw call or a WebGPU queue submit),
+ * and for every task that did GPU work, its last GPU call and the
+ * end of its microtask checkpoint (a microtask queued at its first GPU
+ * call), in any callback: GPUI's first real draw can run in a
+ * ResizeObserver callback, not only in a rAF. The mark is honest if it
+ * lands inside one of those windows, after that task's last GPU call and
+ * before its checkpoint ends, meaning the task that rendered the first
+ * real frame also presented it. With WebGPU, GPUI first presents an
+ * empty frame at 0×0 in the same callback, so the mark trails the first
+ * GPU work by that callback's render time, not by a frame. If gpui-kit
+ * changes when it presents, this catches it.
+ */
+export function firstDrawProbe(): void {
+  type GpuTask = FirstDrawProbe['gpuTasks'][number];
+  const state: FirstDrawProbe & { current: GpuTask | null } = {
+    firstGpuWork: null,
+    gpuTasks: [],
+    api: '',
+    current: null,
+    placeholderReleased: null,
+  };
+  // When the placeholder shell is released, timed here rather than by the
+  // app: shared/ adds `sz-leaving` to it, and it fades out.
+  const add = DOMTokenList.prototype.add;
+  DOMTokenList.prototype.add = function (this: DOMTokenList, ...tokens: string[]) {
+    if (tokens.includes('sz-leaving') && state.placeholderReleased === null) state.placeholderReleased = performance.now();
+    return add.apply(this, tokens);
+  };
+  (globalThis as { __seizaProbe?: typeof state }).__seizaProbe = state;
+  const hook = (proto: object | undefined, names: string[], api: string) => {
+    if (!proto) return;
+    const methods = proto as Record<string, (...args: unknown[]) => unknown>;
+    for (const name of names) {
+      const original = methods[name];
+      if (!original) continue;
+      methods[name] = function (this: unknown, ...args: unknown[]) {
+        if (state.firstGpuWork === null) {
+          state.firstGpuWork = performance.now();
+          state.api = api;
+        }
+        if (!state.current && state.gpuTasks.length < 50) {
+          const task: GpuTask = { lastGpuCall: 0, end: null };
+          state.current = task;
+          state.gpuTasks.push(task);
+          queueMicrotask(() => {
+            task.end = performance.now();
+            state.current = null;
+          });
+        }
+        const result = original.apply(this, args);
+        if (state.current) state.current.lastGpuCall = performance.now();
+        return result;
+      };
+    }
+  };
+  hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced'], 'webgl2');
+  hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit'], 'webgpu');
+}
+
 /** One rAF as the recorder saw it: its time, plus whatever
  *  `globalThis.__seizaFrameSample()` returned then (an app's view state). */
 export type RecordedFrame<S extends object = object> = S & { t: number };

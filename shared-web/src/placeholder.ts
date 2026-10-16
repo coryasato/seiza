@@ -86,6 +86,7 @@ const PLACEHOLDER_CSS = `
 #${PLACEHOLDER_ID} {
   --bg: #fff; --fg: #0a0a0a; --muted-fg: #737373; --skeleton: #f5f5f5;
   --title-bar: #f8f8f8; --title-bar-top: #fbfbfb; --title-bar-border: #e5e5e5;
+  --border: #e5e5e5; --table: #fff;
   /* GPUI's line heights, rounded to whole device pixels by PLACEHOLDER_SCRIPT;
      these defaults are the unrounded ones. */
   --sz-lh-14: 22.6525px; --sz-lh-14-desc: 22.75px; --sz-lh-12: 19.4164px;
@@ -97,6 +98,7 @@ const PLACEHOLDER_CSS = `
   #${PLACEHOLDER_ID} {
     --bg: #0a0a0a; --fg: #fafafa; --muted-fg: #a3a3a3; --skeleton: #171717;
     --title-bar: #171717; --title-bar-top: #111111; --title-bar-border: #262626;
+    --border: #262626; --table: #0a0a0a;
   }
 }
 /* Hidden until its font is loaded: Chrome could paint a frame laid out in the
@@ -141,7 +143,16 @@ const PLACEHOLDER_CSS = `
 #${PLACEHOLDER_ID} .sz-empty-content { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 384px; }
 #${PLACEHOLDER_ID} .sz-row { display: flex; gap: 8px; }
 #${PLACEHOLDER_ID} .sz-text-xs { font-size: 12px; line-height: var(--sz-lh-12); }
+#${PLACEHOLDER_ID} .sz-text-sm { font-size: 14px; line-height: var(--sz-lh-14); }
 #${PLACEHOLDER_ID} .sz-muted { color: var(--muted-fg); }
+
+/* A table's frame (the tall table's TallTable): the theme's table
+   background, border, and radius, its content padded px_3 py_2, filling a
+   .sz-p-4. */
+#${PLACEHOLDER_ID} .sz-frame {
+  flex: 1; min-height: 0; box-sizing: border-box; padding: 8px 12px;
+  background: var(--table); border: 1px solid var(--border); border-radius: 6px;
+}
 
 /* gpui-kit's Skeleton: the theme's skeleton color and its pulse. A component
    drawn as a skeleton takes its shape (.sz-skeleton-button: a medium button)

@@ -2,7 +2,7 @@
 
 DuckDB-Wasm for GPUI apps on the web: a Rust client (`seiza-duckdb`) that sends SQL and reads the answers as Arrow, and a JS package (`@seiza/duckdb`) that runs DuckDB in a Web Worker behind three calls. It's built to stay off the first-paint path: nothing loads until the first call, and everything is served from the host's own origin.
 
-**Used by:** [Tycho](../../apps/tycho/). **Crate:** `seiza-duckdb`. **Package:** `@seiza/duckdb` (an npm workspace; not published).
+**Used by:** [Tycho](../../apps/tycho/), and [the observatory](../../apps/observatory/)'s GPUI contender. **Crate:** `seiza-duckdb`. **Package:** `@seiza/duckdb` (an npm workspace; not published).
 
 ## Use it
 

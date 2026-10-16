@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["shared", "components/tall-table", "engines/duckdb/crate", "apps/tycho/crate"]
+members = [
+    "shared",
+    "components/tall-table",
+    "engines/duckdb/crate",
+    "apps/tycho/crate",
+    "apps/observatory/contenders/tall-table/gpui/crate",
+]
 
 [workspace.package]
 edition = "2024"
@@ -10,7 +16,9 @@ publish = false
 [workspace.dependencies]
 # Exact pin: every app shares one gpui-kit version. Bump deliberately, for all apps at once.
 gpui-kit = "=0.7.3"
-seiza = { path = "shared" }
+# Defaults off: a member that wants the panel names it (`features = ["panel"]`).
+# Cargo ignores a member's `default-features = false` when this entry keeps them on.
+seiza = { path = "shared", default-features = false }
 seiza-duckdb = { path = "engines/duckdb/crate" }
 seiza-tall-table = { path = "components/tall-table" }
 console_error_panic_hook = "0.1"

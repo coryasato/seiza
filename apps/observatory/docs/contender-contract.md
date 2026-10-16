@@ -61,13 +61,13 @@ The scripts record `state` with every frame through `shared-web/perf/`'s `frameR
 
 ```ts
 interface Replay {
-  open(): Promise<void>;                 // close and reopen the file; resolves at contender:filled
+  open(): Promise<void>;                 // close and reopen the file; resolves once the view is filled
   fling(): Promise<void>;                // top to bottom in ~3 s; resolves once it rests at the end and fills
-  jump(fraction: number): Promise<void>; // to that fraction of the rows (0.9: the 90% jump); resolves at contender:filled
+  jump(fraction: number): Promise<void>; // to that fraction of the rows (0.9: the 90% jump); resolves once the view is filled
 }
 ```
 
-Each side replays through its own input path: GPUI through script-made wheel events dispatched on its canvas (they reach GPUI's listeners); TanStack through its scroller's position (`scrollBy` each frame), since a script-made wheel event never scrolls a native scroller. One fling profile for both, defined in the metrics module: equal steps per frame, so no step outruns a native scroller's room (`dom-scroll-model.md`, "Scripting it").
+Each side replays through its own input path: GPUI through script-made wheel events dispatched on its canvas (they reach GPUI's listeners); TanStack through its scroller's position (`scrollBy` each frame), since a script-made wheel event never scrolls a native scroller. "Filled" is the first `contender:filled` after the input, or at once when the view lands already filled (rows in the cache) or doesn't move, which sets no mark: the mark is a change to filled. One fling profile for both, defined in the metrics module: equal steps per frame, so no step outruns a native scroller's room (`dom-scroll-model.md`, "Scripting it").
 
 ## Reading the metrics
 

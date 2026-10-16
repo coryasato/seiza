@@ -47,6 +47,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Request } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { firstDrawProbe as probe, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { limits, serveTycho } from './harness.ts';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
@@ -72,68 +73,6 @@ const {
 const runs = Number(option('runs') ?? 10);
 const label = option('label') ?? 'cold-load';
 const check = flag('check');
-
-/**
- * The first-draw probe, an independent check of the first-frame mark. Runs
- * before any page script, after the DPR shim (`hideDevicePixelContentBox`,
- * shared-web/perf/protocol.ts). It records the first GPU work (a WebGL2 draw call or a WebGPU queue
- * submit), and for every task that did GPU work, its last GPU call and the
- * end of its microtask checkpoint (a microtask queued at its first GPU
- * call), in any callback: GPUI's first real draw can run in a
- * ResizeObserver callback, not only in a rAF. The mark is honest if it
- * lands inside one of those windows, after that task's last GPU call and
- * before its checkpoint ends, meaning the task that rendered the first
- * real frame also presented it. With WebGPU, GPUI first presents an
- * empty frame at 0×0 in the same callback, so the mark trails the first
- * GPU work by that callback's render time, not by a frame. If gpui-kit
- * changes when it presents, this catches it.
- */
-function probe(): void {
-  type GpuTask = { lastGpuCall: number; end: number | null };
-  const state = {
-    firstGpuWork: null as number | null,
-    gpuTasks: [] as GpuTask[],
-    api: '',
-    current: null as GpuTask | null,
-    placeholderReleased: null as number | null,
-  };
-  // When the placeholder shell is released, timed here rather than by the
-  // app: shared/ adds `sz-leaving` to it, and it fades out.
-  const add = DOMTokenList.prototype.add;
-  DOMTokenList.prototype.add = function (this: DOMTokenList, ...tokens: string[]) {
-    if (tokens.includes('sz-leaving') && state.placeholderReleased === null) state.placeholderReleased = performance.now();
-    return add.apply(this, tokens);
-  };
-  (globalThis as { __seizaProbe?: typeof state }).__seizaProbe = state;
-  const hook = (proto: object | undefined, names: string[], api: string) => {
-    if (!proto) return;
-    const methods = proto as Record<string, (...args: unknown[]) => unknown>;
-    for (const name of names) {
-      const original = methods[name];
-      if (!original) continue;
-      methods[name] = function (this: unknown, ...args: unknown[]) {
-        if (state.firstGpuWork === null) {
-          state.firstGpuWork = performance.now();
-          state.api = api;
-        }
-        if (!state.current && state.gpuTasks.length < 50) {
-          const task: GpuTask = { lastGpuCall: 0, end: null };
-          state.current = task;
-          state.gpuTasks.push(task);
-          queueMicrotask(() => {
-            task.end = performance.now();
-            state.current = null;
-          });
-        }
-        const result = original.apply(this, args);
-        if (state.current) state.current.lastGpuCall = performance.now();
-        return result;
-      };
-    }
-  };
-  hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced'], 'webgl2');
-  hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit'], 'webgpu');
-}
 
 interface EngineLoad {
   startMs: number | null;
@@ -313,16 +252,7 @@ async function measure(url: string, profile: Profile, tracePath: string | null):
 
     const { firstGpuWorkMs, gpuTasks, api, backing, releasedMs, gone } = await page.evaluate(() => {
       const canvas = document.querySelector('canvas');
-      const state = (
-        globalThis as {
-          __seizaProbe?: {
-            firstGpuWork: number | null;
-            gpuTasks: { lastGpuCall: number; end: number | null }[];
-            api: string;
-            placeholderReleased: number | null;
-          };
-        }
-      ).__seizaProbe;
+      const state = (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe;
       return {
         firstGpuWorkMs: state?.firstGpuWork ?? null,
         gpuTasks: state?.gpuTasks ?? [],

@@ -8,7 +8,7 @@
 //   light and dark; every frame that shows anything must match the last
 //   (Chrome once painted it in the fallback font's metrics, then jumped). A
 //   negative control shows it before its font loads and must fail.
-// - Screenshot match (placeholder-shots.ts): the placeholder against GPUI's
+// - Screenshot match (shared-web/perf/placeholder-shots.ts): the placeholder against GPUI's
 //   first frame, light and dark, 1440×900 at DPR 2 and DPR 1: text, icons,
 //   the skeleton buttons' edges, and the surfaces. Images in
 //   perf/results/raw/placeholder/.
@@ -41,7 +41,7 @@ import { preview } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { PLACEHOLDER_CHARS } from '../../../shared-web/src/placeholder.ts';
 import { PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
-import { SCHEMES, compare, shoot, type Scheme } from './placeholder-shots.ts';
+import { SCHEMES, compare, shoot, type HeldBack, type Scheme } from '../../../shared-web/perf/placeholder-shots.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
 const webDir = join(perfDir, '../web');
@@ -55,6 +55,9 @@ const fontPath = join(perfDir, '../../../shared-web/fonts/SeizaPlaceholder-Regul
 const repoRoot = resolve(perfDir, '../../..');
 /** An A/B side's TTFP spread, (max − min) / median, above which the run is too noisy to resolve 3%. */
 const AB_MAX_SPREAD = 0.06;
+/** The shots hold back Tycho's wasm (the placeholder) and the engine's
+ *  chunk (the first frame stays on "Engine loading…"). */
+const HELD: HeldBack = { wasm: /tycho_bg-[\w-]+\.wasm$/, afterPaint: /\/assets\/engine-[\w-]+\.js$/ };
 const load = () => loadavg().map((value) => Number(value.toFixed(2)));
 
 /** The other build's dist as the results may record it: never a home or temp path (the repo is public). */
@@ -316,7 +319,7 @@ try {
   // there, half-pixels at DPR 2.
   for (const [dpr, scheme] of [2, 1].flatMap((dpr) => SCHEMES.map((scheme) => [dpr, scheme] as const))) {
     const tag = `${scheme}@${dpr}x`;
-    const shots = await shoot(browser, url, scheme, '', { dpr });
+    const shots = await shoot(browser, url, HELD, scheme, '', { dpr });
     const outside = [...new Set(shots.placeholderText.replace(/\s+/g, ' '))].filter((char) => !PLACEHOLDER_CHARS.test(char));
     if (outside.length) failures.push(`${tag}: placeholder text outside the font: ${outside.map((c) => JSON.stringify(c)).join(', ')}`);
     const result = await compare(browser, shots, dpr);
@@ -344,7 +347,7 @@ try {
       // A control that only shows in one scheme says so in its name.
       const schemes = SCHEMES.filter((scheme) => !/\((light|dark)\)$/.test(name) || name.endsWith(`(${scheme})`));
       for (const scheme of schemes) {
-        const result = await compare(browser, await shoot(browser, url, scheme, css));
+        const result = await compare(browser, await shoot(browser, url, HELD, scheme, css));
         controls.push({ name, scheme, caught: result.failures.length > 0, failures: result.failures });
         console.log(`control ${scheme} ${name.padEnd(32)} ${result.failures.length ? `caught: ${result.failures[0]}` : 'MISSED'}`);
         if (!result.failures.length) failures.push(`control "${name}" (${scheme}) wasn't caught`);

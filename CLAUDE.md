@@ -8,7 +8,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
-- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Being built: its data file is served at seiza.io; no page yet.
+- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Being built: its data file is served at seiza.io and its GPUI contender builds locally; no page yet.
 
 ---
 
@@ -80,14 +80,14 @@ seiza/
   package.json          # npm workspaces: shared-web, apps/*/web
   tsconfig.base.json    # strict TS settings every host extends
   .gitignore            # target/, node_modules/, .wrangler/, pkg/, dist/, per-app data/raw, generated data, perf/results/raw
-  shared/               # crate `seiza`: wasm bootstrap, the window root (first-frame mark, system theme), perf panel (`panel`), page clock and marks
+  shared/               # crate `seiza`: wasm bootstrap, the window root (first-frame mark, system theme), perf panel (`panel`), page clock and marks, script targets
   shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), placeholder.ts (static shell before the wasm), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts, perf/ (the perf harness every app's scripts share)
   components/
     tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); README.md, CLAUDE.md, docs/
   engines/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
-    observatory/        # the comparison page: web/ (Vite host under /observatory/), worker/ (seiza.io; the data by range), data/, perf/, spike/ (throwaway scroll spike), docs/, README.md, CLAUDE.md, PLAN.md, justfile
+    observatory/        # the comparison page: web/ (Vite host under /observatory/), contenders/ (the bare contender pages: tall-table/gpui/, crate `tall-table-gpui`), worker/ (seiza.io; the data by range), data/, perf/, spike/ (throwaway scroll spike), docs/, README.md, CLAUDE.md, PLAN.md, justfile
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts
@@ -111,7 +111,7 @@ seiza/
 - The `seiza` crate draws nothing of its own but the panel: the bootstrap opens the window with a root that fills the canvas with the app's view. A title bar, a theme toggle, and other chrome are the app's (Tycho's `crate/src/shell.rs`). The root follows the system light/dark appearance until the app calls `seiza::stop_following_system_appearance` (a visitor picked a theme). An app's icons come in through `Bootstrap::assets` (`gpui_kit::assets::icon_assets!`). Feature `panel` (on by default) is the perf panel and the `seiza::perf` API; a bare host turns it off with `default-features = false`. `shared-web`'s placeholder CSS still copies gpui-kit's components (its TitleBar and buttons among them) for any app's placeholder markup to use; the markup is the app's. Why: `docs/DECISIONS.md`, "Shell and input".
 - `shared/` owns the web bootstrap order (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame` mark → post-paint callback). Apps hook into the post-paint callback to start heavy loads. `shared-web`'s `boot` takes the app's `wasmUrl` for the waterfall's download step.
 - The page clock and `performance.mark`s go through `seiza::marks` (`now`, `mark`, `mark_at`, `mark_time`, `mark_after_current_task`); no crate that can depend on `seiza` keeps its own copy. A component or engine can't, so it reads the clock and its own JS side's marks itself and never sets a mark from Rust: the host marks from its events (`docs/DECISIONS.md`, "Repo structure"). A mark may be set more than once (a retry); readers take the **last** entry.
-- `shared-web/perf/` is the perf harness's app-agnostic half: `protocol.ts` (throttle profiles, the DPR shim, `budgetLimits` over an app's `budgets.json`, run summaries, machine labels), `harness.ts` (opening a page per the protocol, the perf panel's rows, target clicks, `wheel`, `waitMark`, the frame and work recorders, `presentingTaskRecorder` and `presentedMark` for marks set right after a presented frame, `fling`), and `serve.ts` (`serveApp`, the counting proxy). An app's `perf/` keeps only what knows the app, and never redefines a helper from here. Canvas controls are clicked through the bounds the app publishes to `globalThis.__seizaTargets[id] = [x, y, width, height]` (CSS pixels); `frameRecorder` records whatever an app's `globalThis.__seizaFrameSample()` returns with each rAF.
+- `shared-web/perf/` is the perf harness's app-agnostic half: `protocol.ts` (throttle profiles, the DPR shim, `budgetLimits` over an app's `budgets.json`, run summaries, machine labels), `harness.ts` (opening a page per the protocol, `firstDrawProbe` (TTFP's mark against the first GPU work), the perf panel's rows, target clicks, `wheel`, `waitMark`, the frame and work recorders, `presentingTaskRecorder` and `presentedMark` for marks set right after a presented frame, `fling`), `placeholder-shots.ts` (the placeholder shell against the first frame in screenshots), and `serve.ts` (`serveApp`, the counting proxy). An app's `perf/` keeps only what knows the app, and never redefines a helper from here. Canvas controls are clicked through the bounds the app publishes to `globalThis.__seizaTargets[id] = [x, y, width, height]` (CSS pixels; `seiza::targets::publish`); `frameRecorder` records whatever an app's `globalThis.__seizaFrameSample()` returns with each rAF.
 - When a GPUI Kit web bug blocks progress, check upstream issues first. Work around it in `shared/` with a comment linking the issue. Don't fork unless there's no other way.
 - Code starts in the app. Move it to `shared/` once it's clearly app-agnostic foundation; UI and data layers become a component or an engine instead ("Tiers"). Don't build abstractions for apps that don't exist yet.
 

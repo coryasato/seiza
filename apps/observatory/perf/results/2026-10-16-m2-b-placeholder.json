@@ -1,0 +1,159 @@
+{
+  "date": "2026-10-16",
+  "label": "m2-b-placeholder",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "sizes": {
+    "indexHtmlBytes": 20296,
+    "indexHtmlBrotliBytes": 11208
+  },
+  "match": {
+    "light@2x": {
+      "regions": [
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            60,
+            62,
+            262,
+            88
+          ],
+          "placeholder": [
+            60,
+            61,
+            262,
+            87
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 0.9738735651875964
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 5172912,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    },
+    "dark@2x": {
+      "regions": [
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            60,
+            62,
+            262,
+            88
+          ],
+          "placeholder": [
+            60,
+            61,
+            262,
+            87
+          ],
+          "dx": 0,
+          "dy": 1,
+          "mass": 1.017998033957972
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 5172912,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    },
+    "light@1x": {
+      "regions": [
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            30,
+            32,
+            131,
+            44
+          ],
+          "placeholder": [
+            30,
+            30,
+            131,
+            43
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.8482934050582766
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 1293216,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    },
+    "dark@1x": {
+      "regions": [
+        {
+          "name": "Engine loading…",
+          "kind": "text",
+          "firstFrame": [
+            30,
+            32,
+            131,
+            44
+          ],
+          "placeholder": [
+            30,
+            30,
+            131,
+            43
+          ],
+          "dx": 0,
+          "dy": 2,
+          "mass": 0.9364300054754517
+        }
+      ],
+      "surface": {
+        "differing": 0,
+        "compared": 1293216,
+        "share": 0,
+        "box": null
+      },
+      "failures": []
+    }
+  },
+  "controls": {
+    "frame 1 px left": [
+      "0.100% of surface pixels differ (limit 0.04%), within {\"x\":14.5,\"y\":19,\"width\":2.5,\"height\":862}"
+    ],
+    "frame 1 px shorter": [
+      "0.162% of surface pixels differ (limit 0.04%), within {\"x\":20,\"y\":881.5,\"width\":1400,\"height\":2.5}"
+    ],
+    "border color": [
+      "0.351% of surface pixels differ (limit 0.04%), within {\"x\":16,\"y\":16,\"width\":1408,\"height\":868}"
+    ],
+    "frame fill": [
+      "93.584% of surface pixels differ (limit 0.04%), within {\"x\":18,\"y\":18,\"width\":1404,\"height\":864}"
+    ],
+    "text 1 px up": [
+      "\"Engine loading…\" is 3 device px up or down from the first frame's (limit 1)"
+    ],
+    "text in the foreground color": [
+      "\"Engine loading…\" ink mass is 1.71× the first frame's (limit ×/÷ 1.15)"
+    ],
+    "fallback font": [
+      "\"Engine loading…\" is 10 device px across from the first frame's (limit 3)",
+      "\"Engine loading…\" is 3 device px up or down from the first frame's (limit 1)",
+      "\"Engine loading…\" ink mass is 0.85× the first frame's (limit ×/÷ 1.15)"
+    ]
+  },
+  "failures": []
+}

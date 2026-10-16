@@ -2,8 +2,9 @@
 //!
 //! This crate knows nothing about any app. It owns the web bootstrap order
 //! (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame`
-//! mark → post-paint callback) and the window's root around the app's view.
-//! A title bar, a theme toggle, or anything else on screen is the app's.
+//! mark → post-paint callback) and the window's root around the app's view,
+//! and publishes controls' bounds for scripts ([`targets`]). A title bar, a
+//! theme toggle, or anything else on screen is the app's.
 //!
 //! Feature `panel`, on by default: the perf panel and the [`perf`] API.
 
@@ -12,6 +13,7 @@ mod panel;
 #[cfg(feature = "panel")]
 pub mod perf;
 mod shell;
+pub mod targets;
 pub mod url;
 
 #[cfg(target_family = "wasm")]

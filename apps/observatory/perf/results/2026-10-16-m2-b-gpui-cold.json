@@ -1,0 +1,285 @@
+{
+  "date": "2026-10-16",
+  "label": "m2-b-gpui-cold",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "Chromium 153.0.8010.12 (headless=new)",
+  "contender": "gpui",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "wasmBrotliKiB": 2695.4,
+  "ttfpMs": {
+    "reference": 170.5,
+    "throttled": 3502.5
+  },
+  "placeholderPaintMs": {
+    "reference": 55.2,
+    "throttled": 247
+  },
+  "engineReadyMs": {
+    "reference": 634.4,
+    "throttled": 9736.4
+  },
+  "wasmReadyMs": {
+    "reference": 107.8,
+    "throttled": 3249.1
+  },
+  "runs": {
+    "reference": [
+      {
+        "ttfpMs": 187.6449999809265,
+        "wasmReadyMs": 119.90999984741211,
+        "placeholderMs": 85.21000003814697,
+        "firstPixelsMs": 85.21000003814697,
+        "usableMs": 187.6449999809265,
+        "engineStartMs": 199.38499975204468,
+        "engineReadyMs": 700.329999923706,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 214.58500003814697,
+        "wasmReadyMs": 147.0149998664856,
+        "placeholderMs": 125.1399998664856,
+        "firstPixelsMs": 125.1399998664856,
+        "usableMs": 214.58500003814697,
+        "engineStartMs": 226.16499996185303,
+        "engineReadyMs": 721.625,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 177.78999996185303,
+        "wasmReadyMs": 116.35999965667725,
+        "placeholderMs": 87.16999959945679,
+        "firstPixelsMs": 87.16999959945679,
+        "usableMs": 177.78999996185303,
+        "engineStartMs": 188.16499996185303,
+        "engineReadyMs": 639.8099999427795,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 168.95999956130981,
+        "wasmReadyMs": 104.61999988555908,
+        "placeholderMs": 43.924999713897705,
+        "firstPixelsMs": 43.924999713897705,
+        "usableMs": 168.95999956130981,
+        "engineStartMs": 178.39999961853027,
+        "engineReadyMs": 616.704999923706,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 160.47500038146973,
+        "wasmReadyMs": 98.41500043869019,
+        "placeholderMs": 31.290000438690186,
+        "firstPixelsMs": 31.290000438690186,
+        "usableMs": 160.47500038146973,
+        "engineStartMs": 170.7050004005432,
+        "engineReadyMs": 628.9750003814697,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 171.94000005722046,
+        "wasmReadyMs": 109.78999996185303,
+        "placeholderMs": 33.894999980926514,
+        "firstPixelsMs": 33.894999980926514,
+        "usableMs": 171.94000005722046,
+        "engineStartMs": 181.83999967575073,
+        "engineReadyMs": 625.6299996376038,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 184.875,
+        "wasmReadyMs": 117.9249997138977,
+        "placeholderMs": 32.90000009536743,
+        "firstPixelsMs": 32.90000009536743,
+        "usableMs": 184.875,
+        "engineStartMs": 212.34999990463257,
+        "engineReadyMs": 676.8249998092651,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 169.08500003814697,
+        "wasmReadyMs": 105.84499979019165,
+        "placeholderMs": 34.16499996185303,
+        "firstPixelsMs": 34.16499996185303,
+        "usableMs": 169.08500003814697,
+        "engineStartMs": 178.85999965667725,
+        "engineReadyMs": 646.2549996376038,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 161.75499963760376,
+        "wasmReadyMs": 97.8899998664856,
+        "placeholderMs": 66.4249997138977,
+        "firstPixelsMs": 66.4249997138977,
+        "usableMs": 161.75499963760376,
+        "engineStartMs": 171.5449995994568,
+        "engineReadyMs": 596.4800000190735,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 164.63500022888184,
+        "wasmReadyMs": 103.63500022888184,
+        "placeholderMs": 73.85000038146973,
+        "firstPixelsMs": 73.85000038146973,
+        "usableMs": 164.63500022888184,
+        "engineStartMs": 174.7350001335144,
+        "engineReadyMs": 610.5800004005432,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "ttfpMs": 3494.2349996566772,
+        "wasmReadyMs": 3242.8599996566772,
+        "placeholderMs": 253.19000005722046,
+        "firstPixelsMs": 253.19000005722046,
+        "usableMs": 3494.2349996566772,
+        "engineStartMs": 3727.494999885559,
+        "engineReadyMs": 9713.754999637604,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3491.8950004577637,
+        "wasmReadyMs": 3242.3500003814697,
+        "placeholderMs": 244.0600004196167,
+        "firstPixelsMs": 244.0600004196167,
+        "usableMs": 3491.8950004577637,
+        "engineStartMs": 3725.840000152588,
+        "engineReadyMs": 9701.310000419617,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3503.699999809265,
+        "wasmReadyMs": 3249.654999732971,
+        "placeholderMs": 255.73999977111816,
+        "firstPixelsMs": 255.73999977111816,
+        "usableMs": 3503.699999809265,
+        "engineStartMs": 3739.204999923706,
+        "engineReadyMs": 9752.069999694824,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3497.194999694824,
+        "wasmReadyMs": 3243.044999599457,
+        "placeholderMs": 245.33499956130981,
+        "firstPixelsMs": 245.33499956130981,
+        "usableMs": 3497.194999694824,
+        "engineStartMs": 3730.744999885559,
+        "engineReadyMs": 9735.719999790192,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3501.324999809265,
+        "wasmReadyMs": 3246.1849999427795,
+        "placeholderMs": 255.63000011444092,
+        "firstPixelsMs": 255.63000011444092,
+        "usableMs": 3501.324999809265,
+        "engineStartMs": 3736.8899998664856,
+        "engineReadyMs": 9727.369999885559,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3533.4800000190735,
+        "wasmReadyMs": 3264.9750003814697,
+        "placeholderMs": 241.56500005722046,
+        "firstPixelsMs": 241.56500005722046,
+        "usableMs": 3533.4800000190735,
+        "engineStartMs": 3766.960000038147,
+        "engineReadyMs": 9759.56500005722,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3508.2750000953674,
+        "wasmReadyMs": 3251.079999923706,
+        "placeholderMs": 248.61999988555908,
+        "firstPixelsMs": 248.61999988555908,
+        "usableMs": 3508.2750000953674,
+        "engineStartMs": 3740.9000000953674,
+        "engineReadyMs": 9744.590000152588,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3497.8899998664856,
+        "wasmReadyMs": 3248.545000076294,
+        "placeholderMs": 240.49499988555908,
+        "firstPixelsMs": 240.49499988555908,
+        "usableMs": 3497.8899998664856,
+        "engineStartMs": 3730.6950001716614,
+        "engineReadyMs": 9717.534999847412,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3525.1799998283386,
+        "wasmReadyMs": 3257.7649998664856,
+        "placeholderMs": 256.32499980926514,
+        "firstPixelsMs": 256.32499980926514,
+        "usableMs": 3525.1799998283386,
+        "engineStartMs": 3759.8899998664856,
+        "engineReadyMs": 9736.984999656677,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      },
+      {
+        "ttfpMs": 3521,
+        "wasmReadyMs": 3258.994999885559,
+        "placeholderMs": 240.07499980926514,
+        "firstPixelsMs": 240.07499980926514,
+        "usableMs": 3521,
+        "engineStartMs": 3758.614999771118,
+        "engineReadyMs": 9747.139999866486,
+        "api": "webgpu",
+        "backing": "2880x1800",
+        "problems": []
+      }
+    ]
+  },
+  "failures": []
+}

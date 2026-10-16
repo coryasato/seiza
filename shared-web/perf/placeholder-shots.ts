@@ -1,9 +1,10 @@
-// The static placeholder shell against GPUI's first frame: screenshots of
-// both (the same page, the app's wasm held back for one and the engine chunk
-// for the other) and their comparison. Used by `placeholder.ts`.
+// The static placeholder shell (shared-web/src/placeholder.ts) against
+// GPUI's first frame: screenshots of both (the same page, the app's wasm held
+// back for one and whatever loads after first paint for the other) and their
+// comparison. Each app's `perf/placeholder.ts` runs them.
 
 import { type Browser, type Page } from '@playwright/test';
-import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
+import { hideDevicePixelContentBox } from './protocol.ts';
 
 export type Scheme = 'light' | 'dark';
 export const SCHEMES: Scheme[] = ['light', 'dark'];
@@ -28,7 +29,7 @@ export const SCHEMES: Scheme[] = ['light', 'dark'];
  *   place or one device px around it (GPUI and the browser round half-pixel
  *   edges in opposite directions); at most SURFACE_SHARE of them may differ.
  *
- * The limits were set from negative controls (`placeholder.ts --controls`):
+ * The limits were set from negative controls (Tycho's `placeholder.ts --controls`):
  * each catches a 1 px move or size change, a wrong fill, border, or muted
  * color, or a fallback font, and none fires on the real placeholder.
  */
@@ -67,6 +68,15 @@ export interface Shots {
   regions: Region[];
 }
 
+/** What a page's shots hold back, matched against request URLs: `wasm`, the
+ *  app's wasm (the placeholder stays up); `afterPaint`, what loads after
+ *  first paint (the first frame stays as it first drew, e.g. "Engine
+ *  loading…"). */
+export interface HeldBack {
+  wasm: RegExp;
+  afterPaint: RegExp;
+}
+
 const twoFrames = (page: Page) => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
 /** Both screenshots for one color scheme, from two cold pages. `alter` is CSS
@@ -74,6 +84,7 @@ const twoFrames = (page: Page) => page.evaluate(() => new Promise((resolve) => r
 export async function shoot(
   browser: Browser,
   url: string,
+  hold: HeldBack,
   scheme: Scheme,
   alter = '',
   { width = 1440, height = 900, dpr = 2 } = {},
@@ -86,9 +97,10 @@ export async function shoot(
     return context;
   };
 
+  const { wasm, afterPaint } = hold;
   // The placeholder: the app's wasm never arrives.
   const held = await open();
-  await held.route(/tycho_bg-[\w-]+\.wasm$/, () => {});
+  await held.route(wasm, () => {});
   const before = await held.newPage();
   await before.goto(url);
   if (alter) await before.addStyleTag({ content: alter });
@@ -115,10 +127,10 @@ export async function shoot(
   });
   await held.close();
 
-  // The first frame: the engine chunk never arrives, so the shell stays as
-  // it first drew ("Engine loading…"). Taken once the placeholder is gone.
+  // The first frame: what loads after first paint never arrives, so the
+  // view stays as it first drew. Taken once the placeholder is gone.
   const live = await open();
-  await live.route(/\/assets\/engine-[\w-]+\.js$/, () => {});
+  await live.route(afterPaint, () => {});
   const after = await live.newPage();
   await after.goto(url);
   await after.waitForFunction(() => performance.getEntriesByName('gpui:first-frame', 'mark').length > 0 && !document.getElementById('seiza-placeholder'), null, { timeout: 60_000 });

@@ -6,6 +6,7 @@
     "shared-web",
     "engines/*/web",
     "apps/*/web",
+    "apps/*/contenders/*/*/web",
     "apps/*/worker"
   ],
   "devDependencies": {

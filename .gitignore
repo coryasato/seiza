@@ -33,6 +33,7 @@ apps/*/data/bench/
 
 # DuckDB extensions, downloaded and checked against pinned hashes (engines/duckdb/web/duckdb-extensions.json)
 apps/*/web/public/duckdb-ext/
+apps/*/contenders/*/*/web/public/duckdb/
 
 # Perf: raw Playwright traces (everything else under perf/results/ is committed)
 apps/*/perf/results/raw/

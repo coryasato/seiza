@@ -1,7 +1,92 @@
 {
-  "about": "Every budget the Observatory's perf scripts enforce (limits, read through shared-web/perf/'s budgetLimits()) and every number its docs show (metrics, rendered by `just observatory report`). Source forms are documented at the top of shared-web/scripts/report.ts. Empty until a contender builds: each contender's TTFP and wasm or JS budgets land with it.",
+  "about": "Every budget the Observatory's perf scripts enforce (limits, read through shared-web/perf/'s budgetLimits()) and every number its docs show (metrics, rendered by `just observatory report`). Source forms are documented at the top of shared-web/scripts/report.ts.",
   "app": "Observatory",
-  "exclude": ["*-control*", "*-ab.json", "*-ab-*", "*-before*"],
-  "limits": {},
-  "metrics": []
+  "exclude": [
+    "*-control*",
+    "*-ab.json",
+    "*-ab-*",
+    "*-before*"
+  ],
+  "limits": {
+    "gpui": {
+      "ttfpOverBaseline": {
+        "value": 0.1,
+        "what": "`check`: the GPUI contender's reference TTFP over perf/baseline.json's, as a fraction"
+      },
+      "wasmOverBaseline": {
+        "value": 0.15,
+        "what": "`check`: the GPUI contender's wasm (brotli) over the baseline's, as a fraction"
+      }
+    }
+  },
+  "metrics": [
+    {
+      "id": "gpui-ttfp",
+      "label": "GPUI contender: time to first paint",
+      "unit": "ms",
+      "budget": {
+        "overBaseline": "gpui.ttfpOverBaseline",
+        "baseline": "ttfpMs.reference"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold.json",
+            "path": "ttfpMs.reference"
+          },
+          {
+            "baseline": "ttfpMs.reference"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-ttfp-throttled",
+      "label": "GPUI contender: time to first paint, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold.json",
+            "path": "ttfpMs.throttled"
+          },
+          {
+            "baseline": "ttfpMs.throttled"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-wasm",
+      "label": "GPUI contender: wasm (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "gpui.wasmOverBaseline",
+        "baseline": "wasmBrotliKiB"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold.json",
+            "path": "wasmBrotliKiB"
+          },
+          {
+            "baseline": "wasmBrotliKiB"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    }
+  ]
 }

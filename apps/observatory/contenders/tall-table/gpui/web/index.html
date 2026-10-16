@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Tall table: GPUI</title>
+    <!-- No favicon; an empty one saves a 404 on every load. -->
+    <link rel="icon" href="data:," />
+    <meta name="description" content="The observatory's GPUI contender: the tall table, drawn by GPUI from WebAssembly, over DuckDB-Wasm." />
+    <style>
+      /* GPUI appends its canvas to <body> and sizes it to 100%. The page
+         background matches the default GPUI Kit theme so there's no flash
+         of a different color before the first frame. */
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      body { background: #fff; }
+      @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } }
+      body > canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <noscript>This page needs JavaScript and WebAssembly.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

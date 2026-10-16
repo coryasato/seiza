@@ -1,0 +1,24 @@
+[package]
+name = "tall-table-gpui"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The observatory's GPUI contender: seiza-tall-table over seiza-duckdb in a bare host."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gpui-kit.workspace = true
+seiza-duckdb = { workspace = true, features = ["tall-table"] }
+seiza-tall-table.workspace = true
+
+# The entry point and the contract are web-only; the view compiles natively for clippy.
+[target.'cfg(target_family = "wasm")'.dependencies]
+# Without the observation panel: the contender carries no chrome the DOM side
+# lacks (root CLAUDE.md, "Comparison protocol"). `just observatory sizes`
+# fails if it links anyway.
+seiza.workspace = true
+wasm-bindgen.workspace = true
+js-sys.workspace = true
