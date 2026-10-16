@@ -11,7 +11,7 @@ use gpui_kit::component::Theme;
 use gpui_kit::web::{CanvasFontFallback, WebBackendPreference, WebPlatform};
 use gpui_kit::*;
 
-use crate::AppShell;
+use crate::shell::AppShell;
 
 thread_local! {
     // The browser owns the run loop, so the app lives as long as this handle.
@@ -21,28 +21,63 @@ thread_local! {
 type BuildContent = Box<dyn FnOnce(&mut Window, &mut App) -> AnyView>;
 type AfterFirstPaint = Box<dyn FnOnce(&mut Window, &mut App)>;
 
+/// Key bindings bound before and after `gpui_kit::init`.
+type InitBindings = (fn(&mut App), fn(&mut App));
+
 /// Starts a seiza app on the page's canvas.
 ///
 /// ```ignore
 /// seiza::Bootstrap::new("Tycho", ui_font)
+///     .assets(Icons)
+///     .mac_input_bindings()
 ///     .after_first_paint(|window, cx| { /* start heavy loads */ })
 ///     .run(|window, cx| cx.new(|cx| Workbench::new(window, cx)).into());
 /// ```
-pub struct Bootstrap {
+pub struct Bootstrap<A: AssetSource = ()> {
     title: SharedString,
     ui_font: Vec<u8>,
+    assets: A,
+    mac_input_bindings: Option<InitBindings>,
     after_first_paint: Option<AfterFirstPaint>,
 }
 
 impl Bootstrap {
-    /// `ui_font` is the one bundled UI face. The JS host fetches it in
-    /// parallel with the wasm and hands the bytes over.
+    /// `title` is the window's title (and the perf panel's). `ui_font` is the
+    /// one bundled UI face. The JS host fetches it in parallel with the wasm
+    /// and hands the bytes over.
     pub fn new(title: impl Into<SharedString>, ui_font: Vec<u8>) -> Self {
         Self {
             title: title.into(),
             ui_font,
+            assets: (),
+            mac_input_bindings: None,
             after_first_paint: None,
         }
+    }
+}
+
+impl<A: AssetSource> Bootstrap<A> {
+    /// The app's assets, such as the icons it draws
+    /// (`gpui_kit::assets::icon_assets!`). Without them there are none: every
+    /// icon draws nothing, and nothing is fetched. Don't pass gpui-kit's
+    /// `Assets`: on the web it fetches each icon from a CDN on first use, a
+    /// request between a frame and its icons.
+    pub fn assets<B: AssetSource>(self, assets: B) -> Bootstrap<B> {
+        Bootstrap {
+            title: self.title,
+            ui_font: self.ui_font,
+            assets,
+            mac_input_bindings: self.mac_input_bindings,
+            after_first_paint: self.after_first_paint,
+        }
+    }
+
+    /// Binds the Mac editing keys for gpui-kit's text inputs, in Mac browsers
+    /// (see [`bind_mac_menu_keys`]). For an app with an input; without the
+    /// call, none of it links.
+    pub fn mac_input_bindings(mut self) -> Self {
+        self.mac_input_bindings = Some((bind_mac_menu_keys, bind_mac_input_keys));
+        self
     }
 
     /// Runs `callback` after the first frame is presented and marked. Start
@@ -55,7 +90,7 @@ impl Bootstrap {
         self
     }
 
-    /// Opens the window and renders `content` inside the [`AppShell`].
+    /// Opens the window and renders `content`, filling it.
     pub fn run(self, content: impl FnOnce(&mut Window, &mut App) -> AnyView + 'static) {
         #[cfg(debug_assertions)]
         console_error_panic_hook::set_once();
@@ -67,30 +102,32 @@ impl Bootstrap {
         let Self {
             title,
             ui_font,
+            assets,
+            mac_input_bindings,
             after_first_paint,
         } = self;
 
-        let handle = web_application().run_embedded(move |cx| {
+        let handle = web_application(assets).run_embedded(move |cx| {
             // Fonts before init: on wasm the font database starts empty, and
             // `gpui_kit::init` resolves `.SystemUIFont` through it. See
             // longbridge/gpui-kit#3101 and #3105.
             cx.text_system()
                 .add_fonts(vec![Cow::Owned(ui_font)])
                 .expect("failed to load the UI font");
-            let mac = is_mac_browser();
-            if mac {
+            let mac_input_bindings = mac_input_bindings.filter(|_| is_mac_browser());
+            if let Some((before_init, _)) = mac_input_bindings {
                 // Before init: a menu labels an action with its latest
                 // binding, and a wasm build spells Cmd "Win".
-                bind_mac_menu_keys(cx);
+                before_init(cx);
             }
             gpui_kit::init(cx);
-            if mac {
+            if let Some((_, after_init)) = mac_input_bindings {
                 // After init: these must outrank the wasm build's own (its
                 // Shift+Alt+←/→ selects a character, not a word).
-                bind_mac_input_keys(cx);
+                after_init(cx);
             }
+            #[cfg(feature = "panel")]
             crate::perf::init(cx);
-            crate::shell::init(cx);
             Theme::sync_system_appearance(None, cx);
 
             let options = WindowOptions {
@@ -126,7 +163,7 @@ impl Bootstrap {
 /// 173.5 ms vs forced WebGL2 291.0 ms. WebKit: 296 vs 412 ms. Firefox, whose
 /// headless adapter is blocklisted, falls back to WebGL2 at no measurable cost
 /// (550 vs 551 ms). See Tycho's `perf/results/2026-09-23-m1.md`.
-fn web_application() -> Application {
+fn web_application(assets: impl AssetSource) -> Application {
     let platform = Rc::new(WebPlatform::new_with_backend_and_font_fallback(
         false,
         WebBackendPreference::Auto,
@@ -135,14 +172,8 @@ fn web_application() -> Application {
     let http_client = Arc::new(platform.fetch_http_client());
     Application::with_platform(platform)
         .with_http_client(http_client)
-        .with_assets(Icons)
+        .with_assets(assets)
 }
-
-// The icons the shell draws, embedded in the wasm. gpui-kit's default
-// `Assets` fetches each icon from a CDN on first use on the web, which would
-// put a request between the first frame and its icons. Unlisted icons draw
-// nothing.
-gpui_kit::assets::icon_assets!(Icons, [Sun, Moon]);
 
 /// Whether the page runs in a Mac browser (`navigator.platform`), where Cmd
 /// and Opt are the editing modifiers.
@@ -169,7 +200,8 @@ fn is_mac_browser() -> bool {
 /// browsers: elsewhere Alt+←/→ is the browser's Back/Forward.
 ///
 /// The actions the input's right-click menu shows. Bound before
-/// `gpui_kit::init`, so the menu keeps labelling the Ctrl keys.
+/// `gpui_kit::init`, so the menu keeps labelling the Ctrl keys. Bound only
+/// for an app that asks ([`Bootstrap::mac_input_bindings`]).
 fn bind_mac_menu_keys(cx: &mut App) {
     use gpui_kit::component::input::{Copy, Cut, SelectAll};
 

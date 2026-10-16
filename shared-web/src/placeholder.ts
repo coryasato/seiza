@@ -10,10 +10,10 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
  * (`shared/src/first_frame.rs`), so the browser never renders a frame with
  * neither; it then fades out over that frame and removes itself.
  *
- * It must look like the first frame: the title bar `shared/src/shell.rs`
- * draws, and the app's empty state in gpui-kit 0.7.3's default theme, light
- * or dark by `prefers-color-scheme` (the shell follows the system until the
- * visitor picks a theme, and a reload follows it again). Each app's check
+ * It must look like the first frame: whatever the app draws first (a title
+ * bar, an empty state), in gpui-kit 0.7.3's default theme, light or dark by
+ * `prefers-color-scheme` (`shared/` follows the system until the app says a
+ * visitor picked a theme, and a reload follows it again). Each app's check
  * (`apps/<app>/perf/placeholder.ts`) compares screenshots of both. TTFP keeps
  * meaning GPUI's first frame; the placeholder's paint is its own metric.
  *
@@ -41,14 +41,15 @@ export const PLACEHOLDER_PAINT_MARK = 'seiza:placeholder-painted';
 export const PLACEHOLDER_CHARS = /^[\x20-\x7e…]*$/;
 
 export interface PlaceholderOptions {
-  /** The title bar's title, as the app passes it to `seiza::Bootstrap`. */
-  title: string;
   /**
-   * The app's empty state, below the title bar, as HTML built from the
-   * `.sz-…` classes in PLACEHOLDER_CSS. Draw a component whose label would
-   * move at the swap (a button) as a skeleton, `.sz-skeleton.sz-skeleton-button`,
-   * with GPUI's width for it. Plain text and tags only: no scripts, handlers,
-   * links, or controls.
+   * The app's first screen, as HTML built from the `.sz-…` classes in
+   * PLACEHOLDER_CSS (a title bar, `.sz-title-bar`, then `.sz-content`, say).
+   * Draw a component whose label would move at the swap (a button) as a
+   * skeleton, `.sz-skeleton.sz-skeleton-button`, with GPUI's width for it;
+   * an icon as an inline `<svg>`, as gpui-kit-assets embeds it. Exactly one
+   * element carries `elementtiming` set to {@link PLACEHOLDER_ID} (its first text):
+   * {@link PLACEHOLDER_PAINT_MARK} is its paint. Plain text and tags only: no
+   * scripts, handlers, links, or controls.
    */
   body: string;
 }
@@ -117,7 +118,8 @@ const PLACEHOLDER_CSS = `
 }
 #${PLACEHOLDER_ID} .sz-icon-button { width: 20px; padding: 0; }
 #${PLACEHOLDER_ID} .sz-icon-button svg { width: 12px; height: 12px; }
-/* The theme button shows the theme a press switches to. */
+/* A theme toggle shows the theme a press switches to: .sz-theme-dark shows in
+   light, .sz-theme-light in dark. */
 #${PLACEHOLDER_ID} .sz-button.sz-theme-light { display: none; }
 @media (prefers-color-scheme: dark) {
   #${PLACEHOLDER_ID} .sz-button.sz-theme-dark { display: none; }
@@ -154,10 +156,6 @@ const PLACEHOLDER_CSS = `
 }
 `;
 
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-}
-
 /** The placeholder's visible text, entities decoded, for the font check. */
 function placeholderText(html: string): string {
   return html
@@ -165,24 +163,6 @@ function placeholderText(html: string): string {
     .replace(/&(amp|lt|gt|quot|hellip|#(\d+)|#x([\da-f]+));/gi, (_, name: string, dec?: string, hex?: string) =>
       dec ? String.fromCodePoint(Number(dec)) : hex ? String.fromCodePoint(parseInt(hex, 16)) : ({ amp: '&', lt: '<', gt: '>', quot: '"', hellip: '…' })[name.toLowerCase()]!,
     );
-}
-
-/** Lucide's moon and sun (ISC license), as gpui-kit-assets 0.7.3 embeds
- *  them: the shell's theme button (`shared/src/bootstrap.rs`, `Icons`). */
-const ICONS = {
-  moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
-};
-
-/** The title bar `shared/src/shell.rs` draws: the title, the theme button
- *  (the icon of the theme it switches to), and the observation panel's. */
-function titleBar(title: string): string {
-  const themeButton = (switchesTo: 'dark' | 'light', icon: keyof typeof ICONS) =>
-    `<span class="sz-button sz-icon-button sz-theme-${switchesTo}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[icon]}</svg></span>`;
-  return (
-    `<div class="sz-title-bar"><span class="sz-title" elementtiming="${PLACEHOLDER_ID}">${escapeHtml(title)}</span>` +
-    `<span class="sz-title-actions">${themeButton('dark', 'moon')}${themeButton('light', 'sun')}<span class="sz-button">Observation panel</span></span></div>`
-  );
 }
 
 /**
@@ -219,15 +199,23 @@ const PLACEHOLDER_SCRIPT = `(() => {
   }
 })();`;
 
-/** The placeholder's tags. Throws if `body` isn't inert markup, or if its
- *  text has a character the placeholder font lacks. */
-function placeholderTags({ title, body }: PlaceholderOptions): HtmlTagDescriptor[] {
-  if (/<(script|style|input|button|textarea|select|a)\b|\son\w+=/i.test(body)) {
-    throw new Error('seiza placeholder: body must be inert markup (no scripts, handlers, links, or controls)');
+/** The placeholder's tags. Throws if `body` isn't inert markup, has no
+ *  element to time its paint by, or has a character the placeholder font
+ *  lacks. */
+function placeholderTags({ body }: PlaceholderOptions): HtmlTagDescriptor[] {
+  // Inline SVG is allowed for icons, so its ways of embedding or linking
+  // content are refused too.
+  if (/<(script|style|input|button|textarea|select|a|iframe|object|embed|foreignObject|use|image)\b|\son\w+=|\shref=/i.test(body)) {
+    throw new Error('seiza placeholder: body must be inert markup (no scripts, handlers, links, embeds, or controls)');
+  }
+  const timing = `elementtiming="${PLACEHOLDER_ID}"`;
+  const timedTags = body.match(new RegExp(`<[a-z][^<>]*\\s${timing}[^<>]*>`, 'gi')) ?? [];
+  if (timedTags.length !== 1 || body.split(timing).length !== 2) {
+    throw new Error(`seiza placeholder: exactly one element in body needs ${timing} (its paint is the placeholder's)`);
   }
   // HTML collapses whitespace, so collapse it here too: between tags it
   // renders as nothing, and a newline isn't a character the font must have.
-  const markup = `${titleBar(title)}<div class="sz-content">${body.trim().replace(/>\s+</g, '><').replace(/\s+/g, ' ')}</div>`;
+  const markup = body.trim().replace(/>\s+</g, '><').replace(/\s+/g, ' ');
   const outside = [...new Set(placeholderText(markup))].filter((char) => !PLACEHOLDER_CHARS.test(char));
   if (outside.length) {
     throw new Error(

@@ -19,7 +19,7 @@ These add to the repo-wide rules.
 
 ## Architecture
 
-- **`src/state.rs`**: `TallTableState<D>`, the entity: the scroll model and page cache, hover and tooltip, the glyph measurements, and the drawing of the header and body. Its public setters (`jump_to`, `set_rows`, `set_columns`, `retry_failed`, `close`) and readers; `TallTableEvent`, `TallTableStats`, `Paging` (1024-row pages, prefetch 2, 64 MiB, 3 in flight), `ActivityOptions`; the keys (`init`, `actions!` under `seiza_tall_table`).
+- **`src/state.rs`**: `TallTableState<D>`, the entity: the scroll model and page cache, hover and tooltip, the glyph measurements, and the drawing of the header and body. Its public setters (`jump_to`, `set_rows`, `set_columns`, `retry_failed`, `close`) and readers; `TallTableEvent`, `TallTableStats`, `Paging` (1024-row pages, prefetch 2, 64 MiB, 3 in flight, a 250 ms scroll settle, an 80 ms drag settle), `ActivityOptions`; the keys (`init`, `actions!` under `seiza_tall_table`).
 - **`src/tall_table.rs`**: `TallTable<D>`, the `RenderOnce` element a host renders: focus, key context and actions, the press that focuses it, and the border (the focus ring when focused), around the state's view. The same split as gpui-kit's `DataTable` and `TableState`.
 - **`src/delegate.rs`**: `TallTableDelegate` (`load_page`, `cancel`), `TallTablePage` (`value`, `heap_bytes`), `CellValue`, `PageError`, `PageLoad`.
 - **`src/column.rs`**: `TallTableColumn` and `ColumnKind`, and the layout: widths by kind, at least the header's width, an integer column fitting its widest value at the font's widest number advance (`Glyphs`, read once per font).

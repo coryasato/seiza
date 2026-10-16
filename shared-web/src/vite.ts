@@ -35,7 +35,7 @@ export interface SeizaViteOptions {
   preload: string[];
   /**
    * The static placeholder shell painted before the wasm arrives
-   * (`placeholder.ts`): the title and the app's empty state as inert HTML.
+   * (`placeholder.ts`): the app's first screen as inert HTML.
    * Optional; without it the page is blank until the first frame.
    */
   placeholder?: PlaceholderOptions;

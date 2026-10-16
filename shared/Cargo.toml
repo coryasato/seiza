@@ -6,6 +6,13 @@ license.workspace = true
 publish.workspace = true
 description = "App-agnostic foundation for seiza apps: wasm bootstrap, app shell, first-frame mark."
 
+[features]
+default = ["panel"]
+# The perf panel ("observation panel"), the frame sampler behind it, and the
+# `perf` API. A host that shows only its own view (the observatory's GPUI
+# contender) turns it off, and none of it links.
+panel = []
+
 [dependencies]
 gpui-kit.workspace = true
 

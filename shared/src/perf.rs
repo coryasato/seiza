@@ -7,8 +7,8 @@
 //! ([`set_metric`]), and rows they recompute while the panel is open
 //! ([`on_refresh`]). The live values refresh at ~4 Hz, not every frame, so
 //! watching doesn't cost the frames it measures. Toggle it with
-//! Cmd/Ctrl+Shift+P or the title bar's button, or open the page with `?perf`
-//! in the URL.
+//! Cmd/Ctrl+Shift+P or the app's own button for it ([`toggle`]), or open the
+//! page with `?perf` in the URL.
 
 use std::rc::Rc;
 

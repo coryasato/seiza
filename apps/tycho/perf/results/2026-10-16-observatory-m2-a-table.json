@@ -1,0 +1,1128 @@
+{
+  "date": "2026-10-16",
+  "label": "observatory-m2-a-table",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "name": "asteroids.parquet",
+    "rows": 1567523,
+    "bytes": 37692103,
+    "sha256": "4ee7f31ea67b192acad1cd2d216bee0390b20dce075d23c737aec63be1ac489f",
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-09-24",
+    "rowGroups": 52,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",
+    "notes": [
+      "3569 rows have a year-only first_obs in the source ('YYYY-??-??'); stored as NULL",
+      "0 rows have no first_obs in the source"
+    ]
+  },
+  "budgets": {
+    "firstRowsMs": 500,
+    "jumpMs": 400,
+    "flingP95Ms": 20,
+    "flingMaxMs": 50,
+    "memoryCapMiB": 128,
+    "memoryGrowthPerPass": 0.1
+  },
+  "profiles": {
+    "reference": {
+      "runs": 10,
+      "firstRowsMs": {
+        "median": 234.3,
+        "min": 203.2,
+        "max": 353.6
+      },
+      "jumpMs": {
+        "median": 83,
+        "min": 80.3,
+        "max": 99.2
+      },
+      "flingP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "flingMaxMs": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.847,
+        "min": 0.844,
+        "max": 0.853
+      },
+      "flingWorkP50Ms": {
+        "median": 6.3,
+        "min": 6.2,
+        "max": 6.7
+      },
+      "flingWorkP95Ms": {
+        "median": 8.4,
+        "min": 8.2,
+        "max": 9.2
+      },
+      "steadyP95Ms": {
+        "median": 16.7,
+        "min": 16.7,
+        "max": 16.7
+      },
+      "steadyWorkP50Ms": {
+        "median": 11.5,
+        "min": 10.7,
+        "max": 12
+      },
+      "steadyWorkP95Ms": {
+        "median": 14.5,
+        "min": 12.9,
+        "max": 16.5
+      },
+      "steadyPlaceholderShare": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "firstRun": {
+        "firstRowsMs": 235.7150001525879,
+        "jumpMs": 84.69999980926514
+      }
+    },
+    "throttled": {
+      "runs": 10,
+      "firstRowsMs": {
+        "median": 3389.9,
+        "min": 3371.7,
+        "max": 3500
+      },
+      "jumpMs": {
+        "median": 2184.7,
+        "min": 2174.6,
+        "max": 2196.8
+      },
+      "flingP95Ms": {
+        "median": 33.3,
+        "min": 16.7,
+        "max": 33.3
+      },
+      "flingMaxMs": {
+        "median": 33.3,
+        "min": 33.3,
+        "max": 50
+      },
+      "flingOver50": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "flingPlaceholderShare": {
+        "median": 0.843,
+        "min": 0.827,
+        "max": 0.847
+      },
+      "flingWorkP50Ms": {
+        "median": 27.7,
+        "min": 26.8,
+        "max": 30.3
+      },
+      "flingWorkP95Ms": {
+        "median": 35.3,
+        "min": 32.9,
+        "max": 39.3
+      },
+      "steadyP95Ms": {
+        "median": 33.3,
+        "min": 33.3,
+        "max": 33.3
+      },
+      "steadyWorkP50Ms": {
+        "median": 28.3,
+        "min": 26.3,
+        "max": 32.4
+      },
+      "steadyWorkP95Ms": {
+        "median": 39.9,
+        "min": 36.3,
+        "max": 41.8
+      },
+      "steadyPlaceholderShare": {
+        "median": 0.615,
+        "min": 0.547,
+        "max": 0.646
+      }
+    }
+  },
+  "runs": {
+    "reference": [
+      {
+        "firstRowsMs": 235.7150001525879,
+        "appFirstRowsMs": 220.58500003814697,
+        "overlayFirstRowsMs": 221,
+        "jumpMs": 84.69999980926514,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000189,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 181,
+          "durationMs": 3045.4849996566772,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 172,
+            "p50": 6.235000133514404,
+            "p95": 8.179999828338623,
+            "max": 19.385000228881836
+          }
+        },
+        "steady": {
+          "frames": 180,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 69,
+            "p50": 11.460000038146973,
+            "p95": 13.525000095367432,
+            "max": 14.664999961853027
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 209.38000011444092,
+        "appFirstRowsMs": 204.75500011444092,
+        "overlayFirstRowsMs": 205,
+        "jumpMs": 81.5,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 213,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3064.7649998664856,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms",
+          "work": {
+            "n": 170,
+            "p50": 6.434999942779541,
+            "p95": 8.570000171661377,
+            "max": 18.414999961853027
+          }
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 16.670000000012806,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 69,
+            "p50": 10.96500015258789,
+            "p95": 13.059999942779541,
+            "max": 14.03499984741211
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 217.06999969482422,
+        "appFirstRowsMs": 208.33499956130981,
+        "overlayFirstRowsMs": 208,
+        "jumpMs": 83.39000034332275,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3028.170000076294,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 168,
+            "p50": 6.454999923706055,
+            "p95": 8.460000038146973,
+            "max": 17.375
+          }
+        },
+        "steady": {
+          "frames": 180,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 68,
+            "p50": 11.5600004196167,
+            "p95": 14.25,
+            "max": 21.46500015258789
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 203.19500017166138,
+        "appFirstRowsMs": 197.94500017166138,
+        "overlayFirstRowsMs": 198,
+        "jumpMs": 84.4850001335144,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 179,
+          "durationMs": 3044.170000076294,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 171,
+            "p50": 6.550000190734863,
+            "p95": 8.394999980926514,
+            "max": 20.704999923706055
+          }
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 69,
+            "p50": 11.755000114440918,
+            "p95": 14.90999984741211,
+            "max": 21.22000026702881
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 206.35000038146973,
+        "appFirstRowsMs": 199.90500020980835,
+        "overlayFirstRowsMs": 200,
+        "jumpMs": 82.625,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3042.9699997901917,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms",
+          "work": {
+            "n": 174,
+            "p50": 6.340000152587891,
+            "p95": 8.259999752044678,
+            "max": 16.84999990463257
+          }
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.33499999999185,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 68,
+            "p50": 12.009999752044678,
+            "p95": 15.865000247955322,
+            "max": 19.34499979019165
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 239.22499990463257,
+        "appFirstRowsMs": 232.70499992370605,
+        "overlayFirstRowsMs": 233,
+        "jumpMs": 82.53000020980835,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.330000000001746,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3039.739999771118,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 33 ms",
+          "work": {
+            "n": 170,
+            "p50": 6.224999904632568,
+            "p95": 9.184999942779541,
+            "max": 15.894999980926514
+          }
+        },
+        "steady": {
+          "frames": 179,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 69,
+            "p50": 10.6850004196167,
+            "p95": 12.949999809265137,
+            "max": 15.320000171661377
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 250.83500003814697,
+        "appFirstRowsMs": 240.3250002861023,
+        "overlayFirstRowsMs": 240,
+        "jumpMs": 84.72499990463257,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 178,
+          "durationMs": 3029.1500000953674,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 173,
+            "p50": 6.7099995613098145,
+            "p95": 8.865000247955322,
+            "max": 23.424999713897705
+          }
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 67,
+            "p50": 11.53000020980835,
+            "p95": 14.8149995803833,
+            "max": 17.09500026702881
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 274.9700002670288,
+        "appFirstRowsMs": 268.3800001144409,
+        "overlayFirstRowsMs": 268,
+        "jumpMs": 99.15499973297119,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 180,
+          "durationMs": 3032.954999923706,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 169,
+            "p50": 6.315000057220459,
+            "p95": 8.485000133514404,
+            "max": 18.884999752044678
+          }
+        },
+        "steady": {
+          "frames": 181,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.33499999999185,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 71,
+            "p50": 11.394999980926514,
+            "p95": 14.680000305175781,
+            "max": 15.294999599456787
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 353.5549998283386,
+        "appFirstRowsMs": 346.960000038147,
+        "overlayFirstRowsMs": 347,
+        "jumpMs": 80.34499979019165,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 211,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 179,
+          "durationMs": 3025.1349997520447,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 167,
+            "p50": 6.2900004386901855,
+            "p95": 8.184999942779541,
+            "max": 19.18499994277954
+          }
+        },
+        "steady": {
+          "frames": 182,
+          "p50": 16.66500000000815,
+          "p95": 16.669999999998254,
+          "max": 33.33499999999185,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 70,
+            "p50": 11.670000076293945,
+            "p95": 12.890000343322754,
+            "max": 15.40500020980835
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 232.94999980926514,
+        "appFirstRowsMs": 223.31500005722046,
+        "overlayFirstRowsMs": 223,
+        "jumpMs": 82.35500001907349,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 212,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 16.67000000000553,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 179,
+          "durationMs": 3029.789999961853,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 16.7 · max 17 ms",
+          "work": {
+            "n": 168,
+            "p50": 6.25,
+            "p95": 8.289999961853027,
+            "max": 17.285000324249268
+          }
+        },
+        "steady": {
+          "frames": 179,
+          "p50": 16.66500000000815,
+          "p95": 16.670000000012806,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 0,
+          "work": {
+            "n": 68,
+            "p50": 11.380000114440918,
+            "p95": 16.480000019073486,
+            "max": 22.425000190734863
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "firstRowsMs": 3435.335000038147,
+        "appFirstRowsMs": 3421.4749999046326,
+        "overlayFirstRowsMs": 3421,
+        "jumpMs": 2191.544999599457,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 202,
+          "p50": 16.665000000000873,
+          "p95": 33.32999999999447,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 170,
+          "durationMs": 3063.2999997138977,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 89,
+            "p50": 26.769999980926514,
+            "p95": 35.63000011444092,
+            "max": 47.235000133514404
+          }
+        },
+        "steady": {
+          "frames": 156,
+          "p50": 16.66500000000815,
+          "p95": 33.3350000000064,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 97,
+          "work": {
+            "n": 77,
+            "p50": 26.375,
+            "p95": 37.46000003814697,
+            "max": 43.764999866485596
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3382.9000000953674,
+        "appFirstRowsMs": 3352.039999961853,
+        "overlayFirstRowsMs": 3352,
+        "jumpMs": 2184.4400000572205,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 200,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 169,
+          "durationMs": 3061.7000002861023,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 86,
+            "p50": 27.884999752044678,
+            "p95": 34.80000019073486,
+            "max": 40.769999980926514
+          }
+        },
+        "steady": {
+          "frames": 147,
+          "p50": 16.66500000000815,
+          "p95": 33.33499999999185,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 85,
+          "work": {
+            "n": 71,
+            "p50": 31.789999961853027,
+            "p95": 39.86500024795532,
+            "max": 42.57000017166138
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3395.6400003433228,
+        "appFirstRowsMs": 3379.1600003242493,
+        "overlayFirstRowsMs": 3379,
+        "jumpMs": 2184.9050002098083,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 194,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 163,
+          "durationMs": 3069.630000114441,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 84,
+            "p50": 27.585000038146973,
+            "p95": 35.93000030517578,
+            "max": 38.049999713897705
+          }
+        },
+        "steady": {
+          "frames": 161,
+          "p50": 16.66500000000815,
+          "p95": 33.33499999999185,
+          "max": 50.00500000000466,
+          "over50": 1,
+          "blankFrames": 0,
+          "placeholderFrames": 104,
+          "work": {
+            "n": 79,
+            "p50": 28.134999752044678,
+            "p95": 36.30999994277954,
+            "max": 51.860000133514404
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3382.739999771118,
+        "appFirstRowsMs": 3366.954999923706,
+        "overlayFirstRowsMs": 3367,
+        "jumpMs": 2175.8599996566772,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 195,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 49.99500000000262,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 164,
+          "durationMs": 3051.5250000953674,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 50 ms",
+          "work": {
+            "n": 85,
+            "p50": 28.085000038146973,
+            "p95": 35.329999923706055,
+            "max": 50.67999982833862
+          }
+        },
+        "steady": {
+          "frames": 151,
+          "p50": 16.66500000000815,
+          "p95": 33.33499999999185,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 91,
+          "work": {
+            "n": 75,
+            "p50": 28.44499969482422,
+            "p95": 41.519999980926514,
+            "max": 46.65499973297119
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3499.9800000190735,
+        "appFirstRowsMs": 3485.710000038147,
+        "overlayFirstRowsMs": 3486,
+        "jumpMs": 2179.295000076294,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 199,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 168,
+          "durationMs": 3066.7649998664856,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 86,
+            "p50": 26.769999980926514,
+            "p95": 32.94500017166138,
+            "max": 35.66499996185303
+          }
+        },
+        "steady": {
+          "frames": 150,
+          "p50": 16.66500000000815,
+          "p95": 33.33499999999185,
+          "max": 50,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 93,
+          "work": {
+            "n": 74,
+            "p50": 26.31500005722046,
+            "p95": 40.674999713897705,
+            "max": 50.360000133514404
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3371.715000152588,
+        "appFirstRowsMs": 3358.335000038147,
+        "overlayFirstRowsMs": 3358,
+        "jumpMs": 2193.680000305176,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 198,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 167,
+          "durationMs": 3064.260000228882,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 85,
+            "p50": 27.56500005722046,
+            "p95": 34.75999975204468,
+            "max": 38.58999967575073
+          }
+        },
+        "steady": {
+          "frames": 154,
+          "p50": 16.66500000000815,
+          "p95": 33.3350000000064,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 94,
+          "work": {
+            "n": 76,
+            "p50": 27.994999885559082,
+            "p95": 39.40999984741211,
+            "max": 44.25
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3454.8449997901917,
+        "appFirstRowsMs": 3438.0249996185303,
+        "overlayFirstRowsMs": 3438,
+        "jumpMs": 2185.795000076294,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 199,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 168,
+          "durationMs": 3094.954999923706,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 85,
+            "p50": 29.230000019073486,
+            "p95": 39.05999994277954,
+            "max": 40.579999923706055
+          }
+        },
+        "steady": {
+          "frames": 159,
+          "p50": 16.66500000000815,
+          "p95": 33.330000000001746,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 100,
+          "work": {
+            "n": 78,
+            "p50": 29.230000019073486,
+            "p95": 37.170000076293945,
+            "max": 46.33500003814697
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3384.090000152588,
+        "appFirstRowsMs": 3367.7400002479553,
+        "overlayFirstRowsMs": 3368,
+        "jumpMs": 2174.579999923706,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 195,
+          "p50": 16.665000000000873,
+          "p95": 33.330000000001746,
+          "max": 33.33999999999651,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 164,
+          "durationMs": 3065.0549998283386,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 84,
+            "p50": 28.385000228881836,
+            "p95": 35.325000286102295,
+            "max": 40.50500011444092
+          }
+        },
+        "steady": {
+          "frames": 148,
+          "p50": 16.66500000000815,
+          "p95": 33.33499999999185,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 81,
+          "work": {
+            "n": 72,
+            "p50": 31.25,
+            "p95": 39.96999979019165,
+            "max": 44.75500011444092
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3377.2800002098083,
+        "appFirstRowsMs": 3359.050000190735,
+        "overlayFirstRowsMs": 3359,
+        "jumpMs": 2180.2649998664856,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 179,
+          "p50": 16.665000000000873,
+          "p95": 33.33499999999913,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 148,
+          "durationMs": 3050.5149998664856,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 76,
+            "p50": 30.300000190734863,
+            "p95": 39.334999561309814,
+            "max": 45.16000032424927
+          }
+        },
+        "steady": {
+          "frames": 152,
+          "p50": 16.66500000000815,
+          "p95": 33.330000000001746,
+          "max": 33.3350000000064,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 98,
+          "work": {
+            "n": 75,
+            "p50": 27.43000030517578,
+            "p95": 41.80500030517578,
+            "max": 43.360000133514404
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      },
+      {
+        "firstRowsMs": 3436.364999771118,
+        "appFirstRowsMs": 3420.194999694824,
+        "overlayFirstRowsMs": 3420,
+        "jumpMs": 2196.75,
+        "jumpTop": 1411355.767593422,
+        "jumpBlankFrames": 0,
+        "lastRow": {
+          "ok": true,
+          "detail": "end 1567523/1567523 rows, count(*) 1567523, last spkid shown 54657680, file 54657680"
+        },
+        "fling": {
+          "frames": 203,
+          "p50": 16.665000000000873,
+          "p95": 16.67000000000553,
+          "max": 33.33499999999913,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 172,
+          "durationMs": 3055.364999771118,
+          "reachedEnd": true,
+          "stoppedAt": "rows 1567500–1567523 of 1567523",
+          "overlay": "p50 16.7 · p95 33.3 · max 33 ms",
+          "work": {
+            "n": 88,
+            "p50": 26.755000114440918,
+            "p95": 33.78499984741211,
+            "max": 37.96999979019165
+          }
+        },
+        "steady": {
+          "frames": 144,
+          "p50": 16.66500000000815,
+          "p95": 33.3350000000064,
+          "max": 49.99499999999534,
+          "over50": 0,
+          "blankFrames": 0,
+          "placeholderFrames": 80,
+          "work": {
+            "n": 71,
+            "p50": 32.364999771118164,
+            "p95": 39.855000019073486,
+            "max": 47.855000019073486
+          },
+          "from": 399440.31158304395
+        },
+        "problems": []
+      }
+    ]
+  },
+  "failures": []
+}

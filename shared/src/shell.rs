@@ -1,85 +1,61 @@
-//! The window shell every app renders into: a title bar above the app's view,
-//! plus the perf panel.
+//! The window's root, around the app's view: it arms the first-frame mark,
+//! follows the system appearance, and draws the perf panel above the view
+//! (feature `panel`). Anything else on screen, a title bar or a theme toggle
+//! included, is the app's.
 
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
-use gpui_kit::component::{
-    ActiveTheme as _, Selectable as _, Sizable as _, Theme, ThemeMode, TitleBar, h_flex, v_flex,
-};
+use gpui_kit::component::Theme;
 use gpui_kit::*;
 
+#[cfg(feature = "panel")]
 use crate::panel::PerfPanel;
 
-actions!(seiza, [ToggleTheme]);
-
-/// Whether the shell still follows the system appearance: until the visitor
-/// picks a theme (the title bar's button or Cmd/Ctrl+Shift+L), then never
-/// again until a reload. In memory only, by design: remembering the choice is
-/// the job of whatever embeds these views, at its own root.
+/// Whether the window still follows the system appearance: until the app
+/// says a visitor picked a theme ([`stop_following_system_appearance`]),
+/// then never again until a reload.
 #[derive(Default)]
-struct ThemeChoice {
-    picked: bool,
+struct SystemAppearance {
+    ignored: bool,
 }
 
-impl Global for ThemeChoice {}
+impl Global for SystemAppearance {}
 
-/// Binds the theme shortcut. `shared/`'s bootstrap calls this after
-/// `gpui_kit::init`.
-#[cfg_attr(
-    not(target_family = "wasm"),
-    expect(dead_code, reason = "only the web bootstrap calls it")
-)]
-pub(crate) fn init(cx: &mut App) {
-    cx.set_global(ThemeChoice::default());
-    // Both spellings, as for the panel's Cmd/Ctrl+Shift+P.
-    cx.bind_keys([
-        KeyBinding::new("cmd-shift-l", ToggleTheme, None),
-        KeyBinding::new("ctrl-shift-l", ToggleTheme, None),
-    ]);
-    cx.on_action(|_: &ToggleTheme, cx| toggle_theme(cx));
-}
-
-/// Switches between the light and dark themes, and stops following the
-/// system appearance until a reload.
-fn toggle_theme(cx: &mut App) {
-    cx.default_global::<ThemeChoice>().picked = true;
-    let mode = if cx.theme().is_dark() {
-        ThemeMode::Light
-    } else {
-        ThemeMode::Dark
-    };
-    // Refreshes every window.
-    Theme::change(mode, None, cx);
+/// Stops the window following the system light/dark appearance, for the rest
+/// of the page's life: call it when a visitor picks a theme, so a system
+/// change doesn't undo their choice. A reload follows the system again, so
+/// the page's placeholder (`prefers-color-scheme`) always matches the first
+/// frame.
+pub fn stop_following_system_appearance(cx: &mut App) {
+    cx.default_global::<SystemAppearance>().ignored = true;
 }
 
 #[cfg(target_family = "wasm")]
 type FirstFrameHook = Box<dyn FnOnce(&mut Window, &mut App)>;
 
-/// A title bar above the app's content, filling the canvas.
+/// The app's view, filling the canvas. `shared/`'s bootstrap opens the window
+/// with it; apps don't construct it.
 ///
-/// It follows the system light/dark appearance until the visitor picks a
-/// theme ([`ThemeChoice`]); views only read `cx.theme()`. A reload follows the
-/// system again, so the page's placeholder (`prefers-color-scheme`) always
-/// matches the first frame. Its buttons take the web's pointer cursor
-/// (gpui-kit gives buttons the desktop arrow). The sheet, dialog, and
-/// notification layers are `Root`'s job (gpui-kit 0.7).
+/// It follows the system light/dark appearance until the app stops it
+/// ([`stop_following_system_appearance`]); views only read `cx.theme()`. The
+/// sheet, dialog, and notification layers are `Root`'s job (gpui-kit 0.7).
 ///
 /// On the web it also owns the first-frame mark: its first render with a real
 /// viewport arms the `gpui:first-frame` mark, then runs the post-paint hook. The perf panel
 /// draws above the app's view; `Root`'s dialogs and sheets draw above it.
+// Public only because the native build (clippy and tests) has no bootstrap
+// to construct it, and everything it uses would read as dead code.
+#[doc(hidden)]
 pub struct AppShell {
-    title: SharedString,
     content: AnyView,
+    #[cfg(feature = "panel")]
     panel: Entity<PerfPanel>,
-    /// The panel's visibility as last rendered (the title bar's toggle).
-    panel_visible: bool,
     #[cfg(target_family = "wasm")]
     first_frame: Option<FirstFrameHook>,
     _appearance: Subscription,
-    _perf: Subscription,
 }
 
 impl AppShell {
+    /// `title` names the app in the perf panel.
+    #[cfg_attr(not(feature = "panel"), expect(unused_variables))]
     pub fn new(
         title: impl Into<SharedString>,
         content: impl Into<AnyView>,
@@ -89,29 +65,19 @@ impl AppShell {
         let appearance = cx.observe_window_appearance(window, |_, window, cx| {
             // A system change must not undo the visitor's choice.
             if !cx
-                .try_global::<ThemeChoice>()
-                .is_some_and(|choice| choice.picked)
+                .try_global::<SystemAppearance>()
+                .is_some_and(|appearance| appearance.ignored)
             {
                 Theme::sync_system_appearance(Some(window), cx);
             }
         });
-        // Only for the title bar's toggle; the panel observes its own values.
-        let perf = cx.observe_global::<crate::perf::PerfOverlay>(|this: &mut Self, cx| {
-            if this.panel_visible != crate::perf::is_visible(cx) {
-                cx.notify();
-            }
-        });
-        let title = title.into();
-        let panel = cx.new(|cx| PerfPanel::new(title.clone(), cx));
         Self {
-            title,
             content: content.into(),
-            panel,
-            panel_visible: false,
+            #[cfg(feature = "panel")]
+            panel: cx.new(|cx| PerfPanel::new(title.into(), cx)),
             #[cfg(target_family = "wasm")]
             first_frame: None,
             _appearance: appearance,
-            _perf: perf,
         }
     }
 
@@ -140,10 +106,15 @@ impl AppShell {
         cx.spawn_in(window, async move |_, cx| {
             let ttfp_ms = marked.await;
             let _ = cx.update(|window, cx| {
-                if let Some(ttfp_ms) = ttfp_ms {
-                    crate::perf::set_ttfp(cx, ttfp_ms);
+                #[cfg(feature = "panel")]
+                {
+                    if let Some(ttfp_ms) = ttfp_ms {
+                        crate::perf::set_ttfp(cx, ttfp_ms);
+                    }
+                    crate::frames::start(cx, ttfp_ms);
                 }
-                crate::frames::start(cx, ttfp_ms);
+                #[cfg(not(feature = "panel"))]
+                let _ = ttfp_ms;
                 hook(window, cx);
             });
         })
@@ -157,69 +128,22 @@ impl Render for AppShell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(target_family = "wasm")]
         {
+            #[cfg(feature = "panel")]
             crate::frames::frame_started();
             self.arm_first_frame(window, cx);
         }
-        self.panel_visible = crate::perf::is_visible(cx);
-        // Shows the theme a press switches to: a sun in dark, a moon in
-        // light. `shared-web`'s placeholder draws the same icons; keep them
-        // matched.
-        let (theme_icon, theme_tooltip) = if cx.theme().is_dark() {
-            (IconName::Sun, "Light theme (Cmd/Ctrl+Shift+L)")
-        } else {
-            (IconName::Moon, "Dark theme (Cmd/Ctrl+Shift+L)")
-        };
-
         // Root already sets the background, text color, and font family.
-        div()
-            .relative()
-            .size_full()
-            .child(
-                v_flex()
-                    .size_full()
-                    .child(
-                        TitleBar::new().child(
-                            h_flex()
-                                .flex_1()
-                                .pr_2()
-                                .justify_between()
-                                .child(div().text_sm().child(self.title.clone()))
-                                .child(
-                                    h_flex()
-                                        .gap_1()
-                                        .child(
-                                            Button::new("seiza-theme-toggle")
-                                                .ghost()
-                                                .xsmall()
-                                                .icon(theme_icon)
-                                                .cursor_pointer()
-                                                .tooltip(theme_tooltip)
-                                                .on_click(|_, _, cx| toggle_theme(cx)),
-                                        )
-                                        .child(
-                                            Button::new("seiza-perf-toggle")
-                                                .ghost()
-                                                .xsmall()
-                                                .label("Observation panel")
-                                                .cursor_pointer()
-                                                .selected(self.panel_visible)
-                                                .tooltip("Live load, frame, and memory numbers (Cmd/Ctrl+Shift+P)")
-                                                .on_click(|_, _, cx| crate::perf::toggle(cx)),
-                                        ),
-                                ),
-                        ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_h_0()
-                            .min_w_0()
-                            .child(self.content.clone()),
-                    ),
-            )
-            .child(
-                AnyView::from(self.panel.clone())
-                    .cached(StyleRefinement::default().absolute().top_0().left_0().size_full()),
-            )
+        let shell = div().relative().size_full().child(self.content.clone());
+        #[cfg(feature = "panel")]
+        let shell = shell.child(
+            AnyView::from(self.panel.clone()).cached(
+                StyleRefinement::default()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+            ),
+        );
+        shell
     }
 }

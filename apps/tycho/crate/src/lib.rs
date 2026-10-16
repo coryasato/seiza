@@ -10,6 +10,7 @@ pub mod jump;
 pub mod limits;
 #[cfg(target_family = "wasm")]
 mod selftest;
+pub mod shell;
 pub mod table;
 mod targets;
 mod workbench;
@@ -27,12 +28,17 @@ use wasm_bindgen::prelude::*;
 pub fn start(ui_font: Vec<u8>, bridge: seiza_duckdb::Bridge) {
     use gpui_kit::AppContext as _;
 
-    seiza::Bootstrap::new("Tycho", ui_font)
+    seiza::Bootstrap::new(shell::TITLE, ui_font)
+        .assets(shell::Icons)
+        // The jump-to-row input's Mac editing keys.
+        .mac_input_bindings()
         .after_first_paint(|_, cx| engine::start(cx))
         .run(move |window, cx| {
+            shell::init(cx);
             table::init(cx);
             workbench::init(cx);
             seiza_duckdb::init(cx, bridge);
-            cx.new(|cx| Workbench::new(window, cx)).into()
+            let workbench = cx.new(|cx| Workbench::new(window, cx));
+            cx.new(|cx| shell::Shell::new(workbench, cx)).into()
         });
 }

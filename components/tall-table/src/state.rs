@@ -53,10 +53,15 @@ pub struct Paging {
     pub budget_bytes: usize,
     /// Reads in flight at once, cancelled ones still answering included.
     pub max_in_flight: usize,
+    /// How long the rows must rest before prefetch stops leaning ahead.
+    pub scroll_settle: std::time::Duration,
+    /// How long a dragged scrollbar thumb must rest before its rows load.
+    pub drag_settle: std::time::Duration,
 }
 
-/// 1024-row pages, 2 pages of prefetch, 64 MiB, 3 reads in flight
-/// (`docs/DECISIONS.md`, "Table and paging").
+/// 1024-row pages, 2 pages of prefetch, 64 MiB, 3 reads in flight, a 250 ms
+/// scroll settle and an 80 ms drag settle (`docs/DECISIONS.md`, "Table and
+/// paging").
 impl Default for Paging {
     fn default() -> Self {
         Self {
@@ -64,6 +69,8 @@ impl Default for Paging {
             prefetch: 2,
             budget_bytes: 64 << 20,
             max_in_flight: 3,
+            scroll_settle: std::time::Duration::from_millis(250),
+            drag_settle: std::time::Duration::from_millis(80),
         }
     }
 }
@@ -276,10 +283,10 @@ pub struct TallTableState<D: TallTableDelegate> {
     body: Bounds<Pixels>,
     drag: Option<Drag>,
     /// While a scrollbar drag moves, page loads wait for the pointer to rest
-    /// (see [`DRAG_SETTLE`]); this is that wait.
+    /// ([`Paging::drag_settle`]); this is that wait.
     drag_settle: Option<Task<()>>,
-    /// Resets `direction` to still once the rows stop moving (see
-    /// [`SCROLL_SETTLE`]).
+    /// Resets `direction` to still once the rows stop moving
+    /// ([`Paging::scroll_settle`]).
     scroll_settle: Option<Task<()>>,
     pub(crate) focus_handle: FocusHandle,
     /// Whether the last frame had every visible row loaded.
@@ -559,8 +566,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // Prefetch reaches further ahead while scrolling; once the rows
         // rest, it goes back to even on both sides.
         if self.direction != Direction::Still {
+            let settle = self.paging.scroll_settle;
             self.scroll_settle = Some(cx.spawn(async move |this, cx| {
-                cx.background_executor().timer(SCROLL_SETTLE).await;
+                cx.background_executor().timer(settle).await;
                 let _ = this.update(cx, |this, cx| {
                     this.direction = Direction::Still;
                     this.load_pages(cx);
@@ -577,8 +585,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             // can't), and on a slow network such a read holds up the page
             // the drag ends on. So load only once the pointer rests, or on
             // release.
+            let settle = self.paging.drag_settle;
             self.drag_settle = Some(cx.spawn(async move |this, cx| {
-                cx.background_executor().timer(DRAG_SETTLE).await;
+                cx.background_executor().timer(settle).await;
                 let _ = this.update(cx, |this, cx| this.load_pages(cx));
             }));
         } else {
@@ -1402,11 +1411,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 }
-
-/// How long a dragged scrollbar thumb must rest before its rows load.
-const DRAG_SETTLE: std::time::Duration = std::time::Duration::from_millis(80);
-/// How long the rows must rest before prefetch stops leaning ahead.
-const SCROLL_SETTLE: std::time::Duration = std::time::Duration::from_millis(250);
 
 /// `1567523` → `1,567,523`: the row numbers' format.
 pub(crate) fn format_count(value: u64) -> String {

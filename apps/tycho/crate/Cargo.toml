@@ -10,7 +10,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 gpui-kit.workspace = true
-seiza.workspace = true
+# The observation panel (`seiza::perf`), named so Tycho never depends on
+# `seiza`'s defaults.
+seiza = { workspace = true, features = ["panel"] }
 seiza-duckdb = { workspace = true, features = ["tall-table"] }
 seiza-tall-table.workspace = true
 

@@ -18,7 +18,7 @@ let state = cx.new(|cx| {
         my_rows,                                            // impl TallTableDelegate
         vec![TallTableColumn::new("id", ColumnKind::Integer { max_chars: 20 }), TallTableColumn::new("name", ColumnKind::Text)],
         row_count,
-        Paging::default(),                                  // 1024-row pages, prefetch 2, 64 MiB, 3 reads in flight
+        Paging::default(),                                  // 1024-row pages, prefetch 2, 64 MiB, 3 reads in flight, 250/80 ms settles
         cx,
     )
 });
