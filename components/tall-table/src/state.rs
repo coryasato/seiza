@@ -169,6 +169,17 @@ fn cell_text(column: &LaidOutColumn, value: CellValue<'_>) -> String {
     }
 }
 
+/// What a loaded cell shows: a muted `NULL`, or [`cell_text`]. Inlined into
+/// the render loop it was split out of (for the cell fixture), so the
+/// table's code is the same size as before.
+#[inline(always)]
+fn shown_text(column: &LaidOutColumn, value: CellValue<'_>) -> String {
+    match value {
+        CellValue::Null => "NULL".to_string(),
+        value => cell_text(column, value),
+    }
+}
+
 /// A shown tooltip's text is at most this many characters, so a long text
 /// value doesn't build a wall.
 const TOOLTIP_CHARS: usize = 2000;
@@ -1079,10 +1090,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         for (column_index, column) in &columns {
                             let value = page.value(index, *column_index).unwrap_or(CellValue::Null);
                             let exact = cell_probes.is_some().then(|| value.to_string());
-                            let (text, color) = match value {
-                                CellValue::Null => ("NULL".to_string(), theme.muted_foreground),
-                                value => (cell_text(column, value), theme.foreground),
+                            let color = if matches!(value, CellValue::Null) {
+                                theme.muted_foreground
+                            } else {
+                                theme.foreground
                             };
+                            let text = shown_text(column, value);
                             if let (Some(probes), Some(exact)) = (cell_probes.as_mut(), exact) {
                                 probes.push(CellProbe {
                                     row,
@@ -1458,6 +1471,11 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             .children(tooltip)
     }
 }
+
+/// The fixtures (`fixtures/`) run against the table itself: a child module,
+/// so it drives the state's own scroll, drag, and paging paths.
+#[cfg(test)]
+mod fixtures;
 
 #[cfg(test)]
 mod tests {

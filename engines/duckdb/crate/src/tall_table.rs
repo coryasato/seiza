@@ -210,37 +210,36 @@ pub struct ParquetSummary {
     pub metadata: Vec<(String, String)>,
 }
 
-/// The three metadata queries for a registered Parquet file, sent together:
-/// its columns, its row and row-group counts, and its key/value metadata
-/// under `keys` (with no keys, a query that returns nothing: don't send it).
-/// None of them reads row data, only the footer.
-pub fn summary_queries(name: &str, keys: &[&str]) -> [String; 3] {
+/// The metadata queries for a registered Parquet file, in the order they're
+/// sent together: its columns, its row and row-group counts, and, when
+/// `keys` names any, its key/value metadata under them. None of them reads
+/// row data, only the footer.
+pub fn summary_queries(name: &str, keys: &[&str]) -> Vec<String> {
     let file = string_literal(name);
-    let keys = if keys.is_empty() {
-        "false".to_owned()
-    } else {
+    let mut queries = vec![
+        format!("DESCRIBE SELECT * FROM read_parquet({file})"),
+        format!("SELECT num_rows, num_row_groups FROM parquet_file_metadata({file})"),
+    ];
+    if !keys.is_empty() {
         let keys: Vec<String> = keys
             .iter()
             .map(|key| format!("{}::BLOB", string_literal(key)))
             .collect();
-        format!("key IN ({})", keys.join(", "))
-    };
-    [
-        format!("DESCRIBE SELECT * FROM read_parquet({file})"),
-        format!("SELECT num_rows, num_row_groups FROM parquet_file_metadata({file})"),
         // Compared as bytes, and only the asked-for keys decoded: `decode`
         // fails on invalid UTF-8, and writers may store binary entries. A
         // bad value is NULL, not an error.
-        format!(
+        queries.push(format!(
             "SELECT decode(key) AS key, try(decode(value)) AS value FROM parquet_kv_metadata({file}) \
-             WHERE {keys}"
-        ),
-    ]
+             WHERE key IN ({})",
+            keys.join(", ")
+        ));
+    }
+    queries
 }
 
 impl ParquetSummary {
     /// Builds the summary from [`summary_queries`]' results, in order; `kv`
-    /// is `None` when no metadata keys were asked for (its query isn't sent).
+    /// is `None` when no metadata keys were asked for (no third query).
     pub fn from_results(
         bytes: Option<u64>,
         describe: &QueryResult,
@@ -314,15 +313,18 @@ pub async fn open_parquet(
     let (info, parquet) = (info.await, parquet.await);
     parquet?;
     let info = info?;
-    let [describe, metadata, kv] = summary_queries(name, keys);
     let send = |sql: String| {
         let (id, result) = engine.query(&sql);
         sent(id);
         result
     };
+    let mut queries = summary_queries(name, keys).into_iter();
+    let (Some(describe), Some(metadata)) = (queries.next(), queries.next()) else {
+        unreachable!("summary_queries has the columns and the counts");
+    };
+    // All sent before any is awaited; the metadata query only for keys.
     let (describe, metadata) = (send(describe), send(metadata));
-    // No keys asked for: no third query.
-    let kv = (!keys.is_empty()).then(|| send(kv));
+    let kv = queries.next().map(send);
     let (describe, metadata) = (describe.await?, metadata.await?);
     let kv = match kv {
         Some(kv) => Some(kv.await?),
@@ -419,15 +421,18 @@ mod tests {
 
     #[test]
     fn queries_quote_the_name_and_keys() {
-        let [describe, _, kv] = summary_queries("it's.parquet", &["a.credit", "it's"]);
+        let queries = summary_queries("it's.parquet", &["a.credit", "it's"]);
+        let [describe, _, kv] = queries.as_slice() else {
+            panic!("three queries with keys: {queries:?}");
+        };
         assert_eq!(
             describe,
             "DESCRIBE SELECT * FROM read_parquet('it''s.parquet')"
         );
         assert!(kv.contains("WHERE key IN ('a.credit'::BLOB, 'it''s'::BLOB)"));
         assert!(kv.contains("try(decode(value))"));
-        let [.., none] = summary_queries("x.parquet", &[]);
-        assert!(none.ends_with("WHERE false"));
+        // No keys: no metadata query.
+        assert_eq!(summary_queries("x.parquet", &[]).len(), 2);
     }
 
     #[test]
@@ -437,6 +442,76 @@ mod tests {
             "SELECT * EXCLUDE (file_row_number) FROM read_parquet('it''s.parquet', file_row_number = true) \
              WHERE file_row_number >= 2048 AND file_row_number < 3072 ORDER BY file_row_number"
         );
+    }
+
+    /// The fixture's SQL that `page_sql` and `summary` don't write.
+    fn sql_mismatches(
+        page_sql: impl Fn(&str, Range<u64>) -> String,
+        summary: impl Fn(&str) -> Vec<String>,
+    ) -> Vec<String> {
+        let fixture: serde_json::Value = serde_json::from_str(SQL_FIXTURE).unwrap();
+        let file = fixture["file"].as_str().unwrap();
+        let mut mismatches = Vec::new();
+        for page in fixture["pages"].as_array().unwrap() {
+            let rows = page["rows"][0].as_u64().unwrap()..page["rows"][1].as_u64().unwrap();
+            let sql = page_sql(file, rows.clone());
+            if sql != page["sql"] {
+                mismatches.push(format!("page {rows:?}: {sql}"));
+            }
+        }
+        let expected: Vec<&str> = fixture["summary"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|sql| sql.as_str().unwrap())
+            .collect();
+        let sent = summary(file);
+        if sent != expected {
+            mismatches.push(format!("summary: {sent:?}"));
+        }
+        mismatches
+    }
+
+    /// The tall table's SQL fixture: the SQL is the same on both sides of
+    /// the observatory's comparison (root `CLAUDE.md`, "Comparison protocol").
+    const SQL_FIXTURE: &str = include_str!("../../../../components/tall-table/fixtures/sql.json");
+
+    /// What `open_parquet` sends for a host that asks for no metadata keys,
+    /// as the GPUI contender does.
+    fn summary_sent(file: &str) -> Vec<String> {
+        summary_queries(file, &[])
+    }
+
+    #[test]
+    fn sql_fixture() {
+        let page_sql = |file: &str, rows| ParquetFile::new(file).page_sql(rows);
+        let mismatches = sql_mismatches(page_sql, summary_sent);
+        assert!(mismatches.is_empty(), "{mismatches:#?}");
+    }
+
+    #[test]
+    fn sql_fixture_controls_fail() {
+        let fixture: serde_json::Value = serde_json::from_str(SQL_FIXTURE).unwrap();
+        for control in fixture["controls"].as_array().unwrap() {
+            let rows = control["rows"][0].as_u64().unwrap()..control["rows"][1].as_u64().unwrap();
+            let sql = control["sql"].as_str().unwrap().to_owned();
+            let page_sql = |file: &str, asked: Range<u64>| {
+                if asked == rows {
+                    sql.clone()
+                } else {
+                    ParquetFile::new(file).page_sql(asked)
+                }
+            };
+            assert!(
+                !sql_mismatches(page_sql, summary_sent).is_empty(),
+                "control {} passed the SQL fixture",
+                control["name"]
+            );
+        }
+        // Sending the keyed query too is another set of queries.
+        let all = |file: &str| summary_queries(file, &["observatory.credit"]);
+        let page_sql = |file: &str, rows| ParquetFile::new(file).page_sql(rows);
+        assert!(!sql_mismatches(page_sql, all).is_empty());
     }
 
     #[test]

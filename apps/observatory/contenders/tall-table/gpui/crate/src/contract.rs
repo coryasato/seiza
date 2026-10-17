@@ -1,7 +1,9 @@
 //! The contender contract (`apps/observatory/docs/contender-contract.md`),
 //! from the table's events: the `contender:open` and `contender:filled`
 //! marks (always), `__contender.state` and the targets (with `?measure`),
-//! and the entry points the JS host's replay hooks call. The page's other
+//! the drawn cells and the columns' budgets (with `?cells`, for the tall
+//! table's cell fixture), and the entry points the JS host's replay hooks
+//! call. The page's other
 //! marks (`first-pixels`, `usable`) and the `postMessage` relay are the JS
 //! host's (`web/src/main.ts`), from marks the bootstrap already sets.
 
@@ -9,7 +11,7 @@ use std::cell::{Cell, RefCell};
 
 use gpui_kit::*;
 use js_sys::{Object, Reflect};
-use seiza_tall_table::{TallTableEvent, TallTableProbe};
+use seiza_tall_table::{CellProbe, ColumnProbe, TallTableEvent, TallTableProbe};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
 
@@ -27,6 +29,17 @@ pub fn measuring() -> bool {
         static MEASURING: bool = seiza::url::has_param("measure");
     }
     MEASURING.with(|measuring| *measuring)
+}
+
+/// Whether the page was opened to pin the cell fixture (`?cells`): only
+/// then does the table probe its cells, and `__contender.cells` and
+/// `__contender.columns` are published. Never in a measured run: the probe
+/// formats every cell twice.
+pub fn probing_cells() -> bool {
+    thread_local! {
+        static PROBING: bool = seiza::url::has_param("cells");
+    }
+    PROBING.with(|probing| *probing)
 }
 
 /// What the last frame showed, for `__contender.state`: the table's probe
@@ -124,6 +137,9 @@ fn on_event(event: &TallTableEvent) {
         }
         TallTableEvent::Layout(layout) => {
             GEOMETRY.set((GEOMETRY.get().0, layout.row_height.into()));
+            if probing_cells() {
+                publish_columns(&layout.columns);
+            }
             if measuring() {
                 SHOWN.with_borrow_mut(|shown| {
                     shown.row_height = Some(layout.row_height);
@@ -141,7 +157,55 @@ fn on_event(event: &TallTableEvent) {
             SHOWN.with_borrow_mut(|shown| shown.track = Some(*track));
             SHOWN.with_borrow(publish_rows_target);
         }
+        TallTableEvent::Cells(cells) => publish_cells(cells),
         _ => {}
+    }
+}
+
+/// `__contender.columns`: each column's name, kind, width, and the
+/// characters a float may take, as the table laid them out.
+fn publish_columns(columns: &[ColumnProbe]) {
+    let list = js_sys::Array::new();
+    for column in columns {
+        let entry = Object::new();
+        let set = |key: &str, value: JsValue| {
+            let _ = Reflect::set(&entry, &JsValue::from_str(key), &value);
+        };
+        set("name", JsValue::from_str(&column.name));
+        set("kind", JsValue::from_str(column.kind));
+        set("width", JsValue::from_f64(column.width.into()));
+        set("budget", JsValue::from_f64(column.budget as f64));
+        list.push(&entry);
+    }
+    set_on_contender("columns", &list);
+}
+
+/// `__contender.cells`: every cell the frame drew, its value's exact text
+/// and the text it showed.
+fn publish_cells(cells: &[CellProbe]) {
+    let list = js_sys::Array::new();
+    for cell in cells {
+        let entry = Object::new();
+        let set = |key: &str, value: JsValue| {
+            let _ = Reflect::set(&entry, &JsValue::from_str(key), &value);
+        };
+        set("row", JsValue::from_f64(cell.row as f64));
+        set("column", JsValue::from_f64(cell.column as f64));
+        set("exact", JsValue::from_str(&cell.exact));
+        set("shown", JsValue::from_str(&cell.shown));
+        list.push(&entry);
+    }
+    set_on_contender("cells", &list);
+}
+
+/// Sets `__contender[key]`, once the JS host has defined it.
+fn set_on_contender(key: &str, value: &JsValue) {
+    let global = js_sys::global();
+    if let Some(contender) = Reflect::get(&global, &JsValue::from_str("__contender"))
+        .ok()
+        .filter(JsValue::is_object)
+    {
+        let _ = Reflect::set(&contender, &JsValue::from_str(key), value);
     }
 }
 
@@ -167,13 +231,6 @@ fn publish_state(shown: &Shown) {
     let (Some(probe), Some(row_height)) = (&shown.probe, shown.row_height) else {
         return;
     };
-    let global = js_sys::global();
-    let Some(contender) = Reflect::get(&global, &JsValue::from_str("__contender"))
-        .ok()
-        .filter(JsValue::is_object)
-    else {
-        return;
-    };
     let state = Object::new();
     let set = |key: &str, value: JsValue| {
         let _ = Reflect::set(&state, &JsValue::from_str(key), &value);
@@ -195,7 +252,7 @@ fn publish_state(shown: &Shown) {
             .map_or(JsValue::NULL, JsValue::from_str),
     );
     set("cacheBytes", number(shown.cache_bytes as u64));
-    let _ = Reflect::set(&contender, &JsValue::from_str("state"), &state);
+    set_on_contender("state", &state);
 }
 
 /// Runs `update` on the host on GPUI's next turn: the replay's calls come

@@ -51,6 +51,10 @@ The scripts record `state` with every frame through `shared-web/perf/`'s `frameR
 
 **The probe.** To find the first frame drawn at a new position, the scripts mark the frame in which `state.top` changes. On GPUI, `state` is read right after the task that made the frame's GPU calls (a microtask queued at its first call); on the DOM, in a rAF. Each is tied to that animation frame's presentation in Chromium's trace.
 
+## The cell probe (GPUI only)
+
+`?cells` (never in a measured run: the table then formats every cell twice) turns on the table's cell probe, and the GPUI contender publishes what it drew: `__contender.columns` (each column's `name`, `kind`, `width` in CSS px, and `budget`, the characters a float may take: the table's `ColumnProbe`s) and `__contender.cells` (every cell of the last frame: `row`, `column` by index, `exact`, `shown`). `perf/cell-fixture.ts` pins the tall table's cell fixture from them (`components/tall-table/fixtures/`); a DOM contender reads its budgets from that fixture, not from a page, and publishes neither.
+
 ## Targets
 
 `globalThis.__seizaTargets[id] = [x, y, width, height]` in CSS pixels, as every app does: `table` (the rows' area), `table-scroll-track` and `table-scroll-thumb` (the vertical scrollbar; GPUI from the table's `Scrollbar` event, TanStack from the scroller's geometry and the native bar's width). Republished when they change.

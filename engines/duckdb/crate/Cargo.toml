@@ -25,3 +25,5 @@ web-sys = { workspace = true, features = ["File", "Performance", "PerformanceEnt
 [dev-dependencies]
 # Writes the Arrow IPC streams the reader's tests read back. Never in a build.
 arrow = { version = "60", default-features = false, features = ["ipc"] }
+# Reads the tall table's SQL fixture (`components/tall-table/fixtures/sql.json`).
+serde_json.workspace = true

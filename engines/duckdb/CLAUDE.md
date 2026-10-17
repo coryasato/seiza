@@ -69,7 +69,9 @@ engines/duckdb/
 ## Tests
 
 ```
-cargo test -p seiza-duckdb --all-features   # native tests: the Arrow reader, read-failure errors, SQL helpers, the table source (page SQL, summary, column kinds, values)
+cargo test -p seiza-duckdb --all-features   # native tests: the Arrow reader, read-failure errors, SQL helpers, the table source (page SQL, summary, column kinds, values), the tall table's SQL fixture
 ```
+
+The SQL fixture (`components/tall-table/fixtures/sql.json`) pins the page SQL and the summary queries a contender sends, as text: the tall table's fixtures live in the component, and this one's test is here, where the SQL is written. A change to `ParquetFile::page_sql` or `summary_queries` fails it; update the fixture in the same change.
 
 The client itself runs only in a browser: Tycho's `just tycho engine` (the self-test: `SELECT 42`, every shown type, cancel) and `just tycho errors` (failed load, stopped worker, Retry) check it end to end.

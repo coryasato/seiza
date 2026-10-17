@@ -1,0 +1,1899 @@
+{
+  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); and synthetic values the same columns round (rounding, kept by it). See README.md.",
+  "source": {
+    "file": "apps/observatory/data/asteroids.parquet",
+    "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
+    "contender": "tall-table-gpui, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)"
+  },
+  "columns": [
+    {
+      "name": "H",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "diameter",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "albedo",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "a",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "e",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    }
+  ],
+  "cells": [
+    {
+      "column": "H",
+      "row": 0,
+      "value": "3.34",
+      "exact": "3.34",
+      "shown": "3.34"
+    },
+    {
+      "column": "H",
+      "row": 1,
+      "value": "4.12",
+      "exact": "4.12",
+      "shown": "4.12"
+    },
+    {
+      "column": "H",
+      "row": 2,
+      "value": "5.19",
+      "exact": "5.19",
+      "shown": "5.19"
+    },
+    {
+      "column": "H",
+      "row": 3,
+      "value": "3.25",
+      "exact": "3.25",
+      "shown": "3.25"
+    },
+    {
+      "column": "H",
+      "row": 4,
+      "value": "6.95",
+      "exact": "6.95",
+      "shown": "6.95"
+    },
+    {
+      "column": "H",
+      "row": 5,
+      "value": "5.62",
+      "exact": "5.62",
+      "shown": "5.62"
+    },
+    {
+      "column": "H",
+      "row": 6,
+      "value": "5.7",
+      "exact": "5.7",
+      "shown": "5.7"
+    },
+    {
+      "column": "H",
+      "row": 7,
+      "value": "6.62",
+      "exact": "6.62",
+      "shown": "6.62"
+    },
+    {
+      "column": "H",
+      "row": 9,
+      "value": "5.65",
+      "exact": "5.65",
+      "shown": "5.65"
+    },
+    {
+      "column": "H",
+      "row": 10,
+      "value": "6.73",
+      "exact": "6.73",
+      "shown": "6.73"
+    },
+    {
+      "column": "H",
+      "row": 75,
+      "value": "8",
+      "exact": "8.0",
+      "shown": "8.0"
+    },
+    {
+      "column": "H",
+      "row": 130,
+      "value": "10.04",
+      "exact": "10.04",
+      "shown": "10.04"
+    },
+    {
+      "column": "H",
+      "row": 141,
+      "value": "10.52",
+      "exact": "10.52",
+      "shown": "10.52"
+    },
+    {
+      "column": "H",
+      "row": 148,
+      "value": "10.54",
+      "exact": "10.54",
+      "shown": "10.54"
+    },
+    {
+      "column": "H",
+      "row": 154,
+      "value": "11.15",
+      "exact": "11.15",
+      "shown": "11.15"
+    },
+    {
+      "column": "H",
+      "row": 213,
+      "value": "9.31",
+      "exact": "9.31",
+      "shown": "9.31"
+    },
+    {
+      "column": "H",
+      "row": 674,
+      "value": "8.11",
+      "exact": "8.11",
+      "shown": "8.11"
+    },
+    {
+      "column": "H",
+      "row": 681,
+      "value": "12.24",
+      "exact": "12.24",
+      "shown": "12.24"
+    },
+    {
+      "column": "H",
+      "row": 771,
+      "value": "8.45",
+      "exact": "8.45",
+      "shown": "8.45"
+    },
+    {
+      "column": "H",
+      "row": 1024,
+      "value": "12.48",
+      "exact": "12.48",
+      "shown": "12.48"
+    },
+    {
+      "column": "H",
+      "row": 2407,
+      "value": "12.27",
+      "exact": "12.27",
+      "shown": "12.27"
+    },
+    {
+      "column": "H",
+      "row": 19999,
+      "value": "3.79",
+      "exact": "3.79",
+      "shown": "3.79"
+    },
+    {
+      "column": "H",
+      "row": 129193,
+      "value": "15.98",
+      "exact": "15.98",
+      "shown": "15.98"
+    },
+    {
+      "column": "H",
+      "row": 134339,
+      "value": "-0.55",
+      "exact": "-0.55",
+      "shown": "-0.55"
+    },
+    {
+      "column": "H",
+      "row": 136107,
+      "value": "0.14",
+      "exact": "0.14",
+      "shown": "0.14"
+    },
+    {
+      "column": "H",
+      "row": 136198,
+      "value": "-1.26",
+      "exact": "-1.26",
+      "shown": "-1.26"
+    },
+    {
+      "column": "H",
+      "row": 136471,
+      "value": "-0.25",
+      "exact": "-0.25",
+      "shown": "-0.25"
+    },
+    {
+      "column": "H",
+      "row": 156753,
+      "value": "16.47",
+      "exact": "16.47",
+      "shown": "16.47"
+    },
+    {
+      "column": "H",
+      "row": 156756,
+      "value": "17.19",
+      "exact": "17.19",
+      "shown": "17.19"
+    },
+    {
+      "column": "H",
+      "row": 232811,
+      "value": "17.24",
+      "exact": "17.24",
+      "shown": "17.24"
+    },
+    {
+      "column": "H",
+      "row": 241551,
+      "value": "16.55",
+      "exact": "16.55",
+      "shown": "16.55"
+    },
+    {
+      "column": "H",
+      "row": 313505,
+      "value": "16.94",
+      "exact": "16.94",
+      "shown": "16.94"
+    },
+    {
+      "column": "H",
+      "row": 313523,
+      "value": "16.31",
+      "exact": "16.31",
+      "shown": "16.31"
+    },
+    {
+      "column": "H",
+      "row": 470257,
+      "value": "17.71",
+      "exact": "17.71",
+      "shown": "17.71"
+    },
+    {
+      "column": "H",
+      "row": 470326,
+      "value": "17.01",
+      "exact": "17.01",
+      "shown": "17.01"
+    },
+    {
+      "column": "H",
+      "row": 627010,
+      "value": "17.03",
+      "exact": "17.03",
+      "shown": "17.03"
+    },
+    {
+      "column": "H",
+      "row": 628505,
+      "value": "17.73",
+      "exact": "17.73",
+      "shown": "17.73"
+    },
+    {
+      "column": "H",
+      "row": 783762,
+      "value": "17.44",
+      "exact": "17.44",
+      "shown": "17.44"
+    },
+    {
+      "column": "H",
+      "row": 785446,
+      "value": "16.43",
+      "exact": "16.43",
+      "shown": "16.43"
+    },
+    {
+      "column": "H",
+      "row": 896105,
+      "value": "9.7",
+      "exact": "9.7",
+      "shown": "9.7"
+    },
+    {
+      "column": "H",
+      "row": 896106,
+      "value": "9.73",
+      "exact": "9.73",
+      "shown": "9.73"
+    },
+    {
+      "column": "H",
+      "row": 896107,
+      "value": "10.03",
+      "exact": "10.03",
+      "shown": "10.03"
+    },
+    {
+      "column": "H",
+      "row": 896109,
+      "value": "9.09",
+      "exact": "9.09",
+      "shown": "9.09"
+    },
+    {
+      "column": "H",
+      "row": 897286,
+      "value": null,
+      "exact": "NULL",
+      "shown": "NULL"
+    },
+    {
+      "column": "H",
+      "row": 916366,
+      "value": "26.8",
+      "exact": "26.8",
+      "shown": "26.8"
+    },
+    {
+      "column": "H",
+      "row": 916559,
+      "value": "27.35",
+      "exact": "27.35",
+      "shown": "27.35"
+    },
+    {
+      "column": "H",
+      "row": 930990,
+      "value": "29.9",
+      "exact": "29.9",
+      "shown": "29.9"
+    },
+    {
+      "column": "H",
+      "row": 940514,
+      "value": "18.79",
+      "exact": "18.79",
+      "shown": "18.79"
+    },
+    {
+      "column": "H",
+      "row": 973146,
+      "value": "22.08",
+      "exact": "22.08",
+      "shown": "22.08"
+    },
+    {
+      "column": "H",
+      "row": 1054432,
+      "value": "14.01",
+      "exact": "14.01",
+      "shown": "14.01"
+    },
+    {
+      "column": "H",
+      "row": 1097267,
+      "value": "18.43",
+      "exact": "18.43",
+      "shown": "18.43"
+    },
+    {
+      "column": "H",
+      "row": 1128767,
+      "value": "17.43",
+      "exact": "17.43",
+      "shown": "17.43"
+    },
+    {
+      "column": "H",
+      "row": 1140493,
+      "value": "14.05",
+      "exact": "14.05",
+      "shown": "14.05"
+    },
+    {
+      "column": "H",
+      "row": 1145467,
+      "value": "17.67",
+      "exact": "17.67",
+      "shown": "17.67"
+    },
+    {
+      "column": "H",
+      "row": 1254019,
+      "value": "17.99",
+      "exact": "17.99",
+      "shown": "17.99"
+    },
+    {
+      "column": "H",
+      "row": 1282800,
+      "value": "8.65",
+      "exact": "8.65",
+      "shown": "8.65"
+    },
+    {
+      "column": "H",
+      "row": 1319753,
+      "value": "19.96",
+      "exact": "19.96",
+      "shown": "19.96"
+    },
+    {
+      "column": "H",
+      "row": 1324097,
+      "value": "17.55",
+      "exact": "17.55",
+      "shown": "17.55"
+    },
+    {
+      "column": "H",
+      "row": 1410771,
+      "value": "17.52",
+      "exact": "17.52",
+      "shown": "17.52"
+    },
+    {
+      "column": "H",
+      "row": 1431646,
+      "value": "33.74",
+      "exact": "33.74",
+      "shown": "33.74"
+    },
+    {
+      "column": "H",
+      "row": 1431662,
+      "value": "11.44",
+      "exact": "11.44",
+      "shown": "11.44"
+    },
+    {
+      "column": "H",
+      "row": 1444787,
+      "value": "20.06",
+      "exact": "20.06",
+      "shown": "20.06"
+    },
+    {
+      "column": "H",
+      "row": 1469223,
+      "value": "18.83",
+      "exact": "18.83",
+      "shown": "18.83"
+    },
+    {
+      "column": "H",
+      "row": 1471361,
+      "value": "34.06",
+      "exact": "34.06",
+      "shown": "34.06"
+    },
+    {
+      "column": "diameter",
+      "row": 0,
+      "value": "939.4",
+      "exact": "939.4",
+      "shown": "939.4"
+    },
+    {
+      "column": "diameter",
+      "row": 1,
+      "value": "513",
+      "exact": "513.0",
+      "shown": "513.0"
+    },
+    {
+      "column": "diameter",
+      "row": 2,
+      "value": "246.596",
+      "exact": "246.596",
+      "shown": "246.596"
+    },
+    {
+      "column": "diameter",
+      "row": 3,
+      "value": "522.77",
+      "exact": "522.77",
+      "shown": "522.77"
+    },
+    {
+      "column": "diameter",
+      "row": 4,
+      "value": "106.699",
+      "exact": "106.699",
+      "shown": "106.699"
+    },
+    {
+      "column": "diameter",
+      "row": 5,
+      "value": "185.18",
+      "exact": "185.18",
+      "shown": "185.18"
+    },
+    {
+      "column": "diameter",
+      "row": 6,
+      "value": "199.83",
+      "exact": "199.83",
+      "shown": "199.83"
+    },
+    {
+      "column": "diameter",
+      "row": 7,
+      "value": "147.491",
+      "exact": "147.491",
+      "shown": "147.491"
+    },
+    {
+      "column": "diameter",
+      "row": 9,
+      "value": "407.12",
+      "exact": "407.12",
+      "shown": "407.12"
+    },
+    {
+      "column": "diameter",
+      "row": 10,
+      "value": "142.887",
+      "exact": "142.887",
+      "shown": "142.887"
+    },
+    {
+      "column": "diameter",
+      "row": 75,
+      "value": "145.423",
+      "exact": "145.423",
+      "shown": "145.423"
+    },
+    {
+      "column": "diameter",
+      "row": 130,
+      "value": "31.337",
+      "exact": "31.337",
+      "shown": "31.337"
+    },
+    {
+      "column": "diameter",
+      "row": 141,
+      "value": "54.812",
+      "exact": "54.812",
+      "shown": "54.812"
+    },
+    {
+      "column": "diameter",
+      "row": 148,
+      "value": "23.719",
+      "exact": "23.719",
+      "shown": "23.719"
+    },
+    {
+      "column": "diameter",
+      "row": 154,
+      "value": "39.605",
+      "exact": "39.605",
+      "shown": "39.605"
+    },
+    {
+      "column": "diameter",
+      "row": 213,
+      "value": "24.957",
+      "exact": "24.957",
+      "shown": "24.957"
+    },
+    {
+      "column": "diameter",
+      "row": 674,
+      "value": "76",
+      "exact": "76.0",
+      "shown": "76.0"
+    },
+    {
+      "column": "diameter",
+      "row": 681,
+      "value": null,
+      "exact": "NULL",
+      "shown": "NULL"
+    },
+    {
+      "column": "diameter",
+      "row": 771,
+      "value": "126.473",
+      "exact": "126.473",
+      "shown": "126.473"
+    },
+    {
+      "column": "diameter",
+      "row": 1024,
+      "value": "4.605",
+      "exact": "4.605",
+      "shown": "4.605"
+    },
+    {
+      "column": "diameter",
+      "row": 2407,
+      "value": "31.285",
+      "exact": "31.285",
+      "shown": "31.285"
+    },
+    {
+      "column": "diameter",
+      "row": 19999,
+      "value": "900",
+      "exact": "900.0",
+      "shown": "900.0"
+    },
+    {
+      "column": "diameter",
+      "row": 129193,
+      "value": "5.484",
+      "exact": "5.484",
+      "shown": "5.484"
+    },
+    {
+      "column": "diameter",
+      "row": 156756,
+      "value": "2.419",
+      "exact": "2.419",
+      "shown": "2.419"
+    },
+    {
+      "column": "diameter",
+      "row": 241551,
+      "value": "7.044",
+      "exact": "7.044",
+      "shown": "7.044"
+    },
+    {
+      "column": "diameter",
+      "row": 313523,
+      "value": "2.711",
+      "exact": "2.711",
+      "shown": "2.711"
+    },
+    {
+      "column": "diameter",
+      "row": 470326,
+      "value": "2.418",
+      "exact": "2.418",
+      "shown": "2.418"
+    },
+    {
+      "column": "diameter",
+      "row": 628505,
+      "value": "2.114",
+      "exact": "2.114",
+      "shown": "2.114"
+    },
+    {
+      "column": "diameter",
+      "row": 785446,
+      "value": "3.791",
+      "exact": "3.791",
+      "shown": "3.791"
+    },
+    {
+      "column": "diameter",
+      "row": 916366,
+      "value": "0.008",
+      "exact": "0.008",
+      "shown": "0.008"
+    },
+    {
+      "column": "diameter",
+      "row": 930990,
+      "value": "0.0025",
+      "exact": "0.0025",
+      "shown": "0.0025"
+    },
+    {
+      "column": "diameter",
+      "row": 940546,
+      "value": "3.273",
+      "exact": "3.273",
+      "shown": "3.273"
+    },
+    {
+      "column": "diameter",
+      "row": 1128767,
+      "value": "3.732",
+      "exact": "3.732",
+      "shown": "3.732"
+    },
+    {
+      "column": "diameter",
+      "row": 1324097,
+      "value": "2.312",
+      "exact": "2.312",
+      "shown": "2.312"
+    },
+    {
+      "column": "albedo",
+      "row": 0,
+      "value": "0.09",
+      "exact": "0.09",
+      "shown": "0.09"
+    },
+    {
+      "column": "albedo",
+      "row": 1,
+      "value": "0.155",
+      "exact": "0.155",
+      "shown": "0.155"
+    },
+    {
+      "column": "albedo",
+      "row": 2,
+      "value": "0.214",
+      "exact": "0.214",
+      "shown": "0.214"
+    },
+    {
+      "column": "albedo",
+      "row": 3,
+      "value": "0.4228",
+      "exact": "0.4228",
+      "shown": "0.4228"
+    },
+    {
+      "column": "albedo",
+      "row": 4,
+      "value": "0.274",
+      "exact": "0.274",
+      "shown": "0.274"
+    },
+    {
+      "column": "albedo",
+      "row": 5,
+      "value": "0.2679",
+      "exact": "0.2679",
+      "shown": "0.2679"
+    },
+    {
+      "column": "albedo",
+      "row": 6,
+      "value": "0.2766",
+      "exact": "0.2766",
+      "shown": "0.2766"
+    },
+    {
+      "column": "albedo",
+      "row": 7,
+      "value": "0.226",
+      "exact": "0.226",
+      "shown": "0.226"
+    },
+    {
+      "column": "albedo",
+      "row": 9,
+      "value": "0.0717",
+      "exact": "0.0717",
+      "shown": "0.0717"
+    },
+    {
+      "column": "albedo",
+      "row": 10,
+      "value": "0.191",
+      "exact": "0.191",
+      "shown": "0.191"
+    },
+    {
+      "column": "albedo",
+      "row": 75,
+      "value": "0.058",
+      "exact": "0.058",
+      "shown": "0.058"
+    },
+    {
+      "column": "albedo",
+      "row": 130,
+      "value": "0.246",
+      "exact": "0.246",
+      "shown": "0.246"
+    },
+    {
+      "column": "albedo",
+      "row": 141,
+      "value": "0.047",
+      "exact": "0.047",
+      "shown": "0.047"
+    },
+    {
+      "column": "albedo",
+      "row": 148,
+      "value": "0.152",
+      "exact": "0.152",
+      "shown": "0.152"
+    },
+    {
+      "column": "albedo",
+      "row": 154,
+      "value": "0.027",
+      "exact": "0.027",
+      "shown": "0.027"
+    },
+    {
+      "column": "albedo",
+      "row": 213,
+      "value": "1",
+      "exact": "1.0",
+      "shown": "1.0"
+    },
+    {
+      "column": "albedo",
+      "row": 674,
+      "value": null,
+      "exact": "NULL",
+      "shown": "NULL"
+    },
+    {
+      "column": "albedo",
+      "row": 771,
+      "value": "0.028",
+      "exact": "0.028",
+      "shown": "0.028"
+    },
+    {
+      "column": "albedo",
+      "row": 2407,
+      "value": "0.001",
+      "exact": "0.001",
+      "shown": "0.001"
+    },
+    {
+      "column": "albedo",
+      "row": 19999,
+      "value": "0.07",
+      "exact": "0.07",
+      "shown": "0.07"
+    },
+    {
+      "column": "albedo",
+      "row": 156756,
+      "value": "0.048",
+      "exact": "0.048",
+      "shown": "0.048"
+    },
+    {
+      "column": "albedo",
+      "row": 313523,
+      "value": "0.073",
+      "exact": "0.073",
+      "shown": "0.073"
+    },
+    {
+      "column": "albedo",
+      "row": 628505,
+      "value": "0.03",
+      "exact": "0.03",
+      "shown": "0.03"
+    },
+    {
+      "column": "albedo",
+      "row": 785446,
+      "value": "0.037",
+      "exact": "0.037",
+      "shown": "0.037"
+    },
+    {
+      "column": "albedo",
+      "row": 916366,
+      "value": "0.497",
+      "exact": "0.497",
+      "shown": "0.497"
+    },
+    {
+      "column": "albedo",
+      "row": 916559,
+      "value": "0.326",
+      "exact": "0.326",
+      "shown": "0.326"
+    },
+    {
+      "column": "albedo",
+      "row": 940546,
+      "value": "0.029",
+      "exact": "0.029",
+      "shown": "0.029"
+    },
+    {
+      "column": "albedo",
+      "row": 1128767,
+      "value": "0.105",
+      "exact": "0.105",
+      "shown": "0.105"
+    },
+    {
+      "column": "albedo",
+      "row": 1324097,
+      "value": "0.091",
+      "exact": "0.091",
+      "shown": "0.091"
+    },
+    {
+      "column": "a",
+      "row": 0,
+      "value": "2.766",
+      "exact": "2.766",
+      "shown": "2.766"
+    },
+    {
+      "column": "a",
+      "row": 1,
+      "value": "2.77",
+      "exact": "2.77",
+      "shown": "2.77"
+    },
+    {
+      "column": "a",
+      "row": 2,
+      "value": "2.671",
+      "exact": "2.671",
+      "shown": "2.671"
+    },
+    {
+      "column": "a",
+      "row": 3,
+      "value": "2.361",
+      "exact": "2.361",
+      "shown": "2.361"
+    },
+    {
+      "column": "a",
+      "row": 4,
+      "value": "2.577",
+      "exact": "2.577",
+      "shown": "2.577"
+    },
+    {
+      "column": "a",
+      "row": 5,
+      "value": "2.426",
+      "exact": "2.426",
+      "shown": "2.426"
+    },
+    {
+      "column": "a",
+      "row": 6,
+      "value": "2.386",
+      "exact": "2.386",
+      "shown": "2.386"
+    },
+    {
+      "column": "a",
+      "row": 7,
+      "value": "2.202",
+      "exact": "2.202",
+      "shown": "2.202"
+    },
+    {
+      "column": "a",
+      "row": 9,
+      "value": "3.151",
+      "exact": "3.151",
+      "shown": "3.151"
+    },
+    {
+      "column": "a",
+      "row": 10,
+      "value": "2.452",
+      "exact": "2.452",
+      "shown": "2.452"
+    },
+    {
+      "column": "a",
+      "row": 75,
+      "value": "3.408",
+      "exact": "3.408",
+      "shown": "3.408"
+    },
+    {
+      "column": "a",
+      "row": 130,
+      "value": "2.431",
+      "exact": "2.431",
+      "shown": "2.431"
+    },
+    {
+      "column": "a",
+      "row": 141,
+      "value": "2.419",
+      "exact": "2.419",
+      "shown": "2.419"
+    },
+    {
+      "column": "a",
+      "row": 148,
+      "value": "2.175",
+      "exact": "2.175",
+      "shown": "2.175"
+    },
+    {
+      "column": "a",
+      "row": 154,
+      "value": "2.761",
+      "exact": "2.761",
+      "shown": "2.761"
+    },
+    {
+      "column": "a",
+      "row": 213,
+      "value": "2.61",
+      "exact": "2.61",
+      "shown": "2.61"
+    },
+    {
+      "column": "a",
+      "row": 674,
+      "value": "2.767",
+      "exact": "2.767",
+      "shown": "2.767"
+    },
+    {
+      "column": "a",
+      "row": 681,
+      "value": "2.652",
+      "exact": "2.652",
+      "shown": "2.652"
+    },
+    {
+      "column": "a",
+      "row": 771,
+      "value": "3",
+      "exact": "3.0",
+      "shown": "3.0"
+    },
+    {
+      "column": "a",
+      "row": 1024,
+      "value": "1.979",
+      "exact": "1.979",
+      "shown": "1.979"
+    },
+    {
+      "column": "a",
+      "row": 2407,
+      "value": "2.637",
+      "exact": "2.637",
+      "shown": "2.637"
+    },
+    {
+      "column": "a",
+      "row": 19999,
+      "value": "43.2",
+      "exact": "43.2",
+      "shown": "43.2"
+    },
+    {
+      "column": "a",
+      "row": 129193,
+      "value": "2.533",
+      "exact": "2.533",
+      "shown": "2.533"
+    },
+    {
+      "column": "a",
+      "row": 134339,
+      "value": "39.59",
+      "exact": "39.59",
+      "shown": "39.59"
+    },
+    {
+      "column": "a",
+      "row": 136107,
+      "value": "43.06",
+      "exact": "43.06",
+      "shown": "43.06"
+    },
+    {
+      "column": "a",
+      "row": 136198,
+      "value": "67.93",
+      "exact": "67.93",
+      "shown": "67.93"
+    },
+    {
+      "column": "a",
+      "row": 136471,
+      "value": "45.57",
+      "exact": "45.57",
+      "shown": "45.57"
+    },
+    {
+      "column": "a",
+      "row": 156753,
+      "value": "2.266",
+      "exact": "2.266",
+      "shown": "2.266"
+    },
+    {
+      "column": "a",
+      "row": 156756,
+      "value": "2.336",
+      "exact": "2.336",
+      "shown": "2.336"
+    },
+    {
+      "column": "a",
+      "row": 232811,
+      "value": "2.371",
+      "exact": "2.371",
+      "shown": "2.371"
+    },
+    {
+      "column": "a",
+      "row": 241551,
+      "value": "2.379",
+      "exact": "2.379",
+      "shown": "2.379"
+    },
+    {
+      "column": "a",
+      "row": 313505,
+      "value": "2.663",
+      "exact": "2.663",
+      "shown": "2.663"
+    },
+    {
+      "column": "a",
+      "row": 313523,
+      "value": "2.661",
+      "exact": "2.661",
+      "shown": "2.661"
+    },
+    {
+      "column": "a",
+      "row": 470257,
+      "value": "2.302",
+      "exact": "2.302",
+      "shown": "2.302"
+    },
+    {
+      "column": "a",
+      "row": 470326,
+      "value": "2.725",
+      "exact": "2.725",
+      "shown": "2.725"
+    },
+    {
+      "column": "a",
+      "row": 627010,
+      "value": "3.214",
+      "exact": "3.214",
+      "shown": "3.214"
+    },
+    {
+      "column": "a",
+      "row": 628505,
+      "value": "2.451",
+      "exact": "2.451",
+      "shown": "2.451"
+    },
+    {
+      "column": "a",
+      "row": 783762,
+      "value": "2.755",
+      "exact": "2.755",
+      "shown": "2.755"
+    },
+    {
+      "column": "a",
+      "row": 785446,
+      "value": "3.173",
+      "exact": "3.173",
+      "shown": "3.173"
+    },
+    {
+      "column": "a",
+      "row": 896105,
+      "value": "42.88",
+      "exact": "42.88",
+      "shown": "42.88"
+    },
+    {
+      "column": "a",
+      "row": 896106,
+      "value": "44.34",
+      "exact": "44.34",
+      "shown": "44.34"
+    },
+    {
+      "column": "a",
+      "row": 896107,
+      "value": "41.79",
+      "exact": "41.79",
+      "shown": "41.79"
+    },
+    {
+      "column": "a",
+      "row": 896109,
+      "value": "45.32",
+      "exact": "45.32",
+      "shown": "45.32"
+    },
+    {
+      "column": "a",
+      "row": 897286,
+      "value": "3.893",
+      "exact": "3.893",
+      "shown": "3.893"
+    },
+    {
+      "column": "a",
+      "row": 916366,
+      "value": "1.446",
+      "exact": "1.446",
+      "shown": "1.446"
+    },
+    {
+      "column": "a",
+      "row": 916559,
+      "value": "1.4",
+      "exact": "1.4",
+      "shown": "1.4"
+    },
+    {
+      "column": "a",
+      "row": 930990,
+      "value": "1.029",
+      "exact": "1.029",
+      "shown": "1.029"
+    },
+    {
+      "column": "a",
+      "row": 940514,
+      "value": "2.411",
+      "exact": "2.411",
+      "shown": "2.411"
+    },
+    {
+      "column": "a",
+      "row": 940546,
+      "value": "3.037",
+      "exact": "3.037",
+      "shown": "3.037"
+    },
+    {
+      "column": "a",
+      "row": 973146,
+      "value": "-1.272",
+      "exact": "-1.272",
+      "shown": "-1.272"
+    },
+    {
+      "column": "a",
+      "row": 1054432,
+      "value": "14510",
+      "exact": "14510.0",
+      "shown": "14510.0"
+    },
+    {
+      "column": "a",
+      "row": 1097267,
+      "value": "2.646",
+      "exact": "2.646",
+      "shown": "2.646"
+    },
+    {
+      "column": "a",
+      "row": 1128767,
+      "value": "3.187",
+      "exact": "3.187",
+      "shown": "3.187"
+    },
+    {
+      "column": "a",
+      "row": 1140493,
+      "value": "-2082",
+      "exact": "-2082.0",
+      "shown": "-2082.0"
+    },
+    {
+      "column": "a",
+      "row": 1145467,
+      "value": "0.4618",
+      "exact": "0.4618",
+      "shown": "0.4618"
+    },
+    {
+      "column": "a",
+      "row": 1254019,
+      "value": "3.109",
+      "exact": "3.109",
+      "shown": "3.109"
+    },
+    {
+      "column": "a",
+      "row": 1282800,
+      "value": "13940",
+      "exact": "13940.0",
+      "shown": "13940.0"
+    },
+    {
+      "column": "a",
+      "row": 1319753,
+      "value": "-15680",
+      "exact": "-15680.0",
+      "shown": "-15680.0"
+    },
+    {
+      "column": "a",
+      "row": 1324097,
+      "value": "3.035",
+      "exact": "3.035",
+      "shown": "3.035"
+    },
+    {
+      "column": "a",
+      "row": 1410771,
+      "value": "3.041",
+      "exact": "3.041",
+      "shown": "3.041"
+    },
+    {
+      "column": "a",
+      "row": 1431646,
+      "value": "0.7964",
+      "exact": "0.7964",
+      "shown": "0.7964"
+    },
+    {
+      "column": "a",
+      "row": 1431662,
+      "value": "-3121",
+      "exact": "-3121.0",
+      "shown": "-3121.0"
+    },
+    {
+      "column": "a",
+      "row": 1444787,
+      "value": "0.462",
+      "exact": "0.462",
+      "shown": "0.462"
+    },
+    {
+      "column": "a",
+      "row": 1469223,
+      "value": "0.4958",
+      "exact": "0.4958",
+      "shown": "0.4958"
+    },
+    {
+      "column": "a",
+      "row": 1471361,
+      "value": "0.9462",
+      "exact": "0.9462",
+      "shown": "0.9462"
+    },
+    {
+      "column": "e",
+      "row": 0,
+      "value": "0.0797",
+      "exact": "0.0797",
+      "shown": "0.0797"
+    },
+    {
+      "column": "e",
+      "row": 1,
+      "value": "0.2307",
+      "exact": "0.2307",
+      "shown": "0.2307"
+    },
+    {
+      "column": "e",
+      "row": 2,
+      "value": "0.2557",
+      "exact": "0.2557",
+      "shown": "0.2557"
+    },
+    {
+      "column": "e",
+      "row": 3,
+      "value": "0.0902",
+      "exact": "0.0902",
+      "shown": "0.0902"
+    },
+    {
+      "column": "e",
+      "row": 4,
+      "value": "0.1876",
+      "exact": "0.1876",
+      "shown": "0.1876"
+    },
+    {
+      "column": "e",
+      "row": 5,
+      "value": "0.2023",
+      "exact": "0.2023",
+      "shown": "0.2023"
+    },
+    {
+      "column": "e",
+      "row": 6,
+      "value": "0.2303",
+      "exact": "0.2303",
+      "shown": "0.2303"
+    },
+    {
+      "column": "e",
+      "row": 7,
+      "value": "0.1562",
+      "exact": "0.1562",
+      "shown": "0.1562"
+    },
+    {
+      "column": "e",
+      "row": 9,
+      "value": "0.1067",
+      "exact": "0.1067",
+      "shown": "0.1067"
+    },
+    {
+      "column": "e",
+      "row": 10,
+      "value": "0.1009",
+      "exact": "0.1009",
+      "shown": "0.1009"
+    },
+    {
+      "column": "e",
+      "row": 75,
+      "value": "0.1677",
+      "exact": "0.1677",
+      "shown": "0.1677"
+    },
+    {
+      "column": "e",
+      "row": 130,
+      "value": "0.0695",
+      "exact": "0.0695",
+      "shown": "0.0695"
+    },
+    {
+      "column": "e",
+      "row": 141,
+      "value": "0.1328",
+      "exact": "0.1328",
+      "shown": "0.1328"
+    },
+    {
+      "column": "e",
+      "row": 148,
+      "value": "0.0648",
+      "exact": "0.0648",
+      "shown": "0.0648"
+    },
+    {
+      "column": "e",
+      "row": 154,
+      "value": "0.2728",
+      "exact": "0.2728",
+      "shown": "0.2728"
+    },
+    {
+      "column": "e",
+      "row": 213,
+      "value": "0.0312",
+      "exact": "0.0312",
+      "shown": "0.0312"
+    },
+    {
+      "column": "e",
+      "row": 674,
+      "value": "0.2048",
+      "exact": "0.2048",
+      "shown": "0.2048"
+    },
+    {
+      "column": "e",
+      "row": 681,
+      "value": "0.174",
+      "exact": "0.174",
+      "shown": "0.174"
+    },
+    {
+      "column": "e",
+      "row": 771,
+      "value": "0.0954",
+      "exact": "0.0954",
+      "shown": "0.0954"
+    },
+    {
+      "column": "e",
+      "row": 1024,
+      "value": "0.0393",
+      "exact": "0.0393",
+      "shown": "0.0393"
+    },
+    {
+      "column": "e",
+      "row": 2407,
+      "value": "0.2415",
+      "exact": "0.2415",
+      "shown": "0.2415"
+    },
+    {
+      "column": "e",
+      "row": 19999,
+      "value": "0.0516",
+      "exact": "0.0516",
+      "shown": "0.0516"
+    },
+    {
+      "column": "e",
+      "row": 129193,
+      "value": "0.0823",
+      "exact": "0.0823",
+      "shown": "0.0823"
+    },
+    {
+      "column": "e",
+      "row": 134339,
+      "value": "0.2518",
+      "exact": "0.2518",
+      "shown": "0.2518"
+    },
+    {
+      "column": "e",
+      "row": 136107,
+      "value": "0.1944",
+      "exact": "0.1944",
+      "shown": "0.1944"
+    },
+    {
+      "column": "e",
+      "row": 136198,
+      "value": "0.4382",
+      "exact": "0.4382",
+      "shown": "0.4382"
+    },
+    {
+      "column": "e",
+      "row": 136471,
+      "value": "0.1589",
+      "exact": "0.1589",
+      "shown": "0.1589"
+    },
+    {
+      "column": "e",
+      "row": 156753,
+      "value": "0.1529",
+      "exact": "0.1529",
+      "shown": "0.1529"
+    },
+    {
+      "column": "e",
+      "row": 156756,
+      "value": "0.205",
+      "exact": "0.205",
+      "shown": "0.205"
+    },
+    {
+      "column": "e",
+      "row": 232811,
+      "value": "0",
+      "exact": "0.0",
+      "shown": "0.0"
+    },
+    {
+      "column": "e",
+      "row": 241551,
+      "value": "0.1823",
+      "exact": "0.1823",
+      "shown": "0.1823"
+    },
+    {
+      "column": "e",
+      "row": 313505,
+      "value": "0.2217",
+      "exact": "0.2217",
+      "shown": "0.2217"
+    },
+    {
+      "column": "e",
+      "row": 313523,
+      "value": "0.2938",
+      "exact": "0.2938",
+      "shown": "0.2938"
+    },
+    {
+      "column": "e",
+      "row": 470257,
+      "value": "0.2891",
+      "exact": "0.2891",
+      "shown": "0.2891"
+    },
+    {
+      "column": "e",
+      "row": 470326,
+      "value": "0.27",
+      "exact": "0.27",
+      "shown": "0.27"
+    },
+    {
+      "column": "e",
+      "row": 627010,
+      "value": "0.1958",
+      "exact": "0.1958",
+      "shown": "0.1958"
+    },
+    {
+      "column": "e",
+      "row": 628505,
+      "value": "0.2616",
+      "exact": "0.2616",
+      "shown": "0.2616"
+    },
+    {
+      "column": "e",
+      "row": 783762,
+      "value": "0.23",
+      "exact": "0.23",
+      "shown": "0.23"
+    },
+    {
+      "column": "e",
+      "row": 785446,
+      "value": "0.316",
+      "exact": "0.316",
+      "shown": "0.316"
+    },
+    {
+      "column": "e",
+      "row": 896105,
+      "value": "0.0001",
+      "exact": "0.0001",
+      "shown": "0.0001"
+    },
+    {
+      "column": "e",
+      "row": 897286,
+      "value": "0.4762",
+      "exact": "0.4762",
+      "shown": "0.4762"
+    },
+    {
+      "column": "e",
+      "row": 916366,
+      "value": "0.4352",
+      "exact": "0.4352",
+      "shown": "0.4352"
+    },
+    {
+      "column": "e",
+      "row": 916559,
+      "value": "0.2998",
+      "exact": "0.2998",
+      "shown": "0.2998"
+    },
+    {
+      "column": "e",
+      "row": 930990,
+      "value": "0.1447",
+      "exact": "0.1447",
+      "shown": "0.1447"
+    },
+    {
+      "column": "e",
+      "row": 940514,
+      "value": "0.1489",
+      "exact": "0.1489",
+      "shown": "0.1489"
+    },
+    {
+      "column": "e",
+      "row": 940546,
+      "value": "0.0911",
+      "exact": "0.0911",
+      "shown": "0.0911"
+    },
+    {
+      "column": "e",
+      "row": 973146,
+      "value": "1.2011",
+      "exact": "1.2011",
+      "shown": "1.2011"
+    },
+    {
+      "column": "e",
+      "row": 1054432,
+      "value": "0.9996",
+      "exact": "0.9996",
+      "shown": "0.9996"
+    },
+    {
+      "column": "e",
+      "row": 1097267,
+      "value": "0.0073",
+      "exact": "0.0073",
+      "shown": "0.0073"
+    },
+    {
+      "column": "e",
+      "row": 1128767,
+      "value": "0.0476",
+      "exact": "0.0476",
+      "shown": "0.0476"
+    },
+    {
+      "column": "e",
+      "row": 1140493,
+      "value": "1.0008",
+      "exact": "1.0008",
+      "shown": "1.0008"
+    },
+    {
+      "column": "e",
+      "row": 1145467,
+      "value": "0.7115",
+      "exact": "0.7115",
+      "shown": "0.7115"
+    },
+    {
+      "column": "e",
+      "row": 1254019,
+      "value": "0.227",
+      "exact": "0.227",
+      "shown": "0.227"
+    },
+    {
+      "column": "e",
+      "row": 1282800,
+      "value": "0.9962",
+      "exact": "0.9962",
+      "shown": "0.9962"
+    },
+    {
+      "column": "e",
+      "row": 1319753,
+      "value": "1.0001",
+      "exact": "1.0001",
+      "shown": "1.0001"
+    },
+    {
+      "column": "e",
+      "row": 1324097,
+      "value": "0.1038",
+      "exact": "0.1038",
+      "shown": "0.1038"
+    },
+    {
+      "column": "e",
+      "row": 1410771,
+      "value": "0.1351",
+      "exact": "0.1351",
+      "shown": "0.1351"
+    },
+    {
+      "column": "e",
+      "row": 1431646,
+      "value": "0.3038",
+      "exact": "0.3038",
+      "shown": "0.3038"
+    },
+    {
+      "column": "e",
+      "row": 1431662,
+      "value": "1.0026",
+      "exact": "1.0026",
+      "shown": "1.0026"
+    },
+    {
+      "column": "e",
+      "row": 1444787,
+      "value": "0.7051",
+      "exact": "0.7051",
+      "shown": "0.7051"
+    },
+    {
+      "column": "e",
+      "row": 1469223,
+      "value": "0.4499",
+      "exact": "0.4499",
+      "shown": "0.4499"
+    },
+    {
+      "column": "e",
+      "row": 1471361,
+      "value": "0.0511",
+      "exact": "0.0511",
+      "shown": "0.0511"
+    }
+  ],
+  "rounding": [
+    {
+      "column": "a",
+      "value": "45.12345678901234",
+      "exact": "45.12345678901234",
+      "shown": "45.123456789",
+      "why": "decimals cut to the budget"
+    },
+    {
+      "column": "a",
+      "value": "-45.12345678901234",
+      "exact": "-45.12345678901234",
+      "shown": "-45.12345679",
+      "why": "the sign takes a character"
+    },
+    {
+      "column": "a",
+      "value": "98765.4321098765",
+      "exact": "98765.4321098765",
+      "shown": "98765.43211",
+      "why": "trailing zeros after rounding go"
+    },
+    {
+      "column": "e",
+      "value": "0.30000000000000004",
+      "exact": "0.30000000000000004",
+      "shown": "0.3",
+      "why": "rounded text is never the same float"
+    },
+    {
+      "column": "H",
+      "value": "2.00000000001",
+      "exact": "2.00000000001",
+      "shown": "2",
+      "why": "rounds to a whole number"
+    },
+    {
+      "column": "diameter",
+      "value": "999999999999.96",
+      "exact": "999999999999.96",
+      "shown": "1e12",
+      "why": "rounding carries past the budget: scientific"
+    },
+    {
+      "column": "diameter",
+      "value": "1234567890123.5",
+      "exact": "1234567890123.5",
+      "shown": "1.2345679e12",
+      "why": "a whole part too long: scientific"
+    },
+    {
+      "column": "albedo",
+      "value": "0.000123456789012",
+      "exact": "0.000123456789012",
+      "shown": "0.0001234568",
+      "why": "plain while it keeps 3 digits or more"
+    },
+    {
+      "column": "albedo",
+      "value": "0.00000123456789",
+      "exact": "1.23456789e-6",
+      "shown": "0.0000012346",
+      "why": "exact in scientific, shown plain"
+    },
+    {
+      "column": "e",
+      "value": "-1.2345678e-300",
+      "exact": "-1.2345678e-300",
+      "shown": "-1.2346e-300",
+      "why": "plain rounds to zero: scientific"
+    },
+    {
+      "column": "H",
+      "value": "1e21",
+      "exact": "1e21",
+      "shown": "1e21",
+      "why": "exact text that fits stays"
+    }
+  ]
+}

@@ -82,5 +82,6 @@ No features yet. Column resizing, selection and copy, and sorting would each be 
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, gotchas. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
+| [`fixtures/README.md`](fixtures/README.md) | What another implementation of the base level must match: page requests, cell text, page SQL. |
 
 Its work is planned and measured in the app that drives it; there's no PLAN.md here.

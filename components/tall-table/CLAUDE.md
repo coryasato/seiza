@@ -28,6 +28,7 @@ These add to the repo-wide rules.
 - **`src/format.rs`**: `fit_float`, rounding a float to its column like a spreadsheet's automatic format (tested natively).
 - **`src/activity.rs`**: the frames drawn over the host's window, for rows/s and filled frames.
 - **`src/probe.rs`**: `TallTableProbe`, `TallTableLayout`, `ColumnProbe`, `CellProbe`: what scripts read.
+- **`src/state/fixtures.rs`** (tests only): the fixtures' native tests (`fixtures/README.md`). A child of `state`, so the paging scenarios drive the state's own scroll, drag, and paging paths: a `TallTableState` in GPUI's test app (gpui-kit's `test-support`, a dev-dependency), over a delegate that answers a read only when the scenario says, on GPUI's test clock (only `advance_clock` moves it, so the settle times are the table's own timers). Cell text goes through `shown_text`, what `render_body` draws.
 
 **Cells:** a value cell is a plain block, never a flex container: GPUI cuts text (`text_overflow`) only when its width is definite, and in a flex cell a right-aligned number spilled out the left and lost its front. Text ends in "…", its line breaks shown as `¶` (`cell_text`; `shape_line` debug-asserts there's no `\n`). One tooltip, for the hovered cell (`hover_at`, mapped from the scroll model, not per-cell hitboxes), shows a rounded, cut, or one-lined value's exact text once the pointer has rested 500 ms and its page is loaded (`decide_tooltip`, in render), at once within 300 ms of the last one going, drawn with gpui-kit's `Tooltip` and gpui-base's `TooltipPositioner` in a `deferred` (Root's tooltip overlay is crate-private).
 
@@ -40,8 +41,9 @@ These add to the repo-wide rules.
 
 ```
 components/tall-table/
-  src/              # lib.rs (re-exports), state.rs, tall_table.rs, delegate.rs, column.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
-  Cargo.toml        # seiza-tall-table: gpui-kit only
+  src/              # lib.rs (re-exports), state.rs (+ state/fixtures.rs, tests only), tall_table.rs, delegate.rs, column.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
+  fixtures/         # paging.json, cells.json, sql.json: what "the same" means for a DOM contender; README.md (the formats)
+  Cargo.toml        # seiza-tall-table: gpui-kit only (dev: gpui-kit's test-support, futures, serde_json)
   docs/             # DECISIONS.md
   README.md         # for the crate's user
   CLAUDE.md         # this file
@@ -50,7 +52,9 @@ components/tall-table/
 ## Tests
 
 ```
-cargo test -p seiza-tall-table   # native tests: page cache, scroll model, float fitting, cell text
+cargo test -p seiza-tall-table   # native tests: page cache, scroll model, float fitting, cell text, the paging and cell fixtures
 ```
+
+**The fixtures** (`fixtures/README.md`) pin what a DOM contender must match. A change that alters the table's page requests, its cell text, or its page SQL fails them: update the fixture in the same change (and so every DOM contender's tests). `cells.json`'s drawn cells come from the observatory's GPUI contender (`just observatory cell-fixture`; `--check` compares); its `rounding` cases, `paging.json`, and `sql.json` (whose test is the DuckDB engine's, where the SQL is written) are edited by hand. `just observatory fixtures` runs all three.
 
 The view runs in Tycho's checks: `just tycho table`, `jump`, `cells`, `errors`, and the suite's table and jump parts.

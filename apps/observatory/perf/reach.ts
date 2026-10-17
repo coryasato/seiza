@@ -13,7 +13,8 @@
 //   `presentedMark`).
 // - State and targets only with `?measure`: `table`, `table-scroll-track`,
 //   and `table-scroll-thumb` inside the viewport; without it, `state` is
-//   null, no targets, the marks still set.
+//   null, no targets, the marks still set. The drawn cells and the columns
+//   only with `?cells` (perf/cell-fixture.ts), so never in a measured run.
 // - The replay hooks: `jump(0.9)` lands at 90% and fills (and again, onto
 //   rows already loaded, resolves at once), `open()` marks a new open and fills, `fling()` ends at the last row.
 // - The relay: framed in a same-origin page, each contract mark reaches the
@@ -73,7 +74,7 @@ interface State {
   lastCell: string | null;
   cacheBytes: number;
 }
-type Global = { __contender?: { side: string; state: State | null; replay: Record<string, unknown> }; __seizaTargets?: Record<string, number[]> };
+type Global = { __contender?: { side: string; state: State | null; replay: Record<string, unknown>; cells?: unknown; columns?: unknown }; __seizaTargets?: Record<string, number[]> };
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 const filledState = (page: Page, test: string) =>
@@ -109,6 +110,8 @@ try {
     const opened = await filledState(page, 's.first === 0');
     check(opened.rows === count, `state.rows ${opened.rows}, count(*) ${count}`);
     check(opened.cacheBytes > 0, `state.cacheBytes ${opened.cacheBytes} with rows loaded`);
+    const cellProbe = await page.evaluate(() => ['cells', 'columns'].some((key) => key in ((globalThis as Global).__contender ?? {})));
+    check(!cellProbe, 'a measured run (no ?cells) publishes the drawn cells or the columns');
     const targets = await page.evaluate(() => ({ ...(globalThis as Global).__seizaTargets }));
     for (const id of ['table', 'table-scroll-track', 'table-scroll-thumb']) {
       const [x = -1, y = -1, w = 0, h = 0] = targets[id] ?? [];
@@ -163,13 +166,14 @@ try {
     await page.waitForTimeout(500);
     const seen = await page.evaluate(() => {
       const g = globalThis as Global;
-      return { side: g.__contender?.side, state: g.__contender?.state, replay: Object.keys(g.__contender?.replay ?? {}).sort(), targets: g.__seizaTargets ?? null };
+      return { side: g.__contender?.side, state: g.__contender?.state, replay: Object.keys(g.__contender?.replay ?? {}).sort(), targets: g.__seizaTargets ?? null, cellProbe: 'cells' in (g.__contender ?? {}) || 'columns' in (g.__contender ?? {}) };
     });
     const marks = Object.fromEntries(await Promise.all([MARKS.firstPixels, MARKS.usable, MARKS.open, MARKS.filled].map(async (name) => [name, await lastMark(page, name)] as const)));
     check(seen.side === 'gpui', `side ${seen.side}`);
     check(seen.state === null, `state without ?measure: ${JSON.stringify(seen.state)}`);
     check(seen.targets === null, `targets without ?measure: ${JSON.stringify(seen.targets)}`);
     check(seen.replay.join() === 'fling,jump,open', `replay hooks: ${seen.replay.join()}`);
+    check(!seen.cellProbe, 'cells or columns published without ?cells');
     check(Object.values(marks).every((at) => at !== null), `marks without ?measure: ${JSON.stringify(marks)}`);
     output.unmeasured = { ...seen, marks };
     failures.push(...found.map((problem) => `unmeasured page: ${problem}`));

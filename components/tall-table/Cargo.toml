@@ -8,3 +8,10 @@ description = "A GPUI table that reads rows a page at a time from a delegate, sm
 
 [dependencies]
 gpui-kit.workspace = true
+
+[dev-dependencies]
+# The fixtures' tests: GPUI's test app and clock, the JSON fixtures, a page
+# read's answer. Never in a build.
+gpui-kit = { workspace = true, features = ["test-support"] }
+futures = "0.3"
+serde_json.workspace = true

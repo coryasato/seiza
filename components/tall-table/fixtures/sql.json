@@ -1,0 +1,34 @@
+{
+  "about": "The SQL a contender sends for the data file: each page's query, and the summary queries its open sends (no metadata keys, so two). See README.md.",
+  "file": "asteroids.parquet",
+  "pages": [
+    {
+      "rows": [0, 1024],
+      "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 1024 ORDER BY file_row_number"
+    },
+    {
+      "rows": [1410048, 1411072],
+      "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number >= 1410048 AND file_row_number < 1411072 ORDER BY file_row_number"
+    },
+    {
+      "rows": [1566720, 1567523],
+      "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number >= 1566720 AND file_row_number < 1567523 ORDER BY file_row_number"
+    }
+  ],
+  "summary": [
+    "DESCRIBE SELECT * FROM read_parquet('asteroids.parquet')",
+    "SELECT num_rows, num_row_groups FROM parquet_file_metadata('asteroids.parquet')"
+  ],
+  "controls": [
+    {
+      "name": "LIMIT and OFFSET: the same rows, another query",
+      "rows": [0, 1024],
+      "sql": "SELECT * FROM read_parquet('asteroids.parquet') LIMIT 1024 OFFSET 0"
+    },
+    {
+      "name": "the same query, spaced differently",
+      "rows": [0, 1024],
+      "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true)\nWHERE file_row_number >= 0 AND file_row_number < 1024 ORDER BY file_row_number"
+    }
+  ]
+}

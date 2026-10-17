@@ -1,0 +1,131 @@
+{
+  "about": "Paging scenarios: steps on the table and the page requests each causes, in order. See README.md for the steps and the events.",
+  "paging": {
+    "page_rows": 1024,
+    "prefetch": 2,
+    "budget_bytes": 67108864,
+    "max_in_flight": 3,
+    "scroll_settle_ms": 250,
+    "drag_settle_ms": 80
+  },
+  "controls": [
+    { "name": "settle sooner", "paging": { "scroll_settle_ms": 0 } },
+    { "name": "settle later", "paging": { "scroll_settle_ms": 500 } },
+    { "name": "drag loads at once", "paging": { "drag_settle_ms": 0 } },
+    { "name": "drag rests longer", "paging": { "drag_settle_ms": 160 } },
+    { "name": "less prefetch", "paging": { "prefetch": 1 } },
+    { "name": "more prefetch", "paging": { "prefetch": 3 } },
+    { "name": "fewer reads in flight", "paging": { "max_in_flight": 2 } },
+    { "name": "more reads in flight", "paging": { "max_in_flight": 4 } },
+    { "name": "smaller pages", "paging": { "page_rows": 512 } },
+    { "name": "a bigger cache", "paging": { "budget_bytes": 134217728 } }
+  ],
+  "scenarios": [
+    {
+      "name": "scroll leans ahead, then rests",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"], "why": "Only the visible page starts while it isn't loaded." },
+        { "answer": "all", "expect": ["load 1", "load 2"], "why": "Resting: prefetch 2 each side (none above page 0)." },
+        { "scroll": 1000, "expect": ["load 3", "load 4", "load 5"], "why": "Rows 1000..1028 span pages 0-1; moving down, prefetch is 4 ahead (2-5); 3 reads in flight at most." },
+        { "wait": 100, "expect": [] },
+        { "answer": [3], "expect": [], "why": "Pages 4 and 5 are still in flight, and every wanted page is loaded or loading." },
+        { "scroll": 2000, "expect": ["load 6"], "why": "Rows 3000..3028 are page 2: wanted 2, then 3,1,4,0,5,6; 4 and 5 are in flight, so one more read." },
+        { "wait": 249, "expect": [], "why": "249 ms since the last move: still leaning ahead." },
+        { "wait": 1, "expect": ["cancel 5", "cancel 6"], "why": "Rested 250 ms: prefetch evens out to 2 each side (0-4), so 5 and 6 are cancelled." },
+        { "answer": "all", "expect": [], "why": "The cancelled reads answer and free their places; nothing more is wanted." }
+      ]
+    },
+    {
+      "name": "jump to 90%",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": [0], "expect": ["load 1", "load 2"] },
+        { "jump": 1410770, "expect": ["cancel 1", "cancel 2", "load 1377"], "why": "floor(0.9 x rows) is row 1410770, on page 1377. Pages 1 and 2 are stale and cancelled, but they hold their places until they answer: one place left, for the visible page." },
+        { "answer": [1], "expect": [], "why": "A place is free, but no prefetch starts while the visible page loads." },
+        { "answer": [1377], "expect": ["load 1378", "load 1376"], "why": "Visible page in: prefetch, 2 places (page 2 still draining). Moving down: 1378, 1376, 1379, 1375, 1380, 1381." },
+        { "answer": [2], "expect": ["load 1379"] },
+        { "wait": 250, "expect": [], "why": "Rested: 1375-1379 wanted, and every read in flight is among them." },
+        { "answer": "all", "expect": ["load 1375"] }
+      ]
+    },
+    {
+      "name": "drag the thumb",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "drag": 0.25, "expect": [], "why": "A drag loads nothing until the pointer rests 80 ms. Top = 0.25 x (rows - viewport_rows)." },
+        { "wait": 40, "expect": [] },
+        { "drag": 0.5, "expect": [], "why": "Moved again: the 80 ms start over." },
+        { "wait": 79, "expect": [] },
+        { "wait": 1, "expect": ["load 765"], "why": "Rested 80 ms at rows 783747..783776 (page 765): only the visible page, which isn't loaded." },
+        { "drag": 0.75, "expect": [], "why": "Page 765 isn't cancelled yet: nothing is decided until the pointer rests or lets go." },
+        { "release": true, "expect": ["cancel 765", "load 1148"], "why": "Letting go loads at once: page 1148; 765 is stale." },
+        { "answer": "all", "expect": ["load 1149", "load 1147", "load 1150", "load 1146", "load 1151", "load 1152"], "why": "Still leaning ahead (the last move was under 250 ms ago)." },
+        { "wait": 250, "expect": [], "why": "Rested: 1146-1150 wanted, all loaded; loaded pages are never cancelled." }
+      ]
+    },
+    {
+      "name": "press the track",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "drag": 0.5, "expect": [], "why": "A press on the track jumps the thumb there and starts a drag." },
+        { "release": true, "expect": ["load 765"], "why": "The release comes before the 80 ms: it loads at once." }
+      ]
+    },
+    {
+      "name": "End, then scroll up",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "fraction": 1, "expect": ["cancel 0", "load 1530"], "why": "The last page, 1530, is short: rows 1566720..1567523." },
+        { "answer": "all", "expect": ["load 1529", "load 1528"], "why": "Nothing below the last page; 2 behind." },
+        { "wait": 250, "expect": [] },
+        { "scroll": -1000, "expect": ["load 1527", "load 1526", "load 1525"], "why": "Rows 1566495..1566523 are page 1529. Moving up: 4 ahead above (1528-1525), 2 behind below (1530)." },
+        { "wait": 250, "expect": ["cancel 1525", "cancel 1526"], "why": "Rested: 2 each side, 1527-1530." }
+      ]
+    },
+    {
+      "name": "a failed page",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "fail": [0], "expect": ["load 1", "load 2"], "why": "A failed visible page shows its error and doesn't hold prefetch back." },
+        { "answer": "all", "expect": [], "why": "A failure isn't retried while it stays in view." },
+        { "jump": 10000, "expect": ["load 9"], "why": "Scrolled away: the failure is forgotten." },
+        { "answer": "all", "expect": ["load 10", "load 8", "load 11", "load 7", "load 12", "load 13"] },
+        { "jump": 0, "expect": ["load 0"], "why": "Back: the failed page is read again." }
+      ]
+    },
+    {
+      "name": "the cache's budget",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 16777216,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"], "why": "16 MiB pages: four fit in 64 MiB." },
+        { "jump": 100000, "expect": ["load 97"] },
+        { "answer": "all", "expect": ["load 98", "load 96", "load 99", "load 95", "load 100", "load 101"], "why": "Each page past the budget evicts the least recently used page that isn't wanted; wanted pages stay, over budget or not." },
+        { "jump": 0, "expect": ["load 0"], "why": "Pages 0-2 were evicted." },
+        { "answer": "all", "expect": ["load 1", "load 2"] }
+      ]
+    }
+  ]
+}

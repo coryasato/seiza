@@ -50,8 +50,9 @@ sizes *args:
 # budgets and checks on the build: reference TTFP against perf/baseline.json
 # (perf/budgets.json's limits) and its wasm (brotli); the placeholder shell
 # against the first frame; the file opened, the last row equal to count(*),
-# and the contract published. Needs `just observatory data`.
-check: lint gpui-build
+# and the contract published; then the fixtures. Needs `just observatory
+# data`.
+check: lint gpui-build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
     node {{app_dir}}/perf/placeholder.ts
@@ -70,6 +71,24 @@ cold *args:
 # negative controls for the match. Run `just observatory gpui-build` first.
 placeholder *args:
     node {{app_dir}}/perf/placeholder.ts {{args}}
+
+# The tall table's fixtures (components/tall-table/fixtures/): their native
+# tests in the component and the engine, each with its negative controls,
+# and the cell fixture against what the GPUI contender's build draws: run
+# `just observatory gpui-build` first (`check` does), or it checks the last
+# build's drawing.
+fixtures:
+    cargo test -p seiza-tall-table fixtures
+    cargo test -p seiza-duckdb --all-features sql_fixture
+    node {{app_dir}}/perf/cell-fixture.ts --check
+
+# The tall table's cell fixture (components/tall-table/fixtures/cells.json)
+# from the GPUI contender's release build: values picked from the data
+# file by native DuckDB, the budgets and the text the contender draws.
+# --check compares with the committed fixture. Needs `just observatory
+# data`; run `just observatory gpui-build` first.
+cell-fixture *args:
+    node {{app_dir}}/perf/cell-fixture.ts {{args}}
 
 # The GPUI contender on its release build: it opens the file, End reaches
 # the last row (count(*) and the last key from native DuckDB), and it

@@ -131,6 +131,7 @@ impl Host {
                                 // row height from the probes. Measured runs
                                 // have them on anyway (`?measure`'s state).
                                 .probe_frames(true)
+                                .probe_cells(crate::contract::probing_cells())
                             });
                             crate::contract::watch(&table, cx);
                             let focus = table.read(cx).focus_handle().clone();
