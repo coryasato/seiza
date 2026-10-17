@@ -1,0 +1,18 @@
+{
+  "name": "@seiza/observatory-tall-table-tanstack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p . && vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc -p . && tsc -p test"
+  },
+  "dependencies": {
+    "@seiza/duckdb": "*",
+    "@seiza/web": "*",
+    "apache-arrow": "17.0.0"
+  }
+}

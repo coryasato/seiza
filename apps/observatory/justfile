@@ -3,6 +3,7 @@
 app_dir := source_directory()
 root := source_directory() / "../.."
 gpui_web := app_dir / "contenders/tall-table/gpui/web"
+tanstack_web := app_dir / "contenders/tall-table/tanstack/web"
 target_dir := root / "target/wasm32-unknown-unknown"
 
 # The page's Vite dev server, with COOP/COEP, at /observatory/.
@@ -38,6 +39,36 @@ gpui-wasm profile="debug":
 gpui-extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{gpui_web}}/public duckdb
 
+# The TanStack contender (contenders/tall-table/tanstack/): its Vite dev
+# server with COOP/COEP, at /observatory/, with the data file by range.
+tanstack-dev: tanstack-extensions
+    npm run dev --workspace @seiza/observatory-tall-table-tanstack
+
+# The TanStack contender's release build, then asset sizes. DuckDB's
+# bundles and extensions land in dist/duckdb/, the same files as the GPUI
+# contender's (`engine-files` checks it). The build fails if Arrow or
+# DuckDB's JS reaches a first-paint chunk (contenders/engine.ts).
+tanstack-build: tanstack-extensions
+    npm run build --workspace @seiza/observatory-tall-table-tanstack
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{tanstack_web}}/dist --r2 duckdb-eh --r2 duckdb-mvp
+
+# Serve the TanStack contender's release build (brotli), with the data file.
+tanstack-preview:
+    npm run preview --workspace @seiza/observatory-tall-table-tanstack
+
+# The pinned DuckDB extensions into the TanStack contender's public/duckdb/.
+tanstack-extensions:
+    node {{root}}/engines/duckdb/web/scripts/extensions.ts {{tanstack_web}}/public duckdb
+
+# The engine both contenders load: each build's duckdb/ byte-identical,
+# both pages loading it from /observatory/duckdb/, the TanStack contender's
+# JS past its entry requested after first paint, and whether the engine's
+# JS chunk is shared (recorded). --controls: the comparison's and the
+# first-paint rule's negative controls. --label writes perf/results/. Run
+# `just observatory gpui-build` and `tanstack-build` first.
+engine-files *args:
+    node {{app_dir}}/perf/engine-files.ts {{args}}
+
 # The GPUI contender's wasm built alone with and without `seiza`'s panel:
 # raw and brotli sizes, and a check that the panel never links into the
 # contender's own build (a feature leaking in through Cargo's unification),
@@ -50,13 +81,15 @@ sizes *args:
 # budgets and checks on the build: reference TTFP against perf/baseline.json
 # (perf/budgets.json's limits) and its wasm (brotli); the placeholder shell
 # against the first frame; the file opened, the last row equal to count(*),
-# and the contract published; then the fixtures. Needs `just observatory
-# data`.
-check: lint gpui-build && fixtures
+# and the contract published; the TanStack contender's build and the engine
+# files both load, with their controls; then the fixtures. Needs `just
+# observatory data`.
+check: lint gpui-build tanstack-build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
     node {{app_dir}}/perf/placeholder.ts
     node {{app_dir}}/perf/reach.ts
+    node {{app_dir}}/perf/engine-files.ts --controls
 
 # Cold load of the GPUI contender's release build (reference + throttled,
 # median of 10): TTFP checked against its GPU calls, the placeholder's paint,
@@ -74,12 +107,15 @@ placeholder *args:
 
 # The tall table's fixtures (components/tall-table/fixtures/): their native
 # tests in the component and the engine, each with its negative controls,
-# and the cell fixture against what the GPUI contender's build draws: run
+# the same fixtures and controls against the TanStack contender's data layer
+# (node --test), and the cell fixture against what the GPUI contender's
+# build draws: run
 # `just observatory gpui-build` first (`check` does), or it checks the last
 # build's drawing.
 fixtures:
     cargo test -p seiza-tall-table fixtures
     cargo test -p seiza-duckdb --all-features sql_fixture
+    npm test --workspace @seiza/observatory-tall-table-tanstack
     node {{app_dir}}/perf/cell-fixture.ts --check
 
 # The tall table's cell fixture (components/tall-table/fixtures/cells.json)
@@ -163,8 +199,8 @@ report *args:
 # No milestone references outside the history files (check-terms), the
 # generated numbers in the docs, fmt and clippy for the GPUI contender and for
 # `seiza` without `panel`, as the contender builds it (wasm32 and native, with
-# -D warnings), and TypeScript (the web host, the GPUI
-# contender's host, the Worker and its scripts, perf/, and data/ and spike/
+# -D warnings), and TypeScript (the web host, the contenders' hosts and
+# the TanStack contender's tests, the Worker and its scripts, perf/, and data/ and spike/
 # once their recipes installed their deps).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
@@ -176,6 +212,7 @@ lint:
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
     npm run typecheck --workspace @seiza/observatory-web
     npm run typecheck --workspace @seiza/observatory-tall-table-gpui
+    npm run typecheck --workspace @seiza/observatory-tall-table-tanstack
     npm run typecheck --workspace @seiza/observatory-worker
     cd {{root}} && npx tsc -p apps/observatory/perf
     @if [ -d {{app_dir}}/data/node_modules ]; then cd {{root}} && npx tsc -p apps/observatory/data; else echo "skipped data/ typecheck: its deps install with \`just observatory data\`"; fi

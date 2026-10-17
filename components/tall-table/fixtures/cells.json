@@ -1889,6 +1889,20 @@
       "why": "plain rounds to zero: scientific"
     },
     {
+      "column": "a",
+      "value": "123456789.125",
+      "exact": "123456789.125",
+      "shown": "123456789.12",
+      "why": "a tie rounds to even (JS's toFixed rounds it up)"
+    },
+    {
+      "column": "diameter",
+      "value": "1658206780088562.2",
+      "exact": "1658206780088562.3",
+      "shown": "1.6582068e15",
+      "why": "two shortest texts equally near: the exact text takes the upper (JS's String takes the even)"
+    },
+    {
       "column": "H",
       "value": "1e21",
       "exact": "1e21",

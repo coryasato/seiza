@@ -3,6 +3,7 @@ import { duckdb } from '@seiza/duckdb/vite';
 import { PLACEHOLDER_ID } from '@seiza/web/placeholder';
 import { seizaViteConfig } from '@seiza/web/vite';
 import { observatoryData } from '../../../data.ts';
+import { contenderBuild } from '../../../engine.ts';
 
 /**
  * The first frame `crate/src/host.rs` draws: the table's empty frame with
@@ -15,8 +16,9 @@ const firstFrame = `
   <div class="sz-frame sz-text-sm sz-muted" elementtiming="${PLACEHOLDER_ID}">Engine loading…</div>
 </div>`;
 
-// Under /observatory/ (the observatory's CLAUDE.md, rule 2): the engine's
-// extensions at /observatory/duckdb/, the data at /observatory/data/.
+// Under /observatory/ (the observatory's CLAUDE.md, rule 2): the engine at
+// /observatory/duckdb/ (its bundles and extensions, `contenderBuild`), the
+// data at /observatory/data/.
 export default defineConfig(
   seizaViteConfig(
     {
@@ -24,6 +26,6 @@ export default defineConfig(
       preload: ['tall_table_gpui_bg.wasm', 'IBMPlexSans-Regular.ttf'],
       placeholder: { body: firstFrame },
     },
-    { base: '/observatory/', plugins: [duckdb({ extensionDir: 'duckdb' }), observatoryData()] },
+    { base: '/observatory/', plugins: [duckdb({ extensionDir: 'duckdb' }), observatoryData(), contenderBuild()] },
   ),
 );

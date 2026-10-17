@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Tall table: TanStack</title>
+    <!-- No favicon; an empty one saves a 404 on every load. -->
+    <link rel="icon" href="data:," />
+    <meta name="description" content="The observatory's TanStack contender: the tall table in the DOM, React and TanStack Virtual, over DuckDB-Wasm." />
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body { background: #fff; color: #0a0a0a; font: 14px system-ui, sans-serif; }
+      @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } }
+      #status { margin: 16px; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <noscript>This page needs JavaScript and WebAssembly.</noscript>
+    <div id="status">Engine loading…</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
-// The observatory's own pieces of the perf harness: its budgets, and the GPUI
-// contender's release build under test. Everything app-agnostic is in
+// The observatory's own pieces of the perf harness: its budgets, and the
+// contenders' release builds under test. Everything app-agnostic is in
 // shared-web/perf/.
 
 import { existsSync } from 'node:fs';
@@ -14,6 +14,7 @@ export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
 
 export const perfDir = fileURLToPath(new URL('.', import.meta.url));
 export const gpuiWebDir = fileURLToPath(new URL('../contenders/tall-table/gpui/web', import.meta.url));
+export const tanstackWebDir = fileURLToPath(new URL('../contenders/tall-table/tanstack/web', import.meta.url));
 export const dataFile = fileURLToPath(new URL('../data/asteroids.parquet', import.meta.url));
 
 /** The GPUI contender's wasm (`tall_table_gpui_bg-<hash>.wasm`) and the
@@ -37,10 +38,15 @@ export const MARKS = {
  * `port`, brotli like production, its data file served by range
  * (`contenders/data.ts`). `url` is the page, under /observatory/.
  */
-export async function serveGpui(port: number): Promise<AppServer> {
-  if (!existsSync(`${gpuiWebDir}/dist/index.html`)) throw new Error('no GPUI contender build: run `just observatory gpui-build` first');
+export const serveGpui = (port: number): Promise<AppServer> => serveContender('GPUI', gpuiWebDir, port);
+
+/** The TanStack contender's release build, as `serveGpui`. */
+export const serveTanstack = (port: number): Promise<AppServer> => serveContender('TanStack', tanstackWebDir, port);
+
+async function serveContender(side: 'GPUI' | 'TanStack', webDir: string, port: number): Promise<AppServer> {
+  if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`no ${side} contender build: run \`just observatory ${side.toLowerCase()}-build\` first`);
   if (!existsSync(dataFile)) throw new Error('no data file: run `just observatory data` first');
-  const server = await serveApp(undefined, { webDir: gpuiWebDir, port });
+  const server = await serveApp(undefined, { webDir, port });
   return { ...server, url: `${server.url}observatory/` };
 }
 

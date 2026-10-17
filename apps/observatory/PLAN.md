@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 **Closing a milestone:** as for every app (root `CLAUDE.md`, "Working agreements"): every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md` (repo-wide ones in the root's); a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to `docs/milestones.md`, leaving one row above.
 
-**Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here (each done, and recorded in `docs/milestones.md`): `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C, with `shown_text` split out of the render loop for them, and `seiza-duckdb`'s `summary_queries` returning the queries `open_parquet` sends), `@seiza/duckdb` takes its extension directory as an option (done, M0 part A), and `seiza` gains a `panel` feature (on by default) while its title bar and theme toggle move to Tycho, with the Mac input bindings opt-in (M2 part A), and `seiza::targets` (publishing a control's bounds) moves there from Tycho, as do Tycho's first-draw probe and placeholder screenshot match to `shared-web/perf/` (M2 part B). Each records its effect on Tycho.
+**Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here (each done, and recorded in `docs/milestones.md`): `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C, with `shown_text` split out of the render loop for them, and `seiza-duckdb`'s `summary_queries` returning the queries `open_parquet` sends), `@seiza/duckdb` takes its extension directory as an option (done, M0 part A), and `seiza` gains a `panel` feature (on by default) while its title bar and theme toggle move to Tycho, with the Mac input bindings opt-in (M2 part A), and `seiza::targets` (publishing a control's bounds) moves there from Tycho, as do Tycho's first-draw probe and placeholder screenshot match to `shared-web/perf/` (M2 part B), and `cells.json` gains two hand-written `rounding` cases (M3 part A: fixture data only, no code). Each records its effect on Tycho.
 
 ---
 
@@ -37,23 +37,25 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`. No Wasm of its own, no UI kit: React, TanStack Virtual, its own CSS, and the Arrow library. It builds from M1's design note.
 
-**Part A: the data layer, headless.**
-- [ ] The page SQL, the page cache, and float formatting in TS pass M2's three fixtures, and their negative controls fail.
-- [ ] The cache counts each page's Arrow IPC bytes (`byteLength`), as the component's `heap_bytes()` does.
-- [ ] Arrow loads with the engine, after first paint; a build check fails if Arrow reaches the first-paint chunk.
-- [ ] The engine files both contenders load are byte-identical and served from `/observatory/duckdb/`; whether the engine's JS chunk is shared too, recorded.
+**Part A: the data layer, headless.** Done 2026-10-17 ([`perf/results/2026-10-17-m3-a.md`](perf/results/2026-10-17-m3-a.md)).
+- [x] The page SQL, the page cache with the paging's timing (the 250 ms scroll settle and the 80 ms drag settle the paging fixture pins), and float formatting in TS pass M2's three fixtures, and their negative controls fail. *7 paging scenarios (50 steps) on a script clock, 254 drawn cells and 13 rounding cases, the 3 page and 2 summary queries; every control fails, each paging control the same number of scenarios as natively. Two `rounding` cases added, from what the port found: a tie rounds to even in Rust (JS's `toFixed` rounds up), and of two equally near shortest texts Rust's exact text takes the upper (JS's `String` the even); a cross-check against Rust's `fit_float` on 1,999,760 cases: 0 mismatches.*
+- [x] The cache counts each page's Arrow IPC bytes (`byteLength`), as the component's `heap_bytes()` does. *A page's `byteLength` is its IPC buffer's; the cache sums them (the file's first page: 87,728 bytes).*
+- [x] Arrow loads with the engine, after first paint; a build check fails if Arrow reaches the first-paint chunk. *`contenderBuild` (`contenders/engine.ts`) fails a build with Arrow or DuckDB-Wasm in a first-paint chunk (control: Arrow imported by the entry fails it); the page's JS past its 1.8 KiB entry is requested after its `first-paint` entry.*
+- [x] The engine files both contenders load are byte-identical and served from `/observatory/duckdb/`; whether the engine's JS chunk is shared too, recorded. *Both builds' `duckdb/`: the same 6 files, the same SHA-256, each page loading its worker, wasm, and Parquet extension from `/observatory/duckdb/`. The engine's JS chunk isn't shared: ~39 KiB brotli each side, against ~5.7 MiB shared (`docs/DECISIONS.md`, "TanStack contender").*
 
-**Part B: the view.**
+**Part B: the view.** It replaces part A's stub page (`src/main.ts`) and drives part A's data layer, unchanged in its decisions: the scroll model reports the top row (V ÷ row height) to `TablePaging.moveTopTo` and its viewport to `setViewportRows`, and the cells' text comes from `shownText` (never `toFixed` or `String`: the cell fixture pins Rust's ties). The engine and Arrow still load after first paint (`contenderBuild` fails the build otherwise; React and the view may sit in the entry).
 - [ ] The scroll model per M1's note, TanStack as M1 chose, columns at the pinned widths, placeholder rows, and the theme's CSS variables generated from gpui-kit 0.7.3's default theme (light and dark).
-- [ ] It opens the file and reaches the last row in Chromium, Firefox, and WebKit.
+- [ ] It opens the file and reaches the last row in Chromium, Firefox, and WebKit; its row count is `count(*)`.
+- [ ] It loads in a hidden page too: `afterFirstPaint` waits for a paint entry with no fallback, so a background tab or a hidden frame (the observatory page's) may never start the engine. A `visibilitychange` or timeout fallback, checked in a page opened hidden.
+- [ ] A page that answers short draws its missing rows as missing, not `NULL`: `ArrowPage.value` returns `undefined` past its end, and the stub turned that into a NULL.
 
 **Part C: base-level parity**, checked item by item against the component's README:
-- [ ] Keys (↑/↓, Page Up/Down, Space/Shift+Space, Home/End, Cmd+↑/↓), Shift+wheel sideways, a track press, the drag settle (or M1's substitute), the tooltip (500 ms rest, 300 ms grace), the focus ring.
+- [ ] Keys (↑/↓, Page Up/Down, Space/Shift+Space, Home/End, Cmd+↑/↓), Shift+wheel sideways, a track press, the drag settle (M1's substitute: thumb mode calls `TablePaging.startDrag`, and 80 ms without a scroll event or a `pointerup` calls `endDrag`; the fixture already pins what the paging does with them, so the check is the input reaching those calls), the tooltip (500 ms rest, 300 ms grace, its text `exactText`), the focus ring.
 
 **Part D: the contract and the first screen.**
 - [ ] It publishes M1's contract; Element Timing is set on newly created cells, only during measured runs.
-- [ ] Its first screen is prerendered; first usable is the hydration commit, confirmed by the probe.
-- [ ] Its JS budgets are in `perf/budgets.json` and gated by `just observatory check`.
+- [ ] Its first screen is prerendered; first usable is the hydration commit, confirmed by the probe. With a prerendered screen the paint entry `afterFirstPaint` waits for is the HTML's, before hydration: decide whether the engine starts there or after the commit, and record it (the GPUI side starts it after its first frame).
+- [ ] Its JS budgets are in `perf/budgets.json` and gated by `just observatory check`: the first-paint JS (entry and its static imports) and the after-paint data layer with Arrow (31.9 KiB brotli in part A), brotli, from `tanstack-build`'s output. `engine-files` already checks what loads before first paint.
 - [ ] Plain TanStack (a native scroller, no scaling) documented: where it stops, in Chromium and Firefox.
 
 ---

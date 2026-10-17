@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-17",
+  "label": "m3-a-engine-files",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "engineFiles": {
+    "duckdb-browser-eh.worker-hQa-dcAV.js": {
+      "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab",
+      "bytes": 772759
+    },
+    "duckdb-browser-mvp.worker-C9hF7LGh.js": {
+      "sha256": "b0387027f174e2b60c2d5cfa31cecca9b89d8a9762346b6449a784cd1c4dde3c",
+      "bytes": 844644
+    },
+    "duckdb-eh-9ubY-jlA.wasm": {
+      "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879",
+      "bytes": 34242586
+    },
+    "duckdb-mvp-BP0pRkMH.wasm": {
+      "sha256": "45d72a81fba8e57693d890da837c7041310e385e75619a8559839b15388dfe97",
+      "bytes": 39362651
+    },
+    "v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+      "sha256": "22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55",
+      "bytes": 3045039
+    },
+    "v1.4.3/wasm_mvp/parquet.duckdb_extension.wasm": {
+      "sha256": "0785c6c95d003eff4faa7b3b4b660f02c9c92f6d68d135ddf330d42e3a650600",
+      "bytes": 2867304
+    }
+  },
+  "engineChunk": {
+    "shared": false,
+    "gpui": {
+      "name": "engine-BVvrzESa.js",
+      "sha256": "cf80cad74739cae8d0df330c8b34fa9f0530dda8d8260c18e770d47f99ba0f9b",
+      "bytes": 198649,
+      "brotliBytes": 39867,
+      "imports": []
+    },
+    "tanstack": {
+      "name": "engine-C-wFadFL.js",
+      "sha256": "e0e448f88ef7d8fff2a348f6a02792a3191b65fbdbeff93ff071306452238a14",
+      "bytes": 28752,
+      "brotliBytes": 7640,
+      "imports": [
+        "serialization-D5go5JaB.js"
+      ],
+      "importsBrotliBytes": {
+        "serialization-D5go5JaB.js": 32649
+      }
+    },
+    "tanstackDataLayer": {
+      "name": "table-C79DhYbK.js",
+      "sha256": "a450ef6b7478951da5c079454c4b8a918d5dd9b283067d7cb0cb982731c0dbf0",
+      "bytes": 7797,
+      "brotliBytes": 2722,
+      "imports": [
+        "serialization-D5go5JaB.js"
+      ],
+      "importsBrotliBytes": {
+        "serialization-D5go5JaB.js": 32649
+      }
+    }
+  },
+  "gpuiPage": {
+    "engineRequests": [
+      "/observatory/duckdb/duckdb-browser-eh.worker-hQa-dcAV.js",
+      "/observatory/duckdb/duckdb-eh-9ubY-jlA.wasm",
+      "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm"
+    ]
+  },
+  "tanstackPage": {
+    "status": "1,567,523 rows, 11 columns, 87728 bytes cached.\nRow 1: spkid: 20000001, full_name: 1 Ceres (A801 AA), class: MBA, neo: false, pha: false, H: 3.34, diameter: 939.4, albedo: 0.09, a: 2.766, e: 0.0797, first_obs: 1995-01-05",
+    "firstPaintMs": 33.92500019073486,
+    "engineRequests": [
+      "/observatory/duckdb/duckdb-browser-eh.worker-hQa-dcAV.js",
+      "/observatory/duckdb/duckdb-eh-9ubY-jlA.wasm",
+      "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm"
+    ],
+    "scripts": [
+      {
+        "path": "/observatory/assets/index-tcX4EWD-.js",
+        "start": 8.355000019073486
+      },
+      {
+        "path": "/observatory/assets/table-C79DhYbK.js",
+        "start": 43.09000015258789
+      },
+      {
+        "path": "/observatory/assets/serialization-D5go5JaB.js",
+        "start": 43.200000286102295
+      },
+      {
+        "path": "/observatory/assets/format-omV_XAWq.js",
+        "start": 43.325000286102295
+      },
+      {
+        "path": "/observatory/assets/engine-C-wFadFL.js",
+        "start": 50.795000076293945
+      }
+    ]
+  },
+  "controls": {
+    "changedByte": true,
+    "missingFile": true,
+    "arrowInEntryFails": true,
+    "withoutArrowPasses": true
+  },
+  "failures": []
+}
