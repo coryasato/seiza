@@ -35,3 +35,16 @@ One entry per milestone, written before starting the next one: what surprised us
 - A main-thread probe is the wrong witness for a native scroll. The compositor shows the move one to two frames before the main thread hears of it, and on a session's first track press a frame late even for a press: exactly the cold run the protocol measures. Only the compositor's own frame (`Scroll Delta This Frame`) agreed with `EventLatency` every time.
 - Test hooks interfere with each other. A one-shot GPU-backend check restored the methods it had captured, stripping `workRecorder`'s wrapper, and a run recorded zero frames without failing; the latency probe's wrapper, left in a timing run, cost 0.03 ms a frame. Hooks now install in a fixed order, timing runs carry only the recorder, and an empty recording fails.
 - Tycho's per-frame work has been the rAF callback only, ~0.4 ms under the frame's whole update, and ~8% of the main thread's work runs in no frame at all on either side. A per-frame number alone undercounts a UI's CPU cost.
+
+## M2: The GPUI contender and the fixtures (2026-10-17)
+
+**Results:** [`perf/results/2026-10-16-m2-b.md`](../perf/results/2026-10-16-m2-b.md) (the bare page), [`perf/results/2026-10-17-m2-c.md`](../perf/results/2026-10-17-m2-c.md) (the fixtures); the shared changes on Tycho: its [`2026-10-16-observatory-m2-a.md`](../../tycho/perf/results/2026-10-16-observatory-m2-a.md)
+
+**Surprises:**
+- "Byte-identical for Tycho" was the wrong bar for moving the title bar out of `seiza`: no change to `seiza`'s features left Tycho's bytes alone, so the bar moved to Tycho and the check became "looks and behaves the same, size recorded".
+- Cargo ignores a member's `default-features = false` while the workspace entry keeps defaults on: turning `seiza`'s panel off for the contender meant turning defaults off for everyone and having Tycho name `panel`.
+- A replay hook that waits for `contender:filled` hangs when the view lands already filled (rows in the cache): the mark is a change to filled, not a state. Hooks wait on a frame count instead.
+- The data file never fills a float column: its longest double is 8 characters against a budget of 12, so on the comparison's own data cell parity is the exact text (`8.0` against JS's `8`), not rounding. The rounding a DOM contender still has to port is pinned with synthetic values, and without them the budget controls couldn't fail.
+- The paging fixture had to drive the state, not the pure page cache: the settle times the observatory added live in the state's timers. GPUI's test app and clock made that cheap (only `advance_clock` moves time), and every hand-worked expectation matched on the first run, which is why each control's failures were listed before trusting it.
+- Splitting one function out of the render loop for a test cost Tycho 219 B until it was inlined back; making the summary queries testable as sent cost 423 B. Test seams aren't free in a size-budgeted wasm, so each was measured.
+- The code review found the cell fixture's generator choosing "longest" values by DuckDB's text for a double, not the table's, and able to drop the hand-written cases on a bad parse. A generator is checked code too.

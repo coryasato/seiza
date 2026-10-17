@@ -16,8 +16,8 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 |---|---|---|
 | M0 | Groundwork: the app, its data file, and static hosting (parts A–B) | Done 2026-10-14 ([`docs/milestones.md`](docs/milestones.md)) |
 | M1 | Spikes: the DOM scroll model and the input-latency method (parts A–B) | Done 2026-10-15 ([`docs/milestones.md`](docs/milestones.md)) |
-| M2 | The GPUI contender and the fixtures (parts A–C) | Active |
-| M3 | The TanStack contender (parts A–D) | Not started |
+| M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
+| M3 | The TanStack contender (parts A–D) | Active |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Not started |
 | M5 | The observatory page, deployed (parts 0, A–C) | Not started |
 | M6 | Split mode | Not started |
@@ -27,33 +27,11 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 **Closing a milestone:** as for every app (root `CLAUDE.md`, "Working agreements"): every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md` (repo-wide ones in the root's); a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to `docs/milestones.md`, leaving one row above.
 
-**Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here: `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C), `@seiza/duckdb` takes its extension directory as an option (done, M0 part A), and `seiza` gains a `panel` feature (on by default) while its title bar and theme toggle move to Tycho, with the Mac input bindings opt-in (M2 part A), and `seiza::targets` (publishing a control's bounds) moves there from Tycho, as do Tycho's first-draw probe and placeholder screenshot match to `shared-web/perf/` (M2 part B). Each records its effect on Tycho.
+**Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here (each done, and recorded in `docs/milestones.md`): `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C, with `shown_text` split out of the render loop for them, and `seiza-duckdb`'s `summary_queries` returning the queries `open_parquet` sends), `@seiza/duckdb` takes its extension directory as an option (done, M0 part A), and `seiza` gains a `panel` feature (on by default) while its title bar and theme toggle move to Tycho, with the Mac input bindings opt-in (M2 part A), and `seiza::targets` (publishing a control's bounds) moves there from Tycho, as do Tycho's first-draw probe and placeholder screenshot match to `shared-web/perf/` (M2 part B). Each records its effect on Tycho.
 
 ---
 
 ## Active milestone
-
-### M2: The GPUI contender and the fixtures
-
-**Part A: the shared changes, measured on Tycho.**
-- [x] `seiza` has a `panel` feature, on by default, and no title bar or theme toggle: those are Tycho's; Tycho looks and behaves the same, and its size effect is recorded. *Done 2026-10-16 (reworded from "`shell` and `panel` features; Tycho's wasm is byte-identical": the title bar moved to Tycho instead, and no change to `seiza`'s features leaves Tycho's bytes alone; root `docs/DECISIONS.md`, "Shell and input"):* `just tycho placeholder` passes (the first frame against the placeholder in light and dark, DPR 2 and 1; the theme toggle's button, shortcuts, system changes, and reload); the Mac input bindings are opt-in (`Bootstrap::mac_input_bindings`), measured on a bare host: +991 B raw with the call, none without; clippy clean on wasm32 and native, with and without `panel`. Evidence: Tycho's `perf/results/2026-10-16-observatory-m2-a.md`.
-- [x] `Paging` has `scroll_settle` (250 ms) and `drag_settle` (80 ms), read where `SCROLL_SETTLE` and `DRAG_SETTLE` are today; Tycho's table checks pass and its size effect is recorded. *Done 2026-10-16:* `just tycho table` passes on the final build, reference and throttled (jump to 90% 83.3 / 2205.2 ms, fling p95 16.7 / 33.3 ms, none over 50 ms, last row = `count(*)`); the settle fields add 1.2 KB raw after wasm-opt, part A as a whole +2.3 KB (+0.02%). `just tycho check` fails reference TTFP (219.9 vs 214.8 ms, load 5–7): HEAD's own medians in the interleaved A/Bs were 215–221 ms, the throttled A/B resolved +0.3%, and the reference A/B was too noisy to resolve. Accepted as machine load (other work on the machine); M4 measures both contenders under the protocol. Evidence: Tycho's `perf/results/2026-10-16-observatory-m2-a.md`.
-
-**Part B: the bare page.** A minimal host of `seiza-tall-table` with `seiza-duckdb`'s `tall-table` adapter, `seiza` without `panel`, the engine from `/observatory/duckdb/`, the data file from its static path. To turn `seiza`'s defaults off, the workspace's `seiza` entry needs `default-features = false` (Cargo ignores a member's opt-out when the workspace entry keeps defaults on), and Tycho then names `features = ["panel"]`. A bare host's floor, measured: 2.50 MiB brotli (an empty view on `seiza` without `panel`; Tycho's results note).
-- [x] It opens the file and reaches the last row, which equals `count(*)`, and publishes M1's contract. *Done 2026-10-16:* `just observatory reach`: native DuckDB's `count(*)` 1,567,523 = `state.rows`; End shows rows 1,567,495–1,567,523, all loaded, `lastCell` 54657680, the file's last spkid; first-pixels ≤ usable ≤ open < filled, each filled mark right after a presented frame; state and targets only with `?measure`; `jump(0.9)`, `open()`, and `fling()` resolve where they should; the marks reach a framing page by `postMessage`. Evidence: `perf/results/2026-10-16-m2-b.md`.
-- [x] Built alone (`-p`); its wasm with and without `panel` recorded; a size check fails if a feature leaks in through Cargo's unification. *Done 2026-10-16:* 2,695.4 KiB brotli without the panel, 2,706.1 with it; `just observatory sizes` fails if Cargo enables `panel` for the contender alone or the shipped wasm holds the panel's global, each with a control that does (built with Tycho; built with `seiza/panel`). Evidence: `perf/results/2026-10-16-m2-b-sizes.json`.
-- [x] Its placeholder shell matches its first frame; `perf/budgets.json` and `perf/baseline.json` hold its TTFP and wasm budgets, and `just observatory check` passes. *Done 2026-10-16:* the match passes light and dark at DPR 2 and 1, and its seven negative controls fail it; baseline reference TTFP 170.5 ms (throttled 3,502.5), wasm 2,695.4 KiB; `just observatory check` passes (TTFP 164.3 ms vs the 187.6 ms limit, load 4–11; after the code review's fixes, 180.8 ms, load 3–5). The shared changes leave Tycho's wasm within build jitter, and `just tycho check` and `just tycho placeholder` pass (Tycho's `perf/results/2026-10-16-observatory-m2-b.md`). Evidence: `perf/results/2026-10-16-m2-b.md`.
-
-**Part C: the fixtures**, in `components/tall-table/fixtures/`, each with a negative control, run by native tests inside the crate.
-- [x] Paging: scroll, jump, rest, and drag steps → the page requests in order, the settle times included. *Done 2026-10-17:* `fixtures/paging.json`, 7 scenarios (50 steps) run on the real `TallTableState` in GPUI's test app and clock (scroll and rest, jump to 90%, thumb drag, track press, End then up, a failed page, the cache's budget); 10 controls (each `Paging` field moved one way) each fail at least one. Evidence: `perf/results/2026-10-17-m2-c.md`.
-- [x] Cells: values from each float column of the data file and each column's budget, pinned from the GPUI contender's `ColumnProbe` → the shown text. *Done 2026-10-17:* `fixtures/cells.json`: budgets 12 for all five float columns (same at DPR 1 and 2), 254 drawn cells checked against native DuckDB (`just observatory cell-fixture`, `?cells`). No file value rounds (8 characters at most), so 11 synthetic `rounding` cases at the same budgets cover `fit_float`. Controls: `Display` text fails 15 cells; budget −1/+1 fail 6/8 rounding cases. Evidence: `perf/results/2026-10-17-m2-c.md`.
-- [x] Page SQL and the summary queries. *Done 2026-10-17:* `fixtures/sql.json` (3 page queries, the 2 summary queries sent), exact text, tested in `seiza-duckdb` where the SQL is written; `LIMIT`/`OFFSET`, re-spaced, and keyed-query controls fail. `just observatory check` passes with `fixtures` added (TTFP 166.5 ms vs 187.6; wasm 2,697.1 KiB, +1.7 for the cell probe). Evidence: `perf/results/2026-10-17-m2-c.md`.
-
----
-
-## Next milestones
-
-The "done when" checks are drafts until their milestone becomes active.
 
 ### M3: The TanStack contender
 
@@ -77,6 +55,12 @@ React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`. No Wasm of its own
 - [ ] Its first screen is prerendered; first usable is the hydration commit, confirmed by the probe.
 - [ ] Its JS budgets are in `perf/budgets.json` and gated by `just observatory check`.
 - [ ] Plain TanStack (a native scroller, no scaling) documented: where it stops, in Chromium and Firefox.
+
+---
+
+## Next milestones
+
+The "done when" checks are drafts until their milestone becomes active.
 
 ### M4: The numbers
 
