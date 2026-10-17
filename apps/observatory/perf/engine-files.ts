@@ -119,7 +119,6 @@ console.log(
 
 // --- served from /observatory/duckdb/, nothing before first paint ---
 
-const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import.meta.url), 'utf8'));
 const cells = JSON.parse(readFileSync(new URL('../../../components/tall-table/fixtures/cells.json', import.meta.url), 'utf8'));
 const rowZeroH = cells.cells.find((cell: { column: string; row: number }) => cell.column === 'H' && cell.row === 0).shown as string;
 /** The engine files a page requested, by path. */
@@ -157,10 +156,24 @@ try {
     const requested: string[] = [];
     page.on('request', (request) => requested.push(request.url()));
     await page.goto(server.url);
-    await page.waitForFunction(() => document.getElementById('status')?.textContent?.includes('Row 1:'), null, { timeout: 60_000 });
-    const status = (await page.textContent('#status')) ?? '';
-    check(status.startsWith(`${manifest['asteroids.parquet'].rows.toLocaleString('en-US')} rows, 11 columns`), `the status: ${status}`);
-    check(status.includes(`H: ${rowZeroH},`), `row 0's H isn't ${rowZeroH}: ${status}`);
+    // Row 0 drawn with data: the header's columns and its H cell.
+    const drawn = await page
+      .waitForFunction(
+        () => {
+          const failed = document.querySelector('.row[data-row="0"] > .failed')?.textContent;
+          if (failed) return { names: [], h: null, failed };
+          const names = [...document.querySelectorAll('.head > .cell')].map((cell) => cell.textContent ?? '');
+          const cells = document.querySelectorAll('.row[data-row="0"] > .cell:not(.pending)');
+          return cells.length > 0 && cells.length === names.length ? { names, h: cells[names.indexOf('H')]?.textContent ?? null } : false;
+        },
+        null,
+        { timeout: 60_000 },
+      )
+      .then((handle) => handle.jsonValue() as Promise<{ names: string[]; h: string | null; failed?: string }>);
+    if (drawn.failed) throw new Error(`the TanStack page's row 0 failed: ${drawn.failed}`);
+    const status = `${drawn.names.length} columns, row 0's H ${drawn.h}`;
+    check(drawn.names.length === 11, `the header: ${drawn.names.join(', ')}`);
+    check(drawn.h === rowZeroH, `row 0's H isn't ${rowZeroH}: ${drawn.h}`);
     checkEngineFiles('TanStack', engineFiles(requested));
     const timing = await page.evaluate(() => ({
       firstPaint: performance.getEntriesByName('first-paint')[0]?.startTime ?? null,
@@ -176,7 +189,7 @@ try {
     check(found.length === 0, `TanStack page problems: ${found.join('; ')}`);
     output.tanstackPage = { status, firstPaintMs: timing.firstPaint, engineRequests: engineFiles(requested), scripts: timing.scripts };
     console.log(
-      `TanStack page: ${status.split('\n')[0]} engine from /observatory/duckdb/ (${engineFiles(requested).length} requests); ` +
+      `TanStack page: ${status}; engine from /observatory/duckdb/ (${engineFiles(requested).length} requests); ` +
         `first paint ${timing.firstPaint?.toFixed(1)} ms, every chunk but the entry after it`,
     );
   } finally {

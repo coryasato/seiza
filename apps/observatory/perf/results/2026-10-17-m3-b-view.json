@@ -1,0 +1,365 @@
+{
+  "date": "2026-10-17",
+  "label": "m3-b-view",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "count": 1567523,
+    "lastKey": "54657680",
+    "columns": [
+      "spkid",
+      "full_name",
+      "class",
+      "neo",
+      "pha",
+      "H",
+      "diameter",
+      "albedo",
+      "a",
+      "e",
+      "first_obs"
+    ]
+  },
+  "reach": {
+    "chromium": {
+      "head": [
+        {
+          "name": "spkid",
+          "width": 185
+        },
+        {
+          "name": "full_name",
+          "width": 200
+        },
+        {
+          "name": "class",
+          "width": 200
+        },
+        {
+          "name": "neo",
+          "width": 72
+        },
+        {
+          "name": "pha",
+          "width": 72
+        },
+        {
+          "name": "H",
+          "width": 120
+        },
+        {
+          "name": "diameter",
+          "width": 120
+        },
+        {
+          "name": "albedo",
+          "width": 120
+        },
+        {
+          "name": "a",
+          "width": 120
+        },
+        {
+          "name": "e",
+          "width": 120
+        },
+        {
+          "name": "first_obs",
+          "width": 104
+        }
+      ],
+      "firstRow": {
+        "number": "1",
+        "cells": [
+          "20000001",
+          "1 Ceres (A801 AA)",
+          "MBA",
+          "false",
+          "false",
+          "3.34",
+          "939.4",
+          "0.09",
+          "2.766",
+          "0.0797",
+          "1995-01-05"
+        ],
+        "top": 47,
+        "bottom": 77,
+        "viewportBottom": 883
+      },
+      "lastRow": {
+        "number": "1,567,523",
+        "cells": [
+          "54657680",
+          "(2026 SV12)",
+          "AMO",
+          "true",
+          "false",
+          "21.12",
+          "NULL",
+          "NULL",
+          "2.621",
+          "0.5928",
+          "2026-09-16"
+        ],
+        "top": 853,
+        "bottom": 883,
+        "viewportBottom": 883
+      }
+    },
+    "firefox": {
+      "head": [
+        {
+          "name": "spkid",
+          "width": 185
+        },
+        {
+          "name": "full_name",
+          "width": 200
+        },
+        {
+          "name": "class",
+          "width": 200
+        },
+        {
+          "name": "neo",
+          "width": 72
+        },
+        {
+          "name": "pha",
+          "width": 72
+        },
+        {
+          "name": "H",
+          "width": 120
+        },
+        {
+          "name": "diameter",
+          "width": 120
+        },
+        {
+          "name": "albedo",
+          "width": 120
+        },
+        {
+          "name": "a",
+          "width": 120
+        },
+        {
+          "name": "e",
+          "width": 120
+        },
+        {
+          "name": "first_obs",
+          "width": 104
+        }
+      ],
+      "firstRow": {
+        "number": "1",
+        "cells": [
+          "20000001",
+          "1 Ceres (A801 AA)",
+          "MBA",
+          "false",
+          "false",
+          "3.34",
+          "939.4",
+          "0.09",
+          "2.766",
+          "0.0797",
+          "1995-01-05"
+        ],
+        "top": 47,
+        "bottom": 77,
+        "viewportBottom": 883
+      },
+      "lastRow": {
+        "number": "1,567,523",
+        "cells": [
+          "54657680",
+          "(2026 SV12)",
+          "AMO",
+          "true",
+          "false",
+          "21.12",
+          "NULL",
+          "NULL",
+          "2.621",
+          "0.5928",
+          "2026-09-16"
+        ],
+        "top": 853,
+        "bottom": 883,
+        "viewportBottom": 883
+      }
+    },
+    "webkit": {
+      "head": [
+        {
+          "name": "spkid",
+          "width": 185
+        },
+        {
+          "name": "full_name",
+          "width": 200
+        },
+        {
+          "name": "class",
+          "width": 200
+        },
+        {
+          "name": "neo",
+          "width": 72
+        },
+        {
+          "name": "pha",
+          "width": 72
+        },
+        {
+          "name": "H",
+          "width": 120
+        },
+        {
+          "name": "diameter",
+          "width": 120
+        },
+        {
+          "name": "albedo",
+          "width": 120
+        },
+        {
+          "name": "a",
+          "width": 120
+        },
+        {
+          "name": "e",
+          "width": 120
+        },
+        {
+          "name": "first_obs",
+          "width": 104
+        }
+      ],
+      "firstRow": {
+        "number": "1",
+        "cells": [
+          "20000001",
+          "1 Ceres (A801 AA)",
+          "MBA",
+          "false",
+          "false",
+          "3.34",
+          "939.4",
+          "0.09",
+          "2.766",
+          "0.0797",
+          "1995-01-05"
+        ],
+        "top": 47,
+        "bottom": 77,
+        "viewportBottom": 883
+      },
+      "lastRow": {
+        "number": "1,567,523",
+        "cells": [
+          "54657680",
+          "(2026 SV12)",
+          "AMO",
+          "true",
+          "false",
+          "21.12",
+          "NULL",
+          "NULL",
+          "2.621",
+          "0.5928",
+          "2026-09-16"
+        ],
+        "top": 853,
+        "bottom": 883,
+        "viewportBottom": 883
+      }
+    }
+  },
+  "gpuiColumns": [
+    {
+      "name": "spkid",
+      "kind": "integer",
+      "width": 185.00001525878906,
+      "budget": 20
+    },
+    {
+      "name": "full_name",
+      "kind": "text",
+      "width": 200,
+      "budget": 21
+    },
+    {
+      "name": "class",
+      "kind": "text",
+      "width": 200,
+      "budget": 21
+    },
+    {
+      "name": "neo",
+      "kind": "text",
+      "width": 72,
+      "budget": 6
+    },
+    {
+      "name": "pha",
+      "kind": "text",
+      "width": 72,
+      "budget": 6
+    },
+    {
+      "name": "H",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "diameter",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "albedo",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "a",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "e",
+      "kind": "float",
+      "width": 120,
+      "budget": 12
+    },
+    {
+      "name": "first_obs",
+      "kind": "text",
+      "width": 104,
+      "budget": 10
+    }
+  ],
+  "hiddenFrame": {
+    "paints": 0,
+    "engine": 31.920000076293945,
+    "shownRow0": [
+      "20000001",
+      "1 Ceres (A801 AA)"
+    ]
+  },
+  "hiddenPage": {
+    "paints": 2,
+    "engine": 68.05000019073486
+  },
+  "failures": []
+}

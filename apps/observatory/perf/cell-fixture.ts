@@ -22,13 +22,12 @@
 // --check: compare with the committed fixture instead of writing it. Needs
 // `just observatory data`; run `just observatory gpui-build` first.
 
-import { createRequire } from 'node:module';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { chromium, type Browser } from '@playwright/test';
 import { flag, hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
-import { MARKS, dataFile, problems, serveGpui } from './harness.ts';
+import { MARKS, dataFile, problems, serveGpui, nativeDuckDB } from './harness.ts';
 
 const PORT = 4313;
 const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtures/cells.json', import.meta.url));
@@ -41,17 +40,7 @@ const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import
 
 // --- the rows, from native DuckDB ---
 
-interface NativeDuckDB {
-  DuckDBInstance: { create(path: string): Promise<{ connect(): Promise<{ runAndReadAll(sql: string): Promise<{ getRows(): unknown[][] }> }> }> };
-}
-const require = createRequire(new URL('../data/package.json', import.meta.url));
-let native: NativeDuckDB;
-try {
-  native = (await import(pathToFileURL(require.resolve('@duckdb/node-api')).href)) as NativeDuckDB;
-} catch {
-  throw new Error("native DuckDB isn't installed: run `just observatory data`");
-}
-const conn = await (await native.DuckDBInstance.create(':memory:')).connect();
+const conn = await nativeDuckDB();
 const rowsOf = async (sql: string) => (await conn.runAndReadAll(sql)).getRows();
 const file = `read_parquet('${dataFile.replaceAll("'", "''")}', file_row_number = true)`;
 

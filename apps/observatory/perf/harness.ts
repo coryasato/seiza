@@ -3,7 +3,8 @@
 // shared-web/perf/.
 
 import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
@@ -77,3 +78,23 @@ export function problems(page: Page): string[] {
 /** The last `performance.mark` named `name`, or null. */
 export const lastMark = (page: Page, name: string): Promise<number | null> =>
   page.evaluate((name) => performance.getEntriesByName(name, 'mark').at(-1)?.startTime ?? null, name);
+
+/** A connection to data/'s native DuckDB (`just observatory data` installs
+ *  it): the file's facts, independent of the pages' engine. */
+export interface NativeConnection {
+  runAndReadAll(sql: string): Promise<{ getRows(): unknown[][] }>;
+}
+
+export async function nativeDuckDB(): Promise<NativeConnection> {
+  interface NativeDuckDB {
+    DuckDBInstance: { create(path: string): Promise<{ connect(): Promise<NativeConnection> }> };
+  }
+  const require = createRequire(new URL('../data/package.json', import.meta.url));
+  let native: NativeDuckDB;
+  try {
+    native = (await import(pathToFileURL(require.resolve('@duckdb/node-api')).href)) as NativeDuckDB;
+  } catch {
+    throw new Error("native DuckDB isn't installed: run `just observatory data`");
+  }
+  return (await native.DuckDBInstance.create(':memory:')).connect();
+}

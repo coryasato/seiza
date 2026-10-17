@@ -13,7 +13,7 @@
 import { tableFromIPC, type Vector } from 'apache-arrow';
 import type { Bridge } from '@seiza/duckdb/bridge';
 import type { CellKind, CellValue } from './format.ts';
-import { TablePaging, type Page, type PageSource } from './paging.ts';
+import type { Page, PageSource } from './paging.ts';
 import { LOAD_PARQUET_SQL, PARQUET_METADATA_CACHE_SQL, WARM_UP_SQL, pageSql, summaryQueries } from './sql.ts';
 
 /** A page of rows, decoded from the Arrow IPC bytes it arrived as. The
@@ -136,13 +136,4 @@ export async function openParquet(bridge: Bridge, queries: Queries, parquet: Pro
     cancel: (request) => queries.cancel(request),
   };
   return { rows, rowGroups, columns, source };
-}
-
-/** The engine started and `url` opened as `name`: the file, and its paging
- *  over the page source. */
-export async function openTable(bridge: Bridge, name: string, url: string): Promise<{ file: OpenedFile; paging: TablePaging<ArrowPage> }> {
-  const queries = new Queries(bridge);
-  const { parquet } = await startEngine(queries);
-  const file = await openParquet(bridge, queries, parquet, name, url);
-  return { file, paging: new TablePaging(file.rows, file.source) };
 }

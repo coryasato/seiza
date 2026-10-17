@@ -56,6 +56,23 @@ tanstack-build: tanstack-extensions
 tanstack-preview:
     npm run preview --workspace @seiza/observatory-tall-table-tanstack
 
+# The TanStack contender's theme (tanstack/web/src/theme.css): the colors
+# the tall table draws with, as CSS variables, light and dark, generated
+# natively from gpui-kit's default theme at the pin. --check fails if the
+# committed file differs.
+theme-css *args:
+    cargo run -q -p tall-table-gpui --example theme_css -- {{args}}
+
+# The TanStack contender's view on its release build: it opens the file
+# and End reaches the last row (its number count(*), its key the file's
+# last, from native DuckDB) in Chromium, Firefox, and WebKit; the engine
+# starts in a hidden frame and a hidden page. --gpui compares the columns
+# with the GPUI contender's build; --shots <dir> writes screenshots;
+# --browsers, --label. Needs `just observatory data`; run `just
+# observatory tanstack-build` first.
+tanstack-view *args:
+    node {{app_dir}}/perf/tanstack-view.ts {{args}}
+
 # The pinned DuckDB extensions into the TanStack contender's public/duckdb/.
 tanstack-extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{tanstack_web}}/public duckdb
@@ -83,13 +100,15 @@ sizes *args:
 # against the first frame; the file opened, the last row equal to count(*),
 # and the contract published; the TanStack contender's build and the engine
 # files both load, with their controls; then the fixtures. Needs `just
-# observatory data`.
+# observatory data`. Then the TanStack contender's view: the last row in
+# three browsers, the GPUI contender's column widths, a hidden page.
 check: lint gpui-build tanstack-build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
     node {{app_dir}}/perf/placeholder.ts
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
+    node {{app_dir}}/perf/tanstack-view.ts --gpui
 
 # Cold load of the GPUI contender's release build (reference + throttled,
 # median of 10): TTFP checked against its GPU calls, the placeholder's paint,
@@ -206,6 +225,7 @@ lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/observatory --check
     cargo fmt --all --check
+    cargo run -q -p tall-table-gpui --example theme_css -- --check
     cargo clippy -p tall-table-gpui --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings

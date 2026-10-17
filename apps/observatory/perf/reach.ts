@@ -24,14 +24,12 @@
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
 // data`; run `just observatory gpui-build` first.
 
-import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { presentedMark, presentingTaskRecorder, waitMark } from '../../../shared-web/perf/harness.ts';
 import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { MARKS, dataFile, lastMark, perfDir, problems, protocolContext, serveGpui } from './harness.ts';
+import { MARKS, dataFile, lastMark, perfDir, problems, protocolContext, serveGpui, nativeDuckDB } from './harness.ts';
 
 const PORT = 4314;
 const label = option('label');
@@ -44,17 +42,7 @@ const check = (ok: boolean, problem: string) => {
 
 // --- the file's facts, from native DuckDB ---
 
-interface NativeDuckDB {
-  DuckDBInstance: { create(path: string): Promise<{ connect(): Promise<{ runAndReadAll(sql: string): Promise<{ getRows(): unknown[][] }> }> }> };
-}
-const require = createRequire(new URL('../data/package.json', import.meta.url));
-let native: NativeDuckDB;
-try {
-  native = (await import(pathToFileURL(require.resolve('@duckdb/node-api')).href)) as NativeDuckDB;
-} catch {
-  throw new Error("native DuckDB isn't installed: run `just observatory data`");
-}
-const conn = await (await native.DuckDBInstance.create(':memory:')).connect();
+const conn = await nativeDuckDB();
 const file = `'${dataFile.replaceAll("'", "''")}'`;
 const value = async (sql: string) => String((await conn.runAndReadAll(sql)).getRows()[0]?.[0]);
 const count = Number(await value(`SELECT count(*) FROM read_parquet(${file})`));
