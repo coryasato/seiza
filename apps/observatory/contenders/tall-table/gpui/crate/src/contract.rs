@@ -1,9 +1,9 @@
 //! The contender contract (`apps/observatory/docs/contender-contract.md`),
 //! from the table's events: the `contender:open` and `contender:filled`
 //! marks (always), `__contender.state` and the targets (with `?measure`),
-//! the drawn cells and the columns' budgets (with `?cells`, for the tall
-//! table's cell fixture), and the entry points the JS host's replay hooks
-//! call. The page's other
+//! the probe key's `contender:input` (with `?measure`), the drawn cells and
+//! the columns' budgets (with `?cells`, for the tall table's cell fixture),
+//! and the entry points the JS host's replay hooks call. The page's other
 //! marks (`first-pixels`, `usable`) and the `postMessage` relay are the JS
 //! host's (`web/src/main.ts`), from marks the bootstrap already sets.
 
@@ -21,6 +21,8 @@ use crate::host::{Host, Table};
 const OPEN_MARK: &str = "contender:open";
 /// Right after each frame in which the viewport became filled.
 const FILLED_MARK: &str = "contender:filled";
+/// Right after the frame that drew the probe key (`?measure`).
+const INPUT_MARK: &str = "contender:input";
 
 /// Whether the page was opened for measuring (`?measure`): only then are
 /// `__contender.state` and the targets published.
@@ -66,12 +68,51 @@ thread_local! {
     static CACHE_READ_PENDING: Cell<bool> = const { Cell::new(false) };
     static HOST: RefCell<Option<(WeakEntity<Host>, AnyWindowHandle, AsyncApp)>> =
         const { RefCell::new(None) };
+    static PROBE_KEY: Cell<ProbeKey> = const { Cell::new(ProbeKey::Waiting) };
+}
+
+/// The probe key (`?measure` only): the first key the window gets.
+#[derive(Clone, Copy, PartialEq)]
+enum ProbeKey {
+    Waiting,
+    /// Pressed; the host's next render draws it.
+    Pressed,
+    Marked,
 }
 
 /// Called when the host is created: the replay's entry points reach it
-/// through GPUI's foreground executor.
+/// through GPUI's foreground executor. With `?measure`, the first key the
+/// window gets (any key, before anything handles it) changes the host's
+/// state, and the frame that draws it marks `contender:input`
+/// (`Host::render` calls `drew_probe_key`): the scripts confirm
+/// `contender:usable` with a key right after it
+/// (`docs/contender-contract.md`, "Marks"). Later keys cost one check.
 pub fn install(host: WeakEntity<Host>, window: AnyWindowHandle, cx: &mut App) {
+    if measuring() {
+        let probed = host.clone();
+        cx.intercept_keystrokes(move |_, _, cx| {
+            // Only from the first frame on (`contender:usable` is its
+            // moment), as the DOM side listens only from its hydration
+            // commit: a key before it changes nothing.
+            if PROBE_KEY.get() == ProbeKey::Waiting
+                && seiza::marks::mark_time(seiza::FIRST_FRAME_MARK).is_some()
+            {
+                PROBE_KEY.set(ProbeKey::Pressed);
+                let _ = probed.update(cx, |_, cx| cx.notify());
+            }
+        })
+        .detach();
+    }
     HOST.set(Some((host, window, cx.to_async())));
+}
+
+/// Called from the host's render: marks `contender:input` right after the
+/// frame that draws the probe key's state.
+pub fn drew_probe_key() {
+    if PROBE_KEY.get() == ProbeKey::Pressed {
+        PROBE_KEY.set(ProbeKey::Marked);
+        drop(seiza::mark_after_current_task(INPUT_MARK));
+    }
 }
 
 /// The host is opening the file: marks `contender:open`.

@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-a-smoke-data",
+  "metric": "data",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "ms": 233.8,
+          "openMs": 599.4,
+          "filledMarkMs": 233.8
+        },
+        "runs": [
+          {
+            "openMs": 599.3699998855591,
+            "ms": 233.82000017166138,
+            "filledMarkMs": 233.82000017166138,
+            "rows": 28,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 231.3,
+          "openMs": 500.1,
+          "filledMarkMs": 216.4
+        },
+        "runs": [
+          {
+            "openMs": 500.10999965667725,
+            "ms": 231.33500003814697,
+            "filledMarkMs": 216.35000038146973,
+            "rows": 28,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "ms": 3742.3,
+          "openMs": 9693.2,
+          "filledMarkMs": 3742.3
+        },
+        "runs": [
+          {
+            "openMs": 9693.230000019073,
+            "ms": 3742.319999694824,
+            "filledMarkMs": 3742.319999694824,
+            "rows": 28,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 3788.2,
+          "openMs": 6887.9,
+          "filledMarkMs": 3765.2
+        },
+        "runs": [
+          {
+            "openMs": 6887.9349999427795,
+            "ms": 3788.1950001716614,
+            "filledMarkMs": 3765.1500000953674,
+            "rows": 28,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

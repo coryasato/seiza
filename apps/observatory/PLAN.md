@@ -36,9 +36,9 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 ### M4: The numbers
 
 **Part A: one metrics module and the scripts.**
-- [ ] One TS module computes every metric from the contenders' marks and traces; the Playwright scripts use it, and so will the page's readouts.
-- [ ] The GPUI contender publishes the probe key (`contender:input` with `?measure`, as the TanStack contender does: `docs/contender-contract.md`), so first usable is confirmed the same way on both sides.
-- [ ] A script per metric runs against either bare contender page.
+- [x] One TS module computes every metric from the contenders' marks and traces; the Playwright scripts use it, and so will the page's readouts. `metrics/metrics.ts`: pure (no Playwright, Node, or DOM at import), the protocol's constants with it (the probe key, two frames, the fling profile, which both contenders' replay now take from it). Evidence: [`perf/results/2026-10-18-m4-a.md`](perf/results/2026-10-18-m4-a.md).
+- [x] The GPUI contender publishes the probe key (`contender:input` with `?measure`, as the TanStack contender does: `docs/contender-contract.md`), so first usable is confirmed the same way on both sides. `reach` checks it (the key after usable marks within two frames; the control, a key with the wasm held back, marks nothing; none without `?measure`); `metric-usable` confirms the probe's presented frame on both sides, GPUI's guarded by the key's `EventLatency`. +1.7 KiB raw wasm, brotli unchanged.
+- [x] A script per metric runs against either bare contender page: `just observatory metric usable|data|response|fling|reach|cost` (`--side`, `--runs`, `--profile`, `--label`), each run on both sides.
 
 **Part B: the runs.**
 - [ ] Reference and throttled, median of 10, cold, both contenders, their order alternated: the per-use metrics, and first pixels and bundle size as footnotes.

@@ -183,11 +183,25 @@ cell-fixture *args:
 # The GPUI contender on its release build: it opens the file, End reaches
 # the last row (count(*) and the last key from native DuckDB), and it
 # publishes the contract (marks in order, the filled mark right after a
-# presented frame, state and targets only with ?measure, the marks relayed
+# presented frame, usable confirmed by the probe key (and its control),
+# state, targets, and the probe key only with ?measure, the marks relayed
 # from a frame, the replay hooks). --label writes perf/results/. Needs
 # `just observatory data`; run `just observatory gpui-build` first.
 reach *args:
     node {{app_dir}}/perf/reach.ts {{args}}
+
+# One per-use metric (metrics/metrics.ts computes it) on the bare
+# contender pages' release builds, cold: usable (time to first usable,
+# confirmed by the probe key; first pixels beside it), data (time to data),
+# response (input to visible response: key, track press, wheel, each
+# guarded), fling (behavior under load, per-frame work), reach (count(*)
+# and the last row), cost (main-thread CPU, memory, bytes over a session).
+# Flags: --side gpui|tanstack (default both, alternated), --runs (10),
+# --profile reference|throttled (default both), --label (writes
+# perf/results/), and response's --inputs (6 per kind). Run gpui-build and
+# tanstack-build first; reach needs `just observatory data`.
+metric name *args:
+    node {{app_dir}}/perf/metric-{{name}}.ts {{args}}
 
 # Build the data file (data/asteroids.parquet, gitignored) from Tycho's
 # pinned asteroid sample (`just tycho data` first), and write

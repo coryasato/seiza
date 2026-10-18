@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-a-smoke-reach",
+  "metric": "reach",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 1,
+  "file": {
+    "count": 1567523,
+    "lastKey": "54657680"
+  },
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "countMatches": "1/1",
+          "lastRowReached": "1/1",
+          "endFilledMs": 25.7
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 25.695000171661377,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "countMatches": "1/1",
+          "lastRowReached": "1/1",
+          "endFilledMs": 22.6
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 22.59000015258789,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "countMatches": "1/1",
+          "lastRowReached": "1/1",
+          "endFilledMs": 510
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 510.01000022888184,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "countMatches": "1/1",
+          "lastRowReached": "1/1",
+          "endFilledMs": 468.5
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 468.4650001525879,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

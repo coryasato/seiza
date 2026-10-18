@@ -3,7 +3,7 @@
  * every contender page: `globalThis.__contender`, the relay of the
  * contender's marks to the observatory's page, and the waits the replay
  * hooks resolve on. Contenders set marks and publish state; they compute no
- * metric.
+ * metric (`metrics/metrics.ts` does, and owns the replay's fling profile).
  */
 
 export type Side = 'gpui' | 'tanstack';
@@ -55,10 +55,6 @@ export const MARKS = {
   /** `?measure`: the view handled the probe key (any key) and drew it. */
   input: 'contender:input',
 } as const;
-
-/** The replay's fling: equal steps, one per frame, top to bottom in ~3 s
- *  at 60 Hz. Provisional: the metrics module will own the profile. */
-export const FLING_FRAMES = 180;
 
 /** Whether the page was opened for measuring (`?measure`). */
 export const measuring = (): boolean => new URLSearchParams(location.search).has('measure');

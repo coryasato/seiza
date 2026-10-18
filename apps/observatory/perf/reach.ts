@@ -11,9 +11,14 @@
 //   frame's moment) ≤ open < filled; the first filled after the open and
 //   after End lands right after a presented frame (shared-web/perf/'s
 //   `presentedMark`).
-// - State and targets only with `?measure`: `table`, `table-scroll-track`,
-//   and `table-scroll-thumb` inside the viewport; without it, `state` is
-//   null, no targets, the marks still set. The drawn cells and the columns
+// - The probe: a key right after usable marks `contender:input` within two
+//   frames of the key's event (metrics/metrics.ts, `PROBE_MS`). Control:
+//   the wasm held back, the placeholder paints, a key pressed then leaves
+//   no `contender:input`.
+// - State, targets, and the probe key only with `?measure`: `table`,
+//   `table-scroll-track`, and `table-scroll-thumb` inside the viewport;
+//   without it, `state` is null, no targets, no `contender:input`, the
+//   other marks still set. The drawn cells and the columns
 //   only with `?cells` (perf/cell-fixture.ts), so never in a measured run.
 // - The replay hooks: `jump(0.9)` lands at 90% and fills (and again, onto
 //   rows already loaded, resolves at once), `open()` marks a new open and fills, `fling()` ends at the last row.
@@ -29,7 +34,9 @@ import { join } from 'node:path';
 import { chromium, type Page } from '@playwright/test';
 import { presentedMark, presentingTaskRecorder, waitMark } from '../../../shared-web/perf/harness.ts';
 import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { MARKS, dataFile, lastMark, perfDir, problems, protocolContext, serveGpui, nativeDuckDB } from './harness.ts';
+import { PROBE_KEY, PROBE_MS } from '../metrics/metrics.ts';
+import { inputRecorder, keys } from './contender.ts';
+import { GPUI_WASM, MARKS, dataFile, lastMark, perfDir, problems, protocolContext, serveGpui, nativeDuckDB } from './harness.ts';
 
 const PORT = 4314;
 const label = option('label');
@@ -82,10 +89,21 @@ const browser = await chromium.launch({ channel: 'chromium' });
 try {
   // Measured: reach, marks, state, targets, replay.
   {
-    const context = await protocolContext(browser, { init: [presentingTaskRecorder] });
+    const context = await protocolContext(browser, { init: [inputRecorder, presentingTaskRecorder] });
     const page = await context.newPage();
     const found = problems(page);
     await page.goto(`${server.url}?measure`);
+    // The probe, right after usable.
+    const usableAt = await waitMark(page, MARKS.usable, 0);
+    await page.keyboard.press(PROBE_KEY);
+    const input = await waitMark(page, MARKS.input, usableAt, 5_000).catch(() => null);
+    // The mark only: the probe's change draws nothing visible, and GPUI
+    // makes no GPU calls for an unchanged scene, so there may be no
+    // presented frame to tie it to. metric-usable reads its frame.
+    const keyAt = (await keys(page))[0] ?? null;
+    const probeMs = keyAt === null || input === null ? null : input - keyAt;
+    check(keyAt !== null && keyAt >= usableAt && probeMs !== null && probeMs >= 0 && probeMs <= PROBE_MS, `the probe key after usable: ${MARKS.input} ${probeMs?.toFixed(1) ?? 'never'} ms after the key (0–${PROBE_MS.toFixed(1)})`);
+    console.log(`probe key → ${MARKS.input} in ${probeMs?.toFixed(1)} ms`);
     const filled = await waitMark(page, MARKS.filled, 0);
     await page.waitForTimeout(100);
     const marks = Object.fromEntries(await Promise.all([MARKS.placeholder, MARKS.firstPixels, MARKS.firstFrame, MARKS.usable, MARKS.open].map(async (name) => [name, await lastMark(page, name)] as const)));
@@ -139,22 +157,57 @@ try {
     const afterFling = await filledState(page, 'true');
     check(afterFling.end === count && afterFling.lastCell === lastKey, `fling(): ended at ${afterFling.first}–${afterFling.end}, lastCell ${afterFling.lastCell}`);
     console.log(`replay: jump(0.9) ${jump.ms.toFixed(0)} ms → row ${jumped.first}, again ${again.ms.toFixed(0)} ms; open() ${reopen.ms.toFixed(0)} ms; fling() ${flung.ms.toFixed(0)} ms → ${afterFling.first}–${afterFling.end}`);
-    output.measured = { marks: { ...marks, filled }, presented, opened, targets, atEnd, endFilledAfterKeyMs: endFilled - endAt, endPresented, replay: { jump: { ...jump, state: jumped }, jumpAgain: again, open: { ...reopen, state: afterOpen }, fling: { ...flung, state: afterFling } } };
+    output.measured = { marks: { ...marks, filled, input }, probeMs, presented, opened, targets, atEnd, endFilledAfterKeyMs: endFilled - endAt, endPresented, replay: { jump: { ...jump, state: jumped }, jumpAgain: again, open: { ...reopen, state: afterOpen }, fling: { ...flung, state: afterFling } } };
     failures.push(...found.map((problem) => `measured page: ${problem}`));
     await context.close();
   }
 
-  // Unmeasured: marks, no state, no targets.
+  // The probe's control: a key before GPUI's first frame changes nothing.
+  {
+    const context = await protocolContext(browser, { init: [inputRecorder] });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await context.route(GPUI_WASM, async (route) => {
+      await held;
+      await route.continue();
+    });
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(`${server.url}?measure`, { waitUntil: 'commit' });
+    // The placeholder paints with the wasm held back.
+    await waitMark(page, MARKS.firstPixels, 0, 10_000);
+    await page.keyboard.press(PROBE_KEY);
+    release();
+    const usable = await waitMark(page, MARKS.usable, 0);
+    await page.waitForTimeout(200);
+    const seen = await page.evaluate(() => ({ inputs: performance.getEntriesByName('contender:input', 'mark').length, keys: (globalThis as { __keys?: number[] }).__keys?.length ?? 0 }));
+    check(seen.keys === 1, `control: the key before the first frame wasn't delivered (${seen.keys} keys)`);
+    check(seen.inputs === 0, `control: a key before the first frame marked ${MARKS.input}`);
+    output.probeControl = { ...seen, usable };
+    console.log(`probe control: a key before the first frame (wasm held back; usable ${usable.toFixed(1)} ms): ${seen.inputs} ${MARKS.input} marks`);
+    failures.push(...found.map((problem) => `control page: ${problem}`));
+    await context.close();
+  }
+
+  // Unmeasured: marks, no state, no targets, no probe key.
   {
     const context = await protocolContext(browser);
     const page = await context.newPage();
     const found = problems(page);
     await page.goto(server.url);
     await waitMark(page, MARKS.filled, 0);
+    await page.keyboard.press(PROBE_KEY);
     await page.waitForTimeout(500);
     const seen = await page.evaluate(() => {
       const g = globalThis as Global;
-      return { side: g.__contender?.side, state: g.__contender?.state, replay: Object.keys(g.__contender?.replay ?? {}).sort(), targets: g.__seizaTargets ?? null, cellProbe: 'cells' in (g.__contender ?? {}) || 'columns' in (g.__contender ?? {}) };
+      return {
+        side: g.__contender?.side,
+        state: g.__contender?.state,
+        replay: Object.keys(g.__contender?.replay ?? {}).sort(),
+        targets: g.__seizaTargets ?? null,
+        cellProbe: 'cells' in (g.__contender ?? {}) || 'columns' in (g.__contender ?? {}),
+        inputs: performance.getEntriesByName('contender:input', 'mark').length,
+      };
     });
     const marks = Object.fromEntries(await Promise.all([MARKS.firstPixels, MARKS.usable, MARKS.open, MARKS.filled].map(async (name) => [name, await lastMark(page, name)] as const)));
     check(seen.side === 'gpui', `side ${seen.side}`);
@@ -162,6 +215,7 @@ try {
     check(seen.targets === null, `targets without ?measure: ${JSON.stringify(seen.targets)}`);
     check(seen.replay.join() === 'fling,jump,open', `replay hooks: ${seen.replay.join()}`);
     check(!seen.cellProbe, 'cells or columns published without ?cells');
+    check(seen.inputs === 0, `the probe key marked ${MARKS.input} without ?measure`);
     check(Object.values(marks).every((at) => at !== null), `marks without ?measure: ${JSON.stringify(marks)}`);
     output.unmeasured = { ...seen, marks };
     failures.push(...found.map((problem) => `unmeasured page: ${problem}`));

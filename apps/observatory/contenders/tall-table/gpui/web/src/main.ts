@@ -6,7 +6,8 @@ import init, { replayGeometry, replayJump, replayOpen, replayView, start } from 
 // The same asset wasm-bindgen would resolve; named here so the HTML preload and
 // `init` fetch one URL (instantiateStreaming needs `application/wasm`).
 import wasmUrl from '../pkg/tall_table_gpui_bg.wasm?url';
-import { FLING_FRAMES, MARKS, markAt, nextFrame, nextMark, publishContender } from '../../../../contract.ts';
+import { MARKS, markAt, nextFrame, nextMark, publishContender } from '../../../../contract.ts';
+import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
 
 /** Set by shared-web's placeholder (`PLACEHOLDER_PAINT_MARK`) and `seiza`'s
  *  bootstrap (`FIRST_FRAME_MARK`); not imported, since those modules are the
@@ -61,7 +62,7 @@ async function fling(): Promise<void> {
   const canvas = document.querySelector('canvas');
   if (!rows || !rowHeight || !canvas) throw new Error('fling: no table on screen yet');
   const { x, y, width, height } = canvas.getBoundingClientRect();
-  const deltaY = (rows * rowHeight) / FLING_FRAMES;
+  const deltaY = flingStep(rows, rowHeight);
   const step = () => canvas.dispatchEvent(new WheelEvent('wheel', { deltaY, clientX: x + width / 2, clientY: y + height / 2, bubbles: true, cancelable: true }));
   for (let sent = 1; sent < FLING_FRAMES; sent++) {
     await nextFrame();

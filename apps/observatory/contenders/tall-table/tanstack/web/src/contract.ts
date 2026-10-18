@@ -9,7 +9,8 @@
  * Nothing here runs at import: the build prerenders the view in Node.
  */
 
-import { FLING_FRAMES, MARKS, nextFrame, nextMark, type Contender, type ContenderState, type Replay } from '../../../../contract.ts';
+import { MARKS, nextFrame, nextMark, type Contender, type ContenderState, type Replay } from '../../../../contract.ts';
+import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
 import type { TablePaging } from './data/paging.ts';
 import type { ArrowPage } from './data/table.ts';
 import { exactText, shownText } from './data/format.ts';
@@ -99,7 +100,7 @@ export class TableContract {
 
   /** The replay's fling: equal steps through the model, one per frame. */
   async fling(): Promise<void> {
-    const step = (this.paging.rows * ROW_HEIGHT) / FLING_FRAMES;
+    const step = flingStep(this.paging.rows, ROW_HEIGHT);
     for (let sent = 1; sent < FLING_FRAMES; sent++) {
       await nextFrame();
       this.model.step(step);

@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-a-smoke-fling",
+  "metric": "fling",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 1,
+  "flingFrames": 180,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "lateShare": 0,
+          "placeholderShare": 0.913,
+          "lagStepsP95": 2,
+          "catchUpMs": 80.7,
+          "reachedEnd": "1/1",
+          "workP50Ms": 3.46,
+          "workP95Ms": 5.88,
+          "busyMs": 840.3,
+          "busyShare": 0.235
+        },
+        "runs": [
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9130434782608695,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 80.72,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.456,
+            "workP95Ms": 5.884,
+            "busyMs": 840.3059999999302,
+            "busyShare": 0.23542929186801995,
+            "outsideFramesMs": 133.82699999993065,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "lateShare": 0.011,
+          "placeholderShare": 0.962,
+          "lagStepsP95": 3,
+          "catchUpMs": 66.2,
+          "reachedEnd": "1/1",
+          "workP50Ms": 5.8,
+          "workP95Ms": 7.83,
+          "busyMs": 1366.3,
+          "busyShare": 0.383
+        },
+        "runs": [
+          {
+            "frames": 182,
+            "lateFrames": 2,
+            "lateShare": 0.011049723756906077,
+            "placeholderShare": 0.9615384615384616,
+            "lagSteps": {
+              "p95": 3,
+              "max": 4
+            },
+            "catchUpMs": 66.22,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 5.797,
+            "workP95Ms": 7.83,
+            "busyMs": 1366.3489999998924,
+            "busyShare": 0.38309405416617504,
+            "outsideFramesMs": 333.32999999989215,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "lateShare": 0,
+          "placeholderShare": 0.99,
+          "lagStepsP95": 2,
+          "catchUpMs": 1946.2,
+          "reachedEnd": "1/1",
+          "workP50Ms": 12.69,
+          "workP95Ms": 15.59,
+          "busyMs": 2621.5,
+          "busyShare": 0.482
+        },
+        "runs": [
+          {
+            "frames": 296,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9898648648648649,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1946.2,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 12.694,
+            "workP95Ms": 15.591,
+            "busyMs": 2621.5090000001996,
+            "busyShare": 0.4816409357563564,
+            "outsideFramesMs": 162.56400000019948,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "lateShare": 0.256,
+          "placeholderShare": 0.987,
+          "lagStepsP95": 5,
+          "catchUpMs": 2076.9,
+          "reachedEnd": "1/1",
+          "workP50Ms": 0.4,
+          "workP95Ms": 24.6,
+          "busyMs": 1842.9,
+          "busyShare": 0.331
+        },
+        "runs": [
+          {
+            "frames": 239,
+            "lateFrames": 61,
+            "lateShare": 0.25630252100840334,
+            "placeholderShare": 0.9874476987447699,
+            "lagSteps": {
+              "p95": 5,
+              "max": 6
+            },
+            "catchUpMs": 2076.89,
+            "reachedEnd": true,
+            "inputs": 159,
+            "workP50Ms": 0.395,
+            "workP95Ms": 24.598,
+            "busyMs": 1842.947999999854,
+            "busyShare": 0.3310296516387579,
+            "outsideFramesMs": 243.15199999985225,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

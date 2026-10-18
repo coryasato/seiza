@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-a-smoke-usable",
+  "metric": "usable",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "usableMs": 145.4,
+          "probeMs": 26,
+          "markMs": 4.1,
+          "confirmed": "1/1",
+          "guarded": "1/1",
+          "firstPixelsMs": 40.6
+        },
+        "runs": [
+          {
+            "usableMs": 145.43499994277954,
+            "probeMs": 25.993999828338616,
+            "confirmed": true,
+            "markMs": 4.074999809265137,
+            "eventLatencyMs": 26,
+            "guarded": true,
+            "firstPixelsMs": 40.579999923706055,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "usableMs": 41.2,
+          "probeMs": 9.2,
+          "markMs": 1.2,
+          "confirmed": "1/1",
+          "guarded": null,
+          "firstPixelsMs": 52.3
+        },
+        "runs": [
+          {
+            "usableMs": 41.22499990463257,
+            "probeMs": 9.16299975967408,
+            "confirmed": true,
+            "markMs": 1.184999942779541,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 52.25,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "usableMs": 3484,
+          "probeMs": 13.7,
+          "markMs": 11.2,
+          "confirmed": "1/1",
+          "guarded": "1/1",
+          "firstPixelsMs": 257.7
+        },
+        "runs": [
+          {
+            "usableMs": 3483.965000152588,
+            "probeMs": 13.667999713897643,
+            "confirmed": true,
+            "markMs": 11.21999979019165,
+            "eventLatencyMs": 13.67,
+            "guarded": true,
+            "firstPixelsMs": 257.65000009536743,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "usableMs": 493.8,
+          "probeMs": 5,
+          "markMs": 4.4,
+          "confirmed": "1/1",
+          "guarded": null,
+          "firstPixelsMs": 392.8
+        },
+        "runs": [
+          {
+            "usableMs": 493.81500005722046,
+            "probeMs": 4.9609997520447,
+            "confirmed": true,
+            "markMs": 4.355000019073486,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 392.80000019073486,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

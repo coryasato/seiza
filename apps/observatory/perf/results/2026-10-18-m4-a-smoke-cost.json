@@ -1,0 +1,176 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-a-smoke-cost",
+  "metric": "cost",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "busyMs": 957.2,
+          "loadBusyMs": 159.6,
+          "useBusyMs": 797.5,
+          "pageMemoryOpenMiB": 33.5,
+          "pageMemoryEndMiB": 42.1,
+          "workerMemoryEndMiB": 105.9,
+          "jsHeapEndMiB": 3.5,
+          "nodesEnd": 51,
+          "pageKiB": 2798.7,
+          "engineKiB": 5744.7,
+          "dataKiB": 21903.5
+        },
+        "runs": [
+          {
+            "loadBusyMs": 159.62900000000187,
+            "useBusyMs": 797.5449999999331,
+            "busyMs": 957.173999999935,
+            "open": {
+              "pageBytes": 35118677,
+              "workerBytes": 59365963,
+              "jsHeapBytes": 3387668,
+              "nodes": 51
+            },
+            "atEnd": {
+              "pageBytes": 44143944,
+              "workerBytes": 111089887,
+              "jsHeapBytes": 3620652,
+              "nodes": 51
+            },
+            "bytes": {
+              "page": 2865831,
+              "engine": 5882620,
+              "data": 22429186
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "busyMs": 1608.9,
+          "loadBusyMs": 73.9,
+          "useBusyMs": 1535.1,
+          "pageMemoryOpenMiB": 3.1,
+          "pageMemoryEndMiB": 9.9,
+          "workerMemoryEndMiB": 105.9,
+          "jsHeapEndMiB": 4.7,
+          "nodesEnd": 868,
+          "pageKiB": 180,
+          "engineKiB": 5713.3,
+          "dataKiB": 21903.5
+        },
+        "runs": [
+          {
+            "loadBusyMs": 73.87799999999955,
+            "useBusyMs": 1535.055999999867,
+            "busyMs": 1608.9339999998665,
+            "open": {
+              "pageBytes": 3257138,
+              "workerBytes": 59365803,
+              "jsHeapBytes": 3778280,
+              "nodes": 892
+            },
+            "atEnd": {
+              "pageBytes": 10337185,
+              "workerBytes": 111076363,
+              "jsHeapBytes": 4968580,
+              "nodes": 868
+            },
+            "bytes": {
+              "page": 184339,
+              "engine": 5850392,
+              "data": 22429186
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "busyMs": 3365.9,
+          "loadBusyMs": 760.7,
+          "useBusyMs": 2605.3,
+          "pageMemoryOpenMiB": 33.5,
+          "pageMemoryEndMiB": 56.2,
+          "workerMemoryEndMiB": 63.8,
+          "jsHeapEndMiB": 3.4,
+          "nodesEnd": 51,
+          "pageKiB": 2798.7,
+          "engineKiB": 5744.7,
+          "dataKiB": 5937.2
+        },
+        "runs": [
+          {
+            "loadBusyMs": 760.6569999999965,
+            "useBusyMs": 2605.2850000005415,
+            "busyMs": 3365.942000000538,
+            "open": {
+              "pageBytes": 35169398,
+              "workerBytes": 59377023,
+              "jsHeapBytes": 3380600,
+              "nodes": 51
+            },
+            "atEnd": {
+              "pageBytes": 58887006,
+              "workerBytes": 66880411,
+              "jsHeapBytes": 3527376,
+              "nodes": 51
+            },
+            "bytes": {
+              "page": 2865831,
+              "engine": 5882620,
+              "data": 6079701
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "busyMs": 2205.2,
+          "loadBusyMs": 356.2,
+          "useBusyMs": 1849,
+          "pageMemoryOpenMiB": 3.6,
+          "pageMemoryEndMiB": 4.8,
+          "workerMemoryEndMiB": 63.8,
+          "jsHeapEndMiB": 4,
+          "nodesEnd": 868,
+          "pageKiB": 180,
+          "engineKiB": 5713.3,
+          "dataKiB": 5937.2
+        },
+        "runs": [
+          {
+            "loadBusyMs": 356.2039999999706,
+            "useBusyMs": 1849.0099999998606,
+            "busyMs": 2205.2139999998312,
+            "open": {
+              "pageBytes": 3807764,
+              "workerBytes": 59371055,
+              "jsHeapBytes": 3773804,
+              "nodes": 892
+            },
+            "atEnd": {
+              "pageBytes": 5003514,
+              "workerBytes": 66878555,
+              "jsHeapBytes": 4245932,
+              "nodes": 868
+            },
+            "bytes": {
+              "page": 184339,
+              "engine": 5850392,
+              "data": 6079701
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

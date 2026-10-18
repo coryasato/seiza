@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-a-sizes",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "cargo": {
+    "panelAlone": false,
+    "panelWithTycho": true
+  },
+  "shipped": {
+    "file": "tall_table_gpui_bg-WjohzU-6.wasm",
+    "rawKiB": 9705.2,
+    "brotliKiB": 2695.7,
+    "panel": false
+  },
+  "variants": {
+    "withPanel": {
+      "rawKiB": 9736.8,
+      "brotliKiB": 2705.6,
+      "panel": true
+    },
+    "withoutPanel": {
+      "rawKiB": 9705.2,
+      "brotliKiB": 2695.7,
+      "panel": false
+    }
+  },
+  "failures": []
+}

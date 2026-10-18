@@ -35,13 +35,12 @@ import { join } from 'node:path';
 import { chromium, type Page } from '@playwright/test';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { PROBE_KEY, PROBE_MS } from '../metrics/metrics.ts';
 import { MARKS, dataFile, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveTanstack } from './harness.ts';
 
 const PORT = 4321;
 /** The data layer's chunk: the engine's start imports it first. */
 const DATA_LAYER = /\/assets\/table-[\w-]+\.js$/;
-/** Two frames at 60 Hz: the probe's "within a frame or two". */
-const PROBE_MS = 2 * (1000 / 60);
 /** How long after the filled mark its cells may paint: three frames. */
 const PRESENT_MS = 50;
 /** The entry chunk, held back for the probe's control. */
@@ -175,7 +174,7 @@ try {
     });
     check(hydratedInPlace, 'hydration replaced the prerendered first screen instead of keeping it');
     // The probe, right after usable.
-    await page.keyboard.press('Shift');
+    await page.keyboard.press(PROBE_KEY);
     const input = await waitMark(page, MARKS.input, usable, 5_000).catch(() => null);
     const keyAt = await page.evaluate(() => (globalThis as Global).__keys?.[0] ?? null);
     const probeMs = input !== null && keyAt !== null ? input - keyAt : null;
@@ -270,7 +269,7 @@ try {
     await page.goto(`${server.url}?measure`, { waitUntil: 'commit' });
     // The HTML's first screen paints with its JS held back.
     await page.waitForFunction(() => ((globalThis as Global).__painted ?? []).some((entry) => entry.id === 'first-screen'), null, { timeout: 10_000 });
-    await page.keyboard.press('Shift');
+    await page.keyboard.press(PROBE_KEY);
     release();
     const usable = await waitMark(page, MARKS.usable, 0);
     await page.waitForTimeout(200);
@@ -292,7 +291,7 @@ try {
     const found = problems(page);
     await page.goto(server.url);
     await waitMark(page, MARKS.filled, 0);
-    await page.keyboard.press('Shift');
+    await page.keyboard.press(PROBE_KEY);
     await page.waitForTimeout(500);
     const seen = await page.evaluate(() => {
       const g = globalThis as Global;
