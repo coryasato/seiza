@@ -1,0 +1,679 @@
+{
+  "date": "2026-10-18",
+  "label": "m3-c-parity",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "keys": {
+    "chromium": {
+      "viewportRows": 27.866666666666667,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    },
+    "firefox": {
+      "viewportRows": 27.866666666666667,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    },
+    "webkit": {
+      "viewportRows": 27.866666666666667,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    },
+    "gpui": {
+      "viewportRows": 27.33333396911621,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.33333396911621,
+          "expected": 28.33333396911621
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.33333396911621,
+          "expected": 28.33333396911621
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.666666031,
+          "expected": 1567495.666666031
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.666666031,
+          "expected": 1567495.666666031
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    }
+  },
+  "shiftWheel": {
+    "chromium": {
+      "deltaY": 20,
+      "shifted": {
+        "left": 20,
+        "maxLeft": 119,
+        "top": 0
+      },
+      "plain": {
+        "left": 0,
+        "maxLeft": 119,
+        "top": 1.3333333333333333
+      }
+    },
+    "firefox": {
+      "deltaY": 40,
+      "shifted": {
+        "left": 40,
+        "maxLeft": 119,
+        "top": 0
+      },
+      "plain": {
+        "left": 0,
+        "maxLeft": 119,
+        "top": 1.3333333333333333
+      }
+    },
+    "webkit": {
+      "deltaY": 40,
+      "shifted": {
+        "left": 40,
+        "maxLeft": 119,
+        "top": 0
+      },
+      "plain": {
+        "left": 0,
+        "maxLeft": 119,
+        "top": 1.3333333333333333
+      }
+    }
+  },
+  "trackPress": {
+    "chromium": {
+      "quick": {
+        "pressAt": 276.8,
+        "fractionOfTrack": 0.3,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 276.80001609405605,
+          "s": 4937277,
+          "v": 12950455.28786868,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "startAfterDown": -2.9200000762939453,
+        "endAfterUp": -0.11999988555908203,
+        "loads": 7,
+        "rowsFraction": 0.2753959701367426
+      },
+      "held": {
+        "pressAt": 623.1999999999999,
+        "held": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.2000340955558,
+          "s": 11839104,
+          "v": 34074401.77276243,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "dragged": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.3797129058831,
+          "s": 11842684,
+          "v": 34074401.77276243,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": false
+        },
+        "grabbed": false,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.2000340955558,
+          "s": 11839104,
+          "v": 34074401.77276243,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "settleMs": 81.76000022888184,
+        "rowsFraction": 0.7246040949486506
+      }
+    },
+    "webkit": {
+      "quick": {
+        "pressAt": 276.8,
+        "fractionOfTrack": 0.3,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 275.9999936815928,
+          "s": 4921337,
+          "v": 12901668.827853208,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "startAfterDown": -14.259999999999991,
+        "endAfterUp": -0.22000000000002728,
+        "loads": 8,
+        "rowsFraction": 0.2743585089674751
+      },
+      "held": {
+        "pressAt": 623.1999999999999,
+        "held": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 622.9999783028281,
+          "s": 11835118,
+          "v": 34062202.09712745,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "dragged": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.0259765217526,
+          "s": 11835636,
+          "v": 34062202.09712745,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": false
+        },
+        "grabbed": false,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 622.9999783028281,
+          "s": 11835118,
+          "v": 34062202.09712745,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "settleMs": 81.2800000000002,
+        "rowsFraction": 0.7243446645709406
+      }
+    },
+    "firefoxHeaded": {
+      "quick": {
+        "pressAt": 272.29999999999995,
+        "fractionOfTrack": 0.3,
+        "after": {
+          "x": 1415.5,
+          "top": 17,
+          "track": 851,
+          "length": 24,
+          "thumbCenter": 271.9999909694544,
+          "s": 4929460.5,
+          "v": 12926523.692921665,
+          "range": 16776395,
+          "total": 47024869,
+          "consistent": true
+        },
+        "startAfterDown": -7.8599999999999,
+        "endAfterUp": -0.27999999999974534,
+        "loads": 7,
+        "rowsFraction": 0.27488696869993756
+      },
+      "held": {
+        "pressAt": 612.6999999999999,
+        "held": {
+          "x": 1415.5,
+          "top": 17,
+          "track": 851,
+          "length": 24,
+          "thumbCenter": 612.000026108112,
+          "s": 11826649,
+          "v": 34036258.9172554,
+          "range": 16776395,
+          "total": 47024869,
+          "consistent": true
+        },
+        "dragged": {
+          "x": 1415.5,
+          "top": 17,
+          "track": 851,
+          "length": 24,
+          "thumbCenter": 652.0000331418044,
+          "s": 12638083,
+          "v": 36519757.358978726,
+          "range": 16776395,
+          "total": 47024869,
+          "consistent": true
+        },
+        "grabbed": true,
+        "after": {
+          "x": 1415.5,
+          "top": 17,
+          "track": 851,
+          "length": 24,
+          "thumbCenter": 652.0000331418044,
+          "s": 12638083,
+          "v": 36519757.358978726,
+          "range": 16776395,
+          "total": 47024869,
+          "consistent": true
+        },
+        "settleMs": 85.05999999999995,
+        "rowsFraction": 0.7766051907338376
+      }
+    }
+  },
+  "dragSettle": {
+    "drag": {
+      "moves": 11,
+      "loadsAtRest": 7,
+      "restLoadAfterMove": 81.40500020980835,
+      "loadsAtRelease": 1,
+      "startDrag": 2,
+      "endDrag": 2,
+      "rowsFraction": 0.21907497589496625
+    },
+    "chromium": {
+      "settleMs": 81.27500009536743,
+      "endAfterInput": {
+        "wheel": 0.10500001907348633,
+        "keydown": 0.1399998664855957
+      }
+    },
+    "firefox": {
+      "settleMs": 82.27999999999997,
+      "endAfterInput": {
+        "wheel": 0.10000000000013642,
+        "keydown": 0.05999999999994543
+      }
+    },
+    "webkit": {
+      "settleMs": 80.65999999999985,
+      "endAfterInput": {
+        "wheel": 0.11999999999989086,
+        "keydown": 0.16000000000030923
+      }
+    }
+  },
+  "tooltip": {
+    "chromium": {
+      "rested": {
+        "delay": 501.7999997138977,
+        "text": "3087 Beatrice Tinsley (1981 QJ1)",
+        "gap": 12.359375,
+        "centerOffset": -0.375,
+        "box": {
+          "x": 278,
+          "y": 572,
+          "width": 230.25,
+          "height": 32.640625,
+          "top": 572,
+          "right": 508.25,
+          "bottom": 604.640625,
+          "left": 278
+        }
+      },
+      "below": {
+        "gap": 12
+      },
+      "whileLoading": {
+        "pendingAtRest": true,
+        "shownAfterMove": 502.2699999809265
+      },
+      "timings": {
+        "switchMs": 0.6700000762939453,
+        "graceMs": 0.6449999809265137,
+        "graceAfterHideMs": 116.09999990463257,
+        "coldMs": 502.02500009536743
+      }
+    },
+    "firefox": {
+      "rested": {
+        "delay": 507.98,
+        "text": "3087 Beatrice Tinsley (1981 QJ1)",
+        "gap": 12.350006103515625,
+        "centerOffset": -0.40833282470703125,
+        "box": {
+          "x": 278,
+          "y": 572,
+          "width": 230.18333435058594,
+          "height": 32.649993896484375,
+          "top": 572,
+          "right": 508.18333435058594,
+          "bottom": 604.6499938964844,
+          "left": 278
+        }
+      },
+      "below": {
+        "gap": 12
+      },
+      "whileLoading": {
+        "pendingAtRest": false,
+        "shownAfterMove": 506.71999999999935
+      },
+      "timings": {
+        "switchMs": 1.7200000000000273,
+        "graceMs": 0.9599999999995816,
+        "graceAfterHideMs": 110.90000000000032,
+        "coldMs": 506.8600000000001
+      }
+    },
+    "webkit": {
+      "rested": {
+        "delay": 505.6600000000001,
+        "text": "3087 Beatrice Tinsley (1981 QJ1)",
+        "gap": 12.359375,
+        "centerOffset": -0.375,
+        "box": {
+          "x": 278,
+          "y": 572,
+          "width": 230.25,
+          "height": 32.640625,
+          "top": 572,
+          "right": 508.25,
+          "bottom": 604.640625,
+          "left": 278
+        }
+      },
+      "below": {
+        "gap": 12
+      },
+      "whileLoading": {
+        "pendingAtRest": false,
+        "shownAfterMove": 502.28000000000065
+      },
+      "timings": {
+        "switchMs": 1.4600000000000364,
+        "graceMs": 1.1199999999998909,
+        "graceAfterHideMs": 111.09999999999991,
+        "coldMs": 501.8800000000001
+      }
+    }
+  },
+  "focus": {
+    "colors": {
+      "ring": "#a3a3a3",
+      "border": "#e5e5e5"
+    },
+    "open": {
+      "focused": true,
+      "border": [
+        163,
+        163,
+        163
+      ]
+    },
+    "outside": {
+      "focused": true,
+      "border": [
+        163,
+        163,
+        163
+      ],
+      "moved": 1
+    },
+    "blurred": {
+      "focused": false,
+      "border": [
+        229,
+        229,
+        229
+      ]
+    },
+    "cell": {
+      "focused": true,
+      "border": [
+        163,
+        163,
+        163
+      ]
+    },
+    "track": {
+      "focused": true
+    },
+    "gpuiBorder": [
+      163,
+      163,
+      163
+    ]
+  },
+  "failures": []
+}

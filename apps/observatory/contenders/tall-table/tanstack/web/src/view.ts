@@ -4,7 +4,8 @@
  * table: a native scroller under the scroll model (`scroll.ts`), its rows
  * laid out by TanStack Virtual over a moving window of rows
  * (`docs/dom-scroll-model.md`, "TanStack Virtual over a moving window"),
- * their text from the data layer's paging.
+ * their text from the data layer's paging, a rounded or cut value's exact
+ * text in a tooltip (`tooltip.ts`).
  */
 
 import { createElement as h, memo, useEffect, useLayoutEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
@@ -12,9 +13,10 @@ import { flushSync } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ArrowPage, Column } from './data/table.ts';
 import type { TablePaging } from './data/paging.ts';
-import { shownRow } from './cells.ts';
+import { cellTooltip, shownRow } from './cells.ts';
 import { ROW_HEIGHT, formatCount, gutterWidth, layOut, type LaidOutColumn } from './layout.ts';
 import { SCROLL, ScaledScroller } from './scroll.ts';
+import { CellTooltip } from './tooltip.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -24,10 +26,23 @@ export type Load =
   | { kind: 'waiting'; status: string; failed?: boolean }
   | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<ArrowPage> };
 
+/** `?probe`: the table's paging and scroll model as `__tanstackProbe`, for
+ *  the parity check (`perf/tanstack-parity.ts`) to read and log; never in a
+ *  measured run. */
+const probing = new URLSearchParams(location.search).has('probe');
+
 export function App({ load }: { load: Load }): ReactNode {
   return h(
     'div',
-    { className: 'page' },
+    {
+      className: 'page',
+      // With the table open, a press outside it leaves the focus where it
+      // is, as in GPUI, which has no blur on a press: the table keeps its
+      // keys and its ring. (A status line stays selectable.)
+      onMouseDown: (event: { target: EventTarget; preventDefault(): void }) => {
+        if (load.kind === 'open' && !(event.target as Element).closest('.scroller')) event.preventDefault();
+      },
+    },
     load.kind === 'open'
       ? // Keyed by the paging: a new open is a new table, model, and virtualizer.
         h(Table, { key: load.id, rows: load.rows, columns: load.columns, paging: load.paging })
@@ -49,6 +64,7 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
   const spacerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<ScaledScroller | null>(null);
+  const tooltipRef = useRef<CellTooltip | null>(null);
   const [, rerender] = useReducer((count: number) => count + 1, 0);
 
   // Before the virtualizer's own layout effects: it subscribes to the model.
@@ -60,8 +76,24 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
       head: ROW_HEIGHT,
       ...SCROLL,
       rebaseRows: WINDOW_ROWS / 4,
+      dragSettle: paging.dragSettleMs,
     });
     modelRef.current = model;
+    // A scroll in thumb mode is a drag: it loads once it rests or lets go.
+    model.onDrag = (dragging) => (dragging ? paging.startDrag() : paging.endDrag());
+    tooltipRef.current = new CellTooltip(scroller, (row, column) => {
+      const state = paging.row(row);
+      if (state.kind !== 'loaded') return undefined;
+      const laidOut = columns[column];
+      const tooltip = laidOut ? cellTooltip(laidOut, state.page.value(state.index, column)) : null;
+      if (!tooltip) return null;
+      if (tooltip.differs) return tooltip.text;
+      // Cut: the text is wider than its cell's room, measured unrounded
+      // (`scrollWidth` rounds, and missed text over by under a pixel).
+      const cell = scroller.querySelector(`.row[data-row="${row}"]`)?.children[column + 1];
+      return cell && isCut(cell) ? tooltip.text : null;
+    });
+    if (probing) (globalThis as { __tanstackProbe?: unknown }).__tanstackProbe = { paging, model };
     // The first viewport is the open's: it loads the first pages.
     paging.setViewportRows(model.viewport / ROW_HEIGHT);
     const unsubscribe = model.subscribe((v) => paging.moveTopTo(v / ROW_HEIGHT));
@@ -75,14 +107,28 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
     return () => {
       resized.disconnect();
       unsubscribe();
+      tooltipRef.current?.destroy();
+      tooltipRef.current = null;
       model.destroy();
       modelRef.current = null;
     };
-  }, [rows, paging]);
+  }, [rows, paging, columns]);
+
+  // A page landed under a rested pointer: once its rows are drawn, its
+  // tooltip is decided. Not after every render: a fling forces many.
+  const landed = useRef(false);
+  useEffect(() => {
+    if (!landed.current) return;
+    landed.current = false;
+    tooltipRef.current?.refresh();
+  });
 
   // A page landed or failed: its rows redraw.
   useEffect(() => {
-    paging.onChange = rerender;
+    paging.onChange = () => {
+      landed.current = true;
+      rerender();
+    };
     return () => {
       paging.onChange = () => {};
     };
@@ -147,6 +193,15 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
       h('div', { ref: spacerRef, className: 'spacer', style: { width } }, h('div', { ref: contentRef, className: 'content' }, shown)),
     ),
   );
+}
+
+/** Whether a cell's text is wider than the room inside its padding. */
+function isCut(cell: Element): boolean {
+  const range = document.createRange();
+  range.selectNodeContents(cell);
+  const style = getComputedStyle(cell);
+  const room = cell.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  return range.getBoundingClientRect().width > room;
 }
 
 /** The header: sticky at the top, scrolled sideways with the rows. */

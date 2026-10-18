@@ -108,6 +108,11 @@ export class TablePaging<P extends Page> {
     return this.cache.row(row);
   }
 
+  /** How long a scrollbar drag rests before its position loads, ms. */
+  get dragSettleMs(): number {
+    return this.paging.dragSettleMs;
+  }
+
   /** The cache's bytes: each loaded page's Arrow IPC `byteLength`. */
   cacheBytes(): number {
     return this.cache.bytes();

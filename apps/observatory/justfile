@@ -73,6 +73,16 @@ theme-css *args:
 tanstack-view *args:
     node {{app_dir}}/perf/tanstack-view.ts {{args}}
 
+# The TanStack contender's base-level parity with the tall table, item by
+# item against the component's README, on its release build (`?probe`):
+# the keys (and the GPUI contender's, the same keys), Shift+wheel, a track
+# press, the drag settle, the tooltip, and the focus ring, in Chromium,
+# Firefox, and WebKit. --firefox adds a headed Firefox's track press
+# (classic scrollbars); --browsers, --label. Needs `just observatory data`;
+# run `just observatory tanstack-build` and `gpui-build` first.
+tanstack-parity *args:
+    node {{app_dir}}/perf/tanstack-parity.ts {{args}}
+
 # The pinned DuckDB extensions into the TanStack contender's public/duckdb/.
 tanstack-extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{tanstack_web}}/public duckdb
@@ -101,7 +111,8 @@ sizes *args:
 # and the contract published; the TanStack contender's build and the engine
 # files both load, with their controls; then the fixtures. Needs `just
 # observatory data`. Then the TanStack contender's view: the last row in
-# three browsers, the GPUI contender's column widths, a hidden page.
+# three browsers, the GPUI contender's column widths, a hidden page; and its
+# parity with the tall table's input, tooltip, and focus.
 check: lint gpui-build tanstack-build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
@@ -109,6 +120,7 @@ check: lint gpui-build tanstack-build && fixtures
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
     node {{app_dir}}/perf/tanstack-view.ts --gpui
+    node {{app_dir}}/perf/tanstack-parity.ts
 
 # Cold load of the GPUI contender's release build (reference + throttled,
 # median of 10): TTFP checked against its GPU calls, the placeholder's paint,

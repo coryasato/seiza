@@ -108,3 +108,23 @@ body {
   white-space: nowrap;
   color: var(--danger);
 }
+
+/* The cells' tooltip (tooltip.ts), as gpui-kit's `Tooltip` draws it with the
+   table's `shadow_lg`: placed by the script, above everything. */
+.tooltip {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  box-sizing: border-box;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  line-height: 1.618034;
+  pointer-events: none;
+}
+.tooltip[hidden] { display: none; }
+/* Wrapped at 480 px, a long word broken where it must be, as GPUI wraps. */
+.tooltip > div { max-width: 480px; padding: 2px 0; white-space: pre-wrap; overflow-wrap: anywhere; }

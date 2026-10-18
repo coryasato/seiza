@@ -14,6 +14,11 @@
  * scroll while the pointer is down on the scrollbar, is the thumb: s maps
  * to V through the canonical map.
  *
+ * The tall table's base level, where the browser's own differs: a press on
+ * the track jumps there (the thumb centered on it) instead of paging, a
+ * scroll in thumb mode is a drag (`onDrag`, ended by a release or by 80 ms
+ * with no scroll), and Shift turns a vertical wheel sideways.
+ *
  * The scroller holds a sticky header `head` px tall above the spacer, so
  * the rows' viewport is its client height less the header.
  */
@@ -33,6 +38,9 @@ export interface ScrollOptions {
   zone: number;
   /** Rows the content may move from its base before the base moves. */
   rebaseRows: number;
+  /** How long a drag rests before it counts as ended, with no release
+   *  (the paging's drag settle). */
+  dragSettle: number;
 }
 
 /** The model's numbers (`docs/dom-scroll-model.md`, "The model"). */
@@ -42,6 +50,12 @@ export const SCROLL = { spacer: 2 ** 24, page: 1800, zone: 2 ** 20 } as const;
 const INPUT_WINDOW = 300;
 /** How long with no scroll before the scroller is at rest. */
 const IDLE = 150;
+/** The browsers' scrollbar thumbs are 22–26 px at their shortest, which a
+ *  scaled table's always is (the tall table's is 24). */
+const MIN_THUMB = 24;
+/** A press this close to where the thumb should be is left to the browser
+ *  (a grab), as the thumb's length is an estimate. */
+const THUMB_SLACK = 4;
 
 export class ScaledScroller {
   /** T: the largest V. */
@@ -58,11 +72,22 @@ export class ScaledScroller {
   source: Source = 'other';
   /** The rows' viewport height, px. */
   viewport = 0;
+  /** A drag starts (true) or ends (false). */
+  onDrag: (dragging: boolean) => void = () => {};
 
   private lastInput = { source: 'other' as Source, at: -Infinity };
   private pointerOnBar = false;
   private touching = false;
   private idleTimer = 0;
+  private dragging = false;
+  private dragTimer = 0;
+  /** A track press jumped the thumb: the browser's own paging for that press
+   *  moves nothing until the scroller rests or another input comes. */
+  private jumped = false;
+  /** The pointer is held after a track press jumped the thumb: where on the
+   *  thumb it holds it, for browsers that leave the drag to the page. */
+  private grab: number | null = null;
+  private shiftHeld = false;
   private readonly listeners = new Set<(v: number, scrolling: boolean) => void>();
   private readonly scroller: HTMLElement;
   private readonly spacer: HTMLElement;
@@ -85,11 +110,20 @@ export class ScaledScroller {
     window.addEventListener('pointerup', this.onPointer, { capture: true });
     window.addEventListener('pointercancel', this.onPointer, { capture: true });
     window.addEventListener('mouseup', this.onPointer, { capture: true });
+    window.addEventListener('keydown', this.onShift, { capture: true });
+    window.addEventListener('keyup', this.onShift, { capture: true });
+    window.addEventListener('blur', this.onShift);
     this.place();
   }
 
   destroy(): void {
     clearTimeout(this.idleTimer);
+    clearTimeout(this.dragTimer);
+    this.endGrab();
+    this.scroller.removeEventListener('wheel', this.onShiftWheel);
+    window.removeEventListener('keydown', this.onShift, { capture: true });
+    window.removeEventListener('keyup', this.onShift, { capture: true });
+    window.removeEventListener('blur', this.onShift);
     this.scroller.removeEventListener('scroll', this.onScroll);
     this.scroller.removeEventListener('wheel', this.onWheel);
     this.scroller.removeEventListener('keydown', this.onKey);
@@ -174,7 +208,19 @@ export class ScaledScroller {
     const source = this.currentSource(performance.now());
     this.source = source;
     const step = Math.abs(s - this.s);
-    if (source !== 'bar' && (source === 'wheel' || source === 'key' || source === 'touch' || step <= this.viewport)) {
+    const input = source === 'wheel' || source === 'key' || source === 'touch';
+    // A page step is at most the scroller's height (Chromium's is 87.5% of
+    // it), the header included: in a short scroller it's more than the rows'
+    // viewport. A drag step is more than that wherever the table is scaled
+    // (a thumb pixel is ~9,500 px of scroller here); in a table short enough
+    // for a thumb pixel to be less, a drag right after a jump would be
+    // taken for paging.
+    if (this.jumped && !input && step <= this.scroller.clientHeight) {
+      // The browser paging toward a press the jump already answered
+      // (WebKit pages twice after it): the content stays where it jumped.
+      this.s = s;
+      this.d = this.v - s;
+    } else if (source !== 'bar' && (input || step <= this.viewport)) {
       this.v = clamp(s + this.d, 0, this.total);
       // At either end of the scroller inside an end zone, the content is at
       // its end too, whatever rounding D picked up on the way.
@@ -190,12 +236,34 @@ export class ScaledScroller {
       this.s = s;
       this.v = this.valueFor(s);
       this.d = this.v - s;
+      this.dragMoved();
     }
     this.place();
     this.notify();
   };
 
+  /** A scroll in thumb mode: a drag, until the pointer comes up or no
+   *  scroll arrives for the drag settle (a release can go missing, and a
+   *  resting pointer sends no events). */
+  private dragMoved(): void {
+    if (!this.dragging) {
+      this.dragging = true;
+      this.onDrag(true);
+    }
+    clearTimeout(this.dragTimer);
+    this.dragTimer = window.setTimeout(() => this.endDrag(), this.options.dragSettle);
+  }
+
+  private endDrag(): void {
+    clearTimeout(this.dragTimer);
+    if (!this.dragging) return;
+    this.dragging = false;
+    this.onDrag(false);
+  }
+
   private onIdle = (): void => {
+    // A press still held may page on (WebKit, toward a pointer that moved).
+    if (!this.pointerOnBar) this.jumped = false;
     // At rest, re-anchor fully: the content stays, the thumb moves at most
     // `page / range` of its track.
     if (Math.abs(this.s - this.anchorFor(this.v)) > 0.5) {
@@ -233,9 +301,47 @@ export class ScaledScroller {
     for (const listener of this.listeners) listener(this.v, true);
   }
 
-  private onWheel = (): void => {
+  private onWheel = (event: WheelEvent): void => {
     this.lastInput = { source: 'wheel', at: performance.now() };
+    this.otherInput();
+    // Shift went down while another frame or window had the keys: this
+    // wheel scrolls the rows, the next goes sideways.
+    if (event.shiftKey !== this.shiftHeld) this.setShift(event.shiftKey);
+  };
+
+  /** A wheel, a key, or a touch: none comes from a held thumb, so a drag
+   *  whose release went missing is over. */
+  private otherInput(): void {
     this.pointerOnBar = false;
+    this.jumped = false;
+    this.endGrab();
+    this.endDrag();
+  }
+
+  /** Shift held: a vertical wheel scrolls sideways (the tall table's
+   *  `on_scroll_wheel`), where the platform hasn't already turned it (a
+   *  Mac turns a mouse's; a trackpad sends its own sideways deltas).
+   *  Listening without `passive` makes the browser wait for the page before
+   *  scrolling, so the listener is there only while Shift is down. */
+  private onShift = (event: Event): void => {
+    this.setShift(event.type !== 'blur' && (event as KeyboardEvent).shiftKey);
+  };
+
+  private setShift(held: boolean): void {
+    if (held === this.shiftHeld) return;
+    this.shiftHeld = held;
+    if (held) this.scroller.addEventListener('wheel', this.onShiftWheel, { passive: false });
+    else this.scroller.removeEventListener('wheel', this.onShiftWheel);
+  }
+
+  private onShiftWheel = (event: WheelEvent): void => {
+    // An event the browser won't let the page cancel scrolls the rows, as
+    // the browser does (WebKit, in the frame Shift went down: it hasn't
+    // seen the listener yet); sideways as well would scroll both ways.
+    if (!event.shiftKey || event.deltaX !== 0 || event.deltaY === 0 || !event.cancelable) return;
+    event.preventDefault();
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? this.options.rowHeight : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? this.scroller.clientWidth : 1;
+    this.scroller.scrollBy({ left: event.deltaY * unit, behavior: 'instant' });
   };
 
   /** The contender's keys (`docs/dom-scroll-model.md`): ↑/↓ a row, Page
@@ -251,7 +357,8 @@ export class ScaledScroller {
       return;
     }
     if (event.altKey || event.ctrlKey || event.metaKey) return;
-    const screen = this.viewport;
+    // A screen less a row (the tall table's `page_rows`), at least a row.
+    const screen = Math.max(this.viewport - this.options.rowHeight, this.options.rowHeight);
     const step =
       event.key === 'ArrowDown' ? this.options.rowHeight
       : event.key === 'ArrowUp' ? -this.options.rowHeight
@@ -261,31 +368,114 @@ export class ScaledScroller {
     if (step === 0) return;
     event.preventDefault();
     this.lastInput = { source: 'key', at: performance.now() };
-    this.pointerOnBar = false;
+    this.otherInput();
     this.scroller.scrollBy({ top: step, behavior: 'instant' });
   };
 
   private onTouch = (event: TouchEvent): void => {
     this.touching = event.type === 'touchstart';
     this.lastInput = { source: 'touch', at: performance.now() };
-    this.pointerOnBar = false;
+    this.otherInput();
   };
 
-  /** Whether (x, y) is on the vertical scrollbar. Overlay scrollbars take
-   *  no layout width; count the last 16 px. */
-  private inBar(x: number, y: number): boolean {
+  /** Whether a press is on the vertical scrollbar: one the scrollbar takes
+   *  has the scroller itself as its target (a hidden overlay scrollbar lets
+   *  it through to the cells), in the bar's strip above any horizontal bar.
+   *  Overlay scrollbars take no layout width; count the last 16 px. */
+  private onBar(event: MouseEvent): boolean {
+    if (event.target !== this.scroller) return false;
     const rect = this.scroller.getBoundingClientRect();
     const width = this.scroller.offsetWidth - this.scroller.clientWidth || 16;
-    return x >= rect.right - width && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    const bottom = rect.top + this.scroller.clientTop + this.scroller.clientHeight;
+    return event.clientX >= rect.right - width && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY < bottom;
+  }
+
+  /** The thumb as the browser draws it, estimated: its length and its
+   *  offset along the track (the scroller's height above any horizontal
+   *  bar), px. */
+  private thumb(): { track: number; length: number; offset: number } {
+    const track = this.scroller.clientHeight;
+    const length = Math.min(track, Math.max(MIN_THUMB, (track * track) / (this.range + track)));
+    return { track, length, offset: this.range > 0 ? ((track - length) * this.s) / this.range : 0 };
+  }
+
+  /** The s that puts the thumb's start `grab` px above `y` (px down the track). */
+  private sForThumbAt(y: number, grab: number): number {
+    const { track, length } = this.thumb();
+    return track > length ? clamp((y - grab) / (track - length), 0, 1) * this.range : 0;
+  }
+
+  /** A press on the track off the thumb: jump there, the thumb centered on
+   *  the press (the tall table's `press_track`), in this task, so a quick
+   *  release already finds the drag to end. The table then drags the thumb
+   *  it jumped while the press is held; here that's the browser's: Chromium
+   *  grabs it with classic scrollbars, Firefox leaves it to the page
+   *  (`grabMove`), and Chromium's overlay scrollbars and WebKit page on
+   *  toward the pointer instead, which moves nothing (`jumped`). */
+  private pressTrack(event: MouseEvent): void {
+    if (this.range <= 0) return;
+    const y = event.clientY - this.scroller.getBoundingClientRect().top - this.scroller.clientTop;
+    const { track, length, offset } = this.thumb();
+    if (y >= offset - THUMB_SLACK && y <= offset + length + THUMB_SLACK) return;
+    // A classic scrollbar's ends may be arrow buttons (Windows), as long as
+    // the bar is wide: a press there is a line's step, the browser's. (Their
+    // length isn't in the track the thumb is estimated on: a jump there
+    // lands up to a button's length off.)
+    const bar = this.scroller.offsetWidth - this.scroller.clientWidth;
+    if (bar > 0 && (y < bar || y > track - bar)) return;
+    const from = this.scroller.scrollTop;
+    this.scroller.scrollBy({ top: this.sForThumbAt(y, length / 2) - from, behavior: 'instant' });
+    const s = this.scroller.scrollTop;
+    if (s === from) return;
+    this.source = 'bar';
+    this.s = s;
+    this.v = this.valueFor(s);
+    this.d = this.v - s;
+    this.jumped = true;
+    this.grab = length / 2;
+    window.addEventListener('pointermove', this.grabMove, { capture: true, passive: true });
+    this.dragMoved();
+    this.place();
+    this.notify();
+  }
+
+  /** The pointer moves while it holds the thumb a jump put under it, in a
+   *  browser that tells the page (Chromium and WebKit send no moves during a
+   *  scrollbar press): the thumb follows. */
+  private grabMove = (event: PointerEvent): void => {
+    if (this.grab === null || (event.buttons & 1) === 0) {
+      this.endGrab();
+      return;
+    }
+    const y = event.clientY - this.scroller.getBoundingClientRect().top - this.scroller.clientTop;
+    this.scroller.scrollBy({ top: this.sForThumbAt(y, this.grab) - this.scroller.scrollTop, behavior: 'instant' });
+  };
+
+  private endGrab(): void {
+    if (this.grab === null) return;
+    this.grab = null;
+    window.removeEventListener('pointermove', this.grabMove, { capture: true });
   }
 
   /** The pointer down on the scrollbar makes every scroll the thumb's
-   *  until it comes up. A release can go missing (Firefox, past the window;
-   *  or outside a frame), so a wheel, a key, or a touch also ends it: none
-   *  comes from a held thumb. */
+   *  until it comes up, which ends a drag. A release can go missing
+   *  (Firefox, past the window; or outside a frame), so a wheel, a key, or a
+   *  touch also ends it, and so does a drag's settle. */
   private onPointer = (event: MouseEvent): void => {
-    if (event.type === 'pointerdown') this.pointerOnBar = this.inBar(event.clientX, event.clientY);
-    else this.pointerOnBar = false;
+    if (event.type === 'pointerdown') {
+      this.jumped = false;
+      this.endGrab();
+      this.pointerOnBar = this.onBar(event);
+      if (this.pointerOnBar && event.button === 0) {
+        // The table's own press focuses it (the tall table's `press_track`).
+        this.scroller.focus({ preventScroll: true });
+        this.pressTrack(event);
+      }
+    } else {
+      this.pointerOnBar = false;
+      this.endGrab();
+      this.endDrag();
+    }
   };
 }
 

@@ -28,7 +28,7 @@ scroller   native, overflow: auto           s = scrollTop, 0 … M = S − viewp
 - **The thumb:** a step bigger than a screen with no wheel, key, or touch in the last 300 ms, or any scroll while the pointer is down on the scrollbar, maps s to V through `valueFor(s)`. One pixel of thumb travel is ~19,000 px of s, so a drag is never mistaken for a step; no browser event is needed to tell them apart.
 - **The ends are exact:** s pinned at an end inside its zone puts V at that end. The zones (1:1, 1 MiB) mean a wheel event of up to Z near an end is never cut short.
 - **The base row** moves when V is more than W / 4 rows from it, so no transform holds a coordinate past a few thousand rows.
-- **Keys** are the contender's, not the browser's: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen (an instant `scrollBy`, so they stay 1:1 and on the compositor), Home/End with or without Ctrl, and Cmd+↑/↓, set V to an end. Native arrows move 40 px in Chromium, WebKit (under Playwright) doesn't arrow-scroll a focused element at all, and the browser's Ctrl+End runs the scroller to its end, not the content. (`scaled.ts`'s `keys: 'native'` keeps the browser's smooth keys, for measuring a re-anchor mid-animation.)
+- **Keys** are the contender's, not the browser's: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen less a row, as the tall table pages (an instant `scrollBy`, so they stay 1:1 and on the compositor), Home/End with or without Ctrl, and Cmd+↑/↓, set V to an end. Native arrows move 40 px in Chromium, WebKit (under Playwright) doesn't arrow-scroll a focused element at all, and the browser's Ctrl+End runs the scroller to its end, not the content. (`scaled.ts`'s `keys: 'native'` keeps the browser's smooth keys, for measuring a re-anchor mid-animation.)
 
 ## TanStack Virtual over a moving window
 
@@ -36,13 +36,30 @@ scroller   native, overflow: auto           s = scrollTop, 0 … M = S − viewp
 
 ## The drag settle
 
-A scroll in thumb mode loads nothing until no scroll event has arrived for 80 ms (a resting pointer sends none); `pointerup`, where it arrives, ends the drag at once. Chromium, WebKit, and Firefox send `pointerdown` and `pointerup` to the scroller for a press on its scrollbar (Chromium and WebKit no `pointermove` during the drag); a Firefox drag released far below the window can lose its `pointerup` and snap the scroller back to 0. A press on the track pages the content 1:1, as the browser does, where the component jumps to the press: a base-level parity item.
+A scroll in thumb mode is a drag: the model tells the paging (`onDrag` → `TablePaging.startDrag`), and the drag ends at `pointerup`, after 80 ms with no scroll event (the paging's drag settle: a resting pointer sends none, and a release can go missing), or at a wheel, a key, or a touch (none comes from a held thumb). While it lasts, reads wait for the pointer to rest 80 ms, or for the release, as the tall table's do. Chromium, WebKit, and Firefox send `pointerdown` and `pointerup` to the scroller for a press on its scrollbar (Chromium and WebKit no `pointermove` during the drag); a Firefox drag released far below the window can lose its `pointerup` and snap the scroller back to 0.
+
+## The track press
+
+The tall table jumps to a press on its track, the thumb centered on it, and drags that thumb while the press is held; the browser pages toward the press instead, and no browser lets the page cancel that (`preventDefault` on `pointerdown` or `mousedown` changes nothing). So the model jumps first: in the press's `pointerdown` it `scrollBy`s the scroller so the thumb is centered under the pointer and maps the step through the thumb path in the same task (a quick release then ends the drag and loads at once). With the thumb under the pointer the browser has nothing left to page toward, except where noted:
+
+- **On the bar** is a press whose target is the scroller itself, in the bar's strip (its width, or the last 16 px for an overlay scrollbar) above any horizontal bar. A hidden overlay scrollbar (macOS's, until the pointer or a scroll brings it up) lets a press through to the cells, which then isn't the bar's.
+- **The thumb** is estimated, at least 24 px long (the browsers' are 22–26 px at their shortest, which a scaled table's always is); a press within 4 px of it is left to the browser, which grabs it.
+- **Arrow buttons:** a classic scrollbar's ends may be arrow buttons (Windows), so a press within the bar's width of either end is left to the browser, a line's step. Their length isn't taken off the track the thumb is estimated on, so where there are buttons a jump lands up to a button's length off.
+- **The grab after the jump** is the browser's: Chromium grabs the thumb under the pointer with classic scrollbars and pages a little with overlay ones; Firefox sends the page its `pointermove`s, and the model drags the thumb itself; WebKit pages on toward the pointer (twice, after an exact jump). Steps of at most the scroller's height (a browser's page step is at most that; Chromium's is 87.5% of it, more than the rows' viewport in a scroller under 240 px) while the jumped press is held, and until the scroller rests after it, are that paging and move nothing. A drag step is more wherever the table is scaled (a thumb pixel is ~9,500 px of scroller here); in a table short enough for a thumb pixel to be less, a drag right after a jump would be taken for paging. Pointer capture doesn't bring Chromium's or WebKit's moves either. So a press jumps everywhere; a held press then dragged follows the pointer in Chromium (classic scrollbars) and Firefox only.
+
+A press at a fraction of the track lands where the canonical map puts it: at 30% of the track, 27.5% of the rows (the 1:1 end zones), where the tall table, linear, lands at 30%.
+
+## Shift+wheel
+
+Shift turns a vertical wheel sideways, as the tall table does, where the platform hasn't already (macOS turns a mouse's itself; a trackpad sends its own sideways deltas). That needs a listener that can cancel the wheel, and a listener without `passive` makes the browser wait for the page before every scroll, so it's added only while Shift is down. WebKit can't let the page cancel a wheel in the frame Shift went down (it hasn't seen the listener yet): that one scrolls the rows, as the browser would. Shift pressed while another frame or window had the keys (the observatory page around the contender's frame) is seen on the first wheel, which scrolls the rows; the next goes sideways.
 
 ## Scripting it
 
 - **Drive a native scroller with raw `page.mouse.wheel` deltas.** Under Chromium's DPR 2 emulation the page's `deltaY` is half Playwright's delta, but a native scroller moves the whole of it, so the harness's `wheel()` (which doubles the delta for GPUI's listeners) scrolls the DOM side twice as far.
 - **A fling of equal events reaches the end; the harness's `fling()` doesn't.** Its catch-up last event (up to ~4.4 M px) is clamped by the scroller's room. Firefox clamps every event to a page, so no scripted fling crosses the table there.
 - **Headless browsers hide the scrollbar:** Playwright launches Chromium with `--hide-scrollbars`, and headless Firefox has only overlay scrollbars of no width. `spike/input.ts`'s `openWithScrollbars` turns Chromium's off; Firefox's drag needs a headed Firefox with `ui.useOverlayScrollbars: 0`.
+- **An overlay scrollbar takes a press only while it's shown** (Chromium and WebKit on macOS): bring it up with a wheel there and back, a frame apart, and the pointer over it (`perf/tanstack-parity.ts`'s `showBar`), or the press lands on the cells; it can still fade out before the press (`downOnBar` checks the press's target and tries again).
+- **WebKit's scripted wheel can take ~80 ms to arrive**, as long as the drag settle, so a wheel meant to land inside a drag may arrive after it ended; a key arrives at once.
 
 ## Size
 

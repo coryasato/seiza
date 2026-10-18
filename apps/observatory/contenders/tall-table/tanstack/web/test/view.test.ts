@@ -1,19 +1,20 @@
 /**
  * The view's pure parts: the columns laid out at the widths and budgets
- * `cells.json` pins (the GPUI contender's), and a short page's missing
- * rows shown as missing, not as NULLs.
+ * `cells.json` pins (the GPUI contender's), a short page's missing rows
+ * shown as missing, not as NULLs, and the tooltip's text.
  */
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { tableFromArrays, tableToIPC } from 'apache-arrow';
-import { shownRow } from '../src/cells.ts';
+import { cellTooltip, shownRow } from '../src/cells.ts';
 import { ArrowPage, columnKind } from '../src/data/table.ts';
 import { gutterWidth, layOut } from '../src/layout.ts';
 
 const cells = JSON.parse(readFileSync(new URL('../../../../../../../components/tall-table/fixtures/cells.json', import.meta.url), 'utf8')) as {
   columns: { name: string; kind: string; width: number; budget: number }[];
+  rounding: { column: string; value: string; exact: string; shown: string }[];
 };
 
 test('float columns at the pinned widths and budgets', () => {
@@ -51,4 +52,31 @@ test("a short page's missing rows are missing, not NULL", () => {
   // Past its end: no text at all.
   assert.deepEqual(shownRow({ kind: 'loaded', page, index: 2 }, columns), { kind: 'loaded', cells: [null, null] });
   assert.deepEqual(shownRow({ kind: 'pending' }, columns), { kind: 'pending' });
+});
+
+test("the tooltip's text: a rounded float's exact text, text's line breaks, capped", () => {
+  // Every rounding case the cell fixture pins: the cell differs, the
+  // tooltip holds the exact text.
+  assert.ok(cells.rounding.length > 0);
+  for (const pinned of cells.rounding) {
+    const column = layOut({ name: pinned.column, type: 'DOUBLE', kind: 'float' });
+    const tooltip = cellTooltip(column, Number(pinned.value));
+    assert.deepEqual(tooltip, { text: pinned.exact, differs: pinned.exact !== pinned.shown }, `${pinned.column} ${pinned.value}`);
+  }
+  const text = layOut({ name: 'full_name', type: 'VARCHAR', kind: 'text' });
+  // A float that fits, an integer, and plain text: the same as the cell
+  // (a cut is the drawn cell's to tell).
+  assert.deepEqual(cellTooltip(layOut({ name: 'H', type: 'DOUBLE', kind: 'float' }), 3.25), { text: '3.25', differs: false });
+  assert.deepEqual(cellTooltip(layOut({ name: 'spkid', type: 'BIGINT', kind: 'integer' }), 20000004n), { text: '20000004', differs: false });
+  assert.deepEqual(cellTooltip(text, '4 Vesta (A807 FA)'), { text: '4 Vesta (A807 FA)', differs: false });
+  // Line breaks: shown on one line, whole in the tooltip.
+  assert.deepEqual(cellTooltip(text, 'a\r\nb\nc'), { text: 'a\r\nb\nc', differs: true });
+  // NULL and a missing cell: none.
+  assert.equal(cellTooltip(text, null), null);
+  assert.equal(cellTooltip(text, undefined), null);
+  // At most 2,000 characters (code points), then an ellipsis.
+  const long = cellTooltip(text, '😀'.repeat(2001))!;
+  assert.equal([...long.text].length, 2001);
+  assert.ok(long.text.endsWith('😀…'));
+  assert.equal(cellTooltip(text, '😀'.repeat(2000))!.text, '😀'.repeat(2000));
 });
