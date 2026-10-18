@@ -83,6 +83,26 @@ tanstack-view *args:
 tanstack-parity *args:
     node {{app_dir}}/perf/tanstack-parity.ts {{args}}
 
+# The TanStack contender on its release build: its prerendered first
+# screen hydrated in place, first usable confirmed by the probe key (and its
+# control: a key before the hydration commit changes nothing), and the
+# contract (marks in order, the engine started after first paint and
+# usable, each filled mark's cells painted right after it, state, targets,
+# and Element Timing only with ?measure, the replay hooks, the marks
+# relayed from a frame), in Chromium. --label writes perf/results/. Needs
+# `just observatory data`; run `just observatory tanstack-build` first.
+tanstack-contract *args:
+    node {{app_dir}}/perf/tanstack-contract.ts {{args}}
+
+# The TanStack contender's JS from its release build, brotli: the
+# first-paint JS (the entry and its static imports) and the data layer with
+# Arrow (after first paint), each against perf/baseline.json (--check), and
+# the engine's chunk, CSS, and HTML recorded. --label writes perf/results/;
+# --write-baseline records both in perf/baseline.json. Run `just
+# observatory tanstack-build` first.
+tanstack-sizes *args:
+    node {{app_dir}}/perf/tanstack-sizes.ts {{args}}
+
 # The pinned DuckDB extensions into the TanStack contender's public/duckdb/.
 tanstack-extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{tanstack_web}}/public duckdb
@@ -110,16 +130,19 @@ sizes *args:
 # against the first frame; the file opened, the last row equal to count(*),
 # and the contract published; the TanStack contender's build and the engine
 # files both load, with their controls; then the fixtures. Needs `just
-# observatory data`. Then the TanStack contender's view: the last row in
-# three browsers, the GPUI contender's column widths, a hidden page; and its
-# parity with the tall table's input, tooltip, and focus.
+# observatory data`. Then the TanStack contender's JS budgets, its view
+# (the last row in three browsers, the GPUI contender's column widths, a
+# hidden page), its contract and first screen, and its parity with the
+# tall table's input, tooltip, and focus.
 check: lint gpui-build tanstack-build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
+    node {{app_dir}}/perf/tanstack-sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
     node {{app_dir}}/perf/placeholder.ts
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
     node {{app_dir}}/perf/tanstack-view.ts --gpui
+    node {{app_dir}}/perf/tanstack-contract.ts
     node {{app_dir}}/perf/tanstack-parity.ts
 
 # Cold load of the GPUI contender's release build (reference + throttled,
@@ -209,7 +232,8 @@ data-read *args:
 # The throwaway scroll spike (spike/: fake rows, no DuckDB): builds its page
 # and drives it in Chromium, Firefox, and WebKit, writing
 # perf/results/<date>-<label>-<scenario>.json. Installs spike/'s deps (its
-# own lockfile). --only caps,reach,continuity,bar,tanstack,latency,work,
+# own lockfile). --only caps,reach,continuity,bar,tanstack,plain,latency,work
+# (plain: plain TanStack, a native scroller over the full count, where it stops),
 # --runs, --label, --browsers, --anchors, --variant, --stale, --sessions,
 # --count, --no-build, --out (run.ts lists them). `latency` and `work` also
 # drive Tycho's release build (`just tycho build` first), in Chromium. `spike-sizes`: its JS against React alone (--label).

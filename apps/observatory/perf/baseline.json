@@ -7,5 +7,11 @@
     "reference": 170.5,
     "throttled": 3502.5
   },
-  "wasmBrotliKiB": 2695.4
+  "wasmBrotliKiB": 2695.4,
+  "tanstackJsBrotliKiB": {
+    "date": "2026-10-18",
+    "machine": "local",
+    "firstPaint": 72.1,
+    "dataLayer": 34.7
+  }
 }

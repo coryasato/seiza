@@ -1,0 +1,194 @@
+{
+  "date": "2026-10-18",
+  "label": "m3-d-contract",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "file": {
+    "count": 1567523,
+    "lastKey": "54657680"
+  },
+  "html": {
+    "prerendered": true
+  },
+  "measured": {
+    "marks": {
+      "contender:first-pixels": 51.514999866485596,
+      "contender:usable": 60.299999713897705,
+      "contender:open": 591.585000038147,
+      "filled": 820.835000038147,
+      "input": 119.125
+    },
+    "probeMs": 7.585000038146973,
+    "timing": {
+      "firstScreenPaint": 51.514999866485596,
+      "firstPaint": 51.514999866485596,
+      "dataLayer": 70.43499994277954
+    },
+    "hydratedInPlace": true,
+    "opened": {
+      "rows": 1567523,
+      "top": 0,
+      "first": 0,
+      "end": 28,
+      "loaded": 28,
+      "pending": 0,
+      "lastCell": null,
+      "cacheBytes": 266496
+    },
+    "openPresented": {
+      "latestPaintAfterFilledMs": 13.199999809265137,
+      "missing": 0
+    },
+    "targets": {
+      "table": [
+        108.5,
+        47,
+        1298.5,
+        836
+      ],
+      "table-scroll-track": [
+        1407,
+        17,
+        16,
+        866
+      ],
+      "table-scroll-thumb": [
+        1407,
+        17,
+        16,
+        24
+      ]
+    },
+    "atEnd": {
+      "rows": 1567523,
+      "top": 47024854,
+      "first": 1567495,
+      "end": 1567523,
+      "loaded": 28,
+      "pending": 0,
+      "lastCell": "54657680",
+      "cacheBytes": 328312
+    },
+    "endFilledAfterKeyMs": 33.420000076293945,
+    "endPresented": {
+      "latestPaintAfterFilledMs": 9.75,
+      "missing": 0
+    },
+    "replay": {
+      "jump": {
+        "since": 990.1549997329712,
+        "ms": 35.84000015258789,
+        "state": {
+          "rows": 1567523,
+          "top": 42323100,
+          "first": 1410770,
+          "end": 1410798,
+          "loaded": 28,
+          "pending": 0,
+          "lastCell": null,
+          "cacheBytes": 406384
+        }
+      },
+      "jumpAgain": {
+        "since": 1049.8150000572205,
+        "ms": 1.0699996948242188
+      },
+      "open": {
+        "since": 1051.2399997711182,
+        "ms": 46.80000019073486,
+        "state": {
+          "rows": 1567523,
+          "top": 0,
+          "first": 0,
+          "end": 28,
+          "loaded": 28,
+          "pending": 0,
+          "lastCell": null,
+          "cacheBytes": 87728
+        }
+      },
+      "fling": {
+        "since": 1105.630000114441,
+        "ms": 3023.4849996566772,
+        "state": {
+          "rows": 1567523,
+          "top": 47024854,
+          "first": 1567495,
+          "end": 1567523,
+          "loaded": 28,
+          "pending": 0,
+          "lastCell": "54657680",
+          "cacheBytes": 7103136
+        }
+      }
+    }
+  },
+  "probeControl": {
+    "inputs": 0,
+    "keys": 1,
+    "firstPixels": 55.264999866485596,
+    "usable": 118.06999969482422
+  },
+  "unmeasured": {
+    "side": "tanstack",
+    "state": null,
+    "replay": [
+      "fling",
+      "jump",
+      "open"
+    ],
+    "targets": null,
+    "cellTiming": 0,
+    "inputs": 0,
+    "marks": {
+      "contender:first-pixels": 45.69499969482422,
+      "contender:usable": 38.19999980926514,
+      "contender:open": 531.7849998474121,
+      "contender:filled": 747.5050001144409
+    }
+  },
+  "framed": {
+    "messages": [
+      {
+        "seiza": "mark",
+        "name": "contender:usable",
+        "at": 1792349768890.295
+      },
+      {
+        "seiza": "mark",
+        "name": "contender:first-pixels",
+        "at": 1792349768878.93
+      },
+      {
+        "seiza": "mark",
+        "name": "contender:open",
+        "at": 1792349769379.7249
+      },
+      {
+        "seiza": "mark",
+        "name": "contender:filled",
+        "at": 1792349769598.605
+      }
+    ],
+    "marks": [
+      {
+        "name": "contender:first-pixels",
+        "at": 1792349768878.93
+      },
+      {
+        "name": "contender:usable",
+        "at": 1792349768890.295
+      },
+      {
+        "name": "contender:open",
+        "at": 1792349769379.7249
+      },
+      {
+        "name": "contender:filled",
+        "at": 1792349769598.605
+      }
+    ]
+  },
+  "failures": []
+}

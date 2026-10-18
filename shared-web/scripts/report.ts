@@ -21,7 +21,8 @@
 //     local), so a `headline.<part>.…` or `parts.<part>.…` path takes its
 //     part's; otherwise the file's top-level `url`. A URL on localhost, or
 //     none, is local;
-//   - { "baseline": "a.b" }: that path in perf/baseline.json;
+//   - { "baseline": "a.b" }: that path in perf/baseline.json, dated by the
+//     nearest object on the path with its own `date`, else the file's;
 //   - { "glob": "*-x.json", "path": "a.b" | "sum": [paths], "where": { path: value } }:
 //     the newest local results file matching the glob that has every path.
 //   A path step may be an array index; -1 is the last element.
@@ -165,7 +166,19 @@ class Reporter {
     }
     if ('baseline' in source) {
       const value = at(this.baseline, source.baseline);
-      return value === undefined ? undefined : { value, from: 'baseline.json', date: String(this.baseline.date) };
+      if (value === undefined) return undefined;
+      // Dated by the nearest object on its path with a `date` of its own (a
+      // script that records one entry of a shared baseline), else the file's.
+      const steps = source.baseline.split('.');
+      let date = this.baseline.date;
+      for (let depth = steps.length - 1; depth > 0; depth--) {
+        const own = (at(this.baseline, steps.slice(0, depth).join('.')) as Json | undefined)?.date;
+        if (own !== undefined) {
+          date = own;
+          break;
+        }
+      }
+      return { value, from: 'baseline.json', date: String(date) };
     }
     const paths = source.sum ?? (source.path ? [source.path] : []);
     const where = Object.entries(source.where ?? {});

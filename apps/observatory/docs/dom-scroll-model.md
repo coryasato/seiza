@@ -12,6 +12,13 @@ How the DOM side scrolls 1,567,523 rows of 30 px (47,025,690 px) natively, on th
 
 So a plain native scroller over the full table loses its last ~0.45 M rows in Chromium and WebKit and doesn't scroll at all in Firefox.
 
+**Plain TanStack** (TanStack Virtual over the full count in a native scroller, no scaling: the spike's `?v=plain`, `just observatory spike --only plain`) stops there too. Its spacer asks for 47,025,690 px:
+
+- **Chromium and WebKit** lay it out at 33,554,428 px. End, the scroller pinned at its end, and TanStack's own `scrollToIndex` of the last row all stop at row 1,118,485 (WebKit 1,118,481), 71.4% of the way: the last ~449,000 rows can't be reached, and nothing says so.
+- **Firefox** lays it out at 0 px, so the scroller's room is only the rows TanStack last drew (positioned rows overflow it). Each End moves a few rows on, to the edge of what's drawn: the three tries reached row 33, then 37, then 161. The table can't be scrolled in any useful sense.
+
+Numbers: [`perf/results/2026-10-18-m3-d-plain.json`](../perf/results/2026-10-18-m3-d-plain.json). That's why the contender scales its scroller (below).
+
 ## The model
 
 ```

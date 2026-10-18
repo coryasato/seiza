@@ -13,7 +13,9 @@ import { flushSync } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ArrowPage, Column } from './data/table.ts';
 import type { TablePaging } from './data/paging.ts';
+import { MARKS, measuring } from '../../../../contract.ts';
 import { cellTooltip, shownRow } from './cells.ts';
+import { TableContract } from './contract.ts';
 import { ROW_HEIGHT, formatCount, gutterWidth, layOut, type LaidOutColumn } from './layout.ts';
 import { SCROLL, ScaledScroller } from './scroll.ts';
 import { CellTooltip } from './tooltip.ts';
@@ -23,15 +25,27 @@ import { CellTooltip } from './tooltip.ts';
 const WINDOW_ROWS = 4096;
 
 export type Load =
-  | { kind: 'waiting'; status: string; failed?: boolean }
+  | { kind: 'waiting'; status: string; failed?: boolean; first?: boolean }
   | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<ArrowPage> };
+
+/** The first screen: the build prerenders it into the page's HTML
+ *  (`vite.config.ts`), and the page hydrates it. */
+export const FIRST_SCREEN: Load = { kind: 'waiting', status: 'Engine loading…', first: true };
 
 /** `?probe`: the table's paging and scroll model as `__tanstackProbe`, for
  *  the parity check (`perf/tanstack-parity.ts`) to read and log; never in a
- *  measured run. */
-const probing = new URLSearchParams(location.search).has('probe');
+ *  measured run. Read when a table mounts: the build renders the view in
+ *  Node, where there's no `location`. */
+const probing = (): boolean => new URLSearchParams(location.search).has('probe');
 
-export function App({ load }: { load: Load }): ReactNode {
+interface AppProps {
+  load: Load;
+  /** Called in the first commit: the hydration of the prerendered screen. */
+  hydrated?: () => void;
+}
+
+export function App({ load, hydrated }: AppProps): ReactNode {
+  useLayoutEffect(() => hydrated?.(), []);
   return h(
     'div',
     {
@@ -45,18 +59,44 @@ export function App({ load }: { load: Load }): ReactNode {
     },
     load.kind === 'open'
       ? // Keyed by the paging: a new open is a new table, model, and virtualizer.
-        h(Table, { key: load.id, rows: load.rows, columns: load.columns, paging: load.paging })
-      : h('div', { className: `frame status${load.failed ? ' failed' : ''}` }, load.status),
+        h(Table, { key: load.id, open: load.id, rows: load.rows, columns: load.columns, paging: load.paging })
+      : // Element Timing on the first screen's line (only the first: a later
+        // status line, after a reopen, is a new element): its paint is
+        // `contender:first-pixels`.
+        h('div', { className: `frame status${load.failed ? ' failed' : ''}`, elementtiming: load.first ? 'first-screen' : undefined }, load.status),
+    h(ProbeKey),
   );
 }
 
+/**
+ * The probe key (`?measure` only): the first key the page gets changes this
+ * component's state (nothing else renders), and the commit that draws it
+ * marks `contender:input`. The listener is added in the hydration commit,
+ * so a key before it changes nothing: the scripts confirm
+ * `contender:usable` with a key right after it
+ * (`docs/contender-contract.md`, "Marks"). Later keys cost nothing.
+ */
+function ProbeKey(): ReactNode {
+  const [pressed, press] = useReducer(() => true, false);
+  useLayoutEffect(() => {
+    if (!measuring()) return;
+    window.addEventListener('keydown', press, { capture: true, once: true });
+    return () => window.removeEventListener('keydown', press, { capture: true });
+  }, []);
+  useLayoutEffect(() => {
+    if (pressed) performance.mark(MARKS.input);
+  }, [pressed]);
+  return pressed ? h('span', { hidden: true, 'data-probe-key': '' }) : null;
+}
+
 interface TableProps {
+  open: number;
   rows: number;
   columns: Column[];
   paging: TablePaging<ArrowPage>;
 }
 
-function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
+function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactNode {
   const columns = useMemo(() => fileColumns.map(layOut), [fileColumns]);
   const gutter = gutterWidth(rows);
   const width = gutter + columns.reduce((sum, column) => sum + column.width, 0);
@@ -65,7 +105,9 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
   const contentRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<ScaledScroller | null>(null);
   const tooltipRef = useRef<CellTooltip | null>(null);
+  const contractRef = useRef<TableContract | null>(null);
   const [, rerender] = useReducer((count: number) => count + 1, 0);
+  const measured = useMemo(measuring, []);
 
   // Before the virtualizer's own layout effects: it subscribes to the model.
   useLayoutEffect(() => {
@@ -93,7 +135,11 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
       const cell = scroller.querySelector(`.row[data-row="${row}"]`)?.children[column + 1];
       return cell && isCut(cell) ? tooltip.text : null;
     });
-    if (probing) (globalThis as { __tanstackProbe?: unknown }).__tanstackProbe = { paging, model };
+    if (probing()) (globalThis as { __tanstackProbe?: unknown }).__tanstackProbe = { paging, model };
+    const contract = new TableContract(open, paging, model, scroller, columns, gutter, measured);
+    contractRef.current = contract;
+    // Subscribed before the virtualizer, whose render checks.
+    model.subscribe(() => contract.moveStarted());
     // The first viewport is the open's: it loads the first pages.
     paging.setViewportRows(model.viewport / ROW_HEIGHT);
     const unsubscribe = model.subscribe((v) => paging.moveTopTo(v / ROW_HEIGHT));
@@ -105,6 +151,8 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
     scroller.focus({ preventScroll: true });
     rerender();
     return () => {
+      contractRef.current?.destroy();
+      contractRef.current = null;
       resized.disconnect();
       unsubscribe();
       tooltipRef.current?.destroy();
@@ -112,7 +160,15 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
       model.destroy();
       modelRef.current = null;
     };
-  }, [rows, paging, columns]);
+  }, [open, rows, paging, columns, gutter, measured]);
+
+  // The contract after each commit, and after each move that rendered
+  // nothing (the rows were drawn already). Subscribed after the
+  // virtualizer, whose subscriber renders first.
+  useLayoutEffect(() => contractRef.current?.check());
+  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, rows, paging, columns, gutter, measured]);
+  // The table gone (a new open replaced it): its reads and timers stop.
+  useEffect(() => () => paging.close(), [paging]);
 
   // A page landed under a rested pointer: once its rows are drawn, its
   // tooltip is decided. Not after every render: a fling forces many.
@@ -179,6 +235,7 @@ function Table({ rows, columns: fileColumns, paging }: TableProps): ReactNode {
             failed: state.kind === 'failed' ? state.message : null,
             columns,
             gutter,
+            measured,
           });
         })
     : [];
@@ -225,23 +282,28 @@ interface RowProps {
   failed: string | null;
   columns: LaidOutColumn[];
   gutter: number;
+  /** `?measure`: loaded cells carry `elementtiming`, so their paint is
+   *  reported (`docs/contender-contract.md`, "Reading the metrics"). */
+  measured: boolean;
 }
 
-const Row = memo(function Row({ row, top, page, index, failed, columns, gutter }: RowProps): ReactNode {
+const Row = memo(function Row({ row, top, page, index, failed, columns, gutter, measured }: RowProps): ReactNode {
   const shown = shownRow(page ? { kind: 'loaded', page, index } : failed !== null ? { kind: 'failed', message: failed } : { kind: 'pending' }, columns);
   let cells: ReactNode;
   if (shown.kind === 'failed') {
     cells = h('div', { className: 'failed', style: { left: gutter } }, `Couldn't load these rows: ${shown.message}`);
   } else if (shown.kind === 'pending') {
+    // Keyed apart from the loaded cells, so a row that loads gets new cells,
+    // which Element Timing reports: it never reports a cell changed in place.
     cells = columns.map((column) =>
-      h('div', { key: column.name, className: `cell pending ${column.align}`, style: { width: column.width } }, h('div', { className: 'bar' })),
+      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width } }, h('div', { className: 'bar' })),
     );
   } else {
     cells = columns.map((column, index) => {
       const cell = shown.cells[index] ?? null;
       return h(
         'div',
-        { key: column.name, className: `cell ${column.align}${cell?.muted ? ' null' : ''}`, style: { width: column.width } },
+        { key: column.name, className: `cell ${column.align}${cell?.muted ? ' null' : ''}`, style: { width: column.width }, elementtiming: measured ? `row:${row}` : undefined },
         cell?.text,
       );
     });

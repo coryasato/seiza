@@ -169,6 +169,7 @@ export class TablePaging<P extends Page> {
 
   /** Cancels every read still out; nothing loads after. */
   close(): void {
+    if (this.closed) return;
     this.closed = true;
     for (const request of this.cache.requests()) this.source.cancel(request);
     for (const timer of [this.dragSettle, this.scrollSettle]) if (timer !== null) this.clock.clearTimeout(timer);

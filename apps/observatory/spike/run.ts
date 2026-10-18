@@ -1,7 +1,7 @@
 // Drives the spike page in Chromium, Firefox, and WebKit and writes what it
 // found to ../perf/results/<date>-<label>-<scenario>.json.
 //
-//   node apps/observatory/spike/run.ts [--only caps,reach,continuity,bar,tanstack,latency,work] [--runs 10] [--label spike] [--out <dir>]
+//   node apps/observatory/spike/run.ts [--only caps,reach,continuity,bar,tanstack,plain,latency,work] [--runs 10] [--label spike] [--out <dir>]
 //     [--browsers chromium,firefox,webkit] [--anchors set,by] [--variant window|full] [--stale] [--no-build]
 //     [--sessions 3] [--count 10]
 //
@@ -12,6 +12,8 @@
 // bases move). `latency` and `work` (latency.ts) also drive Tycho's release
 // build (`just tycho build` first), Chromium only: --sessions browsers per
 // side, --count inputs of each kind per session; `work` takes --runs.
+// `plain`: plain TanStack (`?v=plain`: the full count in a native scroller,
+// no scaling), where it stops.
 
 import { writeFileSync } from 'node:fs';
 import { build } from 'vite';
@@ -19,7 +21,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from '@playwri
 import { frameRecorder, open, recordedBetween, waitMark, type RecordedFrame } from '../../../shared-web/perf/harness.ts';
 import { flag, machineInfo, option, percentiles } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { nativeFling, nativeWheel, openWithScrollbars, ROW_HEIGHT, steadyFling } from './input.ts';
+import { nativeFling, nativeWheel, openWithScrollbars, ROW_HEIGHT, ROWS, steadyFling } from './input.ts';
 
 const dir = import.meta.dirname;
 const only = option('only')?.split(',') ?? ['caps', 'reach', 'continuity', 'bar', 'tanstack'];
@@ -378,7 +380,49 @@ async function bar() {
   return out;
 }
 
+// Plain TanStack Virtual (the full count, a native scroller, no scaling):
+// how tall its spacer lays out, how far the scroller goes, and the last row
+// that End, the scroller pinned at its end, and TanStack's own
+// `scrollToIndex(last)` each show.
+async function plain() {
+  const out: Record<string, unknown> = {};
+  for (const [name, engine] of engines) {
+    const { page, close, problems } = await openSpike(engine, { v: 'plain' });
+    const geometry = await page.evaluate(() => {
+      const scroller = document.querySelector('.scroller') as HTMLElement;
+      const spacer = scroller.firstElementChild as HTMLElement;
+      return { asked: Number.parseFloat(spacer.style.height), laidOut: spacer.getBoundingClientRect().height, scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight };
+    });
+    const result: Record<string, unknown> = { rows: ROWS, ...geometry };
+    const settle = () => page.waitForTimeout(500);
+    await page.keyboard.press('End');
+    await settle();
+    result.end = await shown(page);
+    await page.evaluate(() => {
+      const scroller = document.querySelector('.scroller') as HTMLElement;
+      scroller.scrollTop = 1e10;
+    });
+    await settle();
+    result.pinned = await shown(page);
+    await page.evaluate(() => {
+      const spike = (globalThis as { __spike?: { virtualizer?: { scrollToIndex(index: number, options: { align: 'end' }): void } } }).__spike!;
+      spike.virtualizer!.scrollToIndex(1e9, { align: 'end' });
+    });
+    await settle();
+    result.scrollToIndex = await shown(page);
+    const lastShown = Math.max(...(['end', 'pinned', 'scrollToIndex'] as const).map((how) => (result[how] as { last: number }).last));
+    result.lastReachable = lastShown;
+    result.unreachableRows = ROWS - 1 - lastShown;
+    result.problems = problems;
+    console.log(`${name}: spacer ${geometry.asked} px asked, ${geometry.laidOut} laid out, scrollHeight ${geometry.scrollHeight}; last row shown ${lastShown} of ${ROWS - 1} (${ROWS - 1 - lastShown} rows unreachable)`);
+    out[name] = result;
+    await close();
+  }
+  return out;
+}
+
 try {
+  if (only.includes('plain')) save('plain', await plain());
   if (only.includes('caps')) save('caps', await caps());
   if (only.includes('reach')) save('reach', await reach());
   if (only.includes('continuity')) save('continuity', await continuity());

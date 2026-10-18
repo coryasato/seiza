@@ -24,7 +24,7 @@
 // wasm (brotli) by more than limits.gpui.wasmOverBaseline. --write-baseline
 // records this run (both profiles) as the baseline.
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Request } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
@@ -217,7 +217,10 @@ if (!check) {
 if (flag('write-baseline')) {
   const { reference, throttled } = results;
   if (!reference || !throttled) throw new Error('--write-baseline needs both profiles');
-  const baseline: Baseline = { date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB };
+  // Kept: the other entries (the TanStack contender's JS, `tanstack-sizes.ts`,
+  // dated on their own); the top-level date and machine are this run's.
+  const kept = existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, 'utf8')) as object) : {};
+  const baseline: Baseline = { ...kept, date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB };
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(`wrote ${baselinePath}`);
 }

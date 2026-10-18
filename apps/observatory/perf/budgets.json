@@ -17,6 +17,16 @@
         "value": 0.15,
         "what": "`check`: the GPUI contender's wasm (brotli) over the baseline's, as a fraction"
       }
+    },
+    "tanstack": {
+      "firstPaintJsOverBaseline": {
+        "value": 0.1,
+        "what": "`check`: the TanStack contender's first-paint JS (the entry and its static imports, brotli) over perf/baseline.json's, as a fraction"
+      },
+      "dataLayerJsOverBaseline": {
+        "value": 0.1,
+        "what": "`check`: the TanStack contender's after-paint data layer with Arrow (brotli) over perf/baseline.json's, as a fraction"
+      }
     }
   },
   "metrics": [
@@ -81,6 +91,54 @@
           },
           {
             "baseline": "wasmBrotliKiB"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "tanstack-first-paint-js",
+      "label": "TanStack contender: first-paint JS (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.firstPaintJsOverBaseline",
+        "baseline": "tanstackJsBrotliKiB.firstPaint"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes.json",
+            "path": "firstPaintJsBrotliKiB"
+          },
+          {
+            "baseline": "tanstackJsBrotliKiB.firstPaint"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "tanstack-data-layer-js",
+      "label": "TanStack contender: data layer and Arrow, after first paint (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.dataLayerJsOverBaseline",
+        "baseline": "tanstackJsBrotliKiB.dataLayer"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes.json",
+            "path": "dataLayerJsBrotliKiB"
+          },
+          {
+            "baseline": "tanstackJsBrotliKiB.dataLayer"
           }
         ]
       ],

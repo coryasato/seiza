@@ -52,6 +52,8 @@ export const MARKS = {
   open: 'contender:open',
   /** Right after a frame in which every visible row holds real data. */
   filled: 'contender:filled',
+  /** `?measure`: the view handled the probe key (any key) and drew it. */
+  input: 'contender:input',
 } as const;
 
 /** The replay's fling: equal steps, one per frame, top to bottom in ~3 s

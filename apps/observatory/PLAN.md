@@ -52,11 +52,11 @@ React + TanStack Virtual over a DOM grid, on `@seiza/duckdb`. No Wasm of its own
 **Part C: base-level parity**, checked item by item against the component's README. Done 2026-10-18 ([`perf/results/2026-10-18-m3-c.md`](perf/results/2026-10-18-m3-c.md)).
 - [x] Keys (↑/↓, Page Up/Down, Space/Shift+Space, Home/End, Cmd+↑/↓), Shift+wheel sideways, a track press, the drag settle (M1's substitute: thumb mode calls `TablePaging.startDrag`, and 80 ms without a scroll event or a `pointerup` calls `endDrag`; the fixture already pins what the paging does with them, so the check is the input reaching those calls), the tooltip (500 ms rest, 300 ms grace, its text `exactText`), the focus ring. *`just observatory tanstack-parity`, in `check`, all three browsers. Keys: the same 12 presses on both contenders, each a screen less a row of its own viewport (Page Down was a whole screen). Shift+wheel sideways by its delta. A track press jumps, its thumb centered on the press within 0.8 px, loading at the release or after an 80–84 ms rest, nothing moving after; the grab after a jump is the browser's (Chromium classic and Firefox follow the pointer, Chromium overlay and WebKit stay at the jump; `docs/DECISIONS.md`). A drag loads only at a rest or the release; with no release it ends 80–85 ms after its last scroll, and at once on a wheel or key. The tooltip at 502–511 ms, at once within the grace, a cut name whole, placed as GPUI's (screenshots match, light and dark); a rounded float's text unit-tested (the file has none). The ring at open on both, kept on a press outside the table.*
 
-**Part D: the contract and the first screen.**
-- [ ] It publishes M1's contract; Element Timing is set on newly created cells, only during measured runs.
-- [ ] Its first screen is prerendered; first usable is the hydration commit, confirmed by the probe. With a prerendered screen the paint entry `afterFirstPaint` waits for is the HTML's, before hydration: decide whether the engine starts there or after the commit, and record it (the GPUI side starts it after its first frame).
-- [ ] Its JS budgets are in `perf/budgets.json` and gated by `just observatory check`: the first-paint JS (entry and its static imports) and the after-paint data layer with Arrow (31.9 KiB brotli in part A), brotli, from `tanstack-build`'s output. `engine-files` already checks what loads before first paint.
-- [ ] Plain TanStack (a native scroller, no scaling) documented: where it stops, in Chromium and Firefox.
+**Part D: the contract and the first screen.** Done 2026-10-18 ([`perf/results/2026-10-18-m3-d.md`](perf/results/2026-10-18-m3-d.md)).
+- [x] It publishes M1's contract; Element Timing is set on newly created cells, only during measured runs. *`just observatory tanstack-contract`, in `check`. Marks in order: first-pixels at the first screen's Element Timing paint, usable, open, filled. Each filled mark's visible rows have new cells, painted 9.8–15.8 ms after the mark. `state.rows` is `count(*)`, End's `lastCell` is the file's last key, the targets sit in the viewport, and the replay's `jump(0.9)`, `open()`, and `fling()` land where they should. The marks are relayed to a framing parent. Without `?measure`: no state, no targets, and no `elementtiming` (placeholder cells are keyed apart, so a loading row gets new cells either way).*
+- [x] Its first screen is prerendered; first usable is the hydration commit, confirmed by the probe. With a prerendered screen the paint entry `afterFirstPaint` waits for is the HTML's, before hydration: decide whether the engine starts there or after the commit, and record it (the GPUI side starts it after its first frame). *The view renders itself into `index.html` at build; hydration keeps the node. Probe: with `?measure`, the first key, taken into React state, marks `contender:input`, 1.1–10.3 ms after the key. Control: a key while the entry JS was held back left no mark. The engine starts after both the paint and the commit, which land within ~11 ms of each other in either order (`docs/DECISIONS.md`, "TanStack contender").*
+- [x] Its JS budgets are in `perf/budgets.json` and gated by `just observatory check`: the first-paint JS (entry and its static imports) and the after-paint data layer with Arrow (31.9 KiB brotli in part A), brotli, from `tanstack-build`'s output. `engine-files` already checks what loads before first paint. *`just observatory tanstack-sizes --check`, in `check`: first-paint 72.1 KiB (up 1.6 for this part), data layer with Arrow 34.7 KiB, each at most 10% over `perf/baseline.json`'s.*
+- [x] Plain TanStack (a native scroller, no scaling) documented: where it stops, in Chromium and Firefox. *`docs/dom-scroll-model.md`, "Plain TanStack" (`just observatory spike --only plain`). Chromium stops at row 1,118,485 (449,037 rows unreachable) by End, pinned, or `scrollToIndex`; WebKit at 1,118,481. Firefox lays the spacer out at 0 px and reaches only the rows already drawn (row 161 after three tries).*
 
 ---
 
@@ -68,6 +68,7 @@ The "done when" checks are drafts until their milestone becomes active.
 
 **Part A: one metrics module and the scripts.**
 - [ ] One TS module computes every metric from the contenders' marks and traces; the Playwright scripts use it, and so will the page's readouts.
+- [ ] The GPUI contender publishes the probe key (`contender:input` with `?measure`, as the TanStack contender does: `docs/contender-contract.md`), so first usable is confirmed the same way on both sides.
 - [ ] A script per metric runs against either bare contender page.
 
 **Part B: the runs.**
@@ -110,6 +111,8 @@ Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.j
 | GPUI contender: time to first paint | ≤ 187.6 ms (baseline 170.5 + 10%) | `check` | 170.5 ms | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
 | GPUI contender: time to first paint, throttled | — | recorded | 3502.5 ms | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
 | GPUI contender: wasm (brotli) | ≤ 3099.7 KiB (baseline 2695.4 + 15%) | `check` | 2695.4 KiB | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
+| TanStack contender: first-paint JS (brotli) | ≤ 79.3 KiB (baseline 72.1 + 10%) | `check` | 72.1 KiB | — | [2026-10-18-m3-d-tanstack-sizes](perf/results/2026-10-18-m3-d-tanstack-sizes.json) |
+| TanStack contender: data layer and Arrow, after first paint (brotli) | ≤ 38.2 KiB (baseline 34.7 + 10%) | `check` | 34.7 KiB | — | [2026-10-18-m3-d-tanstack-sizes](perf/results/2026-10-18-m3-d-tanstack-sizes.json) |
 <!-- report:plan:end -->
 
 ---

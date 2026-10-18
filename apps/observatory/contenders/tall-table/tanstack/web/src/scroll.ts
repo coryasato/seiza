@@ -5,12 +5,13 @@
  *
  * The spacer is at most 2^24 px tall; the content is `rows × rowHeight`.
  * V is the content's position (0 … T), s the scroller's (0 … M). While the
- * input is a wheel, a key, or a touch, or any step of at most a screen, V
- * moves 1:1 with s (V = s + D, D fixed), so the compositor moves the rows
- * and the main thread only fills them in. Past `page` px of drift from the
- * canonical map, or pinned at an end the content isn't at, the scroller is
- * re-anchored with `scrollBy` in the same task, and fully at rest. A step
- * bigger than a screen that no wheel, key, or touch explains, or any
+ * input is a wheel, a key, a touch, or the replay's `step`, or any step of
+ * at most a screen, V moves 1:1 with s (V = s + D, D fixed), so the
+ * compositor moves the rows and the main thread only fills them in. Past
+ * `page` px of drift from the canonical map, or pinned at an end the
+ * content isn't at, the scroller is re-anchored with `scrollBy` in the
+ * same task, and fully at rest. A step bigger than a screen that no wheel,
+ * key, or touch explains, or any
  * scroll while the pointer is down on the scrollbar, is the thumb: s maps
  * to V through the canonical map.
  *
@@ -23,7 +24,7 @@
  * the rows' viewport is its client height less the header.
  */
 
-export type Source = 'wheel' | 'key' | 'touch' | 'bar' | 'other';
+export type Source = 'wheel' | 'key' | 'touch' | 'replay' | 'bar' | 'other';
 
 export interface ScrollOptions {
   rows: number;
@@ -183,6 +184,34 @@ export class ScaledScroller {
     this.notify();
   }
 
+  /** A scripted step of `dy` px (the replay's fling): 1:1, as a wheel's,
+   *  through the scroller's position, since a script-made wheel event never
+   *  scrolls a native scroller. */
+  step(dy: number): void {
+    this.lastInput = { source: 'replay', at: performance.now() };
+    this.otherInput();
+    this.scroller.scrollBy({ top: dy, behavior: 'instant' });
+  }
+
+  /** The vertical scrollbar's track and thumb, CSS px in the viewport, as
+   *  `[x, y, width, height]` (the thumb estimated as the browser draws it;
+   *  an overlay scrollbar's strip counted 16 px wide). */
+  scrollbar(): { track: number[]; thumb: number[] } {
+    const { left, top, width, bottom } = this.barStrip();
+    const { length, offset } = this.thumb();
+    return { track: [left, top, width, bottom - top], thumb: [left, top + offset, width, length] };
+  }
+
+  /** The vertical scrollbar's strip, viewport px: its width (an overlay
+   *  scrollbar takes none in layout: the last 16 px), from the scroller's
+   *  top to its client bottom, above any horizontal bar. */
+  private barStrip(): { left: number; right: number; top: number; bottom: number; width: number } {
+    const rect = this.scroller.getBoundingClientRect();
+    const width = this.scroller.offsetWidth - this.scroller.clientWidth || 16;
+    const top = rect.top + this.scroller.clientTop;
+    return { left: rect.right - width, right: rect.right, top, bottom: top + this.scroller.clientHeight, width };
+  }
+
   private measure(): void {
     const { rows, rowHeight, head, spacer } = this.options;
     this.viewport = Math.max(0, this.scroller.clientHeight - head);
@@ -208,7 +237,7 @@ export class ScaledScroller {
     const source = this.currentSource(performance.now());
     this.source = source;
     const step = Math.abs(s - this.s);
-    const input = source === 'wheel' || source === 'key' || source === 'touch';
+    const input = source === 'wheel' || source === 'key' || source === 'touch' || source === 'replay';
     // A page step is at most the scroller's height (Chromium's is 87.5% of
     // it), the header included: in a short scroller it's more than the rows'
     // viewport. A drag step is more than that wherever the table is scaled
@@ -384,10 +413,8 @@ export class ScaledScroller {
    *  Overlay scrollbars take no layout width; count the last 16 px. */
   private onBar(event: MouseEvent): boolean {
     if (event.target !== this.scroller) return false;
-    const rect = this.scroller.getBoundingClientRect();
-    const width = this.scroller.offsetWidth - this.scroller.clientWidth || 16;
-    const bottom = rect.top + this.scroller.clientTop + this.scroller.clientHeight;
-    return event.clientX >= rect.right - width && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY < bottom;
+    const strip = this.barStrip();
+    return event.clientX >= strip.left && event.clientX <= strip.right && event.clientY >= strip.top && event.clientY < strip.bottom;
   }
 
   /** The thumb as the browser draws it, estimated: its length and its
