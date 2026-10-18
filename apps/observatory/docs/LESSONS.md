@@ -48,3 +48,16 @@ One entry per milestone, written before starting the next one: what surprised us
 - The paging fixture had to drive the state, not the pure page cache: the settle times the observatory added live in the state's timers. GPUI's test app and clock made that cheap (only `advance_clock` moves time), and every hand-worked expectation matched on the first run, which is why each control's failures were listed before trusting it.
 - Splitting one function out of the render loop for a test cost Tycho 219 B until it was inlined back; making the summary queries testable as sent cost 423 B. Test seams aren't free in a size-budgeted wasm, so each was measured.
 - The code review found the cell fixture's generator choosing "longest" values by DuckDB's text for a double, not the table's, and able to drop the hand-written cases on a bad parse. A generator is checked code too.
+
+## M3: The TanStack contender (2026-10-18)
+
+**Results:** [`perf/results/2026-10-17-m3-a.md`](../perf/results/2026-10-17-m3-a.md) (the data layer), [`perf/results/2026-10-17-m3-b.md`](../perf/results/2026-10-17-m3-b.md) (the view), [`perf/results/2026-10-18-m3-c.md`](../perf/results/2026-10-18-m3-c.md) (parity), [`perf/results/2026-10-18-m3-d.md`](../perf/results/2026-10-18-m3-d.md) (the contract and the first screen)
+
+**Surprises:**
+- The cell fixture passed and still didn't pin Rust's rounding. Rust rounds a tie to even where `toFixed` rounds up, and of two equally short texts its `{:?}` takes the upper. The data file never hits either case. A fixture drawn from real data covers only what that data exercises. The port found both cases, and they're now hand-written `rounding` cases.
+- "After first paint" isn't a frame callback: work started from `requestAnimationFrame` went out before Chromium's `first-paint`. And a `display: none` frame reports itself visible but never paints, so waiting for a paint can wait forever.
+- The browser's scrollbar can't be told what to do. No browser lets the page cancel a track press's paging, so parity with the table meant moving the scroller first, in the press's own `pointerdown`. What happens after that differs by browser (WebKit pages twice), and the DOM side keeps those differences rather than drawing its own scrollbar.
+- With a prerendered page, first usable can come before first pixels. Hydration committed before the HTML's paint in about half the runs, so the engine's start waits for both.
+- Element Timing reports an element once, at its first paint, and buffers only 150 entries. Cells that went from placeholder to real in place were invisible to it, so the cells are now keyed by state, measured or not. The reader observes from the page's start.
+- Measurement hooks have to cost the same work as the unmeasured page. The first probe key re-rendered the whole table on every key, but only with `?measure`, which would have inflated exactly the key latencies M4 measures. Two code reviews caught that and eight other bugs in this milestone's last part. The pattern held from M2: review before closing.
+- Plain TanStack in Firefox doesn't sit stuck at the top; it crawls. Its spacer lays out at 0 px, but the drawn rows still overflow the scroller, so each End reaches the edge of the rows last drawn.
