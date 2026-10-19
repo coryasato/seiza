@@ -17,6 +17,12 @@ import mvpModule from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
 import type { FileInfo } from './bridge.ts';
 import { extensionDir } from './extensions.ts';
 
+/** `base`, if it's a path ending in `/`; Vite's `BASE_URL` without one. */
+function extensionBase(base: string = import.meta.env.BASE_URL): string {
+  if (!base.startsWith('/') || !base.endsWith('/')) throw new Error(`extensionBase must be a path that starts and ends with "/"; got "${base}"`);
+  return base;
+}
+
 /** Set when the engine starts loading and when it's open. Rust reads both
  *  (`ENGINE_START_MARK` and `ENGINE_READY_MARK` in `seiza-duckdb`'s
  *  `bridge.rs`) for its events' times; a host's perf scripts can too. */
@@ -54,6 +60,12 @@ export interface EngineOptions {
    * `scripts/extensions.ts` the same name.
    */
   extensionDir?: string;
+  /**
+   * The path the extension directory sits under, ending in `/`: Vite's
+   * `BASE_URL` by default. A host whose builds share one engine path set
+   * apart from their own bases names it here (and serves it there).
+   */
+  extensionBase?: string;
 }
 
 /** The name of the error every call rejects with once DuckDB's worker has
@@ -65,7 +77,7 @@ export const ENGINE_STOPPED = 'EngineStopped';
 export async function startEngine(options: EngineOptions = {}): Promise<Engine> {
   performance.mark(ENGINE_START_MARK);
   // Before anything loads, so a bad name fails here, not at the first LOAD.
-  const extensions = `${import.meta.env.BASE_URL}${extensionDir(options.extensionDir)}`;
+  const extensions = `${extensionBase(options.extensionBase)}${extensionDir(options.extensionDir)}`;
   const bundle = await selectBundle({
     mvp: { mainModule: mvpModule, mainWorker: mvpWorker },
     eh: { mainModule: ehModule, mainWorker: ehWorker },

@@ -5,10 +5,11 @@
    gotchas"); its boxes can. */
 
 /* The UI face GPUI draws with (shared-web/fonts/), so the cells' character
-   budgets fit the same way. */
+   budgets fit the same way: at the site's one font path (contenders/
+   paths.ts, UI_FONT), the file the GPUI contender and the page load. */
 @font-face {
   font-family: 'IBM Plex Sans';
-  src: url('../../../../../../../shared-web/fonts/IBMPlexSans-Regular.ttf') format('truetype');
+  src: url('/fonts/IBMPlexSans-Regular.ttf') format('truetype');
   font-display: swap;
 }
 

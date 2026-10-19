@@ -13,7 +13,8 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
  * It must look like the first frame: whatever the app draws first (a title
  * bar, an empty state), in gpui-kit 0.7.3's default theme, light or dark by
  * `prefers-color-scheme` (`shared/` follows the system until the app says a
- * visitor picked a theme, and a reload follows it again). Each app's check
+ * visitor picked a theme, and a reload follows it again), or by the root's
+ * `data-theme` where the page sets one before it paints. Each app's check
  * (`apps/<app>/perf/placeholder.ts`) compares screenshots of both. TTFP keeps
  * meaning GPUI's first frame; the placeholder's paint is its own metric.
  *
@@ -71,6 +72,13 @@ const SKELETON_KEYFRAMES = (() => {
   return Array.from({ length: 41 }, (_, i) => `${(i * 2.5).toFixed(1)}% { opacity: ${(1 - 0.5 * bounce(i / 40)).toFixed(4)}; }`).join(' ');
 })();
 
+/** The dark theme's colors, by `prefers-color-scheme` or a page that sets
+ *  `data-theme="dark"` on the root (a host page passing its theme to a
+ *  frame); `data-theme="light"` keeps the light ones. */
+const DARK = `--bg: #0a0a0a; --fg: #fafafa; --muted-fg: #a3a3a3; --skeleton: #171717;
+    --title-bar: #171717; --title-bar-top: #111111; --title-bar-border: #262626;
+    --border: #262626; --table: #0a0a0a;`;
+
 /**
  * gpui-kit 0.7.3's default theme and the components the shells use, in CSS.
  * Colors are the default light and dark themes' (`theme/default-theme.json`);
@@ -95,12 +103,9 @@ const PLACEHOLDER_CSS = `
   font: 16px/1.618034 "Seiza Placeholder"; font-synthesis: none;
 }
 @media (prefers-color-scheme: dark) {
-  #${PLACEHOLDER_ID} {
-    --bg: #0a0a0a; --fg: #fafafa; --muted-fg: #a3a3a3; --skeleton: #171717;
-    --title-bar: #171717; --title-bar-top: #111111; --title-bar-border: #262626;
-    --border: #262626; --table: #0a0a0a;
-  }
+  :root:not([data-theme="light"]) #${PLACEHOLDER_ID} { ${DARK} }
 }
+:root[data-theme="dark"] #${PLACEHOLDER_ID} { ${DARK} }
 /* Hidden until its font is loaded: Chrome could paint a frame laid out in the
    fallback font's metrics first, then re-lay it out, and everything jumped. */
 #${PLACEHOLDER_ID}:not(.sz-ready) > * { visibility: hidden; }
@@ -124,9 +129,11 @@ const PLACEHOLDER_CSS = `
    light, .sz-theme-light in dark. */
 #${PLACEHOLDER_ID} .sz-button.sz-theme-light { display: none; }
 @media (prefers-color-scheme: dark) {
-  #${PLACEHOLDER_ID} .sz-button.sz-theme-dark { display: none; }
-  #${PLACEHOLDER_ID} .sz-button.sz-theme-light { display: flex; }
+  :root:not([data-theme="light"]) #${PLACEHOLDER_ID} .sz-button.sz-theme-dark { display: none; }
+  :root:not([data-theme="light"]) #${PLACEHOLDER_ID} .sz-button.sz-theme-light { display: flex; }
 }
+:root[data-theme="dark"] #${PLACEHOLDER_ID} .sz-button.sz-theme-dark { display: none; }
+:root[data-theme="dark"] #${PLACEHOLDER_ID} .sz-button.sz-theme-light { display: flex; }
 
 #${PLACEHOLDER_ID} .sz-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 #${PLACEHOLDER_ID} .sz-p-4 { flex: 1; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 16px; }

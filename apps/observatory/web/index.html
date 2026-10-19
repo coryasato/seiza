@@ -3,21 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
-    <title>Observatory</title>
+    <title>Observatory · seiza</title>
     <!-- No favicon yet; an empty one saves a 404 on every load. -->
     <link rel="icon" href="data:," />
     <meta name="description" content="seiza's comparison page: GPU-drawn WebAssembly components against DOM equivalents, measured over a session of use." />
-    <style>
-      body { margin: 0; padding: 32px 16px; font: 16px/1.5 system-ui, sans-serif; background: #fff; color: #0a0a0a; }
-      @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } }
-      main { max-width: 40rem; margin: 0 auto; }
-    </style>
   </head>
   <body>
-    <main>
-      <h1>Observatory</h1>
-      <p>Coming: the tall table, drawn by GPUI from WebAssembly, against React + TanStack Virtual, on the same engine and data, measured over a session of use.</p>
-    </main>
+    <div id="root"></div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

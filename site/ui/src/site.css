@@ -1,0 +1,83 @@
+/* The site's stylesheet: Tailwind v4, the tokens, and the face. A page's
+   own CSS imports this, then adds `@source` for its own files:
+
+     @import '@seiza/site-ui/site.css';
+     @source './';
+
+   shadcn's Tailwind mapping (`@theme inline`), so the components' classes
+   (`bg-primary`, `text-muted-foreground`, …) read the tokens. */
+
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* The shell's and the components' classes. */
+@source './';
+
+/* `.dark` on <html> (theme.ts), not the media query: the toggle decides. */
+@custom-variant dark (&:is(.dark *));
+
+/* IBM Plex Sans, the face the contenders draw with (root CLAUDE.md, rule
+   1: one UI face), at the one path every build on the apex shares, so it's
+   cached across them. Only Regular is bundled: weights don't synthesize. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@theme inline {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-series-gpui: var(--series-gpui);
+  --color-series-tanstack: var(--series-tanstack);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  :root {
+    color-scheme: light;
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-synthesis: none;
+  }
+}

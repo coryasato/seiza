@@ -58,10 +58,18 @@ impl Host {
     pub fn new(data_url: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let engine = cx.observe_global_in::<EngineStatus>(window, |this, window, cx| {
             #[cfg(target_family = "wasm")]
-            if matches!(this.load, Load::Waiting)
-                && matches!(cx.global::<EngineStatus>(), EngineStatus::Ready { .. })
             {
-                this.open(window, cx);
+                if matches!(this.load, Load::Waiting)
+                    && matches!(cx.global::<EngineStatus>(), EngineStatus::Ready { .. })
+                {
+                    this.open(window, cx);
+                }
+                if matches!(
+                    cx.global::<EngineStatus>(),
+                    EngineStatus::Failed(_) | EngineStatus::Stopped(_)
+                ) {
+                    crate::contract::failed();
+                }
             }
             #[cfg(not(target_family = "wasm"))]
             let _ = (this, window);
@@ -143,6 +151,7 @@ impl Host {
                             for request in sent.borrow().iter() {
                                 engine.cancel(*request);
                             }
+                            crate::contract::failed();
                             Load::Failed(error.to_string().into())
                         }
                     };

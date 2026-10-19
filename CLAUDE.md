@@ -8,7 +8,9 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
-- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Being built: its data file is served at seiza.io, its GPUI contender and the TanStack contender's data layer build locally; no page yet.
+- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). Being built: its data file is served at seiza.io; the page and both contenders build and run locally, not deployed yet.
+
+The apex site (seiza.io: the observatory's page now, a landing page later) shares one shell, `site/ui/` ("The apex site" below).
 
 ---
 
@@ -77,17 +79,19 @@ seiza/
   Cargo.toml            # workspace; pins gpui-kit; release profile
   Cargo.lock            # committed; pins the whole gpui family
   rust-toolchain.toml   # dated nightly + wasm32 target
-  package.json          # npm workspaces: shared-web, apps/*/web
+  package.json          # npm workspaces: shared-web, site/*, engines/*/web, apps/*/web, the contenders' hosts, workers
   tsconfig.base.json    # strict TS settings every host extends
   .gitignore            # target/, node_modules/, .wrangler/, pkg/, dist/, per-app data/raw, generated data, perf/results/raw
   shared/               # crate `seiza`: wasm bootstrap, the window root (first-frame mark, system theme), perf panel (`panel`), page clock and marks, script targets
-  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP), placeholder.ts (static shell before the wasm), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts, perf/ (the perf harness every app's scripts share)
+  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP, preview brotli, serveDirs: a directory at a fixed path, serveFonts), font.ts (the fonts' fixed path, `/fonts/`), placeholder.ts (static shell before the wasm), prerender.ts (a page's first screen into its HTML at build), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts, perf/ (the perf harness every app's scripts share)
+  site/
+    ui/                 # `@seiza/site-ui`: the apex site's shell (navbar, theme toggle, footer), tokens, Tailwind setup, shadcn components on Base UI; README.md, CLAUDE.md
   components/
     tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); README.md, CLAUDE.md, docs/
   engines/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
-    observatory/        # the comparison page: web/ (Vite host under /observatory/), contenders/ (the bare contender pages: tall-table/gpui/, crate `tall-table-gpui`; tall-table/tanstack/, its data layer so far), worker/ (seiza.io; the data by range), data/, perf/, spike/ (throwaway scroll spike), docs/, README.md, CLAUDE.md, PLAN.md, justfile
+    observatory/        # the comparison page: web/ (the page, under /observatory/, in the site's shell), contenders/ (the bare contender pages, under /observatory/contenders/: tall-table/gpui/, crate `tall-table-gpui`; tall-table/tanstack/, React + TanStack Virtual), metrics/, worker/ (seiza.io; the data by range), data/, perf/, spike/ (throwaway scroll spike), docs/, README.md, CLAUDE.md, PLAN.md, justfile
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts
@@ -103,6 +107,16 @@ seiza/
   CLAUDE.md             # this file: repo-wide rules
   justfile              # `just tycho dev`, `just tycho perf`, …
 ```
+
+## The apex site (`site/`)
+
+seiza.io holds more than the observatory: a landing page at `/` (when it ships) and other sections later. Why it's built this way: `docs/DECISIONS.md`, "Repo structure" (the apex site's builds; the apex site and Tycho).
+
+- **`site/ui/` (`@seiza/site-ui`) is the site's shell,** one source for every page on seiza.io: the navbar, the theme toggle, the footer, the token file (`src/tokens.css`), the Tailwind v4 setup (`site.css`, `siteVite()`), and shadcn's components on Base UI. Its markup is React rendered to HTML at build time (a page's prerender, `shared-web`'s `prerender`), so the shell never waits on JS; its behaviors are plain JS (`theme.ts`) with thin React wrappers, so a page without React renders the same markup and calls `bindShell`. Its rules, API, and limits: `site/ui/CLAUDE.md` and `README.md`.
+- **Each page is its own build,** cached and budgeted on its own, joining the shell as a package: the observatory's is `apps/observatory/web/` (its nav and everything below the navbar are the observatory's). `site/landing/` and `site/worker/` (the one Worker for the apex) come when the landing page ships; until then the observatory's Worker serves the apex.
+- **One theme toggle for the apex:** one `localStorage` key (`seiza-theme`), applied by an inline script in each page's `<head>` before first paint; a page that frames others (the observatory's contenders) passes it on.
+- **No UI shared with Tycho** and nothing site-specific in `shared-web/`, which stays app-agnostic. Dependencies run `shared-web/` ← `site/ui/` ← the site's pages. The observatory's contenders never import `site/ui/`: they're bare builds, compared, not part of the site.
+- **Fixed paths every build on the apex shares:** the font at `/fonts/` (`shared-web/fonts/`; the path is `shared-web/src/font.ts`'s, served by its `serveFonts` in dev and preview, staged by the deploy), so it's cached across them.
 
 ## `shared/` and `shared-web/` conventions
 

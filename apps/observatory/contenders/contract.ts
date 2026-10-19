@@ -54,6 +54,9 @@ export const MARKS = {
   filled: 'contender:filled',
   /** `?measure`: the view handled the probe key (any key) and drew it. */
   input: 'contender:input',
+  /** The view shows a failure (the engine didn't load or stopped, the file
+   *  didn't open): no `filled` is coming. */
+  failed: 'contender:failed',
 } as const;
 
 /** Whether the page was opened for measuring (`?measure`). */
@@ -78,6 +81,50 @@ export function publishContender(side: Side, replay: Replay): Contender {
     }).observe({ type: 'mark', buffered: true });
   }
   return contender;
+}
+
+export type Theme = 'light' | 'dark';
+
+/** The page's message to a contender's frame when its theme changes
+ *  (`docs/contender-contract.md`, "Theme"). */
+export interface ThemeMessage {
+  seiza: 'theme';
+  theme: Theme;
+}
+
+/**
+ * Inline in a contender's `<head>` (`contenderBuild` injects it), so it runs
+ * before the first screen paints: `?theme=light|dark` sets the root's
+ * `data-theme`, which the generated `theme.css`, the placeholder, and the
+ * GPUI host's body follow. Without it the page follows the system.
+ */
+export const THEME_SCRIPT = `(() => {
+  const theme = new URLSearchParams(location.search).get('theme');
+  if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+})();`;
+
+/** The theme the page set (`?theme=`, or a message since), or null while
+ *  the contender follows the system. */
+export function pageTheme(): Theme | null {
+  const theme = document.documentElement.dataset.theme;
+  return theme === 'light' || theme === 'dark' ? theme : null;
+}
+
+/**
+ * Follows the page's theme while in its frame: each {@link ThemeMessage}
+ * from the parent (same origin) sets the root's `data-theme`, then calls
+ * `apply` (the GPUI host repaints its canvas in it). Nothing reloads, so
+ * the contender keeps its state.
+ */
+export function followPageTheme(apply: (theme: Theme) => void = () => {}): void {
+  if (window.parent === window) return;
+  window.addEventListener('message', (event: MessageEvent<Partial<ThemeMessage>>) => {
+    if (event.origin !== location.origin || event.source !== window.parent || event.data?.seiza !== 'theme') return;
+    const { theme } = event.data;
+    if (theme !== 'light' && theme !== 'dark') return;
+    document.documentElement.dataset.theme = theme;
+    apply(theme);
+  });
 }
 
 /** Sets mark `to` at the time of each mark named `from` (those already

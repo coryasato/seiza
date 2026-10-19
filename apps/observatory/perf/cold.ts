@@ -30,6 +30,7 @@ import { chromium, type Request } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { firstDrawProbe, waitMark, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { FAST_4G, PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { contenderBase, UI_FONT } from '../contenders/paths.ts';
 import { MARKS, budgetLimits, gpuiWebDir, lastMark, perfDir, problems, protocolContext, serveGpui } from './harness.ts';
 
 const { ttfpOverBaseline, wasmOverBaseline } = budgetLimits(new URL('./budgets.json', import.meta.url))('gpui', ['ttfpOverBaseline', 'wasmOverBaseline']);
@@ -38,8 +39,10 @@ const label = option('label') ?? 'gpui-cold';
 const check = flag('check');
 const baselinePath = join(perfDir, 'baseline.json');
 const PORT = 4311;
-/** What first paint may wait on, by path. */
-const FIRST_PAINT = [/^\/observatory\/$/, /^\/observatory\/assets\/index-[\w-]+\.js$/, /^\/observatory\/assets\/tall_table_gpui_bg-[\w-]+\.wasm$/, /^\/observatory\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
+/** What first paint may wait on, by path: the page, its entry, its wasm,
+ *  and the font (`/fonts/`, outside its base). */
+const BASE = contenderBase('tall-table', 'gpui');
+const FIRST_PAINT = [new RegExp(`^${BASE}$`), new RegExp(`^${BASE}assets/index-[\\w-]+\\.js$`), new RegExp(`^${BASE}assets/tall_table_gpui_bg-[\\w-]+\\.wasm$`), new RegExp(`^${UI_FONT.replaceAll('.', '\\.')}$`)];
 
 interface Run {
   ttfpMs: number;

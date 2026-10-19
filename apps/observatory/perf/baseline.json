@@ -13,5 +13,14 @@
     "machine": "local",
     "firstPaint": 72.1,
     "dataLayer": 34.7
+  },
+  "page": {
+    "date": "2026-10-19",
+    "machine": "local",
+    "firstPaintMs": {
+      "reference": 70.8,
+      "throttled": 437.4
+    },
+    "firstPaintJsBrotliKiB": 78.2
   }
 }

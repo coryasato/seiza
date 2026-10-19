@@ -3,12 +3,13 @@
 //! marks (always), `__contender.state` and the targets (with `?measure`),
 //! the probe key's `contender:input` (with `?measure`), the drawn cells and
 //! the columns' budgets (with `?cells`, for the tall table's cell fixture),
-//! and the entry points the JS host's replay hooks call. The page's other
+//! the page's theme, and the entry points the JS host's replay hooks call. The page's other
 //! marks (`first-pixels`, `usable`) and the `postMessage` relay are the JS
 //! host's (`web/src/main.ts`), from marks the bootstrap already sets.
 
 use std::cell::{Cell, RefCell};
 
+use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::*;
 use js_sys::{Object, Reflect};
 use seiza_tall_table::{CellProbe, ColumnProbe, TallTableEvent, TallTableProbe};
@@ -23,6 +24,8 @@ const OPEN_MARK: &str = "contender:open";
 const FILLED_MARK: &str = "contender:filled";
 /// Right after the frame that drew the probe key (`?measure`).
 const INPUT_MARK: &str = "contender:input";
+/// The host shows a failure: no `contender:filled` is coming.
+const FAILED_MARK: &str = "contender:failed";
 
 /// Whether the page was opened for measuring (`?measure`): only then are
 /// `__contender.state` and the targets published.
@@ -69,6 +72,8 @@ thread_local! {
     static HOST: RefCell<Option<(WeakEntity<Host>, AnyWindowHandle, AsyncApp)>> =
         const { RefCell::new(None) };
     static PROBE_KEY: Cell<ProbeKey> = const { Cell::new(ProbeKey::Waiting) };
+    /// A theme the page sent before the host was installed.
+    static PENDING_THEME: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 /// The probe key (`?measure` only): the first key the window gets.
@@ -104,6 +109,36 @@ pub fn install(host: WeakEntity<Host>, window: AnyWindowHandle, cx: &mut App) {
         .detach();
     }
     HOST.set(Some((host, window, cx.to_async())));
+    if let Some(theme) = PENDING_THEME.take() {
+        apply_theme(&theme, cx);
+    }
+}
+
+/// Applies the page's theme (`"light"` or `"dark"`; anything else, an empty
+/// string included, leaves the window following the system) and stops
+/// following the system, as Tycho's toggle does: a system change mustn't
+/// undo the page's choice.
+pub fn apply_theme(theme: &str, cx: &mut App) {
+    let mode = match theme {
+        "light" => ThemeMode::Light,
+        "dark" => ThemeMode::Dark,
+        _ => return,
+    };
+    seiza::stop_following_system_appearance(cx);
+    // Refreshes every window.
+    Theme::change(mode, None, cx);
+}
+
+/// The page's theme, live (`docs/contender-contract.md`, "Theme"): the JS
+/// host calls it for each theme message after `start`. One that arrives
+/// before the host is installed waits for it.
+#[wasm_bindgen(js_name = setTheme)]
+pub fn set_theme(theme: String) {
+    if HOST.with_borrow(Option::is_none) {
+        PENDING_THEME.set(Some(theme));
+        return;
+    }
+    with_host(move |_, _, cx| apply_theme(&theme, cx));
 }
 
 /// Called from the host's render: marks `contender:input` right after the
@@ -113,6 +148,12 @@ pub fn drew_probe_key() {
         PROBE_KEY.set(ProbeKey::Marked);
         drop(seiza::mark_after_current_task(INPUT_MARK));
     }
+}
+
+/// The host shows a failure (the engine didn't load or stopped, the file
+/// didn't open): marks `contender:failed`.
+pub fn failed() {
+    seiza::marks::mark(FAILED_MARK);
 }
 
 /// The host is opening the file: marks `contender:open`.

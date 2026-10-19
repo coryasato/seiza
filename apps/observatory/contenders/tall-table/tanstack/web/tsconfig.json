@@ -1,4 +1,4 @@
 {
   "extends": "../../../../../../tsconfig.base.json",
-  "include": ["src", "vite.config.ts", "../../../contract.ts", "../../../data.ts", "../../../engine.ts", "../../../../metrics", "../../../../../../shared-web/src"]
+  "include": ["src", "vite.config.ts", "../../../contract.ts", "../../../data.ts", "../../../engine.ts", "../../../paths.ts", "../../../../metrics", "../../../../../../shared-web/src"]
 }

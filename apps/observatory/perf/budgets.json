@@ -7,7 +7,8 @@
     "*-ab-*",
     "*-before*",
     "*-smoke-*",
-    "*-m4-b-usable-loaded.json"
+    "*-m4-b-usable-loaded.json",
+    "*-smoke-page*"
   ],
   "limits": {
     "gpui": {
@@ -28,6 +29,16 @@
       "dataLayerJsOverBaseline": {
         "value": 0.1,
         "what": "`check`: the TanStack contender's after-paint data layer with Arrow (brotli) over perf/baseline.json's, as a fraction"
+      }
+    },
+    "page": {
+      "firstPaintOverBaseline": {
+        "value": 0.2,
+        "what": "`check`: the page's reference first paint (paint timing's `first-paint`, at /observatory/tall-table/) over perf/baseline.json's, as a fraction"
+      },
+      "firstPaintJsOverBaseline": {
+        "value": 0.1,
+        "what": "`check`: the page's first-paint JS (the scripts its routes load and their static imports, brotli) over perf/baseline.json's, as a fraction"
       }
     }
   },
@@ -141,6 +152,74 @@
           },
           {
             "baseline": "tanstackJsBrotliKiB.dataLayer"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "page-first-paint",
+      "label": "Page: first paint (paint timing), /observatory/tall-table/",
+      "unit": "ms",
+      "budget": {
+        "overBaseline": "page.firstPaintOverBaseline",
+        "baseline": "page.firstPaintMs.reference"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-page.json",
+            "path": "firstPaintMs.reference"
+          },
+          {
+            "baseline": "page.firstPaintMs.reference"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "page-first-paint-throttled",
+      "label": "Page: first paint (paint timing), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-page.json",
+            "path": "firstPaintMs.throttled"
+          },
+          {
+            "baseline": "page.firstPaintMs.throttled"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "page-first-paint-js",
+      "label": "Page: first-paint JS (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "page.firstPaintJsOverBaseline",
+        "baseline": "page.firstPaintJsBrotliKiB"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-page.json",
+            "path": "firstPaintJsBrotliKiB"
+          },
+          {
+            "baseline": "page.firstPaintJsBrotliKiB"
           }
         ]
       ],

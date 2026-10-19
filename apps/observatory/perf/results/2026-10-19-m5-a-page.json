@@ -1,0 +1,187 @@
+{
+  "date": "2026-10-19",
+  "label": "m5-a-page",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "page": "/observatory/tall-table/",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "firstPaintJsBrotliKiB": 78.2,
+  "firstPaintMs": {
+    "reference": 70.8,
+    "throttled": 437.4
+  },
+  "fcpMs": {
+    "reference": 70.8,
+    "throttled": 437.4
+  },
+  "hosting": {
+    "theme": {
+      "from": "light",
+      "to": "dark",
+      "gpuiBrightness": [
+        244,
+        22
+      ]
+    },
+    "relayed": 1
+  },
+  "runs": {
+    "reference": [
+      {
+        "firstPaintMs": 81.21500015258789,
+        "fcpMs": 81.21500015258789,
+        "frameCreatedMs": 91.59500026702881,
+        "metricsRequestedMs": 89.22499990463257,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 60.605000019073486,
+        "fcpMs": 60.605000019073486,
+        "frameCreatedMs": 72.99499988555908,
+        "metricsRequestedMs": 70.61499977111816,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 66.35500001907349,
+        "fcpMs": 66.35500001907349,
+        "frameCreatedMs": 78.875,
+        "metricsRequestedMs": 76.6100001335144,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 70.46999979019165,
+        "fcpMs": 70.46999979019165,
+        "frameCreatedMs": 89.99499988555908,
+        "metricsRequestedMs": 87.65999984741211,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 69.67999982833862,
+        "fcpMs": 69.67999982833862,
+        "frameCreatedMs": 91.82000017166138,
+        "metricsRequestedMs": 89.32999992370605,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 76.32499980926514,
+        "fcpMs": 76.32499980926514,
+        "frameCreatedMs": 90.48999977111816,
+        "metricsRequestedMs": 88.21999979019165,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 79.34000015258789,
+        "fcpMs": 79.34000015258789,
+        "frameCreatedMs": 96.25500011444092,
+        "metricsRequestedMs": 94.02999973297119,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 71.21999979019165,
+        "fcpMs": 71.21999979019165,
+        "frameCreatedMs": 86.50500011444092,
+        "metricsRequestedMs": 84.34999990463257,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 63.25,
+        "fcpMs": 63.25,
+        "frameCreatedMs": 76.91999959945679,
+        "metricsRequestedMs": 74.6899995803833,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 82.01500034332275,
+        "fcpMs": 82.01500034332275,
+        "frameCreatedMs": 98.40500020980835,
+        "metricsRequestedMs": 96.25500011444092,
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "firstPaintMs": 433.4850001335144,
+        "fcpMs": 433.4850001335144,
+        "frameCreatedMs": 541.1900000572205,
+        "metricsRequestedMs": 533.1849999427795,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 439.71999979019165,
+        "fcpMs": 439.71999979019165,
+        "frameCreatedMs": 548.4400000572205,
+        "metricsRequestedMs": 537.8099999427795,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 439.93499994277954,
+        "fcpMs": 439.93499994277954,
+        "frameCreatedMs": 562.2799997329712,
+        "metricsRequestedMs": 545.7649998664856,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 440.65000009536743,
+        "fcpMs": 440.65000009536743,
+        "frameCreatedMs": 538.664999961853,
+        "metricsRequestedMs": 530.8250002861023,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 438.93499994277954,
+        "fcpMs": 438.93499994277954,
+        "frameCreatedMs": 544.3649997711182,
+        "metricsRequestedMs": 533.9699997901917,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 435.0950002670288,
+        "fcpMs": 435.0950002670288,
+        "frameCreatedMs": 544.2050004005432,
+        "metricsRequestedMs": 535.7200002670288,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 434.0700001716614,
+        "fcpMs": 434.0700001716614,
+        "frameCreatedMs": 541.8200001716614,
+        "metricsRequestedMs": 531.0199999809265,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 432.4249997138977,
+        "fcpMs": 432.4249997138977,
+        "frameCreatedMs": 539.1999998092651,
+        "metricsRequestedMs": 530.9949998855591,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 435.8550000190735,
+        "fcpMs": 435.8550000190735,
+        "frameCreatedMs": 544.5749998092651,
+        "metricsRequestedMs": 536.6449999809265,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 441.3250002861023,
+        "fcpMs": 441.3250002861023,
+        "frameCreatedMs": 548.4350004196167,
+        "metricsRequestedMs": 540.3000001907349,
+        "problems": []
+      }
+    ]
+  },
+  "failures": []
+}

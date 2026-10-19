@@ -1,0 +1,4 @@
+/* The site's stylesheet (Tailwind, the tokens, the face), and this page's
+   own classes. */
+@import '@seiza/site-ui/site.css';
+@source './';

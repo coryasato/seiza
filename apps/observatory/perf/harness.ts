@@ -8,7 +8,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
-import { MARKS as CONTRACT_MARKS } from '../contenders/contract.ts';
+import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
+import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
 
 /** A script's budgets, from perf/budgets.json (`limits('gpui', [...])`). */
 export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
@@ -16,6 +17,7 @@ export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
 export const perfDir = fileURLToPath(new URL('.', import.meta.url));
 export const gpuiWebDir = fileURLToPath(new URL('../contenders/tall-table/gpui/web', import.meta.url));
 export const tanstackWebDir = fileURLToPath(new URL('../contenders/tall-table/tanstack/web', import.meta.url));
+export const pageWebDir = fileURLToPath(new URL('../web', import.meta.url));
 export const dataFile = fileURLToPath(new URL('../data/asteroids.parquet', import.meta.url));
 
 /** The GPUI contender's wasm (`tall_table_gpui_bg-<hash>.wasm`) and the
@@ -37,18 +39,36 @@ export const MARKS = {
 /**
  * The GPUI contender's release build (web/dist) through `vite preview` on
  * `port`, brotli like production, its data file served by range
- * (`contenders/data.ts`). `url` is the page, under /observatory/.
+ * (`contenders/data.ts`), the engine at /observatory/duckdb/ and the font
+ * at /fonts/ (`contenderBuild`). `url` is the page, at its base
+ * (`contenderBase`).
  */
-export const serveGpui = (port: number): Promise<AppServer> => serveContender('GPUI', gpuiWebDir, port);
+export const serveGpui = (port: number): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port);
 
 /** The TanStack contender's release build, as `serveGpui`. */
-export const serveTanstack = (port: number): Promise<AppServer> => serveContender('TanStack', tanstackWebDir, port);
+export const serveTanstack = (port: number): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port);
 
-async function serveContender(side: 'GPUI' | 'TanStack', webDir: string, port: number): Promise<AppServer> {
-  if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`no ${side} contender build: run \`just observatory ${side.toLowerCase()}-build\` first`);
+async function serveContender(side: Side, webDir: string, port: number): Promise<AppServer> {
+  if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build: run \`just observatory ${side}-build\` first`);
   if (!existsSync(dataFile)) throw new Error('no data file: run `just observatory data` first');
   const server = await serveApp(undefined, { webDir, port });
-  return { ...server, url: `${server.url}observatory/` };
+  return { ...server, url: new URL(contenderBase('tall-table', side), server.url).href };
+}
+
+/**
+ * The page's release build (web/dist) through `vite preview` on `port`,
+ * brotli, with what its frames load as the deploy will serve it: both
+ * contenders' release builds at their bases, the engine, the font, and
+ * the data (`web/vite.config.ts`). `url` is the observatory's root,
+ * `/observatory/`.
+ */
+export async function servePage(port: number): Promise<AppServer> {
+  if (!existsSync(`${pageWebDir}/dist/index.html`)) throw new Error('no page build: run `just observatory build` first');
+  for (const [side, webDir] of [['gpui', gpuiWebDir], ['tanstack', tanstackWebDir]] as const)
+    if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`the page's frames need the ${side} contender's build: run \`just observatory ${side}-build\` first`);
+  if (!existsSync(dataFile)) throw new Error('no data file: run `just observatory data` first');
+  const server = await serveApp(undefined, { webDir: pageWebDir, port });
+  return { ...server, url: new URL(OBSERVATORY, server.url).href };
 }
 
 /** A context per the protocol: 1440×900, DPR 2 with the DPR shim (Chromium). */

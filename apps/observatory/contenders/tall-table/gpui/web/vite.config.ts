@@ -1,9 +1,8 @@
 import { defineConfig } from 'vite';
-import { duckdb } from '@seiza/duckdb/vite';
 import { PLACEHOLDER_ID } from '@seiza/web/placeholder';
 import { seizaViteConfig } from '@seiza/web/vite';
-import { observatoryData } from '../../../data.ts';
 import { contenderBuild } from '../../../engine.ts';
+import { contenderBase, UI_FONT } from '../../../paths.ts';
 
 /**
  * The first frame `crate/src/host.rs` draws: the table's empty frame with
@@ -16,16 +15,16 @@ const firstFrame = `
   <div class="sz-frame sz-text-sm sz-muted" elementtiming="${PLACEHOLDER_ID}">Engine loading…</div>
 </div>`;
 
-// Under /observatory/ (the observatory's CLAUDE.md, rule 2): the engine at
-// /observatory/duckdb/ (its bundles and extensions, `contenderBuild`), the
-// data at /observatory/data/.
+// At /observatory/contenders/tall-table/gpui/ (the observatory's CLAUDE.md,
+// rule 2): the engine at /observatory/duckdb/ (its bundles and extensions,
+// `contenderBuild`), the data at /observatory/data/, the font at /fonts/.
 export default defineConfig(
   seizaViteConfig(
     {
       // What first paint waits on. DuckDB's bundles load after it and must not be listed here.
-      preload: ['tall_table_gpui_bg.wasm', 'IBMPlexSans-Regular.ttf'],
+      preload: ['tall_table_gpui_bg.wasm', UI_FONT],
       placeholder: { body: firstFrame },
     },
-    { base: '/observatory/', plugins: [duckdb({ extensionDir: 'duckdb' }), observatoryData(), contenderBuild()] },
+    { base: contenderBase('tall-table', 'gpui'), plugins: [contenderBuild()] },
   ),
 );

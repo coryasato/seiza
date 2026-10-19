@@ -5,6 +5,7 @@
   "workspaces": [
     "shared-web",
     "engines/*/web",
+    "site/*",
     "apps/*/web",
     "apps/*/contenders/*/*/web",
     "apps/*/worker"

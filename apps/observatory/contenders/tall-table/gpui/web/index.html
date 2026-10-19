@@ -11,10 +11,15 @@
     <style>
       /* GPUI appends its canvas to <body> and sizes it to 100%. The page
          background matches the default GPUI Kit theme so there's no flash
-         of a different color before the first frame. */
+         of a different color before the first frame; it follows the page's
+         `?theme=` as the placeholder does (`THEME_SCRIPT`), color-scheme
+         too, as the TanStack contender's theme.css. */
       html, body { margin: 0; height: 100%; overflow: hidden; }
       body { background: #fff; }
-      @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body { background: #0a0a0a; color: #fafafa; } }
+      :root[data-theme="light"] { color-scheme: light; }
+      :root[data-theme="dark"] { color-scheme: dark; }
+      :root[data-theme="dark"] body { background: #0a0a0a; color: #fafafa; }
       body > canvas { display: block; }
     </style>
   </head>

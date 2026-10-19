@@ -6,9 +6,37 @@ gpui_web := app_dir / "contenders/tall-table/gpui/web"
 tanstack_web := app_dir / "contenders/tall-table/tanstack/web"
 target_dir := root / "target/wasm32-unknown-unknown"
 
-# The page's Vite dev server, with COOP/COEP, at /observatory/.
+page_web := app_dir / "web"
+
+# The page's Vite dev server, with COOP/COEP, at /observatory/ and
+# /observatory/tall-table/. Its frames load the contenders' release builds
+# (`gpui-build`, `tanstack-build` first), with the engine, the font, and
+# the data file.
 dev:
     npm run dev --workspace @seiza/observatory-web
+
+# The page's release build (one prerendered HTML file per route), then
+# asset sizes.
+build:
+    npm run build --workspace @seiza/observatory-web
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{page_web}}/dist
+
+# Serve the page's release build (brotli), its frames' builds, the engine,
+# the font, and the data, as the deploy will.
+preview:
+    npm run preview --workspace @seiza/observatory-web
+
+# The page on its release build, with both contenders in its frames, in
+# Chromium: first paint (paint timing) and its first-paint JS, cold,
+# reference + throttled, median of 10; nothing but its HTML, CSS, entry, and
+# font before first paint, the frame and the metrics module after it; the
+# toggle disabled until the shown contender fills, a flip destroying the
+# frame, ?side=, and the theme into both contenders live. --check: reference
+# only, against perf/baseline.json (perf/budgets.json's limits); --runs,
+# --label, --write-baseline, --reference-only. Run `just observatory
+# gpui-build`, `tanstack-build`, and `build` first.
+page *args:
+    node {{app_dir}}/perf/page.ts {{args}}
 
 # The GPUI contender (contenders/tall-table/gpui/): build its wasm (debug)
 # and start its Vite dev server with COOP/COEP, at /observatory/. Serves the
@@ -133,8 +161,10 @@ sizes *args:
 # observatory data`. Then the TanStack contender's JS budgets, its view
 # (the last row in three browsers, the GPUI contender's column widths, a
 # hidden page), its contract and first screen, and its parity with the
-# tall table's input, tooltip, and focus.
-check: lint gpui-build tanstack-build && fixtures
+# tall table's input, tooltip, and focus. Then the page's build: its
+# first paint and first-paint JS against the baseline, and how it hosts
+# the contenders.
+check: lint gpui-build tanstack-build build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/tanstack-sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
@@ -144,6 +174,7 @@ check: lint gpui-build tanstack-build && fixtures
     node {{app_dir}}/perf/tanstack-view.ts --gpui
     node {{app_dir}}/perf/tanstack-contract.ts
     node {{app_dir}}/perf/tanstack-parity.ts
+    node {{app_dir}}/perf/page.ts --check
 
 # Cold load of the GPUI contender's release build (reference + throttled,
 # median of 10): TTFP checked against its GPU calls, the placeholder's paint,
@@ -268,9 +299,10 @@ report *args:
 # No milestone references outside the history files (check-terms), the
 # generated numbers in the docs, fmt and clippy for the GPUI contender and for
 # `seiza` without `panel`, as the contender builds it (wasm32 and native, with
-# -D warnings), and TypeScript (the web host, the contenders' hosts and
-# the TanStack contender's tests, the Worker and its scripts, perf/, and data/ and spike/
-# once their recipes installed their deps).
+# -D warnings), the site's surface grays against the contenders' theme.css
+# (web/scripts/grays.ts), and TypeScript (site/ui, the page, the
+# contenders' hosts and the TanStack contender's tests, the Worker and its
+# scripts, perf/, and data/ and spike/ once their recipes installed their deps).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cd {{root}} && node shared-web/scripts/report.ts apps/observatory --check
@@ -280,6 +312,8 @@ lint:
     cargo clippy -p tall-table-gpui --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
+    node {{page_web}}/scripts/grays.ts
+    npm run typecheck --workspace @seiza/site-ui
     npm run typecheck --workspace @seiza/observatory-web
     npm run typecheck --workspace @seiza/observatory-tall-table-gpui
     npm run typecheck --workspace @seiza/observatory-tall-table-tanstack

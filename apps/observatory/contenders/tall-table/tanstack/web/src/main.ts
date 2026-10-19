@@ -15,7 +15,8 @@ import { createElement as h } from 'react';
 import { flushSync } from 'react-dom';
 import { hydrateRoot } from 'react-dom/client';
 import { createBridge } from '@seiza/duckdb/bridge';
-import { MARKS, publishContender } from '../../../../contract.ts';
+import { MARKS, followPageTheme, publishContender } from '../../../../contract.ts';
+import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
 import { replay } from './contract.ts';
 import { App, FIRST_SCREEN, type Load } from './view.ts';
 import './theme.css';
@@ -36,9 +37,12 @@ const onHydrated = () => {
 const root = hydrateRoot(document.getElementById('root')!, h(App, { load: FIRST_SCREEN, hydrated: onHydrated }));
 const show = (load: Load) => root.render(h(App, { load, hydrated: onHydrated }));
 
-// The engine's bundles and extensions are served from /observatory/duckdb/ (vite.config.ts).
-const bridge = createBridge({ extensionDir: 'duckdb' });
-const dataUrl = `${import.meta.env.BASE_URL}data/${FILE}`;
+// The page's theme, live: the root's `data-theme`, which theme.css follows.
+followPageTheme();
+
+// The engine's bundles and extensions are served from /observatory/duckdb/ (`contenderBuild`).
+const bridge = createBridge({ extensionDir: ENGINE_DIR, extensionBase: OBSERVATORY });
+const dataUrl = `${DATA}${FILE}`;
 /** Each open's table, by number. */
 let opens = 0;
 /** The open running, if one is: the replay's `open` waits for it. */
@@ -86,6 +90,7 @@ async function openFile(): Promise<number> {
     ready = await startEngine();
   } catch (error) {
     show({ kind: 'waiting', status: `The engine didn't load: ${message(error)}`, failed: true });
+    performance.mark(MARKS.failed);
     throw error;
   }
   const { data, queries, parquet } = ready;
@@ -106,6 +111,7 @@ async function openFile(): Promise<number> {
     return id;
   } catch (error) {
     show({ kind: 'waiting', status: `Couldn't open ${FILE}: ${message(error)}`, failed: true });
+    performance.mark(MARKS.failed);
     throw error;
   }
 }

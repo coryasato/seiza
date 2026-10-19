@@ -4,6 +4,10 @@ What every contender page publishes, so one metrics module (`metrics/metrics.ts`
 
 The GPUI contender builds this from the tall table's events in its host; the TanStack contender from its own view. Names are the same on both sides.
 
+## Where a contender lives
+
+Each contender is a bare page at `/observatory/contenders/<component>/<stack>/` (the tall table's: `…/tall-table/gpui/`, `…/tall-table/tanstack/`), its build's base. What both load sits outside either base, at one path each, so the second to load finds it cached: the engine at `/observatory/duckdb/` (DuckDB-Wasm's bundles and extensions), the data at `/observatory/data/`, the font at `/fonts/`. The list is `contenders/paths.ts`.
+
 ## The measured-run switch
 
 Always published, measured or not: every mark but the probe key's (the page's readouts and the replay hooks need `contender:filled`) and `globalThis.__contender` with `side` and `replay`. `?measure` in the URL adds what only a measurement reads: `__contender.state`, the targets, the probe key, and on the DOM side the `elementtiming` attributes on cells. Without it `state` is null. The cost of publishing is the same kind on both sides (a few property writes per frame).
@@ -22,6 +26,8 @@ Always published, measured or not: every mark but the probe key's (the page's re
 | `contender:open` | The contender starts opening the data file (the engine is ready). | The host's open call. | The same. |
 | `contender:filled` | Right after a frame in which every visible row holds real data, each time the viewport becomes filled (after an open, a jump, a scroll that outran the cache). The first after `contender:open` is time to data. | Set from `TallTableEvent::Filled` with `mark_after_current_task`, so it lands right after the presented frame; checked against the GPU calls, as `tycho:viewport-filled` is. | Set in the commit that makes the visible rows real (or after a move no commit followed, into rows already drawn); its presentation is read from Element Timing on the cells that commit created. |
 | `contender:input` | `?measure` only: the view handled the first key (any key) and committed the state it changed. The probe: a key right after `usable` should set it within two frames of the key's event; a key before `usable` shouldn't. The scripts press `PROBE_KEY` (`x`, a plain key event on both sides: GPUI hears a modifier alone only on its release). | The first key the window gets once `gpui:first-frame` is set (`intercept_keystrokes`, before anything handles it) notifies the host, and the host's next render sets the mark with `mark_after_current_task`, right after that frame's task. Later keys cost one check. | A small component of its own (nothing else re-renders) takes the first key in its state, from a listener added in the hydration commit; the commit that draws it sets the mark, in the key's task. Later keys cost nothing. |
+
+| `contender:failed` | The view shows a failure: the engine didn't load or stopped, or the file didn't open. No `filled` is coming; the page unlocks its toggle on it. | The host's open failing, or `EngineStatus` turning `Failed` or `Stopped`. | The open failing (the engine's start or the file's). |
 
 Marks reach the observatory's page by `postMessage` too: `parent.postMessage({ seiza: 'mark', name, at: performance.timeOrigin + startTime }, location.origin)`, one message per mark, `at` in epoch milliseconds because the page and the iframe have different time origins.
 
@@ -65,6 +71,15 @@ The scripts record `state` with every frame through `shared-web/perf/`'s `frameR
 ## Element Timing on cells (DOM only)
 
 With `?measure`, each loaded cell carries `elementtiming="row:<row>"` (0-based), so the browser reports its first paint. Element Timing reports an element once, when it's first painted, so a row that loads gets new cells: its placeholder cells are keyed apart from its loaded ones, measured or not, and never turn real in place. A reader needs its own `PerformanceObserver` from the page's start (an init script): the entries' buffer holds 150, and one screen of cells is ~330.
+
+## Theme
+
+The page passes its theme in two ways, and a contender follows the system without either, so a bare page's cold runs don't change:
+
+- **`?theme=light|dark`** when the frame loads, applied before the first screen paints: an inline script at the head of the `<head>` (`THEME_SCRIPT`, `contenders/contract.ts`) sets the root's `data-theme`, which the GPUI side's placeholder and body and the TanStack side's `theme.css` follow. The GPUI host reads it as it starts (`start`'s `theme`) and draws its first frame in it.
+- **`{ seiza: 'theme', theme }` by `postMessage`** from the parent (same origin) for every later change (`followPageTheme`): the root's `data-theme` changes, and the GPUI host repaints its canvas in it (the wasm export `setTheme`; before the wasm has started, `start` reads the root's `data-theme`). The frame isn't reloaded, so its state and its warm cache stay. The page sends the theme again at the frame's `load`: a change made while the frame was loading reached no listener.
+
+The GPUI host stops following the system once the page has given a theme (`seiza::stop_following_system_appearance`), as Tycho's toggle does.
 
 ## Replay hooks
 

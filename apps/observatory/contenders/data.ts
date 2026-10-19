@@ -1,6 +1,7 @@
 /**
  * Serves the observatory's data file (`data/`, built by `just observatory
- * data`) under `<base>data/` in a contender's Vite dev and preview servers,
+ * data`) at `/observatory/data/` (`paths.ts`) in a contender's or the page's
+ * Vite dev and preview servers, whatever its base,
  * by byte range, as production's Worker does (`worker/src/index.ts`): a
  * ranged GET or HEAD gets a 206 with Content-Range, no Content-Encoding,
  * `no-cache, no-transform`, and the isolation headers. DuckDB-Wasm reads
@@ -12,6 +13,7 @@ import { createReadStream, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Connect, Plugin } from 'vite';
+import { DATA } from './paths.ts';
 
 const dataDir = fileURLToPath(new URL('../data/', import.meta.url));
 
@@ -24,9 +26,8 @@ const HEADERS = {
 };
 
 export function observatoryData(): Plugin {
-  let prefix = '/data/';
+  const prefix = DATA;
   const serve: Connect.NextHandleFunction = (req, res, next) => {
-    // Middlewares see the URL before Vite strips its base.
     const path = new URL(req.url ?? '/', 'http://x').pathname;
     if (!path.startsWith(prefix)) return next();
     const fail = (status: number, message: string, headers: Record<string, string> = {}) => {
@@ -63,9 +64,8 @@ export function observatoryData(): Plugin {
   };
   return {
     name: 'observatory:data',
-    configResolved(config) {
-      prefix = `${config.base}data/`;
-    },
+    // Before the build's own servers, which answer nothing outside the base.
+    enforce: 'pre',
     configureServer(server) {
       server.middlewares.use(serve);
     },

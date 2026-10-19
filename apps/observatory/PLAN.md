@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page, deployed (parts 0, A–C) | In progress: part 0 done 2026-10-19, part A next |
+| M5 | The observatory page, deployed (parts 0, A–C) | In progress: parts 0 and A done 2026-10-19, part B next |
 | M6 | Split mode | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, part 0 done, part A next. Restate part A's checks at the start of its session.
+M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, parts 0 and A done, part B next. Restate part B's checks at the start of its session.
 
 ---
 
@@ -47,90 +47,15 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 
 **Part 0: how the web builds sit in the repo, explored before part A.** The apex will hold more than the observatory: a landing page at `/` now (deliberately basic: a title, a catchy line, and a link to the observatory; maybe Astro or another zero-JS build later), and other sections later. Options to weigh, each against first paint, caching, and the comparison protocol: one site app for the apex (a Vite multi-page build, base `/`, shared styles and components); the observatory's `web/` on its own with the landing page as a separate static build (simple, cached hard, no shared bundle); or a site directory of its own that the observatory's page joins. Fixed either way: the contenders are separate bare builds, never in any site bundle (root `CLAUDE.md`, "Comparison protocol"), and one Worker serves the apex. The choice is recorded in root `docs/DECISIONS.md` ("Repo structure") before part A, with what it changes: `web/`'s base, the observatory's rule 2, and `/` in the seiza.io WAF rule (`docs/private/zone.md`).
 - [x] The options compared and one chosen, with the landing page's first paint and bytes estimated for each: a `site/` directory, `site/ui/` (the shell) now, the landing page and the apex Worker in `site/` when the landing page ships. Evidence: root `docs/DECISIONS.md`, "Repo structure" (2026-10-19, the apex site's builds: the options, the estimates, the URL map).
-- [x] The site's theme decided: shadcn's Neutral with a sky primary and a blue chart ramp, IBM Plex Sans, one toggle for the apex that reaches into the contenders, and no UI shared with Tycho. Evidence: root `docs/DECISIONS.md`, "Comparison protocol" (2026-10-19, the theme and the toggle) and "Repo structure" (2026-10-19, the apex site and Tycho). The token file, as exported, is below (part A puts it in the site's directory).
+- [x] The site's theme decided: shadcn's Neutral with a sky primary and a blue chart ramp, IBM Plex Sans, one toggle for the apex that reaches into the contenders, and no UI shared with Tycho. Evidence: root `docs/DECISIONS.md`, "Comparison protocol" (2026-10-19, the theme and the toggle) and "Repo structure" (2026-10-19, the apex site and Tycho). The token file, as exported, is in `site/ui/src/tokens.css` (part A).
 
 **Part A: the shell.**
-- [ ] `site/ui/` (`@seiza/site-ui`): the shell (navbar, theme toggle, footer), rendered to HTML at build time, its behaviors plain JS with React wrappers; documented where it's created (root `CLAUDE.md`'s layout and a `site/` section, its own README and CLAUDE.md); the prerender plugin moved from the TanStack contender to `shared-web/`.
-- [ ] The URLs: the page prerendered per route (`/observatory/`, `/observatory/tall-table/`); the contenders' bases moved to `/observatory/contenders/tall-table/gpui/` and `…/tanstack/` (their perf scripts, `docs/contender-contract.md`, and the observatory's rule 2 follow), the engine still at `/observatory/duckdb/`; the font at `/fonts/`; the cold numbers unchanged (a `check` run).
-- [ ] The page's own budgets in `perf/budgets.json` (first-paint JS, first paint from paint timing), gated by `check`; a contender's iframe created only after the page's first paint, and the metrics module loaded after it.
-- [ ] Inside the shell, a collapsible nav listing components (one entry), `/observatory/tall-table`, one slot with the GPUI | TanStack toggle (disabled until the GPUI contender paints its first rows), a same-origin iframe per contender that a flip destroys and replaces, contenders reporting marks by `postMessage`, a URL parameter choosing which side loads first.
-- [ ] The site's theme: the token file below in the site's directory, plus `--series-gpui` and `--series-tanstack` (`--chart-2`/`--chart-5` light, `--chart-1`/`--chart-3` dark); IBM Plex Sans; the navbar's theme toggle, its choice in one `localStorage` key, applied before first paint by an inline script in `<head>`; a lint check holding the site's shared grays within a tolerance of the contenders' generated `theme.css`.
-- [ ] The contenders take the theme: `?theme=` applied before their first screen paints (the GPUI side's placeholder, the TanStack side's prerender), then `postMessage` live; `theme_css.rs` writes `:root[data-theme]` overrides and `color-scheme` beside the media query; the GPUI contender stops following the system on the page's theme; `docs/contender-contract.md` gains both; without the parameter each follows the system, and the cold numbers are unchanged (a `check` run of each).
-
-<details><summary>The site's token file, as exported from shadcn's theme creator (2026-10-19)</summary>
-
-```css
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.5 0.134 242.749);
-  --primary-foreground: oklch(0.977 0.013 236.62);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.588 0.158 241.966);
-  --sidebar-primary-foreground: oklch(0.977 0.013 236.62);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.443 0.11 240.79);
-  --primary-foreground: oklch(0.977 0.013 236.62);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.685 0.169 237.323);
-  --sidebar-primary-foreground: oklch(0.293 0.066 243.157);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-```
-
-</details>
+- [x] `site/ui/` (`@seiza/site-ui`): the shell (navbar, theme toggle, footer), rendered to HTML at build time, its behaviors plain JS with React wrappers; documented where it's created (root `CLAUDE.md`'s layout and a `site/` section, its own README and CLAUDE.md); the prerender plugin moved from the TanStack contender to `shared-web/`. Evidence: `site/ui/src/` (`SiteShell`, `Navbar` + `ThemeToggle`, `Footer`; `theme.ts` the toggle's plain JS, bound by `ThemeToggle`'s effect or `bindShell`; shadcn's `Button`, `ToggleGroup`, `Collapsible` on Base UI 1.8.0, Tailwind 4.3.3, every dependency pinned exactly); both routes' `web/dist/**/index.html` hold the shell's markup before any JS; root `CLAUDE.md`, "The apex site" and the layout; `site/ui/README.md`, `CLAUDE.md`; `shared-web/src/prerender.ts`, used by the TanStack contender's config and the page's (`tanstack-contract`: its first screen still hydrated in place, PASS).
+- [x] The URLs: the page prerendered per route (`/observatory/`, `/observatory/tall-table/`); the contenders' bases moved to `/observatory/contenders/tall-table/gpui/` and `…/tanstack/` (their perf scripts, `docs/contender-contract.md`, and the observatory's rule 2 follow), the engine still at `/observatory/duckdb/`; the font at `/fonts/`; the cold numbers unchanged (a `check` run). Evidence: `contenders/paths.ts` (every path); `web/dist/index.html`, `web/dist/tall-table/index.html`; the engine's bundles referenced at `/observatory/duckdb/` (`renderBuiltUrl`), its extensions through `@seiza/duckdb`'s new `extensionBase`; `engine-files --controls`: both builds' `duckdb/` byte-identical, every engine request under `/observatory/duckdb/`, PASS. `check` (2026-10-19, every step PASS): GPUI reference TTFP 165.4 ms (baseline 170.5, limit 187.6), wasm 2696.6 KiB (2695.4); TanStack first-paint JS 72.3 KiB (72.1; +0.2 for the theme's listener and the paths), data layer 34.7 KiB (34.7); placeholder, reach, tanstack-view, tanstack-contract, tanstack-parity, and the fixtures PASS. Tycho's side: `apps/tycho/perf/results/2026-10-19-observatory-m5-a.md` (+42 B brotli before first paint).
+- [x] The page's own budgets in `perf/budgets.json` (first-paint JS, first paint from paint timing), gated by `check`; a contender's iframe created only after the page's first paint, and the metrics module loaded after it. Evidence: `limits.page` (+20% first paint, +10% first-paint JS; why: `docs/DECISIONS.md`, "Page") and the metrics `page-first-paint`, `page-first-paint-throttled`, `page-first-paint-js` (table above); `perf/page.ts` (`just observatory page`, in `check`): baseline 70.8 ms reference (60.6–82), 437.4 ms throttled, 78.2 KiB first-paint JS (`perf/results/2026-10-19-m5-a-page.json`); `check`'s run 75.2 ms, PASS. Every run checks that nothing but the HTML, CSS, entry, and font is requested before first paint, that the frame is created after it (~10–20 ms after, reference) and the metrics chunk requested after it; the manifest keeps the metrics module out of the first-paint JS.
+- [x] Inside the shell, a collapsible nav listing components (one entry), `/observatory/tall-table`, one slot with the GPUI | TanStack toggle (disabled until the GPUI contender paints its first rows), a same-origin iframe per contender that a flip destroys and replaces, contenders reporting marks by `postMessage`, a URL parameter choosing which side loads first. Evidence: `web/src/nav.ts`, `slot.ts`; `perf/page.ts`'s hosting checks, PASS: the toggle disabled until GPUI's relayed `contender:filled`, then enabled; a flip disconnects the GPUI frame, creates TanStack's, and disables the toggle until TanStack fills (the rule holds for whichever side is shown: `docs/DECISIONS.md`, "Page"); `?side=tanstack` (written by the flip) loads TanStack first after a reload; with the data file missing, each side marks `contender:failed` and the toggle unlocks; `…/tall-table/index.html` hydrates as its route; the overview lists the tall table and has no frame.
+- [x] The site's theme: the token file in the site's directory, plus `--series-gpui` and `--series-tanstack` (`--chart-2`/`--chart-5` light, `--chart-1`/`--chart-3` dark); IBM Plex Sans; the navbar's theme toggle, its choice in one `localStorage` key, applied before first paint by an inline script in `<head>`; a lint check holding the site's shared grays within a tolerance of the contenders' generated `theme.css`. Evidence: `site/ui/src/tokens.css` (the export, verbatim, and the two series), `site.css` (IBM Plex Sans at `/fonts/`), `theme.ts` (`seiza-theme`; `THEME_SCRIPT` first in each route's `<head>`); `perf/page.ts`: the toggle flips the page's `.dark` and the choice survives a reload, PASS; `web/scripts/grays.ts` in `lint`: background, foreground, muted foreground, border, ring within ΔE 2.5 in both modes (worst: dark border 1.44), the popover reported apart by design (dark ΔE 6.0), its control (0.03 lighter) failing at 3.05.
+- [x] The contenders take the theme: `?theme=` applied before their first screen paints (the GPUI side's placeholder, the TanStack side's prerender), then `postMessage` live; `theme_css.rs` writes `:root[data-theme]` overrides and `color-scheme` beside the media query; the GPUI contender stops following the system on the page's theme; `docs/contender-contract.md` gains both; without the parameter each follows the system, and the cold numbers are unchanged (a `check` run of each). Evidence: `contenders/contract.ts` (`THEME_SCRIPT`, first in each contender's `<head>` by `contenderBuild`; `followPageTheme`); `shared-web`'s placeholder and the GPUI host's body follow `data-theme`; `theme.css` regenerated (`theme-css --check` in `lint`); `contract.rs` `apply_theme` / `setTheme` (`stop_following_system_appearance`, then `Theme::change`); `docs/contender-contract.md`, "Where a contender lives" and "Theme". `perf/page.ts`, PASS: a toggle while the frame's HTML is held back reaches it at its load (control without the re-send: fails); the page's toggle reaches GPUI's frame (`data-theme` set, its canvas's brightness 244 → 22, the same frame: `timeOrigin` unchanged) and TanStack's (`data-theme`, its body `rgb(255, 255, 255)` in light). Without the parameter the cold numbers held: `check` as above (TTFP 165.4 ms; the placeholder's light and dark matches PASS).
 
 **Part B: the readouts.**
 - [ ] Passive readouts from M4's metrics module at ~4 Hz, the second contender's labelled warm, beside M4's cold numbers.
@@ -160,6 +85,9 @@ Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.j
 | GPUI contender: wasm (brotli) | ≤ 3099.7 KiB (baseline 2695.4 + 15%) | `check` | 2695.4 KiB | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
 | TanStack contender: first-paint JS (brotli) | ≤ 79.3 KiB (baseline 72.1 + 10%) | `check` | 72.2 KiB | — | [2026-10-18-m4-b-tanstack-sizes](perf/results/2026-10-18-m4-b-tanstack-sizes.json) |
 | TanStack contender: data layer and Arrow, after first paint (brotli) | ≤ 38.2 KiB (baseline 34.7 + 10%) | `check` | 34.7 KiB | — | [2026-10-18-m4-b-tanstack-sizes](perf/results/2026-10-18-m4-b-tanstack-sizes.json) |
+| Page: first paint (paint timing), /observatory/tall-table/ | ≤ 85 ms (baseline 70.8 + 20%) | `check` | 70.8 ms | — | [2026-10-19-m5-a-page](perf/results/2026-10-19-m5-a-page.json) |
+| Page: first paint (paint timing), throttled | — | recorded | 437.4 ms | — | [2026-10-19-m5-a-page](perf/results/2026-10-19-m5-a-page.json) |
+| Page: first-paint JS (brotli) | ≤ 86 KiB (baseline 78.2 + 10%) | `check` | 78.2 KiB | — | [2026-10-19-m5-a-page](perf/results/2026-10-19-m5-a-page.json) |
 <!-- report:plan:end -->
 
 ---

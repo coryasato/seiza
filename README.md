@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | In progress: both contenders built and measured; no page yet |
+| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | In progress: both contenders built and measured; the page runs locally, not deployed |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -57,10 +57,12 @@ seiza/
   shared-web/           # app-agnostic JS host pieces, fonts, the shared perf harness
   components/
     tall-table/         # the table for tens of millions of rows (seiza-tall-table)
+  site/
+    ui/                 # the apex site's shell (seiza.io): navbar, theme toggle, footer, tokens, Tailwind, shadcn on Base UI
   engines/
     duckdb/             # DuckDB-Wasm for every app: a Rust crate (seiza-duckdb) and an npm package (@seiza/duckdb)
   apps/
-    observatory/        # the comparison page: web/, worker/ (seiza.io), data/, perf/, docs/; no page yet
+    observatory/        # the comparison page: web/ (the page), contenders/, worker/ (seiza.io), data/, perf/, docs/
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands

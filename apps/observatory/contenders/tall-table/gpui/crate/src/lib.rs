@@ -15,16 +15,18 @@ use wasm_bindgen::prelude::*;
 /// Entry point called by the JS host once the wasm and the UI font are in.
 /// `bridge` is `@seiza/duckdb`'s bridge, which loads nothing until the
 /// post-paint callback starts the engine; `data_url` is the data file's
-/// same-origin URL.
+/// same-origin URL; `theme` is the page's (`"light"`, `"dark"`, or empty to
+/// follow the system), applied before the first frame.
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen]
-pub fn start(ui_font: Vec<u8>, bridge: seiza_duckdb::Bridge, data_url: String) {
+pub fn start(ui_font: Vec<u8>, bridge: seiza_duckdb::Bridge, data_url: String, theme: String) {
     use gpui_kit::AppContext as _;
 
     seiza::Bootstrap::new(host::TITLE, ui_font)
         // The host opens the file once the engine is ready (`Host::new`).
         .after_first_paint(|_, cx| seiza_duckdb::start(cx, |_, _| {}))
         .run(move |window, cx| {
+            contract::apply_theme(&theme, cx);
             seiza_tall_table::init(cx);
             seiza_duckdb::init(cx, bridge);
             cx.new(|cx| Host::new(data_url, window, cx)).into()
