@@ -94,6 +94,7 @@ Record each decision with its numbers in `docs/DECISIONS.md`; production stays r
 
 ## Open questions
 
+- **Tycho standing alone:** Tycho is a utility app whose look and features follow its component, and it shares no UI with the apex site (root `docs/DECISIONS.md`, "Repo structure"). Whether it should also stop building on `shared-web/`'s host pieces (the placeholder's CSS copies of gpui-kit's components, the Vite config), so a change made for the observatory or the site can't reach it, is open; `shared-web/`'s rules are revisited with it.
 - **Crate names:** whether `seiza-tall-table` and `seiza-duckdb` are free on crates.io. Only matters if they're published; nothing is yet.
 
 ---
