@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page, deployed (parts 0, A–C) | In progress: parts 0 and A done 2026-10-19, part B next |
+| M5 | The observatory page, deployed (parts 0, A, A1–A2, B–C) | In progress: parts 0 and A done 2026-10-19, part A1 next |
 | M6 | Split mode | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, parts 0 and A done, part B next. Restate part B's checks at the start of its session.
+M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, parts 0 and A done, part A1 next. Restate part A1's checks at the start of its session.
 
 ---
 
@@ -56,6 +56,22 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 - [x] Inside the shell, a collapsible nav listing components (one entry), `/observatory/tall-table`, one slot with the GPUI | TanStack toggle (disabled until the GPUI contender paints its first rows), a same-origin iframe per contender that a flip destroys and replaces, contenders reporting marks by `postMessage`, a URL parameter choosing which side loads first. Evidence: `web/src/nav.ts`, `slot.ts`; `perf/page.ts`'s hosting checks, PASS: the toggle disabled until GPUI's relayed `contender:filled`, then enabled; a flip disconnects the GPUI frame, creates TanStack's, and disables the toggle until TanStack fills (the rule holds for whichever side is shown: `docs/DECISIONS.md`, "Page"); `?side=tanstack` (written by the flip) loads TanStack first after a reload; with the data file missing, each side marks `contender:failed` and the toggle unlocks; `…/tall-table/index.html` hydrates as its route; the overview lists the tall table and has no frame.
 - [x] The site's theme: the token file in the site's directory, plus `--series-gpui` and `--series-tanstack` (`--chart-2`/`--chart-5` light, `--chart-1`/`--chart-3` dark); IBM Plex Sans; the navbar's theme toggle, its choice in one `localStorage` key, applied before first paint by an inline script in `<head>`; a lint check holding the site's shared grays within a tolerance of the contenders' generated `theme.css`. Evidence: `site/ui/src/tokens.css` (the export, verbatim, and the two series), `site.css` (IBM Plex Sans at `/fonts/`), `theme.ts` (`seiza-theme`; `THEME_SCRIPT` first in each route's `<head>`); `perf/page.ts`: the toggle flips the page's `.dark` and the choice survives a reload, PASS; `web/scripts/grays.ts` in `lint`: background, foreground, muted foreground, border, ring within ΔE 2.5 in both modes (worst: dark border 1.44), the popover reported apart by design (dark ΔE 6.0), its control (0.03 lighter) failing at 3.05.
 - [x] The contenders take the theme: `?theme=` applied before their first screen paints (the GPUI side's placeholder, the TanStack side's prerender), then `postMessage` live; `theme_css.rs` writes `:root[data-theme]` overrides and `color-scheme` beside the media query; the GPUI contender stops following the system on the page's theme; `docs/contender-contract.md` gains both; without the parameter each follows the system, and the cold numbers are unchanged (a `check` run of each). Evidence: `contenders/contract.ts` (`THEME_SCRIPT`, first in each contender's `<head>` by `contenderBuild`; `followPageTheme`); `shared-web`'s placeholder and the GPUI host's body follow `data-theme`; `theme.css` regenerated (`theme-css --check` in `lint`); `contract.rs` `apply_theme` / `setTheme` (`stop_following_system_appearance`, then `Theme::change`); `docs/contender-contract.md`, "Where a contender lives" and "Theme". `perf/page.ts`, PASS: a toggle while the frame's HTML is held back reaches it at its load (control without the re-send: fails); the page's toggle reaches GPUI's frame (`data-theme` set, its canvas's brightness 244 → 22, the same frame: `timeOrigin` unchanged) and TanStack's (`data-theme`, its body `rgb(255, 255, 255)` in light). Without the parameter the cold numbers held: `check` as above (TTFP 165.4 ms; the placeholder's light and dark matches PASS).
+
+**Part A1: the page's design, decided (a design session, no code).** What review of part A's page found: the sky-blue fills (the light nav's active item, the toggle's pressed side) and sky-blue text (dark) read as stock Bootstrap; the navbar's content and the page sit in a centered column (`max-w-screen-2xl`), with the sidebar inside that column. The direction, set in review: an app layout like Cloudflare's dashboard (dash.cloudflare.com): a top bar spanning the window's whole width, and below it a sidebar flush against the window's left edge running the page's full height, with the content filling the rest.
+- [ ] The layout, mocked up in light and dark, desktop and phone, to these fixed points:
+  - **The site's navbar spans 100% of the width,** no max-width on it or its contents (`site/ui`'s `Navbar`; the landing page gets the same bar).
+  - **The sidebar is the observatory's only** (`web/`); the landing page has none (root `docs/DECISIONS.md`, "Repo structure").
+  - **The sidebar collapses fully:** hidden entirely, not to an icon rail (Cloudflare's collapsed state keeps a column of icons; ours keeps nothing). A toggle icon in the top bar opens it again when it's collapsed (and closes it). On a phone it's closed by default and opens over the content.
+  - To decide: the sidebar's width and its sections; where its open or closed state is kept (`localStorage`, per visitor) and how it's applied before first paint without a layout jump; the content's width (full, or a max for the text with the frame wider); where the frame goes and how tall it is.
+- [ ] The accent: how the active nav item, the pressed side of the GPUI | TanStack toggle, and links show without sky-blue fills or text, within the contrast rules (this replaces part 0's "light sidebar's active item is `--primary`" rule; recorded as superseding it in root `docs/DECISIONS.md`); whether `--primary` stays sky at all.
+- [ ] The GPUI contender on a phone, diagnosed: why it breaks in DevTools' responsive mode while TanStack's scrolls (candidates: the emulated DPR and gpui-pre-web's canvas sizing, root `CLAUDE.md`'s known gotcha; touch input, which GPUI's web platform may not turn into scrolling; the frame's size), each confirmed in Chromium's emulation and on a real phone; what's the contender's to fix, what the component's, what gpui-kit's (an upstream issue), and what the page says meanwhile (root rule 4).
+- [ ] The decisions in root `docs/DECISIONS.md` ("Comparison protocol", the site's theme; "Repo structure") and A2's checks written below.
+
+**Part A2: the UI, built to A1's design.** Drafts; A1 rewrites them.
+- [ ] The full-width navbar, the sidebar (open, fully collapsed with the top bar's toggle, a phone's overlay), the accent, in `site/ui/` where it's the site's and `web/` where it's the observatory's.
+- [ ] `cursor: pointer` on every control that acts on a press: the GPUI | TanStack toggle's items, the theme toggle, the sidebar's toggle and items.
+- [ ] The GPUI contender usable on a phone as far as A1 found it can be, and what it can't do said on the page; checked in Chromium's mobile emulation and on a real phone.
+- [ ] The page's budgets (`check`) and its hosting checks (`perf/page.ts`) still pass; screenshots, light and dark, desktop and phone, in the results note.
 
 **Part B: the readouts.**
 - [ ] Passive readouts from M4's metrics module at ~4 Hz, the second contender's labelled warm, beside M4's cold numbers.
