@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page, deployed (parts 0, A–C) | Not started |
+| M5 | The observatory page, deployed (parts 0, A–C) | In progress: part 0 done 2026-10-19, part A next |
 | M6 | Split mode | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-None. M5 is next; its checks are drafts until it starts.
+M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, part 0 done, part A next. Restate part A's checks at the start of its session.
 
 ---
 
