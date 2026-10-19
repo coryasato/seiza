@@ -1,0 +1,837 @@
+{
+  "date": "2026-10-19",
+  "label": "m4-b-fling",
+  "metric": "fling",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 10,
+  "flingFrames": 180,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "latePct": 0,
+          "placeholderPct": 98.4,
+          "lagStepsP95": 2,
+          "catchUpMs": 70.9,
+          "reachedEnd": "10/10",
+          "workP50Ms": 3.41,
+          "workP95Ms": 4.31,
+          "busyMs": 804.9,
+          "busyPct": 22.6
+        },
+        "runs": [
+          {
+            "frames": 185,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.8216216216216217,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 81.5,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.42,
+            "workP95Ms": 6.167,
+            "busyMs": 874.4139999999264,
+            "busyShare": 0.24492909102620575,
+            "outsideFramesMs": 135.35599999992644,
+            "failures": []
+          },
+          {
+            "frames": 183,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9453551912568307,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 50.31,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.405,
+            "workP95Ms": 5.398,
+            "busyMs": 820.8179999999335,
+            "busyShare": 0.23225428573422885,
+            "outsideFramesMs": 136.25099999993358,
+            "failures": []
+          },
+          {
+            "frames": 183,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836065573770492,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 53.85,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.401,
+            "workP95Ms": 4.191,
+            "busyMs": 791.4489999999331,
+            "busyShare": 0.2236761559392365,
+            "outsideFramesMs": 132.30899999993267,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9021739130434783,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 68.46,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.393,
+            "workP95Ms": 5.776,
+            "busyMs": 823.3509999999309,
+            "busyShare": 0.23164894399518923,
+            "outsideFramesMs": 135.92799999993076,
+            "failures": []
+          },
+          {
+            "frames": 183,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.8415300546448088,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 64.18,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.394,
+            "workP95Ms": 6.037,
+            "busyMs": 848.2549999999301,
+            "busyShare": 0.2390551705128013,
+            "outsideFramesMs": 135.62999999992962,
+            "failures": []
+          },
+          {
+            "frames": 183,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836065573770492,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 50.51,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.416,
+            "workP95Ms": 4.158,
+            "busyMs": 798.3599999999353,
+            "busyShare": 0.22576936947695583,
+            "outsideFramesMs": 132.98799999993548,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 73.67,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.421,
+            "workP95Ms": 4.268,
+            "busyMs": 808.2319999999369,
+            "busyShare": 0.22710929026237553,
+            "outsideFramesMs": 135.14099999993675,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 73.29,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.439,
+            "workP95Ms": 4.345,
+            "busyMs": 801.6059999999344,
+            "busyShare": 0.2253439801194838,
+            "outsideFramesMs": 134.9579999999345,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 73.58,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.407,
+            "workP95Ms": 4.231,
+            "busyMs": 795.4619999999364,
+            "busyShare": 0.22352537857817478,
+            "outsideFramesMs": 131.78099999993697,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 75.61,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 3.382,
+            "workP95Ms": 4.206,
+            "busyMs": 795.0699999999301,
+            "busyShare": 0.2232019786025502,
+            "outsideFramesMs": 134.62099999993018,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "latePct": 0,
+          "placeholderPct": 97.8,
+          "lagStepsP95": 3,
+          "catchUpMs": 76,
+          "reachedEnd": "10/10",
+          "workP50Ms": 5.82,
+          "workP95Ms": 7.82,
+          "busyMs": 1481.4,
+          "busyPct": 41.5
+        },
+        "runs": [
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 71.14,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 5.777,
+            "workP95Ms": 7.558,
+            "busyMs": 1444.1119999998732,
+            "busyShare": 0.406777789514418,
+            "outsideFramesMs": 301.34099999987325,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9728260869565217,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 78.01,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 5.802,
+            "workP95Ms": 8.079,
+            "busyMs": 1532.5619999999062,
+            "busyShare": 0.4296067680301136,
+            "outsideFramesMs": 359.6089999999065,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9782608695652174,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 76.04,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 5.745,
+            "workP95Ms": 7.671,
+            "busyMs": 1483.965999999886,
+            "busyShare": 0.41597912213583843,
+            "outsideFramesMs": 321.62799999988533,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 75.69,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 5.817,
+            "workP95Ms": 7.595,
+            "busyMs": 1473.5619999998917,
+            "busyShare": 0.41255156677605753,
+            "outsideFramesMs": 317.685999999891,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 72.27,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 5.82,
+            "workP95Ms": 7.847,
+            "busyMs": 1478.919999999941,
+            "busyShare": 0.4143399059203176,
+            "outsideFramesMs": 316.20699999994144,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.967391304347826,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 75.92,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 5.811,
+            "workP95Ms": 7.908,
+            "busyMs": 1507.5569999999084,
+            "busyShare": 0.422416805190879,
+            "outsideFramesMs": 359.1759999999083,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9728260869565217,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 72.72,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 5.859,
+            "workP95Ms": 7.951,
+            "busyMs": 1438.9629999999086,
+            "busyShare": 0.40504674764992493,
+            "outsideFramesMs": 312.8389999999083,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9782608695652174,
+            "lagSteps": {
+              "p95": 3,
+              "max": 3
+            },
+            "catchUpMs": 77.52,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 5.94,
+            "workP95Ms": 8.395,
+            "busyMs": 1556.6599999999453,
+            "busyShare": 0.436735913452958,
+            "outsideFramesMs": 380.06199999994624,
+            "failures": []
+          },
+          {
+            "frames": 184,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9836956521739131,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 76.98,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 5.884,
+            "workP95Ms": 7.758,
+            "busyMs": 1465.911999999878,
+            "busyShare": 0.4105816549170183,
+            "outsideFramesMs": 306.61199999987844,
+            "failures": []
+          },
+          {
+            "frames": 183,
+            "lateFrames": 1,
+            "lateShare": 0.005494505494505495,
+            "placeholderShare": 0.9726775956284153,
+            "lagSteps": {
+              "p95": 3,
+              "max": 4
+            },
+            "catchUpMs": 77.59,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 5.926,
+            "workP95Ms": 7.788,
+            "busyMs": 1541.4399999999364,
+            "busyShare": 0.43231539644318834,
+            "outsideFramesMs": 362.92099999993616,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "latePct": 0.3,
+          "placeholderPct": 99,
+          "lagStepsP95": 2,
+          "catchUpMs": 1984.4,
+          "reachedEnd": "10/10",
+          "workP50Ms": 12.57,
+          "workP95Ms": 14.9,
+          "busyMs": 2623.3,
+          "busyPct": 48.1
+        },
+        "runs": [
+          {
+            "frames": 297,
+            "lateFrames": 2,
+            "lateShare": 0.006756756756756757,
+            "placeholderShare": 0.98989898989899,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1995.38,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 12.538,
+            "workP95Ms": 15.158,
+            "busyMs": 2643.701000000535,
+            "busyShare": 0.48142349212373925,
+            "outsideFramesMs": 158.45500000053516,
+            "failures": []
+          },
+          {
+            "frames": 296,
+            "lateFrames": 1,
+            "lateShare": 0.003389830508474576,
+            "placeholderShare": 0.9898648648648649,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1962.74,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 12.702,
+            "workP95Ms": 15.03,
+            "busyMs": 2624.545000000536,
+            "busyShare": 0.480230733691151,
+            "outsideFramesMs": 170.00700000053257,
+            "failures": []
+          },
+          {
+            "frames": 292,
+            "lateFrames": 1,
+            "lateShare": 0.003436426116838488,
+            "placeholderShare": 0.9897260273972602,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1891.93,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 12.6,
+            "workP95Ms": 14.876,
+            "busyMs": 2620.4070000002043,
+            "busyShare": 0.48629347897063807,
+            "outsideFramesMs": 163.83900000020367,
+            "failures": []
+          },
+          {
+            "frames": 296,
+            "lateFrames": 1,
+            "lateShare": 0.003389830508474576,
+            "placeholderShare": 0.9898648648648649,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1962.4,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 12.558,
+            "workP95Ms": 14.898,
+            "busyMs": 2643.693000000188,
+            "busyShare": 0.48441776539110887,
+            "outsideFramesMs": 163.10000000018954,
+            "failures": []
+          },
+          {
+            "frames": 298,
+            "lateFrames": 1,
+            "lateShare": 0.003367003367003367,
+            "placeholderShare": 0.9899328859060402,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1995.17,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 12.628,
+            "workP95Ms": 14.905,
+            "busyMs": 2606.417000000554,
+            "busyShare": 0.47428248046819327,
+            "outsideFramesMs": 156.08800000054907,
+            "failures": []
+          },
+          {
+            "frames": 298,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9899328859060402,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1977.35,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 12.687,
+            "workP95Ms": 14.853,
+            "busyMs": 2652.599000000206,
+            "busyShare": 0.4844721733405427,
+            "outsideFramesMs": 161.96000000019967,
+            "failures": []
+          },
+          {
+            "frames": 294,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9897959183673469,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1911.38,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 12.588,
+            "workP95Ms": 14.99,
+            "busyMs": 2622.009000000189,
+            "busyShare": 0.48467941395032504,
+            "outsideFramesMs": 167.99000000018805,
+            "failures": []
+          },
+          {
+            "frames": 298,
+            "lateFrames": 1,
+            "lateShare": 0.003367003367003367,
+            "placeholderShare": 0.9899328859060402,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1991.53,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 12.399,
+            "workP95Ms": 14.73,
+            "busyMs": 2572.059000000547,
+            "busyShare": 0.4684797071159281,
+            "outsideFramesMs": 163.35800000055042,
+            "failures": []
+          },
+          {
+            "frames": 301,
+            "lateFrames": 0,
+            "lateShare": 0,
+            "placeholderShare": 0.9900332225913622,
+            "lagSteps": {
+              "p95": 2,
+              "max": 2
+            },
+            "catchUpMs": 2029.25,
+            "reachedEnd": true,
+            "inputs": 180,
+            "workP50Ms": 12.466,
+            "workP95Ms": 14.903,
+            "busyMs": 2644.2510000002885,
+            "busyShare": 0.4786221551700474,
+            "outsideFramesMs": 165.66900000029045,
+            "failures": []
+          },
+          {
+            "frames": 298,
+            "lateFrames": 1,
+            "lateShare": 0.003367003367003367,
+            "placeholderShare": 0.9899328859060402,
+            "lagSteps": {
+              "p95": 2,
+              "max": 3
+            },
+            "catchUpMs": 1993.83,
+            "reachedEnd": true,
+            "inputs": 179,
+            "workP50Ms": 12.471,
+            "workP95Ms": 14.976,
+            "busyMs": 2612.239000000543,
+            "busyShare": 0.4749978861619596,
+            "outsideFramesMs": 162.71100000054776,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "latePct": 27.6,
+          "placeholderPct": 98.7,
+          "lagStepsP95": 5,
+          "catchUpMs": 2036,
+          "reachedEnd": "10/10",
+          "workP50Ms": 0.28,
+          "workP95Ms": 24.36,
+          "busyMs": 1800.5,
+          "busyPct": 32.6
+        },
+        "runs": [
+          {
+            "frames": 235,
+            "lateFrames": 66,
+            "lateShare": 0.28205128205128205,
+            "placeholderShare": 0.9872340425531915,
+            "lagSteps": {
+              "p95": 5,
+              "max": 8
+            },
+            "catchUpMs": 2075.97,
+            "reachedEnd": true,
+            "inputs": 159,
+            "workP50Ms": 0.256,
+            "workP95Ms": 24.351,
+            "busyMs": 1760.1629999998552,
+            "busyShare": 0.3163828921009303,
+            "outsideFramesMs": 237.75899999985518,
+            "failures": []
+          },
+          {
+            "frames": 240,
+            "lateFrames": 60,
+            "lateShare": 0.2510460251046025,
+            "placeholderShare": 0.9875,
+            "lagSteps": {
+              "p95": 5,
+              "max": 7
+            },
+            "catchUpMs": 2044.54,
+            "reachedEnd": true,
+            "inputs": 172,
+            "workP50Ms": 0.464,
+            "workP95Ms": 24.328,
+            "busyMs": 1830.0259999998545,
+            "busyShare": 0.3308692063389114,
+            "outsideFramesMs": 213.77599999985387,
+            "failures": []
+          },
+          {
+            "frames": 241,
+            "lateFrames": 59,
+            "lateShare": 0.24583333333333332,
+            "placeholderShare": 0.9875518672199171,
+            "lagSteps": {
+              "p95": 5,
+              "max": 6
+            },
+            "catchUpMs": 2061.26,
+            "reachedEnd": true,
+            "inputs": 156,
+            "workP50Ms": 0.302,
+            "workP95Ms": 24.381,
+            "busyMs": 1824.825999999857,
+            "busyShare": 0.32893912874190095,
+            "outsideFramesMs": 225.01599999985524,
+            "failures": []
+          },
+          {
+            "frames": 233,
+            "lateFrames": 66,
+            "lateShare": 0.28448275862068967,
+            "placeholderShare": 0.9871244635193133,
+            "lagSteps": {
+              "p95": 5,
+              "max": 5
+            },
+            "catchUpMs": 2027.61,
+            "reachedEnd": true,
+            "inputs": 155,
+            "workP50Ms": 0.226,
+            "workP95Ms": 24.227,
+            "busyMs": 1704.5809999998582,
+            "busyShare": 0.3087897177365099,
+            "outsideFramesMs": 210.55299999985732,
+            "failures": []
+          },
+          {
+            "frames": 246,
+            "lateFrames": 55,
+            "lateShare": 0.22448979591836735,
+            "placeholderShare": 0.9878048780487805,
+            "lagSteps": {
+              "p95": 5,
+              "max": 7
+            },
+            "catchUpMs": 2044.15,
+            "reachedEnd": true,
+            "inputs": 159,
+            "workP50Ms": 0.246,
+            "workP95Ms": 24.435,
+            "busyMs": 2004.8539999998527,
+            "busyShare": 0.3624444090912112,
+            "outsideFramesMs": 260.58499999985156,
+            "failures": []
+          },
+          {
+            "frames": 232,
+            "lateFrames": 68,
+            "lateShare": 0.2943722943722944,
+            "placeholderShare": 0.9870689655172413,
+            "lagSteps": {
+              "p95": 5,
+              "max": 6
+            },
+            "catchUpMs": 2027.9,
+            "reachedEnd": true,
+            "inputs": 162,
+            "workP50Ms": 0.315,
+            "workP95Ms": 24.489,
+            "busyMs": 1743.9209999998504,
+            "busyShare": 0.31598811007432426,
+            "outsideFramesMs": 218.99199999984853,
+            "failures": []
+          },
+          {
+            "frames": 229,
+            "lateFrames": 63,
+            "lateShare": 0.27631578947368424,
+            "placeholderShare": 0.9868995633187773,
+            "lagSteps": {
+              "p95": 5,
+              "max": 6
+            },
+            "catchUpMs": 1891.02,
+            "reachedEnd": true,
+            "inputs": 174,
+            "workP50Ms": 0.543,
+            "workP95Ms": 24.126,
+            "busyMs": 1796.3039999998844,
+            "busyShare": 0.33413392857140706,
+            "outsideFramesMs": 214.94499999988375,
+            "failures": []
+          },
+          {
+            "frames": 236,
+            "lateFrames": 65,
+            "lateShare": 0.2765957446808511,
+            "placeholderShare": 0.9872881355932204,
+            "lagSteps": {
+              "p95": 5,
+              "max": 7
+            },
+            "catchUpMs": 2060.86,
+            "reachedEnd": true,
+            "inputs": 170,
+            "workP50Ms": 0.363,
+            "workP95Ms": 24.377,
+            "busyMs": 1805.742999999852,
+            "busyShare": 0.3255779109202855,
+            "outsideFramesMs": 198.61199999985,
+            "failures": []
+          },
+          {
+            "frames": 232,
+            "lateFrames": 65,
+            "lateShare": 0.2813852813852814,
+            "placeholderShare": 0.9870689655172413,
+            "lagSteps": {
+              "p95": 5,
+              "max": 7
+            },
+            "catchUpMs": 2009.24,
+            "reachedEnd": true,
+            "inputs": 165,
+            "workP50Ms": 0.202,
+            "workP95Ms": 24.391,
+            "busyMs": 1714.6299999998482,
+            "busyShare": 0.311638435918615,
+            "outsideFramesMs": 192.2909999998476,
+            "failures": []
+          },
+          {
+            "frames": 237,
+            "lateFrames": 62,
+            "lateShare": 0.2627118644067797,
+            "placeholderShare": 0.9873417721518988,
+            "lagSteps": {
+              "p95": 5,
+              "max": 6
+            },
+            "catchUpMs": 2026.05,
+            "reachedEnd": true,
+            "inputs": 170,
+            "workP50Ms": 0.196,
+            "workP95Ms": 24.105,
+            "busyMs": 1804.7749999998564,
+            "busyShare": 0.327204509277061,
+            "outsideFramesMs": 210.98499999985597,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

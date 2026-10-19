@@ -16,12 +16,12 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | In progress: its data file is served from seiza.io; no page yet |
+| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | In progress: both contenders built and measured; no page yet |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
 <!-- report:headlines:start -->
-- **[Observatory](apps/observatory/)**: not measured yet
+- **[Observatory](apps/observatory/)**: GPUI / TanStack: first usable 140.8 / 41.7 ms · fling per-frame work p95 4.3 / 7.8 ms
 - **[Tycho](apps/tycho/)**: first paint 187.5 ms · 25.1 M rows → first rows 289.4 ms · fling p95 16.7 ms
 <!-- report:headlines:end -->
 

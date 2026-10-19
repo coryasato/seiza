@@ -72,15 +72,16 @@ await runMetric<Run>(
     }
   },
   (runs) => ({
-    lateShare: medianOf(runs, (run) => run.lateShare, 3),
-    placeholderShare: medianOf(runs, (run) => run.placeholderShare, 3),
+    // Shares as percentages, as the docs show them.
+    latePct: medianOf(runs, (run) => run.lateShare * 100),
+    placeholderPct: medianOf(runs, (run) => run.placeholderShare * 100),
     lagStepsP95: medianOf(runs, (run) => run.lagSteps.p95, 2),
     catchUpMs: medianOf(runs, (run) => run.catchUpMs),
     reachedEnd: `${runs.filter((run) => run.reachedEnd).length}/${runs.length}`,
     workP50Ms: medianOf(runs, (run) => run.workP50Ms, 2),
     workP95Ms: medianOf(runs, (run) => run.workP95Ms, 2),
     busyMs: medianOf(runs, (run) => run.busyMs),
-    busyShare: medianOf(runs, (run) => run.busyShare, 3),
+    busyPct: medianOf(runs, (run) => run.busyShare * 100),
   }),
   { flingFrames: FLING_FRAMES },
 );

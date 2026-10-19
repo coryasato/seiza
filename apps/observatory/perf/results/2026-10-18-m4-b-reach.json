@@ -1,0 +1,376 @@
+{
+  "date": "2026-10-18",
+  "label": "m4-b-reach",
+  "metric": "reach",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 10,
+  "file": {
+    "count": 1567523,
+    "lastKey": "54657680"
+  },
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 32.2
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 29.085000038146973,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 29.265000343322754,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 34.25499963760376,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 33.625,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 29.794999599456787,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 29.445000171661377,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 35.42999982833862,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 32.40999984741211,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 34.09499979019165,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 32.015000343322754,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 26.1
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 24.675000190734863,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 31.369999885559082,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 25.625,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 28.414999961853027,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 25.94000005722046,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 26.044999599456787,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 31.924999713897705,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 23.510000228881836,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 29.25,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 26.115000247955322,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 512.1
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 512.7600002288818,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 511.69999980926514,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 510.3250002861023,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 512.0900001525879,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 520.4550004005432,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 519.3699998855591,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 505.34999990463257,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 512.1750001907349,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 515.1600003242493,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 509.86499977111816,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 466.5
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 460.51000022888184,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 475.93499994277954,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 480.6300001144409,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 465.8600001335144,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 467.0600004196167,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 463.164999961853,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 465.92000007629395,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 479.9500002861023,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 464.960000038147,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 1567523,
+            "lastCell": "54657680",
+            "endFilledMs": 472.8199996948242,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

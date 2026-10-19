@@ -5,7 +5,9 @@
     "*-control*",
     "*-ab.json",
     "*-ab-*",
-    "*-before*"
+    "*-before*",
+    "*-smoke-*",
+    "*-m4-b-usable-loaded.json"
   ],
   "limits": {
     "gpui": {
@@ -144,6 +146,619 @@
       ],
       "show": [
         "plan"
+      ]
+    },
+    {
+      "id": "usable-reference",
+      "label": "Time to first usable (probe-confirmed), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.reference.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.reference.tanstack.summary.usableMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ],
+      "headline": "GPUI / TanStack: first usable {local}"
+    },
+    {
+      "id": "usable-throttled",
+      "label": "Time to first usable (probe-confirmed), throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.throttled.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.throttled.tanstack.summary.usableMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "data-reference",
+      "label": "Time to data: engine ready → every visible row painted, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data.json",
+          "path": "profiles.reference.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data.json",
+          "path": "profiles.reference.tanstack.summary.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "data-throttled",
+      "label": "Time to data: engine ready → every visible row painted, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data.json",
+          "path": "profiles.throttled.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data.json",
+          "path": "profiles.throttled.tanstack.summary.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "key-reference",
+      "label": "Key (Page Down/Up) → first frame at the new position, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.gpui.summary.key.ms"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.tanstack.summary.key.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "key-throttled",
+      "label": "Key (Page Down/Up) → first frame at the new position, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.gpui.summary.key.ms"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.tanstack.summary.key.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "track-reference",
+      "label": "Scrollbar track press → first frame at the new position, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.gpui.summary.track.ms"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.tanstack.summary.track.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "track-throttled",
+      "label": "Scrollbar track press → first frame at the new position, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.gpui.summary.track.ms"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.tanstack.summary.track.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "track-real-reference",
+      "label": "Scrollbar track press → its rows real, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.gpui.summary.track.realMs"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.tanstack.summary.track.realMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "track-real-throttled",
+      "label": "Scrollbar track press → its rows real, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.gpui.summary.track.realMs"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.tanstack.summary.track.realMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "wheel-reference",
+      "label": "Wheel → first frame at the new position, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.gpui.summary.wheel.ms"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.tanstack.summary.wheel.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "wheel-throttled",
+      "label": "Wheel → first frame at the new position, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.gpui.summary.wheel.ms"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.tanstack.summary.wheel.ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "wheel-real-reference",
+      "label": "Wheel → its rows real, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.gpui.summary.wheel.realMs"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.reference.tanstack.summary.wheel.realMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "wheel-real-throttled",
+      "label": "Wheel → its rows real, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.gpui.summary.wheel.realMs"
+        },
+        {
+          "glob": "*-response.json",
+          "path": "profiles.throttled.tanstack.summary.wheel.realMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-late-reference",
+      "label": "Fling to the last row: late main-thread frames (a DOM scroll keeps moving on the compositor), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-late-throttled",
+      "label": "Fling to the last row: late main-thread frames (a DOM scroll keeps moving on the compositor), throttled, CPU 4× and Fast 4G",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-placeholder-reference",
+      "label": "Fling: frames showing placeholder rows, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.gpui.summary.placeholderPct"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.tanstack.summary.placeholderPct"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-placeholder-throttled",
+      "label": "Fling: frames showing placeholder rows, throttled, CPU 4× and Fast 4G",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.gpui.summary.placeholderPct"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.tanstack.summary.placeholderPct"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-lag-reference",
+      "label": "Fling: how far the rows trail the input, p95, reference",
+      "unit": "steps",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.gpui.summary.lagStepsP95"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.tanstack.summary.lagStepsP95"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-lag-throttled",
+      "label": "Fling: how far the rows trail the input, p95, throttled, CPU 4× and Fast 4G",
+      "unit": "steps",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.gpui.summary.lagStepsP95"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.tanstack.summary.lagStepsP95"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "fling-work-reference",
+      "label": "Fling: per-frame work, p95, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ],
+      "headline": "fling per-frame work p95 {local}"
+    },
+    {
+      "id": "fling-work-throttled",
+      "label": "Fling: per-frame work, p95, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-fling.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "reach-reference",
+      "label": "End → the last row (= count(*)) painted, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-reach.json",
+          "path": "profiles.reference.gpui.summary.endFilledMs"
+        },
+        {
+          "glob": "*-reach.json",
+          "path": "profiles.reference.tanstack.summary.endFilledMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "reach-throttled",
+      "label": "End → the last row (= count(*)) painted, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-reach.json",
+          "path": "profiles.throttled.gpui.summary.endFilledMs"
+        },
+        {
+          "glob": "*-reach.json",
+          "path": "profiles.throttled.tanstack.summary.endFilledMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "cpu-reference",
+      "label": "Main-thread CPU, load + fling, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.reference.gpui.summary.busyMs"
+        },
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.reference.tanstack.summary.busyMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "cpu-throttled",
+      "label": "Main-thread CPU, load + fling, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.throttled.gpui.summary.busyMs"
+        },
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.throttled.tanstack.summary.busyMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "memory-reference",
+      "label": "Page memory after the fling (the engine's workers apart), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.reference.gpui.summary.pageMemoryEndMiB"
+        },
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.reference.tanstack.summary.pageMemoryEndMiB"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "memory-throttled",
+      "label": "Page memory after the fling (the engine's workers apart), throttled, CPU 4× and Fast 4G",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.throttled.gpui.summary.pageMemoryEndMiB"
+        },
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.throttled.tanstack.summary.pageMemoryEndMiB"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "page-bytes-reference",
+      "label": "Footnote: page bytes over the wire (engine and data apart), reference",
+      "unit": "KiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.reference.gpui.summary.pageKiB"
+        },
+        {
+          "glob": "*-cost.json",
+          "path": "profiles.reference.tanstack.summary.pageKiB"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "bundle",
+      "label": "Footnote: bundle, brotli (GPUI's wasm / TanStack's first-paint JS and data layer)",
+      "unit": "KiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-sizes.json",
+          "path": "shipped.brotliKiB"
+        },
+        {
+          "glob": "*-tanstack-sizes.json",
+          "sum": [
+            "firstPaintJsBrotliKiB",
+            "dataLayerJsBrotliKiB"
+          ]
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "first-pixels-reference",
+      "label": "Footnote: first pixels, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.reference.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.reference.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "first-pixels-throttled",
+      "label": "Footnote: first pixels, throttled, CPU 4× and Fast 4G",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.throttled.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable.json",
+          "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": [
+        "readme"
       ]
     }
   ]

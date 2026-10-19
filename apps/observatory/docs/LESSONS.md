@@ -61,3 +61,15 @@ One entry per milestone, written before starting the next one: what surprised us
 - Element Timing reports an element once, at its first paint, and buffers only 150 entries. Cells that went from placeholder to real in place were invisible to it, so the cells are now keyed by state, measured or not. The reader observes from the page's start.
 - Measurement hooks have to cost the same work as the unmeasured page. The first probe key re-rendered the whole table on every key, but only with `?measure`, which would have inflated exactly the key latencies M4 measures. Two code reviews caught that and eight other bugs in this milestone's last part. The pattern held from M2: review before closing.
 - Plain TanStack in Firefox doesn't sit stuck at the top; it crawls. Its spacer lays out at 0 px, but the drawn rows still overflow the scroller, so each End reaches the edge of the rows last drawn.
+
+## M4: The numbers (2026-10-18)
+
+**Results:** [`perf/results/2026-10-18-m4-a.md`](../perf/results/2026-10-18-m4-a.md) (the module and the scripts), [`perf/results/2026-10-18-m4-b.md`](../perf/results/2026-10-18-m4-b.md) (the runs)
+
+**Surprises:**
+- Neither side wins outright, and "cheaper" and "keeps up" split apart under throttling. TanStack spent less main-thread CPU over a throttled session, yet many of its main-thread fling frames ran late. Its median frame does almost nothing (the compositor scrolls), but the frames where rows re-render run long. GPUI does the same work every frame and misses almost none. A per-use comparison needs both the total and the tail.
+- A late frame doesn't mean the same thing on both sides. On GPUI the main thread's frame is the presented frame; on the DOM the compositor keeps scrolling through a late one, and only the rows' update is late. The fling's late frames and lag are main-thread readings on both sides (part A's choice, since Chromium's frame reporter can't see GPUI's canvas). The docs had first said "late frames" as if the screen stuttered; the review caught it.
+- The DOM side's wheel reaches the screen twice as fast and its rows go real later. The compositor's scroll is the fastest response either side gives, and one number per input would have hidden that it shows placeholders. "→ rows real" earned its place.
+- First pixels, expected to be TanStack's, weren't: the GPUI side's HTML placeholder paints first under throttling. Both are HTML, so the gap is in what each first screen waits for, not in canvas against DOM.
+- Part A's smoke runs looked a lot like the final numbers, but they would have been read as results: on the same date, the report's newest-file rule would have tied them with the real runs. Smoke files are now excluded by name.
+- The scripts date their files in UTC, so one evening's runs landed on two dates. The report picks the newest file per glob, and that worked here, but a same-label rerun across midnight UTC would leave two "newest" candidates on different dates.

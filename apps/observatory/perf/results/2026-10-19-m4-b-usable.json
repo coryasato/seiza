@@ -1,0 +1,464 @@
+{
+  "date": "2026-10-19",
+  "label": "m4-b-usable",
+  "metric": "usable",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "runs": 10,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "usableMs": 140.8,
+          "probeMs": 26.7,
+          "markMs": 3.8,
+          "confirmed": "10/10",
+          "guarded": "10/10",
+          "firstPixelsMs": 37.8
+        },
+        "runs": [
+          {
+            "usableMs": 137.30500030517578,
+            "probeMs": 27.099000019073486,
+            "confirmed": true,
+            "markMs": 4.015000343322754,
+            "eventLatencyMs": 27.1,
+            "guarded": true,
+            "firstPixelsMs": 37.05500030517578,
+            "failures": []
+          },
+          {
+            "usableMs": 143.36999988555908,
+            "probeMs": 26.74200020980834,
+            "confirmed": true,
+            "markMs": 3.7849998474121094,
+            "eventLatencyMs": 26.74,
+            "guarded": true,
+            "firstPixelsMs": 40.795000076293945,
+            "failures": []
+          },
+          {
+            "usableMs": 145.01000022888184,
+            "probeMs": 25.638000076293935,
+            "confirmed": true,
+            "markMs": 3.9100003242492676,
+            "eventLatencyMs": 25.64,
+            "guarded": true,
+            "firstPixelsMs": 35.05999994277954,
+            "failures": []
+          },
+          {
+            "usableMs": 140.18499994277954,
+            "probeMs": 25.59899992370606,
+            "confirmed": true,
+            "markMs": 3.9549999237060547,
+            "eventLatencyMs": 25.6,
+            "guarded": true,
+            "firstPixelsMs": 46.264999866485596,
+            "failures": []
+          },
+          {
+            "usableMs": 139.3899998664856,
+            "probeMs": 26.961999588012702,
+            "confirmed": true,
+            "markMs": 3.7849998474121094,
+            "eventLatencyMs": 26.96,
+            "guarded": true,
+            "firstPixelsMs": 32.55499982833862,
+            "failures": []
+          },
+          {
+            "usableMs": 146.25500011444092,
+            "probeMs": 26.82100019073485,
+            "confirmed": true,
+            "markMs": 3.809999942779541,
+            "eventLatencyMs": 26.83,
+            "guarded": true,
+            "firstPixelsMs": 38.44499969482422,
+            "failures": []
+          },
+          {
+            "usableMs": 136.68499994277954,
+            "probeMs": 26.157000190734863,
+            "confirmed": true,
+            "markMs": 3.760000228881836,
+            "eventLatencyMs": 26.16,
+            "guarded": true,
+            "firstPixelsMs": 29.52999973297119,
+            "failures": []
+          },
+          {
+            "usableMs": 141.40000009536743,
+            "probeMs": 26.719000209808343,
+            "confirmed": true,
+            "markMs": 3.8050003051757812,
+            "eventLatencyMs": 26.72,
+            "guarded": true,
+            "firstPixelsMs": 36.09000015258789,
+            "failures": []
+          },
+          {
+            "usableMs": 145.46999979019165,
+            "probeMs": 26.98299958801269,
+            "confirmed": true,
+            "markMs": 3.5349998474121094,
+            "eventLatencyMs": 26.98,
+            "guarded": true,
+            "firstPixelsMs": 40.41499996185303,
+            "failures": []
+          },
+          {
+            "usableMs": 139.75,
+            "probeMs": 25.67099975204468,
+            "confirmed": true,
+            "markMs": 3.6649999618530273,
+            "eventLatencyMs": 25.67,
+            "guarded": true,
+            "firstPixelsMs": 41.38000011444092,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "usableMs": 41.7,
+          "probeMs": 9.8,
+          "markMs": 1.2,
+          "confirmed": "10/10",
+          "guarded": null,
+          "firstPixelsMs": 42
+        },
+        "runs": [
+          {
+            "usableMs": 43.41000032424927,
+            "probeMs": 17.39299994277954,
+            "confirmed": true,
+            "markMs": 1.1550002098083496,
+            "eventLatencyMs": 17.39,
+            "guarded": null,
+            "firstPixelsMs": 59.985000133514404,
+            "failures": []
+          },
+          {
+            "usableMs": 43.21499967575073,
+            "probeMs": 18.25199968338012,
+            "confirmed": true,
+            "markMs": 1.179999828338623,
+            "eventLatencyMs": 18.25,
+            "guarded": null,
+            "firstPixelsMs": 60.43499994277954,
+            "failures": []
+          },
+          {
+            "usableMs": 43.954999923706055,
+            "probeMs": 9.999000335693353,
+            "confirmed": true,
+            "markMs": 1.2350001335144043,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 39.59500026702881,
+            "failures": []
+          },
+          {
+            "usableMs": 38.81500005722046,
+            "probeMs": 9.420999588012698,
+            "confirmed": true,
+            "markMs": 1.1649999618530273,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 44.799999713897705,
+            "failures": []
+          },
+          {
+            "usableMs": 41.03499984741211,
+            "probeMs": 12.555000095367433,
+            "confirmed": true,
+            "markMs": 1.1349997520446777,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 46.68499994277954,
+            "failures": []
+          },
+          {
+            "usableMs": 41.14500045776367,
+            "probeMs": 6.4339999046325715,
+            "confirmed": true,
+            "markMs": 1.2300000190734863,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 43.87000036239624,
+            "failures": []
+          },
+          {
+            "usableMs": 38.545000076293945,
+            "probeMs": 9.5529995803833,
+            "confirmed": true,
+            "markMs": 1.294999599456787,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 32.825000286102295,
+            "failures": []
+          },
+          {
+            "usableMs": 43.65999984741211,
+            "probeMs": 11.838000419616705,
+            "confirmed": true,
+            "markMs": 2.3400001525878906,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 39.53999996185303,
+            "failures": []
+          },
+          {
+            "usableMs": 38.80000019073486,
+            "probeMs": 8.913999713897702,
+            "confirmed": true,
+            "markMs": 1.3299999237060547,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 32.170000076293945,
+            "failures": []
+          },
+          {
+            "usableMs": 42.21000003814697,
+            "probeMs": 4.075000545501709,
+            "confirmed": true,
+            "markMs": 1.1050000190734863,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 40.21000003814697,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "usableMs": 3482.3,
+          "probeMs": 15,
+          "markMs": 11.4,
+          "confirmed": "10/10",
+          "guarded": "10/10",
+          "firstPixelsMs": 244.5
+        },
+        "runs": [
+          {
+            "usableMs": 3484.465000152588,
+            "probeMs": 13.463999904632601,
+            "confirmed": true,
+            "markMs": 11.59000015258789,
+            "eventLatencyMs": 13.47,
+            "guarded": true,
+            "firstPixelsMs": 246.18000030517578,
+            "failures": []
+          },
+          {
+            "usableMs": 3477.4699997901917,
+            "probeMs": 12.776999961853107,
+            "confirmed": true,
+            "markMs": 10.684999942779541,
+            "eventLatencyMs": 12.78,
+            "guarded": true,
+            "firstPixelsMs": 236.83500003814697,
+            "failures": []
+          },
+          {
+            "usableMs": 3482.75,
+            "probeMs": 18.074999961852882,
+            "confirmed": true,
+            "markMs": 12.170000076293945,
+            "eventLatencyMs": 18.07,
+            "guarded": true,
+            "firstPixelsMs": 236.24499988555908,
+            "failures": []
+          },
+          {
+            "usableMs": 3481.9800000190735,
+            "probeMs": 13.071000038146849,
+            "confirmed": true,
+            "markMs": 10.760000228881836,
+            "eventLatencyMs": 13.07,
+            "guarded": true,
+            "firstPixelsMs": 256.8800001144409,
+            "failures": []
+          },
+          {
+            "usableMs": 3489.2350001335144,
+            "probeMs": 14.095999752044463,
+            "confirmed": true,
+            "markMs": 11.980000019073486,
+            "eventLatencyMs": 14.1,
+            "guarded": true,
+            "firstPixelsMs": 244.6050000190735,
+            "failures": []
+          },
+          {
+            "usableMs": 3486.6200003623962,
+            "probeMs": 15.807000221252565,
+            "confirmed": true,
+            "markMs": 11.799999713897705,
+            "eventLatencyMs": 15.8,
+            "guarded": true,
+            "firstPixelsMs": 241.61500024795532,
+            "failures": []
+          },
+          {
+            "usableMs": 3481.909999847412,
+            "probeMs": 13.70100026702903,
+            "confirmed": true,
+            "markMs": 11.205000400543213,
+            "eventLatencyMs": 13.7,
+            "guarded": true,
+            "firstPixelsMs": 244.75500011444092,
+            "failures": []
+          },
+          {
+            "usableMs": 3478.369999885559,
+            "probeMs": 16.809999999999945,
+            "confirmed": true,
+            "markMs": 14.28000020980835,
+            "eventLatencyMs": 16.81,
+            "guarded": true,
+            "firstPixelsMs": 254.09999990463257,
+            "failures": []
+          },
+          {
+            "usableMs": 3482.6200003623962,
+            "probeMs": 18.687999847411902,
+            "confirmed": true,
+            "markMs": 11.275000095367432,
+            "eventLatencyMs": 18.69,
+            "guarded": true,
+            "firstPixelsMs": 235.21000003814697,
+            "failures": []
+          },
+          {
+            "usableMs": 3474.1349997520447,
+            "probeMs": 16.343999492645253,
+            "confirmed": true,
+            "markMs": 11.299999713897705,
+            "eventLatencyMs": 16.35,
+            "guarded": true,
+            "firstPixelsMs": 244.41499996185303,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "usableMs": 488.3,
+          "probeMs": 6,
+          "markMs": 4.2,
+          "confirmed": "10/10",
+          "guarded": null,
+          "firstPixelsMs": 390.7
+        },
+        "runs": [
+          {
+            "usableMs": 482.30999994277954,
+            "probeMs": 4.9549998474120684,
+            "confirmed": true,
+            "markMs": 4.259999752044678,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 383.1950001716614,
+            "failures": []
+          },
+          {
+            "usableMs": 485.2550001144409,
+            "probeMs": 9.968000152587933,
+            "confirmed": true,
+            "markMs": 4.400000095367432,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 385.34499979019165,
+            "failures": []
+          },
+          {
+            "usableMs": 493.47499990463257,
+            "probeMs": 4.905000095367427,
+            "confirmed": true,
+            "markMs": 4.03000020980835,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 393.38500022888184,
+            "failures": []
+          },
+          {
+            "usableMs": 490.65000009536743,
+            "probeMs": 7.493000450134332,
+            "confirmed": true,
+            "markMs": 3.8650002479553223,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 395.44000005722046,
+            "failures": []
+          },
+          {
+            "usableMs": 486.71999979019165,
+            "probeMs": 10.873000343322701,
+            "confirmed": true,
+            "markMs": 4.070000171661377,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 391,
+            "failures": []
+          },
+          {
+            "usableMs": 493.4949998855591,
+            "probeMs": 5.249000057220428,
+            "confirmed": true,
+            "markMs": 4.25,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 397.4399995803833,
+            "failures": []
+          },
+          {
+            "usableMs": 492.1549997329712,
+            "probeMs": 11.043999492645298,
+            "confirmed": true,
+            "markMs": 4.269999980926514,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 392.0099997520447,
+            "failures": []
+          },
+          {
+            "usableMs": 487.52500009536743,
+            "probeMs": 5.3260001335144125,
+            "confirmed": true,
+            "markMs": 4.700000286102295,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 390.4099998474121,
+            "failures": []
+          },
+          {
+            "usableMs": 480.1599998474121,
+            "probeMs": 4.6210001335143716,
+            "confirmed": true,
+            "markMs": 3.9149999618530273,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 380.6349997520447,
+            "failures": []
+          },
+          {
+            "usableMs": 489.07999992370605,
+            "probeMs": 6.709000038146996,
+            "confirmed": true,
+            "markMs": 3.179999828338623,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 389.96999979019165,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}
