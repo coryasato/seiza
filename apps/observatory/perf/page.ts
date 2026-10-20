@@ -57,6 +57,9 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
+import { wheel } from '../../../shared-web/perf/harness.ts';
+import { format, Reporter } from '../../../shared-web/scripts/results.ts';
+import { BARS, CARDS } from '../web/src/readouts.ts';
 import { SIDEBAR_KEY, SIDEBAR_SCRIM, SIDEBAR_SCRIPT, SIDEBAR_TOGGLE } from '../web/src/sidebar.ts';
 import { budgetLimits, pageWebDir, perfDir, problems, protocolContext, servePage } from './harness.ts';
 
@@ -360,6 +363,148 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
+/** The numbers' text: each card's cold values and live row, by metric. */
+const cardText = (page: Page) =>
+  page.evaluate(() =>
+    Object.fromEntries(
+      [...document.querySelectorAll<HTMLElement>('[data-card]')].map((card) => [
+        card.dataset.card!,
+        {
+          cold: [...card.querySelectorAll<HTMLElement>('[data-cold]')].map((value) => value.textContent!),
+          live: Object.fromEntries([...card.querySelectorAll<HTMLElement>('[data-live]')].map((value) => [value.dataset.live!, value.textContent!])),
+        },
+      ]),
+    ),
+  );
+/** A live value that's a number (not "loading", "not loaded", …). */
+const reads = (text: string | undefined) => !!text && /^\d/.test(text);
+
+/**
+ * The numbers: rendered after first paint, not in the HTML; the cold
+ * medians resolved from perf/results/ as `report` resolves them, both
+ * profiles, and the chart's; this tab's live
+ * row filling as GPUI loads (its usable reading the frame's own mark), a
+ * scroll's late frames, the frame's memory, TanStack's readings labelled
+ * warm after a flip with GPUI's kept; nothing but the memory (re-measured
+ * every few seconds) changing while nothing happens, and the readouts
+ * refreshed at ~4 Hz at most while something does; on a phone,
+ * the first card open and the rest and the chart closed, each opening on
+ * a press.
+ */
+async function readouts(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const reporter = new Reporter(join(perfDir, '..'));
+  const coldOf = (metric: string, profile: string) => {
+    const entry = reporter.budgets.metrics.find((candidate) => candidate.id === `${metric}-${profile}`)!;
+    return reporter.values(entry, 'local')!.map((value) => format(value.value));
+  };
+  // Below the fold, they'd only delay the first paint: none in the HTML.
+  expect(!readFileSync(join(dist, 'tall-table/index.html'), 'utf8').includes('data-card'), 'the numbers are in the prerendered HTML');
+
+  // ForceEagerMeasureMemory: else the memory reading waits for a GC (up to 20 s).
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await protocolContext(browser, { init: [markRecorder] });
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await page.locator('[data-card]').first().waitFor();
+    for (const profile of ['throttled', 'reference']) {
+      await page.getByRole('group', { name: 'Profile' }).getByRole('button', { name: profile === 'reference' ? 'Reference' : 'Throttled' }).click();
+      const shown = await cardText(page);
+      for (const card of CARDS) {
+        const want = coldOf(card.metric, profile);
+        expect(JSON.stringify(shown[card.metric]?.cold.map((text) => text.replace(/[^\d.]+$/, ''))) === JSON.stringify(want), `${profile} ${card.metric}: shows ${shown[card.metric]?.cold}, results say ${want}`);
+      }
+    }
+    const chart = await page.locator('[aria-label="Input to visible response"]').innerText();
+    for (const bar of BARS) for (const value of coldOf(bar.metric, 'reference')) expect(chart.includes(`${value} ms`), `the chart lacks ${bar.metric}'s ${value} ms`);
+    console.log('readouts: the cold medians, both profiles, and the chart, as perf/results/ has them');
+
+    const gpui = contenderBase('tall-table', 'gpui');
+    await waitFilled(page, gpui);
+    const filledAt = Date.now();
+    await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-card="data"] [data-live="gpui"]')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("GPUI's live time to data didn't show within 2 s of its filled mark"));
+    out.liveAfterFilledMs = Date.now() - filledAt;
+    let text = await cardText(page);
+    const marks = await page.frameLocator('iframe').locator(':root').evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').map((mark) => [mark.name, mark.startTime])));
+    const usable = Number(text.usable?.live.gpui?.split(' ')[0]);
+    expect(Math.abs(usable - marks[MARKS.usable]!) < 0.1, `GPUI's live usable ${usable} ms isn't its frame's mark, ${marks[MARKS.usable]} ms`);
+    const data = Number(text.data?.live.gpui?.split(' ')[0]);
+    expect(Math.abs(data - (marks[MARKS.filled]! - marks[MARKS.open]!)) < 0.1, `GPUI's live time to data ${data} ms isn't its open → filled`);
+    expect(text.usable?.live.tanstack === 'not loaded', `TanStack's live row before it loaded: ${text.usable?.live.tanstack}`);
+    expect(!reads(text['fling-late']?.live.gpui), `GPUI's late frames read before any scroll: ${text['fling-late']?.live.gpui}`);
+    expect(!/warm/.test(text.usable?.live.gpui ?? ''), "GPUI, this tab's first frame, is labelled warm");
+
+    // Nothing but the memory changes while nothing happens; ~4 Hz at most
+    // while something does.
+    const mutations = async (during: () => Promise<void>, ignore = '') => {
+      await page.evaluate((ignore) => {
+        const counted = ((globalThis as { __readoutMutations?: number[] }).__readoutMutations = [] as number[]);
+        new MutationObserver((records) => {
+          if (records.some((record) => !ignore || !(record.target instanceof Element ? record.target : record.target.parentElement)?.closest(ignore))) counted.push(performance.now());
+        }).observe(document.querySelector('[aria-label="The numbers"]')!, { subtree: true, childList: true, characterData: true });
+      }, ignore);
+      await during();
+      return page.evaluate(() => (globalThis as unknown as { __readoutMutations: number[] }).__readoutMutations.splice(0));
+    };
+    await page.waitForTimeout(1_000);
+    const idle = await mutations(() => page.waitForTimeout(2_000), '[data-card="memory"] [data-live]');
+    expect(idle.length === 0, `the readouts other than memory changed ${idle.length} times in 2 s with nothing happening`);
+    // The profile switch scrolled the page: the frame back in view.
+    await page.evaluate(() => scrollTo(0, 0));
+    const frame = (await page.locator('iframe').boundingBox())!;
+    await page.mouse.move(frame.x + frame.width / 2, frame.y + frame.height / 2);
+    const scrolling = await mutations(async () => {
+      // `wheel` scales by the DPR, which headless halves (root CLAUDE.md).
+      for (let i = 0; i < 60; i++) {
+        await wheel(page, 300);
+        await page.waitForTimeout(16);
+      }
+      await page.waitForTimeout(600);
+    });
+    // React writes a refresh in a few text nodes at once: count refreshes as
+    // bursts more than 50 ms apart.
+    const bursts = scrolling.filter((at, index) => index === 0 || at - scrolling[index - 1]! > 50);
+    const span = scrolling.length > 1 ? (scrolling.at(-1)! - scrolling[0]!) / 1000 : 1;
+    out.scrollRefreshes = { bursts: bursts.length, seconds: Number(span.toFixed(2)) };
+    expect(bursts.length >= 2 && bursts.length <= Math.ceil(span * 4) + 1, `the readouts refreshed ${bursts.length} times in ${span.toFixed(2)} s of scrolling (~4 Hz)`);
+    text = await cardText(page);
+    expect(reads(text['fling-late']?.live.gpui), `GPUI's late frames after a scroll: ${text['fling-late']?.live.gpui}`);
+    await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-card="memory"] [data-live="gpui"]')?.textContent ?? ''), null, { timeout: 15_000 }).catch(() => fail("GPUI's live memory didn't show within 15 s"));
+    out.gpui = (await cardText(page));
+    console.log(`readouts: GPUI live ${JSON.stringify(Object.fromEntries(Object.entries(out.gpui as Record<string, { live: Record<string, string> }>).map(([metric, card]) => [metric, card.live.gpui])))}; refreshes ${bursts.length} in ${span.toFixed(2)} s of scrolling, none idle but the memory`);
+
+    // The second side: warm; the first's readings kept.
+    const tanstack = contenderBase('tall-table', 'tanstack');
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, tanstack);
+    await page.waitForFunction(() => /^\d.*warm$/.test(document.querySelector('[data-card="data"] [data-live="tanstack"]')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("TanStack's live time to data isn't shown, labelled warm"));
+    text = await cardText(page);
+    expect(text.usable?.live.gpui === (out.gpui as typeof text).usable?.live.gpui, `GPUI's readings changed after the flip: ${text.usable?.live.gpui}`);
+    out.tanstack = text;
+    console.log(`readouts: after the flip TanStack ${text.usable?.live.tanstack} usable, ${text.data?.live.tanstack} data; GPUI's kept`);
+    expect(found.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: the first card open, the rest and the chart closed.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForFunction(() => document.querySelectorAll('[data-card] button[aria-expanded]').length === 4, null, { timeout: 10_000 }).catch(() => fail('the cards have no disclosure buttons on a phone'));
+    const expanded = await small.locator('[data-card] button[aria-expanded], [aria-label="Input to visible response"] button[aria-expanded]').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-expanded')));
+    expect(JSON.stringify(expanded) === JSON.stringify(['true', 'false', 'false', 'false', 'false']), `on a phone, the cards and the chart open: ${expanded}`);
+    expect((await small.locator('[data-card="data"] [data-cold]').count()) === 0, 'a closed card shows its values large');
+    await small.locator('[data-card="data"] button').click();
+    expect((await small.locator('[data-card="data"] [data-cold]').count()) === 2, "pressing a closed card's header didn't open it");
+    await phone.close();
+    console.log(`readouts: a phone opens the first card only (${expanded}), a press opens another`);
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
 /** A context at `viewport` with the stored sidebar state (`closed`, or none)
  *  and theme; a phone's has touch. */
 async function layoutContext(browser: Browser, viewport: { width: number; height: number }, stored: { sidebar?: 'closed'; theme?: 'light' | 'dark' } = {}) {
@@ -574,10 +719,12 @@ const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFIL
 const results: Record<string, { runs: Run[]; firstPaintMs: ReturnType<typeof summarize>; fcpMs: ReturnType<typeof summarize> }> = {};
 let hosted: Record<string, unknown> = {};
 let laidOut: Record<string, unknown> = {};
+let readOut: Record<string, unknown> = {};
 try {
   const url = new URL(ROUTE, server.url).href;
   hosted = await hosting(url);
   laidOut = await layout(url);
+  readOut = await readouts(url);
   const shots = option('shots');
   if (shots) await screenshots(url, shots);
   for (const profile of profiles) {
@@ -618,6 +765,7 @@ if (label) {
     fcpMs: Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.fcpMs?.median ?? null])),
     hosting: hosted,
     layout: laidOut,
+    readouts: readOut,
     runs: Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.runs])),
     failures,
   };

@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page, deployed (parts 0, A, A1–A2, B–C) | In progress: parts 0, A, A1, and A2 done 2026-10-19, part B next |
+| M5 | The observatory page, deployed (parts 0, A, A1–A2, B–C) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, part C next |
 | M6 | Split mode | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, parts 0, A, A1, and A2 done, part B next. Restate part B's checks at the start of its session.
+M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, and B done, part C next. Restate part C's checks at the start of its session.
 
 ---
 
@@ -73,8 +73,8 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 - [x] The page's budgets (`check`) and its hosting checks (`perf/page.ts`) still pass; screenshots, light and dark, desktop and phone, in the results note, beside the canvas. Evidence: `page --check`, PASS: first paint 76.7 ms (limit 85), first-paint JS 77.3 KiB (was 78.2, limit 86); `page --shots`, eight screenshots (raw, listed in `perf/results/2026-10-19-m5-a2.md` with the differences from the canvas).
 
 **Part B: the readouts.** The design to build: the numbers below the description in the design canvas's dashboard row, https://claude.ai/artifact/GfAZSk1Jpt1mnHnFievpi4 (read it with the Artifact tool; its `Dashboard.dc.html` holds the headline cards with their live row, the Reference | Throttled switch, and the input-to-response chart).
-- [ ] Passive readouts from M4's metrics module at ~4 Hz, the second contender's labelled warm, beside M4's cold numbers.
-- [ ] Which metrics can be read live in a page (marks, frame intervals, Long Animation Frames in Chromium, memory; not the trace's input latency or frame work), filling the dashboard's live row per card, labelled "this tab"; the cards' and charts' layout on a phone (collapsed by default, the most important open).
+- [x] Passive readouts from M4's metrics module at ~4 Hz, the second contender's labelled warm, beside M4's cold numbers. Evidence: `web/src/numbers.ts` (the cards' cold medians large, the live row below), `web/cold.ts` (the cold numbers from `perf/results/` at build time, through `shared-web/scripts/results.ts`, `report`'s resolver), `web/src/live.ts` (records; `liveReadings` in `metrics/metrics.ts` computes, refreshed every `LIVE_REFRESH_MS`, 250 ms, only on a change); `perf/page.ts`, PASS: the cold medians as `perf/results/` has them in both profiles and the chart's; GPUI's live usable and data its frame's own marks; still over 2 s idle, 2 refreshes in 1.75 s of scrolling; after a flip TanStack's labelled warm, GPUI's kept (`perf/results/2026-10-19-m5-b.md`).
+- [x] Which metrics can be read live in a page (marks, frame intervals, Long Animation Frames in Chromium, memory; not the trace's input latency or frame work), filling the dashboard's live row per card, labelled "this tab"; the cards' and charts' layout on a phone (collapsed by default, the most important open). Evidence: `docs/DECISIONS.md`, "Page" (2026-10-19: the cards first usable, time to data, the fling's late frames, page memory, each with a live reading; the mock-up's wheel and per-frame-work cards replaced, the wheel kept in the chart; Event Timing and Long Animation Frames rejected; the numbers rendered after first paint, its A/B: prerendered 81.8 ms first paint against the empty slot's 62.8); `perf/page.ts`, PASS: late frames and memory read in the tab; on a phone the first card open, the others and the chart closed, a press opens one; screenshots in `perf/results/raw/2026-10-19-m5-b/`; `page --check` first paint 78.6 ms, first-paint JS 78.2 KiB.
 
 **Part C: the deploy.**
 - [ ] The Worker serves the page (one HTML file per route), the contenders at their bases, and the engine as static assets (precompressed brotli, COOP/COEP/CORP), and the data file by range through the edge cache (as it does today), at `seiza.io/observatory`; the zone's WAF rules cover its paths; a production check passes.

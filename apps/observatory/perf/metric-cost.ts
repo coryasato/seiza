@@ -14,7 +14,7 @@
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import type { Page, Request } from '@playwright/test';
-import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork } from '../metrics/metrics.ts';
+import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, memoryOf, type MemoryEntry } from '../metrics/metrics.ts';
 import { filledState, fling, inputRecorder, medianOf, now, opened, openSide, originMark, pressProbeKey, readyFling, runMetric, wheels, type RunResult, type Session } from './contender.ts';
 import { ENGINE_CHUNK } from './harness.ts';
 
@@ -36,16 +36,11 @@ interface Memory {
 }
 
 async function memory(page: Page, session: Session): Promise<Memory> {
-  const measured = await page.evaluate(async () => {
-    const result = await (performance as Performance & { measureUserAgentSpecificMemory(): Promise<{ breakdown: { bytes: number; attribution: { scope: string }[] }[] }> }).measureUserAgentSpecificMemory();
-    let pageBytes = 0;
-    let workerBytes = 0;
-    for (const entry of result.breakdown) {
-      if (entry.attribution.some((attribution) => attribution.scope === 'Window')) pageBytes += entry.bytes;
-      else if (entry.attribution.some((attribution) => attribution.scope.endsWith('WorkerGlobalScope'))) workerBytes += entry.bytes;
-    }
-    return { pageBytes, workerBytes };
+  const breakdown = await page.evaluate(async () => {
+    const result = await (performance as Performance & { measureUserAgentSpecificMemory(): Promise<{ breakdown: MemoryEntry[] }> }).measureUserAgentSpecificMemory();
+    return result.breakdown;
   });
+  const measured = memoryOf(breakdown);
   const cdp = await session.context.newCDPSession(page);
   await cdp.send('Performance.enable');
   const { metrics } = await cdp.send('Performance.getMetrics');

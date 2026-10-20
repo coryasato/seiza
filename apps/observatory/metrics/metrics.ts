@@ -37,8 +37,9 @@ export const FLING_FRAMES = 180;
 /** Each fling step, CSS px, for a table of `rows` rows of `rowHeight`. */
 export const flingStep = (rows: number, rowHeight: number): number => (rows * rowHeight) / FLING_FRAMES;
 
-/** A frame interval past this missed at least one refresh: a late frame. */
-export const LATE_FRAME_MS = 1.5 * FRAME_MS;
+/** A frame interval past this many refreshes missed at least one: a late frame. */
+export const LATE_FACTOR = 1.5;
+export const LATE_FRAME_MS = LATE_FACTOR * FRAME_MS;
 
 // ---------------------------------------------------------------- marks
 
@@ -476,6 +477,24 @@ export function frameWork(trace: Trace, from: number, to: number): FrameWork {
 
 // ---------------------------------------------------------------- behavior under load
 
+/** Frame intervals over `LATE_FACTOR` refreshes (`LATE_FRAME_MS` at the
+ *  reference run's 60 Hz): their count, and their share of the intervals. */
+export function lateFrames(intervals: readonly number[], refreshMs = FRAME_MS): { late: number; share: number } {
+  const late = intervals.filter((interval) => interval > LATE_FACTOR * refreshMs).length;
+  return { late, share: intervals.length ? late / intervals.length : 0 };
+}
+
+/** The display's refresh period, from frame intervals: the 10th percentile
+ *  of the latest `REFRESH_SAMPLE` (on-time frames are one refresh apart; a
+ *  late one is longer, never shorter), so a long session's cost stays flat.
+ *  `FRAME_MS` with too few to tell. */
+export const REFRESH_SAMPLE = 600;
+export function refreshPeriod(intervals: readonly number[]): number {
+  if (intervals.length < 10) return FRAME_MS;
+  const sorted = intervals.slice(-REFRESH_SAMPLE).sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 10)]!;
+}
+
 /** One animation frame and what the view showed then (`__contender.state`,
  *  through `shared-web/perf/`'s `frameRecorder`). */
 export type StateFrame = Partial<ContenderState> & { t: number };
@@ -526,7 +545,7 @@ export function underLoad(frames: readonly StateFrame[], inputs: readonly WheelI
   const settled = rest < shown.length ? shown[rest]! : null;
   const during = shown.slice(0, settled ? rest + 1 : shown.length);
   const intervals = during.slice(1).map((frame, index) => frame.t - during[index]!.t);
-  const late = intervals.filter((interval) => interval > LATE_FRAME_MS).length;
+  const { late, share } = lateFrames(intervals);
   const maxTop = Math.max(0, ...shown.map((frame) => frame.top!));
   const lags = during.map((frame) => {
     const sent = inputs.filter((input) => input.at <= frame.t).reduce((sum, input) => sum + input.delta, 0);
@@ -538,11 +557,90 @@ export function underLoad(frames: readonly StateFrame[], inputs: readonly WheelI
   return {
     frames: during.length,
     lateFrames: late,
-    lateShare: intervals.length ? late / intervals.length : 0,
+    lateShare: share,
     placeholderShare: during.length ? during.filter((frame) => (frame.pending ?? 0) > 0).length / during.length : 0,
     lagSteps: { p95: round(p95), max: round(sorted.at(-1) ?? 0) },
     catchUpMs: settled ? round(Math.max(0, settled.t - lastInput)) : null,
     reachedEnd: !!final && final.end === final.rows && final.pending === 0,
+  };
+}
+
+// ---------------------------------------------------------------- memory
+
+/** One entry of `performance.measureUserAgentSpecificMemory()`'s breakdown. */
+export interface MemoryEntry {
+  bytes: number;
+  attribution: { url?: string; scope: string }[];
+}
+
+/**
+ * The page's own memory (its window's realm) and its workers' (the engine's,
+ * the same on both sides), bytes. `isPage` names the page's window by its
+ * URL where there are several (the observatory's page measures the
+ * contender's frame); a bare page has one.
+ */
+export function memoryOf(breakdown: readonly MemoryEntry[], isPage: (url: string) => boolean = () => true): { pageBytes: number; workerBytes: number } {
+  let pageBytes = 0;
+  let workerBytes = 0;
+  for (const entry of breakdown) {
+    if (entry.attribution.some((attribution) => attribution.scope === 'Window' && isPage(attribution.url ?? ''))) pageBytes += entry.bytes;
+    else if (entry.attribution.some((attribution) => attribution.scope.endsWith('WorkerGlobalScope'))) workerBytes += entry.bytes;
+  }
+  return { pageBytes, workerBytes };
+}
+
+// ---------------------------------------------------------------- live, in a tab
+
+/** How often the page's readouts refresh: ~4 Hz, as Tycho's panel. */
+export const LIVE_REFRESH_MS = 250;
+
+/** A scroll ends once its input rests this long (the paging's own rest). */
+export const SCROLL_REST_MS = 250;
+
+/** What the observatory's page records of the shown contender, as it runs
+ *  in the page's frame: epoch ms throughout, since the page and the frame
+ *  have different time origins. */
+export interface LiveRecord {
+  /** The frame's `performance.timeOrigin`. */
+  timeOrigin: number;
+  /** The relayed marks (`contender:usable`, `open`, every `filled`). */
+  usable: number | null;
+  open: number | null;
+  filled: number[];
+  /** Each scroll's animation frames (their rAF timestamps, epoch ms), from
+   *  its first input until it rested. */
+  scrolls: number[][];
+  /** The latest memory measurement's breakdown, and its time. */
+  memory: { at: number; breakdown: MemoryEntry[] } | null;
+}
+
+/** The page's live readouts, each a reading a page can take (no trace):
+ *  marks, frame intervals, memory. */
+export interface LiveReadings {
+  /** Navigation → `contender:usable`, unconfirmed: a tab has no probe key. */
+  usableMs: number | null;
+  /** `contender:open` → the first `contender:filled` after it: GPUI's lands
+   *  right after the presented frame, the DOM's in its commit, up to a frame
+   *  before its paint (a page can't read the cells' Element Timing). */
+  dataMs: number | null;
+  /** Late frames while the visitor scrolled, at the refresh the frames
+   *  themselves show (a 120 Hz display's, not the reference run's 60). The
+   *  memory is re-measured every few seconds, so it moves on its own. */
+  scrolling: { frames: number; lateShare: number; refreshMs: number } | null;
+  /** The page's own memory (the engine's workers apart), MiB. */
+  pageMiB: number | null;
+}
+
+export function liveReadings(record: LiveRecord, isPage: (url: string) => boolean): LiveReadings {
+  const { open, usable } = record;
+  const filled = open === null ? undefined : record.filled.find((at) => at >= open);
+  const intervals = record.scrolls.flatMap((frames) => frames.slice(1).map((at, index) => at - frames[index]!));
+  const refreshMs = refreshPeriod(intervals);
+  return {
+    usableMs: usable === null ? null : round(usable - record.timeOrigin),
+    dataMs: open === null || filled === undefined ? null : round(filled - open),
+    scrolling: intervals.length ? { frames: intervals.length, lateShare: lateFrames(intervals, refreshMs).share, refreshMs: round(refreshMs) } : null,
+    pageMiB: record.memory ? round(memoryOf(record.memory.breakdown, isPage).pageBytes / 2 ** 20) : null,
   };
 }
 

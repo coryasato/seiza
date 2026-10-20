@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from '@seiza/site-ui/components/toggle-g
 import { currentTheme, onThemeChange } from '@seiza/site-ui/theme';
 import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
 import { SIDE_PARAM, type Component, type Contender } from './components.ts';
+import { frameMark, trackFrame } from './live.ts';
 import { loadMetrics } from './metrics.ts';
 import { afterFirstPaint } from './paint.ts';
 
@@ -68,6 +69,7 @@ export function ContenderSlot({ component }: { component: Component }) {
     const listen = (event: MessageEvent<Partial<MarkMessage>>) => {
       if (event.origin !== location.origin || event.source !== ref.current?.contentWindow) return;
       if (event.data?.seiza !== 'mark') return;
+      if (typeof event.data.name === 'string' && typeof event.data.at === 'number') frameMark(event.source, event.data.name, event.data.at);
       if (event.data.name === MARKS.filled) setState('filled');
       else if (event.data.name === MARKS.failed) setState((state) => (state === 'filled' ? state : 'failed'));
     };
@@ -82,6 +84,10 @@ export function ContenderSlot({ component }: { component: Component }) {
   // Once per frame: a later theme goes in by message, and a changed `src`
   // would reload the frame.
   const src = useMemo(() => (shown && painted ? `${shown.url}?theme=${currentTheme()}` : null), [shown, painted, frame]);
+  // This tab's readouts follow each frame from its creation (`live.ts`).
+  useEffect(() => {
+    if (shown && src && ref.current) trackFrame(shown.side, ref.current, shown.url);
+  }, [src]);
   const flip = (next: Side) => {
     if (next === side) return;
     setSide(next);

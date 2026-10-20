@@ -12,7 +12,7 @@
  */
 
 import { PanelLeft } from 'lucide-react';
-import { createElement as h, useEffect, type ReactNode } from 'react';
+import { createElement as h, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { buttonVariants } from '@seiza/site-ui/components/button';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuLink } from '@seiza/site-ui/components/sidebar';
@@ -20,6 +20,7 @@ import { SiteShell } from '@seiza/site-ui/shell';
 import { OBSERVATORY } from '../../contenders/paths.ts';
 import { COMPONENTS, type Component } from './components.ts';
 import { bindSidebar, SIDEBAR_SCRIM, SIDEBAR_TOGGLE } from './sidebar.ts';
+import { afterFirstPaint } from './paint.ts';
 import { ContenderSlot, seriesDot } from './slot.ts';
 
 /** The attribute holding the route the HTML was rendered for. */
@@ -131,6 +132,17 @@ function Overview() {
   );
 }
 
+/** The numbers (`numbers.ts`): a chunk of their own, rendered after the
+ *  page's first paint, as the frame is: below the fold, they'd only delay
+ *  it (root CLAUDE.md, rule 1). */
+const Numbers = lazy(() => import('./numbers.ts').then(({ Numbers }) => ({ default: Numbers })));
+
+function NumbersSlot({ contenders }: { contenders: Component['contenders'] }) {
+  const [painted, setPainted] = useState(false);
+  useEffect(() => afterFirstPaint(() => setPainted(true)), []);
+  return h('div', { 'data-numbers': '' }, painted ? h(Suspense, { fallback: null }, h(Numbers, { contenders })) : null);
+}
+
 function Comparison({ component }: { component: Component }) {
   const [first, second] = component.contenders;
   return h(
@@ -153,8 +165,7 @@ function Comparison({ component }: { component: Component }) {
           textLink(`${SOURCE}/tree/master/apps/observatory#readme`, 'README'),
           '.',
         ),
-        // The numbers' slot: the cold runs and this tab's live readouts.
-        h('section', { 'aria-label': 'The numbers', 'data-numbers': '' }),
+        h(NumbersSlot, { contenders: component.contenders }),
       ),
     ),
   );

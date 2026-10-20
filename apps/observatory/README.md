@@ -10,7 +10,7 @@ The Observatory is seiza's comparison page. For each component in the repo, it r
 - **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.
 - **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm. A split view shows both at once, labelled not measured.
-- **Where TanStack wins, too:** the page will say so, as this README does below.
+- **Where TanStack wins, too:** each of the page's cards says which side is lower, as this README does below. Under the cold numbers the page shows what your tab reads of the side you're using (its marks, its frames while you scroll, its memory), labelled live and, for a side loaded second or from the cache, warm.
 
 ## Numbers
 

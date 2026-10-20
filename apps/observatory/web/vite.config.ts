@@ -4,6 +4,7 @@ import { siteVite } from '@seiza/site-ui/vite';
 import { prerender } from '@seiza/web/prerender';
 import { seizaViteConfig, serveDirs } from '@seiza/web/vite';
 import { observatoryData } from '../contenders/data.ts';
+import { coldNumbers } from './cold.ts';
 import { contenderBase, ENGINE, ENGINE_DIR, OBSERVATORY } from '../contenders/paths.ts';
 import { ROUTES } from './src/components.ts';
 import type * as Prerender from './src/prerender.ts';
@@ -27,6 +28,8 @@ export default defineConfig(
         siteVite(),
         // The sidebar's state before first paint, as the theme's (`src/sidebar.ts`).
         { name: 'observatory:sidebar', transformIndexHtml: () => [{ tag: 'script', children: SIDEBAR_SCRIPT, injectTo: 'head-prepend' }] },
+        // The cold numbers, from perf/results/ at build time (`cold.ts`).
+        coldNumbers(),
         prerender<typeof Prerender>({ module: '/src/prerender.ts', render: ({ render }, page) => render(page) }),
         serveDirs([
           { at: contenderBase('tall-table', 'gpui'), dir: contender('gpui') },

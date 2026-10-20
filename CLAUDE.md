@@ -83,7 +83,7 @@ seiza/
   tsconfig.base.json    # strict TS settings every host extends
   .gitignore            # target/, node_modules/, .wrangler/, pkg/, dist/, per-app data/raw, generated data, perf/results/raw
   shared/               # crate `seiza`: wasm bootstrap, the window root (first-frame mark, system theme), perf panel (`panel`), page clock and marks, script targets
-  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP, preview brotli, serveDirs: a directory at a fixed path, serveFonts), font.ts (the fonts' fixed path, `/fonts/`), placeholder.ts (static shell before the wasm), prerender.ts (a page's first screen into its HTML at build), fonts/ (UI face + placeholder subset), scripts/asset-sizes.ts, perf/ (the perf harness every app's scripts share)
+  shared-web/           # reusable JS host bits: bootstrap.ts, vite.ts (COOP/COEP, preview brotli, serveDirs: a directory at a fixed path, serveFonts), font.ts (the fonts' fixed path, `/fonts/`), placeholder.ts (static shell before the wasm), prerender.ts (a page's first screen into its HTML at build), fonts/ (UI face + placeholder subset), scripts/ (asset-sizes.ts; report.ts and results.ts, its resolver of perf/budgets.json against perf/results/, which a page can import at build time), perf/ (the perf harness every app's scripts share)
   site/
     ui/                 # `@seiza/site-ui`: the apex site's shell (navbar, theme toggle, footer), tokens, Tailwind setup, shadcn components on Base UI; README.md, CLAUDE.md
   components/
