@@ -30,7 +30,7 @@ export default defineConfig(
         { name: 'observatory:sidebar', transformIndexHtml: () => [{ tag: 'script', children: SIDEBAR_SCRIPT, injectTo: 'head-prepend' }] },
         // The cold numbers, from perf/results/ at build time (`cold.ts`).
         coldNumbers(),
-        prerender<typeof Prerender>({ module: '/src/prerender.ts', render: ({ render }, page) => render(page) }),
+        prerender<typeof Prerender>({ module: '/src/prerender.ts', render: ({ render }, page) => render(page), plugins: [coldNumbers()] }),
         serveDirs([
           { at: contenderBase('tall-table', 'gpui'), dir: contender('gpui') },
           { at: contenderBase('tall-table', 'tanstack'), dir: contender('tanstack') },

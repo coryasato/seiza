@@ -635,7 +635,9 @@ export interface LiveReadings {
    *  themselves show (a 120 Hz display's, not the reference run's 60). The
    *  memory is re-measured every few seconds, so it moves on its own. */
   scrolling: { frames: number; lateShare: number; refreshMs: number } | null;
-  /** The page's own memory (the engine's workers apart), MiB. */
+  /** The page's own `JavaScript` memory (a wasm's linear memory is in it),
+   *  MiB: what the cold memory at equal work reads, so the canvas's backing
+   *  store (`Canvas`) and the engine's workers are apart. */
   pageMiB: number | null;
 }
 
@@ -644,11 +646,12 @@ export function liveReadings(record: LiveRecord, isPage: (url: string) => boolea
   const filled = open === null ? undefined : record.filled.find((at) => at >= open);
   const intervals = record.scrolls.flatMap((frames) => frames.slice(1).map((at, index) => at - frames[index]!));
   const refreshMs = refreshPeriod(intervals);
+  const memory = record.memory ? memoryOf(record.memory.breakdown, isPage) : null;
   return {
     usableMs: usable === null ? null : round(usable - record.timeOrigin),
     dataMs: open === null || filled === undefined ? null : round(filled - open),
     scrolling: intervals.length ? { frames: intervals.length, lateShare: lateFrames(intervals, refreshMs).share, refreshMs: round(refreshMs) } : null,
-    pageMiB: record.memory ? round(memoryOf(record.memory.breakdown, isPage).pageBytes / 2 ** 20) : null,
+    pageMiB: memory ? round((memory.pageByType.JavaScript ?? 0) / 2 ** 20) : null,
   };
 }
 

@@ -190,7 +190,9 @@ function refresh(): void {
   for (const listener of listeners) listener();
 }
 
-function subscribe(listener: () => void): () => void {
+/** Calls `listener` after each refresh that changed a reading: the status
+ *  bar writes its text from it by reference, never by a React render. */
+export function subscribeLive(listener: () => void): () => void {
   listeners.add(listener);
   // The metrics module loads after the page's first paint, never for it.
   afterFirstPaint(() =>
@@ -210,5 +212,13 @@ function subscribe(listener: () => void): () => void {
 
 const EMPTY: Live = { gpui: null, tanstack: null };
 
-/** This tab's readings, refreshed at ~4 Hz. */
-export const useLive = (): Live => useSyncExternalStore(subscribe, () => snapshot, () => EMPTY);
+/** This tab's readings now. */
+export const liveSnapshot = (): Live => snapshot;
+
+/** This tab's readings, refreshed at ~4 Hz, for a view that renders them
+ *  (the panel, which covers the frame). */
+export const useLive = (): Live => useSyncExternalStore(subscribeLive, liveSnapshot, () => EMPTY);
+
+/** Whether `side`'s last frame is warm: not the tab's first, or its files
+ *  came from the cache (known once it filled). */
+export const isWarm = (side: Side): boolean => sides[side]?.warm ?? false;

@@ -36,9 +36,14 @@
 // edge, the contender's card ends 16 px above the window's bottom with the
 // frame at least 480 px, and the toggle collapses it, kept across a
 // reload; a phone starts closed, opens over the content with a scrim,
-// stores nothing, and closes on the scrim and Escape, with GPUI's touch
-// line shown (and hidden to a fine pointer); every press control shows
-// `cursor: pointer`.
+// stores nothing, and closes on the scrim and Escape; every press control
+// shows `cursor: pointer`.
+//
+// The window's numbers, checked once (`readouts`): the status bar's box in
+// the HTML and the frame unmoved when its numbers render (control: without
+// the box it moves), this tab's readings, the explainers, the panel's cold
+// values and verdicts against perf/results/, the description's wins, and a
+// phone's status bar.
 //
 // Usage: node apps/observatory/perf/page.ts [--runs 10] [--check] [--label <name>] [--write-baseline] [--reference-only] [--shots <dir>]
 // --shots: screenshots of the comparison, light and dark, desktop (open,
@@ -58,8 +63,8 @@ import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
-import { format, Reporter } from '../../../shared-web/scripts/results.ts';
-import { BARS, CARDS } from '../web/src/readouts.ts';
+import { resolveCold } from '../web/cold.ts';
+import { BARS, CARDS, PROFILES as DEVICE_PROFILES, cardOutcome, cardValues, downloadTotal, evenSentence, number, outcome, size, verdict, wins, winsSentence } from '../web/src/readouts.ts';
 import { SIDEBAR_KEY, SIDEBAR_SCRIM, SIDEBAR_SCRIPT, SIDEBAR_TOGGLE } from '../web/src/sidebar.ts';
 import { budgetLimits, pageWebDir, perfDir, problems, protocolContext, servePage } from './harness.ts';
 
@@ -363,148 +368,6 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
-/** The numbers' text: each card's cold values and live row, by metric. */
-const cardText = (page: Page) =>
-  page.evaluate(() =>
-    Object.fromEntries(
-      [...document.querySelectorAll<HTMLElement>('[data-card]')].map((card) => [
-        card.dataset.card!,
-        {
-          cold: [...card.querySelectorAll<HTMLElement>('[data-cold]')].map((value) => value.textContent!),
-          live: Object.fromEntries([...card.querySelectorAll<HTMLElement>('[data-live]')].map((value) => [value.dataset.live!, value.textContent!])),
-        },
-      ]),
-    ),
-  );
-/** A live value that's a number (not "loading", "not loaded", …). */
-const reads = (text: string | undefined) => !!text && /^\d/.test(text);
-
-/**
- * The numbers: rendered after first paint, not in the HTML; the cold
- * medians resolved from perf/results/ as `report` resolves them, both
- * profiles, and the chart's; this tab's live
- * row filling as GPUI loads (its usable reading the frame's own mark), a
- * scroll's late frames, the frame's memory, TanStack's readings labelled
- * warm after a flip with GPUI's kept; nothing but the memory (re-measured
- * every few seconds) changing while nothing happens, and the readouts
- * refreshed at ~4 Hz at most while something does; on a phone,
- * the first card open and the rest and the chart closed, each opening on
- * a press.
- */
-async function readouts(url: string): Promise<Record<string, unknown>> {
-  const out: Record<string, unknown> = {};
-  const reporter = new Reporter(join(perfDir, '..'));
-  const coldOf = (metric: string, profile: string) => {
-    const entry = reporter.budgets.metrics.find((candidate) => candidate.id === `${metric}-${profile}`)!;
-    return reporter.values(entry, 'local')!.map((value) => format(value.value));
-  };
-  // Below the fold, they'd only delay the first paint: none in the HTML.
-  expect(!readFileSync(join(dist, 'tall-table/index.html'), 'utf8').includes('data-card'), 'the numbers are in the prerendered HTML');
-
-  // ForceEagerMeasureMemory: else the memory reading waits for a GC (up to 20 s).
-  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
-  try {
-    const context = await protocolContext(browser, { init: [markRecorder] });
-    const page = await context.newPage();
-    const found = problems(page);
-    await page.goto(url);
-    await page.locator('[data-card]').first().waitFor();
-    for (const profile of ['throttled', 'reference']) {
-      await page.getByRole('group', { name: 'Profile' }).getByRole('button', { name: profile === 'reference' ? 'Reference' : 'Throttled' }).click();
-      const shown = await cardText(page);
-      for (const card of CARDS) {
-        const want = coldOf(card.metric, profile);
-        expect(JSON.stringify(shown[card.metric]?.cold.map((text) => text.replace(/[^\d.]+$/, ''))) === JSON.stringify(want), `${profile} ${card.metric}: shows ${shown[card.metric]?.cold}, results say ${want}`);
-      }
-    }
-    const chart = await page.locator('[aria-label="Input to visible response"]').innerText();
-    for (const bar of BARS) for (const value of coldOf(bar.metric, 'reference')) expect(chart.includes(`${value} ms`), `the chart lacks ${bar.metric}'s ${value} ms`);
-    console.log('readouts: the cold medians, both profiles, and the chart, as perf/results/ has them');
-
-    const gpui = contenderBase('tall-table', 'gpui');
-    await waitFilled(page, gpui);
-    const filledAt = Date.now();
-    await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-card="data"] [data-live="gpui"]')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("GPUI's live time to data didn't show within 2 s of its filled mark"));
-    out.liveAfterFilledMs = Date.now() - filledAt;
-    let text = await cardText(page);
-    const marks = await page.frameLocator('iframe').locator(':root').evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').map((mark) => [mark.name, mark.startTime])));
-    const usable = Number(text.usable?.live.gpui?.split(' ')[0]);
-    expect(Math.abs(usable - marks[MARKS.usable]!) < 0.1, `GPUI's live usable ${usable} ms isn't its frame's mark, ${marks[MARKS.usable]} ms`);
-    const data = Number(text.data?.live.gpui?.split(' ')[0]);
-    expect(Math.abs(data - (marks[MARKS.filled]! - marks[MARKS.open]!)) < 0.1, `GPUI's live time to data ${data} ms isn't its open → filled`);
-    expect(text.usable?.live.tanstack === 'not loaded', `TanStack's live row before it loaded: ${text.usable?.live.tanstack}`);
-    expect(!reads(text['fling-late']?.live.gpui), `GPUI's late frames read before any scroll: ${text['fling-late']?.live.gpui}`);
-    expect(!/warm/.test(text.usable?.live.gpui ?? ''), "GPUI, this tab's first frame, is labelled warm");
-
-    // Nothing but the memory changes while nothing happens; ~4 Hz at most
-    // while something does.
-    const mutations = async (during: () => Promise<void>, ignore = '') => {
-      await page.evaluate((ignore) => {
-        const counted = ((globalThis as { __readoutMutations?: number[] }).__readoutMutations = [] as number[]);
-        new MutationObserver((records) => {
-          if (records.some((record) => !ignore || !(record.target instanceof Element ? record.target : record.target.parentElement)?.closest(ignore))) counted.push(performance.now());
-        }).observe(document.querySelector('[aria-label="The numbers"]')!, { subtree: true, childList: true, characterData: true });
-      }, ignore);
-      await during();
-      return page.evaluate(() => (globalThis as unknown as { __readoutMutations: number[] }).__readoutMutations.splice(0));
-    };
-    await page.waitForTimeout(1_000);
-    const idle = await mutations(() => page.waitForTimeout(2_000), '[data-card="memory"] [data-live]');
-    expect(idle.length === 0, `the readouts other than memory changed ${idle.length} times in 2 s with nothing happening`);
-    // The profile switch scrolled the page: the frame back in view.
-    await page.evaluate(() => scrollTo(0, 0));
-    const frame = (await page.locator('iframe').boundingBox())!;
-    await page.mouse.move(frame.x + frame.width / 2, frame.y + frame.height / 2);
-    const scrolling = await mutations(async () => {
-      // `wheel` scales by the DPR, which headless halves (root CLAUDE.md).
-      for (let i = 0; i < 60; i++) {
-        await wheel(page, 300);
-        await page.waitForTimeout(16);
-      }
-      await page.waitForTimeout(600);
-    });
-    // React writes a refresh in a few text nodes at once: count refreshes as
-    // bursts more than 50 ms apart.
-    const bursts = scrolling.filter((at, index) => index === 0 || at - scrolling[index - 1]! > 50);
-    const span = scrolling.length > 1 ? (scrolling.at(-1)! - scrolling[0]!) / 1000 : 1;
-    out.scrollRefreshes = { bursts: bursts.length, seconds: Number(span.toFixed(2)) };
-    expect(bursts.length >= 2 && bursts.length <= Math.ceil(span * 4) + 1, `the readouts refreshed ${bursts.length} times in ${span.toFixed(2)} s of scrolling (~4 Hz)`);
-    text = await cardText(page);
-    expect(reads(text['fling-late']?.live.gpui), `GPUI's late frames after a scroll: ${text['fling-late']?.live.gpui}`);
-    await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-card="memory"] [data-live="gpui"]')?.textContent ?? ''), null, { timeout: 15_000 }).catch(() => fail("GPUI's live memory didn't show within 15 s"));
-    out.gpui = (await cardText(page));
-    console.log(`readouts: GPUI live ${JSON.stringify(Object.fromEntries(Object.entries(out.gpui as Record<string, { live: Record<string, string> }>).map(([metric, card]) => [metric, card.live.gpui])))}; refreshes ${bursts.length} in ${span.toFixed(2)} s of scrolling, none idle but the memory`);
-
-    // The second side: warm; the first's readings kept.
-    const tanstack = contenderBase('tall-table', 'tanstack');
-    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
-    await waitFilled(page, tanstack);
-    await page.waitForFunction(() => /^\d.*warm$/.test(document.querySelector('[data-card="data"] [data-live="tanstack"]')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("TanStack's live time to data isn't shown, labelled warm"));
-    text = await cardText(page);
-    expect(text.usable?.live.gpui === (out.gpui as typeof text).usable?.live.gpui, `GPUI's readings changed after the flip: ${text.usable?.live.gpui}`);
-    out.tanstack = text;
-    console.log(`readouts: after the flip TanStack ${text.usable?.live.tanstack} usable, ${text.data?.live.tanstack} data; GPUI's kept`);
-    expect(found.length === 0, `page problems: ${found.join('; ')}`);
-    await context.close();
-
-    // A phone: the first card open, the rest and the chart closed.
-    const phone = await layoutContext(browser, PHONE);
-    const small = await phone.newPage();
-    await small.goto(url);
-    await small.waitForFunction(() => document.querySelectorAll('[data-card] button[aria-expanded]').length === 4, null, { timeout: 10_000 }).catch(() => fail('the cards have no disclosure buttons on a phone'));
-    const expanded = await small.locator('[data-card] button[aria-expanded], [aria-label="Input to visible response"] button[aria-expanded]').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-expanded')));
-    expect(JSON.stringify(expanded) === JSON.stringify(['true', 'false', 'false', 'false', 'false']), `on a phone, the cards and the chart open: ${expanded}`);
-    expect((await small.locator('[data-card="data"] [data-cold]').count()) === 0, 'a closed card shows its values large');
-    await small.locator('[data-card="data"] button').click();
-    expect((await small.locator('[data-card="data"] [data-cold]').count()) === 2, "pressing a closed card's header didn't open it");
-    await phone.close();
-    console.log(`readouts: a phone opens the first card only (${expanded}), a press opens another`);
-  } finally {
-    await browser.close();
-  }
-  return out;
-}
-
 /** A context at `viewport` with the stored sidebar state (`closed`, or none)
  *  and theme; a phone's has touch. */
 async function layoutContext(browser: Browser, viewport: { width: number; height: number }, stored: { sidebar?: 'closed'; theme?: 'light' | 'dark' } = {}) {
@@ -567,6 +430,284 @@ async function insetAtPaintAndHydrated(browser: Browser, url: string, strip: boo
   return { atPaint, hydrated: after };
 }
 
+/** A status bar segment's reading (its last span: the live text). */
+const segment = (page: Page, key: string) => page.locator(`[data-segment="${key}"] > span:last-child`).textContent();
+/** The open explainers' popovers. */
+const popovers = (page: Page) => page.locator('[data-explainer]');
+const expanded = (page: Page, selector: string) => page.locator(selector).getAttribute('aria-expanded');
+
+/**
+ * Counts mutations under `selector` while `during` runs, those under
+ * `ignore` apart: their times, page clock.
+ */
+async function mutations(page: Page, selector: string, during: () => Promise<void>, ignore = ''): Promise<number[]> {
+  const key = `__mutations${Math.random().toString(36).slice(2)}`;
+  await page.evaluate(
+    ({ selector, ignore, key }) => {
+      const counted = ((globalThis as unknown as Record<string, number[]>)[key] = [] as number[]);
+      new MutationObserver((records) => {
+        if (records.some((record) => !ignore || !(record.target instanceof Element ? record.target : record.target.parentElement)?.closest(ignore))) counted.push(performance.now());
+      }).observe(document.querySelector(selector)!, { subtree: true, childList: true, characterData: true, attributes: true });
+    },
+    { selector, ignore, key },
+  );
+  await during();
+  return page.evaluate((key) => (globalThis as unknown as Record<string, number[]>)[key]!.splice(0), key);
+}
+
+/**
+ * The stage's box (the frame's) as the HTML and CSS alone paint it (the
+ * page's JS held back), and once the status bar's numbers have rendered.
+ * With `strip`, the HTML loses the status bar's reserved box (its class):
+ * the control, which must shift.
+ */
+async function stageAtPaintAndFilled(browser: Browser, url: string, strip: boolean) {
+  const context = await layoutContext(browser, DESKTOP);
+  const page = await context.newPage();
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => (release = resolve));
+  await page.route((target) => target.pathname.startsWith(`${OBSERVATORY}assets/`) && target.pathname.endsWith('.js'), async (route) => {
+    await released;
+    await route.continue();
+  });
+  if (strip)
+    await page.route((target) => target.pathname === ROUTE, async (route) => {
+      const response = await route.fetch();
+      const html = await response.text();
+      if (!html.includes('class="observatory-status"')) fail("the control: the route's HTML doesn't hold the status bar's box");
+      await route.fulfill({ response, body: html.replace('class="observatory-status"', '') });
+    });
+  await page.goto(url, { waitUntil: 'commit' });
+  await page.waitForFunction(() => document.querySelector('[data-stage]') && [...document.styleSheets].some((sheet) => sheet.href?.includes('/assets/')));
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const atPaint = await box(page, '[data-stage]');
+  release();
+  await page.waitForSelector('[data-status-ready]', { timeout: 30_000 });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const filled = await box(page, '[data-stage]');
+  await context.close();
+  return { atPaint, filled };
+}
+
+/**
+ * The window's numbers and the panel. The status bar's box is in the HTML
+ * and its numbers aren't, and the frame doesn't move when they render (its
+ * control without the box does); this tab's readings in the status bar
+ * (GPUI's usable and data its frame's own marks, Smooth "—" until a
+ * scroll, then a share; memory), nothing but the memory changing while
+ * nothing happens, ≤ 4 Hz while scrolling, the title bar's live text silent
+ * through a scroll; Compare's panel: each card's cold values both devices
+ * as perf/results/ has them, its verdict and "best" computed from them, the
+ * chart's values, the header's edge once its body scrolls, Esc and close
+ * returning focus to the frame; the explainers (hover, a press pins, Enter,
+ * Esc keeping focus, one at a time); after a flip TanStack ready and warm,
+ * GPUI's readings kept; the description's wins from the same numbers; a
+ * phone's two segments and its overflow, hover opening nothing.
+ */
+async function readouts(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const { numbers: cold } = resolveCold();
+  const html = readFileSync(join(dist, 'tall-table/index.html'), 'utf8');
+  expect(html.includes('class="observatory-status"'), "the status bar's box isn't in the prerendered HTML");
+  for (const attribute of ['data-status-ready', 'data-card', 'data-description']) expect(!html.includes(attribute), `${attribute} is in the prerendered HTML: it renders after first paint`);
+
+  // ForceEagerMeasureMemory: else the memory reading waits for a GC (up to 20 s).
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    // Nothing shifts when the numbers render; the control without the box does.
+    const kept = await stageAtPaintAndFilled(browser, url, false);
+    const control = await stageAtPaintAndFilled(browser, url, true);
+    expect(JSON.stringify(kept.atPaint) === JSON.stringify(kept.filled), `the frame's box moved when the numbers rendered: ${JSON.stringify(kept.atPaint)} → ${JSON.stringify(kept.filled)}`);
+    expect(JSON.stringify(control.atPaint) !== JSON.stringify(control.filled), "the control (no reserved box) didn't move the frame: the check can't fail");
+    out.noShift = { stage: kept.filled, control: { atPaint: control.atPaint.height, filled: control.filled.height } };
+    console.log(`window: the frame ${kept.atPaint.height} px at first paint and once the numbers render; control without the box ${control.atPaint.height} → ${control.filled.height}`);
+
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    const gpui = contenderBase('tall-table', 'gpui');
+    await waitFilled(page, gpui);
+    await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-segment="data"] > span:last-child')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("GPUI's Rows in didn't show within 2 s of its filled mark"));
+    const marks = await page.frameLocator('iframe').locator(':root').evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').map((mark) => [mark.name, mark.startTime])));
+    // As shown: whole milliseconds from 100, else one decimal.
+    const near = (text: string | null, ms: number) => Math.abs(parseFloat(text ?? '') - ms) <= (ms >= 100 ? 0.51 : 0.051);
+    const usable = await segment(page, 'usable');
+    expect(near(usable, marks[MARKS.usable]!), `GPUI's Ready in ${usable} isn't its frame's mark, ${marks[MARKS.usable]} ms`);
+    const data = await segment(page, 'data');
+    expect(near(data, marks[MARKS.filled]! - marks[MARKS.open]!), `GPUI's Rows in ${data} isn't its open → filled, ${marks[MARKS.filled]! - marks[MARKS.open]!} ms`);
+    expect((await segment(page, 'smooth')) === '—', `Smooth before any scroll: ${await segment(page, 'smooth')}`);
+    expect((await page.locator('[aria-live]').count()) === 1, 'the page has more than one aria-live text');
+    const state = await page.locator('[aria-live]').textContent();
+    expect(state === 'Ready · cold load', `GPUI's state: ${state}`);
+
+    // Nothing but the memory changes while nothing happens; ~4 Hz at most
+    // while something does, and the state stays silent.
+    await page.waitForTimeout(1_000);
+    const idle = await mutations(page, '[data-status-bar]', () => page.waitForTimeout(2_000), '[data-segment="memory"]');
+    expect(idle.length === 0, `the status bar other than memory changed ${idle.length} times in 2 s with nothing happening`);
+    const frame = (await page.locator('iframe').boundingBox())!;
+    await page.mouse.move(frame.x + frame.width / 2, frame.y + frame.height / 2);
+    let silent: number[] = [];
+    const scrolling = await mutations(page, '[data-status-bar]', async () => {
+      silent = await mutations(page, '[aria-live]', async () => {
+        // `wheel` scales by the DPR, which headless halves (root CLAUDE.md).
+        for (let i = 0; i < 60; i++) {
+          await wheel(page, 300);
+          await page.waitForTimeout(16);
+        }
+        await page.waitForTimeout(600);
+      });
+    });
+    expect(silent.length === 0, `the title bar's live text changed ${silent.length} times during a scroll`);
+    // A refresh writes a few text nodes at once: count bursts more than 50 ms apart.
+    const bursts = scrolling.filter((at, index) => index === 0 || at - scrolling[index - 1]! > 50);
+    const span = scrolling.length > 1 ? (scrolling.at(-1)! - scrolling[0]!) / 1000 : 1;
+    out.scrollRefreshes = { bursts: bursts.length, seconds: Number(span.toFixed(2)) };
+    expect(bursts.length >= 1 && bursts.length <= Math.ceil(span * 4) + 1, `the status bar refreshed ${bursts.length} times in ${span.toFixed(2)} s of scrolling (~4 Hz)`);
+    const smooth = await segment(page, 'smooth');
+    expect(/^\d+(\.\d)? %$/.test(smooth ?? ''), `Smooth after a scroll: ${smooth}`);
+    await page.waitForFunction(() => /MiB$/.test(document.querySelector('[data-segment="memory"] > span:last-child')?.textContent ?? ''), null, { timeout: 15_000 }).catch(() => fail("GPUI's memory didn't show within 15 s"));
+    out.gpui = Object.fromEntries(await Promise.all(CARDS.map(async (card) => [card.key, await segment(page, card.key)])));
+    console.log(`status bar: GPUI ${JSON.stringify(out.gpui)}; ${bursts.length} refreshes in ${span.toFixed(2)} s of scrolling, none idle but the memory, the state silent`);
+
+    // The explainers, on the status bar's segments and an (i).
+    await page.mouse.move(0, 0);
+    await page.locator('[data-segment="usable"]').hover();
+    expect((await popovers(page).count()) === 1 && (await popovers(page).textContent())!.includes('Cold, TanStack'), "hovering Ready in didn't open its explainer with the cold comparison");
+    await page.mouse.move(0, 0);
+    // It waits a moment for the pointer to reach it.
+    await page.waitForTimeout(300);
+    expect((await popovers(page).count()) === 0, 'a hovered explainer stayed open after the pointer left');
+    await page.locator('[data-segment="usable"]').click();
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    expect((await popovers(page).count()) === 1, "a pressed explainer didn't stay open (pinned) after the pointer left");
+    await page.locator('[data-segment="memory"]').hover();
+    expect((await expanded(page, '[data-segment="usable"]')) === 'true' && (await popovers(page).count()) === 1, 'hovering another explainer replaced a pinned one');
+    // A press in the frame closes it: the frame's events never reach the page's window.
+    await page.mouse.click(frame.x + frame.width / 2, frame.y + frame.height / 2);
+    expect((await popovers(page).count()) === 0, 'a press in the frame left a pinned explainer open');
+    await page.locator('[data-segment="usable"]').click();
+    await page.locator('[data-segment="data"]').click();
+    expect((await popovers(page).count()) === 1 && (await expanded(page, '[data-segment="usable"]')) === 'false' && (await expanded(page, '[data-segment="data"]')) === 'true', 'two explainers open at once');
+    await page.locator('[data-segment="data"]').click();
+    expect((await popovers(page).count()) === 0, "pressing a pinned explainer's trigger didn't close it");
+    const about = page.getByRole('button', { name: 'About switching sides' });
+    await about.focus();
+    expect((await popovers(page).count()) === 0, 'focus alone opened an explainer');
+    await page.keyboard.press('Enter');
+    expect((await popovers(page).count()) === 1, "Enter didn't open the explainer");
+    await page.keyboard.press('Escape');
+    expect((await popovers(page).count()) === 0, "Esc didn't close the explainer");
+    expect(await about.evaluate((button) => document.activeElement === button), 'Esc moved focus off the trigger');
+    await page.keyboard.press('Space');
+    expect((await popovers(page).count()) === 1, "Space didn't open the explainer");
+    await page.keyboard.press('Escape');
+    console.log('explainers: hover opens and leaving closes, a press pins and a second unpins, one at a time, Enter or Space opens, Esc closes with focus kept');
+
+    // The panel.
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-card]').first().waitFor();
+    expect((await expanded(page, '[data-compare]')) === 'true', "Compare isn't expanded with the panel open");
+    const panel = await page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll<HTMLElement>('[data-card]')].map((card) => [
+          card.dataset.card!,
+          {
+            verdict: card.querySelector('[data-verdict]')!.textContent,
+            cold: Object.fromEntries(
+              ['reference', 'throttled'].map((profile) => [profile, [...card.querySelectorAll<HTMLElement>(`[data-cold-${profile}]`)].map((value) => ({ text: value.firstChild!.textContent, best: value.textContent!.endsWith('best') }))]),
+            ),
+          },
+        ]),
+      ),
+    );
+    for (const card of CARDS) {
+      const outcomes = DEVICE_PROFILES.map((profile) => cardOutcome(card, cold.values, profile));
+      DEVICE_PROFILES.forEach((profile, index) => {
+        const want = cardValues(card, cold.values, profile).map((value) => number(value));
+        const shown = panel[card.key]?.cold[profile];
+        expect(JSON.stringify(shown?.map((value) => value.text)) === JSON.stringify(want), `${card.key} ${profile}: shows ${JSON.stringify(shown)}, results say ${want}`);
+        const best = shown?.map((value) => value.best);
+        const winner = outcomes[index]!.winner;
+        expect(JSON.stringify(best) === JSON.stringify([winner === 'gpui', winner === 'tanstack']), `${card.key} ${profile}: "best" on ${JSON.stringify(best)}, the winner ${winner}`);
+      });
+      const want = verdict(outcomes[0]!, outcomes[1]!, card.word, card.ratio);
+      expect(panel[card.key]?.verdict === want, `${card.key}: the verdict "${panel[card.key]?.verdict}", the numbers say "${want}"`);
+    }
+    const totals = (['gpui', 'tanstack'] as const).map((side) => downloadTotal(side, cold.parts)) as [number, number];
+    const download = verdict(outcome(totals, 'lower'), null, 'smaller', true);
+    expect(panel.download?.verdict === download && JSON.stringify(panel.download.cold.reference!.map((value) => value.text)) === JSON.stringify(totals.map((total) => size(total).split(' ')[0])), `Download: ${JSON.stringify(panel.download)}, the numbers say ${download}, ${totals}`);
+    const chart = await page.locator('[aria-label="From your input to the table moving"]').innerText();
+    for (const bar of BARS) for (const profile of DEVICE_PROFILES) for (const value of cold.values[`${bar.metric}-${profile}`]!) expect(chart.includes(`${number(value)} ms`), `the chart lacks ${bar.metric} ${profile}'s ${number(value)} ms`);
+    out.verdicts = Object.fromEntries(Object.entries(panel).map(([key, card]) => [key, card.verdict]));
+    console.log(`panel: the cold values, both devices, "best", and the verdicts from perf/results/: ${JSON.stringify(out.verdicts)}`);
+    // The header's edge once its body scrolls.
+    expect(!(await page.locator('[data-panel-header][data-edge]').count()), "the panel's header has its edge before its body scrolled");
+    await page.locator('[data-panel-body]').evaluate((body) => body.scrollBy(0, 200));
+    await page.locator('[data-panel-header][data-edge]').waitFor({ timeout: 2_000 }).catch(() => fail("the panel's header has no edge once its body scrolled"));
+    // Esc (an explainer open: it closes first), then close: back to the frame.
+    await page.getByRole('button', { name: 'About the devices' }).click();
+    await page.keyboard.press('Escape');
+    expect((await page.locator('[data-card]').count()) > 0, 'Esc with an explainer open closed the panel too');
+    await page.keyboard.press('Escape');
+    expect((await page.locator('[data-card]').count()) === 0, "Esc didn't close the panel");
+    expect(await page.evaluate(() => document.activeElement?.tagName === 'IFRAME'), 'Esc left focus off the frame');
+    await page.locator('[data-compare]').click();
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+    expect((await page.locator('[data-card]').count()) === 0 && (await page.evaluate(() => document.activeElement?.tagName === 'IFRAME')), "the close button didn't close the panel with focus on the frame");
+    console.log("panel: the header's edge once the body scrolls; Esc closes an explainer first, then the panel; Esc and close return focus to the frame");
+
+    // The second side: ready and warm; the first's readings kept.
+    const tanstack = contenderBase('tall-table', 'tanstack');
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, tanstack);
+    await page.waitForFunction(() => document.querySelector('[aria-live]')?.textContent === 'Ready · warm', null, { timeout: 2_000 }).catch(() => fail('TanStack, loaded second, isn\'t "Ready · warm"'));
+    await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-segment="data"] > span:last-child')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("TanStack's Rows in didn't show"));
+    await page.locator('[data-compare]').click();
+    const tab = await page.locator('[data-card="usable"] [data-live]').evaluateAll((values) => values.map((value) => value.textContent));
+    expect(tab[0] === (out.gpui as Record<string, string>).usable && /^\d.*warm$/.test(tab[1] ?? ''), `this tab after the flip: ${JSON.stringify(tab)} (GPUI's kept, TanStack's warm)`);
+    console.log(`flip: TanStack "Ready · warm"; this tab GPUI ${tab[0]}, TanStack ${tab[1]}`);
+
+    // The description's wins, from the same numbers.
+    const won = wins(cold);
+    const sentences = await page.locator('[data-wins] li').allTextContents();
+    const want = [...(['gpui', 'tanstack'] as const).filter((side) => won[side].length).map((side) => winsSentence(side, won[side])), ...(won.even.length ? [evenSentence(won.even)] : [])];
+    expect(JSON.stringify(sentences) === JSON.stringify(want), `where each side wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
+    out.wins = sentences;
+    console.log(`description: ${sentences.join(' ')}`);
+    expect(found.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: Smooth, Memory, and the overflow; hover opens nothing, a tap does.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForSelector('[data-status-ready]');
+    const visible = await small.locator('[data-segment]').evaluateAll((segments) => segments.filter((segment) => segment.getBoundingClientRect().width > 0).map((segment) => (segment as HTMLElement).dataset.segment));
+    expect(JSON.stringify(visible) === JSON.stringify(['smooth', 'memory']), `a phone's segments: ${visible}`);
+    expect(!(await small.locator('[data-compare]').isVisible()), "a phone shows Compare in the bar, not the overflow");
+    expect((await small.locator('[data-status-bar]').evaluate((bar) => bar.getBoundingClientRect().height)) === 44, "a phone's status bar isn't 44 px");
+    await small.locator('[data-segment="smooth"]').hover();
+    expect((await popovers(small).count()) === 0, 'hover opened an explainer on a phone');
+    await small.locator('[data-segment="smooth"]').tap();
+    expect((await popovers(small).count()) === 1, "a tap didn't open the explainer on a phone");
+    await small.getByRole('button', { name: 'More numbers' }).tap();
+    await small.getByRole('menuitem', { name: 'Compare with cold runs' }).tap();
+    await small.locator('[data-card]').first().waitFor({ timeout: 5_000 }).catch(() => {});
+    expect((await small.locator('[data-card]').count()) === 5, "the overflow's Compare didn't open the panel");
+    await small.locator('[data-description]').waitFor();
+    expect(await small.getByText('one way at a time').isVisible(), "a phone's description doesn't say GPUI's touch limit");
+    await phone.close();
+    console.log("phone: Smooth and Memory in a 44 px bar, the rest in the overflow; hover opens nothing, a tap does; the overflow opens the panel; the touch limit in the description");
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
 async function layout(url: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   const overviewUrl = new URL(OBSERVATORY, url).href;
@@ -625,6 +766,7 @@ async function layout(url: string): Promise<Record<string, unknown>> {
 
       // A control that acts on a press shows it.
       await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
+      await page.waitForSelector('[data-status-ready]');
       const cursors: Record<string, string[]> = await page.evaluate(
         ({ toggle }) =>
           Object.fromEntries(
@@ -633,6 +775,8 @@ async function layout(url: string): Promise<Record<string, unknown>> {
               ['the theme toggle', '[data-site-theme-toggle]'],
               ['the sidebar toggle', `[${toggle}]`],
               ["the sidebar's items", '.observatory-sidebar a'],
+              ["the status bar's segments and Compare", '[data-segment], [data-compare]'],
+              ['the explainers', 'button[aria-label^="About"]'],
             ].map(([name, selector]) => [name, [...document.querySelectorAll(selector!)].map((element) => getComputedStyle(element).cursor)]),
           ),
         { toggle: SIDEBAR_TOGGLE },
@@ -663,19 +807,8 @@ async function layout(url: string): Promise<Record<string, unknown>> {
       await page.keyboard.press('Escape');
       expect(!(await shown(page, '.observatory-sidebar')), 'phone: Escape didn\'t close the sidebar');
       await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
-      const touchLine = page.getByText('one axis per swipe');
-      expect(await touchLine.isVisible(), "phone: the GPUI side's touch line isn't shown");
       await context.close();
-      console.log("phone: closed at load, before and after hydration; the toggle opens it over the content with a scrim (nothing stored); the scrim and Escape close it; GPUI's touch line shown");
-    }
-    {
-      // A desktop pointer doesn't see the touch line.
-      const context = await layoutContext(browser, DESKTOP);
-      const page = await context.newPage();
-      await page.goto(url);
-      await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
-      expect(!(await page.getByText('one axis per swipe').isVisible()), 'desktop: the touch line is shown to a fine pointer');
-      await context.close();
+      console.log('phone: closed at load, before and after hydration; the toggle opens it over the content with a scrim (nothing stored); the scrim and Escape close it');
     }
   } finally {
     await browser.close();

@@ -24,7 +24,32 @@
   min-height: calc(100svh - var(--site-bar) - 3rem);
 }
 
+/* The window's status bar: its box is in the prerendered HTML, its numbers
+   render after first paint, so nothing moves when they arrive. A fixed box
+   with strict containment, so a reading's change lays out nothing outside
+   it (docs/DECISIONS.md, "Page", the readout's cost); its popovers render
+   outside it (`explainer.ts`). 44 px on a phone, for touch. */
+.observatory-status {
+  flex: none;
+  height: 2.75rem;
+  contain: strict;
+  border-top: 1px solid var(--border);
+  background: var(--sidebar);
+}
+
+.observatory-pop {
+  box-shadow: 0 8px 24px oklch(0 0 0 / 12%);
+}
+
+.dark .observatory-pop {
+  box-shadow: 0 8px 24px oklch(0 0 0 / 50%);
+}
+
 @media (min-width: 48rem) {
+  .observatory-status {
+    height: 1.875rem;
+  }
+
   :root:not([data-observatory-sidebar='closed']) .observatory-sidebar {
     display: flex;
     position: sticky;

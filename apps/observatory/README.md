@@ -63,7 +63,7 @@ The first comparison, the tall table, cold, median of 10, each value **GPUI / Ta
 
 ## Canvas tradeoffs
 
-Where the GPUI side falls short of a DOM table, said here and, on a phone, by the frame itself (a line under it on touch devices):
+Where the GPUI side falls short of a DOM table, said here and in the page's description below the window:
 
 - **On touch, a swipe scrolls one axis.** GPUI's touch recognizer locks a pan to the axis it starts on and never unlocks it, so a diagonal swipe moves only one way, and when it picks the other axis the table feels stuck. TanStack's native scroller pans diagonally. It's in gpui core, not the table. Vertical and horizontal swipes and flings work.
 - **DevTools' device mode draws it zoomed.** Chromium's emulation reports the canvas's device-pixel size at 1× under an emulated DPR, and gpui-pre-web trusts it, so the table draws a third the size at 3× zoom and touches outside that third do nothing. A real phone draws it normally (checked on an iPhone 13, Chrome and Safari). It's in gpui-pre-web, not the table.

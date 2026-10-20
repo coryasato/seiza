@@ -32,12 +32,13 @@ export interface Component {
 export const COMPONENTS: Component[] = [
   {
     id: 'tall-table',
-    label: 'Tall table',
+    // As gpui-kit names its `DataTable` (docs/DECISIONS.md, "Page", the copy).
+    label: 'TallTable',
     path: `${OBSERVATORY}tall-table/`,
-    summary: 'Every one of the 1.57 M known asteroids in one table, read a page at a time through DuckDB-Wasm.',
+    summary: 'Every known asteroid in one table, read a page at a time through DuckDB-Wasm.',
     contenders: [
-      { side: 'gpui', label: 'GPUI', stack: 'the tall table, drawn by GPUI on a canvas from WebAssembly', url: contenderBase('tall-table', 'gpui') },
-      { side: 'tanstack', label: 'TanStack', stack: 'React and TanStack Virtual in the DOM', url: contenderBase('tall-table', 'tanstack') },
+      { side: 'gpui', label: 'GPUI', stack: 'the TallTable component, written in Rust and drawn by the GPU on a canvas, from WebAssembly', url: contenderBase('tall-table', 'gpui') },
+      { side: 'tanstack', label: 'TanStack', stack: 'React and TanStack Virtual, in the page’s own HTML', url: contenderBase('tall-table', 'tanstack') },
     ],
   },
 ];
@@ -48,6 +49,9 @@ export const ROUTES: { path: string; html: string }[] = [
   { path: OBSERVATORY, html: '/index.html' },
   ...COMPONENTS.map((component) => ({ path: component.path, html: `/${component.id}/index.html` })),
 ];
+
+/** A count as the page says it: "1.57 million". */
+export const millions = (count: number) => `${(count / 1e6).toFixed(2)} million`;
 
 /** The URL parameter naming the side that loads first (`?side=tanstack`);
  *  GPUI without it. */

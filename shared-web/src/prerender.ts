@@ -1,4 +1,4 @@
-import { createServer, type Plugin } from 'vite';
+import { createServer, type Plugin, type PluginOption } from 'vite';
 
 export interface PrerenderOptions<M> {
   /** The module that renders the pages, from the app's root
@@ -15,6 +15,10 @@ export interface PrerenderOptions<M> {
   /** The root element's id; the page's HTML holds it empty
    *  (`<div id="root"></div>`). `root` by default. */
   root?: string;
+  /** Plugins the module needs to load at build time (a virtual module's):
+   *  the build's server for it reads no config file. Dev uses the dev
+   *  server's own. */
+  plugins?: PluginOption[];
 }
 
 /**
@@ -33,7 +37,7 @@ export function prerender<M>(options: PrerenderOptions<M>): Plugin {
   /** This build's module, loaded once for all its pages. */
   let built: Promise<M> | null = null;
   const loadForBuild = async (): Promise<M> => {
-    const server = await createServer({ root, configFile: false, logLevel: 'warn', server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
+    const server = await createServer({ root, configFile: false, plugins: options.plugins, logLevel: 'warn', server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
     try {
       return (await server.ssrLoadModule(options.module)) as M;
     } finally {

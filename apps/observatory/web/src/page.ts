@@ -12,7 +12,7 @@
  */
 
 import { PanelLeft } from 'lucide-react';
-import { createElement as h, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { createElement as h, lazy, Suspense, useEffect, useState } from 'react';
 import { buttonVariants } from '@seiza/site-ui/components/button';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuLink } from '@seiza/site-ui/components/sidebar';
@@ -91,9 +91,6 @@ function InsetHeader({ title }: { title: string }) {
   );
 }
 
-/** A link in running text: foreground, underlined. */
-const textLink = (href: string, children: ReactNode) => h('a', { href, className: 'underline underline-offset-4 hover:text-foreground' }, children);
-
 function Overview() {
   return h(
     'div',
@@ -132,15 +129,15 @@ function Overview() {
   );
 }
 
-/** The numbers (`numbers.ts`): a chunk of their own, rendered after the
- *  page's first paint, as the frame is: below the fold, they'd only delay
- *  it (root CLAUDE.md, rule 1). */
-const Numbers = lazy(() => import('./numbers.ts').then(({ Numbers }) => ({ default: Numbers })));
+/** The description below the window (`numbers.ts`, with the numbers it
+ *  draws its words from): rendered after the page's first paint, as the
+ *  frame is: below the fold, it would only delay it (root CLAUDE.md, rule 1). */
+const Description = lazy(() => import('./numbers.ts').then(({ Description }) => ({ default: Description })));
 
-function NumbersSlot({ contenders }: { contenders: Component['contenders'] }) {
+function DescriptionSlot({ contenders }: { contenders: Component['contenders'] }) {
   const [painted, setPainted] = useState(false);
   useEffect(() => afterFirstPaint(() => setPainted(true)), []);
-  return h('div', { 'data-numbers': '' }, painted ? h(Suspense, { fallback: null }, h(Numbers, { contenders })) : null);
+  return h('div', { 'data-numbers': '' }, painted ? h(Suspense, { fallback: null }, h(Description, { contenders })) : null);
 }
 
 function Comparison({ component }: { component: Component }) {
@@ -152,21 +149,10 @@ function Comparison({ component }: { component: Component }) {
     h(
       'main',
       { className: 'flex flex-col' },
-      // The contender's card fills the first screen down to the window's
+      // The contender's window fills the first screen down to the window's
       // bottom edge, its frame at least 480 px (`page.css`).
-      h('div', { className: 'observatory-first-screen flex flex-col pb-4 md:px-6 md:pt-5' }, h(ContenderSlot, { component })),
-      h(
-        'div',
-        { className: 'flex flex-col gap-4 px-4 pb-6 md:px-6' },
-        h(
-          'p',
-          { className: 'max-w-[80ch] text-muted-foreground' },
-          `${component.summary} ${first.label} is ${first.stack}; ${second.label} is ${second.stack}. Only the UI differs: the same engine, file, and queries. How each number is read, and where each side wins, is in the observatory's `,
-          textLink(`${SOURCE}/tree/master/apps/observatory#readme`, 'README'),
-          '.',
-        ),
-        h(NumbersSlot, { contenders: component.contenders }),
-      ),
+      h('div', { className: 'observatory-first-screen flex flex-col pb-4 md:px-3 md:pt-3' }, h(ContenderSlot, { component })),
+      h(DescriptionSlot, { contenders: component.contenders }),
     ),
   );
 }
