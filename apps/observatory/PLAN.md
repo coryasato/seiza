@@ -19,8 +19,8 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page, deployed (parts 0, A, A1–A2, B–C) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, part C next |
-| M6 | Split mode | Not started |
+| M5 | The observatory page (parts 0, A, A1–A2, B–D) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, part C next |
+| M6 | The deploy | Not started |
 | M7 | The benchmark button | Not started |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-M5, the observatory page, deployed: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, and B done, part C next. Restate part C's checks at the start of its session.
+M5, the observatory page: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, and B done, part C (a design session) next. Restate part C's checks at the start of its session.
 
 ---
 
@@ -41,7 +41,7 @@ M5, the observatory page, deployed: its spec and checks are under "Next mileston
 
 The "done when" checks are drafts until their milestone becomes active.
 
-### M5: The observatory page, deployed
+### M5: The observatory page
 
 React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 
@@ -76,16 +76,26 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 - [x] Passive readouts from M4's metrics module at ~4 Hz, the second contender's labelled warm, beside M4's cold numbers. Evidence: `web/src/numbers.ts` (the cards' cold medians large, the live row below), `web/cold.ts` (the cold numbers from `perf/results/` at build time, through `shared-web/scripts/results.ts`, `report`'s resolver), `web/src/live.ts` (records; `liveReadings` in `metrics/metrics.ts` computes, refreshed every `LIVE_REFRESH_MS`, 250 ms, only on a change); `perf/page.ts`, PASS: the cold medians as `perf/results/` has them in both profiles and the chart's; GPUI's live usable and data its frame's own marks; still over 2 s idle, 2 refreshes in 1.75 s of scrolling; after a flip TanStack's labelled warm, GPUI's kept (`perf/results/2026-10-19-m5-b.md`).
 - [x] Which metrics can be read live in a page (marks, frame intervals, Long Animation Frames in Chromium, memory; not the trace's input latency or frame work), filling the dashboard's live row per card, labelled "this tab"; the cards' and charts' layout on a phone (collapsed by default, the most important open). Evidence: `docs/DECISIONS.md`, "Page" (2026-10-19: the cards first usable, time to data, the fling's late frames, page memory, each with a live reading; the mock-up's wheel and per-frame-work cards replaced, the wheel kept in the chart; Event Timing and Long Animation Frames rejected; the numbers rendered after first paint, its A/B: prerendered 81.8 ms first paint against the empty slot's 62.8); `perf/page.ts`, PASS: late frames and memory read in the tab; on a phone the first card open, the others and the chart closed, a press opens one; screenshots in `perf/results/raw/2026-10-19-m5-b/`; `page --check` first paint 78.6 ms, first-paint JS 78.2 KiB.
 
-**Part C: the deploy.**
+**Part C: the numbers beside the table, decided (a design session, no code).** What review of part B's page found: the frame fills the window's height and takes the wheel, so the numbers below it are out of reach while the table is in use, and a visitor never sees the live row change; the page's copy reads as generated text.
+- [ ] Where the numbers sit while the table is on screen, mocked in light and dark, desktop and phone: the options compared (a dock under the frame, expanding into a sheet with the cold numbers and the chart; a rail beside the frame on wide windows; an overlay over the frame, summoned by a button), one chosen, with where the benchmark's results go in it.
+- [ ] The copy rewritten in plain language, in the mock-up: the title, the description, each card's label and explainer; what's cut, and what moves into explainers that open on hover and on a press (a phone has no hover), each working by keyboard too: focus it, a key press opens it, Esc closes it.
+- [ ] What a visible readout may cost the frame it watches (same origin, one main thread): how it updates (text only, a contained box, 4 Hz), and the A/B part D runs.
+- [ ] The decisions in `docs/DECISIONS.md` ("Page": the dashboard's numbers below the table marked superseded), and part D's checks written below.
+
+**Part D: the numbers, built to part C's design.** Its checks are written at the end of part C; known already:
+- [ ] Nothing shifts: the readout's box is in the prerendered HTML and its numbers render after first paint (`perf/page.ts`: the frame's box at first paint equals its box once the numbers render; control: without the reserved box, it fails).
+- [ ] The visible readout's cost: the fling's late frames with it open against closed, each contender, interleaved, in `perf/results/`.
+- [ ] The page's budgets (`check`) and its hosting checks (`perf/page.ts`) still pass; screenshots, light and dark, desktop and phone, in the results note, beside the mock-up.
+
+### M6: The deploy
+
 - [ ] The Worker serves the page (one HTML file per route), the contenders at their bases, and the engine as static assets (precompressed brotli, COOP/COEP/CORP), and the data file by range through the edge cache (as it does today), at `seiza.io/observatory`; the zone's WAF rules cover its paths; a production check passes.
-
-### M6: Split mode
-
-- [ ] A toggle mounts both contenders side by side with a draggable divider, labelled "not measured: both running"; each half scrolls sideways inside itself; memory with both running recorded.
+- [ ] In production: the page and each contender's frame cross-origin isolated (`crossOriginIsolated`, which the live memory reading and the engine's read counter need), no injected script in any route's or contender's HTML, every build's files served as quality-11 brotli.
 
 ### M7: The benchmark button
 
 - [ ] "Run benchmark" plays load, fling, and jump to 90% on each side in turn, alternating which goes first between runs, driving each through its own input path (script-made wheel events reach GPUI's listeners but never scroll a native scroller, so the DOM side is driven through its scroll position), and shows the results labelled warm beside the cold ones.
+- [ ] The benchmark works in production; its warm numbers from production recorded, and its labels checked against them.
 
 ---
 
@@ -124,5 +134,5 @@ Not milestones. Each starts with research.
 - **The DOM's fling, read from its compositor.** The fling's late frames and lag are main-thread readings on both sides (`underLoad`), which on GPUI are the presented frames but on the DOM aren't: its compositor scrolls on through a late main-thread frame. The README says so. Whether the DOM side should also report what its compositor presented (`cc`'s frames and `Scroll Delta This Frame`, as the wheel's guard reads them) beside it, and which reading the page headlines, is a protocol change for root `docs/DECISIONS.md`.
 - **A short page's missing cells.** The tall table draws a value past a page's end as `NULL` (`render_body`'s `unwrap_or(CellValue::Null)`); the TanStack contender draws it empty. A static file never answers short, so nothing measured differs; whether the component should draw it empty too is the component's call (Tycho drives it).
 
-- **The pause switch.** The observatory's data never reaches R2, but every data read now runs its Worker (static assets can't serve ranges), so each is a billed request. Whether it honours the switch for them is decided at the deploy (M5), with the WAF rules' widening to seiza.io's paths.
+- **The pause switch.** The observatory's data never reaches R2, but every data read now runs its Worker (static assets can't serve ranges), so each is a billed request. Whether it honours the switch for them is decided at the deploy (M6), with the WAF rules' widening to seiza.io's paths.
 - **The landing page.** The observatory's Worker holds the apex `seiza.io` (everything outside `/observatory/` a 404). The page is basic (a title, a catchy line, a link to the observatory), built in `site/landing/` on `site/ui/`'s shell (root `docs/DECISIONS.md`, "Repo structure"); when it ships is open. Shipping it moves the Worker to `site/worker/` and adds `/`, `/index.html`, `/assets/`, and `/fonts/` to the seiza.io WAF rule.

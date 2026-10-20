@@ -9,7 +9,7 @@ The Observatory is seiza's comparison page. For each component in the repo, it r
 - **What it measures: use, not page load.** A data component is judged over a session: how soon it's usable, how long data takes to appear, how fast a scroll or a jump shows up, what a fling looks like, whether the last row is reachable, and what it costs in memory, CPU, and bytes. First pixels and bundle size are footnotes.
 - **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.
-- **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm. A split view shows both at once, labelled not measured.
+- **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm.
 - **Where TanStack wins, too:** each of the page's cards says which side is lower, as this README does below. Under the cold numbers the page shows what your tab reads of the side you're using (its marks, its frames while you scroll, its memory), labelled live and, for a side loaded second or from the cache, warm.
 
 ## Numbers
