@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page (parts 0, A, A1–A2, B–D) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, part C next |
+| M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, part C 2026-10-20, part D1 next |
 | M6 | The deploy | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-M5, the observatory page: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, and B done, part C (a design session) next. Restate part C's checks at the start of its session.
+M5, the observatory page: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, B, and C done, part D1 next. Part D is four sessions, D1–D4, in order; restate the session's checks at its start.
 
 ---
 
@@ -77,15 +77,27 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 - [x] Which metrics can be read live in a page (marks, frame intervals, Long Animation Frames in Chromium, memory; not the trace's input latency or frame work), filling the dashboard's live row per card, labelled "this tab"; the cards' and charts' layout on a phone (collapsed by default, the most important open). Evidence: `docs/DECISIONS.md`, "Page" (2026-10-19: the cards first usable, time to data, the fling's late frames, page memory, each with a live reading; the mock-up's wheel and per-frame-work cards replaced, the wheel kept in the chart; Event Timing and Long Animation Frames rejected; the numbers rendered after first paint, its A/B: prerendered 81.8 ms first paint against the empty slot's 62.8); `perf/page.ts`, PASS: late frames and memory read in the tab; on a phone the first card open, the others and the chart closed, a press opens one; screenshots in `perf/results/raw/2026-10-19-m5-b/`; `page --check` first paint 78.6 ms, first-paint JS 78.2 KiB.
 
 **Part C: the numbers beside the table, decided (a design session, no code).** What review of part B's page found: the frame fills the window's height and takes the wheel, so the numbers below it are out of reach while the table is in use, and a visitor never sees the live row change; the page's copy reads as generated text.
-- [ ] Where the numbers sit while the table is on screen, mocked in light and dark, desktop and phone: the options compared (a dock under the frame, expanding into a sheet with the cold numbers and the chart; a rail beside the frame on wide windows; an overlay over the frame, summoned by a button), one chosen, with where the benchmark's results go in it.
-- [ ] The copy rewritten in plain language, in the mock-up: the title, the description, each card's label and explainer; what's cut, and what moves into explainers that open on hover and on a press (a phone has no hover), each working by keyboard too: focus it, a key press opens it, Esc closes it.
-- [ ] What a visible readout may cost the frame it watches (same origin, one main thread): how it updates (text only, a contained box, 4 Hz), and the A/B part D runs.
-- [ ] The decisions in `docs/DECISIONS.md` ("Page": the dashboard's numbers below the table marked superseded), and part D's checks written below.
+- [x] Where the numbers sit while the table is on screen, mocked in light and dark, desktop and phone: the options compared, one chosen, with where the benchmark's results go in it. Evidence: the design canvas, https://claude.ai/artifact/6TUq4g7KJ3jrFdKVUGRY67 (the chosen design only: the window, its meter, and its panel, in light and dark, desktop and phone, the first board interactive); compared and set aside in the session: a dock (1), a seismograph strip (2), the window (3), the window with a sparkline, a HUD alone (4), and the window with the HUD, chosen; the benchmark is a status-bar segment and its results a row on each panel card (`docs/DECISIONS.md`, "Page", 2026-10-20: the window, the meter, the panel).
+- [x] The copy rewritten in plain language, in the mock-up: the title, the description, each card's label and explainer; what's cut, and what moves into explainers that open on hover and on a press, each working by keyboard too. Evidence: the canvas's copy row (an explainer open; the description below the window, desktop and phone) and its interactive board (hover previews, a press pins, Enter or Space opens, Esc closes); `docs/DECISIONS.md`, "Page" (2026-10-20, the copy: the labels, the explainers' behavior, TallTable, "GPUI | TanStack" kept, what's cut, the touch line moved below the window).
+- [x] What a visible readout may cost the frame it watches: how it updates, and the A/B part D runs. Evidence: `docs/DECISIONS.md`, "Page" (2026-10-20, the readout's cost: the update rules, the budgets, the fallbacks); the A/B is part D's below.
+- [x] The decisions in `docs/DECISIONS.md` ("Page": the dashboard's numbers below the table marked superseded), and part D's checks written below. Evidence: five 2026-10-20 entries; the dashboard (in part), the four cards (in part), and the phone's collapsed cards marked superseded.
 
-**Part D: the numbers, built to part C's design.** Its checks are written at the end of part C; known already:
-- [ ] Nothing shifts: the readout's box is in the prerendered HTML and its numbers render after first paint (`perf/page.ts`: the frame's box at first paint equals its box once the numbers render; control: without the reserved box, it fails).
-- [ ] The visible readout's cost: the fling's late frames with it open against closed, each contender, interleaved, in `perf/results/`.
-- [ ] The page's budgets (`check`) and its hosting checks (`perf/page.ts`) still pass; screenshots, light and dark, desktop and phone, in the results note, beside the mock-up.
+**Part D: the numbers, built to part C's design** (`docs/DECISIONS.md`, "Page", 2026-10-20), in four sessions, each ending with `check` passing. The design to build: https://claude.ai/artifact/6TUq4g7KJ3jrFdKVUGRY67 (read it with the Artifact tool; its `Main.dc.html` holds the markup, the copy, and the states). Why four: D1's findings can change what D2's cards show; D2 and D3 each need the page's code and the canvas in context; D4's long runs belong on the final build (`docs/DECISIONS.md`, "Page", the readout's cost).
+
+**Part D1: measurement** (the perf scripts and `perf/results/`; no page code).
+- [ ] Measurement first, before the cards ship: memory read at equal work on both devices (the same pages read), with what each side's reading includes recorded (its Arrow buffers, the wasm's memory); the slow-device memory row stays off until it holds. The pages' bytes by file (the font's share on each side, GPUI's JS and HTML), and the wasm by part (framework, component, data layer) if a size tool can split it, else the card names it one file. In `perf/results/`.
+
+**Part D2: the window and the panel** (`web/src/`, `perf/page.ts`; D1's numbers in hand).
+- [ ] The window: the title bar (the toggle, the load states, the only `aria-live` text, silent during a scroll, its explainer), the status bar's segments (Ready in, Rows in, Smooth, Memory; Meter, Run benchmark, Compare; a phone's two and the overflow), Smooth "—" until a scroll; the component labelled TallTable (`web/src/components.ts`). Nothing shifts: the status bar's box is in the prerendered HTML and its numbers render after first paint (`perf/page.ts`: the frame's box at first paint equals its box once the numbers render; control: without the reserved box, it fails).
+- [ ] The panel: the cards and their verdicts computed from the cold numbers (never typed; whole milliseconds above 100 ms; "best" on the winner), the benchmark row only after a run, the chart's two devices on one fixed scale, the footnote and the wheel note; close and Esc return focus to the frame; the header's edge once its body scrolls. The description's "where each side wins" from the same numbers.
+- [ ] The explainers: hover opens (fine pointers only), a press pins, Enter or Space opens, Esc closes and keeps focus on the trigger, one open at a time (`perf/page.ts`).
+
+**Part D3: the meter** (`web/src/`, `live.ts`, `perf/page.ts`).
+- [ ] The meter: the frame-time and memory graphs, one canvas each; late bars amber on both sides; FPS and "idle" in its corner; a click and a wheel under it reach each contender (`perf/page.ts`, both sides); the drag snaps to the nearest corner, a drag that crosses into the frame included (pointer capture), the picker and the arrow keys move it; its corner and state kept per visitor; hidden while the panel is open; a phone starts with the pill.
+
+**Part D4: the readout's cost, and M5's close-out** (the perf harness; the final build).
+- [ ] The readout's cost (`docs/DECISIONS.md`, "Page", 2026-10-20), cold, interleaved by round, each side on both devices, 10 runs per variant (meter open, pill, hidden, and the bare contender page), each side's spread under 6%: late frames open against hidden, and the bare page against hidden, within the hidden runs' interquartile range or 1 point; the recorder's frame-callback time reported; TanStack's presented and dropped frames and GPUI's GPU-process time per frame, open against hidden, the same threshold, with each run's renderer recorded (a software one: that part re-run headed); the readout's own main-thread time ≤ 1 ms a refresh fast, ≤ 4 ms slow; no React commit from the page between the fling's first and last frame (a DevTools-hook counter in the top window only; control: a forced state change mid-fling fails it). Results JSON and note in `perf/results/`; a failure applies the fallbacks (the pill by default, then no meter).
+- [ ] The page's budgets (`check`) and its hosting checks (`perf/page.ts`) still pass; screenshots, light and dark, desktop and phone, in the results note, beside the canvas.
 
 ### M6: The deploy
 
