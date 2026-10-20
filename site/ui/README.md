@@ -1,6 +1,6 @@
 # site-ui
 
-The apex site's shell (seiza.io): the navbar, the theme toggle, the footer, the token file, the Tailwind v4 setup, and shadcn's components on Base UI. Every page on seiza.io renders the same shell from here, React or not.
+The apex site's shell (seiza.io): the navbar, the theme toggle, the footer, the token file, the Tailwind v4 setup, and shadcn's components on Base UI in its Nova style. Every page on seiza.io renders the same shell from here, React or not.
 
 **Used by:** [the observatory's page](../../apps/observatory/web/). **Package:** `@seiza/site-ui`.
 
@@ -26,14 +26,15 @@ h(SiteShell, { home: '/', links: [{ label: 'Observatory', href: '/observatory/',
 ```
 
 - **`siteVite()`** (`/vite`): Tailwind v4, the theme script inline in the `<head>`, and the font at `/fonts/` in dev and preview (`@seiza/web`'s `serveFonts`).
-- **`site.css`**: Tailwind, the tokens, IBM Plex Sans (`/fonts/IBMPlexSans-Regular.ttf`, `swap`), and shadcn's `@theme inline` mapping, so `bg-primary`, `text-muted-foreground`, `bg-series-gpui`, … read the tokens. `.dark` on `<html>` is dark mode (`dark:` variants).
-- **`SiteShell`** (`/shell`): the navbar above the page's content and the footer below. `home` is where the site's name links. `bindShell(root)` binds the shell's behaviors on a page without React.
+- **`site.css`**: Tailwind, the tokens, IBM Plex Sans (`/fonts/IBMPlexSans-Regular.ttf`, `swap`), and shadcn's `@theme inline` mapping, so `bg-primary`, `text-muted-foreground`, `bg-series-gpui`, … read the tokens. `.dark` on `<html>` is dark mode (`dark:` variants). `--site-bar` is the navbar's height (border included), for a page's sticky parts; every enabled `button` and `[role=button]` shows `cursor: pointer`.
+- **`SiteShell`** (`/shell`): the navbar above the page's content and, unless `footer: false`, the footer below. The page supplies its own `<main>`. `home` is where the site's name links. `bindShell(root)` binds the shell's behaviors on a page without React.
+- **`Navbar`** spans the window, its contents too (no max-width): the site's name and sections, the theme toggle, nothing a page adds, so it's the same on every page (root `docs/DECISIONS.md`, "Repo structure": the apex site's layout). A page's own navigation, and a sidebar's toggle, sit below it.
 - **`theme.ts`** (`/theme`): the toggle's plain JS. `THEME_KEY` (`seiza-theme`, one `localStorage` key for the origin), `THEME_SCRIPT` (inline, before first paint), `currentTheme()`, `setTheme(theme)`, `onThemeChange(listener)` (for a page that passes the theme on, as the observatory does to its frames), `followTheme()` (the system while there's no choice, and other tabs' choices), `bindThemeToggle(button)`.
-- **Components** (`/components/<name>`): `button` (`Button`, `buttonVariants`), `toggle-group` (`ToggleGroup`, `ToggleGroupItem`: a segmented control), `collapsible` (`Collapsible`, `CollapsibleTrigger`, `CollapsibleContent`), `navbar` (`Navbar`, `ThemeToggle`), `footer`. **`cn`** (`/cn`): class names, later Tailwind classes winning.
+- **Components** (`/components/<name>`), from shadcn's `base-nova` registry less `font-medium` (one weight): `button` (`Button`, `buttonVariants`), `toggle-group` (`Toggle`, `ToggleGroup`, `ToggleGroupItem`, `toggleVariants`; the site's `segmented` variant: the pressed item `--background` raised on a `--muted` track), `collapsible` (`Collapsible`, `CollapsibleTrigger`, `CollapsibleContent`), `sidebar` (the parts only: `SidebarGroup`, `SidebarGroupLabel`, `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuLink` with `isActive`; no provider, sheet, or cookie: a sidebar's state and layout are its page's), `navbar` (`Navbar`, `ThemeToggle`), `footer` (`Footer`, `SOURCE`). **`cn`** (`/cn`): `cn`, class names, later Tailwind classes winning; `data`, `data-*` props for `createElement`.
 
 ## Theme
 
-The token file (`src/tokens.css`) is shadcn's Neutral with a sky primary and a blue chart ramp, as exported from shadcn's theme creator, plus two series: `--series-gpui` and `--series-tanstack` (`--chart-2`/`--chart-5` in light, `--chart-1`/`--chart-3` in dark, the pairs that pass a palette check). Label every series by name too, never by color alone. In dark mode, text and icons in the accent use `--sidebar-primary`, never `--primary` (fills only); the light sidebar's active item is `--primary` behind `--primary-foreground`. Why: root [`docs/DECISIONS.md`](../../docs/DECISIONS.md), "Comparison protocol" (the site's theme).
+The token file (`src/tokens.css`) is shadcn's Neutral, as exported from shadcn's theme creator, but for the dark `--sidebar-primary` (exported blue, used by nothing; Neutral's gray here), plus two series: `--series-gpui` blue and `--series-tanstack` orange, a value per mode, the only hue on the site. Label every series by name too, never by color alone. The accent is fills, never hue: an active item is `--sidebar-accent` behind `--sidebar-accent-foreground`, a pressed toggle `--background` raised on a `--muted` track (`segmented`), a link in running text foreground and underlined. Why: root [`docs/DECISIONS.md`](../../docs/DECISIONS.md), "Comparison protocol" (the site's theme).
 
 ## Limits
 

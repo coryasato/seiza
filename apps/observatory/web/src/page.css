@@ -2,3 +2,76 @@
    own classes. */
 @import '@seiza/site-ui/site.css';
 @source './';
+
+/* The dashboard's layout by the sidebar's state, the attribute
+   `sidebar.ts`'s head script sets on <html> before first paint: `closed`,
+   or open (`open`, or no attribute: no script ran). A desktop (Tailwind's
+   `md`, 48rem) shows the sidebar beside the inset; a phone shows it over
+   the content, with a scrim, only when `open`. Plain CSS, not variants: the
+   rules' order is the logic. */
+
+.observatory-sidebar {
+  display: none;
+}
+
+.observatory-scrim {
+  display: none;
+}
+
+/* The inset's top on the first screen: the bar, the inset's header, and on
+   a desktop the inset's margin and border. */
+.observatory-first-screen {
+  min-height: calc(100svh - var(--site-bar) - 3rem);
+}
+
+@media (min-width: 48rem) {
+  :root:not([data-observatory-sidebar='closed']) .observatory-sidebar {
+    display: flex;
+    position: sticky;
+    top: var(--site-bar);
+    align-self: flex-start;
+    width: 15rem;
+    height: calc(100svh - var(--site-bar));
+    flex: none;
+  }
+
+  .observatory-inset {
+    margin: 0.5rem;
+    border-width: 1px;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px oklch(0 0 0 / 6%);
+  }
+
+  .dark .observatory-inset {
+    box-shadow: 0 1px 2px oklch(0 0 0 / 40%);
+  }
+
+  :root:not([data-observatory-sidebar='closed']) .observatory-inset {
+    margin-left: 0;
+  }
+
+  .observatory-first-screen {
+    min-height: calc(100svh - var(--site-bar) - 3rem - 0.5rem - 1px);
+  }
+}
+
+@media (max-width: 47.999rem) {
+  :root[data-observatory-sidebar='open'] .observatory-sidebar {
+    display: flex;
+    position: fixed;
+    top: var(--site-bar);
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    width: 17.5rem;
+    box-shadow: 0 8px 24px oklch(0 0 0 / 20%);
+  }
+
+  :root[data-observatory-sidebar='open'] .observatory-scrim {
+    display: block;
+    position: fixed;
+    inset: var(--site-bar) 0 0;
+    z-index: 20;
+    background: oklch(0 0 0 / 40%);
+  }
+}

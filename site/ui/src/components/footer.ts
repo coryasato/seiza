@@ -10,7 +10,7 @@ export function Footer() {
     { className: 'border-t' },
     h(
       'div',
-      { className: 'mx-auto flex max-w-screen-2xl flex-col gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6' },
+      { className: 'flex flex-col gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between' },
       h('p', null, 'seiza: heavy web apps drawn by the GPU from WebAssembly, measured against the DOM.'),
       h('a', { href: SOURCE, className: 'hover:text-foreground' }, 'Source on GitHub'),
     ),

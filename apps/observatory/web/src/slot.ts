@@ -12,7 +12,6 @@
  */
 
 import { createElement as h, useEffect, useMemo, useRef, useState } from 'react';
-import { cn } from '@seiza/site-ui/cn';
 import { ToggleGroup, ToggleGroupItem } from '@seiza/site-ui/components/toggle-group';
 import { currentTheme, onThemeChange } from '@seiza/site-ui/theme';
 import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
@@ -34,8 +33,8 @@ function firstSide(component: Component): Side {
   return component.contenders.find((contender) => contender.side === named)?.side ?? component.contenders[0].side;
 }
 
-/** The series dot: each side's color, beside its name (never instead). */
-const dot = (side: Side) => h('span', { className: cn('size-2 rounded-full', side === 'gpui' ? 'bg-series-gpui' : 'bg-series-tanstack'), 'aria-hidden': true });
+/** A series' dot: each side's color, beside its name (never instead). */
+export const seriesDot = (side: Side) => h('span', { className: `size-2 shrink-0 rounded-full ${side === 'gpui' ? 'bg-series-gpui' : 'bg-series-tanstack'}`, 'aria-hidden': true });
 
 /** The shown contender: still loading, its first rows painted, or failed. */
 type FrameState = 'loading' | 'filled' | 'failed';
@@ -95,13 +94,14 @@ export function ContenderSlot({ component }: { component: Component }) {
 
   return h(
     'section',
-    { className: 'flex min-h-0 flex-1 flex-col gap-3', 'aria-label': `${component.label}: the contenders` },
+    { className: 'flex flex-1 flex-col overflow-hidden border-b bg-card md:rounded-xl md:border md:shadow-xs', 'aria-label': `${component.label}: the contenders` },
     h(
       'div',
-      { className: 'flex flex-wrap items-center gap-x-4 gap-y-2' },
+      { className: 'flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-3 py-2.5' },
       h(
         ToggleGroup,
         {
+          variant: 'segmented',
           value: side ? [side] : [],
           onValueChange: (value: string[]) => {
             const next = component.contenders.find((contender) => contender.side === value[0]);
@@ -110,18 +110,13 @@ export function ContenderSlot({ component }: { component: Component }) {
           disabled: state === 'loading',
           'aria-label': 'Contender',
         },
-        ...component.contenders.map((contender) =>
-          h(ToggleGroupItem, { key: contender.side, value: contender.side }, dot(contender.side), contender.label),
-        ),
+        ...component.contenders.map((contender) => h(ToggleGroupItem, { key: contender.side, value: contender.side, className: 'gap-2 px-3' }, seriesDot(contender.side), contender.label)),
       ),
-      h('p', { className: 'text-sm text-muted-foreground', 'aria-live': 'polite' }, status(shown, painted, state)),
+      h('p', { className: 'text-[13px] text-muted-foreground', 'aria-live': 'polite' }, status(shown, painted, state)),
     ),
     h(
       'div',
-      // No frame of its own: the contender draws its table's frame inside
-      // its 16 px padding, pulled out here so the table lines up with the
-      // heading.
-      { className: 'relative -mx-4 min-h-[420px] flex-1' },
+      { className: 'relative min-h-[480px] flex-1' },
       shown && src
         ? h('iframe', {
             key: frame,
@@ -133,12 +128,21 @@ export function ContenderSlot({ component }: { component: Component }) {
           })
         : null,
     ),
+    // The GPUI side's limits on a phone, where a visitor meets them (root
+    // CLAUDE.md, rule 4; the README's "Canvas tradeoffs").
+    shown?.side === 'gpui'
+      ? h(
+          'p',
+          { className: 'hidden border-t px-3 py-2 text-xs text-muted-foreground pointer-coarse:block' },
+          "On touch, GPUI's table scrolls one axis per swipe. DevTools' device mode draws it zoomed: Chromium's emulation, not a real phone.",
+        )
+      : null,
   );
 }
 
 function status(shown: Contender | null, painted: boolean, state: FrameState): string {
   if (!shown || !painted) return 'The contender loads once this page has painted.';
-  if (state === 'loading') return `Loading the ${shown.label} contender: ${shown.stack}…`;
+  if (state === 'loading') return `Loading ${shown.label}…`;
   if (state === 'failed') return `The ${shown.label} contender didn't load its data: its frame says why.`;
-  return `${shown.label}: ${shown.stack}. Switching destroys this frame and loads the other.`;
+  return `${shown.label} is loaded. Switching destroys this frame and loads the other.`;
 }

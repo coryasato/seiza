@@ -1,66 +1,129 @@
 /**
- * The observatory's page, one per route, inside the site's shell: the
+ * The observatory's page, one per route, below the site's bar: the
  * overview at `/observatory/`, and a component's comparison at
- * `/observatory/<component>/`. Prerendered per route at build time
+ * `/observatory/<component>/`, each in the same dashboard (`docs/
+ * DECISIONS.md`, "Page"): the sidebar flush with the window's left edge,
+ * and the content in an inset card whose header holds the sidebar's toggle
+ * and the page's title. Prerendered per route at build time
  * (`prerender.ts`) and hydrated by `main.ts`, so it paints before its JS
  * runs. Nothing here touches the browser at import or in a first render:
  * Node renders it. The route is in the HTML (`ROUTE_ATTRIBUTE`), so the
  * client hydrates what the server rendered, whatever URL served it.
  */
 
-import { createElement as h, type ReactNode } from 'react';
+import { PanelLeft } from 'lucide-react';
+import { createElement as h, useEffect, type ReactNode } from 'react';
+import { buttonVariants } from '@seiza/site-ui/components/button';
+import { SOURCE } from '@seiza/site-ui/components/footer';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuLink } from '@seiza/site-ui/components/sidebar';
 import { SiteShell } from '@seiza/site-ui/shell';
 import { OBSERVATORY } from '../../contenders/paths.ts';
 import { COMPONENTS, type Component } from './components.ts';
-import { ComponentNav } from './nav.ts';
-import { ContenderSlot } from './slot.ts';
+import { bindSidebar, SIDEBAR_SCRIM, SIDEBAR_TOGGLE } from './sidebar.ts';
+import { ContenderSlot, seriesDot } from './slot.ts';
 
 /** The attribute holding the route the HTML was rendered for. */
 export const ROUTE_ATTRIBUTE = 'data-route';
 
+const SIDEBAR_ID = 'observatory-sidebar';
+
 export function Page({ path }: { path: string }) {
   const component = COMPONENTS.find((component) => component.path === path);
+  useEffect(() => bindSidebar(), []);
   return h(
     'div',
     { [ROUTE_ATTRIBUTE]: path, className: 'contents' },
     h(
       SiteShell,
       // `/` once the landing page ships (root docs/DECISIONS.md, "Repo structure").
-      { home: OBSERVATORY, links: [{ label: 'Observatory', href: OBSERVATORY, current: true }] },
+      { home: OBSERVATORY, links: [{ label: 'Observatory', href: OBSERVATORY, current: true }], footer: false },
       h(
         'div',
-        { className: 'mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 md:flex-row md:gap-8' },
-        h('aside', { className: 'md:w-52 md:shrink-0' }, h(ComponentNav, { path })),
-        h('div', { className: 'flex min-w-0 flex-1 flex-col gap-6' }, component ? h(Comparison, { component }) : h(Overview)),
+        { className: 'relative flex flex-1 bg-sidebar' },
+        h('button', { type: 'button', [SIDEBAR_SCRIM]: '', 'aria-label': 'Close the sidebar', tabIndex: -1, className: 'observatory-scrim' }),
+        h(Sidebar, { path }),
+        h(
+          'div',
+          { className: 'observatory-inset flex min-w-0 flex-1 flex-col bg-background' },
+          component ? h(Comparison, { component }) : h(Overview),
+        ),
       ),
     ),
   );
 }
 
-const heading = (title: string, lead: ReactNode) =>
-  h('header', { className: 'flex max-w-3xl flex-col gap-2' }, h('h1', { className: 'text-2xl tracking-tight' }, title), h('p', { className: 'text-muted-foreground' }, lead));
+function Sidebar({ path }: { path: string }) {
+  const link = (href: string, label: string) =>
+    h(SidebarMenuItem, { key: href }, h(SidebarMenuLink, { href, isActive: path === href }, label));
+  return h(
+    'aside',
+    { id: SIDEBAR_ID, className: 'observatory-sidebar flex-col overflow-y-auto bg-sidebar p-1 text-sidebar-foreground', 'aria-label': 'Observatory' },
+    h(SidebarGroup, null, h(SidebarGroupLabel, null, 'Observatory'), h('nav', { 'aria-label': 'Observatory' }, h(SidebarMenu, null, link(OBSERVATORY, 'Overview')))),
+    h(
+      SidebarGroup,
+      null,
+      h(SidebarGroupLabel, null, 'Components'),
+      h('nav', { 'aria-label': 'Components' }, h(SidebarMenu, null, ...COMPONENTS.map((component) => link(component.path, component.label)))),
+    ),
+    h(
+      SidebarGroup,
+      { className: 'mt-auto' },
+      h(SidebarMenu, null, h(SidebarMenuItem, null, h(SidebarMenuLink, { href: SOURCE, className: 'text-muted-foreground' }, 'Source on GitHub'))),
+    ),
+  );
+}
+
+/** The inset's header: the sidebar's toggle, a divider, the page's title. */
+function InsetHeader({ title }: { title: string }) {
+  return h(
+    'header',
+    { className: 'flex h-12 shrink-0 items-center gap-2 border-b px-3' },
+    h(
+      'button',
+      // `aria-expanded` and the label follow the state from `bindSidebar`:
+      // the HTML can't know it.
+      { type: 'button', [SIDEBAR_TOGGLE]: '', 'aria-controls': SIDEBAR_ID, 'aria-label': 'Toggle the sidebar', className: buttonVariants({ variant: 'ghost', size: 'icon' }) },
+      h(PanelLeft, { 'aria-hidden': true }),
+    ),
+    h('span', { className: 'h-4 w-px bg-border', 'aria-hidden': true }),
+    h('h1', { className: 'text-sm' }, title),
+  );
+}
+
+/** A link in running text: foreground, underlined. */
+const textLink = (href: string, children: ReactNode) => h('a', { href, className: 'underline underline-offset-4 hover:text-foreground' }, children);
 
 function Overview() {
   return h(
     'div',
-    { className: 'flex flex-col gap-6' },
-    heading(
-      'Observatory',
-      'Each component here, drawn by the GPU from WebAssembly, runs against a DOM equivalent on the same engine and data, one at a time, measured over a session of use: opening data, scrolling, flinging, jumping.',
-    ),
+    { className: 'flex flex-1 flex-col' },
+    h(InsetHeader, { title: 'Overview' }),
     h(
-      'ul',
-      { className: 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' },
-      ...COMPONENTS.map((component) =>
-        h(
-          'li',
-          { key: component.id },
+      'main',
+      { className: 'flex flex-col gap-4 px-4 pt-5 pb-6 md:px-6' },
+      h(
+        'p',
+        { className: 'max-w-[80ch] text-muted-foreground' },
+        'Each component here, drawn by the GPU from WebAssembly, runs against a DOM equivalent on the same engine and data, one at a time, measured over a session of use: opening data, scrolling, flinging, jumping.',
+      ),
+      h(
+        'ul',
+        { className: 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' },
+        ...COMPONENTS.map((component) =>
           h(
-            'a',
-            { href: component.path, className: 'flex h-full flex-col gap-2 rounded-lg border bg-card p-4 text-card-foreground transition-colors hover:bg-accent' },
-            h('span', { className: 'text-base' }, component.label),
-            h('span', { className: 'text-sm text-muted-foreground' }, component.summary),
-            h('span', { className: 'mt-auto pt-2 text-sm' }, component.contenders.map((contender) => contender.label).join(' | ')),
+            'li',
+            { key: component.id },
+            h(
+              'a',
+              { href: component.path, className: 'flex h-full flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-xs transition-colors hover:bg-muted' },
+              h('span', { className: 'text-base' }, component.label),
+              h('span', { className: 'text-sm text-muted-foreground' }, component.summary),
+              h(
+                'span',
+                { className: 'mt-auto flex items-center gap-3 pt-2 text-sm' },
+                ...component.contenders.map((contender) => h('span', { key: contender.side, className: 'inline-flex items-center gap-1.5' }, seriesDot(contender.side), contender.label)),
+              ),
+            ),
           ),
         ),
       ),
@@ -72,8 +135,27 @@ function Comparison({ component }: { component: Component }) {
   const [first, second] = component.contenders;
   return h(
     'div',
-    { className: 'flex min-h-[560px] flex-1 flex-col gap-6' },
-    heading(`${component.label}: ${first.label} | ${second.label}`, `${component.summary} ${first.label} is ${first.stack}; ${second.label} is ${second.stack}. Only the UI differs: the same engine, file, and queries.`),
-    h(ContenderSlot, { component }),
+    { className: 'flex flex-col' },
+    h(InsetHeader, { title: `${component.label}: ${first.label} | ${second.label}` }),
+    h(
+      'main',
+      { className: 'flex flex-col' },
+      // The contender's card fills the first screen down to the window's
+      // bottom edge, its frame at least 480 px (`page.css`).
+      h('div', { className: 'observatory-first-screen flex flex-col pb-4 md:px-6 md:pt-5' }, h(ContenderSlot, { component })),
+      h(
+        'div',
+        { className: 'flex flex-col gap-4 px-4 pb-6 md:px-6' },
+        h(
+          'p',
+          { className: 'max-w-[80ch] text-muted-foreground' },
+          `${component.summary} ${first.label} is ${first.stack}; ${second.label} is ${second.stack}. Only the UI differs: the same engine, file, and queries. How each number is read, and where each side wins, is in the observatory's `,
+          textLink(`${SOURCE}/tree/master/apps/observatory#readme`, 'README'),
+          '.',
+        ),
+        // The numbers' slot: the cold runs and this tab's live readouts.
+        h('section', { 'aria-label': 'The numbers', 'data-numbers': '' }),
+      ),
+    ),
   );
 }

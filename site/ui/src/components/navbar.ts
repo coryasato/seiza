@@ -28,20 +28,23 @@ export function ThemeToggle() {
   useEffect(() => bindThemeToggle(ref.current!), []);
   return h(
     'button',
-    { ref, type: 'button', [THEME_TOGGLE]: '', 'aria-label': 'Toggle the theme', className: buttonVariants({ variant: 'ghost', size: 'icon-sm' }) },
+    { ref, type: 'button', [THEME_TOGGLE]: '', 'aria-label': 'Toggle the theme', className: cn(buttonVariants({ variant: 'ghost', size: 'icon-lg' }), '[&_svg]:size-[18px]') },
     h(Moon, { className: 'dark:hidden', 'aria-hidden': true }),
     h(Sun, { className: 'hidden dark:block', 'aria-hidden': true }),
   );
 }
 
+/** The bar spans the window, its contents too (no max-width), and holds
+ *  nothing a page adds, so nothing in it moves between pages (root
+ *  `docs/DECISIONS.md`, "Repo structure": the apex site's layout). */
 export function Navbar({ home, links }: { home: string; links: NavLink[] }) {
   return h(
     'header',
-    { className: 'sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80' },
+    { className: 'sticky top-0 z-40 h-(--site-bar) border-b bg-background' },
     h(
       'div',
-      { className: 'mx-auto flex h-14 max-w-screen-2xl items-center gap-6 px-4 sm:px-6' },
-      h('a', { href: home, className: 'flex items-baseline gap-2 text-base tracking-tight' }, 'seiza', h('span', { className: 'text-muted-foreground', lang: 'ja' }, '星座')),
+      { className: 'flex h-full items-center gap-2 px-4' },
+      h('a', { href: home, className: 'flex items-baseline gap-2 px-1 text-base tracking-tight' }, 'seiza', h('span', { className: 'text-muted-foreground', lang: 'ja' }, '星座')),
       h(
         'nav',
         { className: 'flex items-center gap-1 text-sm', 'aria-label': 'Site' },

@@ -7,6 +7,7 @@ import { observatoryData } from '../contenders/data.ts';
 import { contenderBase, ENGINE, ENGINE_DIR, OBSERVATORY } from '../contenders/paths.ts';
 import { ROUTES } from './src/components.ts';
 import type * as Prerender from './src/prerender.ts';
+import { SIDEBAR_SCRIPT } from './src/sidebar.ts';
 
 const contender = (side: 'gpui' | 'tanstack') => fileURLToPath(new URL(`../contenders/tall-table/${side}/web/dist/`, import.meta.url));
 
@@ -24,6 +25,8 @@ export default defineConfig(
       base: OBSERVATORY,
       plugins: [
         siteVite(),
+        // The sidebar's state before first paint, as the theme's (`src/sidebar.ts`).
+        { name: 'observatory:sidebar', transformIndexHtml: () => [{ tag: 'script', children: SIDEBAR_SCRIPT, injectTo: 'head-prepend' }] },
         prerender<typeof Prerender>({ module: '/src/prerender.ts', render: ({ render }, page) => render(page) }),
         serveDirs([
           { at: contenderBase('tall-table', 'gpui'), dir: contender('gpui') },

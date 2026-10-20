@@ -72,6 +72,9 @@
   }
   :root {
     color-scheme: light;
+    /* The navbar's height, its border included: what a page's sticky
+       parts sit below. */
+    --site-bar: 3.5rem;
   }
   :root.dark {
     color-scheme: dark;
@@ -79,5 +82,11 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-synthesis: none;
+  }
+  /* A control that acts on a press shows it (Tailwind v4 leaves buttons
+     at the default cursor). */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
   }
 }

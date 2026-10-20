@@ -27,7 +27,22 @@
 // (its load sends it again); with the data file missing, each contender
 // marks `contender:failed` and the toggle unlocks, its status saying so.
 //
-// Usage: node apps/observatory/perf/page.ts [--runs 10] [--check] [--label <name>] [--write-baseline] [--reference-only]
+// The dashboard, checked once: the site's bar and every box in it the same
+// on /observatory/ and the comparison, with the sidebar open or collapsed,
+// desktop and phone, at the window's width; a reload with the sidebar
+// stored collapsed paints the inset where it hydrates (the page's JS held
+// back until measured), and without the sidebar's head script (the
+// control) it moves; on a desktop the sidebar is 240 px at the window's
+// edge, the contender's card ends 16 px above the window's bottom with the
+// frame at least 480 px, and the toggle collapses it, kept across a
+// reload; a phone starts closed, opens over the content with a scrim,
+// stores nothing, and closes on the scrim and Escape, with GPUI's touch
+// line shown (and hidden to a fine pointer); every press control shows
+// `cursor: pointer`.
+//
+// Usage: node apps/observatory/perf/page.ts [--runs 10] [--check] [--label <name>] [--write-baseline] [--reference-only] [--shots <dir>]
+// --shots: screenshots of the comparison, light and dark, desktop (open,
+// collapsed) and phone (closed, open), into <dir>.
 // --check: reference only, fails if first paint or the first-paint JS is
 // over perf/baseline.json's by more than limits.page's fractions
 // (perf/budgets.json). --label writes perf/results/<date>-<label>.json
@@ -37,11 +52,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { chromium, type Page } from '@playwright/test';
+import { chromium, type Browser, type Page } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
-import { FAST_4G, PROFILES, flag, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
+import { SIDEBAR_KEY, SIDEBAR_SCRIM, SIDEBAR_SCRIPT, SIDEBAR_TOGGLE } from '../web/src/sidebar.ts';
 import { budgetLimits, pageWebDir, perfDir, problems, protocolContext, servePage } from './harness.ts';
 
 const runs = Number(option('runs') ?? 10);
@@ -339,15 +355,231 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
   return out;
 }
 
+// --- the dashboard's layout, once ---
+
+const DESKTOP = { width: 1440, height: 900 };
+const PHONE = { width: 390, height: 844 };
+
+/** A context at `viewport` with the stored sidebar state (`closed`, or none)
+ *  and theme; a phone's has touch. */
+async function layoutContext(browser: Browser, viewport: { width: number; height: number }, stored: { sidebar?: 'closed'; theme?: 'light' | 'dark' } = {}) {
+  const phone = viewport.width < 768;
+  const context = await browser.newContext({ viewport, deviceScaleFactor: phone ? 3 : 2, isMobile: phone, hasTouch: phone });
+  await context.addInitScript(hideDevicePixelContentBox);
+  await context.addInitScript(
+    ({ key, sidebar, theme }) => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      if (sidebar) localStorage.setItem(key, sidebar);
+      if (theme) localStorage.setItem('seiza-theme', theme);
+    },
+    { key: SIDEBAR_KEY, ...stored },
+  );
+  return context;
+}
+
+/** The site's bar and every box inside it: tag, x, y, width, height. */
+const barBoxes = (page: Page) =>
+  page
+    .locator('header')
+    .first()
+    .evaluate((bar) => [bar, ...bar.querySelectorAll('*')].map((element) => { const box = element.getBoundingClientRect(); return [element.tagName, box.x, box.y, box.width, box.height].join(' '); }));
+
+const box = (page: Page, selector: string) => page.locator(selector).evaluate((element) => { const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height }; });
+const shown = (page: Page, selector: string) => page.locator(selector).evaluate((element) => getComputedStyle(element).display !== 'none');
+const hydrated = (page: Page) => page.waitForFunction((toggle) => document.querySelector(`[${toggle}]`)?.hasAttribute('aria-expanded'), SIDEBAR_TOGGLE, { timeout: 15_000 });
+
+/**
+ * The inset's box as the HTML and CSS alone paint it (the page's JS held
+ * back), and after it hydrates, at a desktop with the sidebar stored
+ * closed. With `strip`, the HTML loses the sidebar's head script: the
+ * control, which must shift.
+ */
+async function insetAtPaintAndHydrated(browser: Browser, url: string, strip: boolean) {
+  const context = await layoutContext(browser, DESKTOP, { sidebar: 'closed' });
+  const page = await context.newPage();
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => (release = resolve));
+  await page.route((target) => target.pathname.startsWith(`${OBSERVATORY}assets/`) && target.pathname.endsWith('.js'), async (route) => {
+    await released;
+    await route.continue();
+  });
+  if (strip)
+    await page.route((target) => target.pathname === ROUTE, async (route) => {
+      const response = await route.fetch();
+      const html = await response.text();
+      if (!html.includes(SIDEBAR_SCRIPT)) fail("the control: the route's HTML doesn't hold the sidebar's script");
+      await route.fulfill({ response, body: html.replace(SIDEBAR_SCRIPT, '') });
+    });
+  await page.goto(url, { waitUntil: 'commit' });
+  await page.waitForFunction(() => document.querySelector('.observatory-inset') && [...document.styleSheets].some((sheet) => sheet.href?.includes('/assets/')));
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const atPaint = await box(page, '.observatory-inset');
+  release();
+  await hydrated(page);
+  const after = await box(page, '.observatory-inset');
+  await context.close();
+  return { atPaint, hydrated: after };
+}
+
+async function layout(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const overviewUrl = new URL(OBSERVATORY, url).href;
+  const browser = await chromium.launch({ channel: 'chromium' });
+  try {
+    // The bar: the same boxes on both routes, open or collapsed, desktop and phone.
+    for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]] as const) {
+      const bars: string[][] = [];
+      for (const [target, sidebar] of [[overviewUrl, undefined], [url, undefined], [url, 'closed']] as const) {
+        const context = await layoutContext(browser, viewport, { sidebar });
+        const page = await context.newPage();
+        await page.goto(target);
+        await hydrated(page);
+        bars.push(await barBoxes(page));
+        await context.close();
+      }
+      const same = bars.every((boxes) => JSON.stringify(boxes) === JSON.stringify(bars[0]));
+      expect(same, `${name}: the bar's boxes differ between the routes or the sidebar's states:\n${bars.map((boxes) => boxes.join(' | ')).join('\n')}`);
+      expect(bars[0]![0]!.split(' ')[3] === String(viewport.width), `${name}: the bar isn't the window's width: ${bars[0]![0]}`);
+      console.log(`bar (${name}): ${bars[0]!.length} boxes, the same on /observatory/ and ${ROUTE}, open and collapsed; ${bars[0]![0]}`);
+    }
+
+    // A reload in the collapsed state paints the inset where it hydrates;
+    // without the head script (the control) it moves.
+    const kept = await insetAtPaintAndHydrated(browser, url, false);
+    const control = await insetAtPaintAndHydrated(browser, url, true);
+    expect(JSON.stringify(kept.atPaint) === JSON.stringify(kept.hydrated), `collapsed reload: the inset moved from ${JSON.stringify(kept.atPaint)} at first paint to ${JSON.stringify(kept.hydrated)} hydrated`);
+    expect(kept.hydrated.x === 8, `collapsed: the inset isn't 8 px from the window's left edge: ${kept.hydrated.x}`);
+    expect(JSON.stringify(control.atPaint) !== JSON.stringify(control.hydrated), 'the control (no head script) painted the inset where it hydrates: the check can\'t fail');
+    out.collapsedReload = { inset: kept.hydrated, control: { atPaint: control.atPaint.x, hydrated: control.hydrated.x } };
+    console.log(`sidebar: a collapsed reload paints the inset at x ${kept.atPaint.x}, hydrated ${kept.hydrated.x}; control without the script ${control.atPaint.x} → ${control.hydrated.x}`);
+
+    // Desktop: the toggle collapses and opens it, and keeps the choice.
+    {
+      const context = await layoutContext(browser, DESKTOP);
+      const page = await context.newPage();
+      await page.goto(url);
+      await hydrated(page);
+      const sidebar = await box(page, '.observatory-sidebar');
+      const inset = await box(page, '.observatory-inset');
+      expect(sidebar.x === 0 && sidebar.width === 240, `open: the sidebar isn't 240 px at the window's edge: ${JSON.stringify(sidebar)}`);
+      expect(inset.x === 240, `open: the inset doesn't start at the sidebar's edge: ${inset.x}`);
+      const frame = await box(page, 'iframe');
+      const card = await box(page, '[aria-label$="the contenders"]');
+      expect(Math.abs(card.y + card.height - (DESKTOP.height - 16)) <= 1 && frame.height >= 480, `the contender's card doesn't reach the window's bottom (16 px above it): its bottom ${card.y + card.height}, the frame ${frame.height} px`);
+      await page.locator(`[${SIDEBAR_TOGGLE}]`).click();
+      expect(!(await shown(page, '.observatory-sidebar')), 'the toggle didn\'t collapse the sidebar');
+      expect((await page.evaluate((key) => localStorage.getItem(key), SIDEBAR_KEY)) === 'closed', 'the collapsed state isn\'t stored');
+      await page.reload();
+      await hydrated(page);
+      expect(!(await shown(page, '.observatory-sidebar')), 'the sidebar opened again after a reload');
+      await page.locator(`[${SIDEBAR_TOGGLE}]`).click();
+      expect((await shown(page, '.observatory-sidebar')) && (await page.evaluate((key) => localStorage.getItem(key), SIDEBAR_KEY)) === null, 'the toggle didn\'t open it again, or the choice stayed stored');
+      out.desktop = { sidebar, inset: inset.x, card: { bottom: card.y + card.height }, frame: frame.height };
+      console.log(`desktop: sidebar ${sidebar.width} px at x ${sidebar.x}, inset at ${inset.x}; the card's bottom at ${card.y + card.height} (window ${DESKTOP.height}), the frame ${frame.height} px; collapse stored, kept on reload, open clears it`);
+
+      // A control that acts on a press shows it.
+      await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
+      const cursors: Record<string, string[]> = await page.evaluate(
+        ({ toggle }) =>
+          Object.fromEntries(
+            [
+              ['the contender toggle', '[aria-label="Contender"] button'],
+              ['the theme toggle', '[data-site-theme-toggle]'],
+              ['the sidebar toggle', `[${toggle}]`],
+              ["the sidebar's items", '.observatory-sidebar a'],
+            ].map(([name, selector]) => [name, [...document.querySelectorAll(selector!)].map((element) => getComputedStyle(element).cursor)]),
+          ),
+        { toggle: SIDEBAR_TOGGLE },
+      );
+      for (const [name, values] of Object.entries(cursors)) expect(values.length > 0 && values.every((cursor) => cursor === 'pointer'), `${name}: cursor ${values.join(', ') || 'none found'}`);
+      out.cursors = cursors;
+      console.log(`cursor: pointer on ${Object.entries(cursors).map(([name, values]) => `${name} (${values.length})`).join(', ')}`);
+      await context.close();
+    }
+
+    // A phone: closed whatever is stored, open over the content with a scrim.
+    {
+      const context = await layoutContext(browser, PHONE);
+      const page = await context.newPage();
+      await page.goto(url);
+      expect(!(await shown(page, '.observatory-sidebar')), 'phone: the sidebar is open before hydration');
+      await hydrated(page);
+      expect(!(await shown(page, '.observatory-sidebar')), 'phone: the sidebar starts open');
+      const inset = await box(page, '.observatory-inset');
+      expect(inset.x === 0 && inset.width === PHONE.width, `phone: the inset isn't edge to edge: ${JSON.stringify(inset)}`);
+      await page.locator(`[${SIDEBAR_TOGGLE}]`).click();
+      expect((await shown(page, '.observatory-sidebar')) && (await shown(page, `[${SIDEBAR_SCRIM}]`)), 'phone: the toggle didn\'t open the sidebar with its scrim');
+      expect((await box(page, '.observatory-inset')).x === 0, 'phone: the open sidebar moved the content');
+      expect((await page.evaluate((key) => localStorage.getItem(key), SIDEBAR_KEY)) === null, 'phone: the toggle stored a state');
+      await page.mouse.click(PHONE.width - 20, PHONE.height / 2);
+      expect(!(await shown(page, '.observatory-sidebar')), 'phone: the scrim didn\'t close the sidebar');
+      await page.locator(`[${SIDEBAR_TOGGLE}]`).click();
+      await page.keyboard.press('Escape');
+      expect(!(await shown(page, '.observatory-sidebar')), 'phone: Escape didn\'t close the sidebar');
+      await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
+      const touchLine = page.getByText('one axis per swipe');
+      expect(await touchLine.isVisible(), "phone: the GPUI side's touch line isn't shown");
+      await context.close();
+      console.log("phone: closed at load, before and after hydration; the toggle opens it over the content with a scrim (nothing stored); the scrim and Escape close it; GPUI's touch line shown");
+    }
+    {
+      // A desktop pointer doesn't see the touch line.
+      const context = await layoutContext(browser, DESKTOP);
+      const page = await context.newPage();
+      await page.goto(url);
+      await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
+      expect(!(await page.getByText('one axis per swipe').isVisible()), 'desktop: the touch line is shown to a fine pointer');
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/** Screenshots of both routes' layouts, light and dark, desktop and phone,
+ *  into `dir` (`--shots`), each once the shown contender has filled. */
+async function screenshots(url: string, dir: string): Promise<void> {
+  mkdirSync(dir, { recursive: true });
+  const browser = await chromium.launch({ channel: 'chromium' });
+  try {
+    for (const theme of ['light', 'dark'] as const)
+      for (const [name, viewport, sidebar, open] of [
+        ['desktop', DESKTOP, undefined, false],
+        ['desktop-collapsed', DESKTOP, 'closed', false],
+        ['phone', PHONE, undefined, false],
+        ['phone-open', PHONE, undefined, true],
+      ] as const) {
+        const context = await layoutContext(browser, viewport, { sidebar, theme });
+        const page = await context.newPage();
+        await page.goto(url);
+        await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
+        if (open) await page.locator(`[${SIDEBAR_TOGGLE}]`).click();
+        await page.waitForTimeout(500);
+        const file = join(dir, `${name}-${theme}.png`);
+        await page.screenshot({ path: file });
+        console.log(`wrote ${file}`);
+        await context.close();
+      }
+  } finally {
+    await browser.close();
+  }
+}
+
 // --- the runs ---
 
 const server = await servePage(PORT);
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
 const results: Record<string, { runs: Run[]; firstPaintMs: ReturnType<typeof summarize>; fcpMs: ReturnType<typeof summarize> }> = {};
 let hosted: Record<string, unknown> = {};
+let laidOut: Record<string, unknown> = {};
 try {
   const url = new URL(ROUTE, server.url).href;
   hosted = await hosting(url);
+  laidOut = await layout(url);
+  const shots = option('shots');
+  if (shots) await screenshots(url, shots);
   for (const profile of profiles) {
     const profileRuns: Run[] = [];
     for (let i = 0; i < runs; i++) {
@@ -385,6 +617,7 @@ if (label) {
     firstPaintMs,
     fcpMs: Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.fcpMs?.median ?? null])),
     hosting: hosted,
+    layout: laidOut,
     runs: Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.runs])),
     failures,
   };
