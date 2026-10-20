@@ -762,6 +762,44 @@
       ]
     },
     {
+      "id": "memory-equal-reference",
+      "label": "Page memory at equal work (the same pages read on both devices; the canvas's backing store and the engine's workers apart), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
+      "id": "memory-equal-throttled",
+      "label": "Page memory at equal work (the same pages read on both devices; the canvas's backing store and the engine's workers apart), throttled, CPU 4× and Fast 4G",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": [
+        "readme"
+      ]
+    },
+    {
       "id": "page-bytes-reference",
       "label": "Footnote: page bytes over the wire (engine and data apart), reference",
       "unit": "KiB",

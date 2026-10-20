@@ -330,6 +330,7 @@ const PORTS: Record<string, [number, number]> = {
   fling: [4328, 4329],
   reach: [4330, 4331],
   cost: [4332, 4333],
+  memory: [4335, 4336],
 };
 
 /**

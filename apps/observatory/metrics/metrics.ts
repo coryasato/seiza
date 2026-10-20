@@ -571,22 +571,30 @@ export function underLoad(frames: readonly StateFrame[], inputs: readonly WheelI
 export interface MemoryEntry {
   bytes: number;
   attribution: { url?: string; scope: string }[];
+  /** What the bytes are ("JavaScript", "Canvas", …), several joined by "+". */
+  types?: string[];
 }
 
 /**
  * The page's own memory (its window's realm) and its workers' (the engine's,
  * the same on both sides), bytes. `isPage` names the page's window by its
  * URL where there are several (the observatory's page measures the
- * contender's frame); a bare page has one.
+ * contender's frame); a bare page has one. The page's bytes also by type
+ * (`types` joined by "+"; "untyped" without one): a canvas's backing store
+ * is "Canvas", a wasm's linear memory "JavaScript".
  */
-export function memoryOf(breakdown: readonly MemoryEntry[], isPage: (url: string) => boolean = () => true): { pageBytes: number; workerBytes: number } {
+export function memoryOf(breakdown: readonly MemoryEntry[], isPage: (url: string) => boolean = () => true): { pageBytes: number; workerBytes: number; pageByType: Record<string, number> } {
   let pageBytes = 0;
   let workerBytes = 0;
+  const pageByType: Record<string, number> = {};
   for (const entry of breakdown) {
-    if (entry.attribution.some((attribution) => attribution.scope === 'Window' && isPage(attribution.url ?? ''))) pageBytes += entry.bytes;
-    else if (entry.attribution.some((attribution) => attribution.scope.endsWith('WorkerGlobalScope'))) workerBytes += entry.bytes;
+    if (entry.attribution.some((attribution) => attribution.scope === 'Window' && isPage(attribution.url ?? ''))) {
+      pageBytes += entry.bytes;
+      const type = entry.types?.join('+') || 'untyped';
+      pageByType[type] = (pageByType[type] ?? 0) + entry.bytes;
+    } else if (entry.attribution.some((attribution) => attribution.scope.endsWith('WorkerGlobalScope'))) workerBytes += entry.bytes;
   }
-  return { pageBytes, workerBytes };
+  return { pageBytes, workerBytes, pageByType };
 }
 
 // ---------------------------------------------------------------- live, in a tab

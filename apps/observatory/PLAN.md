@@ -19,7 +19,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M2 | The GPUI contender and the fixtures (parts A–C) | Done 2026-10-17 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The TanStack contender (parts A–D) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, part C 2026-10-20, part D1 next |
+| M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | In progress: parts 0, A, A1, A2, and B done 2026-10-19, parts C and D1 2026-10-20, part D2 next |
 | M6 | The deploy | Not started |
 | M7 | The benchmark button | Not started |
 
@@ -33,7 +33,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-M5, the observatory page: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, B, and C done, part D1 next. Part D is four sessions, D1–D4, in order; restate the session's checks at its start.
+M5, the observatory page: its spec and checks are under "Next milestones" below, parts 0, A, A1, A2, B, C, and D1 done, part D2 next. Part D is four sessions, D1–D4, in order; restate the session's checks at its start.
 
 ---
 
@@ -85,7 +85,7 @@ React with shadcn on Base UI and Tailwind v4, every dependency pinned exactly.
 **Part D: the numbers, built to part C's design** (`docs/DECISIONS.md`, "Page", 2026-10-20), in four sessions, each ending with `check` passing. The design to build: https://claude.ai/artifact/6TUq4g7KJ3jrFdKVUGRY67 (read it with the Artifact tool; its `Main.dc.html` holds the markup, the copy, and the states). Why four: D1's findings can change what D2's cards show; D2 and D3 each need the page's code and the canvas in context; D4's long runs belong on the final build (`docs/DECISIONS.md`, "Page", the readout's cost).
 
 **Part D1: measurement** (the perf scripts and `perf/results/`; no page code).
-- [ ] Measurement first, before the cards ship: memory read at equal work on both devices (the same pages read), with what each side's reading includes recorded (its Arrow buffers, the wasm's memory); the slow-device memory row stays off until it holds. The pages' bytes by file (the font's share on each side, GPUI's JS and HTML), and the wasm by part (framework, component, data layer) if a size tool can split it, else the card names it one file. In `perf/results/`.
+- [x] Measurement first, before the cards ship: memory read at equal work on both devices (the same pages read), with what each side's reading includes recorded (its Arrow buffers, the wasm's memory); the slow-device memory row stays off until it holds. The pages' bytes by file (the font's share on each side, GPUI's JS and HTML), and the wasm by part (framework, component, data layer) if a size tool can split it, else the card names it one file. In `perf/results/`. Evidence: `perf/results/2026-10-20-m5-d1.md`. Memory at equal work (`metric memory`: a walk to the last row, every one of 40 runs ending on 11,737,984 cache bytes; scattered jumps failed it, −2.4% slow, the prefetch's lean): less the canvas, GPUI 25.8 / 25.8 MiB fast / slow (its wasm 22.8 of it), TanStack 16.1 / 16.2, so the slow row holds; GPUI's canvas holds 1–3 window buffers (19.8 MiB each) by run, named apart (`docs/DECISIONS.md`, "Measurement", 2026-10-20). Bytes by file: GPUI's page 2801.4 KiB (HTML 11.4, 8.5 of it the placeholder's inlined font; JS 21.9, ~19.0 wasm-bindgen's glue; wasm 2698.4; font 69.7), TanStack's 180.2 (the font 38.7% of it, GPUI's 2.8%). The wasm by part (`gpui-parts`, by crate from a build with names): framework 1997.9 KiB, static data 513.5, runtime 123.1, other sections 38.6, data layer 11.2, component 7.4, host 6.4.
 
 **Part D2: the window and the panel** (`web/src/`, `perf/page.ts`; D1's numbers in hand).
 - [ ] The window: the title bar (the toggle, the load states, the only `aria-live` text, silent during a scroll, its explainer), the status bar's segments (Ready in, Rows in, Smooth, Memory; Meter, Run benchmark, Compare; a phone's two and the overflow), Smooth "—" until a scroll; the component labelled TallTable (`web/src/components.ts`). Nothing shifts: the status bar's box is in the prerendered HTML and its numbers render after first paint (`perf/page.ts`: the frame's box at first paint equals its box once the numbers render; control: without the reserved box, it fails).

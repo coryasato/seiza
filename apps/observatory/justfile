@@ -152,6 +152,14 @@ engine-files *args:
 sizes *args:
     node {{app_dir}}/perf/sizes.ts {{args}}
 
+# The GPUI contender's page by part, brotli: its HTML (the placeholder's
+# inlined font, the rest), its JS (wasm-bindgen's glue, the rest), and its
+# wasm by crate (framework, component, data layer, host, runtime, static
+# data), from a release build with its names kept. --label: writes
+# perf/results/<date>-<label>.json. Run `just observatory gpui-build` first.
+gpui-parts *args:
+    node {{app_dir}}/perf/gpui-parts.ts {{args}}
+
 # Lint, the GPUI contender's release build, the size check, then its
 # budgets and checks on the build: reference TTFP against perf/baseline.json
 # (perf/budgets.json's limits) and its wasm (brotli); the placeholder shell
@@ -226,7 +234,9 @@ reach *args:
 # confirmed by the probe key; first pixels beside it), data (time to data),
 # response (input to visible response: key, track press, wheel, each
 # guarded), fling (behavior under load, per-frame work), reach (count(*)
-# and the last row), cost (main-thread CPU, memory, bytes over a session).
+# and the last row), cost (main-thread CPU, memory, bytes over a session),
+# memory (at equal work: the same pages read on both devices; each file's
+# bytes on the wire).
 # Flags: --side gpui|tanstack (default both, alternated), --runs (10),
 # --profile reference|throttled (default both), --label (writes
 # perf/results/), and response's --inputs (6 per kind). Run gpui-build and
