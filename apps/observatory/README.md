@@ -2,7 +2,7 @@
 
 > *Where the instruments are compared.*
 
-**Being built.** The page and both contenders run locally (`just observatory preview` after `gpui-build`, `tanstack-build`, and `build`); it will live at `seiza.io/observatory`.
+**Built, not yet deployed.** The page and both contenders run locally (`just observatory preview` after `gpui-build`, `tanstack-build`, and `build`); they will live at `seiza.io/observatory`.
 
 The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, over all 1.57 M known asteroids.
 
@@ -10,7 +10,8 @@ The Observatory is seiza's comparison page. For each component in the repo, it r
 - **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.
 - **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm.
-- **Where TanStack wins, too:** each of the page's cards says which side is lower, as this README does below. Under the cold numbers the page shows what your tab reads of the side you're using (its marks, its frames while you scroll, its memory), labelled live and, for a side loaded second or from the cache, warm.
+- **Where TanStack wins, too:** the page's Compare panel shows the cold numbers for both devices, each card with its verdict, and says which side is lower, as this README does below.
+- **What your tab reads, and what that costs:** the contender's window has a status bar (Ready in, Rows in, Smooth, Memory) and a meter over its corner (frame time over 10 s, memory over a minute; open, a pill, or hidden). They show what your tab reads of the side you're using, labelled warm for a side loaded second or from the cache. They share the contender's main thread, so they're held to a budget: with the meter open, a fling's late frames and dropped or GPU frames stay within noise of the meter hidden, the page spends 0.3–0.4 ms per refresh on a fast machine and under 1.5 ms on a slow one, and it re-renders nothing in React mid-fling ([`perf/results/2026-10-21-m5-d4.md`](perf/results/2026-10-21-m5-d4.md)). The pill drops more compositor frames under throttling than the open meter does.
 
 ## Numbers
 

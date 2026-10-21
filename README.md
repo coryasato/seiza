@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | In progress: both contenders built and measured; the page runs locally, not deployed |
+| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Page built and measured locally: both contenders, the window's numbers, the meter; the deploy is next |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -79,7 +79,7 @@ seiza/
     templates/component/ # the docs skeleton a new component or engine starts from
 ```
 
-Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). The first engine is [`engines/duckdb/`](engines/duckdb/), Tycho's DuckDB layer, and the first component [`components/tall-table/`](components/tall-table/), Tycho's table. The observatory's GPUI contender will be their second consumer.
+Reusable pieces leave an app once a second consumer needs them: UI to `components/<name>/` (a Rust crate), data layers to `engines/<name>/` (a crate and/or an npm package). The first engine is [`engines/duckdb/`](engines/duckdb/), Tycho's DuckDB layer, and the first component [`components/tall-table/`](components/tall-table/), Tycho's table. The observatory's GPUI contender is their second consumer.
 
 ## Getting started
 
