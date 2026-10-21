@@ -46,7 +46,7 @@ export async function setPanel(page: Page, open: boolean): Promise<void> {
 
 /** A control's published bounds (`globalThis.__seizaTargets[id]`), once
  *  they're inside the viewport: `[x, y, width, height]` in CSS pixels. */
-export async function targetRect(page: Page, id: string, timeout = 60_000): Promise<[number, number, number, number]> {
+export async function targetRect(page: Pick<Page, 'waitForFunction'>, id: string, timeout = 60_000): Promise<[number, number, number, number]> {
   const handle = await page.waitForFunction(
     (id) => {
       const rect = (globalThis as { __seizaTargets?: Record<string, number[]> }).__seizaTargets?.[id];
@@ -94,7 +94,7 @@ async function deviceScale(page: Page): Promise<number> {
 
 /** The first `performance.mark` named `mark` at or after `since` (page
  *  clock), once it exists. */
-export async function waitMark(page: Page, mark: string, since = 0, timeout = 60_000): Promise<number> {
+export async function waitMark(page: Pick<Page, 'waitForFunction'>, mark: string, since = 0, timeout = 60_000): Promise<number> {
   const handle = await page.waitForFunction(
     ({ mark, since }) => performance.getEntriesByName(mark, 'mark').find((entry) => entry.startTime >= since)?.startTime ?? false,
     { mark, since },
@@ -222,20 +222,37 @@ export function firstDrawProbe(): void {
 /** One rAF as the recorder saw it: its time, plus whatever
  *  `globalThis.__seizaFrameSample()` returned then (an app's view state). */
 export type RecordedFrame<S extends object = object> = S & { t: number };
-type FrameGlobal = { __seizaFrames?: RecordedFrame[]; __seizaFrameSample?: () => object };
+type FrameGlobal = { __seizaFrames?: RecordedFrame[]; __seizaFrameCosts?: number[]; __seizaFrameSample?: () => object };
 
 /** Records every rAF (see `RecordedFrame`). Install with
  *  `context.addInitScript` or `page.evaluate`, and an app's
- *  `__seizaFrameSample` the same way to record what each frame showed. */
+ *  `__seizaFrameSample` the same way to record what each frame showed.
+ *  Each callback's own time goes in `__seizaFrameCosts`, by index
+ *  (`recorderCost`). */
 export function frameRecorder(): void {
   const g = globalThis as FrameGlobal;
   const frames: RecordedFrame[] = [];
+  const costs: number[] = [];
   g.__seizaFrames = frames;
+  g.__seizaFrameCosts = costs;
   const tick = (t: number) => {
+    const start = performance.now();
     frames.push({ ...g.__seizaFrameSample?.(), t });
     requestAnimationFrame(tick);
+    costs.push(performance.now() - start);
   };
   requestAnimationFrame(tick);
+}
+
+/** The recorder's own callback time over the frames between two page
+ *  times (see `frameRecorder`): ms per frame (p50, p95, max) and in all. */
+export async function recorderCost(page: Pick<Page, 'evaluate'>, from: number, to: number): Promise<{ frames: number; p50: number; p95: number; max: number; totalMs: number }> {
+  const costs = await page.evaluate(({ from, to }) => {
+    const g = globalThis as FrameGlobal;
+    return (g.__seizaFrames ?? []).flatMap((frame, index) => (frame.t >= from && frame.t <= to ? [g.__seizaFrameCosts?.[index] ?? 0] : []));
+  }, { from, to });
+  const { p50, p95, max } = percentiles(costs);
+  return { frames: costs.length, p50, p95, max, totalMs: costs.reduce((sum, ms) => sum + ms, 0) };
 }
 
 /** Frames recorded between two page times (see `frameRecorder`). */

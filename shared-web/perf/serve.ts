@@ -70,6 +70,54 @@ export async function startCountingProxy(listenPort: number, upstreamPort: numbe
   });
 }
 
+/**
+ * A proxy in front of `upstreamPort` that shapes every response as a
+ * network profile would: `latency` ms before each response starts, and
+ * every body through one shared `download` (bytes/s), as Chromium's
+ * emulation does. For what Chromium's own throttling doesn't reach: a
+ * same-process frame's worker escapes the page's `emulateNetworkConditions`
+ * and can't take its own (`Not supported`), so a page whose frame has a
+ * worker is throttled here instead, with its comparisons the same way.
+ */
+export async function startThrottlingProxy(listenPort: number, upstreamPort: number, network: { latency: number; download: number }): Promise<{ url: string; close(): void }> {
+  await assertPortFree(listenPort);
+  const SLICE = 16 * 1024;
+  // When the shared link is next free, ms.
+  let free = 0;
+  const after = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const server = createServer((req, res) => {
+    const arrived = Date.now();
+    const upstream = httpRequest({ host: 'localhost', port: upstreamPort, path: req.url, method: req.method, headers: req.headers }, async (response) => {
+      response.pause();
+      await after(Math.max(0, arrived + network.latency - Date.now()));
+      res.writeHead(response.statusCode ?? 502, response.headers);
+      // One slice at a time, each when the shared link has room for it.
+      let sending = Promise.resolve();
+      response.on('data', (chunk: Buffer) => {
+        response.pause();
+        sending = sending.then(async () => {
+          for (let at = 0; at < chunk.length; at += SLICE) {
+            const slice = chunk.subarray(at, at + SLICE);
+            const now = Date.now();
+            free = Math.max(free, now) + (slice.length / network.download) * 1000;
+            await after(free - now);
+            res.write(slice);
+          }
+          response.resume();
+        });
+      });
+      response.on('end', () => void sending.then(() => res.end()));
+      response.resume();
+    });
+    upstream.on('error', (error) => res.destroy(error));
+    req.pipe(upstream);
+  });
+  return new Promise((resolve, reject) => {
+    server.once('error', (error) => reject(new Error(`throttling proxy can't listen on ${listenPort}: ${error.message}`)));
+    server.listen(listenPort, '127.0.0.1', () => resolve({ url: `http://127.0.0.1:${listenPort}/`, close: () => server.close() }));
+  });
+}
+
 /** Waits (up to `timeout`) for these requests' bodies to finish. */
 export async function settled(requests: DataResponse[], timeout = 30_000): Promise<void> {
   const deadline = Date.now() + timeout;

@@ -14,6 +14,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+
+/** A page or a frame in one: where a contender runs (the bare page, or
+ *  the observatory page's frame). */
+export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, targetRect, waitMark, wheel } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
@@ -157,12 +161,12 @@ export async function openSide(
   }
 }
 
-export const now = (page: Page): Promise<number> => page.evaluate(() => performance.now());
+export const now = (page: Scope): Promise<number> => page.evaluate(() => performance.now());
 
-export const state = (page: Page): Promise<ContenderState | null> => page.evaluate(() => (globalThis as Global).__contender?.state ?? null);
+export const state = (page: Scope): Promise<ContenderState | null> => page.evaluate(() => (globalThis as Global).__contender?.state ?? null);
 
 /** Waits for a filled state passing `test` (an expression over `s`). */
-export const filledState = (page: Page, test = 'true', timeout = 120_000): Promise<ContenderState> =>
+export const filledState = (page: Scope, test = 'true', timeout = 120_000): Promise<ContenderState> =>
   page
     .waitForFunction(
       (test) => {
@@ -192,11 +196,11 @@ export async function pressProbeKey(page: Page): Promise<void> {
 }
 
 /** Each key's event time, in order. */
-export const keys = (page: Page): Promise<number[]> => page.evaluate(() => (globalThis as Global).__keys ?? []);
-export const wheels = (page: Page): Promise<WheelInput[]> => page.evaluate(() => (globalThis as Global).__wheels ?? []);
-export const presses = (page: Page): Promise<{ at: number; scroller: boolean }[]> => page.evaluate(() => (globalThis as Global).__presses ?? []);
-export const paints = async (page: Page): Promise<CellPaint[]> => cellPaints(await page.evaluate(() => (globalThis as Global).__painted ?? []));
-export const frames = (page: Page, from: number, to: number): Promise<StateFrame[]> =>
+export const keys = (page: Scope): Promise<number[]> => page.evaluate(() => (globalThis as Global).__keys ?? []);
+export const wheels = (page: Scope): Promise<WheelInput[]> => page.evaluate(() => (globalThis as Global).__wheels ?? []);
+export const presses = (page: Scope): Promise<{ at: number; scroller: boolean }[]> => page.evaluate(() => (globalThis as Global).__presses ?? []);
+export const paints = async (page: Scope): Promise<CellPaint[]> => cellPaints(await page.evaluate(() => (globalThis as Global).__painted ?? []));
+export const frames = (page: Scope, from: number, to: number): Promise<StateFrame[]> =>
   page.evaluate(({ from, to }) => ((globalThis as Global).__seizaFrames ?? []).filter((frame) => frame.t >= from && frame.t <= to), { from, to });
 
 export { frameRecorder };
@@ -205,7 +209,7 @@ export { frameRecorder };
 
 /** Where the pointer rests for a wheel: over the row numbers (inside the
  *  scroller, no cell tooltip), halfway down. */
-export async function restPoint(page: Page): Promise<{ x: number; y: number }> {
+export async function restPoint(page: Scope): Promise<{ x: number; y: number }> {
   const [x, y, , h] = await targetRect(page, 'table');
   return { x: x - 20, y: y + h / 2 };
 }

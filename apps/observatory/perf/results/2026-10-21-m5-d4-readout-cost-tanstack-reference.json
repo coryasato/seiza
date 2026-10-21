@@ -1,0 +1,1778 @@
+{
+  "date": "2026-10-21",
+  "label": "m5-d4-readout-cost-tanstack-reference",
+  "metric": "readout-cost",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "headed": false,
+  "runs": 10,
+  "variants": [
+    "open",
+    "pill",
+    "hidden",
+    "bare"
+  ],
+  "flingFrames": 180,
+  "profiles": {
+    "reference": {
+      "tanstack": {
+        "summary": {
+          "open": {
+            "runs": 10,
+            "openSpreadPct": 4,
+            "latePct": 0,
+            "lateIqr": 1.11,
+            "frames": 183,
+            "recorderMsPerFrame": 0,
+            "recorderMsP95": 0.005,
+            "recorderMsTotal": 0.46,
+            "presented": 182,
+            "partial": 0,
+            "dropped": 0,
+            "droppedPct": 0,
+            "gpuMsPerFrame": 5.576,
+            "gpuPct": 33.41,
+            "pageMsPerRefresh": 0.371,
+            "pageMsPerRefreshMax": 0.62,
+            "pageLongestTimerMs": 0.587,
+            "pageRefreshes": 12,
+            "pageRecordingMsPerFrame": 0.029,
+            "pageCommits": 0,
+            "renderers": [
+              "apple metal-3 | ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+            ]
+          },
+          "pill": {
+            "runs": 10,
+            "openSpreadPct": 4.2,
+            "latePct": 0,
+            "lateIqr": 0,
+            "frames": 183,
+            "recorderMsPerFrame": 0,
+            "recorderMsP95": 0.005,
+            "recorderMsTotal": 0.43,
+            "presented": 182,
+            "partial": 0,
+            "dropped": 0,
+            "droppedPct": 0,
+            "gpuMsPerFrame": 5.604,
+            "gpuPct": 33.55,
+            "pageMsPerRefresh": 0.346,
+            "pageMsPerRefreshMax": 0.364,
+            "pageLongestTimerMs": 0.567,
+            "pageRefreshes": 12,
+            "pageRecordingMsPerFrame": 0.028,
+            "pageCommits": 0,
+            "renderers": [
+              "apple metal-3 | ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+            ]
+          },
+          "hidden": {
+            "runs": 10,
+            "openSpreadPct": 7.7,
+            "latePct": 0,
+            "lateIqr": 0,
+            "frames": 183,
+            "recorderMsPerFrame": 0,
+            "recorderMsP95": 0.005,
+            "recorderMsTotal": 0.45,
+            "presented": 182,
+            "partial": 0,
+            "dropped": 0,
+            "droppedPct": 0,
+            "gpuMsPerFrame": 5.579,
+            "gpuPct": 33.5,
+            "pageMsPerRefresh": 0.164,
+            "pageMsPerRefreshMax": 0.186,
+            "pageLongestTimerMs": 0.258,
+            "pageRefreshes": 12,
+            "pageRecordingMsPerFrame": 0.028,
+            "pageCommits": 0,
+            "renderers": [
+              "apple metal-3 | ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+            ]
+          },
+          "bare": {
+            "runs": 10,
+            "openSpreadPct": 7.1,
+            "latePct": 0,
+            "lateIqr": 0,
+            "frames": 184,
+            "recorderMsPerFrame": 0.005,
+            "recorderMsP95": 0.01,
+            "recorderMsTotal": 0.74,
+            "presented": 182,
+            "partial": 0,
+            "dropped": 0,
+            "droppedPct": 0,
+            "gpuMsPerFrame": 8.891,
+            "gpuPct": 53.4,
+            "pageMsPerRefresh": null,
+            "pageMsPerRefreshMax": null,
+            "pageLongestTimerMs": null,
+            "pageRefreshes": null,
+            "pageRecordingMsPerFrame": null,
+            "pageCommits": null,
+            "renderers": [
+              "apple metal-3 | ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+            ]
+          },
+          "pageMsPerRefreshOpen": 0.371
+        },
+        "gates": [
+          {
+            "metric": "late frames",
+            "against": "open",
+            "value": 0,
+            "hidden": 0,
+            "delta": 0,
+            "threshold": 1,
+            "pass": true
+          },
+          {
+            "metric": "late frames",
+            "against": "bare",
+            "value": 0,
+            "hidden": 0,
+            "delta": 0,
+            "threshold": 1,
+            "pass": true
+          },
+          {
+            "metric": "dropped frames",
+            "against": "open",
+            "value": 0,
+            "hidden": 0,
+            "delta": 0,
+            "threshold": 1,
+            "pass": true
+          }
+        ],
+        "failures": [
+          "tanstack reference hidden: the open mark's spread 7.7% (max 6%): the machine wasn't quiet",
+          "tanstack reference bare: the open mark's spread 7.1% (max 6%): the machine wasn't quiet"
+        ],
+        "runs": {
+          "open": [
+            {
+              "variant": "open",
+              "openMs": 498.05000019073486,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9619565217391305,
+              "lagSteps": {
+                "p95": 3,
+                "max": 3
+              },
+              "catchUpMs": 80.1,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4549994468688965
+              },
+              "presented": 183,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 4.356326086956521,
+              "gpuShare": 0.26157332853785864,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.16,
+              "pageMsPerRefresh": 0.3466666666666667,
+              "pageLongestTimerMs": 0.561,
+              "pageRecordingMsPerFrame": 0.032891304347826084,
+              "pageCommits": 0,
+              "flingMs": 3064.394999599457,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 499.4099998474121,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 178,
+              "lateFrames": 7,
+              "lateShare": 0.03954802259887006,
+              "placeholderShare": 0.8876404494382022,
+              "lagSteps": {
+                "p95": 3,
+                "max": 4
+              },
+              "catchUpMs": 97.14,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 177,
+                "p50": 0.004999637603759766,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.5099973678588867
+              },
+              "presented": 184,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 3.995830508474576,
+              "gpuShare": 0.2294956535226022,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 7.445,
+              "pageMsPerRefresh": 0.6204166666666667,
+              "pageLongestTimerMs": 0.579,
+              "pageRecordingMsPerFrame": 0.03236723163841807,
+              "pageCommits": 0,
+              "flingMs": 3081.8100000762943,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 500.3800001144409,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 75.51,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.3599987030029297
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.4810923913043474,
+              "gpuShare": 0.32973827467675154,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.451,
+              "pageMsPerRefresh": 0.3709166666666666,
+              "pageLongestTimerMs": 0.592,
+              "pageRecordingMsPerFrame": 0.02806521739130435,
+              "pageCommits": 0,
+              "flingMs": 3058.5499999618532,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 500.32999992370605,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 181,
+              "lateFrames": 2,
+              "lateShare": 0.011111111111111112,
+              "placeholderShare": 0.9834254143646409,
+              "lagSteps": {
+                "p95": 3,
+                "max": 5
+              },
+              "catchUpMs": 52.76,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 181,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.4499983787536621
+              },
+              "presented": 182,
+              "partial": 1,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.583171270718232,
+              "gpuShare": 0.3328652717088524,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 6.472,
+              "pageMsPerRefresh": 0.5393333333333333,
+              "pageLongestTimerMs": 0.79,
+              "pageRecordingMsPerFrame": 0.02808287292817679,
+              "pageCommits": 0,
+              "flingMs": 3035.9249999618532,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 498.03000020980835,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 180,
+              "lateFrames": 3,
+              "lateShare": 0.01675977653631285,
+              "placeholderShare": 0.8888888888888888,
+              "lagSteps": {
+                "p95": 3,
+                "max": 4
+              },
+              "catchUpMs": 66.45,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 179,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4600033760070801
+              },
+              "presented": 183,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 3.9843463687150837,
+              "gpuShare": 0.23386953178268283,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 6.402,
+              "pageMsPerRefresh": 0.5335,
+              "pageLongestTimerMs": 0.775,
+              "pageRecordingMsPerFrame": 0.031173184357541895,
+              "pageCommits": 0,
+              "flingMs": 3049.5550000190733,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 500.914999961853,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9781420765027322,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 63.33,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.5000009536743164
+              },
+              "presented": 181,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.624131147540983,
+              "gpuShare": 0.3377607127617574,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.464,
+              "pageMsPerRefresh": 0.37200000000000005,
+              "pageLongestTimerMs": 0.583,
+              "pageRecordingMsPerFrame": 0.030103825136612024,
+              "pageCommits": 0,
+              "flingMs": 3047.1750002670287,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 498.6000003814697,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 52.97,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.40999746322631836
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.569136612021858,
+              "gpuShare": 0.33569127599102644,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.353,
+              "pageMsPerRefresh": 0.36274999999999996,
+              "pageLongestTimerMs": 0.592,
+              "pageRecordingMsPerFrame": 0.028092896174863387,
+              "pageCommits": 0,
+              "flingMs": 3035.979999752045,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 502.125,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 62.87,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4650001525878906
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.627573770491804,
+              "gpuShare": 0.3379264293379365,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.371,
+              "pageMsPerRefresh": 0.36425,
+              "pageLongestTimerMs": 0.574,
+              "pageRecordingMsPerFrame": 0.028371584699453552,
+              "pageCommits": 0,
+              "flingMs": 3047.5449997138976,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 517.9450001716614,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 63.77,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4550023078918457
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.625335164835165,
+              "gpuShare": 0.33604207868897495,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.451,
+              "pageMsPerRefresh": 0.3709166666666666,
+              "pageLongestTimerMs": 0.594,
+              "pageRecordingMsPerFrame": 0.028851648351648353,
+              "pageCommits": 0,
+              "flingMs": 3046.6749997329716,
+              "failures": []
+            },
+            {
+              "variant": "open",
+              "openMs": 501.82999992370605,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 59.01,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.38000059127807617
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.605302197802198,
+              "gpuShare": 0.33525030437290865,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.401,
+              "pageMsPerRefresh": 0.36674999999999996,
+              "pageLongestTimerMs": 0.582,
+              "pageRecordingMsPerFrame": 0.027752747252747255,
+              "pageCommits": 0,
+              "flingMs": 3042.9950001335146,
+              "failures": []
+            }
+          ],
+          "pill": [
+            {
+              "variant": "pill",
+              "openMs": 496.67500019073486,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 185,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9783783783783784,
+              "lagSteps": {
+                "p95": 3,
+                "max": 3
+              },
+              "catchUpMs": 83.73,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0,
+                "p95": 0.009999752044677734,
+                "max": 0.015000343322753906,
+                "totalMs": 0.4699993133544922
+              },
+              "presented": 184,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 4.63141847826087,
+              "gpuShare": 0.2777494039648758,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.132,
+              "pageMsPerRefresh": 0.3443333333333333,
+              "pageLongestTimerMs": 0.55,
+              "pageRecordingMsPerFrame": 0.03153804347826088,
+              "pageCommits": 0,
+              "flingMs": 3068.164999942779,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 495.1749997138977,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 53.91,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.43000078201293945
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.566802197802198,
+              "gpuShare": 0.3337015664688057,
+              "pageRefreshes": 13,
+              "pageRefreshMs": 3.545,
+              "pageMsPerRefresh": 0.2726923076923077,
+              "pageLongestTimerMs": 0.463,
+              "pageRecordingMsPerFrame": 0.028983516483516485,
+              "pageCommits": 0,
+              "flingMs": 3036.120000038147,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 498.42500019073486,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 53.62,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.36499834060668945
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.653087912087913,
+              "gpuShare": 0.3388918167394463,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.177,
+              "pageMsPerRefresh": 0.3480833333333333,
+              "pageLongestTimerMs": 0.591,
+              "pageRecordingMsPerFrame": 0.027846153846153843,
+              "pageCommits": 0,
+              "flingMs": 3035.960000152588,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 501.2949995994568,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 55.45,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0.004999637603759766,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.5150017738342285
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.703203296703297,
+              "gpuShare": 0.3415265962349016,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.249,
+              "pageMsPerRefresh": 0.3540833333333333,
+              "pageLongestTimerMs": 0.751,
+              "pageRecordingMsPerFrame": 0.028170329670329668,
+              "pageCommits": 0,
+              "flingMs": 3039.2450000762938,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 485.664999961853,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 55.83,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4399986267089844
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.6655989010989005,
+              "gpuShare": 0.3391748406387231,
+              "pageRefreshes": 13,
+              "pageRefreshMs": 4.23,
+              "pageMsPerRefresh": 0.32538461538461544,
+              "pageLongestTimerMs": 0.604,
+              "pageRecordingMsPerFrame": 0.02765384615384615,
+              "pageCommits": 0,
+              "flingMs": 3040.1399999427795,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 499.02500009536743,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 56.89,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.015000343322753906,
+                "totalMs": 0.43999719619750977
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.627225274725275,
+              "gpuShare": 0.33680445936970277,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.366,
+              "pageMsPerRefresh": 0.3638333333333333,
+              "pageLongestTimerMs": 0.857,
+              "pageRecordingMsPerFrame": 0.028010989010989015,
+              "pageCommits": 0,
+              "flingMs": 3040.7999998474124,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 506.69000005722046,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 57.26,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.009999752044677734,
+                "totalMs": 0.3699989318847656
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.60593956043956,
+              "gpuShare": 0.33537604369887886,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.121,
+              "pageMsPerRefresh": 0.3434166666666667,
+              "pageLongestTimerMs": 0.526,
+              "pageRecordingMsPerFrame": 0.028499999999999998,
+              "pageCommits": 0,
+              "flingMs": 3042.1999995803835,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 503.90000009536743,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 53.06,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.015000343322753906,
+                "totalMs": 0.3849968910217285
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.565169398907104,
+              "gpuShare": 0.3353284382644281,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.096,
+              "pageMsPerRefresh": 0.3413333333333333,
+              "pageLongestTimerMs": 0.526,
+              "pageRecordingMsPerFrame": 0.02810928961748634,
+              "pageCommits": 0,
+              "flingMs": 3037.1000004386906,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 503.5,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 70.16,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.015000343322753906,
+                "totalMs": 0.4050006866455078
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.601879781420765,
+              "gpuShare": 0.3356890482442791,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.184,
+              "pageMsPerRefresh": 0.3486666666666667,
+              "pageLongestTimerMs": 0.584,
+              "pageRecordingMsPerFrame": 0.028382513661202185,
+              "pageCommits": 0,
+              "flingMs": 3053.8500000572203,
+              "failures": []
+            },
+            {
+              "variant": "pill",
+              "openMs": 500.7000002861023,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 61.08,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.48000240325927734
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.588054945054945,
+              "gpuShare": 0.3339120556529709,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 4.186,
+              "pageMsPerRefresh": 0.34883333333333333,
+              "pageLongestTimerMs": 0.546,
+              "pageRecordingMsPerFrame": 0.027989010989010986,
+              "pageCommits": 0,
+              "flingMs": 3045.790000038147,
+              "failures": []
+            }
+          ],
+          "hidden": [
+            {
+              "variant": "hidden",
+              "openMs": 496.59499979019165,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 55.06,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0.004999637603759766,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.5099992752075195
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.611486338797815,
+              "gpuShare": 0.3376267864889854,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 2.005,
+              "pageMsPerRefresh": 0.16708333333333333,
+              "pageLongestTimerMs": 0.258,
+              "pageRecordingMsPerFrame": 0.02748633879781421,
+              "pageCommits": 0,
+              "flingMs": 3041.530000267029,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 479.0149998664856,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 53.86,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.019999980926513672,
+                "totalMs": 0.38499879837036133
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.613907103825137,
+              "gpuShare": 0.3383414322142218,
+              "pageRefreshes": 13,
+              "pageRefreshMs": 2.048,
+              "pageMsPerRefresh": 0.15753846153846154,
+              "pageLongestTimerMs": 0.241,
+              "pageRecordingMsPerFrame": 0.02772677595628415,
+              "pageCommits": 0,
+              "flingMs": 3036.415000305176,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 517.5250000953674,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 58.01,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.02500009536743164,
+                "totalMs": 0.4250001907348633
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.560497267759563,
+              "gpuShare": 0.3345110808393657,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 2.237,
+              "pageMsPerRefresh": 0.18641666666666667,
+              "pageLongestTimerMs": 0.282,
+              "pageRecordingMsPerFrame": 0.027704918032786886,
+              "pageCommits": 0,
+              "flingMs": 3041.9649999237063,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 498.460000038147,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 53.67,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.4500002861022949
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.636677595628415,
+              "gpuShare": 0.33973727072178583,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 2.226,
+              "pageMsPerRefresh": 0.1855,
+              "pageLongestTimerMs": 0.284,
+              "pageRecordingMsPerFrame": 0.029573770491803278,
+              "pageCommits": 0,
+              "flingMs": 3036.204999847412,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 504.61499977111816,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 55.55,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.015000343322753906,
+                "totalMs": 0.4500002861022949
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.629360655737705,
+              "gpuShare": 0.33886823860132126,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 1.923,
+              "pageMsPerRefresh": 0.16025,
+              "pageLongestTimerMs": 0.309,
+              "pageRecordingMsPerFrame": 0.02895081967213115,
+              "pageCommits": 0,
+              "flingMs": 3040.0399997711183,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 482.13500022888184,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9782608695652174,
+              "lagSteps": {
+                "p95": 3,
+                "max": 3
+              },
+              "catchUpMs": 74.73,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.014999866485595703,
+                "totalMs": 0.49000072479248047
+              },
+              "presented": 183,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 4.754478260869565,
+              "gpuShare": 0.2860958859596146,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 1.866,
+              "pageMsPerRefresh": 0.1555,
+              "pageLongestTimerMs": 0.258,
+              "pageRecordingMsPerFrame": 0.0312608695652174,
+              "pageCommits": 0,
+              "flingMs": 3057.799999694824,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 497.92000007629395,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9782608695652174,
+              "lagSteps": {
+                "p95": 3,
+                "max": 3
+              },
+              "catchUpMs": 68.17,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4400005340576172
+              },
+              "presented": 183,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 4.66692349726776,
+              "gpuShare": 0.27975445852856634,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 2.12,
+              "pageMsPerRefresh": 0.17666666666666667,
+              "pageLongestTimerMs": 0.299,
+              "pageRecordingMsPerFrame": 0.030934426229508195,
+              "pageCommits": 0,
+              "flingMs": 3052.845000190735,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 502.8049998283386,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 53.86,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 182,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.005000114440917969,
+                "totalMs": 0.4250011444091797
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.597846153846154,
+              "gpuShare": 0.33545311167524394,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 1.932,
+              "pageMsPerRefresh": 0.161,
+              "pageLongestTimerMs": 0.254,
+              "pageRecordingMsPerFrame": 0.02755494505494506,
+              "pageCommits": 0,
+              "flingMs": 3037.1099999999997,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 500.4650001525879,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9782608695652174,
+              "lagSteps": {
+                "p95": 3,
+                "max": 3
+              },
+              "catchUpMs": 76.75,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.004999637603759766,
+                "p95": 0.005000114440917969,
+                "max": 0.015000343322753906,
+                "totalMs": 0.5450010299682617
+              },
+              "presented": 183,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 4.633923913043478,
+              "gpuShare": 0.2785965646232354,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 1.873,
+              "pageMsPerRefresh": 0.15608333333333332,
+              "pageLongestTimerMs": 0.246,
+              "pageRecordingMsPerFrame": 0.03054891304347826,
+              "pageCommits": 0,
+              "flingMs": 3060.489999771118,
+              "failures": []
+            },
+            {
+              "variant": "hidden",
+              "openMs": 510.22499990463257,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 2
+              },
+              "catchUpMs": 52.78,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0,
+                "p95": 0.005000114440917969,
+                "max": 0.010000228881835938,
+                "totalMs": 0.4399991035461426
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 5.536109289617486,
+              "gpuShare": 0.3336422405964862,
+              "pageRefreshes": 12,
+              "pageRefreshMs": 2.089,
+              "pageMsPerRefresh": 0.17408333333333334,
+              "pageLongestTimerMs": 0.238,
+              "pageRecordingMsPerFrame": 0.027841530054644813,
+              "pageCommits": 0,
+              "flingMs": 3036.5100000190732,
+              "failures": []
+            }
+          ],
+          "bare": [
+            {
+              "variant": "bare",
+              "openMs": 490.19999980926514,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 1,
+              "lateShare": 0.005494505494505495,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 4
+              },
+              "catchUpMs": 71.93,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0.005000114440917969,
+                "p95": 0.010000228881835938,
+                "max": 0.019999980926513672,
+                "totalMs": 0.7299985885620117
+              },
+              "presented": 181,
+              "partial": 0,
+              "dropped": 2,
+              "droppedShare": 0.01092896174863388,
+              "gpuMsPerFrame": 8.900508196721312,
+              "gpuShare": 0.5323653228684447,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3059.5400001335147,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 525.5550003051758,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 77.92,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.005000114440917969,
+                "p95": 0.009999752044677734,
+                "max": 0.019999980926513672,
+                "totalMs": 0.7799983024597168
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.872184782608695,
+              "gpuShare": 0.533235558862696,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3061.464999599457,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 493,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 74.93,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.004999637603759766,
+                "p95": 0.010000228881835938,
+                "max": 0.014999866485595703,
+                "totalMs": 0.6699976921081543
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.889684782608695,
+              "gpuShare": 0.5346304952322786,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3059.4999996948245,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 504.5550003051758,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836065573770492,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 62.77,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0.005000114440917969,
+                "p95": 0.010000228881835938,
+                "max": 0.014999866485595703,
+                "totalMs": 0.7750024795532227
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.99355737704918,
+              "gpuShare": 0.5400366189161692,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3047.609999675751,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 503.27500009536743,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 183,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9289617486338798,
+              "lagSteps": {
+                "p95": 3,
+                "max": 3
+              },
+              "catchUpMs": 64.54,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0.005000114440917969,
+                "p95": 0.010000228881835938,
+                "max": 0.02500009536743164,
+                "totalMs": 0.8849983215332031
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 7.521726775956285,
+              "gpuShare": 0.45170495751963224,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3047.29,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 498.7300000190735,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 78.01,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.005000114440917969,
+                "p95": 0.010000228881835938,
+                "max": 0.015000343322753906,
+                "totalMs": 0.7000026702880859
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.892836956521739,
+              "gpuShare": 0.5343842821195501,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3061.9950001335146,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 509.90500020980835,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 75.99,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 183,
+                "p50": 0.005000114440917969,
+                "p95": 0.010000228881835938,
+                "max": 0.014999866485595703,
+                "totalMs": 0.9999990463256836
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.963256830601093,
+              "gpuShare": 0.5359415791379546,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3060.5499999427793,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 510.63500022888184,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 76.21,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.004999637603759766,
+                "p95": 0.009999752044677734,
+                "max": 0.015000343322753906,
+                "totalMs": 0.679997444152832
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.849565217391303,
+              "gpuShare": 0.5320403068859029,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3060.5199999427796,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 497.73999977111816,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 69.56,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.004999637603759766,
+                "p95": 0.010000228881835938,
+                "max": 0.014999866485595703,
+                "totalMs": 0.7449941635131836
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.93578804347826,
+              "gpuShare": 0.5386231929598844,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3052.569999752045,
+              "failures": []
+            },
+            {
+              "variant": "bare",
+              "openMs": 492.5099997520447,
+              "renderer": {
+                "webgl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "webgpu": "apple metal-3",
+                "software": false
+              },
+              "frames": 184,
+              "lateFrames": 0,
+              "lateShare": 0,
+              "placeholderShare": 0.9836956521739131,
+              "lagSteps": {
+                "p95": 2,
+                "max": 3
+              },
+              "catchUpMs": 76.86,
+              "reachedEnd": true,
+              "recorder": {
+                "frames": 184,
+                "p50": 0.005000114440917969,
+                "p95": 0.009999752044677734,
+                "max": 0.014999866485595703,
+                "totalMs": 0.7049994468688965
+              },
+              "presented": 182,
+              "partial": 0,
+              "dropped": 0,
+              "droppedShare": 0,
+              "gpuMsPerFrame": 8.876108695652174,
+              "gpuShare": 0.5335472046857737,
+              "pageRefreshes": null,
+              "pageRefreshMs": null,
+              "pageMsPerRefresh": null,
+              "pageLongestTimerMs": null,
+              "pageRecordingMsPerFrame": null,
+              "pageCommits": null,
+              "flingMs": 3061.0300000762936,
+              "failures": []
+            }
+          ]
+        }
+      }
+    }
+  },
+  "controls": {
+    "tanstack": {
+      "pageCommits": 1
+    }
+  },
+  "failures": [
+    "tanstack reference hidden: the open mark's spread 7.7% (max 6%): the machine wasn't quiet",
+    "tanstack reference bare: the open mark's spread 7.1% (max 6%): the machine wasn't quiet"
+  ]
+}

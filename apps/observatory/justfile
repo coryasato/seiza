@@ -244,6 +244,19 @@ reach *args:
 metric name *args:
     node {{app_dir}}/perf/metric-{{name}}.ts {{args}}
 
+# What the page's live readouts cost the contender they watch: each side
+# flung cold in four variants (the page with the meter open, a pill, or
+# hidden, and the bare contender page), interleaved by round, reference and
+# throttled (its network through a shaping proxy, which reaches the frame's
+# worker; Chromium's own doesn't). Gated: each variant's spread, late frames
+# open and bare against hidden, TanStack's dropped frames and GPUI's
+# GPU-process time open against hidden, the page's own time per refresh, no
+# React commit from the page mid-fling (and its control), no software
+# renderer. Flags: --runs (10), --side, --profile, --variants, --headed,
+# --label. Run gpui-build, tanstack-build, and build first.
+readout-cost *args:
+    node {{app_dir}}/perf/readout-cost.ts {{args}}
+
 # Build the data file (data/asteroids.parquet, gitignored) from Tycho's
 # pinned asteroid sample (`just tycho data` first), and write
 # data/MANIFEST.json. Installs data/'s native DuckDB (its own lockfile).
