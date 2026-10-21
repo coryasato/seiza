@@ -2,8 +2,8 @@
  * The comparison's numbers (`docs/DECISIONS.md`, "Page", 2026-10-20), a
  * chunk of its own rendered after the page's first paint: the window's
  * status bar (this tab's readings, each segment opening its explainer and
- * its cold comparison; Meter, Run benchmark, Compare; on a phone Smooth,
- * Memory, and an overflow), the panel Compare opens over the frame (the
+ * its cold comparison; Meter (`meter.ts`'s), Run benchmark, Compare; on a
+ * phone Smooth, Memory, and an overflow), the panel Compare opens over the frame (the
  * cards with both devices and their verdicts, the input-to-response chart),
  * and the description below the window. The cold numbers are resolved at
  * build time (`virtual:cold-numbers`); every comparing word is computed from
@@ -22,6 +22,10 @@ import type { Side } from '../../contenders/contract.ts';
 import { millions, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
+import { toggleMeter, useMeter } from './meter.ts';
+
+/** The meter, in this chunk: it shares the readouts' code. */
+export { Meter } from './meter.ts';
 import {
   BARS,
   CARDS,
@@ -98,6 +102,7 @@ interface StatusProps {
 
 export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
   const side = shown.side;
+  const meter = useMeter().mode !== 'off';
   const coldFast = (card: Card) => cardValues(card, cold.values, 'reference');
   const segment = (card: Card) => {
     const text = textOf(side, card);
@@ -143,7 +148,7 @@ export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
       'div',
       { className: 'flex min-w-0 items-stretch' },
       ...CARDS.map(segment),
-      later('Meter', 'The meter'),
+      h('button', { type: 'button', 'data-meter-toggle': '', 'aria-pressed': meter, onClick: toggleMeter, className: `${SEGMENT} max-md:hidden` }, 'Meter'),
       later(h(Fragment, null, h(Play, { 'aria-hidden': true }), 'Run benchmark'), 'The benchmark'),
       h(
         'button',
@@ -170,7 +175,7 @@ export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
           ),
         ),
         h(MenuButton, { onClick: () => (closeExplainer(), panel || togglePanel()) }, 'Compare with cold runs'),
-        h(MenuButton, { disabled: true }, 'Meter: coming soon'),
+        h(MenuButton, { onClick: () => (closeExplainer(), toggleMeter()) }, meter ? 'Hide the meter' : 'Show the meter'),
         h(MenuButton, { disabled: true }, 'Run benchmark: coming soon'),
       ),
     ),

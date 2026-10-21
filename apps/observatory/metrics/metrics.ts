@@ -618,8 +618,9 @@ export interface LiveRecord {
   /** Each scroll's animation frames (their rAF timestamps, epoch ms), from
    *  its first input until it rested. */
   scrolls: number[][];
-  /** The latest memory measurement's breakdown, and its time. */
-  memory: { at: number; breakdown: MemoryEntry[] } | null;
+  /** The memory measurements' breakdowns and their times, oldest first:
+   *  the last `METER_MEMORY_MS`' (the meter's graph), at least the latest. */
+  memory: { at: number; breakdown: MemoryEntry[] }[];
 }
 
 /** The page's live readouts, each a reading a page can take (no trace):
@@ -646,12 +647,89 @@ export function liveReadings(record: LiveRecord, isPage: (url: string) => boolea
   const filled = open === null ? undefined : record.filled.find((at) => at >= open);
   const intervals = record.scrolls.flatMap((frames) => frames.slice(1).map((at, index) => at - frames[index]!));
   const refreshMs = refreshPeriod(intervals);
-  const memory = record.memory ? memoryOf(record.memory.breakdown, isPage) : null;
+  const latest = record.memory.at(-1);
   return {
     usableMs: usable === null ? null : round(usable - record.timeOrigin),
     dataMs: open === null || filled === undefined ? null : round(filled - open),
     scrolling: intervals.length ? { frames: intervals.length, lateShare: lateFrames(intervals, refreshMs).share, refreshMs: round(refreshMs) } : null,
-    pageMiB: memory ? round((memory.pageByType.JavaScript ?? 0) / 2 ** 20) : null,
+    pageMiB: latest ? pageMiB(latest.breakdown, isPage) : null,
+  };
+}
+
+/** The page's `JavaScript` memory, MiB (`LiveReadings.pageMiB`). */
+const pageMiB = (breakdown: readonly MemoryEntry[], isPage: (url: string) => boolean) => round((memoryOf(breakdown, isPage).pageByType.JavaScript ?? 0) / 2 ** 20);
+
+/** The meter's frame graph spans this long, back from now. */
+export const METER_WINDOW_MS = 10_000;
+/** Its bars: each the slowest frame in its slice of the window. */
+export const METER_BARS = 60;
+/** Its memory graph spans this long: one slot per measurement, the page
+ *  measuring every `METER_MEMORY_EVERY_MS`. */
+export const METER_MEMORY_MS = 60_000;
+export const METER_MEMORY_EVERY_MS = 5_000;
+export const METER_MEMORY_SLOTS = METER_MEMORY_MS / METER_MEMORY_EVERY_MS;
+/** FPS counts the frames that ended this long back from now… */
+export const METER_FPS_MS = 1_000;
+/** …and reads idle (null) once nothing has drawn for this long. */
+export const METER_IDLE_MS = 500;
+
+/** The meter's graphs (`docs/DECISIONS.md`, "Page", the meter): what a
+ *  tab's recorded frames and memory say about now. */
+export interface MeterReadings {
+  /** Each slice's slowest frame, in display frames (an interval over the
+   *  refresh period), oldest first; null where nothing drew. */
+  bars: (number | null)[];
+  /** Each slice holds a late frame: the rule `late` counts by. */
+  lateBars: boolean[];
+  /** Frames late in the window, by `lateFrames`' rule at the refresh
+   *  period the whole record shows (Smooth's). */
+  late: number;
+  /** Frames a second over the last `METER_FPS_MS`; null when idle. */
+  fps: number | null;
+  /** Whether any frame is in the window: the graph moves until none is. */
+  moving: boolean;
+  /** The page's memory, MiB, the last `METER_MEMORY_SLOTS` measurements in
+   *  `METER_MEMORY_MS`, oldest first, padded with null at the start. */
+  memoryMiB: (number | null)[];
+}
+
+/** `now` is epoch ms on the frames' clock (`timeOrigin` + `performance.now()`), never `Date.now()`, which drifts from it. */
+export function meterReadings(record: LiveRecord, now: number, isPage: (url: string) => boolean, bars = METER_BARS): MeterReadings {
+  const start = now - METER_WINDOW_MS;
+  // Newest scrolls first: the window's intervals (each ending at its frame),
+  // stopping at the first scroll that ended before the window, and the
+  // latest `REFRESH_SAMPLE` intervals for the refresh period. A scroll just
+  // begun has no frames yet: skipped, not an end.
+  const recent: { at: number; ms: number }[] = [];
+  const sample: number[] = [];
+  for (let index = record.scrolls.length - 1; index >= 0 && sample.length < REFRESH_SAMPLE; index--) {
+    const frames = record.scrolls[index]!;
+    for (let frame = frames.length - 1; frame > 0 && sample.length < REFRESH_SAMPLE; frame--) sample.push(frames[frame]! - frames[frame - 1]!);
+  }
+  for (let index = record.scrolls.length - 1; index >= 0; index--) {
+    const frames = record.scrolls[index]!;
+    if (!frames.length) continue;
+    if (frames.at(-1)! < start) break;
+    for (let frame = 1; frame < frames.length; frame++) if (frames[frame]! >= start) recent.push({ at: frames[frame]!, ms: frames[frame]! - frames[frame - 1]! });
+  }
+  const refreshMs = refreshPeriod(sample.reverse());
+  const slowest: (number | null)[] = Array.from({ length: bars }, () => null);
+  for (const { at, ms } of recent) {
+    const slice = Math.min(bars - 1, Math.floor(((at - start) / METER_WINDOW_MS) * bars));
+    slowest[slice] = Math.max(slowest[slice] ?? 0, ms);
+  }
+  const memory = record.memory.filter(({ at }) => at > now - METER_MEMORY_MS).slice(-METER_MEMORY_SLOTS);
+  const lastFrame = recent.reduce((last, { at }) => Math.max(last, at), -Infinity);
+  const second = recent.filter(({ at }) => at > now - METER_FPS_MS);
+  const secondMs = second.reduce((sum, { ms }) => sum + ms, 0);
+  return {
+    bars: slowest.map((ms) => (ms === null ? null : round(ms / refreshMs))),
+    // On the unrounded milliseconds, as `lateFrames` judges them.
+    lateBars: slowest.map((ms) => ms !== null && ms > LATE_FACTOR * refreshMs),
+    late: lateFrames(recent.map(({ ms }) => ms), refreshMs).late,
+    fps: now - lastFrame > METER_IDLE_MS || !secondMs ? null : Math.round((second.length / secondMs) * 1000),
+    moving: recent.length > 0,
+    memoryMiB: [...Array.from({ length: METER_MEMORY_SLOTS - memory.length }, () => null), ...memory.map(({ breakdown }) => pageMiB(breakdown, isPage))],
   };
 }
 

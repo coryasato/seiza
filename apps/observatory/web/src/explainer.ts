@@ -39,7 +39,7 @@ export function closeExplainer(): boolean {
 /** Hover opens one only where a pointer hovers. */
 const hovers = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-export type Placement = 'above-end' | 'below-start';
+export type Placement = 'above-end' | 'above-start' | 'below-start';
 
 interface Props {
   /** The trigger's content and its own props (label, class). */
@@ -111,7 +111,7 @@ export function Explainer({ trigger, triggerProps, className, placement = 'below
       const w = Math.min(width, innerWidth - 2 * EDGE);
       const left = placement === 'above-end' ? rect.right - w : rect.left;
       const at: CSSProperties = { position: 'fixed', width: w, left: Math.max(EDGE, Math.min(left, innerWidth - w - EDGE)) };
-      if (placement === 'above-end') at.bottom = innerHeight - rect.top + GAP;
+      if (placement.startsWith('above')) at.bottom = innerHeight - rect.top + GAP;
       else at.top = rect.bottom + GAP;
       const key = JSON.stringify(at);
       if (key !== last) setStyle(at);

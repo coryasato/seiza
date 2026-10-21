@@ -45,6 +45,325 @@
   box-shadow: 0 8px 24px oklch(0 0 0 / 50%);
 }
 
+/* The meter (`meter.ts`): over the frame's corner, dark in both themes
+   (its `dark` class resolves the site's tokens dark inside it). It takes
+   the pointer only on its buttons and its header, so the table under it
+   keeps working. A fixed box with strict containment (the readout's
+   cost, docs/DECISIONS.md, "Page"); its layer holds the picker outside
+   that box, and the drag's outlines are the stage's. */
+.observatory-meter-layer {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  width: 300px;
+  height: 204px;
+  --meter-inset: 12px;
+}
+
+.observatory-meter-layer[data-meter='open'] {
+  will-change: transform;
+}
+
+.observatory-meter-layer[data-meter='pill'] {
+  width: 246px;
+  height: 34px;
+}
+
+.observatory-meter-layer[data-corner='tl'],
+.observatory-meter-slot[data-corner='tl'] {
+  left: var(--meter-inset);
+  top: var(--meter-inset);
+}
+
+.observatory-meter-layer[data-corner='tr'],
+.observatory-meter-slot[data-corner='tr'] {
+  right: var(--meter-inset);
+  top: var(--meter-inset);
+}
+
+.observatory-meter-layer[data-corner='bl'],
+.observatory-meter-slot[data-corner='bl'] {
+  left: var(--meter-inset);
+  bottom: var(--meter-inset);
+}
+
+.observatory-meter-layer[data-corner='br'],
+.observatory-meter-slot[data-corner='br'] {
+  right: var(--meter-inset);
+  bottom: var(--meter-inset);
+}
+
+.observatory-meter {
+  --meter-bg: oklch(0.17 0 0 / 86%);
+  --meter-solid: oklch(0.17 0 0);
+  --meter-fg: oklch(0.97 0 0);
+  --meter-mute: oklch(0.76 0 0);
+  --meter-line: oklch(1 0 0 / 16%);
+  contain: strict;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--meter-line);
+  border-radius: 10px;
+  background: var(--meter-bg);
+  color: var(--meter-fg);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 30%);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.observatory-meter-layer[data-dragging] .observatory-meter {
+  box-shadow: 0 16px 40px oklch(0 0 0 / 40%);
+}
+
+.observatory-meter button,
+.observatory-meter-picker button,
+.observatory-meter-handle {
+  pointer-events: auto;
+}
+
+.observatory-meter-handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.observatory-meter-layer[data-dragging] .observatory-meter-handle {
+  cursor: grabbing;
+}
+
+.observatory-meter-tag {
+  border: 1px solid var(--meter-line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--meter-mute);
+}
+
+.observatory-meter-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--meter-mute);
+}
+
+.observatory-meter-button:hover,
+.observatory-meter-button[aria-pressed='true'],
+.observatory-meter-button[aria-expanded='true'] {
+  background: oklch(1 0 0 / 12%);
+  color: var(--meter-fg);
+}
+
+.observatory-meter-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.observatory-meter-box {
+  position: relative;
+  flex: none;
+  border: 1px solid var(--meter-line);
+  border-radius: 6px;
+  padding: 12px 8px 6px;
+}
+
+.observatory-meter-title,
+.observatory-meter-value {
+  position: absolute;
+  top: -8px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--meter-solid);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.observatory-meter-title {
+  left: 8px;
+  color: var(--meter-mute);
+}
+
+.observatory-meter-value {
+  right: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.observatory-meter-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+}
+
+.observatory-meter-info:hover,
+.observatory-meter-info[aria-expanded='true'] {
+  color: var(--meter-fg);
+}
+
+.observatory-meter-info svg {
+  width: 11px;
+  height: 11px;
+  opacity: 0.8;
+}
+
+.observatory-meter-warn {
+  color: oklch(0.85 0.16 90);
+}
+
+.observatory-meter-plot {
+  position: relative;
+  height: 40px;
+  border-bottom: 1px solid var(--meter-line);
+}
+
+.observatory-meter-plot-memory {
+  height: 28px;
+}
+
+.observatory-meter-plot canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 1.5 frames of the plot's 3. */
+.observatory-meter-threshold {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 50%;
+  border-top: 1px dashed var(--meter-mute);
+  opacity: 0.7;
+}
+
+.observatory-meter-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--meter-mute);
+}
+
+.observatory-meter-pill {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 8px;
+  border-radius: 999px;
+}
+
+.observatory-meter-pill > [data-meter-late] {
+  min-width: 48px;
+}
+
+.observatory-meter-pill > [data-meter-memory] {
+  min-width: 60px;
+}
+
+.observatory-meter-spark {
+  width: 60px;
+  height: 16px;
+  flex: none;
+  border-bottom: 1px solid var(--meter-line);
+}
+
+.observatory-meter-picker {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid oklch(1 0 0 / 16%);
+  border-radius: 8px;
+  background: oklch(0.17 0 0);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 40%);
+  --meter-mute: oklch(0.76 0 0);
+  --meter-fg: oklch(0.97 0 0);
+}
+
+.observatory-meter-picker .observatory-meter-button {
+  width: 36px;
+  height: 36px;
+}
+
+.observatory-meter-picker .observatory-meter-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.observatory-meter-slot {
+  position: absolute;
+  z-index: 4;
+  width: 300px;
+  height: 204px;
+  border: 1px dashed oklch(0.5 0 0 / 55%);
+  border-radius: 10px;
+  background: oklch(0.5 0 0 / 6%);
+  pointer-events: none;
+  --meter-inset: 12px;
+}
+
+.observatory-meter-slot[data-near] {
+  border-color: var(--foreground);
+  background: oklch(0.5 0 0 / 16%);
+}
+
+/* A phone: the open meter across the frame, 8 px in, its buttons 36 px for touch. */
+@media (max-width: 47.999rem) {
+  .observatory-meter-layer,
+  .observatory-meter-slot {
+    --meter-inset: 8px;
+  }
+
+  .observatory-meter-layer[data-meter='open'],
+  .observatory-meter-slot[data-mode='open'] {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    height: 216px;
+  }
+
+  .observatory-meter-layer[data-meter='pill'] {
+    width: 258px;
+    height: 46px;
+  }
+
+  .observatory-meter-handle {
+    height: 36px;
+  }
+
+  .observatory-meter .observatory-meter-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .observatory-meter-picker {
+    top: 46px;
+  }
+}
+
 @media (min-width: 48rem) {
   .observatory-status {
     height: 1.875rem;

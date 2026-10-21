@@ -65,6 +65,7 @@ import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
 import { resolveCold } from '../web/cold.ts';
 import { BARS, CARDS, PROFILES as DEVICE_PROFILES, cardOutcome, cardValues, downloadTotal, evenSentence, number, outcome, size, verdict, wins, winsSentence } from '../web/src/readouts.ts';
+import { METER_KEY } from '../web/src/meter.ts';
 import { SIDEBAR_KEY, SIDEBAR_SCRIM, SIDEBAR_SCRIPT, SIDEBAR_TOGGLE } from '../web/src/sidebar.ts';
 import { budgetLimits, pageWebDir, perfDir, problems, protocolContext, servePage } from './harness.ts';
 
@@ -489,6 +490,222 @@ async function stageAtPaintAndFilled(browser: Browser, url: string, strip: boole
   return { atPaint, filled };
 }
 
+/** The frame's window got a press and a wheel at a point under the meter. */
+async function reachesFrame(page: Page, at: { x: number; y: number }): Promise<{ hit: string; got: string[] }> {
+  await page.frameLocator('iframe').locator(':root').evaluate(() => {
+    const got = ((globalThis as unknown as { __got: string[] }).__got = [] as string[]);
+    for (const type of ['pointerdown', 'wheel']) addEventListener(type, (event) => got.push(event.type), { capture: true, passive: true });
+  });
+  const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName ?? '', at);
+  await page.mouse.click(at.x, at.y);
+  await page.mouse.wheel(0, 200);
+  await page.waitForTimeout(100);
+  const got = await page.frameLocator('iframe').locator(':root').evaluate(() => (globalThis as unknown as { __got: string[] }).__got);
+  return { hit, got: [...new Set(got)] };
+}
+
+/** The frame-time canvas's pixels: drawn, and amber (a late bar's) or not. */
+const framePixels = (page: Page) =>
+  page.locator('[data-meter-frames]').evaluate((canvas: HTMLCanvasElement) => {
+    const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+    let drawn = 0;
+    let amber = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (!data[i + 3]) continue;
+      drawn++;
+      // The amber is opaque; the on-time bars a translucent gray.
+      if (data[i + 3]! > 200 && data[i]! - data[i + 2]! > 80) amber++;
+    }
+    return { drawn, amber };
+  });
+
+/** A scroll under way with one long task (80 ms) in it: a late frame. */
+async function scrollWithLateFrame(page: Page): Promise<string> {
+  const frame = (await page.locator('iframe').boundingBox())!;
+  await page.mouse.move(frame.x + frame.width / 3, frame.y + frame.height / 2);
+  let fps = '';
+  for (let i = 0; i < 40; i++) {
+    await wheel(page, 300);
+    await page.waitForTimeout(16);
+    if (i === 20) await page.evaluate(() => { const start = performance.now(); while (performance.now() - start < 80); });
+    if (i === 30) fps = (await page.locator('[data-meter-fps]').textContent()) ?? '';
+  }
+  await page.waitForTimeout(800);
+  return fps;
+}
+
+/** Drags the meter's header to `to` (page px) in steps. */
+async function dragMeter(page: Page, to: { x: number; y: number }): Promise<void> {
+  const handle = (await page.locator('[data-meter-handle]').boundingBox())!;
+  await page.mouse.move(handle.x + 40, handle.y + handle.height / 2);
+  await page.mouse.down();
+  const from = { x: handle.x + 40, y: handle.y + handle.height / 2 };
+  for (let step = 1; step <= 12; step++) await page.mouse.move(from.x + ((to.x - from.x) * step) / 12, from.y + ((to.y - from.y) * step) / 12);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+}
+
+const corner = (page: Page) => page.locator('[data-meter]').getAttribute('data-corner');
+const meterMode = async (page: Page) => ((await page.locator('[data-meter]').count()) ? page.locator('[data-meter]').getAttribute('data-meter') : 'off');
+
+/**
+ * The meter: open in the bottom right by default on a desktop, a pill on
+ * a phone; a press and a wheel under its graphs reach each contender's
+ * frame (control: the meter taking the pointer); its frame graph drawn
+ * after a scroll, a late frame (a long task mid-scroll) amber on both
+ * sides, FPS while scrolling and "idle" at rest; the drag snaps to the
+ * nearest corner across the frame, its outlines shown (control: without
+ * pointer capture the drop is lost to the frame); the picker and the arrow
+ * keys move it, Esc closes the picker with focus kept; its corner and mode
+ * kept over a reload; the pill, hidden, and the status bar's Meter; hidden
+ * while the panel is open.
+ */
+async function meter(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, contenderBase('tall-table', 'gpui'));
+    await page.locator('[data-meter]').waitFor({ timeout: 10_000 }).catch(() => fail("the meter didn't show on a desktop"));
+    expect((await meterMode(page)) === 'open' && (await corner(page)) === 'br', `a desktop's meter starts ${await meterMode(page)} at ${await corner(page)}, not open at br`);
+    expect((await page.locator('[data-meter-toggle]').getAttribute('aria-pressed')) === 'true', "the status bar's Meter isn't pressed with the meter shown");
+    const stage = await box(page, '[data-stage]');
+    const layer = await box(page, '[data-meter]');
+    expect(Math.round(stage.x + stage.width - layer.x - layer.width) === 12 && Math.round(stage.y + stage.height - layer.y - layer.height) === 12, `the meter isn't 12 px from the frame's bottom right: ${JSON.stringify(layer)} in ${JSON.stringify(stage)}`);
+
+    // Under its graphs, the frame: a press and a wheel reach the contender.
+    const plot = await box(page, '[data-meter-frames]');
+    const under = { x: plot.x + plot.width / 2, y: plot.y + plot.height / 2 };
+    const sides: Record<string, unknown> = {};
+    const reach = async (side: string) => {
+      const reached = await reachesFrame(page, under);
+      expect(reached.hit === 'IFRAME' && reached.got.includes('pointerdown') && reached.got.includes('wheel'), `${side}: under the meter, ${reached.hit} is hit and the frame got ${JSON.stringify(reached.got)}`);
+      expect((await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[aria-label="Hide the meter"]') !== null, await (async () => { const b = await box(page, '[aria-label="Hide the meter"]'); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; })())), `${side}: the meter's buttons don't take the pointer`);
+      const fps = await scrollWithLateFrame(page);
+      const pixels = await framePixels(page);
+      const late = await page.locator('[data-meter-late]').textContent();
+      expect(/^\d+ fps$/.test(fps), `${side}: FPS mid-scroll reads "${fps}"`);
+      expect(pixels.drawn > pixels.amber && pixels.amber > 0 && /^[1-9]\d* late$/.test(late ?? ''), `${side}: after a late frame the graph has ${pixels.amber} amber of ${pixels.drawn} drawn pixels, "${late}"`);
+      await page.waitForTimeout(600);
+      expect((await page.locator('[data-meter-fps]').textContent()) === 'idle', `${side}: FPS at rest reads "${await page.locator('[data-meter-fps]').textContent()}"`);
+      sides[side] = { reached: reached.got, fps, late, pixels };
+    };
+    await reach('GPUI');
+    // The control: a meter that takes the pointer keeps the press from the frame.
+    await page.locator('.observatory-meter').evaluate((element: HTMLElement) => (element.style.pointerEvents = 'auto'));
+    const blocked = await reachesFrame(page, under);
+    expect(!blocked.got.includes('pointerdown'), "the control (the meter taking the pointer) still let the press reach the frame: the check can't fail");
+    await page.locator('.observatory-meter').evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+    // Its wheel scrolled the page, not the frame.
+    await page.evaluate(() => scrollTo(0, 0));
+    console.log(`meter: GPUI ${JSON.stringify(sides.GPUI)}; control: the meter taking the pointer, the frame got ${JSON.stringify(blocked.got)}`);
+
+    // The drag: across the frame to its top left; the outlines while it moves.
+    const handle = (await page.locator('[data-meter-handle]').boundingBox())!;
+    await page.mouse.move(handle.x + 40, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2, { steps: 6 });
+    const slots = await page.locator('[data-meter-slot]').count();
+    await page.mouse.move(stage.x + 200, stage.y + 60, { steps: 6 });
+    const near = await page.locator('[data-meter-slot][data-near]').getAttribute('data-meter-slot');
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    expect(slots === 4 && near === 'tl', `while dragged: ${slots} outlines, the nearest ${near}`);
+    expect((await corner(page)) === 'tl' && !(await page.locator('[data-meter-slot]').count()), `the drag to the top left left the meter at ${await corner(page)}`);
+    const atTl = await box(page, '[data-meter]');
+    expect(Math.round(atTl.x - stage.x) === 12 && Math.round(atTl.y - stage.y) === 12, `snapped to the top left at ${JSON.stringify(atTl)}`);
+    await dragMeter(page, { x: stage.x + stage.width - 100, y: stage.y + stage.height - 40 });
+    expect((await corner(page)) === 'br', `the drag back to the bottom right left it at ${await corner(page)}`);
+
+    // The picker and the arrow keys.
+    await page.locator('[data-meter-picker]').click();
+    expect((await page.locator('[data-meter-corner]').count()) === 4, "the picker didn't open with four corners");
+    expect(await page.locator('[data-meter-corner="br"]').evaluate((button) => document.activeElement === button && button.getAttribute('aria-pressed') === 'true'), "the picker didn't focus its pressed corner");
+    await page.keyboard.press('ArrowUp');
+    expect((await corner(page)) === 'tr', `ArrowUp in the picker: ${await corner(page)}`);
+    await page.keyboard.press('Escape');
+    expect(!(await page.locator('[data-meter-corner]').count()) && (await page.locator('[data-meter-picker]').evaluate((button) => document.activeElement === button)), "Esc didn't close the picker with focus on its button");
+    await page.keyboard.press('ArrowLeft');
+    expect((await corner(page)) === 'tl', `ArrowLeft on the header: ${await corner(page)}`);
+    await page.locator('[data-meter-picker]').click();
+    await page.locator('[data-meter-corner="bl"]').click();
+    expect((await corner(page)) === 'bl' && !(await page.locator('[data-meter-corner]').count()), `picking the bottom left: ${await corner(page)}, the picker ${(await page.locator('[data-meter-corner]').count()) ? 'open' : 'closed'}`);
+    expect((await page.locator('[data-meter-picker]').getAttribute('aria-label')) === 'Meter position: bottom left', "the picker's label doesn't name the corner");
+
+    // Kept over a reload: the corner, then the pill, then hidden.
+    await page.reload();
+    await page.locator('[data-meter]').waitFor();
+    expect((await corner(page)) === 'bl' && (await meterMode(page)) === 'open', `after a reload: ${await meterMode(page)} at ${await corner(page)}`);
+    await page.getByRole('button', { name: 'Shrink the meter to a pill' }).click();
+    expect((await meterMode(page)) === 'pill', "shrinking didn't make the pill");
+    await page.reload();
+    await page.locator('[data-meter]').waitFor();
+    expect((await meterMode(page)) === 'pill' && (await corner(page)) === 'bl', `the pill after a reload: ${await meterMode(page)} at ${await corner(page)}`);
+    await page.getByRole('button', { name: 'Open the meter' }).click();
+    await page.getByRole('button', { name: 'Hide the meter' }).click();
+    expect((await meterMode(page)) === 'off' && (await page.locator('[data-meter-toggle]').getAttribute('aria-pressed')) === 'false', "hiding didn't hide it, or Meter stayed pressed");
+    await page.reload();
+    await page.locator('[data-status-ready]').waitFor();
+    await page.waitForTimeout(300);
+    expect((await meterMode(page)) === 'off', 'hidden, it came back after a reload');
+    await page.locator('[data-meter-toggle]').click();
+    expect((await meterMode(page)) === 'open', "the status bar's Meter didn't show it");
+
+    // Hidden under the panel.
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-card]').first().waitFor();
+    expect((await meterMode(page)) === 'off', 'the meter shows over the panel');
+    await page.keyboard.press('Escape');
+    await page.locator('[data-meter]').waitFor({ timeout: 2_000 }).catch(() => fail("the meter didn't come back when the panel closed"));
+    console.log('meter: the drag snaps across the frame (4 outlines), the picker and the arrows move it, Esc keeps focus; corner and mode kept over reloads; the pill, hidden, Meter; hidden under the panel');
+
+    // The other side.
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, contenderBase('tall-table', 'tanstack'));
+    await page.waitForFunction(() => document.querySelector('[data-meter-tag]')?.textContent === 'warm', null, { timeout: 5_000 }).catch(() => fail("TanStack's meter isn't tagged warm"));
+    const tanstackPlot = await box(page, '[data-meter-frames]');
+    under.x = tanstackPlot.x + tanstackPlot.width / 2;
+    under.y = tanstackPlot.y + tanstackPlot.height / 2;
+    await reach('TanStack');
+    console.log(`meter: TanStack ${JSON.stringify(sides.TanStack)}`);
+    out.sides = sides;
+
+    // The control: without pointer capture a drag across the frame loses its drop.
+    await page.evaluate(() => (Element.prototype.setPointerCapture = () => {}));
+    expect((await corner(page)) === 'bl', `TanStack's meter isn't where GPUI's was left: ${await corner(page)}`);
+    await dragMeter(page, { x: stage.x + stage.width - 100, y: stage.y + stage.height - 40 });
+    const uncaptured = await corner(page);
+    expect(uncaptured !== 'br', "the control (no pointer capture) still snapped across the frame: the check can't fail");
+    console.log(`meter: control without pointer capture, the drop lost to the frame (corner ${uncaptured})`);
+    expect(found.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone starts with the pill, even with the meter stored open.
+    for (const stored of [null, 'open']) {
+      const phone = await layoutContext(browser, PHONE);
+      if (stored) await phone.addInitScript((key) => localStorage.setItem(key, JSON.stringify({ mode: 'open', corner: 'br' })), METER_KEY);
+      const small = await phone.newPage();
+      await small.goto(url);
+      await small.locator('[data-meter]').waitFor({ timeout: 15_000 }).catch(() => fail("a phone's meter didn't show"));
+      expect((await meterMode(small)) === 'pill', `a phone (stored ${stored}) starts with the meter ${await meterMode(small)}`);
+      if (!stored) {
+        await small.getByRole('button', { name: 'More numbers' }).tap();
+        await small.getByRole('menuitem', { name: 'Hide the meter' }).tap();
+        expect((await meterMode(small)) === 'off', "the overflow's Hide the meter didn't hide it");
+      }
+      await phone.close();
+    }
+    console.log("meter: a phone starts with the pill (stored open too); the overflow hides it");
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
 /**
  * The window's numbers and the panel. The status bar's box is in the HTML
  * and its numbers aren't, and the frame doesn't move when they render (its
@@ -820,7 +1037,8 @@ async function layout(url: string): Promise<Record<string, unknown>> {
  *  into `dir` (`--shots`), each once the shown contender has filled. */
 async function screenshots(url: string, dir: string): Promise<void> {
   mkdirSync(dir, { recursive: true });
-  const browser = await chromium.launch({ channel: 'chromium' });
+  // ForceEagerMeasureMemory: the meter's memory reading without waiting for a GC.
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
   try {
     for (const theme of ['light', 'dark'] as const)
       for (const [name, viewport, sidebar, open] of [
@@ -834,6 +1052,18 @@ async function screenshots(url: string, dir: string): Promise<void> {
         await page.goto(url);
         await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
         if (open) await page.locator(`[${SIDEBAR_TOGGLE}]`).click();
+        // The meter with something to show: a scroll's frames and a memory reading.
+        if (name === 'desktop') {
+          await page.waitForSelector('[data-meter]');
+          const frame = (await page.locator('iframe').boundingBox())!;
+          await page.mouse.move(frame.x + frame.width / 3, frame.y + frame.height / 2);
+          for (let i = 0; i < 60; i++) {
+            await wheel(page, 300);
+            await page.waitForTimeout(16);
+          }
+          await page.waitForFunction(() => document.querySelector('[data-meter-memory]')?.textContent?.endsWith('MiB'), null, { timeout: 15_000 });
+          await page.mouse.move(0, 0);
+        }
         await page.waitForTimeout(500);
         const file = join(dir, `${name}-${theme}.png`);
         await page.screenshot({ path: file });
@@ -858,6 +1088,7 @@ try {
   hosted = await hosting(url);
   laidOut = await layout(url);
   readOut = await readouts(url);
+  readOut.meter = await meter(url);
   const shots = option('shots');
   if (shots) await screenshots(url, shots);
   for (const profile of profiles) {

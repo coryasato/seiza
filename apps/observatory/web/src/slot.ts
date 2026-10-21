@@ -19,7 +19,9 @@
  *
  * The status bar's box is in the prerendered HTML (`page.css`'s
  * `.observatory-status`), its contents rendered after first paint with the
- * panel's code (`numbers.ts`), so nothing shifts when they arrive.
+ * panel's code (`numbers.ts`), so nothing shifts when they arrive. The
+ * meter (`meter.ts`) sits over the frame, after first paint too, hidden
+ * while the panel is open.
  */
 
 import { Info } from 'lucide-react';
@@ -57,9 +59,10 @@ type FrameState = 'engine' | 'data' | 'filled' | 'failed';
 /** The panel's id, for the status bar's Compare (`aria-controls`). */
 export const PANEL_ID = 'observatory-panel';
 
-/** The status bar's contents and the panel: the numbers' chunk, after first paint. */
+/** The status bar's contents, the panel, and the meter: the numbers' chunk, after first paint. */
 const StatusBar = lazy(() => import('./numbers.ts').then(({ StatusBar }) => ({ default: StatusBar })));
 const Panel = lazy(() => import('./numbers.ts').then(({ Panel }) => ({ default: Panel })));
+const Meter = lazy(() => import('./numbers.ts').then(({ Meter }) => ({ default: Meter })));
 
 /** Sends the page's theme to a contender's frame. */
 function sendTheme(frame: HTMLIFrameElement | null, theme = currentTheme()): void {
@@ -173,6 +176,7 @@ export function ContenderSlot({ component }: { component: Component }) {
             className: 'absolute inset-0 size-full border-0',
           })
         : null,
+      painted && shown ? h(Suspense, { fallback: null }, h(Meter, { side: shown.side, panel })) : null,
       panel ? h(Suspense, { fallback: null }, h(Panel, { id: PANEL_ID, contenders: component.contenders, onClose: closePanel })) : null,
     ),
     h(

@@ -10,13 +10,16 @@
  *
  * Passive: listeners on the frame's window, never on its elements; a rAF
  * loop only while a scroll is under way; one memory measurement at a time,
- * every few seconds once the frame filled, only while the page is visible.
- * A refresh with nothing new costs a version check.
+ * every few seconds once the frame filled, never during a scroll, only
+ * while the page is visible. A refresh with nothing new costs a version
+ * check, and a hidden page skips it. The meter's graphs (`meter.ts`) are
+ * recomputed only while it's subscribed, and only while a frame is still in
+ * its window or the record changed (`meterReadings`).
  */
 
 import { useSyncExternalStore } from 'react';
 import { MARKS, type Side } from '../../contenders/contract.ts';
-import type { LiveReadings, LiveRecord, MemoryEntry } from '../../metrics/metrics.ts';
+import type { LiveReadings, LiveRecord, MemoryEntry, MeterReadings } from '../../metrics/metrics.ts';
 import { loadMetrics } from './metrics.ts';
 import { afterFirstPaint } from './paint.ts';
 
@@ -28,14 +31,21 @@ export interface LiveSide {
 
 export type Live = Record<Side, LiveSide | null>;
 
+/** The meter's view of the shown side. */
+export interface MeterSide {
+  side: Side;
+  /** Its first rows painted: only then is it cold or warm. */
+  filled: boolean;
+  warm: boolean;
+  readings: MeterReadings;
+}
+
 /** The input that moves each side's table. GPUI draws its own scrolling:
  *  the wheel, the keys that scroll, touches, and a drag (its thumb's). The
  *  DOM's scroller says when it moved, whatever moved it (a key, the
  *  scrollbar), and the wheel and touches start it. */
 const SCROLL_INPUTS: Record<Side, string[]> = { gpui: ['wheel', 'keydown', 'touchmove', 'pointermove'], tanstack: ['wheel', 'touchmove', 'scroll'] };
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
-/** Between two measurements of the frame's memory (each can wait for a GC). */
-const MEMORY_EVERY_MS = 5000;
 
 interface Tracked {
   side: Side;
@@ -44,6 +54,8 @@ interface Tracked {
   warm: boolean;
   /** The frame's own URLs (its window's), for the memory's attribution. */
   base: string;
+  /** A scroll under way: no memory measurement then. */
+  scrolling: boolean;
   detach: () => void;
   /** Bumped by every change to `record`; `read` is the readings at one. */
   version: number;
@@ -57,6 +69,8 @@ let shown: Tracked | null = null;
 const sides: Record<Side, Tracked | null> = { gpui: null, tanstack: null };
 let snapshot: Live = { gpui: null, tanstack: null };
 const listeners = new Set<() => void>();
+let meter: { version: number; tracked: Tracked; side: MeterSide } | null = null;
+const meterListeners = new Set<() => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
 let metrics: Awaited<ReturnType<typeof loadMetrics>> | null = null;
 
@@ -68,9 +82,10 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string): 
   const tracked: Tracked = {
     side,
     frame,
-    record: { timeOrigin: 0, usable: null, open: null, filled: [], scrolls: [], memory: null },
+    record: { timeOrigin: 0, usable: null, open: null, filled: [], scrolls: [], memory: [] },
     warm: framesCreated++ > 0,
     base: new URL(base, location.href).href,
+    scrolling: false,
     detach: () => {},
     version: 0,
     read: null,
@@ -128,6 +143,7 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
     tracked.version++;
     if (metrics && now - last > metrics.SCROLL_REST_MS) scroll = null;
     else requestAnimationFrame(tick);
+    tracked.scrolling = scroll !== null;
   };
   const input = (event: Event) => {
     if (event.type === 'keydown' && !SCROLL_KEYS.has((event as KeyboardEvent).key)) return;
@@ -135,6 +151,7 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
     last = performance.now();
     if (scroll) return;
     scroll = [];
+    tracked.scrolling = true;
     tracked.record.scrolls.push(scroll);
     requestAnimationFrame(tick);
   };
@@ -143,6 +160,7 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
   for (const type of types) window.addEventListener(type, input, options);
   return () => {
     scroll = null;
+    tracked.scrolling = false;
     for (const type of types) window.removeEventListener(type, input, options);
   };
 }
@@ -152,14 +170,20 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
 function measureMemory(tracked: Tracked): void {
   const measure = (performance as Performance & { measureUserAgentSpecificMemory?: MeasureMemory }).measureUserAgentSpecificMemory;
   if (!measure || !crossOriginIsolated) return;
-  const next = () => setTimeout(run, MEMORY_EVERY_MS);
+  // Between two measurements (each can wait for a GC): the meter's memory slot.
+  const next = () => void loadMetrics().then(({ METER_MEMORY_EVERY_MS }) => setTimeout(run, METER_MEMORY_EVERY_MS));
   const run = () => {
     if (shown !== tracked) return;
-    if (document.visibilityState !== 'visible') return void next();
+    if (document.visibilityState !== 'visible' || tracked.scrolling) return void next();
     measure.call(performance).then(
       ({ breakdown }) => {
         if (shown !== tracked) return;
-        tracked.record.memory = { at: Date.now(), breakdown };
+        // The frames' clock: the meter compares the two.
+        const at = epoch(performance.now());
+        const { memory } = tracked.record;
+        memory.push({ at, breakdown });
+        // The meter's minute, and the latest whatever its age.
+        while (metrics && memory.length > 1 && memory[0]!.at <= at - metrics.METER_MEMORY_MS) memory.shift();
         tracked.version++;
         next();
       },
@@ -173,7 +197,9 @@ function measureMemory(tracked: Tracked): void {
 /** Each side's readings, recomputed only when its record changed, and
  *  published only when they did. */
 function refresh(): void {
-  if (!metrics) return;
+  if (!metrics || document.visibilityState !== 'visible') return;
+  if (meterListeners.size) refreshMeter();
+  if (!listeners.size) return;
   let changed = false;
   const read = (tracked: Tracked | null, was: LiveSide | null): LiveSide | null => {
     if (!tracked) return null;
@@ -190,25 +216,49 @@ function refresh(): void {
   for (const listener of listeners) listener();
 }
 
-/** Calls `listener` after each refresh that changed a reading: the status
- *  bar writes its text from it by reference, never by a React render. */
-export function subscribeLive(listener: () => void): () => void {
-  listeners.add(listener);
+/** The meter's readings of the shown side, recomputed while a frame is in
+ *  its window (the graph moves with the clock) or the record changed, and
+ *  published only when they changed. */
+function refreshMeter(): void {
+  const tracked = shown;
+  if (!tracked) return;
+  if (meter?.tracked === tracked && meter.version === tracked.version && !meter.side.readings.moving) return;
+  const readings = metrics!.meterReadings(tracked.record, epoch(performance.now()), (url) => url.startsWith(tracked.base));
+  const side: MeterSide = { side: tracked.side, filled: tracked.record.filled.length > 0, warm: tracked.warm, readings };
+  const changed = meter?.tracked !== tracked || JSON.stringify(side) !== JSON.stringify(meter.side);
+  meter = { version: tracked.version, tracked, side: changed ? side : meter!.side };
+  if (changed) for (const listener of meterListeners) listener();
+}
+
+/** Adds `listener` to `set`, refreshing at ~4 Hz while any is subscribed. */
+function subscribe(set: Set<() => void>, listener: () => void): () => void {
+  set.add(listener);
   // The metrics module loads after the page's first paint, never for it.
   afterFirstPaint(() =>
     void loadMetrics().then((loaded) => {
       metrics = loaded;
-      if (listeners.size) timer ??= setInterval(refresh, loaded.LIVE_REFRESH_MS);
+      if (listeners.size || meterListeners.size) timer ??= setInterval(refresh, loaded.LIVE_REFRESH_MS);
     }),
   );
   return () => {
-    listeners.delete(listener);
-    if (!listeners.size && timer) {
+    set.delete(listener);
+    if (!listeners.size && !meterListeners.size && timer) {
       clearInterval(timer);
       timer = null;
     }
   };
 }
+
+/** Calls `listener` after each refresh that changed a reading: the status
+ *  bar writes its text from it by reference, never by a React render. */
+export const subscribeLive = (listener: () => void): (() => void) => subscribe(listeners, listener);
+
+/** Calls `listener` after each refresh that changed the meter's readings;
+ *  the meter draws from `meterSnapshot` by reference. */
+export const subscribeMeter = (listener: () => void): (() => void) => subscribe(meterListeners, listener);
+
+/** The meter's readings of the shown side now, or null before any. */
+export const meterSnapshot = (): MeterSide | null => (meter?.tracked === shown ? meter.side : null);
 
 const EMPTY: Live = { gpui: null, tanstack: null };
 
