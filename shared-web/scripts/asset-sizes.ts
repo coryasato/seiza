@@ -1,8 +1,10 @@
 // Prints raw, gzip, and brotli sizes for a Vite dist/ directory, grouped by
 // kind, and flags any file over Cloudflare's 25 MiB static-asset limit.
-// Usage: node shared-web/scripts/asset-sizes.ts <dist-dir> [--r2 <name-part>]…
+// Usage: node shared-web/scripts/asset-sizes.ts <dist-dir> [--r2 <name-part>]… [--compressed <name-part>]…
 // An oversize file fails the build unless a --r2 part matches its path: that
-// says the app serves it from R2 instead of static assets (see the app's docs/hosting.md).
+// says the app serves it from R2 instead of static assets (see the app's
+// docs/hosting.md); or a --compressed part does, and its gzip and brotli
+// copies fit: the app's deploy uploads only those.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -52,6 +54,7 @@ function kib(bytes: number): string {
 
 const dist = process.argv[2];
 const r2Parts = process.argv.flatMap((arg, i) => (process.argv[i - 1] === '--r2' ? [arg] : []));
+const compressedParts = process.argv.flatMap((arg, i) => (process.argv[i - 1] === '--compressed' ? [arg] : []));
 if (!dist) {
   console.error('usage: asset-sizes.ts <dist-dir>');
   process.exit(2);
@@ -81,7 +84,11 @@ const toR2 = oversize.filter((a) => r2Parts.some((part) => a.path.includes(part)
 for (const asset of toR2) {
   console.log(`over Cloudflare's 25 MiB asset limit, must be served from R2: ${asset.path} (${kib(asset.raw)})`);
 }
-const failing = oversize.filter((a) => !toR2.includes(a));
+const compressed = oversize.filter((a) => !toR2.includes(a) && compressedParts.some((part) => a.path.includes(part)) && a.gzip <= CLOUDFLARE_ASSET_LIMIT && a.brotli <= CLOUDFLARE_ASSET_LIMIT);
+for (const asset of compressed) {
+  console.log(`over Cloudflare's 25 MiB asset limit, served only compressed: ${asset.path} (${kib(asset.raw)}; gzip ${kib(asset.gzip)}, brotli ${kib(asset.brotli)})`);
+}
+const failing = oversize.filter((a) => !toR2.includes(a) && !compressed.includes(a));
 for (const asset of failing) {
   console.error(`over Cloudflare's 25 MiB asset limit: ${asset.path} (${kib(asset.raw)})`);
 }

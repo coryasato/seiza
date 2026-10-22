@@ -45,14 +45,18 @@
 // values and verdicts against perf/results/, the description's wins, and a
 // phone's status bar.
 //
-// Usage: node apps/observatory/perf/page.ts [--runs 10] [--check] [--label <name>] [--write-baseline] [--reference-only] [--shots <dir>]
+// Usage: node apps/observatory/perf/page.ts [--runs 10] [--check] [--label <name>] [--write-baseline] [--reference-only] [--shots <dir>] [--url <origin>]
 // --shots: screenshots of the comparison, light and dark, desktop (open,
 // collapsed) and phone (closed, open), into <dir>.
 // --check: reference only, fails if first paint or the first-paint JS is
 // over perf/baseline.json's by more than limits.page's fractions
 // (perf/budgets.json). --label writes perf/results/<date>-<label>.json
 // (default `page`, unless --check). --write-baseline records both in
-// perf/baseline.json, keeping its other entries. Run `just observatory
+// perf/baseline.json, keeping its other entries. --url: production (e.g.
+// https://seiza.io): the hosting checks (each frame cross-origin isolated
+// among them) and the cold runs, recorded only, never against a budget
+// (default label `page-production`); the layout, the readouts, and the
+// meter are the build's, checked locally. Run `just observatory
 // gpui-build`, `tanstack-build`, and `build` first.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -71,7 +75,9 @@ import { budgetLimits, pageWebDir, perfDir, problems, protocolContext, servePage
 
 const runs = Number(option('runs') ?? 10);
 const check = flag('check');
-const label = option('label') ?? (check ? null : 'page');
+const given = option('url');
+if (given && (check || flag('write-baseline'))) throw new Error('--url records production; budgets and the baseline are the local build\'s');
+const label = option('label') ?? (check ? null : given ? 'page-production' : 'page');
 const PORT = 4334;
 const ROUTE = `${OBSERVATORY}tall-table/`;
 const dist = join(pageWebDir, 'dist');
@@ -117,6 +123,14 @@ for (const html of ['index.html', 'tall-table/index.html']) {
     visit(key);
   }
 }
+// With --url, the first-paint set is still the local build's (its manifest),
+// so production must serve that build: the same scripts in each route's HTML.
+if (given)
+  for (const html of ['index.html', 'tall-table/index.html']) {
+    const scripts = (text: string) => [...text.matchAll(/<(?:script[^>]*\ssrc|link[^>]*rel="modulepreload"[^>]*\shref)="([^"]+)"/g)].map((match) => match[1]).join(' ');
+    const served = await (await fetch(new URL(`${OBSERVATORY}${html}`, given))).text();
+    if (scripts(served) !== scripts(readFileSync(join(dist, html), 'utf8'))) throw new Error(`production's ${html} loads other scripts than the local build's: deploy this build, or rebuild what's deployed`);
+  }
 const firstPaintFiles = [...firstPaintKeys].map((key) => manifest[key]!.file).filter((file) => file.endsWith('.js'));
 const kib = (bytes: number) => Math.round((bytes / 1024) * 10) / 10;
 const brotliKiB = (files: string[]) => kib(files.reduce((total, file) => total + brotli(readFileSync(join(dist, file))).byteLength, 0));
@@ -241,6 +255,8 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     await waitFilled(page, gpui);
     await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 5_000 }).catch(() => fail("the toggle stays disabled after GPUI's filled mark"));
     console.log(`toggle: disabled until GPUI filled, then enabled`);
+    // The live memory reading and the engine's read counter need it.
+    const isolated = { page: await page.evaluate(() => crossOriginIsolated), gpui: await page.frameLocator('iframe').locator(':root').evaluate(() => crossOriginIsolated), tanstack: false };
 
     // The theme, live: the page's, then each contender's, no reload.
     const before = await brightness(page);
@@ -267,6 +283,10 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     await waitFilled(page, tanstack);
     await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 5_000 }).catch(() => fail("the toggle stays disabled after TanStack's filled mark"));
     console.log('flip: GPUI frame destroyed, TanStack frame created, disabled until it filled');
+    isolated.tanstack = await page.frameLocator('iframe').locator(':root').evaluate(() => crossOriginIsolated);
+    for (const [where, ok] of Object.entries(isolated)) expect(ok, `${where} isn't cross-origin isolated`);
+    out.crossOriginIsolated = isolated;
+    console.log(`cross-origin isolated: page ${isolated.page}, GPUI's frame ${isolated.gpui}, TanStack's frame ${isolated.tanstack}`);
 
     // TanStack takes the theme live too.
     await page.locator('[data-site-theme-toggle]').click();
@@ -316,7 +336,9 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
         await released;
         await route.continue();
       });
-      await page.goto(url);
+      // Not `load`: over a real network the frame is created before the
+      // page's load event, which would then wait on the held frame.
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('iframe');
       const before = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
       const after = before === 'dark' ? 'light' : 'dark';
@@ -1077,7 +1099,7 @@ async function screenshots(url: string, dir: string): Promise<void> {
 
 // --- the runs ---
 
-const server = await servePage(PORT);
+const server = await servePage(PORT, given);
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
 const results: Record<string, { runs: Run[]; firstPaintMs: ReturnType<typeof summarize>; fcpMs: ReturnType<typeof summarize> }> = {};
 let hosted: Record<string, unknown> = {};
@@ -1086,9 +1108,12 @@ let readOut: Record<string, unknown> = {};
 try {
   const url = new URL(ROUTE, server.url).href;
   hosted = await hosting(url);
-  laidOut = await layout(url);
-  readOut = await readouts(url);
-  readOut.meter = await meter(url);
+  // The page's own behavior is the build's, checked locally; production adds hosting.
+  if (!given) {
+    laidOut = await layout(url);
+    readOut = await readouts(url);
+    readOut.meter = await meter(url);
+  }
   const shots = option('shots');
   if (shots) await screenshots(url, shots);
   for (const profile of profiles) {
@@ -1123,8 +1148,10 @@ if (label) {
     label,
     ...machineInfo(),
     page: ROUTE,
+    url: given ?? 'local',
     protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },
-    firstPaintJsBrotliKiB,
+    // The local build's; production's bytes are `worker-check`'s.
+    firstPaintJsBrotliKiB: given ? null : firstPaintJsBrotliKiB,
     firstPaintMs,
     fcpMs: Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.fcpMs?.median ?? null])),
     hosting: hosted,

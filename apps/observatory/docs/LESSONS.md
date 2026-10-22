@@ -86,3 +86,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The throttled network doesn't reach a same-process frame's worker. The frame's own wasm was throttled, but DuckDB's reads from its worker ran at full speed (1–91 ms against 172–1226). Until it was found, the page looked faster than the bare contender when throttled, for no reason of its own. A comparison of a page with its frame needs its network shaped outside the browser.
 - A readout can make the compositor drop fewer frames. With the meter open, TanStack dropped fewer frames than with it hidden, and the bare page (a bigger table) more than either. A two-sided "within the noise" gate failed the open meter for doing better, and its fallback would have removed the meter. A cost gate is one-sided. The pill, the "cheaper" readout, was the one that dropped more frames.
 - The trace books the whole frame tree's paint on the top frame, so the page's "own" time first read 27.6 ms a refresh; its timers, style, and layout are 0.3–0.4 ms on the reference device.
+
+## M6: The deploy (2026-10-21)
+
+**Results:** [`perf/results/2026-10-21-m6.md`](../perf/results/2026-10-21-m6.md)
+
+**Surprises:**
+- `wrangler dev` can't show what encoding production serves. Its proxy answered every precompressed brotli response as gzip, so the one check M6 was about, quality-11 bytes on the wire, could only pass in production.
+- A test can depend on how fast its server is. "A theme change while the frame loads" holds the frame's HTML and waits on the page's `load` event. Locally the page loaded before it created the frame; over a real network the frame came first, so `load` waited on the frame the test was holding.
+- Throttled, production came within 1.4% of local (GPUI 3550.5 against 3502.5 ms). At the reference speed it took about twice as long, from the network's round trips alone. So the throttle hides hosting differences, and only the reference run shows them.
+- Without R2, the two DuckDB bundles over the asset limit still fit as compressed copies (5.1 and 5.7 MiB as brotli). The 25 MiB limit is on the stored file, not on what the browser decodes.

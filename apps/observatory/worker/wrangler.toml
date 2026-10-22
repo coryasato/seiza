@@ -1,6 +1,6 @@
 # The Observatory's Worker: static assets, and a script (src/index.ts) that
-# runs first only for /observatory/data/*, which static assets can't serve by
-# range. No account ID here (the repo is public): wrangler
+# runs first for every request: it serves the builds precompressed and the
+# data by range, which static assets can't. No account ID here (the repo is public): wrangler
 # takes it from the login, or CLOUDFLARE_ACCOUNT_ID with an API token.
 name = "observatory"
 main = "src/index.ts"
@@ -14,16 +14,22 @@ routes = [{ pattern = "seiza.io", custom_domain = true }]
 workers_dev = false
 preview_urls = false
 
-# Staged by scripts/stage.ts (`just observatory deploy`): the data file at
-# observatory/data/, and `_headers` (isolation headers on everything served
-# directly). The data runs the script first; it reads the file through the
-# binding. DATA_SHA256 (the file's version, the edge cache's key) is passed
-# by the deploy from data/MANIFEST.json, never committed here.
+# Staged by scripts/stage.ts (`just observatory deploy`): the page, both
+# contenders at their bases, the engine, the data at observatory/data/, and
+# the font at fonts/, with a quality-11 `.br` beside each build file and a
+# `.gz` beside each one over the 25 MiB asset limit (DuckDB's wasm bundles,
+# which .assetsignore leaves out). The script runs first for everything and
+# reads the files through the binding; `html_handling = "none"`, because it
+# maps a route to its index.html itself (the assets' default redirects
+# index.html to its directory). DATA_SHA256 (the file's version, the edge
+# cache's key) is passed by the deploy from data/MANIFEST.json, never
+# committed here.
 [assets]
 directory = "dist"
 binding = "ASSETS"
 not_found_handling = "none"
-run_worker_first = ["/observatory/data/*"]
+html_handling = "none"
+run_worker_first = true
 
 [observability]
 enabled = true

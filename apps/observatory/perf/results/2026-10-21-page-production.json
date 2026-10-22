@@ -1,0 +1,195 @@
+{
+  "date": "2026-10-21",
+  "label": "page-production",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "page": "/observatory/tall-table/",
+  "url": "https://seiza.io",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "firstPaintJsBrotliKiB": null,
+  "firstPaintMs": {
+    "reference": 210.2,
+    "throttled": 474.7
+  },
+  "fcpMs": {
+    "reference": 210.2,
+    "throttled": 474.7
+  },
+  "hosting": {
+    "theme": {
+      "from": "light",
+      "to": "dark",
+      "gpuiBrightness": [
+        243,
+        22
+      ]
+    },
+    "crossOriginIsolated": {
+      "page": true,
+      "gpui": true,
+      "tanstack": true
+    },
+    "relayed": 1
+  },
+  "layout": {},
+  "readouts": {},
+  "runs": {
+    "reference": [
+      {
+        "firstPaintMs": 175.90000009536743,
+        "fcpMs": 175.90000009536743,
+        "frameCreatedMs": 193.43499994277954,
+        "metricsRequestedMs": 190.49500036239624,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 276.94999980926514,
+        "fcpMs": 276.94999980926514,
+        "frameCreatedMs": 298.2649998664856,
+        "metricsRequestedMs": 294.5699996948242,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 198.5,
+        "fcpMs": 198.5,
+        "frameCreatedMs": 220.4099998474121,
+        "metricsRequestedMs": 217.07999992370605,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 298.5,
+        "fcpMs": 298.5,
+        "frameCreatedMs": 317.8600001335144,
+        "metricsRequestedMs": 314.4650001525879,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 304.02500009536743,
+        "fcpMs": 304.02500009536743,
+        "frameCreatedMs": 311.5299997329712,
+        "metricsRequestedMs": 308.54500007629395,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 191.91000032424927,
+        "fcpMs": 191.91000032424927,
+        "frameCreatedMs": 296.01500034332275,
+        "metricsRequestedMs": 293.24500036239624,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 162.75,
+        "fcpMs": 162.75,
+        "frameCreatedMs": 201.7350001335144,
+        "metricsRequestedMs": 198.75,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 249.25500011444092,
+        "fcpMs": 249.25500011444092,
+        "frameCreatedMs": 268.42500019073486,
+        "metricsRequestedMs": 265.2550001144409,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 207.63499975204468,
+        "fcpMs": 207.63499975204468,
+        "frameCreatedMs": 228.9800000190735,
+        "metricsRequestedMs": 225.6449999809265,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 212.78000020980835,
+        "fcpMs": 212.78000020980835,
+        "frameCreatedMs": 230.86500024795532,
+        "metricsRequestedMs": 227.53500032424927,
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "firstPaintMs": 462.1549997329712,
+        "fcpMs": 462.1549997329712,
+        "frameCreatedMs": 580.914999961853,
+        "metricsRequestedMs": 565.7449998855591,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 475.0349998474121,
+        "fcpMs": 475.0349998474121,
+        "frameCreatedMs": 593.3550000190735,
+        "metricsRequestedMs": 578.9449996948242,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 482.98499965667725,
+        "fcpMs": 482.98499965667725,
+        "frameCreatedMs": 597.664999961853,
+        "metricsRequestedMs": 582.0299997329712,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 483.0149998664856,
+        "fcpMs": 483.0149998664856,
+        "frameCreatedMs": 596.4099998474121,
+        "metricsRequestedMs": 584.0700001716614,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 469,
+        "fcpMs": 469,
+        "frameCreatedMs": 587.835000038147,
+        "metricsRequestedMs": 572.4250001907349,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 471.8650002479553,
+        "fcpMs": 471.8650002479553,
+        "frameCreatedMs": 592.585000038147,
+        "metricsRequestedMs": 575.210000038147,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 470.0149998664856,
+        "fcpMs": 470.0149998664856,
+        "frameCreatedMs": 584.079999923706,
+        "metricsRequestedMs": 570.875,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 477.33999967575073,
+        "fcpMs": 477.33999967575073,
+        "frameCreatedMs": 593.6699995994568,
+        "metricsRequestedMs": 581.7399997711182,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 475.9249997138977,
+        "fcpMs": 475.9249997138977,
+        "frameCreatedMs": 584.9450001716614,
+        "metricsRequestedMs": 574.2699999809265,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 474.2949995994568,
+        "fcpMs": 474.2949995994568,
+        "frameCreatedMs": 583.8449997901917,
+        "metricsRequestedMs": 572.5299997329712,
+        "problems": []
+      }
+    ]
+  },
+  "failures": []
+}

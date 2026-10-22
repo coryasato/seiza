@@ -48,13 +48,14 @@ export interface CountingProxy {
   close(): void;
 }
 
-export async function startCountingProxy(listenPort: number, upstreamPort: number): Promise<CountingProxy> {
+/** `upstreamHost`: `localhost` for a Vite server, which may listen on IPv6 only. */
+export async function startCountingProxy(listenPort: number, upstreamPort: number, upstreamHost = '127.0.0.1'): Promise<CountingProxy> {
   await assertPortFree(listenPort);
   const log: DataResponse[] = [];
   const server = createServer((req, res) => {
     const entry: DataResponse = { startedAt: Date.now(), endedAt: null, method: req.method ?? '', path: req.url ?? '', range: req.headers.range ?? null, status: 0, bytes: 0 };
     log.push(entry);
-    const upstream = httpRequest({ host: '127.0.0.1', port: upstreamPort, path: req.url, method: req.method, headers: req.headers }, (response) => {
+    const upstream = httpRequest({ host: upstreamHost, port: upstreamPort, path: req.url, method: req.method, headers: req.headers }, (response) => {
       entry.status = response.statusCode ?? 0;
       response.on('data', (chunk: Buffer) => (entry.bytes += chunk.length));
       response.on('end', () => (entry.endedAt = Date.now()));

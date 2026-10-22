@@ -21,6 +21,7 @@
  * `Accept-Ranges: bytes`. Multi-range requests aren't needed and get `416`.
  */
 
+import { accepts } from '../../../../shared-web/src/encoding.ts';
 import { PRECOMPRESSED } from './precompressed.ts';
 
 interface Env {
@@ -173,22 +174,6 @@ function withCacheStatus(response: Response, status: 'hit' | 'miss' | 'bypass'):
   return copy;
 }
 
-/**
- * Whether the browser takes brotli. Cloudflare documents
- * `cf.clientAcceptEncoding` as what the browser sent (the header a Worker
- * sees may differ); the header is the fallback, as in `wrangler dev`.
- */
-export function acceptsBrotli(request: Request): boolean {
-  const cf = (request as { cf?: { clientAcceptEncoding?: string } }).cf;
-  const header = cf?.clientAcceptEncoding ?? request.headers.get('Accept-Encoding') ?? '';
-  return header.split(',').some((part) => {
-    const [coding, ...params] = part.trim().split(';');
-    if (coding?.trim().toLowerCase() !== 'br') return false;
-    const q = params.map((param) => /^\s*q=([\d.]+)\s*$/.exec(param)?.[1]).find((value) => value !== undefined);
-    return q === undefined || Number(q) > 0;
-  });
-}
-
 /** A build file: its `.br` if the browser takes it, else the file itself,
  *  from static assets or (too big for them) R2. */
 async function serveBuild(request: Request, env: Env, url: URL): Promise<Response> {
@@ -210,7 +195,7 @@ async function serveBuild(request: Request, env: Env, url: URL): Promise<Respons
     'Cache-Control': path.startsWith(`/${ASSET_PREFIX}`) ? CACHE_CONTROL.asset : extension === 'html' ? 'no-cache, no-transform' : 'no-cache',
     Vary: 'Accept-Encoding',
   };
-  if (PRECOMPRESSED.includes(extension) && acceptsBrotli(request)) {
+  if (PRECOMPRESSED.includes(extension) && accepts(request, 'br')) {
     // The request's own headers go along, so If-None-Match still gets a 304.
     const compressed = await env.ASSETS.fetch(new Request(new URL(`${path}.br`, url), request));
     if (compressed.status === 200 || compressed.status === 304) {

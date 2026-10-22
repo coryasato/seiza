@@ -2,7 +2,7 @@
 
 > *Where the instruments are compared.*
 
-**Built, not yet deployed.** The page and both contenders run locally (`just observatory preview` after `gpui-build`, `tanstack-build`, and `build`); they will live at `seiza.io/observatory`.
+**Live at [seiza.io/observatory](https://seiza.io/observatory/).** It also runs locally: `just observatory preview` after `gpui-build`, `tanstack-build`, and `build`.
 
 The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, over all 1.57 M known asteroids.
 

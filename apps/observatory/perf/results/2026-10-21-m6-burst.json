@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-21",
+  "label": "m6-burst",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "windowMs": 10000,
+  "scenarios": {
+    "visit": {
+      "requests": 66,
+      "data": 33,
+      "peak10s": 66,
+      "peakData10s": 33
+    },
+    "reloads": {
+      "requests": 125,
+      "data": 45,
+      "peak10s": 125,
+      "peakData10s": 45
+    }
+  },
+  "peak10s": 125
+}

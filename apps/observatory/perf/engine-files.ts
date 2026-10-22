@@ -32,6 +32,7 @@ import { join, relative } from 'node:path';
 import { chromium } from '@playwright/test';
 import { build } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
+import { walk } from '../../../shared-web/scripts/walk.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { FIRST_PAINT_ERROR } from '../contenders/engine.ts';
 import { MARKS, gpuiWebDir, perfDir, problems, protocolContext, serveGpui, serveTanstack, tanstackWebDir } from './harness.ts';
@@ -52,8 +53,6 @@ for (const dir of [gpuiWebDir, tanstackWebDir]) {
 
 // --- byte-identical ---
 
-const walk = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]));
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 
 /** Each file under `dir`, by its path there, with its SHA-256 and bytes. */

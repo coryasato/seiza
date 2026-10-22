@@ -41,14 +41,16 @@ export const MARKS = {
  * `port`, brotli like production, its data file served by range
  * (`contenders/data.ts`), the engine at /observatory/duckdb/ and the font
  * at /fonts/ (`contenderBuild`). `url` is the page, at its base
- * (`contenderBase`).
+ * (`contenderBase`). With `given` (a script's `--url`: production)
+ * nothing starts.
  */
-export const serveGpui = (port: number): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port);
+export const serveGpui = (port: number, given?: string): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given);
 
 /** The TanStack contender's release build, as `serveGpui`. */
 export const serveTanstack = (port: number): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port);
 
-async function serveContender(side: Side, webDir: string, port: number): Promise<AppServer> {
+async function serveContender(side: Side, webDir: string, port: number, given?: string): Promise<AppServer> {
+  if (given) return { url: new URL(contenderBase('tall-table', side), given).href, proxy: null, close: async () => {} };
   if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build: run \`just observatory ${side}-build\` first`);
   if (!existsSync(dataFile)) throw new Error('no data file: run `just observatory data` first');
   const server = await serveApp(undefined, { webDir, port });
@@ -60,9 +62,11 @@ async function serveContender(side: Side, webDir: string, port: number): Promise
  * brotli, with what its frames load as the deploy will serve it: both
  * contenders' release builds at their bases, the engine, the font, and
  * the data (`web/vite.config.ts`). `url` is the observatory's root,
- * `/observatory/`.
+ * `/observatory/`. With `given` (a script's `--url`: production) nothing
+ * starts.
  */
-export async function servePage(port: number): Promise<AppServer> {
+export async function servePage(port: number, given?: string): Promise<AppServer> {
+  if (given) return { url: new URL(OBSERVATORY, given).href, proxy: null, close: async () => {} };
   if (!existsSync(`${pageWebDir}/dist/index.html`)) throw new Error('no page build: run `just observatory build` first');
   for (const [side, webDir] of [['gpui', gpuiWebDir], ['tanstack', tanstackWebDir]] as const)
     if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`the page's frames need the ${side} contender's build: run \`just observatory ${side}-build\` first`);

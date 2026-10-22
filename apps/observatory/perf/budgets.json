@@ -63,6 +63,14 @@
           }
         ]
       ],
+      "production": [
+        [
+          {
+            "glob": "*-gpui-cold-production.json",
+            "path": "ttfpMs.reference"
+          }
+        ]
+      ],
       "show": [
         "plan"
       ]
@@ -80,6 +88,14 @@
           },
           {
             "baseline": "ttfpMs.throttled"
+          }
+        ]
+      ],
+      "production": [
+        [
+          {
+            "glob": "*-gpui-cold-production.json",
+            "path": "ttfpMs.throttled"
           }
         ]
       ],
@@ -179,6 +195,14 @@
           }
         ]
       ],
+      "production": [
+        [
+          {
+            "glob": "*-page-production.json",
+            "path": "firstPaintMs.reference"
+          }
+        ]
+      ],
       "show": [
         "plan"
       ]
@@ -196,6 +220,14 @@
           },
           {
             "baseline": "page.firstPaintMs.throttled"
+          }
+        ]
+      ],
+      "production": [
+        [
+          {
+            "glob": "*-page-production.json",
+            "path": "firstPaintMs.throttled"
           }
         ]
       ],
@@ -220,6 +252,23 @@
           },
           {
             "baseline": "page.firstPaintJsBrotliKiB"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "burst",
+      "label": "Requests in the busiest 10 s, one visitor (the zone's rate limit counts per IP)",
+      "unit": "requests",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-burst.json",
+            "path": "peak10s"
           }
         ]
       ],

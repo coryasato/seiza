@@ -18,7 +18,9 @@
 // - the canvas is at DPR 2, and the page logged no errors or warnings.
 //
 // Usage: node apps/observatory/perf/cold.ts [--runs 10] [--label <name>]
-//                                           [--reference-only] [--check] [--write-baseline]
+//                                           [--reference-only] [--check] [--write-baseline] [--url <origin>]
+// --url: production (e.g. https://seiza.io), recorded only, never against a
+// budget (root CLAUDE.md, "Measurement protocol"); label gpui-cold-production.
 // --check (reference only, nothing written): fails if reference TTFP is over
 // perf/baseline.json's by more than limits.gpui.ttfpOverBaseline, or the
 // wasm (brotli) by more than limits.gpui.wasmOverBaseline. --write-baseline
@@ -35,8 +37,10 @@ import { MARKS, budgetLimits, gpuiWebDir, lastMark, perfDir, problems, protocolC
 
 const { ttfpOverBaseline, wasmOverBaseline } = budgetLimits(new URL('./budgets.json', import.meta.url))('gpui', ['ttfpOverBaseline', 'wasmOverBaseline']);
 const runs = Number(option('runs') ?? 10);
-const label = option('label') ?? 'gpui-cold';
+const given = option('url');
+const label = option('label') ?? (given ? 'gpui-cold-production' : 'gpui-cold');
 const check = flag('check');
+if (given && (check || flag('write-baseline'))) throw new Error('--url records production; budgets and the baseline are the local build\'s');
 const baselinePath = join(perfDir, 'baseline.json');
 const PORT = 4311;
 /** What first paint may wait on, by path: the page, its entry, its wasm,
@@ -153,7 +157,7 @@ interface Baseline {
 const round = (value: number | null) => (value === null ? null : Number(value.toFixed(1)));
 const medianOf = (values: (number | null)[]) => (values.every((value) => value !== null) && values.length ? round(median(values as number[])) : null);
 
-const server = await serveGpui(PORT);
+const server = await serveGpui(PORT, given);
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
 const results: Record<string, { runs: Run[]; ttfpMs: number; placeholderPaintMs: number | null; engineReadyMs: number | null; wasmReadyMs: number | null }> = {};
 try {
@@ -179,7 +183,8 @@ try {
   await server.close();
 }
 
-const wasmKiB = round(wasmBrotliKiB())!;
+// The local build's: production's bytes are `worker-check`'s (each file on the wire is the staged .br).
+const wasmKiB = given ? null : round(wasmBrotliKiB())!;
 const date = new Date().toISOString().slice(0, 10);
 const { machine, cpu, os } = machineInfo();
 const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async (browser) => {
@@ -196,6 +201,7 @@ const summary = {
   os,
   browser: `Chromium ${browserVersion} (headless=new)`,
   contender: 'gpui',
+  url: given ?? 'local',
   protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },
   wasmBrotliKiB: wasmKiB,
   ttfpMs: pick('ttfpMs'),
@@ -205,7 +211,7 @@ const summary = {
   runs: Object.fromEntries(Object.entries(results).map(([name, r]) => [name, r.runs])),
   failures: [...new Set(Object.values(results).flatMap((r) => r.runs.flatMap((run) => run.problems)))],
 };
-console.log(`\nwasm brotli ${wasmKiB} KiB`);
+if (wasmKiB !== null) console.log(`\nwasm brotli ${wasmKiB} KiB`);
 for (const [name, r] of Object.entries(results)) {
   const ttfps = r.runs.map((run) => run.ttfpMs);
   console.log(`${name}: median TTFP ${r.ttfpMs} ms (min ${Math.min(...ttfps).toFixed(1)}, max ${Math.max(...ttfps).toFixed(1)}); placeholder ${r.placeholderPaintMs ?? '—'} ms; engine ready ${r.engineReadyMs ?? '—'} ms`);
@@ -223,7 +229,7 @@ if (flag('write-baseline')) {
   // Kept: the other entries (the TanStack contender's JS, `tanstack-sizes.ts`,
   // dated on their own); the top-level date and machine are this run's.
   const kept = existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, 'utf8')) as object) : {};
-  const baseline: Baseline = { ...kept, date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB };
+  const baseline: Baseline = { ...kept, date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB! };
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(`wrote ${baselinePath}`);
 }
@@ -239,7 +245,7 @@ if (check) {
   if (!sameMachine) console.warn(`warning: the baseline is from "${baseline.machine}" (${baseline.cpu}, ${baseline.os}); skipping the TTFP budget here`);
   console.log(`budget: TTFP ${reference} ms vs limit ${ttfpLimit.toFixed(1)} ms (baseline ${baseline.ttfpMs.reference} + ${ttfpOverBaseline * 100}%); wasm ${wasmKiB} KiB vs limit ${wasmLimit.toFixed(1)} KiB`);
   if (sameMachine && reference > ttfpLimit) failures.push(`reference TTFP ${reference} ms is over ${ttfpLimit.toFixed(1)} ms`);
-  if (wasmKiB > wasmLimit) failures.push(`wasm brotli ${wasmKiB} KiB is over ${wasmLimit.toFixed(1)} KiB`);
+  if (wasmKiB! > wasmLimit) failures.push(`wasm brotli ${wasmKiB} KiB is over ${wasmLimit.toFixed(1)} KiB`);
 }
 if (failures.length) {
   console.error(`\nFAIL\n${failures.map((failure) => `  ${failure}`).join('\n')}`);

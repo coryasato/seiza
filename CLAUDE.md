@@ -8,7 +8,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
-- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). The page (the contender's window, its numbers, and its meter) and both contenders build and run locally; only its data file is served at seiza.io so far, and deploying the rest is next.
+- `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). The page (the contender's window, its numbers, and its meter) and both contenders, live at seiza.io/observatory.
 
 The apex site (seiza.io: the observatory's page now, a landing page later) shares one shell, `site/ui/` ("The apex site" below).
 
@@ -69,6 +69,7 @@ The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 - **Cloudflare Web Analytics injects a script into HTML** (`static.cloudflareinsights.com/beacon.min.js`, then `/cdn-cgi/rum`), before first paint, when the zone has it on. Serving the page with `Cache-Control: no-transform` stops it. Tycho's check fails if the page holds an injected script.
 - **Never commit or print the account's default Workers hostname:** it names the account's owner. Apps run on a custom domain with `workers_dev = false` and `preview_urls = false`.
 - **A ranged or encoded response loses `Content-Length` on HEAD** through Cloudflare's edge; count wire bytes from a raw GET (Tycho's `worker/scripts/check.ts`, `wireBytes`).
+- **`wrangler dev` re-encodes a Worker's precompressed responses** (gzip, whatever `Content-Encoding` and `encodeBody: 'manual'` say), so a local run can't check what encoding production serves; check the bytes on the wire in production.
 - **A new version takes seconds to reach the edge.** Checks right after `wrangler deploy` read the old version; retry before failing.
 - **Static assets: 25 MiB per file.** Bigger files (DuckDB-Wasm's bundles) go in R2 and are served by the Worker; `.assetsignore` keeps them out of the upload.
 
