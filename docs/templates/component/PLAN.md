@@ -16,13 +16,18 @@ What's next for <name>: its features to come, in order, the active milestone's "
 |---|---|---|
 | M0 | <title> | Not started |
 
-**Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Each app that adopts it updates its own PLAN.
+**Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting") to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
 ---
 
 ## Features
 
-<Every feature to come: its Cargo feature name, what it adds, what it depends on, and what each app wants of it. The order to build them in, and why.>
+<Every feature to come: its Cargo feature name, what it adds, what it depends on, and what each app wants of it. The order to build them in, and why. Only this file builds them, whichever app asks.>
+
+### Who's waiting
+
+| Feature | Waiting | Their note |
+|---|---|---|
 
 ---
 

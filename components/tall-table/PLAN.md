@@ -25,6 +25,7 @@ This file was drafted on 2026-10-23, when the table's features moved here from T
 4. **The bare host's details** (["Measuring a feature"](#measuring-a-feature), its open points).
 5. **Whether stripes and borders are base settings** or a feature.
 6. **Whether any TanStack candidate joins the list.**
+7. **The scenarios' features** (`custom-cells` for the wide sheet, the first; `live`, `follow`): where they go in the order, since the observatory's next milestone waits on `custom-cells`.
 
 ---
 
@@ -35,7 +36,7 @@ This file was drafted on 2026-10-23, when the table's features moved here from T
 
 No milestones yet: the first is planned in its own session (above).
 
-**Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Each app that adopts it updates its own PLAN.
+**Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting", below) to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
 ---
 
@@ -115,9 +116,31 @@ Candidates, not plans: features of TanStack Table (v8) that `DataTable` lacks or
 
 Not listed: TanStack's pagination (the table scrolls instead) and fuzzy filtering (a kind of global filtering).
 
+### Asked for by the observatory's scenarios
+
+The observatory leads its comparison by scenarios, real uses (its [`docs/research/scenarios.md`](../../apps/observatory/docs/research/scenarios.md)), in this order: wide sheet, market watch, live tail, admin table, monitoring wall. Two of them need features neither `DataTable` nor TanStack Table has, both useful to Tycho too (a growing CSV, a refreshed query). Drafts, like the rows above:
+
+| Feature (Cargo) | What it adds | Scenario | Depends on | Data | TanStack |
+|---|---|---|---|---|---|
+| `follow` | Follow the tail: the view stays on the last row while `set_rows` grows the source, and lets go when the reader scrolls up; a way back to it | Live tail | — | No (`set_rows` exists) | — (the contender's own, on its scroller) |
+| `live` | A host says "these rows changed"; their pages are re-read (or patched) and redrawn, the scroll unmoved | Market watch | — | Yes: the changed pages are read again | — (the contender's own, through its cache) |
+
+What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells) and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` early in the order below.
+
+### Who's waiting
+
+Only this file builds the table's features, whichever app asks (root `CLAUDE.md`, "Docs: one home per fact"). An app that needs one keeps a row in its PLAN's "Waiting on" table; closing the feature's milestone flips that row to *Ready*. When an app asks for a new feature, it gets a row in the tables above (or "Asked for by the observatory's scenarios") and one here.
+
+| Feature | Waiting | Their note |
+|---|---|---|
+| `custom-cells` | Observatory: the wide sheet (heat and bar cells), then market watch (a cell flashing on change) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `live` | Observatory: market watch | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
+
 ### Order
 
-Draft, to settle in the planning session: `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `row-header` → `context-menu` → `group-headers`, with `custom-cells` wherever a host first asks for it. `resize` first because `pin`, `reorder`, and `group-headers` build on its width model; `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"); `sort` is the hardest, and its data cost decides whether it's built at all.
+Draft, to settle in the planning session: `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `row-header` → `context-menu` → `group-headers`, with the scenarios' `custom-cells` (asked for first, by the wide sheet), `live`, and `follow` placed where their scenarios need them. `resize` first because `pin`, `reorder`, and `group-headers` build on its width model; `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"); `sort` is the hardest, and its data cost decides whether it's built at all.
 
 ---
 

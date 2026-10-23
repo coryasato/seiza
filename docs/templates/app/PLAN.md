@@ -18,6 +18,11 @@ What's next for <App>: milestone status, the active milestone's "done when" chec
 
 **Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` (a dated JSON per run and a note from the root's `docs/templates/app/perf/results-note.md`); new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; `just <app> report` has refreshed the generated numbers; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above.
 
+**Waiting on** (features of a component or engine this app needs; only that crate's `PLAN.md` builds them, and the session that closes one flips its row to *Ready*):
+
+| Needs | For | Status |
+|---|---|---|
+
 ---
 
 ## Active milestone

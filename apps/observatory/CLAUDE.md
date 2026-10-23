@@ -54,7 +54,7 @@ apps/observatory/
   data/             # prep.ts + prep.sql (native DuckDB, its own lockfile), MANIFEST.json (committed); asteroids.parquet gitignored
   perf/             # harness.ts, page.ts (the page), contender.ts + metric-*.ts (the per-use metrics on either contender), readout-cost.ts (what the page's readouts cost the contender), cold.ts, placeholder.ts, reach.ts, sizes.ts, gpui-parts.ts, cell-fixture.ts (the GPUI contender), tanstack-view.ts, tanstack-contract.ts, tanstack-parity.ts, tanstack-sizes.ts (the TanStack contender), engine-files.ts (both), data-read.ts, burst.ts (requests per 10 s, for the rate limit), budgets.json, baseline.json, results/
   spike/            # throwaway: the scaled-scroller page (fake rows, no DuckDB; src/scaled.ts is the scroll model's reference), run.ts, latency.ts (input latency and frame work, on it and on Tycho), sizes.ts; its own lockfile; deleted once the contenders replace it
-  docs/             # DECISIONS.md, LESSONS.md, milestones.md, dom-scroll-model.md (the TanStack contender's scroll model), contender-contract.md (what each contender publishes, how each metric is read)
+  docs/             # DECISIONS.md, LESSONS.md, milestones.md, dom-scroll-model.md (the TanStack contender's scroll model), contender-contract.md (what each contender publishes, how each metric is read), research/ (research for a long-term goal: scenarios.md)
   README.md         # for visitors
   CLAUDE.md         # this file
   PLAN.md           # what's next
