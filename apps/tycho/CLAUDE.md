@@ -19,7 +19,7 @@ These add to the repo-wide rules.
 1. **Never block the shell on DuckDB.** Paint first. Start loading the engine from `shared/`'s post-paint callback. The UI must stay usable (and say "engine loading…") until DuckDB is ready.
 2. **Keep the bridge narrow.** Three calls cross the Rust ↔ JS boundary (`registerFile`, `query`, `cancel`): the engine's rule, `engines/duckdb/CLAUDE.md`, rule 2. Get schema, row count, and metadata with SQL through `query`.
 3. **Query per viewport.** The table fetches only the visible rows plus a buffer. The app never loads the whole result into memory.
-4. **v1 scope is fixed.** No SQL editor, charts, sort/filter, or GROUP BY. If one of these seems necessary, stop and ask. (Column resizing, selection, and sorting are a researched-first goal after v1; see `PLAN.md`, "Long-term goals".)
+4. **Scope grows through `PLAN.md`.** v1 is done; what Tycho builds next is what `PLAN.md` holds: the table's features as each is ready ("Waiting on"), then its long-term goals (a density plot linked to the table among them). Anything it doesn't hold (a SQL editor, GROUP BY, …) goes into `PLAN.md` as a goal first. If one seems necessary mid-milestone, stop and ask.
 
 ## Stack
 

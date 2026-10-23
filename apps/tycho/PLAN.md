@@ -31,6 +31,7 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
 | Later | Table features: column resizing, selection, sorting | Planned in [the table's `PLAN.md`](../../components/tall-table/PLAN.md); adopted here one at a time |
 | Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
+| Later | A density plot linked to the table | Not started; research first |
 
 The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)), which builds on M9's component and engine.
 
@@ -56,7 +57,17 @@ Not milestones yet. Each starts with research, and becomes a milestone only if t
 
 ### Table features: column resizing, selection, sorting
 
-The table's features (resizing, selection and copy, sorting, and the rest of `DataTable`'s), their order, specs, and the research into their costs are the component's: [`../../components/tall-table/PLAN.md`](../../components/tall-table/PLAN.md). Only the component's PLAN builds them; Tycho waits on them ("Waiting on", above) and adopts every one, each as a milestone here that turns the feature on, wires it into the workbench, and measures it against Tycho's budgets (the table measures each feature's own cost, in a bare host). Sorting is out of v1 scope (rule 4), so adopting it is post-v1 work.
+The table's features (resizing, selection and copy, sorting, and the rest of `DataTable`'s), their order, specs, and the research into their costs are the component's: [`../../components/tall-table/PLAN.md`](../../components/tall-table/PLAN.md). Only the component's PLAN builds them; Tycho waits on them ("Waiting on", above) and adopts every one, each as a milestone here that turns the feature on, wires it into the workbench, and measures it against Tycho's budgets (the table measures each feature's own cost, in a bare host).
+
+### A density plot linked to the table
+
+Plot any two numeric columns of the open file, every row, linked to the table: a box drawn on the plot filters the table to the rows inside it, and a click on a point jumps the table to its row. On the asteroids, semi-major axis against eccentricity shows the Kirkwood gaps; on Gaia, color against magnitude is the Hertzsprung–Russell diagram, from 25 M stars.
+
+**How (to research):** DuckDB bins the rows into a grid of counts (`GROUP BY` the two columns scaled to the plot's pixels), and the plot draws the grid as one image: no custom GPU shader (GPUI has no public API for one), and the cost is the grid's, not the rows', so 25 M rows cost what 1.57 M do. Zoom re-bins the visible extent. A box becomes a `WHERE` on the two columns: the host gives the table that query and its `count(*)` as a new source (the delegate takes any query); a click becomes the nearest row's index, then `jump_to`.
+
+**Where it lives:** a new component (a plot, the view, its state, a delegate for the bins), with its own `PLAN.md` (root `CLAUDE.md`, "Docs: one home per fact"); Tycho waits on it in "Waiting on" and adopts it. The asteroid-belt showcase builds on the same component ([`../../docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md)).
+
+**Research first:** the binning query's time on both samples (at the open and per zoom), the image's cost per frame, the plot's added wasm, and the canvas tradeoffs (a plot has no accessibility tree either). Record the decision with its numbers in `docs/DECISIONS.md`, then create the component.
 
 ### Production performance: servers, edge, and data layout
 
