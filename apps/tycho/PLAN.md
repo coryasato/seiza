@@ -29,7 +29,7 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | M7 | Observation panel, jump to row, and hardening (parts A–G) | Done 2026-10-09 |
 | M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
-| Later | Table features: column resizing, selection, sorting | Not started; research first |
+| Later | Table features: column resizing, selection, sorting | Planned in [the table's `PLAN.md`](../../components/tall-table/PLAN.md); adopted here one at a time |
 | Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
 
 The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)), which builds on M9's component and engine.
@@ -50,16 +50,7 @@ Not milestones yet. Each starts with research, and becomes a milestone only if t
 
 ### Table features: column resizing, selection, sorting
 
-M4 built its own table instead of gpui-kit's `DataTable`, whose f32-pixel scrolling breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions: resizable columns, row/cell selection (and copying it), and sorting. Each would be a Cargo feature of the table component (`components/tall-table/`), off by default (root `docs/DECISIONS.md`, "Repo structure"): Tycho turns on what it adopts, and the observatory adds a feature level only when both its sides are built. Sorting is also out of v1 scope (Tycho rule 4), so this is post-v1 work.
-
-**Research costs first, then decide whether it's worth building.** Before writing any of it, measure or estimate and record in `docs/research/<goal>.md`:
-- **Size and first paint:** the added wasm (brotli) for each feature, against the TTFP and size budgets.
-- **Frame cost:** what each adds per frame while scrolling (hit-testing, resize handles, selection state across 25 M rows).
-- **Sorting's data cost:** the table pages by row-group ranges (`file_row_number`). A sort needs `ORDER BY` over the whole file, which reads all of it (37.7 MB for the asteroids, far more for Gaia), or a sorted copy in DuckDB's memory, against rule 3 (never load the whole result). Measure time, bytes, and memory on both samples.
-- **Reuse:** whether gpui-kit's column and selection pieces can sit on top of the row-based scroll model, or have to be rebuilt.
-- **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) `README.md` tracks.
-
-Record the decision (build all, some, or none) in `docs/DECISIONS.md` with the numbers, and only then add a milestone with "done when" checks.
+The table's features (resizing, selection and copy, sorting, and the rest of `DataTable`'s), their order, specs, and the research into their costs are the component's: [`../../components/tall-table/PLAN.md`](../../components/tall-table/PLAN.md). Tycho adopts every one, each as a milestone here that turns the feature on, wires it into the workbench, and measures it against Tycho's budgets (the table measures each feature's own cost, in a bare host). Sorting is out of v1 scope (rule 4), so adopting it is post-v1 work.
 
 ### Production performance: servers, edge, and data layout
 

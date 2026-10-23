@@ -4,7 +4,7 @@ A GPUI table that reads rows a page at a time from a delegate and draws only whe
 
 ---
 
-This is the table's context. Why it's built this way is in `docs/DECISIONS.md`; what it offers its users, in `README.md`. Its work is a milestone in the app that drives it (Tycho, `apps/tycho/PLAN.md`, or the observatory, `apps/observatory/PLAN.md`, which only consumes it: root `CLAUDE.md`, "Tiers"), measured in that app's `perf/`. The repo-wide rules in the root `CLAUDE.md` apply here too. Paths below are relative to this directory.
+This is the table's context. Why it's built this way is in `docs/DECISIONS.md`; what it offers its users, in `README.md`. Its work is a milestone in its own `PLAN.md` (the one list of its features). Each feature's own cost (added wasm, frame work) is measured in a bare host and recorded in `perf/results/`; budgets are the apps' that build it: Tycho, which adopts every feature, or the observatory, which only consumes it and adds a feature level when both its sides are built (root `CLAUDE.md`, "Tiers"). The repo-wide rules in the root `CLAUDE.md` apply here too. Paths below are relative to this directory.
 
 Current state only: say what to do and point to the decision behind it (`docs/DECISIONS.md`, "Table and paging" and "Component API"); don't retell its measurements.
 
@@ -44,7 +44,9 @@ components/tall-table/
   src/              # lib.rs (re-exports), state.rs (+ state/fixtures.rs, tests only), tall_table.rs, delegate.rs, column.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
   fixtures/         # paging.json, cells.json, sql.json: what "the same" means for a DOM contender; README.md (the formats)
   Cargo.toml        # seiza-tall-table: gpui-kit only (dev: gpui-kit's test-support, futures, serde_json)
-  docs/             # DECISIONS.md
+  docs/             # DECISIONS.md, milestones.md, LESSONS.md
+  PLAN.md           # its features to come, in order; the active milestone
+  perf/results/     # each feature's own cost, dated (no budgets)
   README.md         # for the crate's user
   CLAUDE.md         # this file
 ```

@@ -36,5 +36,6 @@
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, gotchas. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
+| [`PLAN.md`](PLAN.md) | <Once it has a roadmap: its features to come, in order, and the active milestone.> |
 
-Its work is planned and measured in the app that drives it; there's no PLAN.md here.
+<Without a PLAN.md: "Its work is planned in the app that drives it."> Budgets are the apps' that build it; <with a PLAN.md: each feature's own cost is in [`perf/results/`](perf/results/)>.

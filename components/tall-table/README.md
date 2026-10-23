@@ -62,7 +62,7 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 |---|---|---|---|
 | *(base)* | Paging, prefetch, and a page cache; f64-row scrolling with its own scrollbars, wheel, and keys; columns by kind; rounding, middle cuts, and the exact-value tooltip; a jump-to-row highlight | — | [Tycho's results](../../apps/tycho/perf/results/) |
 
-No features yet. Column resizing, selection and copy, and sorting would each be one, off by default ([Tycho's `PLAN.md`](../../apps/tycho/PLAN.md), "Long-term goals").
+No features yet. What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
@@ -83,5 +83,6 @@ No features yet. Column resizing, selection and copy, and sorting would each be 
 | [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, gotchas. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
 | [`fixtures/README.md`](fixtures/README.md) | What another implementation of the base level must match: page requests, cell text, page SQL. |
+| [`PLAN.md`](PLAN.md) | The features to come, in order, and the active milestone. |
 
-Its work is planned and measured in the app that drives it; there's no PLAN.md here.
+Each feature's own cost will be in `perf/results/` (from the first feature); budgets are the apps' that build it.

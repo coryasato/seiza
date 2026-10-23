@@ -106,7 +106,7 @@ Each fact has one home, and everything else links to it.
 |---|---|
 | `CLAUDE.md` (here) | Repo-wide rules, the stack and its pins, the measurement protocol, GPUI Kit and Cloudflare gotchas. Written for contributors and [Claude Code](https://claude.com/claude-code) alike. |
 | `apps/<app>/README.md` | The app for a visitor: what it does, its numbers, its canvas tradeoffs and limits, how to run it. |
-| `components/<name>/`, `engines/<name>/` | A README for its user (API, features, limits), a CLAUDE.md, and a `docs/DECISIONS.md`. Its work is planned and measured in the app that drives it. |
+| `components/<name>/`, `engines/<name>/` | A README for its user (API, features, limits), a CLAUDE.md, and a `docs/DECISIONS.md`. Once it has a roadmap, a `PLAN.md` (the one list of its features) with `docs/milestones.md` and `docs/LESSONS.md`; until then its work is planned in the app that drives it. Budgets are always an app's; a component with a PLAN records its features' own costs in its `perf/results/`. |
 | `apps/<app>/CLAUDE.md` | The app's rules, architecture, gotchas, and commands. |
 | `apps/<app>/PLAN.md` | What's next: status, the active milestone's checks, long-term goals, open questions. |
 | `docs/DECISIONS.md`, `apps/<app>/docs/DECISIONS.md` | Why things are built the way they are, by area, with the numbers. Repo-wide here, app-specific in the app. |

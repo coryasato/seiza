@@ -88,7 +88,7 @@ seiza/
   site/
     ui/                 # `@seiza/site-ui`: the apex site's shell (navbar, theme toggle, footer), tokens, Tailwind setup, shadcn components on Base UI; README.md, CLAUDE.md
   components/
-    tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); README.md, CLAUDE.md, docs/
+    tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); README.md, CLAUDE.md, PLAN.md (its features), docs/, perf/results/ (each feature's own cost)
   engines/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
@@ -174,15 +174,15 @@ Each kind of fact has one home. Everywhere else links to it rather than repeatin
 | Kind of fact | Home | Rules |
 |---|---|---|
 | The app for a visitor | `apps/<app>/README.md` | Current state only. Numbers between `<!-- report:… -->` markers are generated; don't type them. Canvas tradeoffs and limits live here (rule 4). |
-| A component or engine for its user | `components/<name>/README.md`, `engines/<name>/README.md` | Current state only: API, features, limits, canvas tradeoffs. Its rules and gotchas are in its `CLAUDE.md`, its decisions in its `docs/DECISIONS.md`. It has no `PLAN.md`, `LESSONS.md`, or `perf/`: its work is a milestone in the app that drives it, measured there. |
+| A component or engine for its user | `components/<name>/README.md`, `engines/<name>/README.md` | Current state only: API, features, limits, canvas tradeoffs. Its rules and gotchas are in its `CLAUDE.md`, its decisions in its `docs/DECISIONS.md`. It has no budgets: each app gates its own builds. Once it has a roadmap of its own (the tall table does), it has the planning files below too, and a `perf/results/` for what it measures of itself (each feature's added bytes and frame work, in a bare host); until then its work is planned and measured in the app that drives it. |
 | Rules, architecture, gotchas, commands | `CLAUDE.md` (root and app) | Current state, no history. Say what to do and point to the decision behind it; don't retell the measurement. |
-| What's next | `apps/<app>/PLAN.md` | Status table, the active milestone's "done when" checks, long-term goals, open questions. Nothing finished. |
+| What's next | `apps/<app>/PLAN.md`, and a component's or engine's `PLAN.md` once it has a roadmap | Status table, the active milestone's "done when" checks, long-term goals, open questions. Nothing finished. A component's PLAN is the one list of its features: their order, specs, and checks. An app's PLAN adopts one (turns the feature on, wires it in, measures it against the app's budgets) as a milestone of its own that links there, and never restates the spec. |
 | Why it's built this way | `docs/DECISIONS.md` (repo-wide) and `apps/<app>/docs/DECISIONS.md` | One bullet per decision under its area, oldest first: what, the numbers, *[source]*. Replaced decisions are marked *Superseded*, never deleted. A decision binding every app (toolchain, `shared/`, `shared-web/`, protocol) goes in the root file. |
-| What surprised us | `apps/<app>/docs/LESSONS.md` | One entry per milestone: surprises only, plus a link to its results note. The numbers and the decisions have their own homes. |
-| Finished milestones | `apps/<app>/docs/milestones.md` | A milestone's spec, checks, and evidence move here when it closes. History: never edited. |
+| What surprised us | `apps/<app>/docs/LESSONS.md` (and a component's or engine's, with its PLAN) | One entry per milestone: surprises only, plus a link to its results note. The numbers and the decisions have their own homes. |
+| Finished milestones | `apps/<app>/docs/milestones.md` (and a component's or engine's, with its PLAN) | A milestone's spec, checks, and evidence move here when it closes. History: never edited. |
 | Reference (data, hosting, …) | `apps/<app>/docs/<topic>.md` | How it works now; what every app shares in `docs/<topic>.md` (security-sensitive ones, like the zone's WAF rules, in the gitignored `docs/private/`). Research for a long-term goal goes in `docs/research/<goal>.md`. |
 | Budgets | `apps/<app>/perf/budgets.json` | Every budget and recorded metric: its limit, whether `check` or the suite gates it, and which results file holds its current value. |
-| Measurements | `apps/<app>/perf/results/` | Dated and append-only: a JSON per run (scripts write it), a note per milestone or experiment (`docs/templates/app/perf/results-note.md`). A metric's history is these files; no doc keeps a running "latest" list. |
+| Measurements | `apps/<app>/perf/results/` (and a component's, for its features' own costs) | Dated and append-only: a JSON per run (scripts write it), a note per milestone or experiment (`docs/templates/app/perf/results-note.md`). A metric's history is these files; no doc keeps a running "latest" list. |
 
 Milestone IDs (`M<n>`, `part <X>`) belong only in `PLAN.md`, `milestones.md`, `LESSONS.md`, the *[source]* tags of `DECISIONS.md`, `perf/results/`, and commit messages. Code, `CLAUDE.md`, READMEs, and justfiles describe the current state without them: name the thing ("the fling budget"), not the milestone that built it. `shared-web/scripts/check-terms.ts`, run by `just <app> lint`, enforces it.
 
@@ -190,7 +190,7 @@ A new app starts from `docs/templates/app/`; a new component or engine, from `do
 
 ## Working agreements for Claude Code
 
-- Work on one app milestone at a time. Work on a component or engine is a milestone of the app that drives it. At the start, restate the "done when" checks. At the end, show the evidence for each check (numbers, trace excerpts, screenshots).
+- Work on one milestone at a time. A component's or engine's work is a milestone in its own `PLAN.md` when it has one, else in the app that drives it. A component measures what's its own (each feature's added wasm and frame work, in a bare host) in its own `perf/results/`; each app measures a feature against its own budgets when it adopts it, in its own `perf/`. Outside its own files, a component's milestone is named with the component ("tall-table M<n>"), and its commits start with its name (`tall-table: … (M<n>)`). At the start, restate the "done when" checks. At the end, show the evidence for each check (numbers, trace excerpts, screenshots).
 - Keep JS small and typed. Any logic that could live in Rust lives in Rust (except in the observatory's page and DOM contenders, above).
 - Before starting an app's next milestone, close the last one: its results note in `perf/results/`, new decisions in `docs/DECISIONS.md`, a `docs/LESSONS.md` entry (surprises), `just <app> report`, and its spec and evidence moved from `PLAN.md` to `docs/milestones.md`.
 - Tick `PLAN.md`'s checks as they pass, with their evidence; log each decision in `docs/DECISIONS.md` as it lands.
