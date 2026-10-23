@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): both contenders, the window's numbers, the meter; the benchmark button is next |
+| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): both contenders, the window's numbers, the meter; next, workloads that stress each side |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 

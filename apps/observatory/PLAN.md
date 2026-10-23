@@ -21,7 +21,6 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | The deploy | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
-| M7 | The benchmark button | Not started |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
@@ -33,7 +32,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next is M7, the benchmark button; its checks below are drafts until it starts.
+None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). The next milestone comes out of exploring how to stress both contenders where each is strong and weak; none is drafted yet.
 
 ---
 
@@ -41,10 +40,7 @@ None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.
 
 The "done when" checks are drafts until their milestone becomes active.
 
-### M7: The benchmark button
-
-- [ ] "Run benchmark" plays load, fling, and jump to 90% on each side in turn, alternating which goes first between runs, driving each through its own input path (script-made wheel events reach GPUI's listeners but never scroll a native scroller, so the DOM side is driven through its scroll position), and shows the results labelled warm beside the cold ones.
-- [ ] The benchmark works in production; its warm numbers from production recorded, and its labels checked against them.
+None drafted yet.
 
 ---
 
@@ -75,6 +71,7 @@ Not milestones. Each starts with research.
 - **A third contender: Glide Data Grid** (GPUI | TanStack / Glide): a DOM-hosted canvas grid, which would separate "canvas vs DOM" from "Wasm vs JS". Another contender app against the same GPUI side, under the same protocol. It may never happen.
 - **A dataset easier to read at a glance** than a sea of floats, within the static-asset budget.
 - **Feature levels:** when a table feature (sorting, …) exists in the component and is worth comparing, a level adds it on both sides (root `CLAUDE.md`, "Comparison protocol"), each feature's cost measured against the base.
+- **The benchmark button:** "Run benchmark" plays a scripted session on each side in turn (the order alternated between runs), drives each through its own input path (script-made wheel events reach GPUI's listeners but never scroll a native scroller, so the DOM side is driven through its scroll position), and shows the results labelled warm beside the cold ones, from production too. Deferred: at the base level its session (load, fling, jump to 90%) replays what the cold numbers already show, a workload on which the GPUI side reads mostly as heavier in memory. It's worth building once the comparison has a workload that shows each side's strengths, so the button automates that. The status bar keeps it, disabled.
 - **Dropping your own file:** out of the base level. It would widen the cell fixtures to every column kind (decimals, timestamps, 128-bit integers).
 
 ---

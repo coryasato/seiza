@@ -83,7 +83,7 @@ The GPUI host stops following the system once the page has given a theme (`seiza
 
 ## Replay hooks
 
-`__contender.replay`, for the page's benchmark (in-page, warm, labelled so); the published numbers come from Playwright driving real input instead.
+`__contender.replay`, for the page's benchmark when it's built (in-page, warm, labelled so; deferred, `PLAN.md`'s long-term goals); the published numbers come from Playwright driving real input instead.
 
 ```ts
 interface Replay {
