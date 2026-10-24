@@ -11,6 +11,10 @@ description = "What a seiza host does with the tall table's events: its marks, i
 seiza.workspace = true
 seiza-tall-table.workspace = true
 
+[features]
+# The drawn cells' paint in `js::cells`.
+custom-cells = ["seiza-tall-table/custom-cells"]
+
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.
 [target.'cfg(target_family = "wasm")'.dependencies]

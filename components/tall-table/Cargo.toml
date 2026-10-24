@@ -15,3 +15,8 @@ gpui-kit.workspace = true
 gpui-kit = { workspace = true, features = ["test-support"] }
 futures = "0.3"
 serde_json.workspace = true
+
+# Each off by default: a host pays only for what it turns on (PLAN.md).
+[features]
+# A page's paint for a cell: a fill, a bar, a text color (`CellPaint`).
+custom-cells = []

@@ -72,6 +72,25 @@ impl Shape {
         ROWS
     }
 
+    /// A float column's range, `min..max`, as a source would read it (its
+    /// minimum and maximum); `None` for the others.
+    pub fn range(self, column: usize) -> Option<(f64, f64)> {
+        match self {
+            Self::Narrow => match column {
+                5 => Some((10.0, 22.0)),
+                6 => Some((0.0, 100.0)),
+                7 => Some((0.0, 0.5)),
+                8 => Some((1.5, 5.0)),
+                9 => Some((0.0, 0.4)),
+                _ => None,
+            },
+            Self::Wide => (column < WIDE_COLUMNS).then(|| {
+                let scale = wide_scale(column);
+                (-scale, scale)
+            }),
+        }
+    }
+
     pub fn columns(self) -> Vec<TallTableColumn> {
         match self {
             Self::Narrow => NARROW
@@ -101,6 +120,12 @@ fn unit(row: u64, column: usize) -> f64 {
     (hash(row, column) >> 11) as f64 / (1u64 << 53) as f64
 }
 
+/// A wide column's values lie in `-scale..scale`: magnitudes from 0.01 to
+/// 10⁴, signed, so the columns round to different digits.
+fn wide_scale(column: usize) -> f64 {
+    10f64.powi(column as i32 % 7 - 2)
+}
+
 /// A column of a page, as a source decodes it.
 enum Values {
     /// NaN is NULL.
@@ -115,6 +140,65 @@ enum Values {
 /// A page of rows, materialized from [`hash`].
 pub struct MemoryPage {
     columns: Vec<Values>,
+    /// Each column's range, for its paint.
+    #[cfg(feature = "custom-cells")]
+    paint: Option<(Cells, Shape)>,
+}
+
+/// How the float columns are painted (`?cells=`, `custom-cells`): each
+/// value mapped through its column's range at run time, so the table's
+/// paint is used, not only compiled.
+#[cfg(feature = "custom-cells")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cells {
+    /// No paint: the control.
+    Text,
+    /// A fill through a two-stop ramp, the background to `chart_1`.
+    Heat,
+    /// A bar from the column's zero.
+    Bars,
+    /// The value's color through a three-stop ramp: down, none, up.
+    Color,
+}
+
+#[cfg(feature = "custom-cells")]
+impl Cells {
+    /// `text`, `heat`, `bars`, or `color`.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "text" => Some(Self::Text),
+            "heat" => Some(Self::Heat),
+            "bars" => Some(Self::Bars),
+            "color" => Some(Self::Color),
+            _ => None,
+        }
+    }
+
+    /// `shape`'s columns, each float column with this style's ramp or bar.
+    pub fn columns(self, shape: Shape) -> Vec<TallTableColumn> {
+        use seiza_tall_table::{Bar, Ramp};
+        shape
+            .columns()
+            .into_iter()
+            .enumerate()
+            .map(|(index, column)| match (self, shape.range(index)) {
+                (Self::Heat, Some(_)) => column.fill(Ramp::new(&[
+                    |theme| theme.background,
+                    |theme| theme.chart_1,
+                ])),
+                (Self::Bars, Some((min, max))) => column.bar(
+                    Bar::new(|theme| theme.chart_1)
+                        .zero((-min / (max - min)).clamp(0.0, 1.0) as f32),
+                ),
+                (Self::Color, Some(_)) => column.text_ramp(Ramp::new(&[
+                    |theme| theme.chart_bearish,
+                    |theme| theme.foreground,
+                    |theme| theme.chart_bullish,
+                ])),
+                _ => column,
+            })
+            .collect()
+    }
 }
 
 impl MemoryPage {
@@ -125,9 +209,7 @@ impl MemoryPage {
                 .collect(),
             Shape::Wide => (0..WIDE_COLUMNS)
                 .map(|column| {
-                    // Magnitudes from 0.01 to 10⁴, signed, so the columns
-                    // round to different digits.
-                    let scale = 10f64.powi(column as i32 % 7 - 2);
+                    let scale = wide_scale(column);
                     Values::Float(
                         rows.clone()
                             .map(|row| (unit(row, column) - 0.5) * 2.0 * scale)
@@ -136,7 +218,11 @@ impl MemoryPage {
                 })
                 .collect(),
         };
-        Self { columns }
+        Self {
+            columns,
+            #[cfg(feature = "custom-cells")]
+            paint: None,
+        }
     }
 }
 
@@ -251,6 +337,31 @@ impl TallTablePage for MemoryPage {
         })
     }
 
+    /// Each float value through its column's range, as the style says.
+    #[cfg(feature = "custom-cells")]
+    fn paint(&self, row: usize, column: usize) -> seiza_tall_table::CellPaint {
+        let mut paint = seiza_tall_table::CellPaint::default();
+        let Some((cells, shape)) = self.paint else {
+            return paint;
+        };
+        let (Some((min, max)), Some(Values::Float(values))) =
+            (shape.range(column), self.columns.get(column))
+        else {
+            return paint;
+        };
+        let Some(value) = values.get(row).filter(|value| !value.is_nan()) else {
+            return paint;
+        };
+        let at = Some(((value - min) / (max - min)) as f32);
+        match cells {
+            Cells::Text => {}
+            Cells::Heat => paint.fill = at,
+            Cells::Bars => paint.bar = at,
+            Cells::Color => paint.text = at,
+        }
+        paint
+    }
+
     fn heap_bytes(&self) -> usize {
         self.columns
             .iter()
@@ -275,6 +386,8 @@ impl TallTablePage for MemoryPage {
 pub struct MemoryRows {
     shape: Shape,
     delay: Option<Duration>,
+    #[cfg(feature = "custom-cells")]
+    cells: Cells,
     next_request: u32,
     /// The reads not yet resolved or cancelled.
     pending: Rc<RefCell<HashSet<u32>>>,
@@ -285,9 +398,17 @@ impl MemoryRows {
         Self {
             shape,
             delay,
+            #[cfg(feature = "custom-cells")]
+            cells: Cells::Text,
             next_request: 0,
             pending: Rc::default(),
         }
+    }
+
+    /// Its pages paint their float columns `cells`' way.
+    #[cfg(feature = "custom-cells")]
+    pub fn with_cells(self, cells: Cells) -> Self {
+        Self { cells, ..self }
     }
 }
 
@@ -301,6 +422,8 @@ impl TallTableDelegate for MemoryRows {
         self.pending.borrow_mut().insert(request);
         let pending = self.pending.clone();
         let shape = self.shape;
+        #[cfg(feature = "custom-cells")]
+        let cells = self.cells;
         let timer = self
             .delay
             .map(|delay| cx.background_executor().timer(delay));
@@ -311,7 +434,13 @@ impl TallTableDelegate for MemoryRows {
             if !pending.borrow_mut().remove(&request) {
                 return Err(PageError::Cancelled);
             }
-            Ok(MemoryPage::new(shape, rows))
+            #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
+            let mut page = MemoryPage::new(shape, rows);
+            #[cfg(feature = "custom-cells")]
+            if cells != Cells::Text {
+                page.paint = Some((cells, shape));
+            }
+            Ok(page)
         };
         (request, Box::pin(load))
     }
@@ -380,6 +509,46 @@ mod tests {
         assert_eq!(date_text(-25_567), "1900-01-01");
         assert_eq!(date_text(19_723), "2024-01-01");
         assert_eq!(date_text(19_782), "2024-02-29");
+    }
+
+    #[cfg(feature = "custom-cells")]
+    #[test]
+    fn paint_maps_each_float_through_its_range() {
+        use super::Cells;
+        for shape in [Shape::Narrow, Shape::Wide] {
+            for cells in [Cells::Heat, Cells::Bars, Cells::Color] {
+                let mut page = MemoryPage::new(shape, 0..1024);
+                page.paint = Some((cells, shape));
+                let columns = cells.columns(shape);
+                let mut painted = 0;
+                for column in 0..columns.len() {
+                    for row in 0..1024 {
+                        let paint = page.paint(row, column);
+                        let at = match cells {
+                            Cells::Heat => paint.fill,
+                            Cells::Bars => paint.bar,
+                            _ => paint.text,
+                        };
+                        if let Some(at) = at {
+                            assert!((0.0..=1.0).contains(&at), "{shape:?} {column}: {at}");
+                            assert!(shape.range(column).is_some(), "only float columns paint");
+                            painted += 1;
+                        } else if shape.range(column).is_some() {
+                            assert_eq!(page.value(row, column), Some(CellValue::Null));
+                        }
+                    }
+                }
+                assert!(
+                    painted > 1024,
+                    "{shape:?} {cells:?} painted {painted} cells"
+                );
+            }
+        }
+        // `text` paints nothing: the control.
+        let page = MemoryPage::new(Shape::Wide, 0..1024);
+        assert_eq!(page.paint(0, 0), Default::default());
+        assert_eq!(Cells::from_name("heat"), Some(Cells::Heat));
+        assert_eq!(Cells::from_name("blue"), None);
     }
 
     #[gpui_kit::test]

@@ -152,7 +152,10 @@ pub mod js {
         list.into()
     }
 
-    /// `[{row, column, exact, shown}]`: every cell the frame drew.
+    /// `[{row, column, exact, shown}]`: every cell the frame drew. With
+    /// `custom-cells`, also `fill` and `text` (`[r, g, b, a]`, 8-bit, or
+    /// null) and `bar` (`{left, width}` in CSS px from the cell's left, or
+    /// null).
     pub fn cells(cells: &[CellProbe]) -> JsValue {
         let list: Array = cells
             .iter()
@@ -162,6 +165,23 @@ pub mod js {
                 set(&object, "column", number(cell.column as f64));
                 set(&object, "exact", JsValue::from_str(&cell.exact));
                 set(&object, "shown", JsValue::from_str(&cell.shown));
+                #[cfg(feature = "custom-cells")]
+                {
+                    let color = |rgba: Option<[u8; 4]>| {
+                        rgba.map_or(JsValue::NULL, |rgba| {
+                            rgba.iter().map(|c| number(*c)).collect::<Array>().into()
+                        })
+                    };
+                    set(&object, "fill", color(cell.paint.fill));
+                    set(&object, "text", color(cell.paint.text));
+                    let bar = cell.paint.bar.map_or(JsValue::NULL, |(left, width)| {
+                        let bar = Object::new();
+                        set(&bar, "left", number(left));
+                        set(&bar, "width", number(width));
+                        bar.into()
+                    });
+                    set(&object, "bar", bar);
+                }
                 JsValue::from(object)
             })
             .collect();

@@ -9,14 +9,17 @@ target_dir := root / "target/wasm32-unknown-unknown"
 
 # The bare host's wasm (debug) and its Vite dev server with COOP/COEP.
 # `?shape=wide` for 500 float columns, `?delay=<ms>` to hold each page read.
-dev: (wasm "debug")
+# `features` are the host's (`custom-cells`: `?cells=heat|bars|color`).
+dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
 
 # The bare host's release build: wasm (+ wasm-opt), Vite build, then asset
-# sizes (raw, gzip, brotli 11).
-build: (wasm "release")
+# sizes (raw, gzip, brotli 11). `features` are the host's, written to
+# dist/build.json for the scripts (the base without any).
+build features="": (wasm "release" features)
     npm run build --workspace @seiza/tall-table-host
     node {{root}}/shared-web/scripts/asset-sizes.ts {{host_web}}/dist
+    printf '{"features":"%s"}\n' '{{features}}' > {{host_web}}/dist/build.json
 
 # Serve the bare host's release build (brotli), as the scripts do.
 preview:
@@ -24,9 +27,9 @@ preview:
 
 # Compile the bare host alone (`-p`: Cargo unifies features across the
 # packages in one build) and generate its JS bindings into host/web/pkg/,
-# with the apps' wasm-opt flags in release.
-wasm profile="debug":
-    cargo build -p tall-table-host --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }}
+# with the apps' wasm-opt flags in release, with the host's `features`.
+wasm profile="debug" features="":
+    cargo build -p tall-table-host --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }} {{ if features != "" { "--features " + features } else { "" } }}
     wasm-bindgen {{target_dir}}/{{profile}}/tall_table_host.wasm --out-dir {{host_web}}/pkg --target web
     {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + host_web + "/pkg/tall_table_host_bg.wasm -o " + host_web + "/pkg/tall_table_host_bg.wasm" } else { "true" } }}
 
@@ -54,18 +57,27 @@ smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 
 # Native tests: the table's (page cache, scroll model, float fitting, cell
-# text, the fixtures) and the host's rows. The bridge has none: its JS
+# text, the fixtures) and the host's rows, with every feature off and then
+# each on (`custom-cells`: the paint fixture). The bridge has none: its JS
 # values are wasm-only, and Tycho's checks (`just tycho table`, `cells`) and
 # the observatory's cell fixture read every field it writes.
 test:
     cargo test -p seiza-tall-table -p tall-table-host
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells
+
+# Writes fixtures/paint.json's expected colors from Chromium's
+# color-mix(in oklab) and its bars from their formula (--check compares).
+paint-fixture *args:
+    node {{component_dir}}/perf/paint-fixture.ts {{args}}
 
 # No milestone references outside the history files (check-terms), fmt,
-# clippy for the table, the bridge, and the host (wasm32 and native, with
-# -D warnings), and TypeScript (the host's page and perf/).
+# clippy for the table, the bridge, and the host (wasm32 with no features
+# and with every one, native with every one, with -D warnings), and
+# TypeScript (the host's page and perf/).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cargo fmt --all --check
     cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --target wasm32-unknown-unknown --all-features -- -D warnings
     cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --all-features --all-targets -- -D warnings
     npm run typecheck --workspace @seiza/tall-table-host

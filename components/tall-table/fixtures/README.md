@@ -7,8 +7,9 @@ What "the same" means for any other implementation of the table's base level (th
 | `paging.json` | Steps on the table → the page requests, in order | `src/state/fixtures.rs` (`paging_scenarios`, `paging_controls_fail`) | Hand, each step's `why` saying where its requests come from |
 | `cells.json` | Each float column's budget, and a value's exact and shown text | `src/state/fixtures.rs` (`cell_text`, `cell_controls_fail`) | `cells`: `just observatory cell-fixture`, from the GPUI contender; `rounding`: hand |
 | `sql.json` | The page SQL and the summary queries, as text | `engines/duckdb/crate/src/tall_table.rs` (`sql_fixture`, `sql_fixture_controls_fail`), where the SQL is written | Hand |
+| `paint.json` | `custom-cells`: a paint value → the colors and the bar's pixels drawn, in light and dark | `src/state/fixtures/paint.rs` (`paint_fixture`, `paint_fixture_stops_are_the_theme`, `paint_controls_fail`), with the feature on | Cases and stops: hand; `expect`: `just tall-table paint-fixture`, from Chromium |
 
-`just observatory fixtures` runs the three native tests, the same fixtures and controls against the observatory's TanStack contender (`apps/observatory/contenders/tall-table/tanstack/web/test/fixtures.test.ts`), and checks `cells.json` against what the GPUI contender draws.
+`just observatory fixtures` runs the first three native tests, the same fixtures and controls against the observatory's TanStack contender (`apps/observatory/contenders/tall-table/tanstack/web/test/fixtures.test.ts`), and checks `cells.json` against what the GPUI contender draws.
 
 ## `paging.json`
 
@@ -44,3 +45,16 @@ A cancelled read always answers as cancelled; the others answer with their page.
 ## `sql.json`
 
 `pages` are the page query for some pages of `file` (the SQL name it's registered under), and `summary` the queries an open sends, in order (no metadata keys, so the keyed third isn't sent). The text must match exactly. `controls` are page queries that must fail the comparison: the same rows by `LIMIT`/`OFFSET`, and the same query spaced differently.
+
+## `paint.json`
+
+What a DOM contender draws for a cell's paint (`custom-cells`; the table's README, "Use it"), at the protocol's DPR 2. No contender draws paint yet: the observatory adds the level when both its sides build it.
+
+- `cell`: the cell the bars are drawn in: `width` (CSS px, a float column's), `row_height`, `padding` (each side; the bar spans the inner width, `width − 2 × padding`), `bar_inset` (the bar's distance from the row's top and from the row line, which the fill and bar leave clear: they're `row_height − 1` tall).
+- `tolerance`: `channel_steps`, 8-bit steps a channel may differ (rounding), and `bar_px`, CSS px a bar's edge may differ (one device pixel: GPUI rounds an x.5 edge down, the browser up).
+- `ramps`: each ramp's `stops`, theme tokens evenly spaced over 0..1, and their resolved colors in `light` and `dark` (`#rrggbbaa`). The native test checks them against gpui-kit's default theme, so a theme change fails it.
+- `colors`: a ramp, `as` a `fill` or a `text` color, a `value` (clamped to 0..1), and `expect`: the 8-bit RGBA drawn in light and dark. A value between stops `i` and `i + 1` at fraction `t` is `color-mix(in oklab, stop_i (1 − t) × 100%, stop_i+1)`; `expect` is what Chromium draws for that into a canvas.
+- `bars`: a column's `zero` and a `value` (both clamped to 0..1), and `expect`: the bar's `left` (CSS px from the cell's left: `padding + min(zero, value) × inner`) and `width` (`|value − zero| × inner`), or `null` where it draws none (`value` at zero).
+- `none`: paints that draw nothing (NaN).
+
+`paint_controls_fail` checks that each of these fails it: every color two steps off, every bar 2 device pixels off, and the ramps mixed in sRGB instead of Oklab. `just tall-table paint-fixture --check` fails if `expect` is out of date with the cases and stops.

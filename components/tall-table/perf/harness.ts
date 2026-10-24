@@ -2,6 +2,7 @@
 // its paths, its port, its marks and globals. Everything app-agnostic is
 // shared-web/perf/'s.
 
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from 'playwright';
@@ -23,10 +24,52 @@ export type Shape = (typeof SHAPES)[number];
 export const FILLED_MARK = 'tall-table:filled';
 export const FIRST_FRAME_MARK = 'gpui:first-frame';
 
-export type { Layout, Shown } from '../host/web/src/probe.ts';
-import type { Layout, Shown } from '../host/web/src/probe.ts';
+/** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
+ *  `Cells`, `?cells=`): `text` paints nothing, the control. */
+export const CELL_STYLES = ['text', 'heat', 'bars', 'color'] as const;
+export type CellStyle = (typeof CELL_STYLES)[number];
 
-type Global = { __tallTable?: Shown; __tallTableLayout?: Layout };
+/** The host features the release build in `host/web/dist` was built with
+ *  (`just tall-table build <features>` writes `dist/build.json`); none, the
+ *  base, for a build that wrote none. */
+export function builtFeatures(): string[] {
+  const file = join(hostWebDir, 'dist/build.json');
+  if (!existsSync(file)) return [];
+  const { features } = JSON.parse(readFileSync(file, 'utf8')) as { features: string };
+  return features.split(/[ ,]+/).filter(Boolean);
+}
+
+/** The build's name in results: `base`, or its features. */
+export function buildName(features: string[]): string {
+  return features.length ? features.join('+') : 'base';
+}
+
+export type { Cell, Layout, Shown } from '../host/web/src/probe.ts';
+import type { Cell, Layout, Shown } from '../host/web/src/probe.ts';
+
+type Global = { __tallTable?: Shown; __tallTableLayout?: Layout; __tallTableCells?: Cell[] };
+
+/** The cells the last frame drew, with their paint (`custom-cells`, a
+ *  painted style). */
+export async function drawnCells(page: Page): Promise<Cell[]> {
+  const handle = await page.waitForFunction(() => (globalThis as Global).__tallTableCells ?? false, null, { timeout: 30_000, polling: 10 });
+  return (await handle.jsonValue()) as Cell[];
+}
+
+/** The screen's color at (`x`, `y`) in CSS px, 8-bit RGBA: a 1×1 CSS px
+ *  screenshot, its top-left device pixel. */
+export async function pixel(page: Page, x: number, y: number): Promise<number[]> {
+  const png = (await page.screenshot({ clip: { x, y, width: 1, height: 1 } })).toString('base64');
+  return page.evaluate(async (png) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${png}`;
+    await image.decode();
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const context = canvas.getContext('2d')!;
+    context.drawImage(image, 0, 0);
+    return Array.from(context.getImageData(0, 0, 1, 1).data);
+  }, png);
+}
 
 /** The probe and layout, once the table has drawn both. */
 export async function shown(page: Page): Promise<{ shown: Shown; layout: Layout }> {

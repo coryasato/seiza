@@ -63,4 +63,20 @@ pub struct CellProbe {
     /// The value's exact text (a float's shortest round-trip text).
     pub exact: String,
     pub shown: String,
+    /// Its paint as drawn (`custom-cells`).
+    #[cfg(feature = "custom-cells")]
+    pub paint: PaintProbe,
+}
+
+/// A drawn cell's paint: each `None` where it drew none.
+#[cfg(feature = "custom-cells")]
+#[derive(Debug, Clone, Default, PartialEq)]
+#[non_exhaustive]
+pub struct PaintProbe {
+    /// The fill's color, 8-bit RGBA.
+    pub fill: Option<[u8; 4]>,
+    /// The bar's left edge and width, in CSS px from the cell's left.
+    pub bar: Option<(f32, f32)>,
+    /// The value's color, 8-bit RGBA, where a text ramp set it.
+    pub text: Option<[u8; 4]>,
 }

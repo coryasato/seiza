@@ -11,7 +11,10 @@ crate-type = ["cdylib", "rlib"]
 
 # One feature per table feature, each turning on the table's and the host's
 # code that switches it on at run time (the table's PLAN.md, "Measuring a
-# feature"). None yet: this is the base.
+# feature"). None on: the base.
+[features]
+# `?cells=heat|bars|color` paints every float column through its range.
+custom-cells = ["seiza-tall-table/custom-cells", "tall-table-bridge/custom-cells"]
 
 [dependencies]
 gpui-kit.workspace = true

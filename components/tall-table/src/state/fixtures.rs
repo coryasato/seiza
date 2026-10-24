@@ -19,6 +19,10 @@ use super::{Drag, Paging, TallTableState, row_height, shown_text};
 use crate::column::{CellKind, ColumnKind, LaidOutColumn, TallTableColumn};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 
+/// `paint.json`, with the feature.
+#[cfg(feature = "custom-cells")]
+mod paint;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 

@@ -19,3 +19,16 @@ export interface Layout {
   cellsWidth: number;
   columns: { name: string; x: number; width: number; kind: string; budget: number }[];
 }
+
+/** A drawn cell, as `tall-table-bridge`'s `js::cells` writes it: with
+ *  `custom-cells`, its paint (colors 8-bit RGBA; the bar in CSS px from the
+ *  cell's left). */
+export interface Cell {
+  row: number;
+  column: number;
+  exact: string;
+  shown: string;
+  fill?: number[] | null;
+  text?: number[] | null;
+  bar?: { left: number; width: number } | null;
+}

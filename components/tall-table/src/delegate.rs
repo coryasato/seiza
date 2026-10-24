@@ -40,6 +40,16 @@ pub trait TallTablePage: 'static {
     /// past its end.
     fn value(&self, row: usize, column: usize) -> Option<CellValue<'_>>;
 
+    /// The paint at `row` and `column` (`custom-cells`): a fill, a bar, and
+    /// a text color, each 0..=1 through the column's ramps and bar. Asked
+    /// only of a loaded row's drawn cells, each frame: compute it from the
+    /// value the page already holds. Nothing by default.
+    #[cfg(feature = "custom-cells")]
+    fn paint(&self, row: usize, column: usize) -> crate::CellPaint {
+        let _ = (row, column);
+        crate::CellPaint::default()
+    }
+
     /// The heap bytes it holds, counted against `Paging::budget_bytes`.
     fn heap_bytes(&self) -> usize;
 }

@@ -37,11 +37,12 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 
 **Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` (a dated JSON per run and a note, from [`docs/templates/app/perf/results-note.md`](../../docs/templates/app/perf/results-note.md)); new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; `just tycho report` has refreshed the generated numbers; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above.
 
-**Waiting on** (features of a component or engine Tycho needs; only that crate's `PLAN.md` builds them, and the session that closes one flips its row to *Ready*):
+**Waiting on** (features of a component or engine Tycho needs, and repo-wide changes it adopts; only that crate's `PLAN.md` (or the change's plan) builds them, and the session that closes one flips its row to *Ready*):
 
 | Needs | For | Status |
 |---|---|---|
-| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* none |
+| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2) |
+| `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | A milestone of its own: record the wasm's size effect in `perf/results/`, add the home-path check to `check`, redeploy (no rush) | *Not ready* |
 
 ---
 

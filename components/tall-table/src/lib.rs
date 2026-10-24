@@ -18,6 +18,8 @@ mod column;
 mod delegate;
 mod format;
 mod pages;
+#[cfg(feature = "custom-cells")]
+mod paint;
 mod probe;
 mod scroll;
 mod state;
@@ -26,6 +28,10 @@ mod tall_table;
 pub use activity::ActivityStats;
 pub use column::{ColumnKind, TallTableColumn};
 pub use delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
+#[cfg(feature = "custom-cells")]
+pub use paint::{Bar, CellPaint, Ramp, Stop};
+#[cfg(feature = "custom-cells")]
+pub use probe::PaintProbe;
 pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
 pub use state::{ActivityOptions, Paging, TallTableEvent, TallTableState, TallTableStats, init};
 pub use tall_table::TallTable;

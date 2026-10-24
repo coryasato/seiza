@@ -28,19 +28,20 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 **Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them (root `docs/DECISIONS.md`, "Repo structure"). The changes it needs, all listed here (each done, and recorded in `docs/milestones.md`): `Paging` gains the two settle times (M2 part A, the one change to the table's internals, defaults unchanged), the table's fixtures and their native tests (M2 part C, with `shown_text` split out of the render loop for them, and `seiza-duckdb`'s `summary_queries` returning the queries `open_parquet` sends), `@seiza/duckdb` takes its extension directory as an option (done, M0 part A), and `seiza` gains a `panel` feature (on by default) while its title bar and theme toggle move to Tycho, with the Mac input bindings opt-in (M2 part A), and `seiza::targets` (publishing a control's bounds) moves there from Tycho, as do Tycho's first-draw probe and placeholder screenshot match to `shared-web/perf/` (M2 part B), and `cells.json` gains two hand-written `rounding` cases (M3 part A: fixture data only, no code). Each records its effect on Tycho.
 
-**Waiting on** (features of a component or engine the observatory needs; only that crate's `PLAN.md` builds them, and the session that closes one flips its row to *Ready*):
+**Waiting on** (features of a component or engine the observatory needs, and repo-wide changes it adopts; only that crate's `PLAN.md` (or the change's plan) builds them, and the session that closes one flips its row to *Ready*):
 
 | Needs | For | Status |
 |---|---|---|
-| tall-table `custom-cells` ([its PLAN](../../components/tall-table/PLAN.md), "Drawing") | The wide sheet's heat and bar cells; market watch's flash on change | *Not ready* (tall-table M2, after M1's bare host) |
+| tall-table `custom-cells` ([its PLAN](../../components/tall-table/PLAN.md), "Drawing"; [its README](../../components/tall-table/README.md), "Paint") | The wide sheet's heat and bar cells; market watch's flash on change | *Ready* (2026-10-24, tall-table M2) |
 | tall-table `live` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios") | Market watch | *Not ready* |
 | tall-table `follow` (same) | Live tail | *Not ready* |
+| `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | A milestone of its own: record the wasm's size effect in `perf/results/`, add the home-path check to `check`, redeploy (no rush) | *Not ready* |
 
 ---
 
 ## Active milestone
 
-None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next is the first scenario, the wide sheet ("Long-term goals", "Scenarios"). It waits on the table's `custom-cells` ("Waiting on", above; tall-table M2, the table's second milestone); its checks are drafted once that's ready.
+None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next is the first scenario, the wide sheet ("Long-term goals", "Scenarios"). The table's `custom-cells` it waited on is ready ("Waiting on", above; tall-table M2, 2026-10-24); its checks are drafted next.
 
 The table's base at the wide sheet's 500 columns (tall-table M1, [its results](../../components/tall-table/perf/results/2026-10-23-m1.md), where the numbers are): it keeps up at the reference run, sideways as smoothly as down, but at its 120 px columns and 30 px rows only a few hundred cells are on screen, far fewer than the wide sheet assumed, and at 4× CPU a steady scroll drops frames in both shapes. Denser stops need narrower columns and shorter rows, settings the base lacks: the wide sheet's plan asks the table for them.
 

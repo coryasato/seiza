@@ -54,6 +54,31 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Scrollbar { track, thumb }`: the vertical scrollbar's bounds, when they change, for scripts that drag it.
 - `Probe`, `Layout` (with `probe_frames(true)`) and `Cells` (with `probe_cells(true)`): what a frame shows, where the cells are, and every drawn cell's exact and shown text, for scripts on a canvas with no DOM.
 
+**Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its column's range (its source's minimum and maximum, say):
+
+```rust
+use seiza_tall_table::{Bar, CellPaint, Ramp};
+
+let heat = TallTableColumn::new("change", ColumnKind::Float)
+    .fill(Ramp::new(&[|theme| theme.background, |theme| theme.chart_1]));     // the whole cell
+let bars = TallTableColumn::new("delta", ColumnKind::Float)
+    .bar(Bar::new(|theme| theme.chart_1).zero(0.5));                           // from the middle
+let signed = TallTableColumn::new("pnl", ColumnKind::Float)
+    .text_ramp(Ramp::new(&[|t| t.chart_bearish, |t| t.foreground, |t| t.chart_bullish])); // the value's color
+
+impl TallTablePage for MyPage {
+    fn paint(&self, row: usize, column: usize) -> CellPaint {
+        CellPaint { fill: Some(self.fraction(row, column)), ..CellPaint::default() }
+    }
+    // value, heap_bytes …
+}
+```
+
+- **A ramp** (`Ramp::new`, two or more stops, evenly spaced) mixes in Oklab, as CSS's `color-mix(in oklab, …)` does. Its stops are theme tokens, read each frame: a theme switch recolors every cell on its frame, with no page read again.
+- **A bar** spans from the column's `zero` (0..1 of the cell's inner width, the left edge by default) to the page's value, so a value below zero grows left.
+- **Drawn** under the text, a fill first and a bar over it, both clear of the line under the row. A loaded row's drawn cells ask their page each frame (a placeholder or failed row paints nothing), so `paint` computes from the value the page holds. A value past 0..1 is clamped; `None` or NaN draws nothing, as does a field whose column has no ramp or bar (a debug assertion). The jump's highlight is drawn over a filled cell, edged, so it still shows there.
+- **Probed:** with `probe_cells`, each `CellProbe` carries its `paint` as drawn: fill and text colors as 8-bit RGBA, the bar's left edge and width in CSS px. What a DOM implementation must match: [`fixtures/README.md`](fixtures/README.md), `paint.json`.
+
 Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
@@ -61,8 +86,9 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | Feature | What it adds | Cost (wasm, brotli) | Measured in |
 |---|---|---|---|
 | *(base)* | Paging, prefetch, and a page cache; f64-row scrolling with its own scrollbars, wheel, and keys; columns by kind; rounding, middle cuts, and the exact-value tooltip; a jump-to-row highlight | The baseline every feature's cost is read against: the bare host's whole wasm (gpui-kit and `seiza` included) and its work per frame | [The bare host's results](perf/results/) |
+| `custom-cells` | A page's paint for a cell: a fill through a color ramp, a bar from a zero point, a text color ("Paint", above) | +2.9 KiB brotli (+7.8 KiB before). Frame work: nothing compiled in but unused; with every visible cell of the wide shape painted, +0.6–0.8 ms a frame (9–12%) at the reference run, no late frames | [`perf/results/2026-10-24-m2.md`](perf/results/2026-10-24-m2.md) |
 
-No features yet. What's planned, each off by default: [`PLAN.md`](PLAN.md).
+What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
@@ -74,6 +100,7 @@ No features yet. What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 - **Accessibility:** screen readers see nothing: the canvas has no accessibility tree. *Today:* it scrolls entirely from the keyboard (above). *To close it:* a hidden DOM mirror of the visible rows, kept in step with each frame.
 - **Text selection and copy:** cells can't be selected or copied. *To close it:* a selection feature, with copy through the browser's clipboard event.
+- **Color alone** (`custom-cells`): a heat map's fill, a bar's length, and a value's color carry meaning that a screen reader can't see either, and that a reader who can't tell the colors apart misses. *Today:* the value's text is always drawn over its paint, so the number is there, and a host picks ramps with contrast for its text. *To close it:* the DOM mirror above, carrying each cell's paint as text.
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs
@@ -82,6 +109,6 @@ No features yet. What's planned, each off by default: [`PLAN.md`](PLAN.md).
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, gotchas. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
-| [`fixtures/README.md`](fixtures/README.md) | What another implementation of the base level must match: page requests, cell text, page SQL. |
+| [`fixtures/README.md`](fixtures/README.md) | What another implementation must match: page requests, cell text, page SQL, and a cell's paint. |
 | [`PLAN.md`](PLAN.md) | The features to come, in order, and the active milestone. |
 | [`perf/results/`](perf/results/) | What the table measures of itself in its bare host (`host/`): the base's bytes and frame work, then each feature's added cost. Budgets are the apps' that build it. |

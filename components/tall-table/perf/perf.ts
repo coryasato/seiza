@@ -15,8 +15,12 @@
 // canvas frames), with what each frame showed (`__seizaFrameSample`):
 // placeholder frames and the visible cells (rows × columns on screen).
 //
+// The build is whichever `just tall-table build [features]` made last
+// (recorded as `build`); with `custom-cells`, `--cells text|heat|bars|color`
+// paints every float column that way (`text`, the control, paints nothing).
+//
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
-//          [--profile reference|throttled] [--label <name>]
+//          [--profile reference|throttled] [--cells <style>] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -26,7 +30,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { FILLED_MARK, PORT, SHAPES, filledWhere, hostWebDir, perfDir, shown, visibleColumns, type Layout, type Shape, type Shown } from './harness.ts';
+import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, buildName, builtFeatures, filledWhere, hostWebDir, perfDir, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 /** `--name`'s value, which must be one of `known`; all of them without it. */
@@ -39,6 +43,12 @@ function pick<T extends string>(name: string, known: readonly T[]): T[] {
 const shapes = pick('shape', SHAPES);
 const profiles = pick('profile', PROFILES.map((profile) => profile.name)).map((name) => PROFILES.find((profile) => profile.name === name)!);
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs ${option('runs')}: not a positive whole number`);
+const features = builtFeatures();
+const BUILD = buildName(features);
+const CELLS = option('cells') as CellStyle | undefined;
+if (CELLS !== undefined && !CELL_STYLES.includes(CELLS)) throw new Error(`--cells ${CELLS}: not one of ${CELL_STYLES.join(', ')}`);
+if (CELLS !== undefined && !features.includes('custom-cells')) throw new Error('--cells needs the host built with custom-cells: `just tall-table build custom-cells`');
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -122,7 +132,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
   let session: Awaited<ReturnType<typeof open>> | null = null;
   try {
     // Inside the try: a browser that fails to launch fails this run, not the rest.
-    session = await open(chromium, url, { profile, params: { shape }, init: [workRecorder, frameRecorder] });
+    session = await open(chromium, url, { profile, params: CELLS ? { shape, cells: CELLS } : { shape }, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
     await waitMark(page, FILLED_MARK);
@@ -228,7 +238,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, tailMs: TAIL_MS, build: 'base' };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

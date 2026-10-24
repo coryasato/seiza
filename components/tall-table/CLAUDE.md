@@ -21,37 +21,41 @@ These add to the repo-wide rules.
 
 - **`src/state.rs`**: `TallTableState<D>`, the entity: the scroll model and page cache, hover and tooltip, the glyph measurements, and the drawing of the header and body. Its public setters (`jump_to`, `set_rows`, `set_columns`, `retry_failed`, `close`) and readers; `TallTableEvent`, `TallTableStats`, `Paging` (1024-row pages, prefetch 2, 64 MiB, 3 in flight, a 250 ms scroll settle, an 80 ms drag settle), `ActivityOptions`; the keys (`init`, `actions!` under `seiza_tall_table`).
 - **`src/tall_table.rs`**: `TallTable<D>`, the `RenderOnce` element a host renders: focus, key context and actions, the press that focuses it, and the border (the focus ring when focused), around the state's view. The same split as gpui-kit's `DataTable` and `TableState`.
-- **`src/delegate.rs`**: `TallTableDelegate` (`load_page`, `cancel`), `TallTablePage` (`value`, `heap_bytes`), `CellValue`, `PageError`, `PageLoad`.
-- **`src/column.rs`**: `TallTableColumn` and `ColumnKind`, and the layout: widths by kind, at least the header's width, an integer column fitting its widest value at the font's widest number advance (`Glyphs`, read once per font).
+- **`src/delegate.rs`**: `TallTableDelegate` (`load_page`, `cancel`), `TallTablePage` (`value`, `heap_bytes`, and with `custom-cells` `paint`), `CellValue`, `PageError`, `PageLoad`.
+- **`src/paint.rs`** (`custom-cells`): `CellPaint`, `Ramp`, `Bar`, `Stop`; a column's ramps resolved from the theme once a frame (`ColumnPaint`), mixed in Oklab, premultiplied, as CSS mixes (`Oklab`); a cell's fill and bar as quads and its text color (`draw`). `render_body` collects the quads in the row loop and paints them from one `canvas`, the cells layer's first child (`docs/DECISIONS.md`, "Features").
+- **`src/column.rs`**: `TallTableColumn` (with `custom-cells`, its `fill`, `bar`, and `text_ramp`) and `ColumnKind`, and the layout: widths by kind, at least the header's width, an integer column fitting its widest value at the font's widest number advance (`Glyphs`, read once per font).
 - **`src/pages.rs`**: `PageCache`, pure bookkeeping (tested natively): which pages are loaded, in flight, draining (cancelled but still answering, counted against `max_in_flight`), failed; what to fetch (visible pages first: no prefetch starts while a visible page is loading), cancel, and evict (LRU past the budget).
 - **`src/scroll.rs`**: `RowScroll`, the f64 row position, and the scrollbar thumb math (tested natively).
 - **`src/format.rs`**: `fit_float`, rounding a float to its column like a spreadsheet's automatic format (tested natively).
 - **`src/activity.rs`**: the frames drawn over the host's window, for rows/s and filled frames.
-- **`src/probe.rs`**: `TallTableProbe`, `TallTableLayout`, `ColumnProbe`, `CellProbe`: what scripts read.
-- **`src/state/fixtures.rs`** (tests only): the fixtures' native tests (`fixtures/README.md`). A child of `state`, so the paging scenarios drive the state's own scroll, drag, and paging paths: a `TallTableState` in GPUI's test app (gpui-kit's `test-support`, a dev-dependency), over a delegate that answers a read only when the scenario says, on GPUI's test clock (only `advance_clock` moves it, so the settle times are the table's own timers). Cell text goes through `shown_text`, what `render_body` draws.
+- **`src/probe.rs`**: `TallTableProbe`, `TallTableLayout`, `ColumnProbe`, `CellProbe` (with `custom-cells`, its `PaintProbe`): what scripts read.
+- **`src/state/fixtures.rs`** (tests only): the fixtures' native tests (`fixtures/README.md`). A child of `state`, so the paging scenarios drive the state's own scroll, drag, and paging paths: a `TallTableState` in GPUI's test app (gpui-kit's `test-support`, a dev-dependency), over a delegate that answers a read only when the scenario says, on GPUI's test clock (only `advance_clock` moves it, so the settle times are the table's own timers). Cell text goes through `shown_text`, what `render_body` draws. Its child `fixtures/paint.rs` (with `custom-cells`) draws the paint fixture in a window of the test app and reads the cell probe, in the light theme and then the dark.
 
 **Host-side crates** (beside the component, never its dependencies):
 
 - **`bridge/`** (`tall-table-bridge`): what a seiza host does with the table's events, written once for every host (Tycho, the observatory's GPUI contender, the bare host): `Publish` (the filled mark with `mark_after_current_task`, the scrollbar's targets `table-scroll-track` and `table-scroll-thumb`, the probe, layout, and drawn cells on globals the host names) and `js` (the probes as JS values, for a host that puts them somewhere of its own). A host's own state and panel rows stay in its own `match`. It depends on `seiza` and the table, so it can't live in either (`docs/DECISIONS.md`, "Hosts"). `Publish::event` is `#[inline]`: its unused arms fold away in each host.
-- **`host/`** (`host/crate/`, package `tall-table-host`; `host/web/`, `@seiza/tall-table-host`): the bare host, where each feature's own cost is measured (`PLAN.md`, "Measuring a feature"). The table alone over rows answered from memory (`rows.rs`: each value a function of its row and column, a page materialized when its read resolves, none for a read cancelled before then, answered as the DuckDB source's Arrow pages are), on `seiza` without the panel, no engine. `?shape=narrow` (the observatory's 11 columns' kinds) or `wide` (500 float columns), 1,567,523 rows either way; `?delay=<ms>` holds each read; `?perf` turns on the probes (`__tallTable`, `__tallTableLayout`). It marks `tall-table:filled` and publishes the scrollbar's targets; `web/src/main.ts` defines `__seizaFrameSample`. Never deployed. One Cargo feature per table feature, each switching the feature on at run time, once there are features.
+- **`host/`** (`host/crate/`, package `tall-table-host`; `host/web/`, `@seiza/tall-table-host`): the bare host, where each feature's own cost is measured (`PLAN.md`, "Measuring a feature"). The table alone over rows answered from memory (`rows.rs`: each value a function of its row and column, a page materialized when its read resolves, none for a read cancelled before then, answered as the DuckDB source's Arrow pages are), on `seiza` without the panel, no engine. `?shape=narrow` (the observatory's 11 columns' kinds) or `wide` (500 float columns), 1,567,523 rows either way; `?delay=<ms>` holds each read; `?perf` turns on the probes (`__tallTable`, `__tallTableLayout`). It marks `tall-table:filled` and publishes the scrollbar's targets; `web/src/main.ts` defines `__seizaFrameSample`. Never deployed. One Cargo feature per table feature, each switching the feature on at run time: `custom-cells` paints every float column through its range (`rows.rs`'s `Cells`: `?cells=text|heat|bars|color`, `text` the control), publishes the drawn cells with `?perf&probe-cells` (`__tallTableCells`, for the smoke check: never in a perf run, whose frames it would slow), and takes `?jump=<row>`. `just tall-table build <features>` records what it was built with in `web/dist/build.json`, which the scripts read.
 
 **Cells:** a value cell is a plain block, never a flex container: GPUI cuts text (`text_overflow`) only when its width is definite, and in a flex cell a right-aligned number spilled out the left and lost its front. Text ends in "…", its line breaks shown as `¶` (`cell_text`; `shape_line` debug-asserts there's no `\n`). One tooltip, for the hovered cell (`hover_at`, mapped from the scroll model, not per-cell hitboxes), shows a rounded, cut, or one-lined value's exact text once the pointer has rested 500 ms and its page is loaded (`decide_tooltip`, in render), at once within 300 ms of the last one going, drawn with gpui-kit's `Tooltip` and gpui-base's `TooltipPositioner` in a `deferred` (Root's tooltip overlay is crate-private).
+
+**Features** (`Cargo.toml`, each off by default): code behind one is `#[cfg(feature = "…")]`, and the base build must not change with it off (`just tall-table size` checks its symbols are absent). The bridge and the host forward each one (`tall-table-host/custom-cells` turns on the table's and the bridge's). A theme color a feature draws comes in as a `Stop` (`fn(&Theme) -> Hsla`), resolved each frame, never stored in a page.
 
 ## GPUI Kit gotchas (check before debugging)
 
 - **`use gpui_kit::*` brings gpui-kit's `test` attribute**, which shadows `#[test]` ("recursion limit reached while expanding `#[test]`"). A test module imports what it needs by name, not `super::*`.
+- **A `fn` pointer compared with `==` warns** (`unpredictable_function_pointer_comparisons`), in a derived `PartialEq` too: `Bar` compares its `Stop` with `std::ptr::fn_addr_eq`. A `Vec` of them (`Ramp`) doesn't warn.
 - **A scrollbar release can arrive before the next paint.** The drag's mouse-move and mouse-up handlers are registered every frame in the body's `canvas`, not only once a drag starts: a quick click on the track missed its release in WebKit, and the next pointer move scrolled the table.
 
 ## Layout
 
 ```
 components/tall-table/
-  src/              # lib.rs (re-exports), state.rs (+ state/fixtures.rs, tests only), tall_table.rs, delegate.rs, column.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
-  fixtures/         # paging.json, cells.json, sql.json: what "the same" means for a DOM contender; README.md (the formats)
-  Cargo.toml        # seiza-tall-table: gpui-kit only (dev: gpui-kit's test-support, futures, serde_json)
+  src/              # lib.rs (re-exports), state.rs (+ state/fixtures.rs and state/fixtures/paint.rs, tests only), tall_table.rs, delegate.rs, column.rs, paint.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
+  fixtures/         # paging.json, cells.json, sql.json, paint.json: what "the same" means for a DOM contender; README.md (the formats)
+  Cargo.toml        # seiza-tall-table: gpui-kit only (dev: gpui-kit's test-support, futures, serde_json); features, each off by default
   bridge/           # tall-table-bridge: the table's events → a seiza host's marks, targets, and probes (Tycho, the GPUI contender, the bare host)
   host/             # the bare host: crate/ (tall-table-host: lib.rs, host.rs, rows.rs), web/ (Vite: index.html, src/main.ts, vite.config.ts; pkg/ and dist/ gitignored)
-  perf/             # harness.ts (the host's paths, port, marks, globals), size.ts, perf.ts, smoke.ts; results/: each feature's own cost, dated (no budgets)
+  perf/             # harness.ts (the host's paths, port, marks, globals, the build's features), size.ts, perf.ts, smoke.ts, paint-fixture.ts; results/: each feature's own cost, dated (no budgets)
   docs/             # DECISIONS.md, milestones.md, LESSONS.md
   PLAN.md           # its features to come, in order; the active milestone
   README.md         # for the crate's user
@@ -62,13 +66,14 @@ components/tall-table/
 ## Commands
 
 ```
-just tall-table dev          # the bare host: debug wasm + Vite dev server with COOP/COEP (?shape=wide, ?delay=<ms>)
-just tall-table build        # its release build: wasm alone (-p) + wasm-opt, Vite build, asset sizes
+just tall-table dev [features]   # the bare host: debug wasm + Vite dev server with COOP/COEP (?shape=wide, ?delay=<ms>; custom-cells: ?cells=heat)
+just tall-table build [features] # its release build: wasm alone (-p) + wasm-opt, Vite build, asset sizes; the base without features
 just tall-table preview      # serve that build (brotli)
-just tall-table size [flags] # its wasm raw, after wasm-opt, brotli 11; no engine or panel linked (and the control); the GPUI contender's shipped wasm beside it (--label)
-just tall-table perf [flags] # the base's frame work per shape: a vertical scroll, a vertical fling, a horizontal fling (wide), reference + throttled, cold, median of 10 (--runs, --shape, --profile, --label); run `build` first
-just tall-table smoke [flags] # the release build loads, fills, and scrolls in both shapes in Chromium, Firefox, WebKit (--browsers); run `build` first
-just tall-table test         # native tests: the table's and the host's rows (the bridge's JS is wasm-only; Tycho's checks and the cell fixture read its fields)
+just tall-table size [flags] # its wasm raw, after wasm-opt, brotli 11, the base and each feature's build; no engine or panel linked (and the control); no feature's symbols in the base (and the control); the base at another commit (--against); the GPUI contender's shipped wasm beside it (--label)
+just tall-table perf [flags] # frame work per shape on the last build: a vertical scroll, a vertical fling, a horizontal fling (wide), reference + throttled, cold, median of 10 (--runs, --shape, --profile, --cells, --label); run `build` first
+just tall-table smoke [flags] # the release build loads, fills, and scrolls in both shapes in Chromium, Firefox, WebKit, and at each paint style if built with custom-cells (--browsers); run `build` first
+just tall-table test         # native tests with every feature off, then on: the table's and the host's rows (the bridge's JS is wasm-only; Tycho's checks and the cell fixture read its fields)
+just tall-table paint-fixture [--check] # fixtures/paint.json's expected colors from Chromium's color-mix(in oklab), and its bars
 just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, the host; wasm32 and native), tsc (the host's page, perf/)
 ```
 
@@ -80,9 +85,9 @@ just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, 
 
 ```
 cargo test -p seiza-tall-table   # native tests: page cache, scroll model, float fitting, cell text, the paging and cell fixtures
-just tall-table test             # those, and the host's rows
+just tall-table test             # those, and the host's rows, with every feature off and then on (the paint fixture)
 ```
 
-**The fixtures** (`fixtures/README.md`) pin what a DOM contender must match. A change that alters the table's page requests, its cell text, or its page SQL fails them: update the fixture in the same change (and so every DOM contender's tests). `cells.json`'s drawn cells come from the observatory's GPUI contender (`just observatory cell-fixture`; `--check` compares); its `rounding` cases, `paging.json`, and `sql.json` (whose test is the DuckDB engine's, where the SQL is written) are edited by hand. `just observatory fixtures` runs all three.
+**The fixtures** (`fixtures/README.md`) pin what a DOM contender must match. A change that alters the table's page requests, its cell text, or its page SQL fails them: update the fixture in the same change (and so every DOM contender's tests). `cells.json`'s drawn cells come from the observatory's GPUI contender (`just observatory cell-fixture`; `--check` compares); its `rounding` cases, `paging.json`, and `sql.json` (whose test is the DuckDB engine's, where the SQL is written) are edited by hand. `paint.json`'s cases and stops are by hand and its expectations come from Chromium (`just tall-table paint-fixture`; `--check` compares). `just observatory fixtures` runs all three.
 
 The view runs in Tycho's checks (`just tycho table`, `jump`, `cells`, `errors`, and the suite's table and jump parts) and in the bare host's (`just tall-table smoke`, `perf`).

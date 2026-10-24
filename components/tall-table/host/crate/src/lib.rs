@@ -6,7 +6,8 @@
 //! The page's URL picks the rows: `?shape=narrow` (the default, the
 //! observatory's 11 columns) or `?shape=wide` (500 float columns), and
 //! `?delay=<ms>` holds each page read that long. `?perf` turns on the probes
-//! the scripts read (`__tallTable`, `__tallTableLayout`).
+//! the scripts read (`__tallTable`, `__tallTableLayout`). With `custom-cells`,
+//! `?cells=text|heat|bars|color` paints every float column (`rows::Cells`).
 
 mod host;
 pub mod rows;
@@ -30,9 +31,23 @@ pub fn start(ui_font: Vec<u8>) {
         .filter(|ms| *ms > 0)
         .map(std::time::Duration::from_millis);
     let probing = seiza::url::has_param("perf");
+    #[cfg(feature = "custom-cells")]
+    let cells = seiza::url::param("cells")
+        .and_then(|name| rows::Cells::from_name(&name))
+        .unwrap_or(rows::Cells::Text);
     seiza::Bootstrap::new(host::TITLE, ui_font).run(move |window, cx| {
         seiza_tall_table::init(cx);
-        cx.new(|cx| Host::new(shape, delay, probing, window, cx))
-            .into()
+        cx.new(|cx| {
+            Host::new(
+                shape,
+                delay,
+                #[cfg(feature = "custom-cells")]
+                cells,
+                probing,
+                window,
+                cx,
+            )
+        })
+        .into()
     });
 }

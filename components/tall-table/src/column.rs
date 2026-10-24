@@ -3,12 +3,22 @@
 
 use gpui_kit::SharedString;
 
+#[cfg(feature = "custom-cells")]
+use crate::paint::{Bar, Ramp};
+
 /// A column: its name (the header) and the kind of value it holds, which
 /// sets its width and how its values are aligned, rounded, and cut.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TallTableColumn {
     name: SharedString,
     kind: ColumnKind,
+    /// What turns a page's paint into pixels (`custom-cells`).
+    #[cfg(feature = "custom-cells")]
+    pub(crate) fill: Option<Ramp>,
+    #[cfg(feature = "custom-cells")]
+    pub(crate) bar: Option<Bar>,
+    #[cfg(feature = "custom-cells")]
+    pub(crate) text_ramp: Option<Ramp>,
 }
 
 impl TallTableColumn {
@@ -16,6 +26,41 @@ impl TallTableColumn {
         Self {
             name: name.into(),
             kind,
+            #[cfg(feature = "custom-cells")]
+            fill: None,
+            #[cfg(feature = "custom-cells")]
+            bar: None,
+            #[cfg(feature = "custom-cells")]
+            text_ramp: None,
+        }
+    }
+
+    /// A page's [`CellPaint::fill`](crate::CellPaint::fill) goes through
+    /// `ramp`: the whole cell.
+    #[cfg(feature = "custom-cells")]
+    pub fn fill(self, ramp: Ramp) -> Self {
+        Self {
+            fill: Some(ramp),
+            ..self
+        }
+    }
+
+    /// A page's [`CellPaint::bar`](crate::CellPaint::bar) draws as `bar`.
+    #[cfg(feature = "custom-cells")]
+    pub fn bar(self, bar: Bar) -> Self {
+        Self {
+            bar: Some(bar),
+            ..self
+        }
+    }
+
+    /// A page's [`CellPaint::text`](crate::CellPaint::text) goes through
+    /// `ramp`: the value's color.
+    #[cfg(feature = "custom-cells")]
+    pub fn text_ramp(self, ramp: Ramp) -> Self {
+        Self {
+            text_ramp: Some(ramp),
+            ..self
         }
     }
 

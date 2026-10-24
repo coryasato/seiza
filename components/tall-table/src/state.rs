@@ -14,6 +14,8 @@ use crate::column::{CELL_PADDING, CellKind, LaidOutColumn, TallTableColumn, layo
 use crate::delegate::{CellValue, PageError, TallTableDelegate, TallTablePage as _};
 use crate::format;
 use crate::pages::{Direction, PageCache, RowState};
+#[cfg(feature = "custom-cells")]
+use crate::paint;
 use crate::probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
 use crate::scroll::{self, RowScroll};
 
@@ -1051,8 +1053,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let mut last_cell = None;
         let probe_frames = self.probe_frames;
         let mut cell_probes = self.probe_cells.then(Vec::new);
+        // The fills and bars, in the cells layer's coordinates, painted
+        // under the cells' text in this order (`docs/DECISIONS.md`, "Features").
+        #[cfg(feature = "custom-cells")]
+        let mut quads: Vec<PaintQuad> = Vec::new();
         {
             let theme = cx.theme();
+            #[cfg(feature = "custom-cells")]
+            let paints: Vec<paint::ColumnPaint> = columns
+                .iter()
+                .map(|(index, _)| paint::ColumnPaint::resolve(&self.column_info[*index], theme))
+                .collect();
             for row in visible.clone() {
                 let top = px((self.scroll.offset_of(row) * f64::from(f32::from(row_h))) as f32);
                 row_backgrounds.push(
@@ -1087,13 +1098,59 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         if probe_frames && row + 1 == visible.end {
                             last_cell = page.value(index, 0).map(|value| value.to_string());
                         }
-                        for (column_index, column) in &columns {
+                        #[cfg_attr(not(feature = "custom-cells"), expect(unused_variables))]
+                        for (position, (column_index, column)) in columns.iter().enumerate() {
                             let value = page.value(index, *column_index).unwrap_or(CellValue::Null);
                             let exact = cell_probes.is_some().then(|| value.to_string());
-                            let color = if matches!(value, CellValue::Null) {
+                            #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
+                            let mut color = if matches!(value, CellValue::Null) {
                                 theme.muted_foreground
                             } else {
                                 theme.foreground
+                            };
+                            #[cfg(feature = "custom-cells")]
+                            let drawn = {
+                                // A column with no ramp or bar draws no
+                                // paint: its page isn't asked, except in a
+                                // debug build, which asserts it answers none.
+                                let drawn =
+                                    if paints[position].is_empty() && !cfg!(debug_assertions) {
+                                        paint::DrawnPaint::default()
+                                    } else {
+                                        paint::draw(
+                                            page.paint(index, *column_index),
+                                            &paints[position],
+                                            column.x - self.scroll_x,
+                                            f32::from(top),
+                                            column.width,
+                                            f32::from(row_h),
+                                        )
+                                    };
+                                if let Some((bounds, color)) = drawn.fill {
+                                    quads.push(fill(bounds, color));
+                                    // The jump's highlight, which the row
+                                    // draws under the cells, over the fill,
+                                    // edged: its tint alone vanished on a
+                                    // blue ramp.
+                                    if self.marked == Some(row) {
+                                        quads.push(
+                                            fill(bounds, theme.table_active)
+                                                .border_widths(Edges {
+                                                    top: px(1.),
+                                                    bottom: px(1.),
+                                                    ..Edges::default()
+                                                })
+                                                .border_color(theme.table_active_border),
+                                        );
+                                    }
+                                }
+                                if let Some((bounds, color)) = drawn.bar {
+                                    quads.push(fill(bounds, color));
+                                }
+                                if let Some(text) = drawn.text {
+                                    color = text.into();
+                                }
+                                drawn
                             };
                             let text = shown_text(column, value);
                             if let (Some(probes), Some(exact)) = (cell_probes.as_mut(), exact) {
@@ -1102,6 +1159,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     column: *column_index,
                                     exact,
                                     shown: text.clone(),
+                                    #[cfg(feature = "custom-cells")]
+                                    paint: drawn.probe(column.x - self.scroll_x),
                                 });
                             }
                             cells.push(
@@ -1218,6 +1277,40 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let horizontal = self.horizontal_thumb();
         let wide = self.max_scroll_x() > 0.0;
         let theme = cx.theme();
+        let cells_layer = div()
+            .id("tall-table-cells")
+            .absolute()
+            .top_0()
+            .bottom(bar)
+            .left(px(gutter))
+            .right(bar)
+            .overflow_hidden()
+            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                this.hover_at(event.position, cx);
+            }))
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if !*hovered {
+                    this.hide_tooltip(cx);
+                }
+            }));
+        // One element for every fill and bar, the layer's first child: under
+        // the text, clipped with the cells.
+        #[cfg(feature = "custom-cells")]
+        let cells_layer = cells_layer.when(!quads.is_empty(), |layer| {
+            layer.child(
+                canvas(
+                    |_, _, _| {},
+                    move |bounds, _, window, _| {
+                        for mut quad in quads {
+                            quad.bounds.origin += bounds.origin;
+                            window.paint_quad(quad);
+                        }
+                    },
+                )
+                .absolute()
+                .size_full(),
+            )
+        });
 
         div()
             .relative()
@@ -1278,25 +1371,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .size_full(),
             )
             .children(row_backgrounds)
-            .child(
-                div()
-                    .id("tall-table-cells")
-                    .absolute()
-                    .top_0()
-                    .bottom(bar)
-                    .left(px(gutter))
-                    .right(bar)
-                    .overflow_hidden()
-                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                        this.hover_at(event.position, cx);
-                    }))
-                    .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
-                        if !*hovered {
-                            this.hide_tooltip(cx);
-                        }
-                    }))
-                    .children(cells),
-            )
+            .child(cells_layer.children(cells))
             .child(
                 div()
                     .absolute()

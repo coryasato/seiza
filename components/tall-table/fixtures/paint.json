@@ -1,0 +1,44 @@
+{
+  "about": "custom-cells: a page's paint as the table draws it, for a DOM contender to match. Its format: README.md, `paint.json`. Stops, by hand from the theme (the native test checks them); `expect` and each bar's `left` and `width`: `just tall-table paint-fixture`, from Chromium's color-mix(in oklab) and the bar's formula.",
+  "cell": {"width":120,"row_height":30,"padding":8,"bar_inset":6},
+  "tolerance": {"channel_steps":1,"bar_px":0.5},
+  "ramps": {
+    "heat": {"stops":["background","chart_1"],"light":["#ffffffff","#93c5fdff"],"dark":["#0a0a0aff","#93c5fdff"]},
+    "signed": {"stops":["chart_bearish","foreground","chart_bullish"],"light":["#dc2626ff","#0a0a0aff","#16a34aff"],"dark":["#dc2626ff","#fafafaff","#16a34aff"]}
+  },
+  "colors": [
+    {"ramp":"heat","as":"fill","value":0,"expect":{"light":[255,255,255,255],"dark":[10,10,10,255]}},
+    {"ramp":"heat","as":"fill","value":0.1,"expect":{"light":[244,249,255,255],"dark":[21,25,29,255]}},
+    {"ramp":"heat","as":"fill","value":0.25,"expect":{"light":[228,241,255,255],"dark":[40,49,60,255]}},
+    {"ramp":"heat","as":"fill","value":0.5,"expect":{"light":[201,226,255,255],"dark":[73,95,119,255]}},
+    {"ramp":"heat","as":"fill","value":0.75,"expect":{"light":[174,212,254,255],"dark":[109,144,184,255]}},
+    {"ramp":"heat","as":"fill","value":0.9,"expect":{"light":[158,203,254,255],"dark":[132,176,225,255]}},
+    {"ramp":"heat","as":"fill","value":1,"expect":{"light":[147,197,253,255],"dark":[147,197,253,255]}},
+    {"ramp":"heat","as":"fill","value":-0.5,"why":"clamped to 0","expect":{"light":[255,255,255,255],"dark":[10,10,10,255]}},
+    {"ramp":"heat","as":"fill","value":1.5,"why":"clamped to 1","expect":{"light":[147,197,253,255],"dark":[147,197,253,255]}},
+    {"ramp":"signed","as":"text","value":0,"expect":{"light":[220,38,38,255],"dark":[220,38,38,255]}},
+    {"ramp":"signed","as":"text","value":0.2,"expect":{"light":[128,35,30,255],"dark":[241,137,126,255]}},
+    {"ramp":"signed","as":"text","value":0.4,"expect":{"light":[47,21,18,255],"dark":[251,213,208,255]}},
+    {"ramp":"signed","as":"text","value":0.5,"why":"the middle stop","expect":{"light":[10,10,10,255],"dark":[250,250,250,255]}},
+    {"ramp":"signed","as":"text","value":0.6,"expect":{"light":[20,36,23,255],"dark":[212,233,214,255]}},
+    {"ramp":"signed","as":"text","value":0.8,"expect":{"light":[30,96,48,255],"dark":[133,199,145,255]}},
+    {"ramp":"signed","as":"text","value":1,"expect":{"light":[22,163,74,255],"dark":[22,163,74,255]}},
+    {"ramp":"signed","as":"fill","value":0.3,"why":"a fill through a three-stop ramp","expect":{"light":[86,29,24,255],"dark":[248,176,166,255]}},
+    {"ramp":"heat","as":"text","value":0.6,"why":"a text color through a two-stop ramp","expect":{"light":[190,221,255,255],"dark":[87,114,145,255]}}
+  ],
+  "bars": [
+    {"zero":0,"value":0,"expect":null},
+    {"zero":0,"value":0.3,"expect":{"left":8,"width":31.2}},
+    {"zero":0,"value":1,"expect":{"left":8,"width":104}},
+    {"zero":0.5,"value":0.1,"why":"left of zero: grows left","expect":{"left":18.4,"width":41.6}},
+    {"zero":0.5,"value":0.5,"why":"at zero: no bar","expect":null},
+    {"zero":0.5,"value":0.77,"expect":{"left":60,"width":28.08}},
+    {"zero":0.5,"value":1.2,"why":"clamped to 1","expect":{"left":60,"width":52}},
+    {"zero":1,"value":0.4,"why":"zero at the right edge","expect":{"left":49.6,"width":62.4}},
+    {"zero":0.25,"value":0.6,"expect":{"left":34,"width":36.4}}
+  ],
+  "none": [
+    {"paint":"fill","value":"NaN","why":"NaN draws nothing"},
+    {"paint":"bar","value":"NaN","why":"NaN draws nothing"}
+  ]
+}
