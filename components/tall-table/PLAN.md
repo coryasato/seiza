@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 and M2 (built, in [`docs/milestones.md`](docs/milestones.md)), M3 (active), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 and M2 (built, in [`docs/milestones.md`](docs/milestones.md)), M3 (active), `custom-cells`' [follow-ups](#follow-ups-to-built-features) (one session, before an app adopts it), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -211,6 +211,34 @@ impl TallTableColumn {
 
 ---
 
+## Follow-ups to built features
+
+### `custom-cells`
+
+From a design review after M2 and a comparison with other tables' heat and bar cells (Perspective, Excel, pandas' Styler, Great Tables, Grafana), 2026-10-24. Each judged on the table's merits, none for the observatory's sake.
+
+**Before an app adopts it:** one session, after M3 part B and before any app's milestone builds a column's paint, whichever comes first (the observatory's wide sheet is the first; its "Waiting on" row points here). Commit as `tall-table: custom-cells follow-ups (M2 follow-up)`.
+
+- **A bar's color below zero:** `Bar::below(stop)`, the color of a bar that ends left of its zero, as Excel's, pandas', and Perspective's negative bars are; `None` draws both sides in `color`. A branch per bar, no extra quad. **And `Bar` becomes `#[non_exhaustive]`:** today a host can build `Bar { zero, color }`, which any added field breaks. `Bar` has no `Default`, so unlike `CellPaint` (`docs/DECISIONS.md`, "Features", the API as built) the attribute takes nothing a host needs: it builds with `Bar::new(color).zero(z).below(stop)`. This is the one breaking change here, so it lands before a host names `Bar`'s fields.
+- **Text over a fill picks its own contrast:** a cell with a fill and no text color draws its text in `foreground` or `background`, whichever's Oklab lightness is farther from the fill's (the mix has it in hand; a translucent fill is composited over the row's background first). Two theme tokens that already contrast with each other, so no threshold to tune, and a theme switch flips them on its frame. Oklab L, not WCAG or APCA: this picks one of two colors, it doesn't score a contrast, and it costs a compare per cell. A text ramp still wins; a host that wants one fixed color gives a two-stop ramp of it. The flash (M3) reads the page's fill only, not its own fading quad. Without it, every heat column needs a text ramp to stay readable in both themes.
+- **The range rule, written down, and a helper:** `CellPaint`'s docs and the README say a value maps through its whole column's range (from the source's stats, or fixed), never one page's minimum and maximum, or colors jump at page boundaries. `Domain { lo, mid, hi }` with `unit(v) -> f32` (`mid` maps to 0.5, each side scaled on its own; NaN stays NaN), pure, behind `custom-cells`, in the component: a bar's zero (`unit(0.0)`) must agree with its values' mapping, which the bare host does by hand today (`rows.rs`), and the observatory's wide sheet will be its second user. Where the range comes from stays the source's (for DuckDB, its column stats).
+- **Forwarding the feature:** a crate that implements `TallTablePage::paint` turns on `custom-cells` itself; the README says so. `seiza-duckdb`'s `tall-table` source has no forwarding feature; it gains `tall-table-custom-cells` in the milestone of the first app that paints DuckDB pages (the engine's work is planned in the app that drives it).
+
+**Done when:**
+- [ ] **F1.** The base build is unchanged (`just tall-table size --against <the parent>`, as B1); `just tall-table test` passes with every feature off and on; `just tall-table lint` passes.
+- [ ] **F2.** `paint.json` gains a bar below zero with and without `below`, and text over light and dark fills (one translucent) in both themes; the native test passes, `just tall-table paint-fixture --check` passes, and its controls fail: `below` ignored, the nearer token picked.
+- [ ] **F3.** `Domain`'s native tests: the ends, an asymmetric `mid` at 0.5, NaN, `lo == hi`; the bare host's ranges and bar zeros go through it.
+- [ ] **F4.** Its cost against `custom-cells` as M2 measured it: the added wasm (brotli and after wasm-opt), and `?cells=heat`'s frame work in the wide shape, reference, within spread or recorded; in `perf/results/` and the README's Features row.
+- [ ] **F5.** The README's "Paint" has `below`, the text's contrast, the range rule, and forwarding; `docs/DECISIONS.md` has each decision.
+
+**Later, as notes** (each adds without breaking; built when a host asks):
+
+- **Stepped ramps** (`Ramp::stepped`, the nearest stop, no mix): bucketed heat maps, as Grafana's thresholds are. Not needed for categories: a category mapped to its stop's place (k / (n − 1)) lands on the stop already.
+- **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
+- **Selection over paint:** settled in `select`'s research (["Long-term goals"](#long-term-goals)).
+
+---
+
 ## Next milestones
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M4's (`follow`) is written after its research, which opens it once M3 closes; until then its spec is its row under "Features".
@@ -227,6 +255,7 @@ Moved here from Tycho's `PLAN.md`, where it was a long-term goal while the table
 - **The delegate's calls**, for the features that reach it (`live`, `copy`, `sort`): what the table asks and how a source answers in pages. Sorting's above all: the table asks for rows by index, and a source that pages by row-group range (the DuckDB source's `file_row_number`) can't answer a sorted order that way. What a source does to answer (an `ORDER BY` over the whole file, a sorted copy) is the source's cost, measured by the engine; the table's design must not make it hold the whole result.
 - **Frame-work risks:** what could cost per frame while scrolling (hit-testing, resize handles, selection state across 25 M rows), checked with a spike in the bare host when it's unclear.
 - **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) the README tracks.
+- **Layers** (before `select`): where a selection draws among `custom-cells`' layers. Today, bottom to top: the row's background and stripes, the fill, the bar, the text, the jump's edge over filled cells; `live` adds the flash over the fill. A translucent tint over the fill keeps a heat map readable while selected.
 
 ### Readable values in the bare host
 
