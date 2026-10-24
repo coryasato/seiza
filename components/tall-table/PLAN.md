@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 (built, in [`docs/milestones.md`](docs/milestones.md)) and [M2](#next-milestones), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 (built, in [`docs/milestones.md`](docs/milestones.md)) and [M2](#active-milestone), active, and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -19,7 +19,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | Milestone | Title | Status |
 |---|---|---|
 | M1 | The bare host and the base's baseline | Done 2026-10-23 ([`docs/milestones.md`](docs/milestones.md)) |
-| M2 | `custom-cells`: a cell's fill, bar, and text color | Next (spec below, checks drafted) |
+| M2 | `custom-cells`: a cell's fill, bar, and text color | Active: part A done 2026-10-24; part B (build, pin, measure, close) next |
 | M3 | `live`: changed rows re-read and redrawn in place | Planned |
 | M4 | `follow`: follow the tail as rows arrive | Planned |
 | M5 | `resize`: drag a column's width | Planned |
@@ -149,53 +149,67 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None started. M1, the bare host and the base's baseline, closed 2026-10-23 ([`docs/milestones.md`](docs/milestones.md)). Next: **M2, `custom-cells`** (its spec under "Next milestones"; its checks are tightened when it starts, after its research).
-
----
-
-## Next milestones
-
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
-
-### M2: `custom-cells` (spec; checks drafted)
+### M2: `custom-cells` (started 2026-10-24)
 
 **What it adds** (behind the `custom-cells` feature, off by default): a page can answer a **paint** for each cell next to its value, and the table draws it. The paint is declarative (`docs/DECISIONS.md`, "Features"): data the table draws in its own cell, not a subtree a host builds per cell, so a DOM contender matches it from numbers a fixture can pin.
 
 ```rust
-// Draft: only the hook's place is settled. Each field's type is an open
-// point below: `Shade` and `Bar` are placeholders for them.
+// The page (delegate.rs), behind `custom-cells`.
 trait TallTablePage {
     fn value(&self, row: usize, column: usize) -> Option<CellValue<'_>>;
     #[cfg(feature = "custom-cells")]
     fn paint(&self, row: usize, column: usize) -> CellPaint { CellPaint::default() }
 }
 
+/// Each field 0..=1 (clamped). `None`, NaN, or a field whose column has no
+/// ramp or bar draws nothing (the last a debug assertion: a host's mistake).
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct CellPaint {
-    pub fill: Option<Shade>, // the whole cell: a heat map
-    pub bar: Option<Bar>,    // a data bar
-    pub text: Option<Shade>, // the value's color
+    pub fill: Option<f32>, // through the column's fill ramp: the whole cell
+    pub bar: Option<f32>,  // the bar's end across the cell's inner width, drawn from the column's zero
+    pub text: Option<f32>, // through the column's text ramp: the value's color
 }
-// Shade: a color, or a 0..=1 value the column's ramp turns into one.
-// Bar:   a length, from the left edge or from a zero point.
+
+// The column (column.rs), behind `custom-cells`: what turns them into pixels.
+impl TallTableColumn {
+    pub fn fill(self, ramp: Ramp) -> Self;
+    pub fn bar(self, bar: Bar) -> Self;
+    pub fn text_ramp(self, ramp: Ramp) -> Self;
+}
+/// A theme token, resolved each frame (a fixed color is `|_| hsla(…)`).
+pub type Stop = fn(&ThemeColor) -> Hsla;
+/// Two or more stops, evenly spaced over 0..=1, mixed in Oklab.
+pub struct Ramp { /* stops */ }
+/// `zero`: where the bar starts, 0..=1 of the inner width (0, the left edge, by default).
+pub struct Bar { pub zero: f32, pub color: Stop }
 ```
 
-- **What it covers:** the wide sheet's heat-map and data-bar cells, and the color of market watch's flash. The flash's fade over time is `live`'s: `custom-cells` draws what a page answers, and redraws when a page changes.
-- **What stays the table's:** the value's text, its rounding and cutting, and the tooltip (the exact value), unchanged; a placeholder row paints nothing; the row's shading and the jump highlight sit under a cell's fill.
-- **What's the host's:** the color scale and each column's range (a host reads it from its source, as the observatory would from SQL), answered with each page.
+- **What it covers:** the wide sheet's heat-map and data-bar cells, and the color of market watch's flash (a three-stop ramp: down, none, up). The flash's fade over time is `live`'s: `custom-cells` draws what a page answers, and redraws when a page changes.
+- **What stays the table's:** the value's text, its rounding and cutting, and the tooltip (the exact value), unchanged; a placeholder or failed row paints nothing (only a loaded row asks its page); a theme switch recolors every paint on its frame, with no page read again.
+- **What's the host's:** each column's ramps and bar, and the 0..1 values (a host maps each value through its column's range, read from its source, as the observatory would from SQL).
+- **How it's drawn** (decided, `docs/DECISIONS.md`, "Features"): a fill and a bar both as quads, collected in the row loop and painted by one `canvas`, the cells layer's first child: each cell's fill, then its bar over it, all under the text. The research and the spike: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`custom-cells`"; [`perf/results/2026-10-24-m2-spike.md`](perf/results/2026-10-24-m2-spike.md).
 
-**Open points, for the milestone's start:**
-- **Colors in the page, or a scale value and a ramp per column.** A page holding colors must be re-read, or re-answered, when the theme switches; a page holding 0..1 values and a column holding a ramp needn't be. The second is likely the right shape; the milestone decides with the byte and frame numbers.
-- **A bar from a baseline** (negative values grow left of a zero point), or from the left edge only.
-- **How the paint is drawn:** a background on the cell's existing element, or quads painted in the body's own pass. Both are measured in the host; the cheaper one per frame wins.
+**Split into parts (2026-10-24),** one session each, in order. The open points decided the trait's shape and how it's drawn, and settling the third needed both drawings built and compared; so part A settled them with a throwaway spike, and the API is reviewed before part B builds on it. Each part ends with its notes in `perf/results/` and `docs/LESSONS.md`. The milestone closes after part B.
 
-**Done when** (drafted; tightened when the milestone starts):
-- [ ] **The feature is off by default** and the base's build is unchanged: the host's base wasm, built at the milestone's parent commit and at its head with the feature off, is the same to the byte. `cargo test -p seiza-tall-table` passes with the feature off and on.
-- [ ] **The host uses it:** its `custom-cells` feature switches the paint on at run time (heat in the wide shape, bars in another stop), so the optimizer can't strip it.
-- [ ] **Its cost, in the host:** the added wasm (brotli) against the base; the wide shape's per-frame work in a vertical and a horizontal fling at the scenario's three cell styles (text, heat, bars), reference and throttled. In `perf/results/` and the README's Features table.
-- [ ] **Scripts can read it:** `CellProbe` carries each drawn cell's paint (with `probe_cells`).
-- [ ] **A fixture pins it** for a DOM contender: per cell, the fill, the bar's width in pixels, and the text color, from the host, in `fixtures/` (a `cells.json` case or a fixture of its own), with a native test and a negative control (a paint a shade or a pixel off fails it).
+- **A. Research and spike** (no shipped code). *Done 2026-10-24:* the three open points settled (a value and a ramp per column; a bar from a zero point; a fill and a bar both as quads, after the code review), the research in the root's `docs/research/tall-table-features.md`, two decisions in `docs/DECISIONS.md`, "Features", the A/B in `perf/results/2026-10-24-m2-spike.md`, a `docs/LESSONS.md` entry, the API above, the checks below. The spike's code is gone.
+- **B. Build, pin, measure, close.** The feature in the table as above; `CellProbe`'s paint; the host's `custom-cells` feature with `?cells=text|heat|bars`; `perf.ts`'s cell styles; `fixtures/paint.json` and its native test and controls; the recipes the checks run: `test` with the feature off and on (`--features custom-cells`), `size` building the base and the feature's build, `smoke` at each cell style. Then the checks below, and the close-out ("Closing a milestone", above). A TS test of the fixture against the TanStack contender isn't part of it: the contender draws no paints until the observatory adopts the feature.
+
+**Done when** (part B):
+- [ ] **The feature is off by default** and the base's build is unchanged: the host's base wasm, built at the milestone's parent commit and at its head with the feature off, is the same size within 0.1 KiB brotli (not to the byte: panic sites keep their line numbers in the release build, and `cfg` code above one shifts them), and an unstripped build of it holds none of the feature's functions (a symbol check). `just tall-table test` passes with the feature off and on; `just tall-table lint` passes (its clippy runs with every feature).
+- [ ] **The host uses it:** its `custom-cells` feature turns on the table's and maps each float column through its range at run time (`?cells=heat` fills, `?cells=bars` bars from zero, `?cells=text` neither), so the optimizer can't strip it. `just tall-table smoke` loads, fills, and scrolls with heat and with bars in Chromium, Firefox (WebGL2), and WebKit.
+- [ ] **Its cost, in the host:** the added wasm (brotli 11) of the feature's build against the base's (`just tall-table size`); the wide shape's per-frame work in the steady scroll, the fling, and the sideways fling at `text`, `heat`, and `bars`, reference and throttled, cold, median of 10, on the final build, with the feature's build at `text` against the base (paint compiled in but unused costs nothing per frame, within spread). In `perf/results/` and the README's Features table.
+- [ ] **A theme switch recolors without a read:** a native test switches the theme and the drawn cells' paint changes to the other theme's colors with no `load_page` call.
+- [ ] **Scripts can read it:** with `probe_cells`, `CellProbe` carries each drawn cell's paint as drawn: the fill and text colors (8-bit RGBA) and the bar's left edge and width (CSS px, from the cell's left).
+- [ ] **A fixture pins it** for a DOM contender, `fixtures/paint.json` (its format in `fixtures/README.md`): ramps as their stops' resolved colors in light and dark, bars as a zero and a cell width, and cases from each paint value to the colors and the bar's pixels drawn. A native test checks the table against it, allowing one 8-bit step per channel and one device pixel in a bar's edges (GPUI rounds x.5 down, the browser up); its controls must fail it: a color two steps off, a bar 2 device pixels off, and the same ramp mixed in sRGB instead of Oklab.
+- [ ] **The jump highlight in a filled cell:** the spec puts it under a fill, which hides it there. Settled with a screenshot of a jump onto heat cells: kept under, or drawn over the cells; a change to the base's drawing logs a decision.
 - [ ] **Canvas tradeoffs:** a heat or bar cell carries meaning in color alone, which a screen reader can't see either; the README says so.
 - [ ] **Waiting apps told:** the observatory's "Waiting on" row and Tycho's note flip to *Ready* (the date and M2).
+
+---
+
+## Next milestones
+
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M3's (`live`) is written when M2 closes, after its research; until then its spec is its row under "Features".
 
 ---
 
