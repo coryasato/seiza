@@ -1,5 +1,6 @@
 //! The contender contract (`apps/observatory/docs/contender-contract.md`),
-//! from the table's events: the `contender:open` and `contender:filled`
+//! from the table's events (through `tall-table-bridge`, as every host of the
+//! table does): the `contender:open` and `contender:filled`
 //! marks (always), `__contender.state` and the targets (with `?measure`),
 //! the probe key's `contender:input` (with `?measure`), the drawn cells and
 //! the columns' budgets (with `?cells`, for the tall table's cell fixture),
@@ -12,7 +13,7 @@ use std::cell::{Cell, RefCell};
 use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::*;
 use js_sys::{Object, Reflect};
-use seiza_tall_table::{CellProbe, ColumnProbe, TallTableEvent, TallTableProbe};
+use seiza_tall_table::{TallTableEvent, TallTableProbe};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
 
@@ -203,10 +204,16 @@ pub fn watch(table: &Entity<Table>, cx: &mut Context<Host>) {
 }
 
 fn on_event(event: &TallTableEvent) {
+    // The filled mark always, the scrollbar's targets while measuring.
+    // Emitted while the frame renders, so the mark lands right after it's
+    // presented (the component's CLAUDE.md, rule 4).
+    tall_table_bridge::Publish {
+        filled_mark: Some(FILLED_MARK),
+        scrollbar: measuring(),
+        ..Default::default()
+    }
+    .event(event);
     match event {
-        // Emitted while the frame renders, so the mark lands right after
-        // it's presented (the component's CLAUDE.md, rule 4).
-        TallTableEvent::Filled { .. } => drop(seiza::mark_after_current_task(FILLED_MARK)),
         TallTableEvent::Probe(probe) => {
             GEOMETRY.set((probe.rows as f64, GEOMETRY.get().1));
             let filled = probe.rows == 0
@@ -219,8 +226,11 @@ fn on_event(event: &TallTableEvent) {
         }
         TallTableEvent::Layout(layout) => {
             GEOMETRY.set((GEOMETRY.get().0, layout.row_height.into()));
+            // `__contender.columns`: each column's name, x, width, kind,
+            // and the characters a float may take, as the table laid them
+            // out.
             if probing_cells() {
-                publish_columns(&layout.columns);
+                set_on_contender("columns", &tall_table_bridge::js::columns(&layout.columns));
             }
             if measuring() {
                 SHOWN.with_borrow_mut(|shown| {
@@ -233,51 +243,17 @@ fn on_event(event: &TallTableEvent) {
                 });
             }
         }
-        TallTableEvent::Scrollbar { track, thumb } if measuring() => {
-            seiza::targets::publish("table-scroll-track", *track);
-            seiza::targets::publish("table-scroll-thumb", *thumb);
+        TallTableEvent::Scrollbar { track, .. } if measuring() => {
             SHOWN.with_borrow_mut(|shown| shown.track = Some(*track));
             SHOWN.with_borrow(publish_rows_target);
         }
-        TallTableEvent::Cells(cells) => publish_cells(cells),
+        // `__contender.cells`: every cell the frame drew, its value's exact
+        // text and the text it showed.
+        TallTableEvent::Cells(cells) => {
+            set_on_contender("cells", &tall_table_bridge::js::cells(cells));
+        }
         _ => {}
     }
-}
-
-/// `__contender.columns`: each column's name, kind, width, and the
-/// characters a float may take, as the table laid them out.
-fn publish_columns(columns: &[ColumnProbe]) {
-    let list = js_sys::Array::new();
-    for column in columns {
-        let entry = Object::new();
-        let set = |key: &str, value: JsValue| {
-            let _ = Reflect::set(&entry, &JsValue::from_str(key), &value);
-        };
-        set("name", JsValue::from_str(&column.name));
-        set("kind", JsValue::from_str(column.kind));
-        set("width", JsValue::from_f64(column.width.into()));
-        set("budget", JsValue::from_f64(column.budget as f64));
-        list.push(&entry);
-    }
-    set_on_contender("columns", &list);
-}
-
-/// `__contender.cells`: every cell the frame drew, its value's exact text
-/// and the text it showed.
-fn publish_cells(cells: &[CellProbe]) {
-    let list = js_sys::Array::new();
-    for cell in cells {
-        let entry = Object::new();
-        let set = |key: &str, value: JsValue| {
-            let _ = Reflect::set(&entry, &JsValue::from_str(key), &value);
-        };
-        set("row", JsValue::from_f64(cell.row as f64));
-        set("column", JsValue::from_f64(cell.column as f64));
-        set("exact", JsValue::from_str(&cell.exact));
-        set("shown", JsValue::from_str(&cell.shown));
-        list.push(&entry);
-    }
-    set_on_contender("cells", &list);
 }
 
 /// Sets `__contender[key]`, once the JS host has defined it.

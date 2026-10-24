@@ -111,3 +111,11 @@ export function percentiles(values: number[]): { n: number; p50: number; p95: nu
 export function machineInfo(): { machine: string; cpu: string; os: string } {
   return { machine: process.env.SEIZA_MACHINE ?? 'local', cpu: cpus()[0]?.model ?? 'unknown', os: `${type()} ${release()} ${arch()}` };
 }
+
+/** Today's date on this machine, `YYYY-MM-DD`, for naming results: the
+ *  local date the docs' entries carry, not UTC's (`toISOString`), which
+ *  runs a day ahead in the evening west of Greenwich. */
+export function localDate(at = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}

@@ -32,7 +32,6 @@ pub type RowTable = TallTableState<QueryRows<Source>>;
 
 /// Set right after each frame in which the viewport becomes fully loaded,
 /// while [`crate::targets::measuring`].
-#[cfg(target_family = "wasm")]
 const VIEWPORT_FILLED_MARK: &str = "tycho:viewport-filled";
 /// Set right after the first such frame for a file.
 #[cfg(target_family = "wasm")]
@@ -129,26 +128,22 @@ pub fn read_from(table: &mut RowTable, name: String, cx: &mut gpui_kit::Context<
     table.retry_failed(cx);
 }
 
-/// Publishes what the shown table reports for the scripts: its scrollbar's
-/// targets, its probes, and (while measuring) the `tycho:viewport-filled`
-/// mark. The table emits these while its frame renders, so a mark set here
-/// lands right after the frame is presented. The first-rows mark is the
-/// workbench's, which also shows it in the panel.
+/// Publishes what the shown table reports for the scripts, through
+/// `tall-table-bridge`: its scrollbar's targets, its probes
+/// (`globalThis.__tychoTable`, `__tychoTableLayout`, and `__tychoCells`,
+/// which the table reports only while measuring), and (while measuring)
+/// the `tycho:viewport-filled` mark. The table emits these while its frame
+/// renders, so a mark set here lands right after the frame is presented.
+/// The first-rows mark is the workbench's, which also shows it in the panel.
 pub fn publish(event: &TallTableEvent) {
-    match event {
-        TallTableEvent::Scrollbar { track, thumb } => {
-            crate::targets::publish("table-scroll-track", *track);
-            crate::targets::publish("table-scroll-thumb", *thumb);
-        }
-        TallTableEvent::Probe(probe) => crate::targets::publish_table(probe),
-        TallTableEvent::Layout(layout) => crate::targets::publish_table_layout(layout),
-        TallTableEvent::Cells(cells) => crate::targets::publish_cells(cells),
-        // The mark is what the checks read, so it's set only while measuring
-        // (marks are never cleared).
-        #[cfg(target_family = "wasm")]
-        TallTableEvent::Filled { .. } if crate::targets::measuring() => {
-            drop(seiza::mark_after_current_task(VIEWPORT_FILLED_MARK));
-        }
-        _ => {}
+    tall_table_bridge::Publish {
+        // The mark is what the checks read, so it's set only while
+        // measuring (marks are never cleared).
+        filled_mark: crate::targets::measuring().then_some(VIEWPORT_FILLED_MARK),
+        scrollbar: true,
+        probe: Some("__tychoTable"),
+        layout: Some("__tychoTableLayout"),
+        cells: Some("__tychoCells"),
     }
+    .event(event);
 }

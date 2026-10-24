@@ -1,0 +1,71 @@
+# The tall table's recipes. Run from the repo root: `just tall-table <recipe>`.
+# Its bare host (host/) is where each feature's own cost is measured
+# (PLAN.md, "Measuring a feature"); it's never deployed.
+
+component_dir := source_directory()
+root := source_directory() / "../.."
+host_web := component_dir / "host/web"
+target_dir := root / "target/wasm32-unknown-unknown"
+
+# The bare host's wasm (debug) and its Vite dev server with COOP/COEP.
+# `?shape=wide` for 500 float columns, `?delay=<ms>` to hold each page read.
+dev: (wasm "debug")
+    npm run dev --workspace @seiza/tall-table-host
+
+# The bare host's release build: wasm (+ wasm-opt), Vite build, then asset
+# sizes (raw, gzip, brotli 11).
+build: (wasm "release")
+    npm run build --workspace @seiza/tall-table-host
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{host_web}}/dist
+
+# Serve the bare host's release build (brotli), as the scripts do.
+preview:
+    npm run preview --workspace @seiza/tall-table-host
+
+# Compile the bare host alone (`-p`: Cargo unifies features across the
+# packages in one build) and generate its JS bindings into host/web/pkg/,
+# with the apps' wasm-opt flags in release.
+wasm profile="debug":
+    cargo build -p tall-table-host --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }}
+    wasm-bindgen {{target_dir}}/{{profile}}/tall_table_host.wasm --out-dir {{host_web}}/pkg --target web
+    {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + host_web + "/pkg/tall_table_host_bg.wasm -o " + host_web + "/pkg/tall_table_host_bg.wasm" } else { "true" } }}
+
+# The bare host's wasm: raw (cargo's output), after wasm-bindgen and wasm-opt, and
+# brotli 11 (built by the `wasm` recipe), against the observatory's GPUI contender's shipped wasm when
+# it's built (`just observatory gpui-build`); fails if an engine or the
+# observation panel links. --label writes perf/results/<date>-<label>.json.
+size *args:
+    node {{component_dir}}/perf/size.ts {{args}}
+
+# The base's frame work in the bare host's release build, per shape (narrow,
+# wide): a vertical scroll, a vertical fling, and in the wide shape a
+# horizontal fling, reference + throttled, cold, median of 10. Per-frame
+# work from Chromium's trace, cross-checked by `workRecorder`; late frames;
+# frame intervals; visible cells. --runs, --shape, --profile, --label
+# (writes perf/results/<date>-<label>.json). Run `just tall-table build`
+# first.
+perf *args:
+    node {{component_dir}}/perf/perf.ts {{args}}
+
+# The bare host on its release build in Chromium, Firefox, and WebKit: it
+# loads, fills, and scrolls in both shapes (a smoke check, not a manual
+# one). --browsers. Run `just tall-table build` first.
+smoke *args:
+    node {{component_dir}}/perf/smoke.ts {{args}}
+
+# Native tests: the table's (page cache, scroll model, float fitting, cell
+# text, the fixtures) and the host's rows. The bridge has none: its JS
+# values are wasm-only, and Tycho's checks (`just tycho table`, `cells`) and
+# the observatory's cell fixture read every field it writes.
+test:
+    cargo test -p seiza-tall-table -p tall-table-host
+
+# No milestone references outside the history files (check-terms), fmt,
+# clippy for the table, the bridge, and the host (wasm32 and native, with
+# -D warnings), and TypeScript (the host's page and perf/).
+lint:
+    cd {{root}} && node shared-web/scripts/check-terms.ts
+    cargo fmt --all --check
+    cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --all-features --all-targets -- -D warnings
+    npm run typecheck --workspace @seiza/tall-table-host

@@ -88,7 +88,7 @@ seiza/
   site/
     ui/                 # `@seiza/site-ui`: the apex site's shell (navbar, theme toggle, footer), tokens, Tailwind setup, shadcn components on Base UI; README.md, CLAUDE.md
   components/
-    tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); README.md, CLAUDE.md, PLAN.md (its features), docs/, perf/results/ (each feature's own cost)
+    tall-table/         # `seiza-tall-table`: the f64-row table read a page at a time (state entity, element, delegate); bridge/ (`tall-table-bridge`: its events → a seiza host's marks, targets, probes; every host uses it), host/ (the bare host: crate/ `tall-table-host` over rows from memory, web/), perf/ (size, frame work, smoke; results/: each feature's own cost), justfile; README.md, CLAUDE.md, PLAN.md (its features), docs/
   engines/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
@@ -106,7 +106,7 @@ seiza/
     templates/app/      # the docs skeleton a new app starts from
     templates/component/ # the docs skeleton a new component or engine starts from
   CLAUDE.md             # this file: repo-wide rules
-  justfile              # `just tycho dev`, `just tycho perf`, …
+  justfile              # `just tycho dev`, `just tycho perf`, `just tall-table perf`, …
 ```
 
 ## The apex site (`site/`)
@@ -126,16 +126,17 @@ seiza.io holds more than the observatory: a landing page at `/` (when it ships) 
 - The `seiza` crate draws nothing of its own but the panel: the bootstrap opens the window with a root that fills the canvas with the app's view. A title bar, a theme toggle, and other chrome are the app's (Tycho's `crate/src/shell.rs`). The root follows the system light/dark appearance until the app calls `seiza::stop_following_system_appearance` (a visitor picked a theme). An app's icons come in through `Bootstrap::assets` (`gpui_kit::assets::icon_assets!`). Feature `panel` (on by default) is the perf panel and the `seiza::perf` API; a bare host turns it off with `default-features = false`. `shared-web`'s placeholder CSS still copies gpui-kit's components (its TitleBar and buttons among them) for any app's placeholder markup to use; the markup is the app's. Why: `docs/DECISIONS.md`, "Shell and input".
 - `shared/` owns the web bootstrap order (panic hook → fonts → `gpui_kit::init` → first frame → `gpui:first-frame` mark → post-paint callback). Apps hook into the post-paint callback to start heavy loads. `shared-web`'s `boot` takes the app's `wasmUrl` for the waterfall's download step.
 - The page clock and `performance.mark`s go through `seiza::marks` (`now`, `mark`, `mark_at`, `mark_time`, `mark_after_current_task`); no crate that can depend on `seiza` keeps its own copy. A component or engine can't, so it reads the clock and its own JS side's marks itself and never sets a mark from Rust: the host marks from its events (`docs/DECISIONS.md`, "Repo structure"). A mark may be set more than once (a retry); readers take the **last** entry.
-- `shared-web/perf/` is the perf harness's app-agnostic half: `protocol.ts` (throttle profiles, the DPR shim, `budgetLimits` over an app's `budgets.json`, run summaries, machine labels), `harness.ts` (opening a page per the protocol, `firstDrawProbe` (TTFP's mark against the first GPU work), the perf panel's rows, target clicks, `wheel`, `waitMark`, the frame and work recorders, `presentingTaskRecorder` and `presentedMark` for marks set right after a presented frame, `fling`), `placeholder-shots.ts` (the placeholder shell against the first frame in screenshots), and `serve.ts` (`serveApp`, the counting proxy, and `startThrottlingProxy`: a profile's latency and shared download at a proxy, for what Chromium's network emulation doesn't reach, such as a same-process frame's worker). An app's `perf/` keeps only what knows the app, and never redefines a helper from here. Canvas controls are clicked through the bounds the app publishes to `globalThis.__seizaTargets[id] = [x, y, width, height]` (CSS pixels; `seiza::targets::publish`); `frameRecorder` records whatever an app's `globalThis.__seizaFrameSample()` returns with each rAF, and times its own callback (`recorderCost`).
+- `shared-web/perf/` is the perf harness's app-agnostic half: `protocol.ts` (throttle profiles, the DPR shim, `budgetLimits` over an app's `budgets.json`, run summaries, machine labels), `trace.ts` (pure: Chromium's trace, each frame's main-thread work (`frameWork`), late frames), `harness.ts` (opening a page per the protocol, `firstDrawProbe` (TTFP's mark against the first GPU work), the perf panel's rows, target clicks, `wheel`, `waitMark`, the frame and work recorders, `presentingTaskRecorder` and `presentedMark` for marks set right after a presented frame, `fling`), `placeholder-shots.ts` (the placeholder shell against the first frame in screenshots), and `serve.ts` (`serveApp`, the counting proxy, and `startThrottlingProxy`: a profile's latency and shared download at a proxy, for what Chromium's network emulation doesn't reach, such as a same-process frame's worker). An app's `perf/` keeps only what knows the app, and never redefines a helper from here. Canvas controls are clicked through the bounds the app publishes to `globalThis.__seizaTargets[id] = [x, y, width, height]` (CSS pixels; `seiza::targets::publish`); `frameRecorder` records whatever an app's `globalThis.__seizaFrameSample()` returns with each rAF, and times its own callback (`recorderCost`).
 - When a GPUI Kit web bug blocks progress, check upstream issues first. Work around it in `shared/` with a comment linking the issue. Don't fork unless there's no other way.
 - Code starts in the app. Move it to `shared/` once it's clearly app-agnostic foundation; UI and data layers become a component or an engine instead ("Tiers"). Don't build abstractions for apps that don't exist yet.
 
 ## Commands
 
-Each app has its own justfile, loaded as a `just` module from the root:
+Each app has its own justfile, loaded as a `just` module from the root, and so does a component with a host of its own:
 
 ```
-just <app> <recipe>   # e.g. just tycho dev, just tycho perf
+just <app> <recipe>        # e.g. just tycho dev, just tycho perf
+just tall-table <recipe>   # the tall table's bare host: build, size, perf (its CLAUDE.md)
 ```
 
 Each app's recipes are listed in its CLAUDE.md. Every app has `just <app> report`, which regenerates the numbers in its README, its PLAN.md, and the root README's apps table from `perf/budgets.json` and `perf/results/`.

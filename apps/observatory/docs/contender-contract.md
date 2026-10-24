@@ -62,7 +62,7 @@ The scripts record `state` with every frame through `shared-web/perf/`'s `frameR
 
 ## The cell probe (GPUI only)
 
-`?cells` (never in a measured run: the table then formats every cell twice) turns on the table's cell probe, and the GPUI contender publishes what it drew: `__contender.columns` (each column's `name`, `kind`, `width` in CSS px, and `budget`, the characters a float may take: the table's `ColumnProbe`s) and `__contender.cells` (every cell of the last frame: `row`, `column` by index, `exact`, `shown`). `perf/cell-fixture.ts` pins the tall table's cell fixture from them (`components/tall-table/fixtures/`); a DOM contender reads its budgets from that fixture, not from a page, and publishes neither.
+`?cells` (never in a measured run: the table then formats every cell twice) turns on the table's cell probe, and the GPUI contender publishes what it drew: `__contender.columns` (each column's `name`, `x` and `width` in CSS px, `kind`, and `budget`, the characters a float may take: the table's `ColumnProbe`s) and `__contender.cells` (every cell of the last frame: `row`, `column` by index, `exact`, `shown`). `perf/cell-fixture.ts` pins the tall table's cell fixture from them (`components/tall-table/fixtures/`); a DOM contender reads its budgets from that fixture, not from a page, and publishes neither.
 
 ## Targets
 

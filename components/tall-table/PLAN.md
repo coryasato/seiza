@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), [M1](#active-milestone) and [M2](#next-milestones), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 (built, in [`docs/milestones.md`](docs/milestones.md)) and [M2](#next-milestones), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -18,8 +18,8 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 
 | Milestone | Title | Status |
 |---|---|---|
-| M1 | The bare host and the base's baseline | Next |
-| M2 | `custom-cells`: a cell's fill, bar, and text color | Planned (spec below, checks drafted) |
+| M1 | The bare host and the base's baseline | Done 2026-10-23 ([`docs/milestones.md`](docs/milestones.md)) |
+| M2 | `custom-cells`: a cell's fill, bar, and text color | Next (spec below, checks drafted) |
 | M3 | `live`: changed rows re-read and redrawn in place | Planned |
 | M4 | `follow`: follow the tail as rows arrive | Planned |
 | M5 | `resize`: drag a column's width | Planned |
@@ -44,13 +44,13 @@ One milestone per feature, in the order below. A *Planned* row's spec is its row
 
 **What protects the apps is the component's tests,** not a measurement in each app. Every feature is off by default, so an app's build doesn't change until it turns one on: each feature's milestone checks that the base build is unchanged with the feature off, and that the native tests and the fixtures pass with it off and on. An app measures a feature against its own budgets when it adopts it, in its own milestone; if it finds a cost it can't carry, the optimization is a milestone here.
 
-**The bare host** (decided; built by M1). A small crate in this component, `components/tall-table/host/`: a wasm `cdylib` that renders the tall table and nothing else, built the way the apps are (`cargo build -p <host crate>` on its own, `wasm-bindgen --target web`, `wasm-opt -Oz --enable-threads` with the apps' flags, brotli quality 11), and never deployed.
+**The bare host** (built: `host/`, its use in `CLAUDE.md`). A small crate in this component, `components/tall-table/host/`: a wasm `cdylib` that renders the tall table and nothing else, built the way the apps are (`cargo build -p <host crate>` on its own, `wasm-bindgen --target web`, `wasm-opt -Oz --enable-threads` with the apps' flags, brotli quality 11), and never deployed.
 - **Why its own crate, not an app:** a cost read in Tycho mixes in Tycho's code, and the observatory's GPUI contender can't carry code for a feature its DOM side lacks (root `CLAUDE.md`, "Comparison protocol", "The same scope").
 - **It must use the feature, not only compile it.** The host has one Cargo feature per table feature, each turning on the table's and the host's code that switches the feature on at run time (a resizable column, a selection mode, a sorted read). A feature compiled but never switched on can be stripped by the optimizer and read as free.
 - **Its data is synthetic,** a delegate answering pages from memory: no DuckDB, so the bytes and frame work are the table's alone. A feature that reaches the delegate (`sort`, `copy`) gets the delegate calls it needs, answered in memory; its data cost (SQL, bytes read) is the source's that answers it (the DuckDB engine's `tall-table` source), not the table's.
 - **The measurement:** bytes are the base build against each feature's build. Frame work is a scripted scroll (and the feature's own interaction: a resize drag, a selection drag) recorded with `shared-web/perf/`'s harness (`workRecorder`, `wheel`), under the root's measurement protocol (reference and throttled).
 
-**Its details** are a decision (`docs/DECISIONS.md`, "Features", "The bare host's shape"). What M1 still fixes in the spec, since every feature's numbers are read against it, is the delegate's two shapes, at the protocol's 1440×900, DPR 2:
+**Its details** are a decision (`docs/DECISIONS.md`, "Features", "The bare host's shape"). The spec pins the delegate's two shapes, since every feature's numbers are read against them, at the protocol's 1440×900, DPR 2:
 - **Narrow:** the observatory's: its 11 columns' kinds, 1.57 M rows.
 - **Wide:** 500 `ColumnKind::Float` columns (120 px each, the kind's width), 1.57 M rows, so the paging differs from the narrow shape only by the columns.
 - **Rows** are the table's own height (`table_row_height`, not a setting today). The wide sheet's row-height dial would need a setting, a change to the base that the observatory asks for when it plans that stop.
@@ -149,22 +149,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None started. Next: **M1, the bare host and the base's baseline.**
-
-### M1: the bare host and the base's baseline
-
-The host every feature's cost is read in, and the base's numbers each feature is measured against. It builds no feature. The host's design is under ["Measuring a feature"](#measuring-a-feature).
-
-**Done when:**
-- [ ] **The host builds on its own,** the way the GPUI contender does: `cargo build -p tall-table-host --release --target wasm32-unknown-unknown`, `wasm-bindgen --target web` into `host/web/pkg/`, `wasm-opt -Oz --enable-threads` with the contender's flags, the Vite build, and brotli 11. `just tall-table build` does it all, and `just tall-table dev` serves the page with COOP/COEP. The root `package.json`'s workspaces include `host/web` (`components/*/host/web`). It depends on `seiza-tall-table` and `seiza` (no panel), and on no engine: `cargo tree -p tall-table-host` shows no `seiza-duckdb`.
-- [ ] **Its delegate answers from memory,** deterministic values from (row, column), in both shapes ("Measuring a feature", above), chosen by URL, with an optional page delay. The table's native tests still pass (`cargo test -p seiza-tall-table`).
-- [ ] **It publishes what the scripts need,** for `shared-web/perf/`'s harness to read: `gpui:first-frame` (through `seiza`), a mark the host sets from the table's `Filled` event (`mark_after_current_task`; the table sets no marks), the scrollbar's targets from its `Scrollbar` event, and `__seizaFrameSample`.
-- [ ] **The event bridge is written once.** Tycho (`crate/src/table.rs`) and the GPUI contender (`contract.rs`) each turn `TallTableEvent`s into marks and targets; the host would be the third copy. It moves out instead, and all three use it. Where it can live is the milestone's first decision: not `seiza` (it would know the table) and not the component (no `seiza`), so likely a small host-side crate next to the host, or `seiza` helpers that take plain bounds while each host keeps its few-line `match`. Each app's checks still pass after the move (`just tycho table`, `just observatory reach`), and the wasm change for each is recorded in its `perf/results/`.
-- [ ] **The base's bytes:** `just tall-table size` records the host's wasm (raw, after wasm-opt, brotli 11) in a dated `perf/results/` JSON. The difference from the observatory's GPUI contender is noted (its engine client and Arrow reader), as a cross-check that the host carries nothing more than the table.
-- [ ] **The base's frame work:** `just tall-table perf` runs, per shape, a vertical scroll, a vertical fling, and (in the wide shape) a horizontal fling, under the measurement protocol (reference and throttled, cold, median of 10): per-frame work from the browser's trace, cross-checked by `workRecorder`; late frames; frame intervals. The numbers are in a results note, with the machine label.
-- [ ] **The wide shape holds up at the base:** its visible cells per frame and its fling's per-frame work are in the note. If the base itself can't keep up at 500 columns, that's recorded and the wide sheet's plan in the observatory hears of it before M2.
-- [ ] **Manual check in Firefox and Safari:** the host loads and scrolls in both shapes (WebGL2 in Firefox).
-- [ ] **Docs:** `CLAUDE.md`'s layout and commands, the README's Docs table, and the root `CLAUDE.md`'s repo layout name `host/`, `perf/`, and the justfile; the root `justfile` loads the module. `just tall-table lint` (the terms check, fmt, the host's clippy on wasm32 and native) passes.
+None started. M1, the bare host and the base's baseline, closed 2026-10-23 ([`docs/milestones.md`](docs/milestones.md)). Next: **M2, `custom-cells`** (its spec under "Next milestones"; its checks are tightened when it starts, after its research).
 
 ---
 

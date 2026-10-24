@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-23",
+  "label": "m1-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13052.8,
+    "optKiB": 9646.7,
+    "brotliKiB": 2677.1
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-B0gvLzFp.wasm",
+    "optKiB": 9708.5,
+    "brotliKiB": 2697.4,
+    "moreBrotliKiB": 20.3
+  },
+  "failures": []
+}

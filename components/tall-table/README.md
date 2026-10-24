@@ -4,7 +4,7 @@ A GPUI table that reads rows a page at a time from a source you write, smooth fr
 
 "Tall" as in MATLAB's tall arrays: more rows than are ever held at once, read when needed. The element itself fills its parent and scrolls.
 
-**Used by:** [Tycho](../../apps/tycho/), and [the observatory](../../apps/observatory/)'s GPUI contender. **Crate:** `seiza-tall-table`. A DuckDB source is [`seiza-duckdb`](../../engines/duckdb/)'s `tall-table` feature.
+**Used by:** [Tycho](../../apps/tycho/), and [the observatory](../../apps/observatory/)'s GPUI contender. **Crate:** `seiza-tall-table`. A DuckDB source is [`seiza-duckdb`](../../engines/duckdb/)'s `tall-table` feature. A host built on `seiza` turns the table's events into marks, targets, and probes with `tall-table-bridge` (`bridge/`).
 
 ## Use it
 
@@ -60,7 +60,7 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 
 | Feature | What it adds | Cost (wasm, brotli) | Measured in |
 |---|---|---|---|
-| *(base)* | Paging, prefetch, and a page cache; f64-row scrolling with its own scrollbars, wheel, and keys; columns by kind; rounding, middle cuts, and the exact-value tooltip; a jump-to-row highlight | — | [Tycho's results](../../apps/tycho/perf/results/) |
+| *(base)* | Paging, prefetch, and a page cache; f64-row scrolling with its own scrollbars, wheel, and keys; columns by kind; rounding, middle cuts, and the exact-value tooltip; a jump-to-row highlight | The baseline every feature's cost is read against: the bare host's whole wasm (gpui-kit and `seiza` included) and its work per frame | [The bare host's results](perf/results/) |
 
 No features yet. What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
@@ -84,5 +84,4 @@ No features yet. What's planned, each off by default: [`PLAN.md`](PLAN.md).
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
 | [`fixtures/README.md`](fixtures/README.md) | What another implementation of the base level must match: page requests, cell text, page SQL. |
 | [`PLAN.md`](PLAN.md) | The features to come, in order, and the active milestone. |
-
-Each feature's own cost will be in `perf/results/` (from the first feature); budgets are the apps' that build it.
+| [`perf/results/`](perf/results/) | What the table measures of itself in its bare host (`host/`): the base's bytes and frame work, then each feature's added cost. Budgets are the apps' that build it. |

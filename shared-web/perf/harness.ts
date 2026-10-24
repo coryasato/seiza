@@ -261,10 +261,15 @@ export async function recordedBetween<S extends object = object>(page: Page, fro
   return frames as RecordedFrame<S>[];
 }
 
+/** The intervals (ms) between consecutive recorded frames. */
+export function frameIntervals(frames: readonly RecordedFrame[]): number[] {
+  return frames.slice(1).map((frame, index) => frame.t - frames[index]!.t);
+}
+
 /** Frame intervals (ms) between recorded frames: nearest-rank p50, p95, max,
  *  and how many were over 50 ms. */
 export function frameStats(frames: RecordedFrame[]): { frames: number; p50: number; p95: number; max: number; over50: number } {
-  const intervals = frames.slice(1).map((frame, index) => frame.t - frames[index]!.t);
+  const intervals = frameIntervals(frames);
   const { p50, p95, max } = percentiles(intervals);
   return { frames: frames.length, p50, p95, max, over50: intervals.filter((interval) => interval > 50).length };
 }

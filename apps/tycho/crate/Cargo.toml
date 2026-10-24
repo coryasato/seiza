@@ -15,6 +15,8 @@ gpui-kit.workspace = true
 seiza = { workspace = true, features = ["panel"] }
 seiza-duckdb = { workspace = true, features = ["tall-table"] }
 seiza-tall-table.workspace = true
+# What Tycho does with the table's events: its marks, targets, and probes.
+tall-table-bridge.workspace = true
 
 # The entry point and the bootstrap are web-only; the views compile natively for clippy and tests.
 [target.'cfg(target_family = "wasm")'.dependencies]

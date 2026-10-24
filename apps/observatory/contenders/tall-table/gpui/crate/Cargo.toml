@@ -20,5 +20,7 @@ seiza-tall-table.workspace = true
 # lacks (root CLAUDE.md, "Comparison protocol"). `just observatory sizes`
 # fails if it links anyway.
 seiza.workspace = true
+# What the contender does with the table's events: its mark, targets, probes.
+tall-table-bridge.workspace = true
 wasm-bindgen.workspace = true
 js-sys.workspace = true

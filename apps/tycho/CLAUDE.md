@@ -60,7 +60,7 @@ They're the engine's: `engines/duckdb/CLAUDE.md`, "DuckDB-Wasm 1.32.0 gotchas" (
 
 ```
 apps/tycho/
-  crate/            # Rust (cdylib, package `tycho`): title bar + theme toggle (shell.rs), workbench, the table's source, paging overrides, marks, and probes (table.rs), the engine's events → panel steps and marks (engine.rs), samples + file summary + credit (dataset.rs), CSV chunks + ingest + memory budget (csv.rs), file size limits (limits.rs), drops + file dialog + sniff (files.rs), Playwright targets (targets.rs), self-test
+  crate/            # Rust (cdylib, package `tycho`): title bar + theme toggle (shell.rs), workbench, the table's source, paging overrides, marks, and probes (table.rs, through `tall-table-bridge`), the engine's events → panel steps and marks (engine.rs), samples + file summary + credit (dataset.rs), CSV chunks + ingest + memory budget (csv.rs), file size limits (limits.rs), drops + file dialog + sniff (files.rs), Playwright targets (targets.rs), self-test
   web/              # Vite host on @seiza/duckdb: index.html, src/main.ts, vite.config.ts (proxies /data/*); public/duckdb-ext/ is downloaded (gitignored)
   worker/           # Cloudflare Worker (src/index.ts: /data/* from R2 with byte ranges; the page, assets/, duckdb-ext/ as their .br) + wrangler.toml; scripts/ (wrangler dev launcher, range and deployed-asset checks, deploy)
   data/             # fetch_asteroids.ts, fetch_gaia.ts, prep.sql + prep-gaia.sql + prep.ts (native DuckDB), drop_files.ts (test files), fixtures-src/, MANIFEST.json (committed); raw/, drop/, bench/, + generated data gitignored

@@ -7071,6 +7071,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tall-table-bridge"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "seiza",
+ "seiza-tall-table",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "tall-table-gpui"
 version = "0.1.0"
 dependencies = [
@@ -7079,6 +7089,19 @@ dependencies = [
  "seiza",
  "seiza-duckdb",
  "seiza-tall-table",
+ "tall-table-bridge",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tall-table-host"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "gpui-kit",
+ "seiza",
+ "seiza-tall-table",
+ "tall-table-bridge",
  "wasm-bindgen",
 ]
 
@@ -7509,6 +7532,7 @@ dependencies = [
  "seiza",
  "seiza-duckdb",
  "seiza-tall-table",
+ "tall-table-bridge",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

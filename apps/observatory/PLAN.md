@@ -42,6 +42,8 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next is the first scenario, the wide sheet ("Long-term goals", "Scenarios"). It waits on the table's `custom-cells` ("Waiting on", above; tall-table M2, the table's second milestone); its checks are drafted once that's ready.
 
+The table's base at the wide sheet's 500 columns (tall-table M1, [its results](../../components/tall-table/perf/results/2026-10-23-m1.md), where the numbers are): it keeps up at the reference run, sideways as smoothly as down, but at its 120 px columns and 30 px rows only a few hundred cells are on screen, far fewer than the wide sheet assumed, and at 4× CPU a steady scroll drops frames in both shapes. Denser stops need narrower columns and shorter rows, settings the base lacks: the wide sheet's plan asks the table for them.
+
 ---
 
 ## Next milestones

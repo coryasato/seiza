@@ -1,14 +1,13 @@
 //! What Tycho publishes for the Playwright checks: its controls' bounds
-//! (`seiza::targets`, re-exported as [`publish`]), and what the table and
-//! the workbench show, while [`measuring`].
-
-use seiza_tall_table::{CellProbe, TallTableLayout, TallTableProbe};
+//! (`seiza::targets`, re-exported as [`publish`]), and what the workbench
+//! shows, while [`measuring`]. What the table shows goes out through
+//! `tall-table-bridge` (`crate::table::publish`).
 
 pub use seiza::targets::publish;
 
 /// Whether the page was opened for measuring (`?perf` or `?bench` in the
-/// URL). Hooks only the scripts read, like [`publish_table`] and the
-/// table's `tycho:viewport-filled` mark, run only then.
+/// URL). Hooks only the scripts read, like the table's probes and its
+/// `tycho:viewport-filled` mark, run only then.
 pub fn measuring() -> bool {
     thread_local! {
         static MEASURING: bool =
@@ -17,61 +16,10 @@ pub fn measuring() -> bool {
     MEASURING.with(|measuring| *measuring)
 }
 
-/// Publishes what the table shows to `globalThis.__tychoTable`: `{rows,
-/// top, first, end, loaded, pending, failed, lastCell, marked, scrollX,
-/// tooltip}`. The table reports it when it changes, and only while
-/// [`measuring`].
-pub fn publish_table(probe: &TallTableProbe) {
-    #[cfg(target_family = "wasm")]
-    {
-        use js_sys::{Object, Reflect};
-        use wasm_bindgen::JsValue;
-
-        let object = Object::new();
-        let set = |key: &str, value: JsValue| {
-            let _ = Reflect::set(&object, &JsValue::from_str(key), &value);
-        };
-        set("rows", JsValue::from_f64(probe.rows as f64));
-        set("top", JsValue::from_f64(probe.top));
-        set("first", JsValue::from_f64(probe.first as f64));
-        set("end", JsValue::from_f64(probe.end as f64));
-        set("loaded", JsValue::from_f64(probe.loaded as f64));
-        set("pending", JsValue::from_f64(probe.pending as f64));
-        set("failed", JsValue::from_f64(probe.failed as f64));
-        set(
-            "marked",
-            probe
-                .marked
-                .map_or(JsValue::NULL, |row| JsValue::from_f64(row as f64)),
-        );
-        set("scrollX", JsValue::from_f64(probe.scroll_x.into()));
-        set(
-            "tooltip",
-            probe
-                .tooltip
-                .as_deref()
-                .map_or(JsValue::NULL, JsValue::from_str),
-        );
-        set(
-            "lastCell",
-            probe
-                .last_cell
-                .as_deref()
-                .map_or(JsValue::NULL, JsValue::from_str),
-        );
-        let _ = Reflect::set(
-            &js_sys::global(),
-            &JsValue::from_str("__tychoTable"),
-            &object,
-        );
-    }
-    #[cfg(not(target_family = "wasm"))]
-    let _ = probe;
-}
-
 /// Whether the page asked for every visible cell's text (`?cells`, with
-/// `?perf` or `?bench`): [`publish_cells`], every frame. Off in the perf
-/// runs, which it would slow.
+/// `?perf` or `?bench`): the table's drawn cells, published to
+/// `globalThis.__tychoCells` every frame. Off in the perf runs, which it
+/// would slow.
 #[cfg_attr(
     not(target_family = "wasm"),
     expect(dead_code, reason = "only the web build makes tables")
@@ -81,82 +29,6 @@ pub fn probing_cells() -> bool {
         static CELLS: bool = measuring() && seiza::url::has_param("cells");
     }
     CELLS.with(|cells| *cells)
-}
-
-/// Publishes the table's layout to `globalThis.__tychoTableLayout`: `{left,
-/// top, rowHeight, cellsWidth, columns: [{name, x, width, kind, budget}]}`
-/// (CSS pixels from the canvas's top-left). The table reports it only while
-/// [`measuring`], and only when the layout changed (the scroll position is
-/// in [`publish_table`]).
-pub fn publish_table_layout(layout: &TallTableLayout) {
-    #[cfg(target_family = "wasm")]
-    {
-        use js_sys::{Array, Object, Reflect};
-        use wasm_bindgen::JsValue;
-
-        let set = |object: &Object, key: &str, value: JsValue| {
-            let _ = Reflect::set(object, &JsValue::from_str(key), &value);
-        };
-        let number = |value: f32| JsValue::from_f64(value.into());
-        let object = Object::new();
-        set(&object, "left", number(layout.left));
-        set(&object, "top", number(layout.top));
-        set(&object, "rowHeight", number(layout.row_height));
-        set(&object, "cellsWidth", number(layout.cells_width));
-        let columns: Array = layout
-            .columns
-            .iter()
-            .map(|column| {
-                let probe = Object::new();
-                set(&probe, "name", JsValue::from_str(&column.name));
-                set(&probe, "x", number(column.x));
-                set(&probe, "width", number(column.width));
-                set(&probe, "kind", JsValue::from_str(column.kind));
-                set(&probe, "budget", JsValue::from_f64(column.budget as f64));
-                JsValue::from(probe)
-            })
-            .collect();
-        set(&object, "columns", columns.into());
-        let _ = Reflect::set(
-            &js_sys::global(),
-            &JsValue::from_str("__tychoTableLayout"),
-            &object,
-        );
-    }
-    #[cfg(not(target_family = "wasm"))]
-    let _ = layout;
-}
-
-/// Publishes the drawn cells to `globalThis.__tychoCells`: `[{row, column,
-/// exact, shown}]`, every frame. Only with [`probing_cells`].
-pub fn publish_cells(cells: &[CellProbe]) {
-    #[cfg(target_family = "wasm")]
-    {
-        use js_sys::{Array, Object, Reflect};
-        use wasm_bindgen::JsValue;
-
-        let cells: Array = cells
-            .iter()
-            .map(|cell| {
-                let object = Object::new();
-                let set = |key: &str, value: JsValue| {
-                    let _ = Reflect::set(&object, &JsValue::from_str(key), &value);
-                };
-                set("row", JsValue::from_f64(cell.row as f64));
-                set("column", JsValue::from_f64(cell.column as f64));
-                set("exact", JsValue::from_str(&cell.exact));
-                set("shown", JsValue::from_str(&cell.shown));
-                JsValue::from(object)
-            })
-            .collect();
-        let _ = Reflect::set(
-            &js_sys::global(),
-            &JsValue::from_str("__tychoCells"),
-            &cells,
-        );
-    }
-    #[cfg(not(target_family = "wasm"))]
-    let _ = cells;
 }
 
 /// What the workbench shows, for [`publish_workbench`].

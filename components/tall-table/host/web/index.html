@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Tall table: bare host</title>
+    <!-- No favicon; an empty one saves a 404 on every load. -->
+    <link rel="icon" href="data:," />
+    <style>
+      /* GPUI appends its canvas to <body> and sizes it to 100%. The
+         background is the default GPUI Kit theme's, light and dark. */
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      body { background: #fff; }
+      @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } }
+      body > canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <noscript>This page needs JavaScript and WebAssembly.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
