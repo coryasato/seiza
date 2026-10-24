@@ -10,22 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-This file was drafted on 2026-10-23, when the table's features moved here from Tycho's `PLAN.md`. Its first milestone is planned in a session of its own; start there.
-
-**Decided:**
-- **This file is the one list of the table's features.** Tycho and the observatory adopt a feature as a milestone in their own `PLAN.md` that links here.
-- **The inventory is `DataTable`'s** (["Features"](#features), read from gpui-component 0.7.3, the pin). TanStack Table's features that `DataTable` lacks are [candidates](#beyond-datatable-tanstack-tables-features), not plans.
-- **One `select` feature** for row, column, and cell selection, the host picking the mode at run time, as `DataTable` does. Finer features would multiply the `cfg`s for little saved.
-- **What's measured where** (["Measuring a feature"](#measuring-a-feature)): the table measures each feature's own cost in a bare host crate of its own; each app measures a feature against its own budgets when it adopts it.
-
-**To decide in the planning session:**
-1. **The first milestone and its "done when" checks.** Likely the cost research (["Long-term goals"](#long-term-goals)) together with building the bare host, since the research needs the host. Whether the research is one milestone, or the host comes first on its own, is open.
-2. **The build order** (["Order"](#order), a draft).
-3. **The Cargo feature names** in the tables (drafts).
-4. **The bare host's details** (["Measuring a feature"](#measuring-a-feature), its open points).
-5. **Whether stripes and borders are base settings** or a feature.
-6. **Whether any TanStack candidate joins the list.**
-7. **The scenarios' features** (`custom-cells` for the wide sheet, the first; `live`, `follow`): where they go in the order, since the observatory's next milestone waits on `custom-cells`.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), [M1](#active-milestone) and [M2](#next-milestones), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -33,8 +18,20 @@ This file was drafted on 2026-10-23, when the table's features moved here from T
 
 | Milestone | Title | Status |
 |---|---|---|
+| M1 | The bare host and the base's baseline | Next |
+| M2 | `custom-cells`: a cell's fill, bar, and text color | Planned (spec below, checks drafted) |
+| M3 | `live`: changed rows re-read and redrawn in place | Planned |
+| M4 | `follow`: follow the tail as rows arrive | Planned |
+| M5 | `resize`: drag a column's width | Planned |
+| M6 | `select`: row, column, and cell selection | Planned |
+| M7 | `copy`: a selection to the clipboard | Planned |
+| M8 | `sort`: one column, ascending or descending | Planned |
+| M9 | `pin`: columns fixed at the left | Planned |
+| M10 | `reorder`: drag a column to move it | Planned |
+| M11 | `context-menu`: right- and double-click events | Planned |
+| M12 | `group-headers`: header rows over column groups | Planned |
 
-No milestones yet: the first is planned in its own session (above).
+One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
 
 **Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting", below) to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
@@ -43,25 +40,26 @@ No milestones yet: the first is planned in its own session (above).
 ## Measuring a feature
 
 **Two kinds of numbers, two homes.**
-- **The feature's own cost, measured here:** the wasm it adds (brotli), and the work per frame it adds while scrolling, each against the base. Recorded in `perf/results/` (dated JSON and a note, as an app's are) and in the README's Features table ("Cost", "Measured in"). There's no `budgets.json` and nothing gates on these: they inform the decision to build and to adopt.
-- **What it does to an app, measured in that app:** Tycho's and the observatory's TTFP, wasm-size, and fling budgets, in their own `perf/`, when they adopt the feature. Budgets are a build's (Cargo unifies features per build), so they stay the apps'.
+**The component measures only itself.** Each feature's own cost: the wasm it adds (brotli) and the work per frame it adds while scrolling (and in its own interaction), each against the base, in the bare host. Recorded in `perf/results/` (dated JSON and a note, as an app's are) and in the README's Features table ("Cost", "Measured in"). There's no `budgets.json` and nothing gates on these: every feature in the order is built, because an app needs it, and the numbers tell a host what turning it on costs.
 
-**The bare host** (decided; built by the first milestone that measures). A small crate in this component, `components/tall-table/host/`: a wasm `cdylib` that renders the tall table and nothing else, built the way the apps are (`cargo build -p <host crate>` on its own, `wasm-opt --enable-threads`, brotli quality 11), and never deployed.
+**What protects the apps is the component's tests,** not a measurement in each app. Every feature is off by default, so an app's build doesn't change until it turns one on: each feature's milestone checks that the base build is unchanged with the feature off, and that the native tests and the fixtures pass with it off and on. An app measures a feature against its own budgets when it adopts it, in its own milestone; if it finds a cost it can't carry, the optimization is a milestone here.
+
+**The bare host** (decided; built by M1). A small crate in this component, `components/tall-table/host/`: a wasm `cdylib` that renders the tall table and nothing else, built the way the apps are (`cargo build -p <host crate>` on its own, `wasm-bindgen --target web`, `wasm-opt -Oz --enable-threads` with the apps' flags, brotli quality 11), and never deployed.
 - **Why its own crate, not an app:** a cost read in Tycho mixes in Tycho's code, and the observatory's GPUI contender can't carry code for a feature its DOM side lacks (root `CLAUDE.md`, "Comparison protocol", "The same scope").
 - **It must use the feature, not only compile it.** The host has one Cargo feature per table feature, each turning on the table's and the host's code that switches the feature on at run time (a resizable column, a selection mode, a sorted read). A feature compiled but never switched on can be stripped by the optimizer and read as free.
-- **Its data is synthetic,** a delegate answering pages from memory: no DuckDB, so the bytes and frame work are the table's alone. A feature that reaches the delegate (`sort`, `copy`) gets the delegate calls it needs, answered in memory; its data cost (SQL, bytes read) is measured in Tycho on its real samples.
+- **Its data is synthetic,** a delegate answering pages from memory: no DuckDB, so the bytes and frame work are the table's alone. A feature that reaches the delegate (`sort`, `copy`) gets the delegate calls it needs, answered in memory; its data cost (SQL, bytes read) is the source's that answers it (the DuckDB engine's `tall-table` source), not the table's.
 - **The measurement:** bytes are the base build against each feature's build. Frame work is a scripted scroll (and the feature's own interaction: a resize drag, a selection drag) recorded with `shared-web/perf/`'s harness (`workRecorder`, `wheel`), under the root's measurement protocol (reference and throttled).
 
-**Its open points, for the planning session:**
-- Whether it bootstraps through `seiza` (fonts, `gpui_kit::init`, the first-frame mark; `default-features = false`, no panel) like the observatory's GPUI contender. A component can't depend on `seiza`, but a host crate in its directory can, as any host does; the crate's name and where it sits in the workspace follow from that.
-- Its JS host (a minimal Vite page on `shared-web/`) and where its scripts live, and how they're run: components have no `justfile` today, so a `just tall-table <recipe>` module, or recipes in the root `justfile`.
-- Whether one build with every feature on is also worth recording, as the cost of Tycho's full set.
+**Its details** are a decision (`docs/DECISIONS.md`, "Features", "The bare host's shape"). What M1 still fixes in the spec, since every feature's numbers are read against it, is the delegate's two shapes, at the protocol's 1440×900, DPR 2:
+- **Narrow:** the observatory's: its 11 columns' kinds, 1.57 M rows.
+- **Wide:** 500 `ColumnKind::Float` columns (120 px each, the kind's width), 1.57 M rows, so the paging differs from the narrow shape only by the columns.
+- **Rows** are the table's own height (`table_row_height`, not a setting today). The wide sheet's row-height dial would need a setting, a change to the base that the observatory asks for when it plans that stop.
 
 ---
 
 ## Features
 
-Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels and breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions. Every feature in these tables is `DataTable`'s, read from gpui-component 0.7.3's `src/table/` (the pin); the API it comes from is in each row. Feature names and the order are drafts.
+Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels and breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions. Every feature in these tables is `DataTable`'s, read from gpui-component 0.7.3's `src/table/` (the pin); the API it comes from is in each row. Feature names are drafts until each one's milestone.
 
 **Columns:** *Depends on* is what must exist first. *Data* says whether the feature reaches the delegate (and so the engine's SQL), the costly kind for a table that never holds its rows. *TanStack* is the counterpart a feature level would build on the DOM side (TanStack Table's headless feature, which the contender doesn't load today), or "—" when there's none and the observatory would skip it.
 
@@ -72,7 +70,6 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 | `resize` | Drag a header edge to set a column's width, within a min and max; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged` | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
 | `pin` | Columns fixed at the left while the rest scroll sideways | `ColumnFixed::Left` (left only), `fixed_left` | `resize`'s width model | No | Column pinning (left and right) |
 | `reorder` | Drag a header to move its column | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
-| `row-header` | A row-number column, the f64 row index as a label | `row_header` | — | No | — (a column the app writes) |
 | `group-headers` | Header rows spanning column groups | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group must move and pin whole) | No | Header groups |
 
 ### Selection
@@ -93,8 +90,9 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 
 | Feature (Cargo) | What it adds | In `DataTable` | Depends on | Data | TanStack |
 |---|---|---|---|---|---|
-| `custom-cells` | A delegate hook that draws a cell (a bar, a color scale) instead of its text | `render_td`, `render_th`, `render_tr` | — | No | Cell renderers (`cell`) |
-| *(base?)* | Alternating row shading, cell borders | `stripe`, `bordered` | — | No | CSS |
+| `custom-cells` | A page's paint for a cell: a fill (a color scale), a bar, a text color, drawn under or in place of its text's color (M2) | `render_td` (an element per cell; `render_th` and `render_tr` aren't carried over) | — | No: the page answers it with its values | Cell renderers (`cell`) |
+| *(base)* | Alternating row shading and a line under each row: drawn today (`render_body`) | `stripe`, `bordered` | — | No | CSS |
+| *(base)* | A row-number gutter, the f64 row index + 1 as a label: drawn today (`render_body`'s `gutter_cells`) | `row_header` | — | No | — (a column the app writes) |
 
 **Not carried over:** `load_more`, `has_more`, `loading`, and `render_loading` (the table's paging and placeholders do this); `render_empty` (a host draws its own); `scroll_to_row` and `scroll_to_col` (`jump_to` is the row's; a column's comes with `pin`, if a host asks); `visible_rows_changed` and `visible_columns_changed` (the `Probe` and `Layout` events).
 
@@ -125,7 +123,7 @@ The observatory leads its comparison by scenarios, real uses (its [`docs/researc
 | `follow` | Follow the tail: the view stays on the last row while `set_rows` grows the source, and lets go when the reader scrolls up; a way back to it | Live tail | — | No (`set_rows` exists) | — (the contender's own, on its scroller) |
 | `live` | A host says "these rows changed"; their pages are re-read (or patched) and redrawn, the scroll unmoved | Market watch | — | Yes: the changed pages are read again | — (the contender's own, through its cache) |
 
-What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells) and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` early in the order below.
+What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells) and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
 
 ### Who's waiting
 
@@ -140,32 +138,95 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 
 ### Order
 
-Draft, to settle in the planning session: `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `row-header` → `context-menu` → `group-headers`, with the scenarios' `custom-cells` (asked for first, by the wide sheet), `live`, and `follow` placed where their scenarios need them. `resize` first because `pin`, `reorder`, and `group-headers` build on its width model; `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"); `sort` is the hardest, and its data cost decides whether it's built at all.
+Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.)
+
+- **The scenarios' features first,** in the observatory's scenario order: the wide sheet (`custom-cells`), market watch (`live`, and `custom-cells` for its flash), live tail (`follow`). Each is small, none breaks the paging, and Tycho uses them too (a growing CSV, a refreshed query).
+- **Then Tycho's core:** `resize` first because `pin`, `reorder`, and `group-headers` build on its width model; `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"), and they're the wide sheet's later steps; `sort` is the hardest: paging by row-group range stops working, and its research settles how the delegate reads pages in a sorted order.
+- **The component's features come first, built in a run;** the apps adopt them after, each in a milestone of its own (decided 2026-10-23). A *Ready* row in an app's "Waiting on" table doesn't interrupt the run.
+- **A feature can move up** when an app needs it sooner. The change goes here, with a decision, never in the app's PLAN.
 
 ---
 
 ## Active milestone
 
-None: the first is planned in its own session ("Where planning stands", above).
+None started. Next: **M1, the bare host and the base's baseline.**
+
+### M1: the bare host and the base's baseline
+
+The host every feature's cost is read in, and the base's numbers each feature is measured against. It builds no feature. The host's design is under ["Measuring a feature"](#measuring-a-feature).
+
+**Done when:**
+- [ ] **The host builds on its own,** the way the GPUI contender does: `cargo build -p tall-table-host --release --target wasm32-unknown-unknown`, `wasm-bindgen --target web` into `host/web/pkg/`, `wasm-opt -Oz --enable-threads` with the contender's flags, the Vite build, and brotli 11. `just tall-table build` does it all, and `just tall-table dev` serves the page with COOP/COEP. The root `package.json`'s workspaces include `host/web` (`components/*/host/web`). It depends on `seiza-tall-table` and `seiza` (no panel), and on no engine: `cargo tree -p tall-table-host` shows no `seiza-duckdb`.
+- [ ] **Its delegate answers from memory,** deterministic values from (row, column), in both shapes ("Measuring a feature", above), chosen by URL, with an optional page delay. The table's native tests still pass (`cargo test -p seiza-tall-table`).
+- [ ] **It publishes what the scripts need,** for `shared-web/perf/`'s harness to read: `gpui:first-frame` (through `seiza`), a mark the host sets from the table's `Filled` event (`mark_after_current_task`; the table sets no marks), the scrollbar's targets from its `Scrollbar` event, and `__seizaFrameSample`.
+- [ ] **The event bridge is written once.** Tycho (`crate/src/table.rs`) and the GPUI contender (`contract.rs`) each turn `TallTableEvent`s into marks and targets; the host would be the third copy. It moves out instead, and all three use it. Where it can live is the milestone's first decision: not `seiza` (it would know the table) and not the component (no `seiza`), so likely a small host-side crate next to the host, or `seiza` helpers that take plain bounds while each host keeps its few-line `match`. Each app's checks still pass after the move (`just tycho table`, `just observatory reach`), and the wasm change for each is recorded in its `perf/results/`.
+- [ ] **The base's bytes:** `just tall-table size` records the host's wasm (raw, after wasm-opt, brotli 11) in a dated `perf/results/` JSON. The difference from the observatory's GPUI contender is noted (its engine client and Arrow reader), as a cross-check that the host carries nothing more than the table.
+- [ ] **The base's frame work:** `just tall-table perf` runs, per shape, a vertical scroll, a vertical fling, and (in the wide shape) a horizontal fling, under the measurement protocol (reference and throttled, cold, median of 10): per-frame work from the browser's trace, cross-checked by `workRecorder`; late frames; frame intervals. The numbers are in a results note, with the machine label.
+- [ ] **The wide shape holds up at the base:** its visible cells per frame and its fling's per-frame work are in the note. If the base itself can't keep up at 500 columns, that's recorded and the wide sheet's plan in the observatory hears of it before M2.
+- [ ] **Manual check in Firefox and Safari:** the host loads and scrolls in both shapes (WebGL2 in Firefox).
+- [ ] **Docs:** `CLAUDE.md`'s layout and commands, the README's Docs table, and the root `CLAUDE.md`'s repo layout name `host/`, `perf/`, and the justfile; the root `justfile` loads the module. `just tall-table lint` (the terms check, fmt, the host's clippy on wasm32 and native) passes.
+
+---
+
+## Next milestones
+
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
+
+### M2: `custom-cells` (spec; checks drafted)
+
+**What it adds** (behind the `custom-cells` feature, off by default): a page can answer a **paint** for each cell next to its value, and the table draws it. The paint is declarative (`docs/DECISIONS.md`, "Features"): data the table draws in its own cell, not a subtree a host builds per cell, so a DOM contender matches it from numbers a fixture can pin.
+
+```rust
+// Draft: only the hook's place is settled. Each field's type is an open
+// point below: `Shade` and `Bar` are placeholders for them.
+trait TallTablePage {
+    fn value(&self, row: usize, column: usize) -> Option<CellValue<'_>>;
+    #[cfg(feature = "custom-cells")]
+    fn paint(&self, row: usize, column: usize) -> CellPaint { CellPaint::default() }
+}
+
+pub struct CellPaint {
+    pub fill: Option<Shade>, // the whole cell: a heat map
+    pub bar: Option<Bar>,    // a data bar
+    pub text: Option<Shade>, // the value's color
+}
+// Shade: a color, or a 0..=1 value the column's ramp turns into one.
+// Bar:   a length, from the left edge or from a zero point.
+```
+
+- **What it covers:** the wide sheet's heat-map and data-bar cells, and the color of market watch's flash. The flash's fade over time is `live`'s: `custom-cells` draws what a page answers, and redraws when a page changes.
+- **What stays the table's:** the value's text, its rounding and cutting, and the tooltip (the exact value), unchanged; a placeholder row paints nothing; the row's shading and the jump highlight sit under a cell's fill.
+- **What's the host's:** the color scale and each column's range (a host reads it from its source, as the observatory would from SQL), answered with each page.
+
+**Open points, for the milestone's start:**
+- **Colors in the page, or a scale value and a ramp per column.** A page holding colors must be re-read, or re-answered, when the theme switches; a page holding 0..1 values and a column holding a ramp needn't be. The second is likely the right shape; the milestone decides with the byte and frame numbers.
+- **A bar from a baseline** (negative values grow left of a zero point), or from the left edge only.
+- **How the paint is drawn:** a background on the cell's existing element, or quads painted in the body's own pass. Both are measured in the host; the cheaper one per frame wins.
+
+**Done when** (drafted; tightened when the milestone starts):
+- [ ] **The feature is off by default** and the base's build is unchanged: the host's base wasm, built at the milestone's parent commit and at its head with the feature off, is the same to the byte. `cargo test -p seiza-tall-table` passes with the feature off and on.
+- [ ] **The host uses it:** its `custom-cells` feature switches the paint on at run time (heat in the wide shape, bars in another stop), so the optimizer can't strip it.
+- [ ] **Its cost, in the host:** the added wasm (brotli) against the base; the wide shape's per-frame work in a vertical and a horizontal fling at the scenario's three cell styles (text, heat, bars), reference and throttled. In `perf/results/` and the README's Features table.
+- [ ] **Scripts can read it:** `CellProbe` carries each drawn cell's paint (with `probe_cells`).
+- [ ] **A fixture pins it** for a DOM contender: per cell, the fill, the bar's width in pixels, and the text color, from the host, in `fixtures/` (a `cells.json` case or a fixture of its own), with a native test and a negative control (a paint a shade or a pixel off fails it).
+- [ ] **Canvas tradeoffs:** a heat or bar cell carries meaning in color alone, which a screen reader can't see either; the README says so.
+- [ ] **Waiting apps told:** the observatory's "Waiting on" row and Tycho's note flip to *Ready* (the date and M2).
 
 ---
 
 ## Long-term goals
 
-### Research the features' costs, then decide which to build
+### Research each feature's design before building it
 
-Moved here from Tycho's `PLAN.md`, where it was a long-term goal while the table lived in Tycho. Before writing any feature, measure or estimate, and record in the root's `docs/research/tall-table-features.md` (created with the research):
+Moved here from Tycho's `PLAN.md`, where it was a long-term goal while the table lived in Tycho. Planned on 2026-10-23 as research that opens each feature's milestone, not one study of them all. Every feature in the order is built; the research settles how, not whether. Its cost is measured as it's built ("Measuring a feature"). Each feature's research is recorded in the root's `docs/research/tall-table-features.md` (created with the first one), and covers what applies:
 
-- **Size:** the added wasm (brotli) for each feature, in the bare host; then what that does to Tycho's TTFP and size budgets, in Tycho.
-- **Frame cost:** what each adds per frame while scrolling (hit-testing, resize handles, selection state across 25 M rows), in the bare host.
-- **Sorting's data cost:** the table pages by row-group ranges (`file_row_number`). A sort needs `ORDER BY` over the whole file, which reads all of it (37.7 MB for Tycho's asteroids, far more for Gaia), or a sorted copy in DuckDB's memory, against Tycho's rule 3 (never load the whole result). Measure time, bytes, and memory on both samples, in Tycho.
-- **Reuse:** whether gpui-kit's column and selection pieces can sit on top of the row-based scroll model, or have to be rebuilt.
+- **Reuse:** whether gpui-kit's column and selection pieces can sit on top of the row-based scroll model, or have to be rebuilt (before `resize` and `select`).
+- **The delegate's calls**, for the features that reach it (`live`, `copy`, `sort`): what the table asks and how a source answers in pages. Sorting's above all: the table asks for rows by index, and a source that pages by row-group range (the DuckDB source's `file_row_number`) can't answer a sorted order that way. What a source does to answer (an `ORDER BY` over the whole file, a sorted copy) is the source's cost, measured by the engine; the table's design must not make it hold the whole result.
+- **Frame-work risks:** what could cost per frame while scrolling (hit-testing, resize handles, selection state across 25 M rows), checked with a spike in the bare host when it's unclear.
 - **Canvas gaps:** how selection and copy interact with the canvas tradeoffs (text selection, a11y) the README tracks.
-
-A feature's size and frame cost can only be measured once it's written; before that, the research estimates them (from `DataTable`'s code, or a spike in the bare host). Record the decision (build all, some, or none) in `docs/DECISIONS.md` with the numbers, and only then add a feature's milestone with "done when" checks.
 
 ---
 
 ## Open questions
 
-- **Stripes and borders:** a few lines of drawing, so likely part of the base (as a setting) rather than a feature; the research's byte count decides.
+- **Vertical cell borders** (`DataTable`'s `bordered`): the base draws row lines but no column lines. Nobody has asked; a wide sheet of heat cells may want them.

@@ -32,7 +32,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 | Needs | For | Status |
 |---|---|---|
-| tall-table `custom-cells` ([its PLAN](../../components/tall-table/PLAN.md), "Drawing") | The wide sheet's heat and bar cells; market watch's flash on change | *Not ready* |
+| tall-table `custom-cells` ([its PLAN](../../components/tall-table/PLAN.md), "Drawing") | The wide sheet's heat and bar cells; market watch's flash on change | *Not ready* (tall-table M2, after M1's bare host) |
 | tall-table `live` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios") | Market watch | *Not ready* |
 | tall-table `follow` (same) | Live tail | *Not ready* |
 
@@ -40,7 +40,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next is the first scenario, the wide sheet ("Long-term goals", "Scenarios"). It waits on the table's `custom-cells` ("Waiting on", above); its checks are drafted once that's ready.
+None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next is the first scenario, the wide sheet ("Long-term goals", "Scenarios"). It waits on the table's `custom-cells` ("Waiting on", above; tall-table M2, the table's second milestone); its checks are drafted once that's ready.
 
 ---
 
