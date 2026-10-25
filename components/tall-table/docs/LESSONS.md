@@ -104,3 +104,15 @@ One entry per milestone part, written before starting the next one: what surpris
 - "Following means being at the end" can't start off: a table opened empty or small is at the end, so a loading CSV would have pulled its reader down with every chunk. Following had to be a flag the reader's actions set.
 - Pinning to `rows()` would have put placeholders at the tail by design at high rates; pinning to the rows read so far keeps them off and moves the cost into a number (append → pixel), which then needed an event of its own (`TailDrawn`): `Refreshed` and `Filled` don't name a new page's rows.
 - `set_rows` had no step in `paging.json`, so a DOM contender's behavior on a growing source was never pinned, even in the base.
+
+## M4: `follow` (part B, 2026-10-25)
+
+**Results:** [`perf/results/2026-10-25-m4-b.md`](../perf/results/2026-10-25-m4-b.md).
+
+**Surprises:**
+- Keeping a grown page meant a "loaded" page could have rows it never read, and every rule that asked "is this page loaded?" had to ask about rows instead: `row` (placeholders past what was read), the flash (a new row compared with the old page's `None` past its end flashed as a change from NULL), prefetch's hold (a grown visible page counted as present, so prefetch raced its re-read), and `Refreshed` (it named the page's rows, placeholders included). The first two showed up while building; the last two only in the code review.
+- A shrink from a whole-page count returned before touching any page, because that early return existed for the base's drop. With `live`, the page the shrink ended in needed its row end clamped first, or a re-read in flight landed rows from before the shrink.
+- The base had never pinned a shrink, and it keeps whole pages past a shrunk end, drawing them as they were if the rows grow back. It predates `live`, and fixing it would change the base, so it's a follow-up.
+- Holding prefetch for a grown visible page made `live` match the base: the base drops the page, so it's missing and holds prefetch anyway.
+- The probe's `last_cell` is the last visible row's, so a test of "the old rows still draw" can't read it while the last row is a placeholder: the pending count (exactly the new rows) is the evidence.
+

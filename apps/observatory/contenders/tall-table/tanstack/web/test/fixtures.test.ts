@@ -222,8 +222,14 @@ async function runScenario(paging: Paging, scenario: any): Promise<string | null
 describe('paging.json', () => {
   const paging = fixture('paging.json');
   // The contender builds the table's base level: no scenario or control of
-  // a feature (`features`, a `live` control) applies to it yet.
-  const scenarios = (paging.scenarios as any[]).filter((scenario) => !scenario.features?.length);
+  // a feature (`features`, a `live` control) applies to it yet, nor a
+  // scenario with a step it doesn't build (`rows`: its row count is fixed).
+  const built = new Set(['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail']);
+  const scenarios = (paging.scenarios as any[]).filter(
+    (scenario) =>
+      !scenario.features?.length &&
+      (scenario.steps as any[]).every((step) => Object.keys(step).every((key) => key === 'expect' || key === 'why' || built.has(key))),
+  );
   const controls = (paging.controls as any[]).filter((control) => control.paging);
 
   test('its paging is the contender’s, every field', () => {

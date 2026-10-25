@@ -28,18 +28,25 @@ struct Live<'a> {
 
 impl<'a> Live<'a> {
     fn open(cx: &'a mut TestAppContext) -> Self {
+        Self::open_rows(cx, ROWS)
+    }
+
+    /// The same, over `rows` rows.
+    fn open_rows(cx: &'a mut TestAppContext, rows: u64) -> Self {
         cx.update(gpui_kit::component::init);
-        let reads = Rc::new(RefCell::new(Reads::default()));
+        let reads = Rc::new(RefCell::new(Reads {
+            rows,
+            ..Reads::default()
+        }));
         let delegate = Script {
             reads: reads.clone(),
             page_rows: Paging::default().page_rows,
-            rows: ROWS,
         };
         let (table, cx) = cx.add_window_view(move |_, cx| {
             TallTableState::new(
                 delegate,
                 vec![TallTableColumn::new("value", ColumnKind::Float)],
-                ROWS,
+                rows,
                 Paging::default(),
                 cx,
             )
@@ -101,6 +108,14 @@ impl<'a> Live<'a> {
             .update(self.cx, |table, cx| table.invalidate_rows(rows, cx));
         self.draw();
         generation
+    }
+
+    /// The source holds `rows` rows now, and the table is told.
+    fn grow(&mut self, rows: u64) {
+        self.reads.borrow_mut().rows = rows;
+        self.table
+            .update(self.cx, |table, cx| table.set_rows(rows, cx));
+        self.draw();
     }
 
     /// What the delegate was asked since the last call.
@@ -348,4 +363,125 @@ fn a_reread_the_source_refuses_is_read_again(cx: &mut TestAppContext) {
     live.invalidate(1..2);
     assert_eq!(live.log(), ["load 0"]);
     assert_eq!(live.events().1, (0, read(4)));
+}
+
+#[gpui_kit::test]
+fn a_grown_last_page_draws_its_rows_until_read_again(cx: &mut TestAppContext) {
+    // 10 rows, every one visible: page 0 is short.
+    let mut live = Live::open_rows(cx, 10);
+    live.answer_all();
+    assert_eq!(live.log(), ["load 0"]);
+    assert_eq!(
+        live.events(),
+        (vec![TallTableEvent::Filled { first: true }], (0, read(0)))
+    );
+
+    // Grown by 5: the 10 rows it was read with draw, the 5 new ones are
+    // placeholders (the last row among them), so the frame isn't filled;
+    // the page is read again.
+    live.grow(15);
+    assert_eq!(live.log(), ["load 0"]);
+    assert_eq!(live.events(), (vec![], (5, None)));
+    live.table.update(live.cx, |table, _| {
+        assert_eq!(table.cache.used_bytes(), PAGE_BYTES, "counted once");
+    });
+    // Grown again while that read is out: not cancelled, nothing started.
+    live.grow(20);
+    assert_eq!(live.log(), Vec::<String>::new());
+    assert_eq!(live.events(), (vec![], (10, None)));
+
+    // The read (request 1, rows 0..15) lands: drawn, `Refreshed` once for
+    // the rows it holds, and read once more for rows 15..20.
+    live.answer(0);
+    assert_eq!(live.log(), ["load 0"]);
+    let (events, probe) = live.events();
+    assert_eq!(
+        events,
+        [TallTableEvent::Refreshed {
+            rows: 0..15,
+            generation: 0
+        }]
+    );
+    assert_eq!(probe, (5, None));
+    live.table.update(live.cx, |table, _| {
+        assert_eq!(table.cache.used_bytes(), PAGE_BYTES, "swapped, not added");
+    });
+    live.answer(0);
+    let (events, probe) = live.events();
+    assert!(
+        events.contains(&TallTableEvent::Filled { first: false }),
+        "{events:?}"
+    );
+    assert_eq!(probe, (0, read(2)));
+    assert_eq!(live.log(), Vec::<String>::new());
+
+    // Shrunk: the rows past the end go, as without `live`.
+    live.grow(5);
+    assert_eq!(live.log(), ["load 0"]);
+    assert_eq!(live.events().1, (5, None), "page 0 was short: forgotten");
+}
+
+#[gpui_kit::test]
+fn growth_in_one_update_reads_the_page_once(cx: &mut TestAppContext) {
+    let mut live = Live::open_rows(cx, 20);
+    live.answer_all();
+    live.log();
+    live.events();
+    // Ten appends in one update: one read, planned at its end.
+    live.reads.borrow_mut().rows = 30;
+    live.table.update(live.cx, |table, cx| {
+        for rows in 21..=30 {
+            table.set_rows(rows, cx);
+        }
+        assert_eq!(table.cache.in_flight(), 0, "nothing read yet");
+    });
+    live.draw();
+    assert_eq!(live.log(), ["load 0"]);
+    live.answer(0);
+    assert_eq!(live.log(), Vec::<String>::new());
+    // An append, and its rows invalidated, in one update: one read too.
+    live.reads.borrow_mut().rows = 40;
+    live.table.update(live.cx, |table, cx| {
+        table.set_rows(40, cx);
+        table.invalidate_rows(30..40, cx);
+    });
+    live.draw();
+    assert_eq!(live.log(), ["load 0"]);
+    live.answer(0);
+    assert_eq!(live.log(), Vec::<String>::new());
+    assert_eq!(live.events().1, (0, read(2)));
+
+    // Answered when sent: the appends land in the turn that asked.
+    live.reads.borrow_mut().at_once = Some(AtOnce::Page(PAGE_BYTES));
+    live.reads.borrow_mut().rows = 50;
+    live.table.update(live.cx, |table, cx| {
+        for rows in 41..=50 {
+            table.set_rows(rows, cx);
+        }
+    });
+    assert_eq!(live.log(), ["load 0"]);
+    live.table.update(live.cx, |table, _| {
+        assert_eq!((table.cache.in_flight(), table.cache.draining()), (0, 0));
+    });
+    live.cx.update(|window, cx| window.draw(cx).clear(cx));
+    assert_eq!(live.events().1, (0, read(3)));
+}
+
+#[gpui_kit::test]
+fn a_last_page_grown_off_screen_reports_nothing(cx: &mut TestAppContext) {
+    // Page 0 visible; page 1 (rows 1024..1500, short) prefetched.
+    let mut live = Live::open_rows(cx, 1500);
+    live.answer_all();
+    assert_eq!(live.log(), ["load 0", "load 1"]);
+    live.events();
+    live.grow(1600);
+    assert_eq!(live.log(), ["load 1"], "read again as prefetch");
+    live.answer(1);
+    assert!(
+        live.events()
+            .0
+            .iter()
+            .all(|event| !matches!(event, TallTableEvent::Refreshed { .. })),
+        "off screen"
+    );
 }

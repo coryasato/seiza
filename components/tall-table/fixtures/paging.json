@@ -20,7 +20,8 @@
     { "name": "smaller pages", "paging": { "page_rows": 512 } },
     { "name": "a bigger cache", "paging": { "budget_bytes": 134217728 } },
     { "name": "re-read invalidated pages outside wanted", "live": "reread-unwanted" },
-    { "name": "cancel a stale read to restart it", "live": "restart-stale" }
+    { "name": "cancel a stale read to restart it", "live": "restart-stale" },
+    { "name": "drop a short last page that grows", "live": "drop-grown" }
   ],
   "scenarios": [
     {
@@ -130,6 +131,38 @@
       ]
     },
     {
+      "name": "the short last page grows",
+      "without": ["live"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"], "why": "Page 1 (rows 1024..1500, short) is the only one past page 0." },
+        { "jump": 1472, "expect": [], "why": "The end: rows 1472.5..1500, page 1, loaded." },
+        { "rows": 1600, "expect": ["load 1"], "why": "Page 1 no longer holds every row it covers: forgotten, and read anew (the visible page has nothing to show)." },
+        { "rows": 1700, "expect": ["cancel 1", "load 1"], "why": "Grown again during its read: that read is cancelled (it holds its place until it answers), and the page read anew." },
+        { "answer": "all", "expect": [] },
+        { "rows": 2048, "expect": ["load 1"], "why": "Page 1 was short (1024..1700): forgotten again, though it's whole now." },
+        { "answer": "all", "expect": [] },
+        { "rows": 2100, "expect": ["load 2"], "why": "2048 rows were whole pages: nothing forgotten. The new page 2 is prefetch below the view." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "the rows shrink",
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "jump": 1472, "expect": [] },
+        { "rows": 1200, "expect": ["load 1"], "why": "The top moves up to the new end (rows 1172.5..1200, page 1). Page 1 was short: forgotten, with or without live, and read anew." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
       "name": "a visible page changes",
       "features": ["live"],
       "rows": 1567523,
@@ -235,6 +268,55 @@
         { "drag": 0.5, "expect": [], "why": "Rows 783747..783776, page 765: nothing loads until the pointer rests." },
         { "answer": [0], "expect": [], "why": "A read landing mid-drag starts nothing either: the drag's pages wait for its settle." },
         { "wait": 80, "expect": ["load 765"] }
+      ]
+    },
+    {
+      "name": "a grown last page is kept",
+      "features": ["live"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "jump": 1472, "expect": [] },
+        { "rows": 1600, "expect": ["load 1"], "why": "Kept, stale: rows 1024..1500 draw as read, 1500..1600 as placeholders, and the page is read again." },
+        { "rows": 1700, "expect": [], "why": "Grown during its re-read: not cancelled." },
+        { "rows": 1800, "expect": [] },
+        { "answer": [1], "expect": ["load 1"], "why": "Read once more after it lands, however many times it grew." },
+        { "answer": "all", "expect": [] },
+        { "rows": 2100, "expect": ["load 1"], "why": "Page 1 (1024..1800) grew to whole: read again. Its new rows are visible page 1's, so no prefetch until they land, as when a visible page is missing." },
+        { "answer": [1], "expect": ["load 2"], "why": "Page 1 holds every row now: the new page 2 is prefetch below it." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a last page grows during its first read",
+      "features": ["live"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": [0], "expect": ["load 1"], "why": "Page 1's first read, as prefetch." },
+        { "rows": 1600, "expect": [], "why": "Its first read is out: not cancelled." },
+        { "answer": [1], "expect": ["load 1"], "why": "It lands holding rows 1024..1500, stale: read again for 1500..1600." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a grown last page shrinks",
+      "features": ["live"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "jump": 1472, "expect": [] },
+        { "rows": 1600, "expect": ["load 1"] },
+        { "rows": 1400, "expect": ["cancel 1", "load 1"], "why": "Shrinking forgets the short last page, as without live: its re-read is cancelled, and the page read anew at the new end." },
+        { "answer": "all", "expect": [] }
       ]
     }
   ]

@@ -7,6 +7,8 @@
 //! With `live`, a loaded page can be stale (its rows were invalidated): it
 //! keeps drawing while its page is read again, one read per page in flight,
 //! and the read that lands replaces it (`docs/DECISIONS.md`, "Features").
+//! A short last page that grows is stale the same way: it draws the rows it
+//! was read with, placeholders past them, until its re-read lands.
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -27,6 +29,10 @@ enum Slot<T, R> {
         /// Rows were invalidated during the read: read again once it lands.
         #[cfg(feature = "live")]
         stale: bool,
+        /// The end of the rows the read asks for (`live`): what the page
+        /// holds once it lands, if the rows grew meanwhile.
+        #[cfg(feature = "live")]
+        end: u64,
         /// Those rows, compared by the read after this one (the flash).
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         changed: RowSet,
@@ -50,6 +56,11 @@ struct Live<R> {
     stale: bool,
     /// The re-read in flight, and the generation it started at.
     reading: Option<(R, u64)>,
+    /// The end of the rows the drawn page holds: past it (the rows grew
+    /// since it was read) the rows are placeholders.
+    end: u64,
+    /// The end of the rows the re-read in flight asks for.
+    reading_end: u64,
     /// The last re-read failed: not read again until the next invalidation
     /// or [`PageCache::forget_failed`].
     failed: bool,
@@ -102,6 +113,14 @@ impl RowSet {
         self.0.is_empty()
     }
 
+    /// Drops the rows at or past `end`.
+    pub(crate) fn truncate(&mut self, end: u64) {
+        self.0.retain_mut(|rows| {
+            rows.end = rows.end.min(end);
+            rows.start < rows.end
+        });
+    }
+
     pub(crate) fn ranges(&self) -> &[Range<u64>] {
         &self.0
     }
@@ -109,10 +128,12 @@ impl RowSet {
 
 #[cfg(feature = "live")]
 impl<R: Copy> Live<R> {
-    fn new(stale: bool) -> Self {
+    fn new(stale: bool, end: u64) -> Self {
         Self {
             stale,
             reading: None,
+            end,
+            reading_end: end,
             failed: false,
             landed: None,
             #[cfg(feature = "custom-cells")]
@@ -162,6 +183,8 @@ pub(crate) enum Control {
     RereadUnwanted,
     /// A page invalidated during its re-read cancels it and reads anew.
     RestartStale,
+    /// A short last page that grows is dropped, as without `live`.
+    DropGrown,
 }
 
 /// Outside the tests, no control.
@@ -174,6 +197,13 @@ impl Control {
     fn reread_unwanted(self) -> bool {
         #[cfg(test)]
         return self == Self::RereadUnwanted;
+        #[cfg(not(test))]
+        false
+    }
+
+    fn drop_grown(self) -> bool {
+        #[cfg(test)]
+        return self == Self::DropGrown;
         #[cfg(not(test))]
         false
     }
@@ -277,12 +307,46 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// page was short, it no longer holds every row it covers: it's
     /// forgotten, and its request, if one is out, is returned for the caller
     /// to cancel (it counts as in flight until it answers).
+    ///
+    /// With `live`, a short last page that grows is kept instead, stale: it
+    /// draws the rows it holds, placeholders past them, and [`PageCache::plan`]
+    /// reads it again; a read of it in flight isn't cancelled, and the page
+    /// is read once more after it lands. Shrinking still forgets it.
     pub fn set_rows(&mut self, rows: u64) -> Option<R> {
         let old = std::mem::replace(&mut self.rows, rows);
+        // Shrunk into a page that stays: it holds rows only up to the new
+        // end, so rows that come back later aren't drawn from its reads.
+        #[cfg(feature = "live")]
+        if rows < old {
+            match self.slots.get_mut(&(rows / self.page_rows)) {
+                Some(Slot::Loaded { live, .. }) => {
+                    live.end = live.end.min(rows);
+                    live.reading_end = live.reading_end.min(rows);
+                }
+                Some(Slot::Loading { end, .. }) => *end = (*end).min(rows),
+                _ => {}
+            }
+        }
         if old.is_multiple_of(self.page_rows) || rows == old {
             return None;
         }
         let page = old / self.page_rows;
+        #[cfg(feature = "live")]
+        if rows > old && !self.control().drop_grown() {
+            match self.slots.get_mut(&page) {
+                Some(Slot::Loaded { live, .. }) => {
+                    live.stale = true;
+                    live.failed = false;
+                    return None;
+                }
+                Some(Slot::Loading { stale, .. }) => {
+                    *stale = true;
+                    return None;
+                }
+                // A failure is forgotten, as without `live`: read anew.
+                _ => {}
+            }
+        }
         match self.slots.remove(&page) {
             Some(Slot::Loaded {
                 bytes,
@@ -356,6 +420,9 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     pub fn row(&self, row: u64) -> RowState<'_, T> {
         let page = row / self.page_rows;
         match self.slots.get(&page) {
+            // Past what a grown page was read with (`live`): not loaded yet.
+            #[cfg(feature = "live")]
+            Some(Slot::Loaded { live, .. }) if row >= live.end => RowState::Pending,
             Some(Slot::Loaded { page: data, .. }) => {
                 RowState::Loaded(data, (row - page * self.page_rows) as usize)
             }
@@ -475,9 +542,16 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         let visible = visible.min(wanted.len());
         // Loading or not asked for yet. A failed page isn't retried while it
         // stays in view, so it mustn't hold prefetch back.
+        // With `live`, a grown page whose new rows are in view hasn't them
+        // to show either.
         let visible_missing = wanted[..visible]
             .iter()
-            .any(|page| matches!(self.slots.get(page), None | Some(Slot::Loading { .. })));
+            .any(|page| match self.slots.get(page) {
+                None | Some(Slot::Loading { .. }) => true,
+                #[cfg(feature = "live")]
+                Some(Slot::Loaded { live, .. }) => live.end < self.rows_of(*page).end,
+                _ => false,
+            });
         let reach = if visible_missing {
             visible
         } else {
@@ -577,8 +651,11 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// is a re-read: it keeps drawing until the read lands.
     pub fn started(&mut self, page: u64, request: R) {
         #[cfg(feature = "live")]
+        let end = self.rows_of(page).end;
+        #[cfg(feature = "live")]
         if let Some(Slot::Loaded { live, .. }) = self.slots.get_mut(&page) {
             live.reading = Some((request, self.generation));
+            live.reading_end = end;
             live.stale = false;
             return;
         }
@@ -588,6 +665,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 request,
                 #[cfg(feature = "live")]
                 stale: false,
+                #[cfg(feature = "live")]
+                end,
                 #[cfg(all(feature = "live", feature = "custom-cells"))]
                 changed: RowSet::default(),
             },
@@ -622,6 +701,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             *held = bytes;
             *used = self.tick;
             live.reading = None;
+            live.end = live.reading_end;
             live.landed = Some(generation);
             // Compared (`changes`); those invalidated during the read are
             // compared again by the next one.
@@ -633,21 +713,26 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             self.evict(wanted);
             return true;
         }
-        if !matches!(self.slots.get(&page), Some(Slot::Loading { request: r, .. }) if *r == request)
-        {
+        let Some(Slot::Loading {
+            request: read,
+            #[cfg(feature = "live")]
+            stale,
+            #[cfg(feature = "live")]
+            end,
+            #[cfg(all(feature = "live", feature = "custom-cells"))]
+            changed,
+        }) = self.slots.get_mut(&page)
+        else {
+            return false;
+        };
+        if *read != request {
             return false;
         }
         #[cfg(feature = "live")]
-        let stale = matches!(
-            self.slots.get(&page),
-            Some(Slot::Loading { stale: true, .. })
-        );
+        let (stale, end) = (*stale, *end);
         // Invalidated during its first read: compared by the next read.
         #[cfg(all(feature = "live", feature = "custom-cells"))]
-        let changed = match self.slots.get_mut(&page) {
-            Some(Slot::Loading { changed, .. }) => std::mem::take(changed),
-            _ => RowSet::default(),
-        };
+        let changed = std::mem::take(changed);
         self.tick += 1;
         self.slots.insert(
             page,
@@ -659,7 +744,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 live: Live {
                     #[cfg(feature = "custom-cells")]
                     changed,
-                    ..Live::new(stale)
+                    ..Live::new(stale, end)
                 },
             },
         );
@@ -801,30 +886,37 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         live.reading.filter(|(read, _)| *read == request)?;
         let mut rows = live.changed.clone();
         rows.extend(live.changed_during.clone());
+        // A grown page's rows past what it was read with weren't drawn:
+        // nothing to compare them with.
+        rows.truncate(live.end.min(live.reading_end));
         (!rows.is_empty()).then_some((drawn, rows))
     }
 
     /// The re-reads that landed since the last call, each once: those whose
-    /// pages touch the `visible` rows, as (the page's rows, the generation
-    /// its read started at), in page order. The others are dropped: a page
+    /// pages touch the `visible` rows, as (the rows the read holds: a grown
+    /// page's up to where it was read, the generation its read started at),
+    /// in page order. The others are dropped: a page
     /// re-read off screen reports nothing, then or later.
     #[cfg(feature = "live")]
     pub fn take_refreshed(&mut self, visible: Range<u64>) -> Vec<(Range<u64>, u64)> {
         if !std::mem::take(&mut self.landed) {
             return Vec::new();
         }
-        let mut refreshed: Vec<(u64, u64)> = Vec::new();
+        let mut refreshed: Vec<(u64, u64, u64)> = Vec::new();
         for (page, slot) in &mut self.slots {
             if let Slot::Loaded { live, .. } = slot
                 && let Some(generation) = live.landed.take()
             {
-                refreshed.push((*page, generation));
+                refreshed.push((*page, live.end, generation));
             }
         }
         refreshed.sort_unstable();
         refreshed
             .into_iter()
-            .map(|(page, generation)| (self.rows_of(page), generation))
+            .map(|(page, end, generation)| {
+                let rows = self.rows_of(page);
+                (rows.start..rows.end.min(end), generation)
+            })
             .filter(|(rows, _)| rows.start < visible.end && visible.start < rows.end)
             .collect()
     }
@@ -1045,6 +1137,8 @@ mod tests {
         assert_eq!(cache.used_bytes(), 30);
     }
 
+    /// Without `live` (with it, the page is kept: `a_grown_page_is_kept`).
+    #[cfg(not(feature = "live"))]
     #[test]
     fn growing_forgets_the_short_last_page() {
         let mut cache = Cache::new(250, 100, 1 << 20, 4);
@@ -1327,18 +1421,181 @@ mod tests {
         cache.started(5, 5);
         assert!(cache.loaded(5, 5, "b", 10, &[]));
         assert_eq!(cache.row(0), RowState::Loaded(&"a", 0));
-        // A short last page being read again goes with `set_rows`.
+        // A short last page being read again goes with a shrink.
         let mut cache = Cache::new(150, 100, 1 << 20, 3);
         cache.started(1, 1);
         cache.loaded(1, 1, "short", 10, &[]);
         cache.invalidate(100..150);
         cache.plan(&[1], 1);
         cache.started(1, 2);
-        assert_eq!(cache.set_rows(250), Some(2));
+        assert_eq!(cache.set_rows(120), Some(2));
         assert_eq!(
             (cache.in_flight(), cache.draining(), cache.used_bytes()),
             (0, 1, 0)
         );
+    }
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn a_grown_page_is_kept() {
+        // Page 2 holds rows 200..250 of 200..300.
+        let mut cache = Cache::new(250, 100, 1 << 20, 3);
+        for page in 0..3 {
+            cache.started(page, page as u32);
+            assert!(cache.loaded(page, page as u32, "old", 10, &[]));
+        }
+        assert_eq!(cache.set_rows(280), None, "nothing to cancel");
+        // The rows it was read with draw; the new ones are placeholders.
+        assert_eq!(cache.row(249), RowState::Loaded(&"old", 49));
+        assert_eq!(cache.row(250), RowState::Pending);
+        assert_eq!((cache.loaded_pages(), cache.used_bytes()), (3, 30));
+        // Read again, as a stale page is; growing during the read cancels
+        // nothing and starts nothing.
+        assert_eq!(cache.plan(&[2], 1).fetch, vec![2]);
+        cache.started(2, 10);
+        assert_eq!(cache.set_rows(290), None);
+        assert_eq!(
+            cache.plan(&[2], 1),
+            Plan {
+                fetch: vec![],
+                cancel: vec![]
+            }
+        );
+        assert_eq!(cache.row(260), RowState::Pending, "drawn as read meanwhile");
+        // It lands with the rows it asked for (200..280), the bytes swapped:
+        // still stale for 280..290, so read once more.
+        assert!(cache.loaded(2, 10, "new", 12, &[2]));
+        assert_eq!(cache.row(279), RowState::Loaded(&"new", 79));
+        assert_eq!(cache.row(280), RowState::Pending);
+        assert_eq!(cache.used_bytes(), 32);
+        // `Refreshed` names the rows it holds, not the page's new rows.
+        assert_eq!(cache.take_refreshed(250..290), vec![(200..280, 0)]);
+        assert_eq!(cache.plan(&[2], 1).fetch, vec![2]);
+        cache.started(2, 11);
+        assert!(cache.loaded(2, 11, "newest", 12, &[2]));
+        assert_eq!(cache.row(289), RowState::Loaded(&"newest", 89));
+        assert!(cache.plan(&[2], 1).fetch.is_empty());
+        // Grown past it: the page is whole now, and read again once. Its
+        // new rows are a visible page's with nothing to show: no prefetch
+        // until they land, as when a visible page is missing.
+        assert_eq!(cache.set_rows(450), None);
+        assert_eq!(cache.row(290), RowState::Pending);
+        assert_eq!(cache.plan(&[2, 3], 1).fetch, vec![2]);
+        cache.started(2, 12);
+        assert!(cache.plan(&[2, 3], 1).fetch.is_empty());
+        assert!(cache.loaded(2, 12, "whole", 12, &[2, 3]));
+        assert_eq!(cache.plan(&[2, 3], 1).fetch, vec![3]);
+        // Whole pages stay as they are.
+        cache.started(3, 13);
+        assert!(cache.loaded(3, 13, "short", 12, &[2, 3]));
+        assert!(cache.plan(&[2, 3], 1).fetch.is_empty());
+    }
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn a_shrink_clamps_the_page_it_ends_in() {
+        // 200 rows (whole pages), page 1 being read again for 100..200.
+        let mut cache = Cache::new(150, 100, 1 << 20, 3);
+        cache.started(1, 1);
+        assert!(cache.loaded(1, 1, "short", 10, &[]));
+        cache.set_rows(200);
+        assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
+        cache.started(1, 2);
+        // Shrunk to 180 and grown back while that read is out: it lands
+        // holding rows up to 180 only, and 180..200 are read again.
+        assert_eq!(cache.set_rows(180), None);
+        assert_eq!(cache.set_rows(200), None);
+        assert!(cache.loaded(1, 2, "read", 10, &[1]));
+        assert_eq!(cache.row(179), RowState::Loaded(&"read", 79));
+        assert_eq!(cache.row(180), RowState::Pending);
+        assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
+        // A first read in flight is clamped the same way.
+        let mut cache = Cache::new(200, 100, 1 << 20, 3);
+        cache.started(1, 1);
+        cache.set_rows(180);
+        assert!(cache.loaded(1, 1, "first", 10, &[1]));
+        cache.set_rows(200);
+        assert_eq!(cache.row(180), RowState::Pending);
+    }
+
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    #[test]
+    fn a_grown_pages_new_rows_are_never_compared() {
+        let mut cache = Cache::new(150, 100, 1 << 20, 3);
+        cache.track_changes(true);
+        cache.started(1, 1);
+        assert!(cache.loaded(1, 1, "short", 10, &[1]));
+        // Grown, and the new rows invalidated with one it drew.
+        cache.set_rows(180);
+        cache.invalidate(140..180);
+        cache.plan(&[1], 1);
+        cache.started(1, 2);
+        let (_, rows) = cache.changes(1, 2).expect("row 140..150 changed");
+        assert_eq!(rows.ranges(), std::slice::from_ref(&(140..150)));
+        // Only new rows: nothing to compare.
+        assert!(cache.loaded(1, 2, "grown", 10, &[1]));
+        cache.set_rows(200);
+        cache.invalidate(180..200);
+        cache.plan(&[1], 1);
+        cache.started(1, 3);
+        assert_eq!(cache.changes(1, 3), None);
+    }
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn a_page_grown_during_its_first_read_reads_again() {
+        let mut cache = Cache::new(150, 100, 1 << 20, 3);
+        assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
+        cache.started(1, 1);
+        assert_eq!(cache.set_rows(180), None, "not cancelled");
+        assert!(cache.plan(&[1], 1).fetch.is_empty(), "nothing more started");
+        // It holds the rows it asked for: 100..150.
+        assert!(cache.loaded(1, 1, "first", 10, &[1]));
+        assert_eq!(cache.row(149), RowState::Loaded(&"first", 49));
+        assert_eq!(cache.row(150), RowState::Pending);
+        assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
+        // A first read reports no refresh.
+        assert!(cache.take_refreshed(100..180).is_empty());
+    }
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn a_grown_page_shrinks_or_fails_as_without_live() {
+        // Grown, then shrunk: forgotten, its re-read cancelled.
+        let mut cache = Cache::new(150, 100, 1 << 20, 3);
+        cache.started(1, 1);
+        assert!(cache.loaded(1, 1, "short", 10, &[]));
+        cache.set_rows(180);
+        cache.plan(&[1], 1);
+        cache.started(1, 2);
+        assert_eq!(cache.set_rows(140), Some(2));
+        assert_eq!(cache.row(120), RowState::Pending);
+        assert_eq!((cache.used_bytes(), cache.draining()), (0, 1));
+        // Shrunk inside a page it keeps (300 rows were whole pages, so
+        // nothing is forgotten): grown again, it doesn't draw rows that went.
+        let mut cache = Cache::new(300, 100, 1 << 20, 3);
+        cache.started(1, 1);
+        assert!(cache.loaded(1, 1, "whole", 10, &[]));
+        cache.set_rows(150);
+        assert_eq!(cache.row(149), RowState::Loaded(&"whole", 49));
+        cache.set_rows(200);
+        assert_eq!(
+            cache.row(150),
+            RowState::Pending,
+            "row 150 went and came back"
+        );
+        // A failed short page is forgotten, as without `live`: read anew.
+        let mut cache = Cache::new(150, 100, 1 << 20, 3);
+        cache.started(1, 1);
+        cache.failed(1, 1, "network".into());
+        assert_eq!(cache.set_rows(180), None);
+        assert_eq!(cache.row(160), RowState::Pending);
+        assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
+        // The control drops it, as the base does.
+        let mut cache = Cache::new(150, 100, 1 << 20, 3);
+        cache.control = Control::DropGrown;
+        cache.started(1, 1);
+        assert_eq!(cache.set_rows(180), Some(1));
     }
 
     #[cfg(feature = "live")]

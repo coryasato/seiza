@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-25",
+  "label": "m4-b-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13094.1,
+    "optKiB": 9681.8,
+    "brotliKiB": 2688.8
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13106,
+      "optKiB": 9691.8,
+      "brotliKiB": 2692.3,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 3.5
+    },
+    "live": {
+      "rawKiB": 13110,
+      "optKiB": 9695.3,
+      "brotliKiB": 2694.6,
+      "moreOptKiB": 13.5,
+      "moreBrotliKiB": 5.8
+    },
+    "live,custom-cells": {
+      "rawKiB": 13136.3,
+      "optKiB": 9715.7,
+      "brotliKiB": 2701.2,
+      "moreOptKiB": 33.9,
+      "moreBrotliKiB": 12.4,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.4,
+          "moreBrotliKiB": 6.6
+        },
+        "custom-cells": {
+          "moreOptKiB": 23.9,
+          "moreBrotliKiB": 8.9
+        }
+      }
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 28
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    }
+  },
+  "against": {
+    "commit": "5878b27",
+    "then": {
+      "rawKiB": 13092.7,
+      "optKiB": 9680.5,
+      "brotliKiB": 2688.4
+    },
+    "now": {
+      "rawKiB": 13092.7,
+      "optKiB": 9680.5,
+      "brotliKiB": 2690
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": 1.6
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-ClaE6Rz6.wasm",
+    "optKiB": 9743.6,
+    "brotliKiB": 2707.9,
+    "moreBrotliKiB": 19.1
+  },
+  "failures": []
+}

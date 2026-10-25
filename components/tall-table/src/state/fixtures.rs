@@ -69,6 +69,8 @@ struct Reads {
     log: Vec<String>,
     open: Vec<Read>,
     next: u32,
+    /// The rows the source holds: a read must ask for a page's rows of them.
+    rows: u64,
     /// Reads answer when sent, as a source with the rows in hand does
     /// (`live`'s tests).
     #[cfg(feature = "live")]
@@ -88,7 +90,6 @@ enum AtOnce {
 struct Script {
     reads: Rc<RefCell<Reads>>,
     page_rows: u64,
-    rows: u64,
 }
 
 impl TallTableDelegate for Script {
@@ -98,13 +99,13 @@ impl TallTableDelegate for Script {
     fn load_page(&mut self, rows: Range<u64>, _: &mut App) -> (u32, PageLoad<Blank>) {
         let page = rows.start / self.page_rows;
         let start = page * self.page_rows;
+        let mut reads = self.reads.borrow_mut();
         assert_eq!(
             rows,
-            start..(start + self.page_rows).min(self.rows),
+            start..(start + self.page_rows).min(reads.rows),
             "page {page}'s rows"
         );
         let (answer, answered) = oneshot::channel();
-        let mut reads = self.reads.borrow_mut();
         let request = reads.next;
         reads.next += 1;
         reads.log.push(format!("load {page}"));
@@ -182,14 +183,15 @@ fn paging_with(mut paging: Paging, fields: &Value) -> Paging {
     paging
 }
 
-/// Whether this build has every feature `scenario` needs (`features`).
+/// Whether this build has every feature `scenario` needs (`features`) and
+/// none it's skipped under (`without`).
 fn applies(scenario: &Value) -> bool {
-    scenario["features"].as_array().is_none_or(|features| {
-        features.iter().all(|feature| match feature.as_str() {
-            Some("live") => cfg!(feature = "live"),
-            other => panic!("a scenario needs an unknown feature: {other:?}"),
-        })
-    })
+    let built = |feature: &Value| match feature.as_str() {
+        Some("live") => cfg!(feature = "live"),
+        other => panic!("a scenario names an unknown feature: {other:?}"),
+    };
+    let features = |key: &str| scenario[key].as_array().cloned().unwrap_or_default();
+    features("features").iter().all(built) && !features("without").iter().any(built)
 }
 
 /// A `live` control's way of getting re-reads wrong, by its fixture name.
@@ -199,6 +201,7 @@ fn live_control(name: &str) -> crate::pages::Control {
     match name {
         "reread-unwanted" => Control::RereadUnwanted,
         "restart-stale" => Control::RestartStale,
+        "drop-grown" => Control::DropGrown,
         other => panic!("unknown live control {other:?}"),
     }
 }
@@ -215,7 +218,10 @@ fn run_scenario(
     let rows = scenario["rows"].as_u64().expect("rows");
     let viewport_rows = scenario["viewport_rows"].as_f64().expect("viewport_rows");
     let page_bytes = scenario["page_bytes"].as_u64().expect("page_bytes") as usize;
-    let reads = Rc::new(RefCell::new(Reads::default()));
+    let reads = Rc::new(RefCell::new(Reads {
+        rows,
+        ..Reads::default()
+    }));
     let mut table: Option<Entity<TallTableState<Script>>> = None;
 
     for (index, step) in scenario["steps"]
@@ -238,7 +244,6 @@ fn run_scenario(
                 let delegate = Script {
                     reads: reads.clone(),
                     page_rows: paging.page_rows,
-                    rows,
                 };
                 let opened = cx.new(|cx| {
                     TallTableState::new(
@@ -295,6 +300,12 @@ fn run_scenario(
                 });
             }
             "release" => on_table(cx, &table, |table, cx| table.end_drag(cx)),
+            // The source now holds that many rows.
+            "rows" => {
+                let rows = argument.as_u64().expect("rows: a count");
+                reads.borrow_mut().rows = rows;
+                on_table(cx, &table, |table, cx| table.set_rows(rows, cx));
+            }
             #[cfg(feature = "live")]
             "invalidate" => {
                 let rows: Vec<u64> = argument

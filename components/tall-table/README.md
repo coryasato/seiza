@@ -40,7 +40,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 **`TallTableState`:**
 
 - `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it.
-- `set_rows(rows, cx)`: the source grew (rows still loading); the scrollbar follows and short pages reload.
+- `set_rows(rows, cx)`: the source grew (rows still loading); the scrollbar follows and short pages reload. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
 - `set_columns(columns, cx)`: a column's kind changed.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads and starts no more (a table being replaced).
@@ -96,7 +96,8 @@ TallTableEvent::Refreshed { rows, generation } => { /* … */ }
 
 - **No placeholders:** a loaded page keeps drawing its old rows until its new page lands, and the frame still counts as filled (no `Filled`). Only a page that isn't loaded draws placeholders, as ever.
 - **One read per page in flight:** a page invalidated while it's being read (a re-read, or its first read) is read once more after that read lands, never cancelled and restarted, so invalidating a page ten times in a frame costs one more read. A page with nothing to show reads first, then the visible stale pages, then prefetch (stale prefetch pages among it, in order); re-reads hold at most `max_in_flight − 1` reads at once, so re-reads alone never fill every place (a page scrolled into view can still wait behind prefetch, as without `live`). During a scrollbar drag they wait for the pointer to rest, as every load does.
-- **One plan per update:** an invalidation's reads start at the end of the update that made it, so a batch invalidated row by row reads each page once.
+- **One plan per update:** an invalidation's reads, and `set_rows`', start at the end of the update that made them, so a batch invalidated row by row, or appended to and invalidated, reads each page once.
+- **A short last page that grows is kept:** `set_rows` growing it leaves it drawn with the rows it was read with, placeholders past them (the frame isn't filled until they land), and reads it again as an invalidated page, never cancelled for growing. Prefetch waits for it while its new rows are in view, and `Refreshed` names the rows the read holds. Without `live`, it's forgotten and read anew, its read cancelled. Shrinking forgets it either way. If its re-read fails, the new rows stay placeholders (not the error) until `retry_failed`; if the source refuses it, until the rows grow or change again.
 - **A source with the rows in hand lands at once:** a re-read whose future is ready when `load_page` returns (an async block with nothing to wait on, `std::future::ready`) lands in that turn and is drawn on the next frame, with no trip through the executor (on the web, each spawned task waits for a `setTimeout(0)`). So a host that holds the new values answers the re-read from them; there's no separate push call. A read that isn't ready is awaited as any other, and first reads always are.
 - **Stale pages nobody wants are dropped:** scrolled back to, the page loads as any other does. A re-read of a page that leaves the wanted pages is cancelled.
 - **A failed re-read keeps the old rows drawn,** and is read again at the next invalidation of its rows or `retry_failed`; a `read_failure` still emits `ReadFailed`.

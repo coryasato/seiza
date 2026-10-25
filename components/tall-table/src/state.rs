@@ -328,9 +328,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// invalidation's reads can start now (`live`).
     #[cfg(feature = "live")]
     drag_resting: bool,
-    /// An invalidation's loads are waiting for the end of the update that
-    /// made it (`live`): one plan for all of a batch's rows, so a source
-    /// that answers at once reads a page once, not once a row.
+    /// An invalidation's or a growth's loads are waiting for the end of the
+    /// update that made it (`live`): one plan for all of a batch's rows, so
+    /// a source that answers at once reads a page once, not once a row.
     #[cfg(feature = "live")]
     load_deferred: bool,
     /// Resets `direction` to still once the rows stop moving
@@ -474,6 +474,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The delegate holds `rows` rows now (a source that grows while it
     /// loads): the scrollbar follows, and pages that were short or missing
     /// load.
+    ///
+    /// With `live`, a short last page that grows stays drawn, placeholders
+    /// past the rows it was read with, and is read again as an invalidated
+    /// page is (never cancelled for growing); the reads start once the
+    /// update that called this ends, one plan for every `set_rows` and
+    /// [`TallTableState::invalidate_rows`] in it.
     pub fn set_rows(&mut self, rows: u64, cx: &mut Context<Self>) {
         let top = self.scroll.top();
         self.scroll.set_rows(rows);
@@ -483,6 +489,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if let Some(request) = self.cache.set_rows(rows) {
             self.delegate.cancel(request, cx);
         }
+        #[cfg(feature = "live")]
+        self.load_after_update(cx);
+        #[cfg(not(feature = "live"))]
         self.load_pages(cx);
         cx.notify();
     }
@@ -503,7 +512,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
     #[cfg(feature = "live")]
     pub fn invalidate_rows(&mut self, rows: std::ops::Range<u64>, cx: &mut Context<Self>) -> u64 {
         let generation = self.cache.invalidate(rows);
-        // A drag still moving: its settle loads these with the rest.
+        self.load_after_update(cx);
+        generation
+    }
+
+    /// Plans the reads once the update ends (`live`): one plan for every
+    /// invalidation and growth in it. A drag still moving: its settle loads
+    /// them with the rest.
+    #[cfg(feature = "live")]
+    fn load_after_update(&mut self, cx: &mut Context<Self>) {
         if (self.drag.is_none() || self.drag_resting)
             && !std::mem::replace(&mut self.load_deferred, true)
         {
@@ -518,7 +535,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 });
             });
         }
-        generation
     }
 
     /// The rows the viewport shows, partly or wholly.
