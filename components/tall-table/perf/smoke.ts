@@ -73,7 +73,7 @@ async function checkLive(page: Page, label: string, flash: boolean): Promise<str
 
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
-async function checkPaint(page: Page, style: CellStyle, layout: Layout, label: string): Promise<string> {
+async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
   const view = await filledWhere(page, 'true');
   const drawn = await drawnCells(page);
   const field = ({ heat: 'fill', bars: 'bar', color: 'text' } as const)[style as 'heat' | 'bars' | 'color'];
@@ -82,7 +82,17 @@ async function checkPaint(page: Page, style: CellStyle, layout: Layout, label: s
     failures.push(`${label}: no drawn cell has a ${field}`);
     return '';
   }
+  if (style === 'bars') {
+    // The host's bars take `below`'s color left of zero: both sides drawn
+    // where values are signed (the wide shape; the narrow's are all >= 0).
+    const colors = new Set(paintedCells.map((cell) => cell.bar!.color.join(',')));
+    if (shape === 'wide' && colors.size < 2) failures.push(`${label}: every bar drawn in one color (${[...colors].join(' ')}), none below zero in its own`);
+    return `, ${paintedCells.length}/${drawn.length} cells with a bar, in ${colors.size} colors`;
+  }
   if (style !== 'heat') return `, ${paintedCells.length}/${drawn.length} cells with a ${field}`;
+  // Over a fill the text picks its own contrast.
+  const unset = paintedCells.filter((cell) => !cell.text).length;
+  if (unset) failures.push(`${label}: ${unset} filled cells drew their text in no color of their own`);
   const cell = darkestOnScreen(paintedCells, view, layout);
   const x = layout.left + layout.columns[cell.column]!.x - view.scrollX + 2;
   const y = layout.top + (cell.row - view.top) * layout.rowHeight + 2;
@@ -142,7 +152,7 @@ try {
           const right = await filledWhere(page, 's.scrollX >= 2000');
           sideways = `, sideways to ${right.scrollX.toFixed(0)} px (${visibleColumns(layout, right.scrollX)} columns visible)`;
         }
-        const paint = cells ? await checkPaint(page, cells, layout, label) : '';
+        const paint = cells ? await checkPaint(page, cells, shape, layout, label) : '';
         const refreshed = feed ? await checkLive(page, label, flash) : '';
         if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
         console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api}), ${start.rows} rows, ${layout.columns.length} columns, rows ${start.first}–${start.end} → ${down.first}–${down.end}${sideways}${paint}${refreshed}`);

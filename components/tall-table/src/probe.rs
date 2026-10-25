@@ -75,9 +75,11 @@ pub struct CellProbe {
 pub struct PaintProbe {
     /// The fill's color, 8-bit RGBA.
     pub fill: Option<[u8; 4]>,
-    /// The bar's left edge and width, in CSS px from the cell's left.
-    pub bar: Option<(f32, f32)>,
-    /// The value's color, 8-bit RGBA, where a text ramp set it.
+    /// The bar's left edge and width, in CSS px from the cell's left, and
+    /// its color, 8-bit RGBA (its `color`, or `below` left of its zero).
+    pub bar: Option<(f32, f32, [u8; 4])>,
+    /// The value's color, 8-bit RGBA, where a text ramp or a fill's
+    /// contrast set it.
     pub text: Option<[u8; 4]>,
     /// A change's flash, 8-bit RGBA, its opacity in the alpha (`live`).
     #[cfg(feature = "live")]

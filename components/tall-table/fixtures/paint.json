@@ -5,8 +5,11 @@
   "ramps": {
     "heat": {"stops":["background","chart_1"],"light":["#ffffffff","#93c5fdff"],"dark":["#0a0a0aff","#93c5fdff"]},
     "flash": {"stops":["chart_bearish","warning","chart_bullish"],"light":["#dc2626ff","#eab308ff","#16a34aff"],"dark":["#dc2626ff","#facc15ff","#16a34aff"]},
-    "signed": {"stops":["chart_bearish","foreground","chart_bullish"],"light":["#dc2626ff","#0a0a0aff","#16a34aff"],"dark":["#dc2626ff","#fafafaff","#16a34aff"]}
+    "signed": {"stops":["chart_bearish","foreground","chart_bullish"],"light":["#dc2626ff","#0a0a0aff","#16a34aff"],"dark":["#dc2626ff","#fafafaff","#16a34aff"]},
+    "active": {"stops":["table_active","chart_1"],"light":["#bfdbfe33","#93c5fdff"],"dark":["#1e40af33","#93c5fdff"]}
   },
+  "tokens": {"stops":["foreground","background","table","table_even","table_active","chart_1","chart_bearish"],"light":["#0a0a0aff","#ffffffff","#ffffffff","#fafafaff","#bfdbfe33","#93c5fdff","#dc2626ff"],"dark":["#fafafaff","#0a0a0aff","#0a0a0aff","#17171766","#1e40af33","#93c5fdff","#dc2626ff"]},
+  "bar": {"color":"chart_1","below":"chart_bearish"},
   "colors": [
     {"ramp":"heat","as":"fill","value":0,"expect":{"light":[255,255,255,255],"dark":[10,10,10,255]}},
     {"ramp":"heat","as":"fill","value":0.1,"expect":{"light":[244,249,255,255],"dark":[21,25,29,255]}},
@@ -29,14 +32,31 @@
   ],
   "bars": [
     {"zero":0,"value":0,"expect":null},
-    {"zero":0,"value":0.3,"expect":{"left":8,"width":31.2}},
-    {"zero":0,"value":1,"expect":{"left":8,"width":104}},
-    {"zero":0.5,"value":0.1,"why":"left of zero: grows left","expect":{"left":18.4,"width":41.6}},
+    {"zero":0,"value":0.3,"expect":{"left":8,"width":31.2,"in":"color"}},
+    {"zero":0,"value":1,"expect":{"left":8,"width":104,"in":"color"}},
+    {"zero":0.5,"value":0.1,"why":"left of zero: grows left","expect":{"left":18.4,"width":41.6,"in":"color"}},
     {"zero":0.5,"value":0.5,"why":"at zero: no bar","expect":null},
-    {"zero":0.5,"value":0.77,"expect":{"left":60,"width":28.08}},
-    {"zero":0.5,"value":1.2,"why":"clamped to 1","expect":{"left":60,"width":52}},
-    {"zero":1,"value":0.4,"why":"zero at the right edge","expect":{"left":49.6,"width":62.4}},
-    {"zero":0.25,"value":0.6,"expect":{"left":34,"width":36.4}}
+    {"zero":0.5,"value":0.77,"expect":{"left":60,"width":28.08,"in":"color"}},
+    {"zero":0.5,"value":1.2,"why":"clamped to 1","expect":{"left":60,"width":52,"in":"color"}},
+    {"zero":1,"value":0.4,"why":"zero at the right edge","expect":{"left":49.6,"width":62.4,"in":"color"}},
+    {"zero":0.25,"value":0.6,"expect":{"left":34,"width":36.4,"in":"color"}},
+    {"zero":0.5,"value":0.1,"below":true,"why":"left of zero: below's color","expect":{"left":18.4,"width":41.6,"in":"below"}},
+    {"zero":0.5,"value":0.77,"below":true,"why":"right of zero: the bar's color","expect":{"left":60,"width":28.08,"in":"color"}},
+    {"zero":0.5,"value":0.5,"below":true,"why":"at zero: no bar","expect":null},
+    {"zero":1,"value":0.4,"below":true,"expect":{"left":49.6,"width":62.4,"in":"below"}},
+    {"zero":0.25,"value":-0.5,"below":true,"why":"clamped to 0, still below","expect":{"left":8,"width":26,"in":"below"}}
+  ],
+  "text_over": [
+    {"ramp":"heat","value":0,"row":"even","why":"the background's own color","expect":{"light":"foreground","dark":"foreground"}},
+    {"ramp":"heat","value":1,"row":"odd","why":"a light fill: dark text in both themes","expect":{"light":"foreground","dark":"background"}},
+    {"ramp":"heat","value":0.75,"row":"even","expect":{"light":"foreground","dark":"background"}},
+    {"ramp":"signed","value":0.5,"row":"odd","why":"the foreground's own color: the background's","expect":{"light":"background","dark":"background"}},
+    {"ramp":"signed","value":0.9,"row":"even","expect":{"light":"background","dark":"background"}},
+    {"ramp":"active","value":0,"row":"odd","why":"translucent: composited over the row first","expect":{"light":"foreground","dark":"foreground"}},
+    {"ramp":"active","value":0,"row":"even","expect":{"light":"foreground","dark":"foreground"}},
+    {"ramp":"active","value":0.5,"row":"even","why":"half translucent: over the dark theme's row it reads dark (light text); its own lightness alone would pick dark text","expect":{"light":"foreground","dark":"foreground"}},
+    {"ramp":"heat","value":0.75,"row":"marked","why":"the jumped-to row: its tint under the fill and over it","expect":{"light":"foreground","dark":"background"}},
+    {"ramp":"active","value":0.5,"row":"marked","expect":{"light":"foreground","dark":"foreground"}}
   ],
   "none": [
     {"paint":"fill","value":"NaN","why":"NaN draws nothing"},

@@ -83,3 +83,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - In GPUI's test app a frame callback, once delivered, notifies the view, and the redraw that follows asks again: "did the last frame ask for another?" can't be read from one count. The test delivers the frame asked for and checks whether the redraw asks again.
 - The flash made updates slower to show, not only costlier: ~12 ms p50 against ~8. While it animates, a re-read landing between frames waits for the next one; without it, the table drew a landed page at once. Its p95 is lower, though (18 against 24 ms).
 - The update rate hardly mattered: from 1k to 50k updates a second the bare host's feed changes every visible row in each ~29 ms batch, one page re-read a batch, so the cost is the redraws, not the rate. At 4× CPU the flash is what tips it over: every frame redraws every cell, and the main thread is busy ~995 ms of every second.
+
+## M2 follow-up: `custom-cells`' follow-ups (2026-10-25)
+
+**Results:** [`perf/results/2026-10-25-m2-follow-up.md`](../perf/results/2026-10-25-m2-follow-up.md)
+
+**Surprises:**
+- A fixture's `why` claimed more than its case showed: the fully translucent fill picks the same text color whether composited or not. Only a half-translucent one tells them apart. A claim in a fixture needs a control that fails without it, or it's prose.
+- "The color under the fill" wasn't the color on screen: the jumped-to row draws its tint over a fill too, which the first build left out and the review caught. A pick made from the drawing has to follow the drawing's layers, not the row's.
+- The contrast pick was free where it was feared to cost: an opaque fill's lightness falls out of the mix the fill already did, so 308 picks a frame read within the spread.
+- The bare host's narrow shape never draws a bar below zero (its float ranges start at or above zero), so a smoke check that wanted both bar colors everywhere failed for want of data, not of code.
+

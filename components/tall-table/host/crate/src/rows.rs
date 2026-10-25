@@ -98,6 +98,14 @@ impl Shape {
         }
     }
 
+    /// A float column's range as its paint maps it (`custom-cells`): the
+    /// whole column's, the same for every page.
+    #[cfg(feature = "custom-cells")]
+    pub fn domain(self, column: usize) -> Option<seiza_tall_table::Domain> {
+        self.range(column)
+            .map(|(min, max)| seiza_tall_table::Domain::new(min, max))
+    }
+
     pub fn columns(self) -> Vec<TallTableColumn> {
         match self {
             Self::Narrow => NARROW
@@ -162,7 +170,7 @@ pub enum Cells {
     Text,
     /// A fill through a two-stop ramp, the background to `chart_1`.
     Heat,
-    /// A bar from the column's zero.
+    /// A bar from the column's zero, in another color below it.
     Bars,
     /// The value's color through a three-stop ramp: down, none, up.
     Color,
@@ -188,14 +196,15 @@ impl Cells {
             .columns()
             .into_iter()
             .enumerate()
-            .map(|(index, column)| match (self, shape.range(index)) {
+            .map(|(index, column)| match (self, shape.domain(index)) {
                 (Self::Heat, Some(_)) => column.fill(Ramp::new(&[
                     |theme| theme.background,
                     |theme| theme.chart_1,
                 ])),
-                (Self::Bars, Some((min, max))) => column.bar(
+                (Self::Bars, Some(domain)) => column.bar(
                     Bar::new(|theme| theme.chart_1)
-                        .zero((-min / (max - min)).clamp(0.0, 1.0) as f32),
+                        .zero(domain.unit(0.0))
+                        .below(|theme| theme.chart_bearish),
                 ),
                 (Self::Color, Some(_)) => column.text_ramp(Ramp::new(&[
                     |theme| theme.chart_bearish,
@@ -403,15 +412,15 @@ impl TallTablePage for MemoryPage {
         let Some((cells, shape)) = self.paint else {
             return paint;
         };
-        let (Some((min, max)), Some(Values::Float(values))) =
-            (shape.range(column), self.columns.get(column))
+        let (Some(domain), Some(Values::Float(values))) =
+            (shape.domain(column), self.columns.get(column))
         else {
             return paint;
         };
         let Some(value) = values.get(row).filter(|value| !value.is_nan()) else {
             return paint;
         };
-        let at = Some(((value - min) / (max - min)) as f32);
+        let at = Some(domain.unit(*value));
         match cells {
             Cells::Text => {}
             Cells::Heat => paint.fill = at,

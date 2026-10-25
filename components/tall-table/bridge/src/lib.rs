@@ -181,8 +181,8 @@ pub mod js {
 
     /// `[{row, column, exact, shown}]`: every cell the frame drew. With
     /// `custom-cells`, also `fill` and `text` (`[r, g, b, a]`, 8-bit, or
-    /// null) and `bar` (`{left, width}` in CSS px from the cell's left, or
-    /// null); with `live` too, `flash` (`[r, g, b, a]`, its opacity in the
+    /// null) and `bar` (`{left, width}` in CSS px from the cell's left, and
+    /// its `color`, or null); with `live` too, `flash` (`[r, g, b, a]`, its opacity in the
     /// alpha, or null).
     pub fn cells(cells: &[CellProbe]) -> JsValue {
         let list: Array = cells
@@ -202,10 +202,11 @@ pub mod js {
                     };
                     set(&object, "fill", color(cell.paint.fill));
                     set(&object, "text", color(cell.paint.text));
-                    let bar = cell.paint.bar.map_or(JsValue::NULL, |(left, width)| {
+                    let bar = cell.paint.bar.map_or(JsValue::NULL, |(left, width, rgba)| {
                         let bar = Object::new();
                         set(&bar, "left", number(left));
                         set(&bar, "width", number(width));
+                        set(&bar, "color", color(Some(rgba)));
                         bar.into()
                     });
                     set(&object, "bar", bar);

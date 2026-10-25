@@ -31,7 +31,7 @@ pub use activity::ActivityStats;
 pub use column::{ColumnKind, TallTableColumn};
 pub use delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 #[cfg(feature = "custom-cells")]
-pub use paint::{Bar, CellPaint, Ramp, Stop};
+pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
 #[cfg(feature = "custom-cells")]
 pub use probe::PaintProbe;
 pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};

@@ -32,7 +32,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 | Needs | For | Status |
 |---|---|---|
-| tall-table `custom-cells` ([its PLAN](../../components/tall-table/PLAN.md), "Drawing"; [its README](../../components/tall-table/README.md), "Paint") | The wide sheet's heat and bar cells; market watch's flash on change | *Ready* (2026-10-24, tall-table M2); its follow-ups, one breaking change to `Bar` among them, land before the wide sheet builds a column's paint ([its PLAN](../../components/tall-table/PLAN.md), "Follow-ups to built features") |
+| tall-table `custom-cells` ([its PLAN](../../components/tall-table/PLAN.md), "Drawing"; [its README](../../components/tall-table/README.md), "Paint") | The wide sheet's heat and bar cells; market watch's flash on change | *Ready* (2026-10-24, tall-table M2; its follow-ups, `Bar` built only through `Bar::new` among them, 2026-10-25) |
 | tall-table `live` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios"; [its README](../../components/tall-table/README.md), "Live rows" and "A flash") | Market watch, its flash included (`live` with `custom-cells`) | *Ready* (2026-10-25, tall-table M3) |
 | tall-table `follow` (same) | Live tail | *Not ready* |
 | `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | A milestone of its own: record the wasm's size effect in `perf/results/`, add the home-path check to `check`, redeploy (no rush) | *Not ready* |

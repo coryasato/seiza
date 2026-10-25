@@ -353,6 +353,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The cells flashing for a change (`live` with `custom-cells`).
     #[cfg(all(feature = "live", feature = "custom-cells"))]
     pub(crate) flashes: Flashes,
+    /// The paint fixture's negative controls.
+    #[cfg(all(test, feature = "custom-cells"))]
+    pub(crate) paint_control: paint::Control,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -409,6 +412,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             marked: None,
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             flashes: Flashes::default(),
+            #[cfg(all(test, feature = "custom-cells"))]
+            paint_control: paint::Control::None,
         };
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         table.track_flashes();
@@ -1257,6 +1262,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .iter()
                 .map(|(index, _)| paint::ColumnPaint::resolve(&self.column_info[*index], theme))
                 .collect();
+            #[cfg(feature = "custom-cells")]
+            let frame_paint = {
+                #[cfg_attr(not(test), expect(unused_mut))]
+                let mut frame = paint::FramePaint::resolve(theme);
+                #[cfg(test)]
+                {
+                    frame.control = self.paint_control;
+                }
+                frame
+            };
             for row in visible.clone() {
                 let top = px((self.scroll.offset_of(row) * f64::from(f32::from(row_h))) as f32);
                 row_backgrounds.push(
@@ -1285,6 +1300,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         .text_color(theme.muted_foreground)
                         .child(format_count(row + 1)),
                 );
+                // What the row draws around its cells' fills, for their
+                // text's contrast.
+                #[cfg(feature = "custom-cells")]
+                let row_paint = frame_paint.row(row, self.marked == Some(row));
                 match self.cache.row(row) {
                     RowState::Loaded(page, index) => {
                         loaded += 1;
@@ -1306,7 +1325,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 // A column with no ramp or bar draws no
                                 // paint: its page isn't asked, except in a
                                 // debug build, which asserts it answers none.
-                                #[cfg_attr(not(feature = "live"), expect(unused_mut))]
                                 let mut drawn =
                                     if paints[position].is_empty() && !cfg!(debug_assertions) {
                                         paint::DrawnPaint::default()
@@ -1314,6 +1332,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                         paint::draw(
                                             page.paint(index, *column_index),
                                             &paints[position],
+                                            &frame_paint,
+                                            row_paint,
                                             column.x - self.scroll_x,
                                             f32::from(top),
                                             column.width,
@@ -1376,7 +1396,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 if let Some((bounds, color)) = drawn.bar {
                                     quads.push(fill(bounds, color));
                                 }
-                                if let Some(text) = drawn.text {
+                                // A NULL keeps its muted color over a fill;
+                                // a text ramp's color still sets it.
+                                if matches!(value, CellValue::Null) {
+                                    drawn.contrast = None;
+                                }
+                                if let Some(text) = drawn.text.or(drawn.contrast) {
                                     color = text.into();
                                 }
                                 drawn

@@ -30,6 +30,6 @@ export interface Cell {
   shown: string;
   fill?: number[] | null;
   text?: number[] | null;
-  bar?: { left: number; width: number } | null;
+  bar?: { left: number; width: number; color: number[] } | null;
   flash?: number[] | null;
 }

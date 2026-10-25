@@ -3,7 +3,8 @@
 //! theme and then the dark one with no page read again. The fixture's
 //! colors come from Chromium's `color-mix(in oklab, …)`
 //! (`just tall-table paint-fixture`), so the table's mixing is checked
-//! against the browser's, not against itself.
+//! against the browser's, not against itself; so does each text-over-a-fill
+//! case's token, from the browser's compositing.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ use serde_json::Value;
 use super::super::{Paging, TallTableEvent, TallTableState};
 use crate::column::{ColumnKind, TallTableColumn};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
-use crate::paint::{Bar, CellPaint, Ramp, Stop};
+use crate::paint::{Bar, CellPaint, Control, Ramp, Stop};
 use crate::probe::{CellProbe, PaintProbe};
 
 const PAINT: &str = include_str!("../../../fixtures/paint.json");
@@ -36,6 +37,9 @@ fn token(name: &str) -> Stop {
         "chart_bullish" => |theme| theme.chart_bullish,
         "chart_bearish" => |theme| theme.chart_bearish,
         "warning" => |theme| theme.warning,
+        "table" => |theme| theme.tokens.table.color,
+        "table_even" => |theme| theme.table_even,
+        "table_active" => |theme| theme.table_active,
         other => panic!("paint.json names a token the test doesn't know: {other}"),
     }
 }
@@ -58,6 +62,29 @@ fn fixture() -> Value {
     serde_json::from_str(PAINT).expect("paint.json")
 }
 
+/// A token's pinned color in light and dark (`tokens`).
+fn pinned(fixture: &Value, name: &str) -> ([u8; 4], [u8; 4]) {
+    let tokens = &fixture["tokens"];
+    let index = tokens["stops"]
+        .as_array()
+        .expect("tokens' stops")
+        .iter()
+        .position(|stop| stop.as_str() == Some(name))
+        .unwrap_or_else(|| panic!("paint.json's tokens have no {name}"));
+    let at = |mode: &str| hex(tokens[mode][index].as_str().expect("#rrggbbaa"));
+    (at("light"), at("dark"))
+}
+
+/// A bar the fixture expects: its left edge and width (CSS px from the
+/// cell's left), and its color in light and dark.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct BarExpect {
+    left: f32,
+    width: f32,
+    light: [u8; 4],
+    dark: [u8; 4],
+}
+
 /// One drawn cell the fixture expects something of.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Expect {
@@ -70,8 +97,13 @@ enum Expect {
         light: [u8; 4],
         dark: [u8; 4],
     },
-    /// The bar's left edge and width (CSS px from the cell's left), or none.
-    Bar(Option<(f32, f32)>),
+    /// The bar, or none.
+    Bar(Option<BarExpect>),
+    /// The text's color over a fill: a token, exactly.
+    TextOver {
+        light: [u8; 4],
+        dark: [u8; 4],
+    },
     /// Nothing drawn.
     Nothing,
 }
@@ -83,6 +115,8 @@ struct Layout {
     paints: HashMap<(usize, usize), CellPaint>,
     cases: Vec<(usize, usize, Expect, String)>,
     rows: u64,
+    /// The row the table jumps to, its own last one: the `marked` cases'.
+    marked: Option<usize>,
 }
 
 fn layout(fixture: &Value) -> Layout {
@@ -142,19 +176,50 @@ fn layout(fixture: &Value) -> Layout {
         paints.insert((row, index), paint);
         cases.push((row, index, expect, format!("{used_as} {name} at {value}")));
     }
+    let bar_token = |key: &str| fixture["bar"][key].as_str().expect("the bar's tokens");
+    let (color, below) = (bar_token("color"), bar_token("below"));
     for case in fixture["bars"].as_array().expect("bars") {
         let zero = case["zero"].as_f64().expect("zero") as f32;
         let value = case["value"].as_f64().expect("value") as f32;
-        let (index, row) = column_for(format!("bar {zero}"), &|| {
-            TallTableColumn::new(format!("bar {zero}"), ColumnKind::Float)
-                .bar(Bar::new(|theme| theme.chart_1).zero(zero))
+        let with_below = case["below"].as_bool().unwrap_or(false);
+        let key = if with_below {
+            format!("bar {zero} below")
+        } else {
+            format!("bar {zero}")
+        };
+        let (index, row) = column_for(key.clone(), &|| {
+            let bar = Bar::new(token(color)).zero(zero);
+            // A short title: a header wider than the fixture's cell widens
+            // the column.
+            let title = if with_below {
+                format!("below {zero}")
+            } else {
+                key.clone()
+            };
+            TallTableColumn::new(title, ColumnKind::Float).bar(if with_below {
+                bar.below(token(below))
+            } else {
+                bar
+            })
         });
         let expect = match &case["expect"] {
             Value::Null => None,
-            expect => Some((
-                expect["left"].as_f64().expect("left") as f32,
-                expect["width"].as_f64().expect("width") as f32,
-            )),
+            expect => {
+                let (light, dark) = pinned(
+                    fixture,
+                    match expect["in"].as_str().expect("in") {
+                        "color" => color,
+                        "below" => below,
+                        other => panic!("a bar in {other}"),
+                    },
+                );
+                Some(BarExpect {
+                    left: expect["left"].as_f64().expect("left") as f32,
+                    width: expect["width"].as_f64().expect("width") as f32,
+                    light,
+                    dark,
+                })
+            }
         };
         paints.insert(
             (row, index),
@@ -167,7 +232,56 @@ fn layout(fixture: &Value) -> Layout {
             row,
             index,
             Expect::Bar(expect),
-            format!("bar from {zero} to {value}"),
+            format!(
+                "bar from {zero} to {value}{}",
+                if with_below { " with below" } else { "" }
+            ),
+        ));
+    }
+    // Text over a fill, each case in a row of the parity it names (a gap
+    // row between where it must); the marked row's after every other row.
+    let mut marked_cases = Vec::new();
+    for case in fixture["text_over"].as_array().expect("text_over") {
+        let name = case["ramp"].as_str().expect("ramp");
+        let value = case["value"].as_f64().expect("value") as f32;
+        let row_kind = case["row"].as_str().expect("row");
+        let odd = match row_kind {
+            "even" => false,
+            "odd" => true,
+            "marked" => false,
+            other => panic!("row: {other}"),
+        };
+        let key = format!("over {name}");
+        let make = || TallTableColumn::new(key.clone(), ColumnKind::Float).fill(ramp(name));
+        let (mut index, mut row) = column_for(key.clone(), &make);
+        if row_kind == "marked" {
+            // Placed once every other case has its row.
+            marked_cases.push((index, row));
+        } else if (row % 2 == 1) != odd {
+            (index, row) = column_for(key.clone(), &make);
+        }
+        let token_of = |mode: &str| {
+            let (light, dark) = pinned(fixture, case["expect"][mode].as_str().expect("a token"));
+            if mode == "light" { light } else { dark }
+        };
+        paints.insert(
+            (row, index),
+            CellPaint {
+                fill: Some(value),
+                ..CellPaint::default()
+            },
+        );
+        cases.push((
+            row,
+            index,
+            Expect::TextOver {
+                light: token_of("light"),
+                dark: token_of("dark"),
+            },
+            format!(
+                "text over {name} at {value}, {} {row_kind} row",
+                if row_kind == "marked" { "a" } else { "an" }
+            ),
         ));
     }
     // NaN draws nothing: in the first fill column and the first bar column.
@@ -193,12 +307,27 @@ fn layout(fixture: &Value) -> Layout {
         paints.insert((*row - 1, index), paint_value);
         cases.push((*row - 1, index, Expect::Nothing, format!("{paint} at NaN")));
     }
-    let rows = next_row.values().copied().max().unwrap_or(0) as u64;
+    let mut rows = next_row.values().copied().max().unwrap_or(0);
+    let marked = (!marked_cases.is_empty()).then(|| {
+        // Each marked case moves from the row it was given to the last.
+        for (index, given) in marked_cases {
+            let paint = paints.remove(&(given, index)).expect("the case's paint");
+            paints.insert((rows, index), paint);
+            for case in cases.iter_mut() {
+                if (case.0, case.1) == (given, index) {
+                    case.0 = rows;
+                }
+            }
+        }
+        rows += 1;
+        rows - 1
+    });
     Layout {
         columns: columns.into_iter().map(|(_, column)| column).collect(),
         paints,
         cases,
-        rows,
+        rows: rows as u64,
+        marked,
     }
 }
 
@@ -246,7 +375,7 @@ struct Drawn {
     loads_dark: usize,
 }
 
-fn draw(cx: &mut TestAppContext, layout: &Layout) -> Drawn {
+fn draw(cx: &mut TestAppContext, layout: &Layout, control: Control) -> Drawn {
     cx.update(gpui_kit::component::init);
     let loads = Rc::new(Cell::new(0));
     let paints = Rc::new(layout.paints.clone());
@@ -265,7 +394,18 @@ fn draw(cx: &mut TestAppContext, layout: &Layout) -> Drawn {
         )
         .probe_cells(true)
     });
-    cx.simulate_resize(size(gpui_kit::px(1440.), gpui_kit::px(900.)));
+    cx.update(|_, cx| {
+        table.update(cx, |table, cx| {
+            table.paint_control = control;
+            // Every row fits on screen, so the jump marks the row and
+            // scrolls nothing.
+            if let Some(row) = layout.marked {
+                table.jump_to(row as u64, cx);
+            }
+        })
+    });
+    // Wide enough for every column the fixture makes.
+    cx.simulate_resize(size(gpui_kit::px(2560.), gpui_kit::px(900.)));
     let cells: Rc<RefCell<Vec<CellProbe>>> = Rc::default();
     let seen = cells.clone();
     let _subscription = cx.update(|_, cx| {
@@ -348,14 +488,24 @@ fn mismatches(layout: &Layout, drawn: &Drawn, skew: i16, bar_skew: f32) -> Vec<S
             } => {
                 close_color(light.text, want_light, skew) && close_color(dark.text, want_dark, skew)
             }
-            Expect::Bar(want) => [light.bar, dark.bar].iter().all(|bar| match (bar, want) {
+            Expect::Bar(want) => [
+                (&light, want.map(|want| want.light)),
+                (&dark, want.map(|want| want.dark)),
+            ]
+            .iter()
+            .all(|(drawn, color)| match (drawn.bar, want) {
                 (None, None) => true,
-                (Some((left, width)), Some((want_left, want_width))) => {
-                    (left - (want_left + bar_skew)).abs() <= BAR_PX
-                        && (width - want_width).abs() <= BAR_PX
+                (Some((left, width, drawn_color)), Some(want)) => {
+                    (left - (want.left + bar_skew)).abs() <= BAR_PX
+                        && (width - want.width).abs() <= BAR_PX
+                        && Some(drawn_color) == *color
                 }
                 _ => false,
             }),
+            Expect::TextOver {
+                light: want_light,
+                dark: want_dark,
+            } => light.text == Some(want_light) && dark.text == Some(want_dark),
             Expect::Nothing => light == PaintProbe::default() && dark == PaintProbe::default(),
         };
         if !ok {
@@ -371,7 +521,7 @@ fn mismatches(layout: &Layout, drawn: &Drawn, skew: i16, bar_skew: f32) -> Vec<S
 fn paint_fixture(cx: &mut TestAppContext) {
     let fixture = fixture();
     let layout = layout(&fixture);
-    let drawn = draw(cx, &layout);
+    let drawn = draw(cx, &layout, Control::None);
     assert!(drawn.loads_light > 0, "the table read its page");
     // A theme switch recolors every paint on its frame, with no page read.
     assert_eq!(
@@ -401,7 +551,9 @@ fn paint_fixture_stops_are_the_theme(cx: &mut TestAppContext) {
     let fixture = fixture();
     for (mode, key) in [(ThemeMode::Light, "light"), (ThemeMode::Dark, "dark")] {
         cx.update(|cx| Theme::change(mode, None, cx));
-        for (name, ramp) in fixture["ramps"].as_object().expect("ramps") {
+        let tokens = fixture["tokens"].clone();
+        let ramps = fixture["ramps"].as_object().expect("ramps");
+        for (name, ramp) in ramps.iter().chain([(&"tokens".to_string(), &tokens)]) {
             let stops = ramp["stops"].as_array().expect("stops");
             let pinned = ramp[key].as_array().expect("the mode's stops");
             assert_eq!(stops.len(), pinned.len(), "{name}'s {key} stops");
@@ -455,7 +607,7 @@ fn srgb_mismatches(fixture: &Value) -> usize {
 fn paint_controls_fail(cx: &mut TestAppContext) {
     let fixture = fixture();
     let layout = layout(&fixture);
-    let drawn = draw(cx, &layout);
+    let drawn = draw(cx, &layout, Control::None);
     let colors = layout
         .cases
         .iter()
@@ -480,5 +632,54 @@ fn paint_controls_fail(cx: &mut TestAppContext) {
     assert!(
         srgb_mismatches(&fixture) > 0,
         "the ramps mixed in sRGB passed the fixture"
+    );
+}
+
+/// The cases a drawing under `control` misses.
+fn missed_under(cx: &mut TestAppContext, control: Control) -> Vec<String> {
+    let fixture = fixture();
+    let layout = layout(&fixture);
+    let drawn = draw(cx, &layout, control);
+    mismatches(&layout, &drawn, 0, 0.0)
+}
+
+#[gpui_kit::test]
+fn below_ignored_fails(cx: &mut TestAppContext) {
+    let below = fixture()["bars"]
+        .as_array()
+        .expect("bars")
+        .iter()
+        .filter(|case| case["expect"]["in"] == "below")
+        .count();
+    assert!(below > 0, "paint.json has no bar drawn in below");
+    let missed = missed_under(cx, Control::BelowIgnored);
+    assert_eq!(missed.len(), below, "{missed:#?}");
+}
+
+#[gpui_kit::test]
+fn nearer_token_fails(cx: &mut TestAppContext) {
+    let texts = fixture()["text_over"].as_array().expect("text_over").len();
+    let missed = missed_under(cx, Control::NearerToken);
+    assert_eq!(missed.len(), texts, "{missed:#?}");
+}
+
+#[gpui_kit::test]
+fn composite_ignored_fails(cx: &mut TestAppContext) {
+    let missed = missed_under(cx, Control::CompositeIgnored);
+    assert!(
+        missed
+            .iter()
+            .any(|case| case.starts_with("text over active") && case.contains("an even row:")),
+        "a translucent fill read alone passed: {missed:#?}"
+    );
+    assert!(
+        missed.iter().any(|case| case.contains("a marked row:")),
+        "a fill read without the jump's tint over it passed: {missed:#?}"
+    );
+    assert!(
+        missed
+            .iter()
+            .all(|case| case.starts_with("text over active") || case.contains("a marked row:")),
+        "{missed:#?}"
     );
 }
