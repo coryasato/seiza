@@ -4,6 +4,7 @@
   "tolerance": {"channel_steps":1,"bar_px":0.5},
   "ramps": {
     "heat": {"stops":["background","chart_1"],"light":["#ffffffff","#93c5fdff"],"dark":["#0a0a0aff","#93c5fdff"]},
+    "flash": {"stops":["chart_bearish","warning","chart_bullish"],"light":["#dc2626ff","#eab308ff","#16a34aff"],"dark":["#dc2626ff","#facc15ff","#16a34aff"]},
     "signed": {"stops":["chart_bearish","foreground","chart_bullish"],"light":["#dc2626ff","#0a0a0aff","#16a34aff"],"dark":["#dc2626ff","#fafafaff","#16a34aff"]}
   },
   "colors": [
@@ -40,5 +41,19 @@
   "none": [
     {"paint":"fill","value":"NaN","why":"NaN draws nothing"},
     {"paint":"bar","value":"NaN","why":"NaN draws nothing"}
-  ]
+  ],
+  "flash": {"ramp":"flash","duration_ms":1000,"cases":[
+    {"old":1.5,"new":2.5,"elapsed_ms":0,"why":"a rise: the ramp's 1","expect":{"at":1,"opacity":1,"light":[22,163,74,255],"dark":[22,163,74,255]}},
+    {"old":2.5,"new":1.5,"elapsed_ms":0,"why":"a fall: the ramp's 0","expect":{"at":0,"opacity":1,"light":[220,38,38,255],"dark":[220,38,38,255]}},
+    {"old":{"text":"MBA"},"new":{"text":"APO"},"elapsed_ms":0,"why":"any other change: the ramp's 0.5","expect":{"at":0.5,"opacity":1,"light":[234,179,8,255],"dark":[250,204,21,255]}},
+    {"old":null,"new":1,"elapsed_ms":0,"why":"NULL to a value: a change","expect":{"at":0.5,"opacity":1,"light":[234,179,8,255],"dark":[250,204,21,255]}},
+    {"old":1,"new":"NaN","elapsed_ms":0,"why":"a number to NaN: a change, not a fall","expect":{"at":0.5,"opacity":1,"light":[234,179,8,255],"dark":[250,204,21,255]}},
+    {"old":1.5,"new":2.5,"elapsed_ms":250,"why":"faded by opacity","expect":{"at":1,"opacity":0.75,"light":[22,163,74,191],"dark":[22,163,74,191]}},
+    {"old":2.5,"new":1.5,"elapsed_ms":500,"expect":{"at":0,"opacity":0.5,"light":[220,38,38,128],"dark":[220,38,38,128]}},
+    {"old":{"text":"MBA"},"new":{"text":"APO"},"elapsed_ms":900,"expect":{"at":0.5,"opacity":0.1,"light":[234,179,8,25],"dark":[250,204,21,25]}},
+    {"old":1.5,"new":2.5,"elapsed_ms":1000,"why":"over: nothing drawn","expect":null},
+    {"old":1,"new":1,"elapsed_ms":0,"why":"no change","expect":null},
+    {"old":"NaN","new":"NaN","elapsed_ms":0,"why":"two NaNs are equal","expect":null},
+    {"old":{"text":"MBA"},"new":{"text":"MBA"},"elapsed_ms":0,"why":"no change","expect":null}
+  ]}
 }

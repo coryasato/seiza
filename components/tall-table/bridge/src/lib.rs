@@ -182,7 +182,8 @@ pub mod js {
     /// `[{row, column, exact, shown}]`: every cell the frame drew. With
     /// `custom-cells`, also `fill` and `text` (`[r, g, b, a]`, 8-bit, or
     /// null) and `bar` (`{left, width}` in CSS px from the cell's left, or
-    /// null).
+    /// null); with `live` too, `flash` (`[r, g, b, a]`, its opacity in the
+    /// alpha, or null).
     pub fn cells(cells: &[CellProbe]) -> JsValue {
         let list: Array = cells
             .iter()
@@ -208,6 +209,8 @@ pub mod js {
                         bar.into()
                     });
                     set(&object, "bar", bar);
+                    #[cfg(feature = "live")]
+                    set(&object, "flash", color(cell.paint.flash));
                 }
                 JsValue::from(object)
             })

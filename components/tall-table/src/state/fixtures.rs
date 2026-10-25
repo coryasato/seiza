@@ -27,6 +27,10 @@ mod paint;
 #[cfg(feature = "live")]
 mod live;
 
+/// The flash, and `paint.json`'s `flash` section, with both features.
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+mod flash;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 

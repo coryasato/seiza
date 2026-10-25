@@ -10,7 +10,8 @@
 //! `?cells=text|heat|bars|color` paints every float column (`rows::Cells`).
 //! With `live`, `?live=<updates/s>` changes that many visible rows a second
 //! (`host::Feed`), marking each batch (`tall-table:invalidated`) and each
-//! frame that draws a re-read page (`tall-table:refreshed`).
+//! frame that draws a re-read page (`tall-table:refreshed`). With both,
+//! `?flash` gives every float column a flash (`rows::with_flash`).
 
 mod host;
 pub mod rows;
@@ -35,9 +36,13 @@ pub fn start(ui_font: Vec<u8>) {
         .map(std::time::Duration::from_millis);
     let probing = seiza::url::has_param("perf");
     #[cfg(feature = "live")]
-    let feed = seiza::url::param("live")
-        .and_then(|rate| rate.parse::<f64>().ok())
-        .filter(|rate| *rate > 0.0);
+    let live = host::Live {
+        feed: seiza::url::param("live")
+            .and_then(|rate| rate.parse::<f64>().ok())
+            .filter(|rate| *rate > 0.0),
+        #[cfg(feature = "custom-cells")]
+        flash: seiza::url::has_param("flash"),
+    };
     #[cfg(feature = "custom-cells")]
     let cells = seiza::url::param("cells")
         .and_then(|name| rows::Cells::from_name(&name))
@@ -51,7 +56,7 @@ pub fn start(ui_font: Vec<u8>) {
                 #[cfg(feature = "custom-cells")]
                 cells,
                 #[cfg(feature = "live")]
-                feed,
+                live,
                 probing,
                 window,
                 cx,

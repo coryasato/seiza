@@ -35,6 +35,7 @@ fn token(name: &str) -> Stop {
         "chart_1" => |theme| theme.chart_1,
         "chart_bullish" => |theme| theme.chart_bullish,
         "chart_bearish" => |theme| theme.chart_bearish,
+        "warning" => |theme| theme.warning,
         other => panic!("paint.json names a token the test doesn't know: {other}"),
     }
 }

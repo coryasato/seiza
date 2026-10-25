@@ -50,7 +50,7 @@ impl Ramp {
         &self.stops
     }
 
-    fn resolve(&self, theme: &Theme) -> ResolvedRamp {
+    pub(crate) fn resolve(&self, theme: &Theme) -> ResolvedRamp {
         ResolvedRamp {
             stops: self
                 .stops
@@ -197,6 +197,9 @@ pub(crate) struct ColumnPaint {
     fill: Option<ResolvedRamp>,
     text: Option<ResolvedRamp>,
     bar: Option<(f32, Hsla)>,
+    /// The flash's ramp (`live`).
+    #[cfg(feature = "live")]
+    pub(crate) flash: Option<ResolvedRamp>,
 }
 
 impl ColumnPaint {
@@ -210,6 +213,8 @@ impl ColumnPaint {
             fill: column.fill.as_ref().map(|ramp| ramp.resolve(theme)),
             text: column.text_ramp.as_ref().map(|ramp| ramp.resolve(theme)),
             bar: column.bar.map(|bar| (bar.zero, (bar.color)(theme))),
+            #[cfg(feature = "live")]
+            flash: column.flash.as_ref().map(|(ramp, _)| ramp.resolve(theme)),
         }
     }
 }
@@ -220,6 +225,9 @@ pub(crate) struct DrawnPaint {
     pub(crate) fill: Option<(Bounds<Pixels>, Rgba)>,
     pub(crate) bar: Option<(Bounds<Pixels>, Hsla)>,
     pub(crate) text: Option<Rgba>,
+    /// The flash's color, its opacity in its alpha (`live`).
+    #[cfg(feature = "live")]
+    pub(crate) flash: Option<Rgba>,
 }
 
 impl DrawnPaint {
@@ -234,6 +242,8 @@ impl DrawnPaint {
                 )
             }),
             text: self.text.map(rgba8),
+            #[cfg(feature = "live")]
+            flash: self.flash.map(rgba8),
         }
     }
 }
@@ -270,18 +280,13 @@ pub(crate) fn draw(
         paint.text.is_none() || column.text.is_some(),
         "a text color for a column with no text ramp"
     );
-    // Clear of the line under the row, which the row's background draws.
-    let height = (height - 1.0).max(0.0);
     let fill = paint
         .fill
         .zip(column.fill.as_ref())
         .and_then(|(value, ramp)| ramp.at(value))
-        .map(|color| {
-            (
-                Bounds::new(point(px(left), px(top)), size(px(width), px(height))),
-                color,
-            )
-        });
+        .map(|color| (cell_box(left, top, width, height), color));
+    // Clear of the line under the row, which the row's background draws.
+    let height = (height - 1.0).max(0.0);
     let pad = CELL_PADDING / 2.0;
     let bar = paint
         .bar
@@ -301,7 +306,30 @@ pub(crate) fn draw(
         .text
         .zip(column.text.as_ref())
         .and_then(|(value, ramp)| ramp.at(value));
-    DrawnPaint { fill, bar, text }
+    DrawnPaint {
+        fill,
+        bar,
+        text,
+        #[cfg(feature = "live")]
+        flash: None,
+    }
+}
+
+/// A flash at `at` in `ramp`, faded to `opacity`: the cell's quad color.
+#[cfg(feature = "live")]
+pub(crate) fn flash_color(ramp: &ResolvedRamp, at: f32, opacity: f32) -> Option<Rgba> {
+    let mut color = ramp.at(at)?;
+    color.a *= opacity.clamp(0.0, 1.0);
+    Some(color)
+}
+
+/// A cell's whole box, clear of the line under its row, which the row's
+/// background draws: a fill's, and a flash's.
+pub(crate) fn cell_box(left: f32, top: f32, width: f32, height: f32) -> Bounds<Pixels> {
+    Bounds::new(
+        point(px(left), px(top)),
+        size(px(width), px((height - 1.0).max(0.0))),
+    )
 }
 
 /// A color as 8-bit RGBA, as a probe reports it.

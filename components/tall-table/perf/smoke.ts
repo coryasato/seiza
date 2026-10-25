@@ -6,7 +6,9 @@
 // heat, that a fill is on screen in the color the table says it drew. Built
 // with `live`, it runs the narrow shape again with the feed on
 // (`?live=1000`): re-read rows draw, and the refreshed mark lands right
-// after a presented frame (shared-web/perf/'s `presentedMark`).
+// after a presented frame (shared-web/perf/'s `presentedMark`). Built with
+// both, the drawn cells' text changes under the feed, and once more with
+// `?flash`, flashes are drawn.
 // Headless, so it stands in for the scripted half of a manual check; how it
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
@@ -31,12 +33,15 @@ const LIVE_RATE = 1000;
 /** Refreshed marks checked against the frame they follow. */
 const LIVE_MARKS = 3;
 const live = builtFeatures().includes('live');
+/** Both: the cell probe shows the feed's changes, and `?flash` runs. */
+const flashing = live && painted.length > 0;
 
 /** With the feed on: the refreshed generation climbs, each of `LIVE_MARKS`
  *  refreshed marks lands right after a presented frame, in its presenting
  *  task, and the frame then shows no placeholder. */
-async function checkLive(page: Page, label: string): Promise<string> {
+async function checkLive(page: Page, label: string, flash: boolean): Promise<string> {
   const since = await page.evaluate(() => performance.now());
+  const before = flashing ? await drawnCells(page) : [];
   const marks: string[] = [];
   let at = since;
   for (let index = 0; index < LIVE_MARKS; index++) {
@@ -50,7 +55,20 @@ async function checkLive(page: Page, label: string): Promise<string> {
   }
   const generation = await page.evaluate((name) => (globalThis as Record<string, unknown>)[name] as number | undefined, REFRESHED_GLOBAL);
   if (!generation) failures.push(`${label}: no refreshed generation published`);
-  return `, refreshed to generation ${generation} (${marks[0]})`;
+  let cells = '';
+  if (flashing) {
+    // The same cells, drawn again: the feed's rows read anew.
+    const after = await drawnCells(page);
+    const was = new Map(before.map((cell) => [`${cell.row},${cell.column}`, cell.exact]));
+    const changed = after.filter((cell) => was.has(`${cell.row},${cell.column}`) && was.get(`${cell.row},${cell.column}`) !== cell.exact).length;
+    if (!changed) failures.push(`${label}: no drawn cell's value changed under the feed`);
+    cells = `, ${changed} drawn cells changed`;
+    const flashes = after.filter((cell) => cell.flash && cell.flash[3]! > 0).length;
+    if (flash && !flashes) failures.push(`${label}: no flash drawn`);
+    if (!flash && flashes) failures.push(`${label}: ${flashes} flashes drawn without ?flash`);
+    if (flash) cells += `, ${flashes}/${after.length} cells flashing`;
+  }
+  return `, refreshed to generation ${generation} (${marks[0]})${cells}`;
 }
 
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
@@ -96,13 +114,16 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined, feed: false }, ...painted.map((cells) => ({ shape, cells, feed: false }))]);
-    if (live) runs.push({ shape: 'narrow', cells: undefined, feed: true });
-    for (const { shape, cells, feed } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}`;
+    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined, feed: false, flash: false }, ...painted.map((cells) => ({ shape, cells, feed: false, flash: false }))]);
+    if (live) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: false });
+    if (flashing) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: true });
+    for (const { shape, cells, feed, flash } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}`;
       const params: Record<string, string> = { shape };
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
       if (feed) params.live = String(LIVE_RATE);
+      if (feed && flashing) params['probe-cells'] = '';
+      if (flash) params.flash = '';
       let session: Awaited<ReturnType<typeof open>> | null = null;
       try {
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
@@ -122,7 +143,7 @@ try {
           sideways = `, sideways to ${right.scrollX.toFixed(0)} px (${visibleColumns(layout, right.scrollX)} columns visible)`;
         }
         const paint = cells ? await checkPaint(page, cells, layout, label) : '';
-        const refreshed = feed ? await checkLive(page, label) : '';
+        const refreshed = feed ? await checkLive(page, label, flash) : '';
         if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
         console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api}), ${start.rows} rows, ${layout.columns.length} columns, rows ${start.first}–${start.end} → ${down.first}–${down.end}${sideways}${paint}${refreshed}`);
       } catch (error) {

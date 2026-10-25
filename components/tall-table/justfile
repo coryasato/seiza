@@ -9,7 +9,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 
 # The bare host's wasm (debug) and its Vite dev server with COOP/COEP.
 # `?shape=wide` for 500 float columns, `?delay=<ms>` to hold each page read.
-# `features` are the host's (`custom-cells`: `?cells=heat|bars|color`).
+# `features` are the host's (`custom-cells`: `?cells=heat|bars|color`;
+# `live`: `?live=<updates/s>`; both: `?flash`).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
 
@@ -50,11 +51,13 @@ size *args:
 perf *args:
     node {{component_dir}}/perf/perf.ts {{args}}
 
-# `live`'s latency in the bare host's release build: the feed's batch of
-# visible rows invalidated → the first frame drawing their re-read (the
-# table's share of update → pixel), cold, median of 10, at --rate updates a
-# second (1000). --runs, --profile, --seconds, --label. Run
-# `just tall-table build live` first.
+# `live` in the bare host's release build, cold, median of 10, at --rate
+# updates a second (1000): the feed's batch of visible rows invalidated →
+# the first frame drawing their re-read (the table's share of update →
+# pixel), then, in a second window, per-frame work and late frames under
+# the feed. --flash (a build with custom-cells too) flashes every float
+# column. --runs, --profile, --seconds, --label. Run
+# `just tall-table build live` (or `live,custom-cells`) first.
 live *args:
     node {{component_dir}}/perf/live.ts {{args}}
 

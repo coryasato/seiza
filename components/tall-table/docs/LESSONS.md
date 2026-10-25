@@ -72,3 +72,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - Landing reads at once turned a feed's row-by-row invalidations into a page read per row (~16 a batch), invisible while every read waited for a task. Coalescing to the update's end was needed only once reads became synchronous.
 - The p95 stays over a frame (23 ms) whatever the table does: a batch that arrives just after a frame waits for the next. "Within a frame" holds at p50, not for every update.
 - Landing a read in the turn that asked turns retries into loops. A failure landed at once would let a host retrying on `ReadFailed` spin inside one update, and a refused read marked stale again spun a turn at a time (a test that never parked found it). Only a page lands at once; a refusal waits for the next invalidation.
+
+## M3: `live` (part D, 2026-10-25)
+
+**Results:** [`perf/results/2026-10-25-m3-d.md`](../perf/results/2026-10-25-m3-d.md)
+
+**Surprises:**
+- A measurement's own rAF loop tripled the number it was there to sit beside. With `frameRecorder` on the page, invalidate → refreshed frame read ~20 ms against ~7 without: latency and frame work need separate windows.
+- GPUI's `Instant` isn't public (its scheduler re-exports `web_time`'s, which the crate can't name without a dependency of its own), so the flash keeps time through a closure over the executor and an epoch.
+- In GPUI's test app a frame callback, once delivered, notifies the view, and the redraw that follows asks again: "did the last frame ask for another?" can't be read from one count. The test delivers the frame asked for and checks whether the redraw asks again.
+- The flash made updates slower to show, not only costlier: ~12 ms p50 against ~8. While it animates, a re-read landing between frames waits for the next one; without it, the table drew a landed page at once. Its p95 is lower, though (18 against 24 ms).
+- The update rate hardly mattered: from 1k to 50k updates a second the bare host's feed changes every visible row in each ~29 ms batch, one page re-read a batch, so the cost is the redraws, not the rate. At 4× CPU the flash is what tips it over: every frame redraws every cell, and the main thread is busy ~995 ms of every second.

@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 and M2 (built, in [`docs/milestones.md`](docs/milestones.md)), M3 (active), `custom-cells`' [follow-ups](#follow-ups-to-built-features) (one session, before an app adopts it), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1, M2, and M3 (built, in [`docs/milestones.md`](docs/milestones.md)), M4 (next, after its research), `custom-cells`' [follow-ups](#follow-ups-to-built-features) (one session, before an app adopts it), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -20,8 +20,8 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 |---|---|---|
 | M1 | The bare host and the base's baseline | Done 2026-10-23 ([`docs/milestones.md`](docs/milestones.md)) |
 | M2 | `custom-cells`: a cell's fill, bar, and text color | Done 2026-10-24 ([`docs/milestones.md`](docs/milestones.md)) |
-| M3 | `live`: changed rows re-read and redrawn in place | Active: parts A (research, spec), B (the re-read path), and C (a re-read landed in the turn that asks) done; part D (the flash and the close) next |
-| M4 | `follow`: follow the tail as rows arrive | Planned |
+| M3 | `live`: changed rows re-read and redrawn in place | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
+| M4 | `follow`: follow the tail as rows arrive | Next: its research |
 | M5 | `resize`: drag a column's width | Planned |
 | M6 | `select`: row, column, and cell selection | Planned |
 | M7 | `copy`: a selection to the clipboard | Planned |
@@ -149,77 +149,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-### M3: `live`, changed rows re-read and redrawn in place
-
-**What it adds** (behind the `live` feature, off by default): a host says which rows changed, and the table reads their pages again and redraws them, the scroll unmoved; with `custom-cells` too, a column can flash the cells whose values changed. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`live`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-10-24, M3 part A).
-
-```rust
-// The state (state.rs), behind `live`.
-impl<D: TallTableDelegate> TallTableState<D> {
-    /// `rows` changed in the source. Their pages that are wanted, loaded or
-    /// loading, are read again (`load_page`), a loaded one drawn as it is
-    /// until the new page lands; the others are dropped. Loads as a scroll
-    /// does: during a scrollbar drag, once the pointer rests. Returns this invalidation's generation, which
-    /// grows with each call.
-    pub fn invalidate_rows(&mut self, rows: Range<u64>, cx: &mut Context<Self>) -> u64;
-}
-
-pub enum TallTableEvent {
-    // …
-    /// A re-read page is drawn for the first time, its rows visible.
-    /// Emitted in render, as `Filled` is; none for a page re-read off screen. Its read started after every invalidation up to
-    /// `generation`.
-    #[cfg(feature = "live")]
-    Refreshed { rows: Range<u64>, generation: u64 },
-}
-
-// The column (column.rs), behind `live` and `custom-cells`.
-impl TallTableColumn {
-    /// When a re-read changes a cell's value: a float's rise at the ramp's 1,
-    /// its fall at 0, any other change at 0.5; faded by opacity to nothing
-    /// over `duration`.
-    pub fn flash(self, ramp: Ramp, duration: Duration) -> Self;
-}
-```
-
-- **How the cache re-reads** (decided): one read per page in flight; a page invalidated during its read (a re-read or its first) is read once more after it lands, and never cancelled for being stale; an invalidation's loads wait out a scrollbar drag (`drag_settle`) as a scroll's do; a failed re-read keeps the stale page drawn, read again at the next invalidation or `retry_failed` (a `read_failure` still emits `ReadFailed`); a re-read's page swaps its bytes for the old page's, counts in flight, and is cancelled by `close`; a page with nothing to show goes first, then a stale visible page's re-read, then prefetch (a stale page doesn't hold prefetch back); re-reads hold at most `max_in_flight − 1` slots together; a stale page outside `wanted` is dropped; a re-read in flight for a page that leaves `wanted` is cancelled, as any read is. Placeholders only where a page isn't loaded; a re-read emits no `Filled`.
-- **What stays the same:** `set_rows`, including the base forgetting a short last page (a host re-running a query with a new count calls `set_rows`, then `invalidate_rows(0..rows)`); the scroll, the hover, and the tooltip, which reads the new value on the next frame.
-- **What's the host's:** knowing which rows changed (the engine's feed, in market watch), and mapping an update to the generation it got back. Patching a page in place isn't a feature: a host whose pages share storage it mutates calls `cx.notify()` on the table, and gets no flash. A host that has the new page in hand answers the re-read with a ready future, which lands in the turn that asked (part C); there's no push call.
-- **The flash** (decided): compared in `page_done`, off the frame, over the invalidated rows of flashing columns only (rows invalidated during a read wait for the next read's comparison; two NaNs are equal); kept in a map of live flashes, each removed as it ends; drawn as a fill quad in `custom-cells`' pass over the page's fill, faded by opacity (the order settled with a screenshot); frames requested (`Window::request_animation_frame`) only while a flash is on screen; under `App::reduce_motion`, held at its first color for the duration, no fade and no frames, cleared by a timer. The clock is GPUI's (`BackgroundExecutor::now`).
-
-**Split into parts (2026-10-24),** one session each, in order. Each part ends with its notes in `perf/results/` (B, C, and D) and `docs/LESSONS.md`. The milestone closes after part D.
-
-- **A. Research and spec** (no shipped code). *Done 2026-10-24:* the research in the root's `docs/research/tall-table-features.md`, "`live`"; four decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below. No spike: nothing open needed numbers before the build (the research, "What needs no spike").
-- **B. The re-read path.** *Done 2026-10-24* ([`perf/results/2026-10-24-m3-b.md`](perf/results/2026-10-24-m3-b.md)). `PageCache`'s stale and re-reading pages, `invalidate_rows`, `Refreshed`, the bridge's arm for it (a `tall-table:refreshed` mark and the last generation drawn, on a global the host names), `paging.json`'s `invalidate` step with its scenarios and controls, and the bare host's feed (`?live=<updates/s>`, seeded, over the visible rows; the source's per-row version), with a first read of update → pixel in it (B5). Checks B1–B5.
-- **C. A re-read landed in the turn that asks** (added 2026-10-24: B5 read 22.5 ms, over a frame). *Done 2026-10-25* ([`perf/results/2026-10-25-m3-c.md`](perf/results/2026-10-25-m3-c.md)). Specced as a push path (`replace_page`); the table's own fix, open in the spec, read the same and was kept: a re-read ready when sent lands then, and an invalidation's reads are planned once at the end of its update. Checks C1–C4, below.
-- **D. The flash, the measurement, and the close.** `flash` on the column, the comparison, the fade and its frames, `CellProbe`'s flash, `paint.json`'s `flash` section; the host's `?flash`; then every remaining check and the close-out ("Closing a milestone", above).
-
-**Done when:**
-- [x] **B1. The feature is off by default** and the base's build is unchanged: `just tall-table size --against <M3's parent>` (the size after wasm-opt within 0.1 KiB, no `live` symbols in the unstripped base). `just tall-table test` passes with every feature off and on; `just tall-table lint` passes. *Evidence:* against `24f8e76`, each built in one worktree, the base 9,645.3 → 9,645.4 KiB after wasm-opt (+0.1, at the gate; brotli 2,679.1 → 2,676.8, its noise); `14take_refreshed` in the base 0 times, in `live`'s build 6. `test` passes off, with each feature, and with both (52 table tests, 8 host); `lint` passes.
-- [x] **B2. The cache re-reads as decided,** in native tests of `PageCache` and the state: a visible invalidated page keeps drawing its old rows (never a placeholder) until the re-read lands; a page invalidated during its re-read, or during its first read, is read exactly once more after it, never cancelled; invalidating during a scrollbar drag starts no read until the pointer rests; with three visible pages invalidated without pause, a page scrolled into view starts its read at once (re-reads never hold more than `max_in_flight − 1` slots); a failed re-read keeps the old rows drawn and reads again at the next invalidation; after re-reads, `used_bytes` counts each page once, `in_flight` counts the re-reads (never past `max_in_flight`), and `close` cancels them; invalidating a page ten times before its read lands costs one more read; a stale page outside `wanted` is dropped and reloads when scrolled back to; a re-read doesn't hold prefetch back and starts before prefetch under the in-flight limit; no `Filled` event for a re-read. *Evidence:* `src/pages.rs`'s eight `live` tests (each rule above) and `src/state/fixtures/live.rs` (old rows drawn while a re-read is out, no `Filled`, a failed re-read kept and retried by `retry_failed`, `close` cancelling a re-read); the drag's rule through the state in `paging.json`'s "a page changes during a drag".
-- [x] **B3. A fixture pins it:** `paging.json` gains the `invalidate: [start, end]` step (its format in `fixtures/README.md`) and scenarios for each rule in B2 that page requests show; `paging_scenarios` passes with `live`, and its new controls fail: re-reading invalidated pages outside `wanted`, and cancelling a stale read to restart it. The existing scenarios and controls pass unchanged, with the feature off and on. *Evidence:* seven scenarios (`features: ["live"]`): a visible page changes, during its first read, during a drag, three visible pages, a re-read fails, a stale page nobody wants, a re-read landing during a drag (added after the code review: a landing read had started the drag's pages at once; it fails without the fix). `reread-unwanted` fails two (three visible pages, a stale page nobody wants), `restart-stale` two (a visible page changes, during a drag). The paging controls and the old scenarios pass unchanged, off and on; the TanStack contender's fixture test skips the `live` ones (13 of 13 pass).
-- [x] **B4. `Refreshed` marks the frame:** a native test shows each re-read page emits it once, on the first frame that draws it, with the generation its read started at, and a page re-read off screen emits none, then or when scrolled to; `just tall-table smoke` with `live` checks the bridge's `tall-table:refreshed` mark lands right after a presented frame (`shared-web/perf/`'s `presentedMark`) in Chromium, Firefox, and WebKit, with the feed on. *Evidence:* `a_reread_draws_the_old_rows_until_it_lands` (two re-reads, each `Refreshed` once with the generation its read started at) and `a_page_reread_off_screen_reports_nothing`; `just tall-table smoke` on the `live` build at `?live=1000`: the mark 0.22 ms (Chromium), 0.34 (Firefox), 0.24 (WebKit) after its frame's last GPU call, in the same task, three marks each, no placeholder rows.
-- [x] **B5. Is a push path needed?** In the bare host (its source answers on GPUI's next turn), the reference run's invalidate → `Refreshed` frame at 1k updates/s, median of 10, in the part's results note. Within one frame (16.7 ms): no push path, noted in `docs/DECISIONS.md`. Over: a push path (`replace_page`) is specced before part C. *Evidence:* 22.52 ms p50 (p95 28.78), median of 10, spread 1.9% (`2026-10-24-m3-b-live.json`): over a frame. At 10 updates/s, nothing in flight, it's still 18.7: most of it isn't coalescing but the read's round trip through GPUI's web executor (a `setTimeout(0)` a spawned task) and the frame it then waits for. So part C specs a push path.
-**Part C, a re-read landed in the turn that asks** (specced 2026-10-24 from B5 as a push path, `replace_page`; settled 2026-10-25 by measuring both, `docs/DECISIONS.md`, "Features"):
-
-- **As built:** with `live`, a re-read's load is polled once as it's sent; a ready answer lands in that turn, after the plan's other reads have started, and is drawn on the next frame; a pending one is spawned as before. First reads aren't polled, so the base and a first read's timing don't change. `invalidate_rows` plans its reads once, at the end of the update that made them (`App::defer`), so a batch invalidated row by row reads each page once.
-- **Not built:** `replace_page`. Its spike read the same latency as poll-once's in one build (7.38 ms p50 each, the results note), and a host with the page in hand gets it by answering `load_page` with a ready future.
-
-- [x] **C1. Off by default, the base unchanged** (as B1); `test` and `lint` pass. *Evidence:* `just tall-table size --against 60ed458`: the base 9,680.5 KiB after wasm-opt at both (0 KiB; brotli 2,689.4 → 2,688.9, its noise); `14take_refreshed` 0 times in the base, 6 in `live`'s build. `test` passes off, with each feature, and with both (55 table tests, 8 host); `lint` passes.
-- [x] **C2. Natively:** a re-read answered at once lands in the update that asked, is drawn on the next frame, and emits `Refreshed` with its generation once; a batch's invalidations of one page in one update read it once; bytes counted once; a first read still lands from its task. *Evidence:* `src/state/fixtures/live.rs`'s `a_reread_answered_at_once_lands_in_the_turn_that_asked` (ten single-row invalidations, one `load 0`, nothing in flight or draining after the update, 3 pages' bytes, one `Refreshed` with the tenth generation, a jump's first read in flight until its task runs). It fails with the poll switched off (`(1, 0)` in flight and draining). After the code review: `a_reread_failing_at_once_lands_from_a_task` (one `ReadFailed`, from a task, the old rows kept) and `a_reread_the_source_refuses_is_read_again` (a refusal frees its place; the next invalidation reads it). The scripted delegate's other tests and the paging fixture pass unchanged.
-- [x] **C3. Within a frame:** `just tall-table live` at 1k updates/s, reference, median of 10, beside B5's 22.5 ms, measured from the batch's start (the host's mark moved there, so a read landing in the update counts). *Evidence:* 7.16 ms p50 (p95 22.4, spread 1.8%, `2026-10-25-m3-c-live.json`), against HEAD's 22.55 ms with the same host (`2026-10-25-m3-c-live-before.json`). The p95 is a batch landing just after a frame, which waits for the next: both paths showed it. The push spike's numbers are in the results note.
-- [x] **C4. Smoke:** `just tall-table smoke` with `live`, its refreshed mark right after a presented frame in all three browsers. *Evidence:* 0.27 ms (Chromium), 0.32 (Firefox), 1.10 (WebKit) after the frame's last GPU call, in its task, three marks each, no placeholder rows. (No `?push` run: the source's re-reads land at once under the plain feed.)
-
-**Part D, the flash and the close:**
-- [ ] **D1. The host uses it:** its `live` feature runs the feed at `?live=<updates/s>`, and with `custom-cells` too, `?flash` gives every float column a three-stop flash ramp; `just tall-table smoke` loads, fills, scrolls, and sees re-read rows change (the cell probe's text) with the feed on, and flashes drawn with `?flash`, in all three browsers.
-- [ ] **D2. The flash, natively:** a test re-reads a page whose values rose, fell, and stayed, and the drawn cells' probe shows the rise at the ramp's 1, the fall at 0, a text change at 0.5, the unchanged cell and a NaN that stayed NaN unpainted, and each fading by opacity on GPUI's test clock (nothing drawn and the map empty after the duration); a row invalidated while a read is out flashes when the next read lands; frames are requested only while a flash is visible; under `reduce_motion` the color holds with no frames requested, then clears at the duration (a timer). A column without `flash` compares nothing (no change recorded).
-- [ ] **D3. A fixture pins the flash:** `paint.json`'s `flash` section ((old, new, elapsed) → the ramp's value and the opacity, and through the ramp, the colors in light and dark); the native test passes, and its controls fail: the fade run the wrong way, a fall flashed as a rise.
-- [ ] **D4. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) of `live`, and of `live` with `custom-cells`, against the base and against `custom-cells` alone (`just tall-table size`); per-frame work, re-reads a second, late frames, and invalidate → `Refreshed` frame (the table's share of update → pixel, from the batch's start) in the narrow shape at a few feed rates (1k, 10k, 50k updates/s), with and without `?flash`, and the feature's build with the feed off against the base (within spread), reference and throttled, cold, median of 10, on the final build. In `perf/results/` and the README's Features table.
-- [ ] **D5. The flash over a fill:** a screenshot of flashing heat cells settles the order (the flash over the page's fill, or another drawing); a change from the spec logs a decision.
-- [ ] **D6. Canvas tradeoffs:** a flash, like a heat cell, says "changed" in color and motion alone, and a screen reader hears nothing of it; the README says so.
-- [ ] **D7. Waiting apps told:** the observatory's "Waiting on" row for `live` and Tycho's note flip to *Ready* (the date and M3).
-
-**Manual check:** in Firefox and Safari, `just tall-table dev live,custom-cells` with `?live=10000&flash`: rows update in place without placeholders, flashes fade, scrolling still works under the feed.
+None: M3 (`live`) closed 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)). Next, `custom-cells`' [follow-ups](#follow-ups-to-built-features), due after M3 and before an app builds a column's paint; then M4, `follow`, opened by its research (["Long-term goals"](#long-term-goals)), its spec and checks then written into "Next milestones".
 
 ---
 

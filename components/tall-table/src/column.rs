@@ -19,6 +19,10 @@ pub struct TallTableColumn {
     pub(crate) bar: Option<Bar>,
     #[cfg(feature = "custom-cells")]
     pub(crate) text_ramp: Option<Ramp>,
+    /// A changed cell's flash and how long it fades (`live` with
+    /// `custom-cells`).
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    pub(crate) flash: Option<(Ramp, std::time::Duration)>,
 }
 
 impl TallTableColumn {
@@ -32,6 +36,8 @@ impl TallTableColumn {
             bar: None,
             #[cfg(feature = "custom-cells")]
             text_ramp: None,
+            #[cfg(all(feature = "live", feature = "custom-cells"))]
+            flash: None,
         }
     }
 
@@ -60,6 +66,18 @@ impl TallTableColumn {
     pub fn text_ramp(self, ramp: Ramp) -> Self {
         Self {
             text_ramp: Some(ramp),
+            ..self
+        }
+    }
+
+    /// When a re-read changes a cell's value (`live`): a float's rise at
+    /// the ramp's 1, its fall at 0, any other change at 0.5, drawn over the
+    /// cell's fill and faded by opacity to nothing over `duration`. Under
+    /// `App::reduce_motion`, held at its color for `duration`, no fade.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    pub fn flash(self, ramp: Ramp, duration: std::time::Duration) -> Self {
+        Self {
+            flash: Some((ramp, duration)),
             ..self
         }
     }

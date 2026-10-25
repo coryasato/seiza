@@ -22,7 +22,7 @@ export interface Layout {
 
 /** A drawn cell, as `tall-table-bridge`'s `js::cells` writes it: with
  *  `custom-cells`, its paint (colors 8-bit RGBA; the bar in CSS px from the
- *  cell's left). */
+ *  cell's left), and with `live` too, its flash (its opacity in the alpha). */
 export interface Cell {
   row: number;
   column: number;
@@ -31,4 +31,5 @@ export interface Cell {
   fill?: number[] | null;
   text?: number[] | null;
   bar?: { left: number; width: number } | null;
+  flash?: number[] | null;
 }

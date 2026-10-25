@@ -9,22 +9,30 @@
 // logs both marks with their generations. A batch's latency is its mark to
 // the first refreshed mark at or past its generation.
 //
+// Then, over a second window as long, what the feed costs a frame:
+// per-frame work from Chromium's trace (`frameWork`, as perf.ts reads it)
+// and late frames from `frameRecorder`'s rAFs, installed only then: its
+// loop slows the latency. The refreshed frames a second (one re-read of
+// page 0 each) are the first window's. With `--flash` (a build with `custom-cells` too), every
+// float column flashes its changes (`?flash`).
+//
 // The view rests at the top, rows 0..~28, all on page 0, so every refresh
 // covers every row the feed changes (checked: a run whose view spans two
 // pages fails). Cold, a fresh browser each run, median of `--runs`, at
 // `--rate` updates a second, on the host's release build with `live`.
 //
 // Usage: node components/tall-table/perf/live.ts [--rate 1000] [--runs 10]
-//          [--profile reference|throttled] [--seconds 5] [--label <name>]
+//          [--profile reference|throttled] [--seconds 5] [--flash] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run
 // `just tall-table build live` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Page } from 'playwright';
-import { open, waitMark } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { frameIntervals, frameRecorder, open, recordedBetween, waitMark } from '../../../shared-web/perf/harness.ts';
+import { PROFILES, flag, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
+import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
 import { FILLED_MARK, INVALIDATED_GLOBAL, INVALIDATED_MARK, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, buildName, builtFeatures, hostWebDir, perfDir, shown } from './harness.ts';
 
 const RATE = Number(option('rate') ?? 1000);
@@ -39,6 +47,8 @@ if (!profile) throw new Error(`--profile ${profileName}: not one of ${PROFILES.m
 for (const [name, value] of [['rate', RATE], ['runs', RUNS], ['seconds', SECONDS]] as const) if (!(value > 0)) throw new Error(`--${name} ${option(name)}: not a positive number`);
 const features = builtFeatures();
 if (!features.includes('live')) throw new Error('needs the host built with live: `just tall-table build live`');
+const FLASH = flag('flash');
+if (FLASH && !features.includes('custom-cells')) throw new Error('--flash needs the host built with custom-cells too: `just tall-table build live,custom-cells`');
 
 type Entry = [kind: 'invalidated' | 'refreshed', generation: number, at: number];
 
@@ -75,6 +85,15 @@ interface Reading {
   /** Refreshed frames a second, and invalidations a second (each a row, once a batch). */
   refreshedPerS: number;
   invalidationsPerS: number;
+  /** Frames the trace saw in the window, their work (ms), and the
+   *  main thread's busy time a second. */
+  frames: number;
+  workP50Ms: number;
+  workP95Ms: number;
+  workMaxMs: number;
+  busyMsPerS: number;
+  /** rAF intervals over 1.5 frames, as a share. */
+  latePct: number;
 }
 
 async function run(url: string, profile: Profile): Promise<{ reading: Reading | null; failures: string[] }> {
@@ -83,17 +102,29 @@ async function run(url: string, profile: Profile): Promise<{ reading: Reading | 
   try {
     session = await open(chromium, url, {
       profile,
-      params: { shape: 'narrow', live: String(RATE) },
+      params: { shape: 'narrow', live: String(RATE), ...(FLASH ? { flash: '' } : {}) },
       init: [markLog],
     });
     const { page } = session;
+    const browser = session.context.browser()!;
     await waitMark(page, FILLED_MARK);
     const { shown: view } = await shown(page);
     if (Math.floor(view.first / PAGE_ROWS) !== Math.floor((view.end - 1) / PAGE_ROWS)) failures.push(`rows ${view.first}..${view.end} span two pages`);
     await page.waitForTimeout(WARMUP_MS);
+    // The latency's window: nothing on the page but the host.
     const from = await now(page);
     await page.waitForTimeout(SECONDS * 1000);
     const to = await now(page);
+    // Then the frames' window, traced, with the rAF recorder, whose own
+    // loop slows the latency (a page's rAF moved it from ~7 to ~20 ms).
+    await page.evaluate(frameRecorder);
+    await browser.startTracing(page, { categories: WORK_CATEGORIES });
+    const workFrom = await page.evaluate((name) => (performance.mark(name), performance.now()), ORIGIN_MARK);
+    await page.waitForTimeout(SECONDS * 1000);
+    const workTo = await now(page);
+    const work = frameWork(new Trace(JSON.parse((await browser.stopTracing()).toString())), workFrom, workTo);
+    const perFrame = percentiles(work.frames.map((frame) => frame.ms));
+    const late = lateFrames(frameIntervals(await recordedBetween(page, workFrom, workTo)));
     // Batches in the window, and every refresh to the end of the log.
     const log = await page.evaluate(() => (globalThis as { __liveLog?: Entry[] }).__liveLog ?? []);
     failures.push(...session.problems);
@@ -119,6 +150,12 @@ async function run(url: string, profile: Profile): Promise<{ reading: Reading | 
         latencyMaxMs: round(p.max),
         refreshedPerS: round(refreshes.filter(([, , at]) => at >= from && at < to).length / seconds),
         invalidationsPerS: round(sent / seconds),
+        frames: work.frames.length,
+        workP50Ms: round(perFrame.p50),
+        workP95Ms: round(perFrame.p95),
+        workMaxMs: round(perFrame.max),
+        busyMsPerS: round(work.busyMs / ((workTo - workFrom) / 1000)),
+        latePct: round(late.share * 100),
       },
       failures,
     };
@@ -135,13 +172,13 @@ const now = (page: Page) => page.evaluate(() => performance.now());
 const server = await serveApp(undefined, { webDir: hostWebDir, port: PORT });
 const readings: Reading[] = [];
 const failures: string[] = [];
-console.log(`build: ${buildName(features)}, ${RATE} updates/s, ${profile.name}, ${SECONDS} s a run`);
+console.log(`build: ${buildName(features)}, ${RATE} updates/s${FLASH ? ', flash' : ''}, ${profile.name}, ${SECONDS} s a run`);
 try {
   for (let index = 0; index < RUNS; index++) {
     const { reading, failures: found } = await run(server.url, profile);
     failures.push(...found.map((failure) => `run ${index + 1}: ${failure}`));
     if (reading) readings.push(reading);
-    if (reading) console.log(`${index + 1}/${RUNS}: invalidate → refreshed p50 ${reading.latencyP50Ms} p95 ${reading.latencyP95Ms} max ${reading.latencyMaxMs} ms over ${reading.matched}/${reading.batches} batches; ${reading.refreshedPerS} refreshed frames/s, ${reading.invalidationsPerS} invalidations/s`);
+    if (reading) console.log(`${index + 1}/${RUNS}: invalidate → refreshed p50 ${reading.latencyP50Ms} p95 ${reading.latencyP95Ms} max ${reading.latencyMaxMs} ms over ${reading.matched}/${reading.batches} batches; ${reading.refreshedPerS} refreshed frames/s, ${reading.invalidationsPerS} invalidations/s; work p50 ${reading.workP50Ms} p95 ${reading.workP95Ms} ms over ${reading.frames} frames, late ${reading.latePct}%`);
   }
 } finally {
   await server.close();
@@ -150,14 +187,14 @@ const summary = readings.length
   ? Object.fromEntries((Object.keys(readings[0]!) as (keyof Reading)[]).map((key) => [key, Number(median(readings.map((reading) => reading[key])).toFixed(2))]))
   : {};
 const spread = readings.length ? (Math.max(...readings.map((r) => r.latencyP50Ms)) - Math.min(...readings.map((r) => r.latencyP50Ms))) / (summary.latencyP50Ms || 1) : 0;
-console.log(`median of ${readings.length}: p50 ${summary.latencyP50Ms} ms, p95 ${summary.latencyP95Ms} ms (p50 spread ${(spread * 100).toFixed(1)}%)`);
+console.log(`median of ${readings.length}: p50 ${summary.latencyP50Ms} ms, p95 ${summary.latencyP95Ms} ms (p50 spread ${(spread * 100).toFixed(1)}%); work p50 ${summary.workP50Ms} p95 ${summary.workP95Ms} ms, ${summary.frames} frames, late ${summary.latePct}%, ${summary.refreshedPerS} refreshed/s, busy ${summary.busyMsPerS} ms/s`);
 
 const label = option('label');
 if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, profile: profile.name, shape: 'narrow', rate: RATE, warmupMs: WARMUP_MS, seconds: SECONDS, build: buildName(features) };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, profile: profile.name, shape: 'narrow', rate: RATE, flash: FLASH, warmupMs: WARMUP_MS, seconds: SECONDS, build: buildName(features) };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, runs: readings, summary, p50Spread: Number(spread.toFixed(3)), failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

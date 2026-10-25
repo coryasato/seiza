@@ -16,6 +16,8 @@
 mod activity;
 mod column;
 mod delegate;
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+mod flash;
 mod format;
 mod pages;
 #[cfg(feature = "custom-cells")]

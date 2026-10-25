@@ -79,4 +79,7 @@ pub struct PaintProbe {
     pub bar: Option<(f32, f32)>,
     /// The value's color, 8-bit RGBA, where a text ramp set it.
     pub text: Option<[u8; 4]>,
+    /// A change's flash, 8-bit RGBA, its opacity in the alpha (`live`).
+    #[cfg(feature = "live")]
+    pub flash: Option<[u8; 4]>,
 }

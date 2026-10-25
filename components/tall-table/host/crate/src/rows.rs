@@ -208,6 +208,33 @@ impl Cells {
     }
 }
 
+/// How long the host's flash fades (`?flash`).
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+pub const FLASH: Duration = Duration::from_secs(1);
+
+/// `?flash` (`live` with `custom-cells`): `columns` of `shape`, each float
+/// column flashing a change through a three-stop ramp: a fall, any other
+/// change, a rise.
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+pub fn with_flash(columns: Vec<TallTableColumn>, shape: Shape) -> Vec<TallTableColumn> {
+    use seiza_tall_table::Ramp;
+    columns
+        .into_iter()
+        .enumerate()
+        .map(|(index, column)| match shape.range(index) {
+            Some(_) => column.flash(
+                Ramp::new(&[
+                    |theme| theme.chart_bearish,
+                    |theme| theme.warning,
+                    |theme| theme.chart_bullish,
+                ]),
+                FLASH,
+            ),
+            None => column,
+        })
+        .collect()
+}
+
 /// The rows' versions (`live`): rows not in it are at 0.
 #[cfg(feature = "live")]
 pub type Versions = HashMap<u64, u32>;

@@ -63,13 +63,13 @@ impl Host {
     /// columns painted `cells`' way (`custom-cells`). With
     /// `probing`, the table reports its probes and the host publishes them
     /// (`__tallTable`, `__tallTableLayout`, and with `custom-cells` and
-    /// `?probe-cells` the drawn cells, `__tallTableCells`). With `live` and
-    /// a `feed` rate, that many visible rows a second change ([`Feed`]).
+    /// `?probe-cells` the drawn cells, `__tallTableCells`). With `live`,
+    /// `live`'s feed and flash ([`Live`]).
     pub fn new(
         shape: Shape,
         delay: Option<Duration>,
         #[cfg(feature = "custom-cells")] cells: Cells,
-        #[cfg(feature = "live")] feed: Option<f64>,
+        #[cfg(feature = "live")] live: Live,
         probing: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -86,6 +86,12 @@ impl Host {
         let columns = shape.columns();
         #[cfg(feature = "custom-cells")]
         let (rows, columns) = (rows.with_cells(cells), cells.columns(shape));
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        let columns = if live.flash {
+            crate::rows::with_flash(columns, shape)
+        } else {
+            columns
+        };
         let table = cx.new(|cx| {
             Table::new(rows, columns, shape.rows(), Paging::default(), cx)
                 .probe_frames(probing)
@@ -112,11 +118,25 @@ impl Host {
         window.focus(&focus, cx);
         Self {
             #[cfg(feature = "live")]
-            _feed: feed.map(|rate| Feed::new(rate).start(table.clone(), cx)),
+            _feed: live
+                .feed
+                .map(|rate| Feed::new(rate).start(table.clone(), cx)),
             table,
             _events: events,
         }
     }
+}
+
+/// What the host does with `live`.
+#[cfg(feature = "live")]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Live {
+    /// `?live=<updates/s>`: that many visible rows a second change ([`Feed`]).
+    pub feed: Option<f64>,
+    /// `?flash` (with `custom-cells`): every float column flashes a change
+    /// (`rows::with_flash`).
+    #[cfg(feature = "custom-cells")]
+    pub flash: bool,
 }
 
 /// The bare host's feed (`live`): `rate` updates a second to random visible

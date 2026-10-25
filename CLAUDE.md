@@ -195,3 +195,4 @@ A new app starts from `docs/templates/app/`; a new component or engine, from `do
 - Keep JS small and typed. Any logic that could live in Rust lives in Rust (except in the observatory's page and DOM contenders, above).
 - Before starting an app's next milestone, close the last one: its results note in `perf/results/`, new decisions in `docs/DECISIONS.md`, a `docs/LESSONS.md` entry (surprises), `just <app> report`, and its spec and evidence moved from `PLAN.md` to `docs/milestones.md`.
 - Tick `PLAN.md`'s checks as they pass, with their evidence; log each decision in `docs/DECISIONS.md` as it lands.
+- **Before any run expected to take over 20 minutes** (a perf suite, a measurement matrix, a size run with `--against`), stop and ask whether a code review will run first. The user reviews every coding session's changes (`/code-review`), and a fix after the review would make the long run's numbers stale. Tests, lint, and smoke checks don't need the question.

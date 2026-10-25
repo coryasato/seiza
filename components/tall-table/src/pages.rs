@@ -27,6 +27,9 @@ enum Slot<T, R> {
         /// Rows were invalidated during the read: read again once it lands.
         #[cfg(feature = "live")]
         stale: bool,
+        /// Those rows, compared by the read after this one (the flash).
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        changed: RowSet,
     },
     Loaded {
         page: T,
@@ -52,16 +55,70 @@ struct Live<R> {
     failed: bool,
     /// A re-read landed and hasn't been drawn yet: its generation.
     landed: Option<u64>,
+    /// Rows invalidated since the drawn page's read started, and before
+    /// the re-read in flight did (or with none out), for the flash.
+    #[cfg(feature = "custom-cells")]
+    changed: RowSet,
+    /// Rows invalidated while the re-read in flight is out. Its answer may
+    /// or may not hold their change (a source that reads when it answers
+    /// does), so the landing read compares them too and keeps them for the
+    /// next read: an unchanged row compares equal and flashes nothing.
+    #[cfg(feature = "custom-cells")]
+    changed_during: RowSet,
+}
+
+/// Rows of one page, as sorted ranges that never overlap or touch.
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+#[derive(Debug, Default, Clone, PartialEq)]
+pub(crate) struct RowSet(Vec<Range<u64>>);
+
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+impl RowSet {
+    pub(crate) fn add(&mut self, rows: Range<u64>) {
+        if rows.start >= rows.end {
+            return;
+        }
+        let (mut start, mut end) = (rows.start, rows.end);
+        // Every range touching `rows` merges into it.
+        self.0.retain(|have| {
+            let touches = have.start <= end && start <= have.end;
+            if touches {
+                start = start.min(have.start);
+                end = end.max(have.end);
+            }
+            !touches
+        });
+        let at = self.0.partition_point(|have| have.start < start);
+        self.0.insert(at, start..end);
+    }
+
+    pub(crate) fn extend(&mut self, other: RowSet) {
+        for rows in other.0 {
+            self.add(rows);
+        }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub(crate) fn ranges(&self) -> &[Range<u64>] {
+        &self.0
+    }
 }
 
 #[cfg(feature = "live")]
-impl<R> Live<R> {
+impl<R: Copy> Live<R> {
     fn new(stale: bool) -> Self {
         Self {
             stale,
             reading: None,
             failed: false,
             landed: None,
+            #[cfg(feature = "custom-cells")]
+            changed: RowSet::default(),
+            #[cfg(feature = "custom-cells")]
+            changed_during: RowSet::default(),
         }
     }
 
@@ -73,6 +130,24 @@ impl<R> Live<R> {
     /// Wants a re-read started now.
     fn wants_read(&self) -> bool {
         self.stale && self.reading.is_none() && !self.failed
+    }
+
+    /// `rows` changed: before the re-read in flight started, or during it.
+    #[cfg(feature = "custom-cells")]
+    fn note_change(&mut self, rows: Range<u64>) {
+        if self.reading.is_some() {
+            self.changed_during.add(rows);
+        } else {
+            self.changed.add(rows);
+        }
+    }
+
+    /// The re-read in flight ended without landing (failed or refused):
+    /// what changed during it waits for the next read.
+    #[cfg(feature = "custom-cells")]
+    fn read_ended(&mut self) {
+        let during = std::mem::take(&mut self.changed_during);
+        self.changed.extend(during);
     }
 }
 
@@ -161,6 +236,9 @@ pub struct PageCache<T, R> {
     landed: bool,
     #[cfg(all(test, feature = "live"))]
     pub(crate) control: Control,
+    /// Keep each page's changed rows: a column flashes.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    track_changes: bool,
 }
 
 impl<T, R: Copy + PartialEq> PageCache<T, R> {
@@ -180,6 +258,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             landed: false,
             #[cfg(all(test, feature = "live"))]
             control: Control::None,
+            #[cfg(all(feature = "live", feature = "custom-cells"))]
+            track_changes: false,
         }
     }
 
@@ -508,6 +588,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 request,
                 #[cfg(feature = "live")]
                 stale: false,
+                #[cfg(all(feature = "live", feature = "custom-cells"))]
+                changed: RowSet::default(),
             },
         );
     }
@@ -541,6 +623,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             *used = self.tick;
             live.reading = None;
             live.landed = Some(generation);
+            // Compared (`changes`); those invalidated during the read are
+            // compared again by the next one.
+            #[cfg(feature = "custom-cells")]
+            {
+                live.changed = std::mem::take(&mut live.changed_during);
+            }
             self.landed = true;
             self.evict(wanted);
             return true;
@@ -554,6 +642,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             self.slots.get(&page),
             Some(Slot::Loading { stale: true, .. })
         );
+        // Invalidated during its first read: compared by the next read.
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        let changed = match self.slots.get_mut(&page) {
+            Some(Slot::Loading { changed, .. }) => std::mem::take(changed),
+            _ => RowSet::default(),
+        };
         self.tick += 1;
         self.slots.insert(
             page,
@@ -562,7 +656,11 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 bytes,
                 used: self.tick,
                 #[cfg(feature = "live")]
-                live: Live::new(stale),
+                live: Live {
+                    #[cfg(feature = "custom-cells")]
+                    changed,
+                    ..Live::new(stale)
+                },
             },
         );
         self.used_bytes += bytes;
@@ -585,6 +683,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 live.reading = None;
                 live.stale = true;
                 live.failed = true;
+                #[cfg(feature = "custom-cells")]
+                live.read_ended();
             }
             return;
         }
@@ -633,21 +733,75 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         self.generation += 1;
         if rows.start < rows.end {
             let pages = rows.start / self.page_rows..=(rows.end - 1) / self.page_rows;
+            #[cfg(feature = "custom-cells")]
+            let (page_rows, track) = (self.page_rows, self.track_changes);
             for (page, slot) in &mut self.slots {
                 if !pages.contains(page) {
                     continue;
                 }
+                // The rows of this page that changed.
+                #[cfg(feature = "custom-cells")]
+                let mine = rows.start.max(page * page_rows)..rows.end.min((page + 1) * page_rows);
                 match slot {
+                    #[cfg(not(feature = "custom-cells"))]
                     Slot::Loading { stale, .. } => *stale = true,
+                    #[cfg(feature = "custom-cells")]
+                    Slot::Loading { stale, changed, .. } => {
+                        *stale = true;
+                        if track {
+                            changed.add(mine);
+                        }
+                    }
                     Slot::Loaded { live, .. } => {
                         live.stale = true;
                         live.failed = false;
+                        #[cfg(feature = "custom-cells")]
+                        if track {
+                            live.note_change(mine);
+                        }
                     }
                     Slot::Failed(_) => {}
                 }
             }
         }
         self.generation
+    }
+
+    /// Keep each page's changed rows from now on: a column flashes (`live`
+    /// with `custom-cells`). Off, pages keep none and nothing is compared.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    pub fn track_changes(&mut self, track: bool) {
+        self.track_changes = track;
+        if !track {
+            for slot in self.slots.values_mut() {
+                match slot {
+                    Slot::Loading { changed, .. } => *changed = RowSet::default(),
+                    Slot::Loaded { live, .. } => {
+                        live.changed = RowSet::default();
+                        live.changed_during = RowSet::default();
+                    }
+                    Slot::Failed(_) => {}
+                }
+            }
+        }
+    }
+
+    /// When `request`, `page`'s re-read, lands: the page it replaces and
+    /// the rows invalidated since that page's read started, during this
+    /// read included, to compare (`live` with `custom-cells`). `None` for
+    /// any other answer, or nothing to compare.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    pub fn changes(&self, page: u64, request: R) -> Option<(&T, RowSet)> {
+        let Some(Slot::Loaded {
+            page: drawn, live, ..
+        }) = self.slots.get(&page)
+        else {
+            return None;
+        };
+        live.reading.filter(|(read, _)| *read == request)?;
+        let mut rows = live.changed.clone();
+        rows.extend(live.changed_during.clone());
+        (!rows.is_empty()).then_some((drawn, rows))
     }
 
     /// The re-reads that landed since the last call, each once: those whose
@@ -704,6 +858,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             && live.reading.is_some_and(|(read, _)| read == request)
         {
             live.reading = None;
+            #[cfg(feature = "custom-cells")]
+            live.read_ended();
         }
         #[cfg(not(feature = "live"))]
         let _ = page;
@@ -742,6 +898,18 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    #[test]
+    fn row_sets_merge() {
+        let mut set = super::RowSet::default();
+        for rows in [5..7, 0..2, 6..9, 2..3, 20..21, 12..12] {
+            set.add(rows);
+        }
+        assert_eq!(set.ranges(), [0..3, 5..9, 20..21]);
+        set.add(3..20);
+        assert_eq!(set.ranges(), std::slice::from_ref(&(0..21)));
+    }
+
     use super::*;
 
     type Cache = PageCache<&'static str, u32>;

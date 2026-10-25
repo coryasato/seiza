@@ -12,6 +12,8 @@ use gpui_kit::*;
 use crate::activity::{Activity, ActivityStats};
 use crate::column::{CELL_PADDING, CellKind, LaidOutColumn, TallTableColumn, layout_columns};
 use crate::delegate::{CellValue, PageError, TallTableDelegate, TallTablePage as _};
+#[cfg(all(feature = "live", feature = "custom-cells"))]
+use crate::flash::{self, Flashes};
 use crate::format;
 use crate::pages::{Direction, PageCache, RowState};
 #[cfg(feature = "custom-cells")]
@@ -348,6 +350,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The row the last jump landed on, highlighted so it can be found when
     /// the end of the rows keeps it from reaching the top.
     marked: Option<u64>,
+    /// The cells flashing for a change (`live` with `custom-cells`).
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    pub(crate) flashes: Flashes,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -402,7 +407,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
             activity_options: None,
             closed: false,
             marked: None,
+            #[cfg(all(feature = "live", feature = "custom-cells"))]
+            flashes: Flashes::default(),
         };
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        table.track_flashes();
         table.load_pages(cx);
         table
     }
@@ -517,7 +526,44 @@ impl<D: TallTableDelegate> TallTableState<D> {
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         self.column_info = columns;
         self.lay_out();
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        {
+            self.flashes.clear();
+            self.track_flashes();
+        }
         cx.notify();
+    }
+
+    /// The cache keeps each page's changed rows only while a column flashes.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    fn track_flashes(&mut self) {
+        let flashing = self.column_info.iter().any(|column| column.flash.is_some());
+        self.cache.track_changes(flashing);
+    }
+
+    /// `request`, `page`'s read, answered `new`: the cells of flashing
+    /// columns, in the rows invalidated since the drawn page's read
+    /// started, whose values differ from the page it replaces start to
+    /// flash. Off the frame, before the cache swaps the pages. The cache
+    /// keeps no rows while no column flashes, so it answers `None` then.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    fn note_flashes(&mut self, page: u64, request: D::Request, new: &D::Page, cx: &App) {
+        let Some((old, rows)) = self.cache.changes(page, request) else {
+            return;
+        };
+        let now = self.flashes.now(cx);
+        let first = self.cache.rows_of(page).start;
+        for (index, column) in self.column_info.iter().enumerate() {
+            let Some((_, duration)) = &column.flash else {
+                continue;
+            };
+            for row in rows.ranges().iter().flat_map(|rows| rows.clone()) {
+                let at = (row - first) as usize;
+                if let Some(change) = flash::change(old.value(at, index), new.value(at, index)) {
+                    self.flashes.start(row, index, change, now, *duration);
+                }
+            }
+        }
     }
 
     fn lay_out(&mut self) {
@@ -758,6 +804,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(feature = "live")]
         if !ready.is_empty() {
             for (page, request, rows) in ready {
+                #[cfg(feature = "custom-cells")]
+                self.note_flashes(page, request, &rows, cx);
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, wanted);
             }
@@ -783,6 +831,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let wanted = self.wanted();
         match result {
             Ok(rows) => {
+                #[cfg(all(feature = "live", feature = "custom-cells"))]
+                self.note_flashes(page, request, &rows, cx);
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, &wanted);
             }
@@ -1188,6 +1238,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // under the cells' text in this order (`docs/DECISIONS.md`, "Features").
         #[cfg(feature = "custom-cells")]
         let mut quads: Vec<PaintQuad> = Vec::new();
+        // The flashes' clock, read once a frame while any is live, and
+        // whether this frame draws one.
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        let flash_now = (!self.flashes.is_empty()).then(|| {
+            let now = self.flashes.now(cx);
+            self.flashes.expire(now);
+            now
+        });
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        let reduce_motion = cx.reduce_motion();
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        let mut flash_drawn = false;
         {
             let theme = cx.theme();
             #[cfg(feature = "custom-cells")]
@@ -1244,7 +1306,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 // A column with no ramp or bar draws no
                                 // paint: its page isn't asked, except in a
                                 // debug build, which asserts it answers none.
-                                let drawn =
+                                #[cfg_attr(not(feature = "live"), expect(unused_mut))]
+                                let mut drawn =
                                     if paints[position].is_empty() && !cfg!(debug_assertions) {
                                         paint::DrawnPaint::default()
                                     } else {
@@ -1259,10 +1322,45 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     };
                                 if let Some((bounds, color)) = drawn.fill {
                                     quads.push(fill(bounds, color));
+                                }
+                                // A change's flash, over the fill.
+                                #[cfg(feature = "live")]
+                                if let (Some(now), Some(ramp)) =
+                                    (flash_now, paints[position].flash.as_ref())
+                                    && let Some((at, opacity)) =
+                                        self.flashes.at(row, *column_index, now, reduce_motion)
+                                    && let Some(color) = paint::flash_color(ramp, at, opacity)
+                                {
+                                    drawn.flash = Some(color);
+                                    flash_drawn = true;
+                                    quads.push(fill(
+                                        paint::cell_box(
+                                            column.x - self.scroll_x,
+                                            f32::from(top),
+                                            column.width,
+                                            f32::from(row_h),
+                                        ),
+                                        color,
+                                    ));
+                                }
+                                #[cfg(feature = "live")]
+                                let covered = drawn.fill.map(|(bounds, _)| bounds).or(drawn
+                                    .flash
+                                    .map(|_| {
+                                        paint::cell_box(
+                                            column.x - self.scroll_x,
+                                            f32::from(top),
+                                            column.width,
+                                            f32::from(row_h),
+                                        )
+                                    }));
+                                #[cfg(not(feature = "live"))]
+                                let covered = drawn.fill.map(|(bounds, _)| bounds);
+                                if let Some(bounds) = covered {
                                     // The jump's highlight, which the row
-                                    // draws under the cells, over the fill,
-                                    // edged: its tint alone vanished on a
-                                    // blue ramp.
+                                    // draws under the cells, over a fill or
+                                    // a flash, edged: its tint alone
+                                    // vanished on a blue ramp.
                                     if self.marked == Some(row) {
                                         quads.push(
                                             fill(bounds, theme.table_active)
@@ -1347,6 +1445,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             !visible.is_empty() && loaded == visible.end - visible.start
         };
         self.track_filled(filled, cx);
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        self.after_flashes(flash_now, flash_drawn, reduce_motion, cx);
         #[cfg(feature = "live")]
         for (rows, generation) in self.cache.take_refreshed(visible.clone()) {
             cx.emit(TallTableEvent::Refreshed { rows, generation });
@@ -1588,6 +1688,41 @@ impl<D: TallTableDelegate> TallTableState<D> {
             })
     }
 
+    /// After a frame's flashes: a fading one on screen asks for the next
+    /// frame (in render, which has the window); under reduced motion none
+    /// is asked for, and a timer redraws when the next held flash ends.
+    #[cfg(all(feature = "live", feature = "custom-cells"))]
+    fn after_flashes(
+        &mut self,
+        now: Option<std::time::Duration>,
+        drawn: bool,
+        reduce_motion: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.flashes.animating = drawn && !reduce_motion;
+        let end = now
+            .filter(|_| reduce_motion)
+            .and_then(|now| Some((now, self.flashes.next_end()?)));
+        let Some((now, end)) = end else {
+            self.flashes.timer = None;
+            return;
+        };
+        if self
+            .flashes
+            .timer
+            .as_ref()
+            .is_some_and(|(at, _)| *at == end)
+        {
+            return;
+        }
+        let wait = end.saturating_sub(now);
+        let task = cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(wait).await;
+            let _ = this.update(cx, |_, cx| cx.notify());
+        });
+        self.flashes.timer = Some((end, task));
+    }
+
     fn cell(&self, column: &LaidOutColumn, top: Pixels, height: Pixels) -> Div {
         div()
             .absolute()
@@ -1671,6 +1806,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         self.decide_tooltip(window, cx);
         let header = self.render_header(cx);
         let body = self.render_body(cx);
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        if self.flashes.animating {
+            window.request_animation_frame();
+        }
         let tooltip = self.render_tooltip();
         div()
             .size_full()

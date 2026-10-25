@@ -10,10 +10,11 @@
 //
 // Each feature's build (the host's Cargo feature, which turns on the
 // table's and switches it on at run time) is measured against the base:
-// its added bytes. And the base must hold none of a feature's code: an
-// unstripped build of each (`target/symbols/`) is searched for the
-// feature's own module, which the base must lack and the feature's build
-// must hold (the control). `--against <commit>` also builds the base at
+// its added bytes; a build of two features also against each one alone.
+// And the base must hold none of a feature's code: an unstripped build of
+// each (`target/symbols/`) is searched for the feature's own module, which
+// the base must lack and the feature's build must hold (the control); code
+// only two features together build, also lacking from each one's build. `--against <commit>` also builds the base at
 // that commit and the working tree's, each in a git worktree, and fails if
 // they differ by more than 0.1 KiB after wasm-opt (brotli is recorded, not
 // gated: it swings by up to ~2 KiB when a few bytes shift).
@@ -30,12 +31,15 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { perfDir, repo } from './harness.ts';
 
-/** Each host feature, and its own module's mangled path (v0 symbols), which
- *  only a build with it may hold. */
+/** Each host feature's build (two, comma-separated, for code only both
+ *  build), and its own module's mangled path (v0 symbols), which only a
+ *  build with it may hold. */
 const FEATURES: Record<string, string> = {
   'custom-cells': 'seiza_tall_table5paint',
   // No module of its own: the cache's re-read report, `PageCache::take_refreshed`.
   live: '14take_refreshed',
+  // The flash, `live` with `custom-cells`.
+  'live,custom-cells': 'seiza_tall_table5flash',
 };
 
 /** Globals only the panel and the engine's bridge write. */
@@ -72,15 +76,21 @@ function measure(features: string, dir = repo): { size: Size; opt: Buffer } {
 const line = (size: Size) => `${size.rawKiB} KiB raw, ${size.optKiB} KiB after wasm-opt, ${size.brotliKiB} KiB brotli`;
 
 // Each feature's build first, then the base, so host/web/pkg/ is left as the base.
-const features: Record<string, Size & { moreBrotliKiB: number; moreOptKiB: number }> = {};
+type Added = { moreBrotliKiB: number; moreOptKiB: number };
+const features: Record<string, Size & Added & { against?: Record<string, Added> }> = {};
 const featureSizes: Record<string, Size> = {};
 for (const feature of Object.keys(FEATURES)) featureSizes[feature] = measure(feature).size;
 const { size: host, opt } = measure('');
 for (const [name, marker] of Object.entries(MARKERS)) if (opt.includes(marker)) failures.push(`the host's wasm holds "${marker}": the ${name} linked`);
 console.log(`host (base): ${line(host)}`);
 for (const [feature, size] of Object.entries(featureSizes)) {
-  features[feature] = { ...size, moreOptKiB: Number((size.optKiB - host.optKiB).toFixed(1)), moreBrotliKiB: Number((size.brotliKiB - host.brotliKiB).toFixed(1)) };
-  console.log(`host with ${feature}: ${line(size)}: ${features[feature].moreBrotliKiB} KiB brotli more`);
+  const added = (than: Size): Added => ({ moreOptKiB: Number((size.optKiB - than.optKiB).toFixed(1)), moreBrotliKiB: Number((size.brotliKiB - than.brotliKiB).toFixed(1)) });
+  // Against each of its features alone.
+  const parts = feature.split(',').filter((part) => part !== feature && featureSizes[part]);
+  const against = Object.fromEntries(parts.map((part) => [part, added(featureSizes[part]!)]));
+  features[feature] = { ...size, ...added(host), ...(parts.length ? { against } : {}) };
+  const more = Object.entries(against).map(([part, by]) => `, ${by.moreBrotliKiB} KiB brotli (${by.moreOptKiB} after wasm-opt) more than ${part} alone`).join('');
+  console.log(`host with ${feature}: ${line(size)}: ${features[feature].moreBrotliKiB} KiB brotli more${more}`);
 }
 
 // Unstripped builds, their own target dir so the release cache stays put.
@@ -91,12 +101,17 @@ function holds(features: string, marker: string): number {
   return wasm.split(marker).length - 1;
 }
 process.env.CARGO_PROFILE_RELEASE_STRIP = 'false';
-const symbols: Record<string, { base: number; feature: number }> = {};
+const symbols: Record<string, { base: number; feature: number; alone?: Record<string, number> }> = {};
 for (const [feature, marker] of Object.entries(FEATURES)) {
   symbols[feature] = { base: holds('', marker), feature: holds(feature, marker) };
   if (symbols[feature].base) failures.push(`the base holds ${symbols[feature].base} of ${feature}'s symbols (${marker})`);
   if (!symbols[feature].feature) failures.push(`control: ${feature}'s build holds none of its symbols (${marker}): the check can't see them`);
-  console.log(`symbols ${marker}: base ${symbols[feature].base}, with ${feature} ${symbols[feature].feature}`);
+  // Code only both features build: neither alone holds it.
+  const parts = feature.includes(',') ? feature.split(',') : [];
+  if (parts.length) symbols[feature].alone = Object.fromEntries(parts.map((part) => [part, holds(part, marker)]));
+  for (const [part, count] of Object.entries(symbols[feature].alone ?? {})) if (count) failures.push(`${part} alone holds ${count} of ${feature}'s symbols (${marker})`);
+  const alone = Object.entries(symbols[feature].alone ?? {}).map(([part, count]) => `, ${part} alone ${count}`).join('');
+  console.log(`symbols ${marker}: base ${symbols[feature].base}${alone}, with ${feature} ${symbols[feature].feature}`);
 }
 delete process.env.CARGO_PROFILE_RELEASE_STRIP;
 
