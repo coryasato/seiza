@@ -228,7 +228,7 @@ async function imeFullWidth(page: Page): Promise<Landing> {
 
 /**
  * Pastes `row` into the empty input, by keyboard or through the context
- * menu; returns whether the input then holds it. gpui-kit 0.7.3 draws the
+ * menu; returns whether the input then holds it. gpui-kit 0.8.0 draws the
  * menu on the canvas (Cut, Copy, Paste, a separator, Select All) at the
  * pointer; it has no published bounds, so Paste is clicked by its offset
  * below the pointer (`MENU_PASTE_DY`, read off `raw/jump-context-menu.png`).

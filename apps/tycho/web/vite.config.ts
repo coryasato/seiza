@@ -7,7 +7,7 @@ import { seizaViteConfig } from '@seiza/web/vite';
  *  /data/* from the local R2. Proxied so the page stays same-origin under COEP. */
 const worker = { '/data/': { target: 'http://127.0.0.1:8787' } };
 
-/** Lucide's moon and sun (ISC license), as gpui-kit-assets 0.7.3 embeds them. */
+/** Lucide's moon and sun (ISC license), as gpui-kit-assets 0.8.0 embeds them. */
 const ICONS = {
   moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',

@@ -17,7 +17,7 @@ publish = false
 
 [workspace.dependencies]
 # Exact pin: every app shares one gpui-kit version. Bump deliberately, for all apps at once.
-gpui-kit = "=0.7.3"
+gpui-kit = "=0.8.0"
 # Defaults off: a member that wants the panel names it (`features = ["panel"]`).
 # Cargo ignores a member's `default-features = false` when this entry keeps them on.
 seiza = { path = "shared", default-features = false }

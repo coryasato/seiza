@@ -40,7 +40,7 @@ Budgets gate the local release build only. Production numbers are recorded next 
 
 ## Stack
 
-- **UI:** `gpui-kit`, pinned to an exact version (0.7.3) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
+- **UI:** `gpui-kit`, pinned to an exact version (0.8.0) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
 - **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the window root (first-frame mark, system theme), the observation panel, and the page clock and marks. Title bars and theme toggles are each app's. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, the UI font, and the perf harness every app's scripts share.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
 - **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io, and serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker. The observatory's Worker holds seiza.io itself; today it serves the observatory's data file, by byte range through the edge cache, since Workers static assets don't answer ranges.
@@ -86,7 +86,7 @@ Reusable pieces leave an app once a second consumer needs them: UI to `component
 Prerequisites:
 
 - [rustup](https://rustup.rs). `rust-toolchain.toml` installs the pinned nightly and the `wasm32-unknown-unknown` target on first build.
-- `wasm-bindgen-cli` matching the locked version: `cargo install wasm-bindgen-cli --version 0.2.121 --locked`
+- `wasm-bindgen-cli` matching the locked version: `cargo install wasm-bindgen-cli --version 0.2.127 --locked`
 - [`just`](https://github.com/casey/just) and `wasm-opt` from [Binaryen](https://github.com/WebAssembly/binaryen) (`brew install just binaryen`)
 - Node.js 22.18+ (scripts are TypeScript run by Node's built-in type stripping)
 - For the measurement suites, Playwright's browsers: `npx playwright install chromium firefox webkit`

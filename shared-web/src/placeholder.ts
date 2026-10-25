@@ -11,7 +11,7 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
  * neither; it then fades out over that frame and removes itself.
  *
  * It must look like the first frame: whatever the app draws first (a title
- * bar, an empty state), in gpui-kit 0.7.3's default theme, light or dark by
+ * bar, an empty state), in gpui-kit 0.8.0's default theme, light or dark by
  * `prefers-color-scheme` (`shared/` follows the system until the app says a
  * visitor picked a theme, and a reload follows it again), or by the root's
  * `data-theme` where the page sets one before it paints. Each app's check
@@ -62,7 +62,7 @@ const fontUrl = new URL('../fonts/SeizaPlaceholder-Regular.woff2', import.meta.u
 
 /**
  * gpui-kit's `Skeleton` pulse: `opacity = 1 − 0.5 · bounce(ease_in_out)(t)`
- * over 2 s, repeating (gpui-component 0.7.3 `skeleton.rs`, gpui's
+ * over 2 s, repeating (gpui-component 0.8.0 `skeleton.rs`, gpui's
  * `ease_in_out` and `bounce`). CSS has no quadratic ease-in-out curve, so
  * it's sampled every 50 ms, linear between: within 0.06% of GPUI's curve.
  */
@@ -80,7 +80,7 @@ const DARK = `--bg: #0a0a0a; --fg: #fafafa; --muted-fg: #a3a3a3; --skeleton: #17
     --border: #262626; --table: #0a0a0a;`;
 
 /**
- * gpui-kit 0.7.3's default theme and the components the shells use, in CSS.
+ * gpui-kit 0.8.0's default theme and the components the shells use, in CSS.
  * Colors are the default light and dark themes' (`theme/default-theme.json`);
  * sizes are GPUI's (1 rem = 16 px; `text_xs` 12 px, `text_sm` 14 px; GPUI's
  * default line height is φ). Only Regular is loaded in GPUI, so nothing here

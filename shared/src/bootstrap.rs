@@ -189,7 +189,7 @@ fn is_mac_browser() -> bool {
 
 /// The Mac editing keys for gpui-kit's text inputs, in Mac browsers.
 ///
-/// gpui-kit (0.7.1 through 0.7.3) binds an input's Mac shortcuts only under
+/// gpui-kit (0.7.1 through 0.8.0) binds an input's Mac shortcuts only under
 /// `cfg(target_os = "macos")`, which a wasm build never is: the web build
 /// gets the Windows/Linux set, so in a Mac browser Cmd+A, Cmd+C, Cmd+Z and
 /// friends did nothing (found in Tycho; no upstream issue found
