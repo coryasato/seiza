@@ -31,6 +31,8 @@ What's next for <App>: milestone status, the active milestone's "done when" chec
 
 <What to build.>
 
+**Split into parts,** one session each (root `CLAUDE.md`, "Working agreements"): <Part A: …; Part B: …>
+
 **Done when:**
 - [ ] <A check with a number, measured under the root protocol.> *<Evidence, once it passes.>*
 

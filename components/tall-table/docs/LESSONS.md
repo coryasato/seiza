@@ -1,6 +1,6 @@
 # Lessons learned
 
-One entry per milestone, written before starting the next one: what surprised us, and what it taught us. The milestone's numbers are in its results note (linked from each entry; an app's own measurements of the feature are in that app), and the decisions it made are in [`DECISIONS.md`](DECISIONS.md).
+One entry per milestone part, written before starting the next one: what surprised us, and what it taught us. The milestone's numbers are in its results note (linked from each entry; an app's own measurements of the feature are in that app), and the decisions it made are in [`DECISIONS.md`](DECISIONS.md).
 
 <!-- Template:
 ## M<n>: <title> (YYYY-MM-DD)
@@ -94,3 +94,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The contrast pick was free where it was feared to cost: an opaque fill's lightness falls out of the mix the fill already did, so 308 picks a frame read within the spread.
 - The bare host's narrow shape never draws a bar below zero (its float ranges start at or above zero), so a smoke check that wanted both bar colors everywhere failed for want of data, not of code.
 
+## M4: `follow` (part A, 2026-10-25)
+
+**Results:** none measured; the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "`follow`".
+
+**Surprises:**
+- Following the tail was never the hard part: the base drops a short last page whenever `set_rows` grows it, and at a tail that page is always short and always on screen. Under appends faster than a read, each append cancelled the read the last one started, so the rows in view would never have landed.
+- The fix was already built: a grown page is a page whose rows changed, so `live`'s re-read path keeps it drawn and reads it again. `follow` depends on `live` rather than copying it.
+- "Following means being at the end" can't start off: a table opened empty or small is at the end, so a loading CSV would have pulled its reader down with every chunk. Following had to be a flag the reader's actions set.
+- Pinning to `rows()` would have put placeholders at the tail by design at high rates; pinning to the rows read so far keeps them off and moves the cost into a number (append → pixel), which then needed an event of its own (`TailDrawn`): `Refreshed` and `Filled` don't name a new page's rows.
+- `set_rows` had no step in `paging.json`, so a DOM contender's behavior on a growing source was never pinned, even in the base.
