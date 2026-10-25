@@ -144,6 +144,7 @@ pub fn publish(event: &TallTableEvent) {
         probe: Some("__tychoTable"),
         layout: Some("__tychoTableLayout"),
         cells: Some("__tychoCells"),
+        ..Default::default()
     }
     .event(event);
 }

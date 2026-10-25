@@ -15,6 +15,9 @@ crate-type = ["cdylib", "rlib"]
 [features]
 # `?cells=heat|bars|color` paints every float column through its range.
 custom-cells = ["seiza-tall-table/custom-cells", "tall-table-bridge/custom-cells"]
+# `?live=<updates/s>` changes that many visible rows a second, seeded, and
+# invalidates them; the rows' floats follow each row's version.
+live = ["seiza-tall-table/live", "tall-table-bridge/live"]
 
 [dependencies]
 gpui-kit.workspace = true

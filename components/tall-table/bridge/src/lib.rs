@@ -2,8 +2,8 @@
 //! every host (Tycho, the observatory's GPUI contender, the table's bare
 //! host). The table depends on gpui-kit alone and sets no marks (its
 //! `CLAUDE.md`, rule 1), and `seiza` knows no table, so the glue between
-//! them lives here: the filled mark, the scrollbar's targets, and the
-//! probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
+//! them lives here: the filled mark (with `live`, the refreshed mark), the
+//! scrollbar's targets, and the probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
 //! on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -32,6 +32,13 @@ pub struct Publish {
     pub layout: Option<&'static str>,
     /// The global the drawn cells go to ([`js::cells`]).
     pub cells: Option<&'static str>,
+    /// Set right after each frame that first draws a re-read page
+    /// (`live`'s [`TallTableEvent::Refreshed`]).
+    pub refreshed_mark: Option<&'static str>,
+    /// The global holding the highest generation drawn so far (`live`), set
+    /// while the frame renders: a script reading it at the refreshed mark
+    /// reads that frame's.
+    pub refreshed: Option<&'static str>,
 }
 
 impl Publish {
@@ -63,6 +70,15 @@ impl Publish {
             TallTableEvent::Layout(layout) => {
                 if let Some(name) = self.layout {
                     js::set_global(name, &js::layout(layout));
+                }
+            }
+            #[cfg(all(feature = "live", target_family = "wasm"))]
+            TallTableEvent::Refreshed { generation, .. } => {
+                if let Some(name) = self.refreshed {
+                    js::raise_global(name, *generation as f64);
+                }
+                if let Some(mark) = self.refreshed_mark {
+                    drop(seiza::mark_after_current_task(mark));
                 }
             }
             #[cfg(target_family = "wasm")]
@@ -98,6 +114,17 @@ pub mod js {
     /// `globalThis[name] = value`, replaced, never mutated in place.
     pub fn set_global(name: &str, value: &JsValue) {
         let _ = Reflect::set(&js_sys::global(), &JsValue::from_str(name), value);
+    }
+
+    /// `globalThis[name] = value` if it's higher than the number there.
+    #[cfg(feature = "live")]
+    pub fn raise_global(name: &str, value: f64) {
+        let current = Reflect::get(&js_sys::global(), &JsValue::from_str(name))
+            .ok()
+            .and_then(|current| current.as_f64());
+        if current.is_none_or(|current| value > current) {
+            set_global(name, &number(value));
+        }
     }
 
     /// `{rows, top, first, end, loaded, pending, failed, lastCell, marked,

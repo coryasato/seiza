@@ -24,6 +24,16 @@ export type Shape = (typeof SHAPES)[number];
 export const FILLED_MARK = 'tall-table:filled';
 export const FIRST_FRAME_MARK = 'gpui:first-frame';
 
+/** With `live` (`host/crate/src/host.rs`): set right after each frame that
+ *  first draws a re-read page, the highest generation drawn so far in
+ *  `REFRESHED_GLOBAL` (set while the frame renders, before the mark); and
+ *  as each batch of the feed's updates is invalidated, its last generation
+ *  in `INVALIDATED_GLOBAL`, set first. */
+export const REFRESHED_MARK = 'tall-table:refreshed';
+export const REFRESHED_GLOBAL = '__tallTableRefreshed';
+export const INVALIDATED_MARK = 'tall-table:invalidated';
+export const INVALIDATED_GLOBAL = '__tallTableInvalidated';
+
 /** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
  *  `Cells`, `?cells=`): `text` paints nothing, the control. */
 export const CELL_STYLES = ['text', 'heat', 'bars', 'color'] as const;

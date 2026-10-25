@@ -23,22 +23,30 @@ use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTab
 #[cfg(feature = "custom-cells")]
 mod paint;
 
+/// `live`'s re-reads drawn in a window, on this file's scripted delegate.
+#[cfg(feature = "live")]
+mod live;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 
 // --- paging ---
 
-/// A page with no values: the scenarios watch which pages are read, and
-/// its bytes are what the cache's budget counts.
-struct Blank(usize);
+/// A page whose every value is the request that read it: the scenarios
+/// watch which pages are read, `live`'s tests which read is drawn, and its
+/// bytes are what the cache's budget counts.
+struct Blank {
+    bytes: usize,
+    request: u32,
+}
 
 impl TallTablePage for Blank {
     fn value(&self, _: usize, _: usize) -> Option<CellValue<'_>> {
-        None
+        Some(CellValue::Float(f64::from(self.request)))
     }
 
     fn heap_bytes(&self) -> usize {
-        self.0
+        self.bytes
     }
 }
 
@@ -149,9 +157,35 @@ fn paging_with(mut paging: Paging, fields: &Value) -> Paging {
     paging
 }
 
-/// One scenario under `paging`: `Err` names the first step whose requests
-/// weren't the expected ones.
-fn run_scenario(cx: &mut TestAppContext, paging: Paging, scenario: &Value) -> Result<(), String> {
+/// Whether this build has every feature `scenario` needs (`features`).
+fn applies(scenario: &Value) -> bool {
+    scenario["features"].as_array().is_none_or(|features| {
+        features.iter().all(|feature| match feature.as_str() {
+            Some("live") => cfg!(feature = "live"),
+            other => panic!("a scenario needs an unknown feature: {other:?}"),
+        })
+    })
+}
+
+/// A `live` control's way of getting re-reads wrong, by its fixture name.
+#[cfg(feature = "live")]
+fn live_control(name: &str) -> crate::pages::Control {
+    use crate::pages::Control;
+    match name {
+        "reread-unwanted" => Control::RereadUnwanted,
+        "restart-stale" => Control::RestartStale,
+        other => panic!("unknown live control {other:?}"),
+    }
+}
+
+/// One scenario under `paging` (and a `live` control, if one is named):
+/// `Err` names the first step whose requests weren't the expected ones.
+fn run_scenario(
+    cx: &mut TestAppContext,
+    paging: Paging,
+    #[cfg_attr(not(feature = "live"), expect(unused_variables))] control: Option<&str>,
+    scenario: &Value,
+) -> Result<(), String> {
     let name = scenario["name"].as_str().unwrap_or("?");
     let rows = scenario["rows"].as_u64().expect("rows");
     let viewport_rows = scenario["viewport_rows"].as_f64().expect("viewport_rows");
@@ -204,6 +238,10 @@ fn run_scenario(cx: &mut TestAppContext, paging: Paging, scenario: &Value) -> Re
                         viewport_rows,
                         "{name}: the viewport"
                     );
+                    #[cfg(feature = "live")]
+                    if let Some(control) = control {
+                        table.cache.control = live_control(control);
+                    }
                 });
                 table = Some(opened);
             }
@@ -232,6 +270,21 @@ fn run_scenario(cx: &mut TestAppContext, paging: Paging, scenario: &Value) -> Re
                 });
             }
             "release" => on_table(cx, &table, |table, cx| table.end_drag(cx)),
+            #[cfg(feature = "live")]
+            "invalidate" => {
+                let rows: Vec<u64> = argument
+                    .as_array()
+                    .expect("invalidate: [start, end]")
+                    .iter()
+                    .map(|row| row.as_u64().expect("a row"))
+                    .collect();
+                let [start, end] = rows[..] else {
+                    panic!("{name}: invalidate takes [start, end]");
+                };
+                on_table(cx, &table, |table, cx| {
+                    table.invalidate_rows(start..end, cx);
+                });
+            }
             "wait" => {
                 let ms = argument.as_u64().expect("wait: ms");
                 cx.executor().advance_clock(Duration::from_millis(ms));
@@ -314,7 +367,10 @@ fn answer(reads: &Rc<RefCell<Reads>>, page: Option<u64>, fail: bool, bytes: usiz
             read_failure: false,
         })
     } else {
-        Ok(Blank(bytes))
+        Ok(Blank {
+            bytes,
+            request: read.request,
+        })
     };
     let _ = read.answer.send(result);
     true
@@ -361,7 +417,8 @@ fn paging_scenarios(cx: &mut TestAppContext) {
         .as_array()
         .expect("scenarios")
         .iter()
-        .filter_map(|scenario| run_scenario(cx, paging, scenario).err())
+        .filter(|scenario| applies(scenario))
+        .filter_map(|scenario| run_scenario(cx, paging, None, scenario).err())
         .collect();
     assert!(failures.is_empty(), "{failures:#?}");
 }
@@ -369,13 +426,29 @@ fn paging_scenarios(cx: &mut TestAppContext) {
 #[gpui_kit::test]
 fn paging_controls_fail(cx: &mut TestAppContext) {
     let (paging, fixture) = paging_fixture();
-    let scenarios = fixture["scenarios"].as_array().expect("scenarios");
+    let scenarios: Vec<&Value> = fixture["scenarios"]
+        .as_array()
+        .expect("scenarios")
+        .iter()
+        .filter(|scenario| applies(scenario))
+        .collect();
     for control in fixture["controls"].as_array().expect("controls") {
-        let changed = paging_with(paging, &control["paging"]);
-        assert_ne!(changed, paging, "a control changes the paging: {control}");
+        // A paging field changed, or (`live`) a way of re-reading.
+        let live = control["live"].as_str();
+        if live.is_some() && !cfg!(feature = "live") {
+            continue;
+        }
+        let changed = match live {
+            Some(_) => paging,
+            None => {
+                let changed = paging_with(paging, &control["paging"]);
+                assert_ne!(changed, paging, "a control changes the paging: {control}");
+                changed
+            }
+        };
         let failed = scenarios
             .iter()
-            .filter(|scenario| run_scenario(cx, changed, scenario).is_err())
+            .filter(|scenario| run_scenario(cx, changed, live, scenario).is_err())
             .count();
         assert!(
             failed > 0,

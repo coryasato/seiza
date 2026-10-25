@@ -50,6 +50,14 @@ size *args:
 perf *args:
     node {{component_dir}}/perf/perf.ts {{args}}
 
+# `live`'s latency in the bare host's release build: the feed's batch of
+# visible rows invalidated → the first frame drawing their re-read (the
+# table's share of update → pixel), cold, median of 10, at --rate updates a
+# second (1000). --runs, --profile, --seconds, --label. Run
+# `just tall-table build live` first.
+live *args:
+    node {{component_dir}}/perf/live.ts {{args}}
+
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
 # one). --browsers. Run `just tall-table build` first.
@@ -57,13 +65,16 @@ smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 
 # Native tests: the table's (page cache, scroll model, float fitting, cell
-# text, the fixtures) and the host's rows, with every feature off and then
-# each on (`custom-cells`: the paint fixture). The bridge has none: its JS
-# values are wasm-only, and Tycho's checks (`just tycho table`, `cells`) and
-# the observatory's cell fixture read every field it writes.
+# text, the fixtures) and the host's rows and feed, with every feature off,
+# each on alone (`custom-cells`: the paint fixture; `live`: the re-reads and
+# the paging fixture's live scenarios), and all on. The bridge has none: its
+# JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
+# the observatory's cell fixture, and `smoke` read every field it writes.
 test:
     cargo test -p seiza-tall-table -p tall-table-host
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/live
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/live
 
 # Writes fixtures/paint.json's expected colors from Chromium's
 # color-mix(in oklab) and its bars from their formula (--check compares).

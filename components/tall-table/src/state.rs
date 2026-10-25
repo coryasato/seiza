@@ -252,6 +252,16 @@ pub enum TallTableEvent {
     /// Every drawn cell's exact and shown text, every frame. Only while
     /// [`TallTableState::probe_cells`] is on.
     Cells(Vec<CellProbe>),
+    /// A re-read page (`live`) is drawn for the first time, its rows
+    /// visible. Emitted while the frame renders, as `Filled` is; none for a
+    /// page re-read off screen, then or when scrolled to. Its read started
+    /// after every invalidation up to `generation`
+    /// ([`TallTableState::invalidate_rows`]).
+    #[cfg(feature = "live")]
+    Refreshed {
+        rows: std::ops::Range<u64>,
+        generation: u64,
+    },
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -298,6 +308,10 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// While a scrollbar drag moves, page loads wait for the pointer to rest
     /// ([`Paging::drag_settle`]); this is that wait.
     drag_settle: Option<Task<()>>,
+    /// No drag, or its pointer has rested since it last moved: an
+    /// invalidation's reads can start now (`live`).
+    #[cfg(feature = "live")]
+    drag_resting: bool,
     /// Resets `direction` to still once the rows stop moving
     /// ([`Paging::scroll_settle`]).
     scroll_settle: Option<Task<()>>,
@@ -357,6 +371,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             body: Bounds::default(),
             drag: None,
             drag_settle: None,
+            #[cfg(feature = "live")]
+            drag_resting: true,
             scroll_settle: None,
             focus_handle: cx.focus_handle(),
             filled: false,
@@ -434,6 +450,31 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         self.load_pages(cx);
         cx.notify();
+    }
+
+    /// `rows` changed in the source (`live`). Their pages that are wanted,
+    /// loaded or loading, are read again (`load_page`), a loaded one drawn
+    /// as it is until the new page lands; the others are dropped. Loads as a
+    /// scroll does: during a scrollbar drag, once the pointer rests. Returns
+    /// this invalidation's generation, which grows with each call: the first
+    /// [`TallTableEvent::Refreshed`] at or past it, over a row of `rows`,
+    /// is the frame that shows the change.
+    ///
+    /// Rows whose page isn't loaded or loading change nothing: their first
+    /// read reads them as they are, and emits no `Refreshed`.
+    #[cfg(feature = "live")]
+    pub fn invalidate_rows(&mut self, rows: std::ops::Range<u64>, cx: &mut Context<Self>) -> u64 {
+        let generation = self.cache.invalidate(rows);
+        // A drag still moving: its settle loads these with the rest.
+        if self.drag.is_none() || self.drag_resting {
+            self.load_pages(cx);
+        }
+        generation
+    }
+
+    /// The rows the viewport shows, partly or wholly.
+    pub fn visible_rows(&self) -> std::ops::Range<u64> {
+        self.scroll.visible()
     }
 
     /// Replaces the columns (a column's kind changed, say). Pages already
@@ -599,9 +640,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
             // the drag ends on. So load only once the pointer rests, or on
             // release.
             let settle = self.paging.drag_settle;
+            #[cfg(feature = "live")]
+            {
+                self.drag_resting = false;
+            }
             self.drag_settle = Some(cx.spawn(async move |this, cx| {
                 cx.background_executor().timer(settle).await;
-                let _ = this.update(cx, |this, cx| this.load_pages(cx));
+                let _ = this.update(cx, |this, cx| {
+                    #[cfg(feature = "live")]
+                    {
+                        this.drag_resting = true;
+                    }
+                    this.load_pages(cx)
+                });
             }));
         } else {
             self.load_pages(cx);
@@ -610,6 +661,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     fn end_drag(&mut self, cx: &mut Context<Self>) {
         self.drag = None;
+        #[cfg(feature = "live")]
+        {
+            self.drag_resting = true;
+        }
         if self.drag_settle.take().is_some() {
             self.load_pages(cx);
         }
@@ -673,6 +728,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     cx.emit(TallTableEvent::ReadFailed);
                 }
             }
+        }
+        // A drag still moving: its settle loads what's next. Without it, a
+        // read landing (one is nearly always out under a feed) would start
+        // reads of the pages the drag only passes.
+        #[cfg(feature = "live")]
+        if self.drag.is_some() && !self.drag_resting {
+            cx.notify();
+            return;
         }
         self.load_wanted(&wanted, cx);
         cx.notify();
@@ -1216,6 +1279,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             !visible.is_empty() && loaded == visible.end - visible.start
         };
         self.track_filled(filled, cx);
+        #[cfg(feature = "live")]
+        for (rows, generation) in self.cache.take_refreshed(visible.clone()) {
+            cx.emit(TallTableEvent::Refreshed { rows, generation });
+        }
         match self.activity_options {
             Some(options) if (options.is_recording)(cx) => {
                 self.activity

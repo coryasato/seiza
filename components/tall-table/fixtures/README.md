@@ -13,7 +13,7 @@ What "the same" means for any other implementation of the table's base level (th
 
 ## `paging.json`
 
-`paging` is the table's `Paging::default()` (the test fails if they part), in the units a TS side uses: `page_rows`, `prefetch`, `budget_bytes`, `max_in_flight`, `scroll_settle_ms`, `drag_settle_ms`. Each scenario has `rows`, `viewport_rows` (the rows the viewport holds, fractional), `page_bytes` (what every answered page counts against `budget_bytes`), and `steps`. A step has one action, `expect`, and maybe a `why`:
+`paging` is the table's `Paging::default()` (the test fails if they part), in the units a TS side uses: `page_rows`, `prefetch`, `budget_bytes`, `max_in_flight`, `scroll_settle_ms`, `drag_settle_ms`. Each scenario has `rows`, `viewport_rows` (the rows the viewport holds, fractional), `page_bytes` (what every answered page counts against `budget_bytes`), `steps`, and maybe `features`: the table's features it needs (`live`), run only by a build with them. A step has one action, `expect`, and maybe a `why`:
 
 | Action | What it does |
 |---|---|
@@ -27,12 +27,15 @@ What "the same" means for any other implementation of the table's base level (th
 | `answer: "all"` | Answers every open read in the order they were sent, one at a time, the reads they start included, until none is open. |
 | `answer: [<page>, …]` | Answers the oldest open read of each page, in that order. |
 | `fail: [<page>, …]` | As `answer`, but each read fails (not a broken source: only its rows show the error). |
+| `invalidate: [<start>, <end>]` | `live`: rows `start..end` (end-exclusive) changed in the source (`invalidate_rows`). Its pages loaded or being read go stale; the wanted ones are read again, a loaded one drawn as it is until its read lands. |
 
 A cancelled read always answers as cancelled; the others answer with their page. After each step, everything that can run runs (answers land, reads start) before `expect` is compared.
 
 `expect` lists what the table asked its source for during the step, in order: `load <page>` (rows `page × page_rows` up to the next page or the end) and `cancel <page>` (the table no longer wants that read; it still counts as in flight until it answers). The cancels from one decision are a set, written in page order.
 
-`controls` each change one `paging` field; every control must fail at least one scenario.
+`expect` doesn't tell a re-read from a first read: both are `load <page>`. A stale page's re-read is never cancelled for being stale; a page invalidated during a read (a re-read or its first) is read once more after that read lands; a stale page that isn't wanted is dropped, and its re-read, if one is out, cancelled.
+
+`controls` each change one `paging` field, or (with `live`) name a way of re-reading wrongly: `reread-unwanted` keeps stale pages outside `wanted` and reads them again, `restart-stale` cancels a page's read when it's invalidated during it and reads it anew. Every control must fail at least one scenario the build runs.
 
 ## `cells.json`
 

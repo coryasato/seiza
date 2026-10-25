@@ -14,6 +14,8 @@ seiza-tall-table.workspace = true
 [features]
 # The drawn cells' paint in `js::cells`.
 custom-cells = ["seiza-tall-table/custom-cells"]
+# The refreshed mark and the generation drawn.
+live = ["seiza-tall-table/live"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

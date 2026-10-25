@@ -18,7 +18,9 @@
     { "name": "fewer reads in flight", "paging": { "max_in_flight": 2 } },
     { "name": "more reads in flight", "paging": { "max_in_flight": 4 } },
     { "name": "smaller pages", "paging": { "page_rows": 512 } },
-    { "name": "a bigger cache", "paging": { "budget_bytes": 134217728 } }
+    { "name": "a bigger cache", "paging": { "budget_bytes": 134217728 } },
+    { "name": "re-read invalidated pages outside wanted", "live": "reread-unwanted" },
+    { "name": "cancel a stale read to restart it", "live": "restart-stale" }
   ],
   "scenarios": [
     {
@@ -125,6 +127,114 @@
         { "answer": "all", "expect": ["load 98", "load 96", "load 99", "load 95", "load 100", "load 101"], "why": "Each page past the budget evicts the least recently used page that isn't wanted; wanted pages stay, over budget or not." },
         { "jump": 0, "expect": ["load 0"], "why": "Pages 0-2 were evicted." },
         { "answer": "all", "expect": ["load 1", "load 2"] }
+      ]
+    },
+    {
+      "name": "a visible page changes",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "invalidate": [0, 10], "expect": ["load 0"], "why": "A loaded visible page is read again; its old rows draw until the read lands." },
+        { "invalidate": [5, 6], "expect": [], "why": "One read per page in flight: the read out isn't cancelled for being stale." },
+        { "invalidate": [0, 1024], "expect": [] },
+        { "invalidate": [20, 21], "expect": [] },
+        { "answer": [0], "expect": ["load 0"], "why": "Invalidated during its read: read once more after it lands, however many times it changed." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a page changes during its first read",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "invalidate": [0, 28], "expect": [], "why": "Its first read is out: not cancelled." },
+        { "answer": [0], "expect": ["load 0", "load 1", "load 2"], "why": "Stale when it lands: drawn, and read again before prefetch, which it doesn't hold back." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a page changes during a drag",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "drag": 0.0005, "expect": [], "why": "Top = 0.0005 x (rows - viewport_rows): rows 783..811, still page 0." },
+        { "invalidate": [783, 790], "expect": [], "why": "The pointer hasn't rested: the re-read waits with every other load." },
+        { "wait": 79, "expect": [] },
+        { "wait": 1, "expect": ["load 0", "load 3", "load 4"], "why": "Rested 80 ms: the visible page's re-read, then prefetch leaning down (1-4; 1 and 2 are loaded)." },
+        { "invalidate": [783, 790], "expect": [], "why": "Rested, so it would load now, but page 0's read is out." },
+        { "release": true, "expect": [] }
+      ]
+    },
+    {
+      "name": "three visible pages change",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 2100,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0", "load 1", "load 2"], "why": "Rows 0..2100 are pages 0-2." },
+        { "answer": "all", "expect": ["load 3", "load 4"] },
+        { "invalidate": [0, 3072], "expect": ["load 0", "load 1"], "why": "Re-reads hold at most max_in_flight - 1 places: page 2 waits." },
+        { "scroll": 3072, "expect": ["cancel 0", "load 5"], "why": "Rows 3072..5172 are pages 3-5; wanted 3,4,5,6,2,7,1,8,9. Page 0's re-read isn't wanted: cancelled, and its stale page dropped. Page 5 has nothing to show: it starts at once." },
+        { "answer": "all", "expect": ["load 6", "load 2", "load 7", "load 8", "load 9"], "why": "Once page 5 is in, prefetch, with stale page 2's re-read in wanted's order." }
+      ]
+    },
+    {
+      "name": "a re-read fails",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "invalidate": [0, 10], "expect": ["load 0"] },
+        { "fail": [0], "expect": [], "why": "The old rows stay drawn, not an error; not read again until its rows change again." },
+        { "wait": 1000, "expect": [] },
+        { "invalidate": [0, 10], "expect": ["load 0"] },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a stale page nobody wants",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "jump": 10000, "expect": ["load 9"], "why": "Pages 0-2 stay cached, unwanted." },
+        { "answer": "all", "expect": ["load 10", "load 8", "load 11", "load 7", "load 12", "load 13"] },
+        { "invalidate": [0, 3072], "expect": [], "why": "Pages 0-2 aren't wanted: dropped, not read again." },
+        { "jump": 0, "expect": ["load 0"], "why": "Dropped, so page 0 has nothing to show: no prefetch until it lands (a stale page kept would have let 1 and 2 start)." },
+        { "answer": "all", "expect": ["load 1", "load 2"] }
+      ]
+    },
+    {
+      "name": "a re-read lands during a drag",
+      "features": ["live"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "invalidate": [0, 10], "expect": ["load 0"] },
+        { "drag": 0.5, "expect": [], "why": "Rows 783747..783776, page 765: nothing loads until the pointer rests." },
+        { "answer": [0], "expect": [], "why": "A read landing mid-drag starts nothing either: the drag's pages wait for its settle." },
+        { "wait": 80, "expect": ["load 765"] }
       ]
     }
   ]

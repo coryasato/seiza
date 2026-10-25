@@ -32,7 +32,11 @@ import { perfDir, repo } from './harness.ts';
 
 /** Each host feature, and its own module's mangled path (v0 symbols), which
  *  only a build with it may hold. */
-const FEATURES: Record<string, string> = { 'custom-cells': 'seiza_tall_table5paint' };
+const FEATURES: Record<string, string> = {
+  'custom-cells': 'seiza_tall_table5paint',
+  // No module of its own: the cache's re-read report, `PageCache::take_refreshed`.
+  live: '14take_refreshed',
+};
 
 /** Globals only the panel and the engine's bridge write. */
 const MARKERS = { panel: '__seizaPerfOverlay', engine: 'duckdb' };

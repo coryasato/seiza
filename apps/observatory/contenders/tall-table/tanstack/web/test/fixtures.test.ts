@@ -221,6 +221,10 @@ async function runScenario(paging: Paging, scenario: any): Promise<string | null
 
 describe('paging.json', () => {
   const paging = fixture('paging.json');
+  // The contender builds the table's base level: no scenario or control of
+  // a feature (`features`, a `live` control) applies to it yet.
+  const scenarios = (paging.scenarios as any[]).filter((scenario) => !scenario.features?.length);
+  const controls = (paging.controls as any[]).filter((control) => control.paging);
 
   test('its paging is the contender’s, every field', () => {
     assert.deepEqual(Object.keys(paging.paging).sort(), Object.keys(FIELDS).sort());
@@ -229,7 +233,7 @@ describe('paging.json', () => {
 
   test('every scenario', async () => {
     const failures: string[] = [];
-    for (const scenario of paging.scenarios) {
+    for (const scenario of scenarios) {
       const failure = await runScenario(PAGING, scenario);
       if (failure) failures.push(failure);
     }
@@ -237,11 +241,11 @@ describe('paging.json', () => {
   });
 
   test('every control fails a scenario', async () => {
-    for (const control of paging.controls) {
+    for (const control of controls) {
       const changed = pagingWith(PAGING, control.paging);
       assert.notDeepEqual(changed, PAGING, `control ${control.name} changes the paging`);
       let failed = 0;
-      for (const scenario of paging.scenarios) if (await runScenario(changed, scenario)) failed++;
+      for (const scenario of scenarios) if (await runScenario(changed, scenario)) failed++;
       assert.ok(failed > 0, `control ${control.name} passed every scenario`);
     }
   });

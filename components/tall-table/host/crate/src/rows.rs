@@ -5,9 +5,16 @@
 //! answers the table as the DuckDB source's Arrow pages do: floats as
 //! floats, strings borrowed, and integers, booleans, and dates as text made
 //! on each read.
+//!
+//! With `live`, each row has a version, bumped by the host's feed
+//! ([`MemoryRows::bump`]); a float's value mixes it in, so a page read
+//! after a bump answers new floats (the other columns, and which floats are
+//! NULL, stay put).
 
 use std::borrow::Cow;
 use std::cell::RefCell;
+#[cfg(feature = "live")]
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::ops::Range;
@@ -201,18 +208,42 @@ impl Cells {
     }
 }
 
+/// The rows' versions (`live`): rows not in it are at 0.
+#[cfg(feature = "live")]
+pub type Versions = HashMap<u64, u32>;
+
+/// What a float of `row` is hashed from: the row, with its version mixed in
+/// (`live`).
+#[cfg(feature = "live")]
+fn versioned(row: u64, versions: &Versions) -> u64 {
+    versions
+        .get(&row)
+        .map_or(row, |version| row ^ (u64::from(*version) << 32))
+}
+
 impl MemoryPage {
-    pub fn new(shape: Shape, rows: Range<u64>) -> Self {
+    pub fn new(
+        shape: Shape,
+        rows: Range<u64>,
+        #[cfg(feature = "live")] versions: &Versions,
+    ) -> Self {
+        #[cfg(not(feature = "live"))]
+        let key = |row: u64| row;
+        // Each row's key once a page, not once a cell.
+        #[cfg(feature = "live")]
+        let keys: Vec<u64> = rows.clone().map(|row| versioned(row, versions)).collect();
+        #[cfg(feature = "live")]
+        let key = |row: u64| keys[(row - rows.start) as usize];
         let columns = match shape {
             Shape::Narrow => (0..NARROW.len())
-                .map(|column| narrow_column(column, rows.clone()))
+                .map(|column| narrow_column(column, rows.clone(), key))
                 .collect(),
             Shape::Wide => (0..WIDE_COLUMNS)
                 .map(|column| {
                     let scale = wide_scale(column);
                     Values::Float(
                         rows.clone()
-                            .map(|row| (unit(row, column) - 0.5) * 2.0 * scale)
+                            .map(|row| (unit(key(row), column) - 0.5) * 2.0 * scale)
                             .collect(),
                     )
                 })
@@ -227,12 +258,13 @@ impl MemoryPage {
 }
 
 /// The narrow shape's `column` over `rows`, in the ranges the asteroids'
-/// columns hold (`diameter` and `albedo` mostly NULL, as there).
-fn narrow_column(column: usize, rows: Range<u64>) -> Values {
+/// columns hold (`diameter` and `albedo` mostly NULL, as there). A float is
+/// hashed from `key(row)`.
+fn narrow_column(column: usize, rows: Range<u64>, key: impl Fn(u64) -> u64) -> Values {
     let floats = |value: fn(u64, f64) -> f64| {
         Values::Float(
             rows.clone()
-                .map(|row| value(row, unit(row, column)))
+                .map(|row| value(row, unit(key(row), column)))
                 .collect(),
         )
     };
@@ -277,7 +309,7 @@ fn narrow_column(column: usize, rows: Range<u64>) -> Values {
         6 => Values::Float(
             rows.map(|row| {
                 if measured(row) {
-                    unit(row, column).powi(3) * 100.0
+                    unit(key(row), column).powi(3) * 100.0
                 } else {
                     f64::NAN
                 }
@@ -287,7 +319,7 @@ fn narrow_column(column: usize, rows: Range<u64>) -> Values {
         7 => Values::Float(
             rows.map(|row| {
                 if measured(row) {
-                    unit(row, column) * 0.5
+                    unit(key(row), column) * 0.5
                 } else {
                     f64::NAN
                 }
@@ -391,6 +423,9 @@ pub struct MemoryRows {
     next_request: u32,
     /// The reads not yet resolved or cancelled.
     pending: Rc<RefCell<HashSet<u32>>>,
+    /// Each row's version (`live`), read when a page is materialized.
+    #[cfg(feature = "live")]
+    versions: Rc<RefCell<Versions>>,
 }
 
 impl MemoryRows {
@@ -402,7 +437,16 @@ impl MemoryRows {
             cells: Cells::Text,
             next_request: 0,
             pending: Rc::default(),
+            #[cfg(feature = "live")]
+            versions: Rc::default(),
         }
+    }
+
+    /// `row` changed (`live`): a page read from now on answers its new
+    /// floats.
+    #[cfg(feature = "live")]
+    pub fn bump(&mut self, row: u64) {
+        *self.versions.borrow_mut().entry(row).or_default() += 1;
     }
 
     /// Its pages paint their float columns `cells`' way.
@@ -427,6 +471,8 @@ impl TallTableDelegate for MemoryRows {
         let timer = self
             .delay
             .map(|delay| cx.background_executor().timer(delay));
+        #[cfg(feature = "live")]
+        let versions = self.versions.clone();
         let load = async move {
             if let Some(timer) = timer {
                 timer.await;
@@ -435,7 +481,12 @@ impl TallTableDelegate for MemoryRows {
                 return Err(PageError::Cancelled);
             }
             #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
-            let mut page = MemoryPage::new(shape, rows);
+            let mut page = MemoryPage::new(
+                shape,
+                rows,
+                #[cfg(feature = "live")]
+                &versions.borrow(),
+            );
             #[cfg(feature = "custom-cells")]
             if cells != Cells::Text {
                 page.paint = Some((cells, shape));
@@ -455,6 +506,16 @@ impl TallTableDelegate for MemoryRows {
 #[cfg(test)]
 mod tests {
     use super::{MemoryPage, MemoryRows, ROWS, Shape, WIDE_COLUMNS, date_text};
+
+    /// A page at every row's first version.
+    fn fresh_page(shape: Shape, rows: std::ops::Range<u64>) -> MemoryPage {
+        MemoryPage::new(
+            shape,
+            rows,
+            #[cfg(feature = "live")]
+            &Default::default(),
+        )
+    }
     use gpui_kit::TestAppContext;
     use seiza_tall_table::{CellValue, PageError, TallTableDelegate, TallTablePage};
 
@@ -471,8 +532,8 @@ mod tests {
     #[test]
     fn values_are_a_function_of_row_and_column() {
         for shape in [Shape::Narrow, Shape::Wide] {
-            let page = MemoryPage::new(shape, 1024..2048);
-            let again = MemoryPage::new(shape, 1000..2048);
+            let page = fresh_page(shape, 1024..2048);
+            let again = fresh_page(shape, 1000..2048);
             for column in 0..shape.columns().len() {
                 assert_eq!(page.value(5, column), again.value(29, column));
             }
@@ -482,7 +543,7 @@ mod tests {
 
     #[test]
     fn narrow_values() {
-        let page = MemoryPage::new(Shape::Narrow, 0..1024);
+        let page = fresh_page(Shape::Narrow, 0..1024);
         assert_eq!(page.value(0, 0), Some(CellValue::Text("20000001".into())));
         assert!(
             matches!(page.value(0, 3), Some(CellValue::Text(text)) if text == "true" || text == "false")
@@ -517,7 +578,7 @@ mod tests {
         use super::Cells;
         for shape in [Shape::Narrow, Shape::Wide] {
             for cells in [Cells::Heat, Cells::Bars, Cells::Color] {
-                let mut page = MemoryPage::new(shape, 0..1024);
+                let mut page = fresh_page(shape, 0..1024);
                 page.paint = Some((cells, shape));
                 let columns = cells.columns(shape);
                 let mut painted = 0;
@@ -545,7 +606,7 @@ mod tests {
             }
         }
         // `text` paints nothing: the control.
-        let page = MemoryPage::new(Shape::Wide, 0..1024);
+        let page = fresh_page(Shape::Wide, 0..1024);
         assert_eq!(page.paint(0, 0), Default::default());
         assert_eq!(Cells::from_name("heat"), Some(Cells::Heat));
         assert_eq!(Cells::from_name("blue"), None);
@@ -566,5 +627,53 @@ mod tests {
         );
         // A cancel after the read resolved changes nothing.
         cx.update(|cx| rows.cancel(kept, cx));
+    }
+
+    #[cfg(feature = "live")]
+    #[gpui_kit::test]
+    fn a_bumped_row_reads_new_floats(cx: &mut TestAppContext) {
+        let read = |rows: &mut MemoryRows, cx: &mut TestAppContext| {
+            let (_, load) = cx.update(|cx| rows.load_page(0..1024, cx));
+            futures::executor::block_on(load).expect("a page")
+        };
+        let mut rows = MemoryRows::new(Shape::Narrow, None);
+        let before = read(&mut rows, cx);
+        // A NULL row and a measured one, so both cases are seen.
+        let (null_row, measured_row) = (
+            (0..1024).find(|row| before.value(*row, 6) == Some(CellValue::Null)),
+            (0..1024).find(|row| before.value(*row, 6) != Some(CellValue::Null)),
+        );
+        let changed_rows = [null_row.expect("a NULL"), measured_row.expect("a value")];
+        for row in changed_rows {
+            rows.bump(row as u64);
+        }
+        let after = read(&mut rows, cx);
+        for row in changed_rows {
+            for column in 0..11 {
+                let float = Shape::Narrow.range(column).is_some();
+                let null = before.value(row, column) == Some(CellValue::Null);
+                // A float changes, unless NULL; nothing else does.
+                let changed = before.value(row, column) != after.value(row, column);
+                assert_eq!(changed, float && !null, "row {row}, column {column}");
+                assert_eq!(null, after.value(row, column) == Some(CellValue::Null));
+            }
+        }
+        let unchanged = (0..1024).find(|row| !changed_rows.contains(row)).unwrap();
+        for column in 0..11 {
+            assert_eq!(
+                before.value(unchanged, column),
+                after.value(unchanged, column)
+            );
+        }
+        // The same versions, the same values: every run reads the same.
+        let mut again = MemoryRows::new(Shape::Narrow, None);
+        for row in changed_rows {
+            again.bump(row as u64);
+        }
+        let page = read(&mut again, cx);
+        assert_eq!(
+            page.value(changed_rows[1], 5),
+            after.value(changed_rows[1], 5)
+        );
     }
 }

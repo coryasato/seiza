@@ -8,6 +8,9 @@
 //! `?delay=<ms>` holds each page read that long. `?perf` turns on the probes
 //! the scripts read (`__tallTable`, `__tallTableLayout`). With `custom-cells`,
 //! `?cells=text|heat|bars|color` paints every float column (`rows::Cells`).
+//! With `live`, `?live=<updates/s>` changes that many visible rows a second
+//! (`host::Feed`), marking each batch (`tall-table:invalidated`) and each
+//! frame that draws a re-read page (`tall-table:refreshed`).
 
 mod host;
 pub mod rows;
@@ -31,6 +34,10 @@ pub fn start(ui_font: Vec<u8>) {
         .filter(|ms| *ms > 0)
         .map(std::time::Duration::from_millis);
     let probing = seiza::url::has_param("perf");
+    #[cfg(feature = "live")]
+    let feed = seiza::url::param("live")
+        .and_then(|rate| rate.parse::<f64>().ok())
+        .filter(|rate| *rate > 0.0);
     #[cfg(feature = "custom-cells")]
     let cells = seiza::url::param("cells")
         .and_then(|name| rows::Cells::from_name(&name))
@@ -43,6 +50,8 @@ pub fn start(ui_font: Vec<u8>) {
                 delay,
                 #[cfg(feature = "custom-cells")]
                 cells,
+                #[cfg(feature = "live")]
+                feed,
                 probing,
                 window,
                 cx,

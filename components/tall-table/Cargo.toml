@@ -20,3 +20,6 @@ serde_json.workspace = true
 [features]
 # A page's paint for a cell: a fill, a bar, a text color (`CellPaint`).
 custom-cells = []
+# Rows a host says changed are read again and redrawn in place
+# (`TallTableState::invalidate_rows`, `TallTableEvent::Refreshed`).
+live = []

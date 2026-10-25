@@ -3,7 +3,10 @@
 // wide shape), fills again there, and reports no page errors. Built with
 // `custom-cells`, it does so again at each painted style (`?cells=heat`,
 // `bars`, `color`), and checks the drawn cells carry their paint and, with
-// heat, that a fill is on screen in the color the table says it drew.
+// heat, that a fill is on screen in the color the table says it drew. Built
+// with `live`, it runs the narrow shape again with the feed on
+// (`?live=1000`): re-read rows draw, and the refreshed mark lands right
+// after a presented frame (shared-web/perf/'s `presentedMark`).
 // Headless, so it stands in for the scripted half of a manual check; how it
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
@@ -12,10 +15,10 @@
 // Run `just tall-table build [features]` first.
 
 import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwright';
-import { firstDrawProbe, open, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
+import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, PORT, SHAPES, builtFeatures, drawnCells, filledWhere, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, SHAPES, builtFeatures, drawnCells, filledWhere, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -23,6 +26,32 @@ const FILL_STEPS = 3;
 
 const engines: Record<string, BrowserType> = { chromium, firefox, webkit };
 const painted: CellStyle[] = builtFeatures().includes('custom-cells') ? ['heat', 'bars', 'color'] : [];
+/** The feed's rate in the `live` run, updates a second. */
+const LIVE_RATE = 1000;
+/** Refreshed marks checked against the frame they follow. */
+const LIVE_MARKS = 3;
+const live = builtFeatures().includes('live');
+
+/** With the feed on: the refreshed generation climbs, each of `LIVE_MARKS`
+ *  refreshed marks lands right after a presented frame, in its presenting
+ *  task, and the frame then shows no placeholder. */
+async function checkLive(page: Page, label: string): Promise<string> {
+  const since = await page.evaluate(() => performance.now());
+  const marks: string[] = [];
+  let at = since;
+  for (let index = 0; index < LIVE_MARKS; index++) {
+    at = await waitMark(page, REFRESHED_MARK, at + 0.001, 10_000);
+    const presented = await presentedMark(page, at);
+    if (!presented.ok) failures.push(`${label}: refreshed mark ${index + 1}: ${presented.detail}`);
+    marks.push(presented.detail);
+    // Re-read rows draw in place: never a placeholder under the feed.
+    const { shown: view } = await shown(page);
+    if (view.pending) failures.push(`${label}: ${view.pending} placeholder rows under the feed`);
+  }
+  const generation = await page.evaluate((name) => (globalThis as Record<string, unknown>)[name] as number | undefined, REFRESHED_GLOBAL);
+  if (!generation) failures.push(`${label}: no refreshed generation published`);
+  return `, refreshed to generation ${generation} (${marks[0]})`;
+}
 
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
@@ -67,13 +96,17 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined }, ...painted.map((cells) => ({ shape, cells }))]);
-    for (const { shape, cells } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}`;
+    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined, feed: false }, ...painted.map((cells) => ({ shape, cells, feed: false }))]);
+    if (live) runs.push({ shape: 'narrow', cells: undefined, feed: true });
+    for (const { shape, cells, feed } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}`;
+      const params: Record<string, string> = { shape };
+      if (cells) Object.assign(params, { cells, 'probe-cells': '' });
+      if (feed) params.live = String(LIVE_RATE);
       let session: Awaited<ReturnType<typeof open>> | null = null;
       try {
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, server.url, { params: cells ? { shape, cells, 'probe-cells': '' } : { shape }, init: [firstDrawProbe] });
+        session = await open(engine, server.url, { params, init: feed ? [firstDrawProbe, presentingTaskRecorder] : [firstDrawProbe] });
         const { page } = session;
         const first = await waitMark(page, FIRST_FRAME_MARK);
         const filled = await waitMark(page, FILLED_MARK);
@@ -89,8 +122,9 @@ try {
           sideways = `, sideways to ${right.scrollX.toFixed(0)} px (${visibleColumns(layout, right.scrollX)} columns visible)`;
         }
         const paint = cells ? await checkPaint(page, cells, layout, label) : '';
+        const refreshed = feed ? await checkLive(page, label) : '';
         if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
-        console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api}), ${start.rows} rows, ${layout.columns.length} columns, rows ${start.first}–${start.end} → ${down.first}–${down.end}${sideways}${paint}`);
+        console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api}), ${start.rows} rows, ${layout.columns.length} columns, rows ${start.first}–${start.end} → ${down.first}–${down.end}${sideways}${paint}${refreshed}`);
       } catch (error) {
         failures.push(`${label}: ${(error as Error).message.split('\n')[0]}`);
       } finally {

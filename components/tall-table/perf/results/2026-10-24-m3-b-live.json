@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-24",
+  "label": "m3-b-live",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "protocol": {
+    "browser": "chromium headless=new",
+    "viewport": "1440x900",
+    "dpr": 2,
+    "runs": 10,
+    "cold": true,
+    "profile": "reference",
+    "shape": "narrow",
+    "rate": 1000,
+    "warmupMs": 1000,
+    "seconds": 5,
+    "build": "live"
+  },
+  "runs": [
+    {
+      "batches": 181,
+      "matched": 180,
+      "latencyP50Ms": 22.53,
+      "latencyP95Ms": 28.7,
+      "latencyMaxMs": 32.97,
+      "refreshedPerS": 59.98,
+      "invalidationsPerS": 643.44
+    },
+    {
+      "batches": 179,
+      "matched": 179,
+      "latencyP50Ms": 22.37,
+      "latencyP95Ms": 28.82,
+      "latencyMaxMs": 33.45,
+      "refreshedPerS": 59.58,
+      "invalidationsPerS": 643.34
+    },
+    {
+      "batches": 178,
+      "matched": 178,
+      "latencyP50Ms": 22.43,
+      "latencyP95Ms": 28.56,
+      "latencyMaxMs": 29.23,
+      "refreshedPerS": 59.14,
+      "invalidationsPerS": 640.93
+    },
+    {
+      "batches": 180,
+      "matched": 179,
+      "latencyP50Ms": 22.63,
+      "latencyP95Ms": 28.63,
+      "latencyMaxMs": 33,
+      "refreshedPerS": 59.57,
+      "invalidationsPerS": 647.27
+    },
+    {
+      "batches": 179,
+      "matched": 179,
+      "latencyP50Ms": 22.5,
+      "latencyP95Ms": 28.55,
+      "latencyMaxMs": 29.55,
+      "refreshedPerS": 59.97,
+      "invalidationsPerS": 642.28
+    },
+    {
+      "batches": 180,
+      "matched": 179,
+      "latencyP50Ms": 22.76,
+      "latencyP95Ms": 29.21,
+      "latencyMaxMs": 29.51,
+      "refreshedPerS": 60.12,
+      "invalidationsPerS": 641.35
+    },
+    {
+      "batches": 179,
+      "matched": 179,
+      "latencyP50Ms": 22.45,
+      "latencyP95Ms": 28.97,
+      "latencyMaxMs": 29.59,
+      "refreshedPerS": 59.38,
+      "invalidationsPerS": 640.79
+    },
+    {
+      "batches": 179,
+      "matched": 178,
+      "latencyP50Ms": 22.54,
+      "latencyP95Ms": 28.99,
+      "latencyMaxMs": 31.74,
+      "refreshedPerS": 59.38,
+      "invalidationsPerS": 639.77
+    },
+    {
+      "batches": 180,
+      "matched": 179,
+      "latencyP50Ms": 22.33,
+      "latencyP95Ms": 28.74,
+      "latencyMaxMs": 29.53,
+      "refreshedPerS": 59.59,
+      "invalidationsPerS": 641.46
+    },
+    {
+      "batches": 180,
+      "matched": 179,
+      "latencyP50Ms": 22.57,
+      "latencyP95Ms": 28.82,
+      "latencyMaxMs": 33.18,
+      "refreshedPerS": 59.57,
+      "invalidationsPerS": 647.11
+    }
+  ],
+  "summary": {
+    "batches": 179.5,
+    "matched": 179,
+    "latencyP50Ms": 22.52,
+    "latencyP95Ms": 28.78,
+    "latencyMaxMs": 30.66,
+    "refreshedPerS": 59.58,
+    "invalidationsPerS": 641.87
+  },
+  "p50Spread": 0.019,
+  "failures": []
+}
