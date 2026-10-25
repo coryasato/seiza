@@ -411,8 +411,9 @@ impl TallTablePage for MemoryPage {
     }
 }
 
-/// The table's delegate: each read resolves with its page on GPUI's next
-/// turn, or after `delay`. A read cancelled before then resolves with
+/// The table's delegate: each read resolves with its page as soon as it's
+/// polled (a first read on GPUI's next turn, from its task; with `live`, a
+/// re-read in the turn that asked), or after `delay`. A read cancelled before then resolves with
 /// [`PageError::Cancelled`] and makes no page, so the pages the table drops
 /// in a fling cost nothing.
 pub struct MemoryRows {

@@ -21,6 +21,13 @@ pub trait TallTableDelegate: 'static {
     type Request: Copy + PartialEq + 'static;
 
     /// Starts reading `rows` (0-based, end-exclusive), in order.
+    ///
+    /// With `live`, a re-read's load is polled once as it's returned,
+    /// inside the table's update: one ready with a page (a source with the
+    /// rows in hand) lands in that turn, drawn on the next frame; any other
+    /// is awaited on a task. So the load must not touch the table (or an
+    /// entity being updated around it) before its first await: GPUI panics
+    /// on an entity already being updated.
     fn load_page(
         &mut self,
         rows: Range<u64>,

@@ -227,6 +227,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         }
     }
 
+    /// Whether `page` is loaded: a read of it now is a re-read (`live`).
+    #[cfg(feature = "live")]
+    pub fn is_loaded(&self, page: u64) -> bool {
+        matches!(self.slots.get(&page), Some(Slot::Loaded { .. }))
+    }
+
     /// Bytes held by loaded pages.
     pub fn used_bytes(&self) -> usize {
         self.used_bytes
@@ -684,6 +690,23 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         return self.control;
         #[cfg(not(test))]
         Control
+    }
+
+    /// `request` for `page` answered [`PageError::Cancelled`](crate::PageError).
+    /// With `live`, a re-read the table didn't cancel (its source refused it)
+    /// frees its place and leaves the page drawn, read again at its rows'
+    /// next invalidation (not at once: a source that keeps refusing would be
+    /// asked every turn).
+    pub fn cancelled(&mut self, page: u64, request: R) {
+        self.finished(request);
+        #[cfg(feature = "live")]
+        if let Some(Slot::Loaded { live, .. }) = self.slots.get_mut(&page)
+            && live.reading.is_some_and(|(read, _)| read == request)
+        {
+            live.reading = None;
+        }
+        #[cfg(not(feature = "live"))]
+        let _ = page;
     }
 
     /// `request` answered (a cancelled request, or any other): it no longer

@@ -26,8 +26,11 @@ pub const FILLED_MARK: &str = "tall-table:filled";
 pub const REFRESHED_MARK: &str = "tall-table:refreshed";
 pub const REFRESHED_GLOBAL: &str = "__tallTableRefreshed";
 
-/// Set as each batch of the feed's updates is invalidated (`live`), with
-/// its last generation in [`INVALIDATED_GLOBAL`], set first.
+/// Set once each batch of the feed's updates is invalidated (`live`), at
+/// the time its rows were picked, so the mark's time covers the source's
+/// bumps, the invalidation, and any read it landed at once, but not the
+/// feed's own picking; its last generation in [`INVALIDATED_GLOBAL`],
+/// set first.
 #[cfg(all(feature = "live", target_family = "wasm"))]
 pub const INVALIDATED_MARK: &str = "tall-table:invalidated";
 #[cfg(all(feature = "live", target_family = "wasm"))]
@@ -180,20 +183,26 @@ impl Feed {
                 last = now;
                 let sent = table.update(cx, |table, cx| {
                     let rows = self.batch(elapsed, table.visible_rows());
+                    // After the feed's own picking: from here on, the
+                    // source's and the table's work.
+                    #[cfg(target_family = "wasm")]
+                    let start = seiza::marks::now();
+                    #[cfg(not(target_family = "wasm"))]
+                    let start = 0.0;
                     let mut generation = None;
                     for row in rows {
                         table.delegate_mut().bump(row);
                         generation = Some(table.invalidate_rows(row..row + 1, cx));
                     }
-                    generation
+                    generation.map(|generation| (generation, start))
                 });
                 #[cfg(target_family = "wasm")]
-                if let Some(generation) = sent {
+                if let Some((generation, start)) = sent {
                     tall_table_bridge::js::set_global(
                         INVALIDATED_GLOBAL,
                         &(generation as f64).into(),
                     );
-                    seiza::marks::mark(INVALIDATED_MARK);
+                    seiza::marks::mark_at(INVALIDATED_MARK, start);
                 }
                 #[cfg(not(target_family = "wasm"))]
                 let _ = sent;

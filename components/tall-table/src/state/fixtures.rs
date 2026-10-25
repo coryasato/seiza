@@ -65,6 +65,19 @@ struct Reads {
     log: Vec<String>,
     open: Vec<Read>,
     next: u32,
+    /// Reads answer when sent, as a source with the rows in hand does
+    /// (`live`'s tests).
+    #[cfg(feature = "live")]
+    at_once: Option<AtOnce>,
+}
+
+/// How a read answers when sent (`live`'s tests).
+#[cfg(feature = "live")]
+#[derive(Clone)]
+enum AtOnce {
+    /// A page of these bytes.
+    Page(usize),
+    Error(PageError),
 }
 
 /// A delegate whose reads answer only when the scenario says.
@@ -91,6 +104,14 @@ impl TallTableDelegate for Script {
         let request = reads.next;
         reads.next += 1;
         reads.log.push(format!("load {page}"));
+        #[cfg(feature = "live")]
+        if let Some(at_once) = reads.at_once.clone() {
+            let answer = match at_once {
+                AtOnce::Page(bytes) => Ok(Blank { bytes, request }),
+                AtOnce::Error(error) => Err(error),
+            };
+            return (request, Box::pin(std::future::ready(answer)));
+        }
         reads.open.push(Read {
             page,
             request,

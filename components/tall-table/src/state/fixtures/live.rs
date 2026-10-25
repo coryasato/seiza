@@ -10,7 +10,7 @@ use std::rc::Rc;
 use gpui_kit::{Entity, TestAppContext, VisualTestContext, size};
 
 use super::super::{Paging, TallTableEvent, TallTableState};
-use super::{Reads, Script, answer};
+use super::{AtOnce, Reads, Script, answer};
 use crate::column::{ColumnKind, TallTableColumn};
 
 const ROWS: u64 = 1_567_523;
@@ -245,4 +245,107 @@ fn close_cancels_rereads(cx: &mut TestAppContext) {
         table.close(cx);
     });
     assert_eq!(live.log(), ["cancel 0"]);
+}
+
+#[gpui_kit::test]
+fn a_reread_answered_at_once_lands_in_the_turn_that_asked(cx: &mut TestAppContext) {
+    let mut live = Live::open(cx);
+    live.answer_all();
+    live.log();
+    live.events();
+    live.reads.borrow_mut().at_once = Some(AtOnce::Page(PAGE_BYTES));
+    // A batch: ten rows of page 0, one call each, in one update.
+    let generation = live.table.update(live.cx, |table, cx| {
+        let generations: Vec<u64> = (0..10)
+            .map(|row| table.invalidate_rows(row..row + 1, cx))
+            .collect();
+        assert_eq!(table.cache.in_flight(), 0, "nothing read yet");
+        generations[9]
+    });
+    // Read once for the batch, at the end of its update, and landed there:
+    // nothing in flight, no task run.
+    assert_eq!(live.log(), ["load 0"]);
+    live.table.update(live.cx, |table, _| {
+        assert_eq!((table.cache.in_flight(), table.cache.draining()), (0, 0));
+        assert_eq!(
+            table.cache.used_bytes(),
+            3 * PAGE_BYTES,
+            "swapped, not added"
+        );
+    });
+    // The next frame draws it and reports it, with the batch's generation.
+    live.cx.update(|window, cx| window.draw(cx).clear(cx));
+    let (events, probe) = live.events();
+    assert_eq!(
+        events,
+        [TallTableEvent::Refreshed {
+            rows: 0..1024,
+            generation
+        }]
+    );
+    assert_eq!(probe, (0, read(3)));
+
+    // A first read isn't polled: it lands from its task, as without `live`.
+    live.table
+        .update(live.cx, |table, cx| table.jump_to(500_000, cx));
+    live.table
+        .update(live.cx, |table, _| assert!(table.cache.in_flight() > 0));
+    live.draw();
+    live.table
+        .update(live.cx, |table, _| assert_eq!(table.cache.in_flight(), 0));
+    assert!(
+        live.events()
+            .0
+            .iter()
+            .all(|event| !matches!(event, TallTableEvent::Refreshed { .. })),
+        "a first read reports no refresh"
+    );
+}
+
+#[gpui_kit::test]
+fn a_reread_failing_at_once_lands_from_a_task(cx: &mut TestAppContext) {
+    let mut live = Live::open(cx);
+    live.answer_all();
+    live.log();
+    live.events();
+    // A broken source: a host retrying on `ReadFailed` gets one read a turn,
+    // not a loop inside one update.
+    live.reads.borrow_mut().at_once = Some(AtOnce::Error(crate::PageError::Failed {
+        message: "gone".into(),
+        read_failure: true,
+    }));
+    live.table.update(live.cx, |table, cx| {
+        table.invalidate_rows(0..1, cx);
+    });
+    assert_eq!(live.log(), ["load 0"]);
+    live.table
+        .update(live.cx, |table, _| assert_eq!(table.cache.in_flight(), 1));
+    live.draw();
+    let failed = live
+        .events
+        .borrow()
+        .iter()
+        .filter(|event| matches!(event, TallTableEvent::ReadFailed))
+        .count();
+    assert_eq!(failed, 1);
+    let (_, probe) = live.events();
+    assert_eq!(probe, (0, read(0)), "the old rows kept");
+}
+
+#[gpui_kit::test]
+fn a_reread_the_source_refuses_is_read_again(cx: &mut TestAppContext) {
+    let mut live = Live::open(cx);
+    live.answer_all();
+    live.log();
+    live.reads.borrow_mut().at_once = Some(AtOnce::Error(crate::PageError::Cancelled));
+    live.invalidate(0..1);
+    assert_eq!(live.log(), ["load 0"]);
+    // Refused, not cancelled by the table: its place freed, not asked again
+    // until the next invalidation.
+    live.table
+        .update(live.cx, |table, _| assert_eq!(table.cache.in_flight(), 0));
+    live.reads.borrow_mut().at_once = Some(AtOnce::Page(PAGE_BYTES));
+    live.invalidate(1..2);
+    assert_eq!(live.log(), ["load 0"]);
+    assert_eq!(live.events().1, (0, read(4)));
 }

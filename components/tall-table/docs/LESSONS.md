@@ -61,3 +61,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - The drag's settle couldn't be reused as it was: an invalidation calling it would restart the 80 ms on every batch, and a feed at 60 batches a second would hold a resting drag's loads off for good. It needed to know whether the pointer had already rested.
 - A field behind a feature in a struct a host builds by literal breaks that host the day Cargo unifies the feature in, and `..Default::default()` can't guard it, since clippy rejects the update when every field is named. The bridge's new fields exist in every build.
 - Every hand-derived `expect` in the six new paging scenarios matched the table on the first run; the one wrong expectation was in a unit test, where the cache was right to start prefetch beside a re-read.
+
+## M3: `live` (part C, 2026-10-25)
+
+**Results:** [`perf/results/2026-10-25-m3-c.md`](../perf/results/2026-10-25-m3-c.md)
+
+**Surprises:**
+- The push path wasn't needed. Polling a re-read once as it's sent read the same as handing the table a page (7.38 ms each), so a host with the page in hand already had the push: a ready future.
+- The first A/B flattered both fixes. The batch's mark was set after the update, and once the page was built inside it, its cost fell outside the number (5.36 ms, not 7.2). A mark has to be set where the work starts, not where the call that did it returns.
+- Landing reads at once turned a feed's row-by-row invalidations into a page read per row (~16 a batch), invisible while every read waited for a task. Coalescing to the update's end was needed only once reads became synchronous.
+- The p95 stays over a frame (23 ms) whatever the table does: a batch that arrives just after a frame waits for the next. "Within a frame" holds at p50, not for every update.
+- Landing a read in the turn that asked turns retries into loops. A failure landed at once would let a host retrying on `ReadFailed` spin inside one update, and a refused read marked stale again spun a turn at a time (a test that never parked found it). Only a page lands at once; a refusal waits for the next invalidation.

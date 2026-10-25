@@ -1,7 +1,8 @@
 // `live`'s latency in the bare host: from the feed's invalidation of a
 // batch of visible rows to the first frame that draws a re-read of them,
-// the table's share of update → pixel (the host's source answers a read on
-// GPUI's next turn). The host marks each batch as it invalidates it
+// the table's share of update → pixel (the host's source answers a read as
+// soon as it's polled, so its re-reads land in the turn that asks). The host
+// marks each batch once it's invalidated, at the time its rows were picked
 // (`tall-table:invalidated`, its last generation in a global) and the
 // bridge each frame that first draws a re-read page
 // (`tall-table:refreshed`, the highest generation drawn); an init script

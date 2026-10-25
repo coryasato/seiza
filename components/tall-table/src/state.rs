@@ -213,6 +213,20 @@ struct Hover {
 const ROW_SIZE: KitSize = KitSize::Small;
 const MIN_THUMB: f32 = 24.0;
 
+/// A re-read's answer if it was ready when sent (`live`): a source that has
+/// the rows in hand (the bare host's, a host's own buffer) lands its page in
+/// the turn that asked, with no trip through the executor, whose web
+/// dispatcher runs a spawned task from a `setTimeout(0)`. Pending, the read
+/// is spawned as any other (`docs/DECISIONS.md`, "Features").
+#[cfg(feature = "live")]
+fn answered<P>(load: &mut crate::PageLoad<P>) -> Option<Result<P, PageError>> {
+    let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+    match load.as_mut().poll(&mut context) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
+
 fn row_height() -> Pixels {
     ROW_SIZE.table_row_height()
 }
@@ -312,6 +326,11 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// invalidation's reads can start now (`live`).
     #[cfg(feature = "live")]
     drag_resting: bool,
+    /// An invalidation's loads are waiting for the end of the update that
+    /// made it (`live`): one plan for all of a batch's rows, so a source
+    /// that answers at once reads a page once, not once a row.
+    #[cfg(feature = "live")]
+    load_deferred: bool,
     /// Resets `direction` to still once the rows stop moving
     /// ([`Paging::scroll_settle`]).
     scroll_settle: Option<Task<()>>,
@@ -373,6 +392,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             drag_settle: None,
             #[cfg(feature = "live")]
             drag_resting: true,
+            #[cfg(feature = "live")]
+            load_deferred: false,
             scroll_settle: None,
             focus_handle: cx.focus_handle(),
             filled: false,
@@ -454,8 +475,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// `rows` changed in the source (`live`). Their pages that are wanted,
     /// loaded or loading, are read again (`load_page`), a loaded one drawn
-    /// as it is until the new page lands; the others are dropped. Loads as a
-    /// scroll does: during a scrollbar drag, once the pointer rests. Returns
+    /// as it is until the new page lands; the others are dropped. The reads
+    /// start once the update that called this ends, one plan for every
+    /// invalidation in it (so `stats().in_flight` doesn't count them yet),
+    /// and as a scroll's do: during a scrollbar drag, once the pointer
+    /// rests. Returns
     /// this invalidation's generation, which grows with each call: the first
     /// [`TallTableEvent::Refreshed`] at or past it, over a row of `rows`,
     /// is the frame that shows the change.
@@ -466,8 +490,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
     pub fn invalidate_rows(&mut self, rows: std::ops::Range<u64>, cx: &mut Context<Self>) -> u64 {
         let generation = self.cache.invalidate(rows);
         // A drag still moving: its settle loads these with the rest.
-        if self.drag.is_none() || self.drag_resting {
-            self.load_pages(cx);
+        if (self.drag.is_none() || self.drag_resting)
+            && !std::mem::replace(&mut self.load_deferred, true)
+        {
+            let this = cx.weak_entity();
+            cx.defer(move |cx| {
+                let _ = this.update(cx, |this, cx| {
+                    this.load_deferred = false;
+                    // A drag that moved on since: its settle loads them.
+                    if this.drag.is_none() || this.drag_resting {
+                        this.load_pages(cx);
+                    }
+                });
+            });
         }
         generation
     }
@@ -691,14 +726,47 @@ impl<D: TallTableDelegate> TallTableState<D> {
         for request in plan.cancel {
             self.delegate.cancel(request, cx);
         }
+        // Re-reads answered with a page when sent (`live`): landed once
+        // every read of the plan has started, then planned after once.
+        #[cfg(feature = "live")]
+        let mut ready = Vec::new();
         for page in plan.fetch {
-            let (request, result) = self.delegate.load_page(self.cache.rows_of(page), cx);
+            #[cfg_attr(not(feature = "live"), expect(unused_mut))]
+            let (request, mut result) = self.delegate.load_page(self.cache.rows_of(page), cx);
+            #[cfg(feature = "live")]
+            let reread = self.cache.is_loaded(page);
             self.cache.started(page, request);
+            #[cfg(feature = "live")]
+            if reread && let Some(answer) = answered(&mut result) {
+                match answer {
+                    Ok(rows) => {
+                        ready.push((page, request, rows));
+                        continue;
+                    }
+                    // A failure or a refusal lands from a task, as before:
+                    // a host retrying on `ReadFailed` mustn't loop in one
+                    // turn.
+                    Err(error) => result = Box::pin(std::future::ready(Err(error))),
+                }
+            }
             cx.spawn(async move |this, cx| {
                 let result = result.await;
                 let _ = this.update(cx, |this, cx| this.page_done(page, request, result, cx));
             })
             .detach();
+        }
+        #[cfg(feature = "live")]
+        if !ready.is_empty() {
+            for (page, request, rows) in ready {
+                let bytes = rows.heap_bytes();
+                self.cache.loaded(page, request, rows, bytes, wanted);
+            }
+            cx.notify();
+            // Pages stale again (or still waiting for a slot) are read now,
+            // unless a drag moved on.
+            if self.drag.is_none() || self.drag_resting {
+                self.load_wanted(wanted, cx);
+            }
         }
     }
 
@@ -718,7 +786,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, &wanted);
             }
-            Err(PageError::Cancelled) => self.cache.finished(request),
+            Err(PageError::Cancelled) => self.cache.cancelled(page, request),
             Err(PageError::Failed {
                 message,
                 read_failure,
