@@ -372,3 +372,9 @@ test('an open without a row count fails, naming it', async () => {
   };
   await assert.rejects(openParquet(bridge, new Queries(bridge), Promise.resolve(), 'a.parquet', '/a.parquet'), /no count in num_rows/);
 });
+
+// --- selection ---
+
+// `selection.json` pins what `select` selects and scrolls to: the level is
+// added only when both sides build selecting (root CLAUDE.md, "Comparison protocol").
+test('selection.json', { skip: 'the contender has no selection' }, () => {});

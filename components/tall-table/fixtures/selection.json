@@ -1,0 +1,220 @@
+{
+  "columns": 12,
+  "column_width": 120,
+  "cells_width": 600,
+  "viewport_rows": 20,
+  "rows": 1000,
+  "scenarios": [
+    {
+      "name": "a press, Shift+press, and a drag",
+      "selectable": ["rows", "columns", "cells"],
+      "steps": [
+        {"press": {"cell": [2, 1]}, "expect": {"selection": {"kind": "cells", "anchor": [2, 1], "head": [2, 1]}, "top": 0, "scroll_x": 0}, "why": "a cell press: the cell, the smallest kind on"},
+        {"press": {"cell": [5, 3], "shift": true}, "expect": {"selection": {"kind": "cells", "anchor": [2, 1], "head": [5, 3]}, "top": 0, "scroll_x": 0}, "why": "Shift: the head moves, the anchor stays"},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [2, 1], "head": [5, 3]}, "top": 0, "scroll_x": 0}},
+        {"press": {"cell": [4, 0]}, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [4, 0]}, "top": 0, "scroll_x": 0}},
+        {"drag": {"cell": [6, 2]}, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [6, 2]}, "top": 0, "scroll_x": 0}},
+        {"drag": {"right": 8}, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [8, 4]}, "top": 0, "scroll_x": 0}, "why": "right of the cells: clamped to the last visible column"},
+        {"drag": {"below": 1}, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [19, 1]}, "top": 0, "scroll_x": 0}, "why": "below the cells: clamped to the last visible row"},
+        {"drag": {"header": 3}, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [0, 3]}, "top": 0, "scroll_x": 0}, "why": "over the header: clamped to the top visible row"},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [0, 3]}, "top": 0, "scroll_x": 0}},
+        {"drag": {"cell": [9, 4]}, "expect": {"selection": {"kind": "cells", "anchor": [4, 0], "head": [0, 3]}, "top": 0, "scroll_x": 0}, "why": "the release ended the drag"},
+        {"press": {"cell": [7, 2], "cmd": true}, "expect": {"selection": {"kind": "cells", "anchor": [7, 2], "head": [7, 2]}, "top": 0, "scroll_x": 0}, "why": "Cmd+press is a plain press"},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [7, 2], "head": [7, 2]}, "top": 0, "scroll_x": 0}},
+        {"press": {"cell": [9, 4], "ctrl": true}, "expect": {"selection": {"kind": "cells", "anchor": [7, 2], "head": [7, 2]}, "top": 0, "scroll_x": 0}, "why": "Ctrl+press (a Mac browser's right-click) selects nothing"},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [7, 2], "head": [7, 2]}, "top": 0, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "a wheel during a drag",
+      "selectable": ["rows", "columns", "cells"],
+      "steps": [
+        {"press": {"cell": [3, 1]}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [3, 1]}, "top": 0, "scroll_x": 0}},
+        {"drag": {"cell": [10, 2]}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [10, 2]}, "top": 0, "scroll_x": 0}},
+        {"wheel": {"rows": 50, "at": {"cell": [10, 2]}}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [60, 2]}, "top": 50, "scroll_x": 0}, "why": "the body scrolls as the base's wheel does; the head follows the cell now under the pointer"},
+        {"drag": {"header": 2}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [50, 2]}, "top": 50, "scroll_x": 0}},
+        {"wheel": {"rows": 100, "at": {"header": 2}}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [150, 2]}, "top": 150, "scroll_x": 0}, "why": "over the header too: the drag's wheel is the window's"},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [150, 2]}, "top": 150, "scroll_x": 0}},
+        {"wheel": {"rows": 10, "at": {"cell": [160, 1]}}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [150, 2]}, "top": 160, "scroll_x": 0}, "why": "no drag: the base's wheel, the selection as it was"}
+      ]
+    },
+    {
+      "name": "Shift+press keeps the kind",
+      "selectable": ["rows", "columns", "cells"],
+      "steps": [
+        {"press": {"gutter": 4}, "expect": {"selection": {"kind": "rows", "anchor": [4, 0], "head": [4, 0]}, "top": 0, "scroll_x": 0}, "why": "the gutter: the row, at the first visible column"},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [4, 0], "head": [4, 0]}, "top": 0, "scroll_x": 0}},
+        {"press": {"cell": [9, 3], "shift": true}, "expect": {"selection": {"kind": "rows", "anchor": [4, 0], "head": [9, 0]}, "top": 0, "scroll_x": 0}, "why": "a Rows range extends its rows; the head's column stays"},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [4, 0], "head": [9, 0]}, "top": 0, "scroll_x": 0}},
+        {"press": {"header": 2}, "expect": {"selection": {"kind": "columns", "anchor": [0, 2], "head": [0, 2]}, "top": 0, "scroll_x": 0}, "why": "a header: the column, at the top visible row"},
+        {"release": true, "expect": {"selection": {"kind": "columns", "anchor": [0, 2], "head": [0, 2]}, "top": 0, "scroll_x": 0}},
+        {"press": {"cell": [7, 4], "shift": true}, "expect": {"selection": {"kind": "columns", "anchor": [0, 2], "head": [0, 4]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "columns", "anchor": [0, 2], "head": [0, 4]}, "top": 0, "scroll_x": 0}},
+        {"press": {"gutter": 12, "shift": true}, "expect": {"selection": {"kind": "columns", "anchor": [0, 2], "head": [0, 4]}, "top": 0, "scroll_x": 0}, "why": "the gutter picks a row, which a Columns range doesn't span"},
+        {"release": true, "expect": {"selection": {"kind": "columns", "anchor": [0, 2], "head": [0, 4]}, "top": 0, "scroll_x": 0}},
+        {"press": {"corner": true}, "expect": {"selection": {"kind": "columns", "anchor": [0, 0], "head": [0, 11]}, "top": 0, "scroll_x": 0}, "why": "the corner: every column"},
+        {"key": "escape", "expect": {"selection": null, "top": 0, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "rows only",
+      "selectable": ["rows"],
+      "steps": [
+        {"press": {"cell": [3, 2]}, "expect": {"selection": {"kind": "rows", "anchor": [3, 2], "head": [3, 2]}, "top": 0, "scroll_x": 0}, "why": "a cell press holds its row"},
+        {"drag": {"cell": [3, 4]}, "expect": {"selection": {"kind": "rows", "anchor": [3, 2], "head": [3, 2]}, "top": 0, "scroll_x": 0}, "why": "across one row's cells: nothing changes"},
+        {"drag": {"cell": [6, 0]}, "expect": {"selection": {"kind": "rows", "anchor": [3, 2], "head": [6, 2]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [3, 2], "head": [6, 2]}, "top": 0, "scroll_x": 0}},
+        {"press": {"header": 1}, "expect": {"selection": {"kind": "rows", "anchor": [3, 2], "head": [6, 2]}, "top": 0, "scroll_x": 0}, "why": "columns are off: the press selects nothing"},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [3, 2], "head": [6, 2]}, "top": 0, "scroll_x": 0}},
+        {"press": {"corner": true}, "expect": {"selection": {"kind": "rows", "anchor": [0, 0], "head": [999, 0]}, "top": 0, "scroll_x": 0}, "why": "the corner with columns off: every row"},
+        {"key": "down", "expect": {"selection": {"kind": "rows", "anchor": [1, 0], "head": [1, 0]}, "top": 0, "scroll_x": 0}, "why": "the active cell moves and the range collapses to its row"},
+        {"key": "right", "expect": {"selection": {"kind": "rows", "anchor": [1, 1], "head": [1, 1]}, "top": 0, "scroll_x": 0}},
+        {"key": "shift-right", "expect": {"selection": {"kind": "rows", "anchor": [1, 1], "head": [1, 1]}, "top": 0, "scroll_x": 0}, "why": "across a Rows range: nothing moves"},
+        {"key": "shift-down", "expect": {"selection": {"kind": "rows", "anchor": [1, 1], "head": [2, 1]}, "top": 0, "scroll_x": 0}},
+        {"key": "cmd-a", "expect": {"selection": {"kind": "rows", "anchor": [0, 0], "head": [999, 0]}, "top": 0, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "columns only",
+      "selectable": ["columns"],
+      "steps": [
+        {"press": {"cell": [3, 2]}, "expect": {"selection": null, "top": 0, "scroll_x": 0}, "why": "a cell press holds no column"},
+        {"press": {"gutter": 3}, "expect": {"selection": null, "top": 0, "scroll_x": 0}},
+        {"press": {"header": 1}, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 1]}, "top": 0, "scroll_x": 0}},
+        {"drag": {"header": 3}, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 3]}, "top": 0, "scroll_x": 0}},
+        {"drag": {"cell": [8, 2]}, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 2]}, "top": 0, "scroll_x": 0}, "why": "a header drag follows the columns only"},
+        {"release": true, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 2]}, "top": 0, "scroll_x": 0}},
+        {"key": "down", "expect": {"selection": {"kind": "columns", "anchor": [1, 1], "head": [1, 1]}, "top": 0, "scroll_x": 0}, "why": "a key collapses to the active cell's column"},
+        {"key": "shift-down", "expect": {"selection": {"kind": "columns", "anchor": [1, 1], "head": [1, 1]}, "top": 0, "scroll_x": 0}, "why": "across a Columns range: nothing moves"},
+        {"key": "shift-right", "expect": {"selection": {"kind": "columns", "anchor": [1, 1], "head": [1, 2]}, "top": 0, "scroll_x": 0}},
+        {"key": "end", "expect": {"selection": {"kind": "columns", "anchor": [999, 1], "head": [999, 1]}, "top": 980, "scroll_x": 0}, "why": "plain End collapses as an arrow does"},
+        {"key": "shift-home", "expect": {"selection": {"kind": "columns", "anchor": [999, 1], "head": [999, 1]}, "top": 980, "scroll_x": 0}, "why": "Shift+Home is across a Columns range"},
+        {"jump": 500, "expect": {"selection": {"kind": "columns", "anchor": [999, 1], "head": [999, 1]}, "top": 500, "scroll_x": 0}, "why": "with only columns on, a jump marks and selects nothing"},
+        {"key": "cmd-a", "expect": {"selection": {"kind": "columns", "anchor": [500, 0], "head": [500, 11]}, "top": 500, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "cells only",
+      "selectable": ["cells"],
+      "steps": [
+        {"press": {"gutter": 3}, "expect": {"selection": null, "top": 0, "scroll_x": 0}},
+        {"press": {"header": 2}, "expect": {"selection": null, "top": 0, "scroll_x": 0}},
+        {"press": {"corner": true}, "expect": {"selection": {"kind": "cells", "anchor": [0, 0], "head": [999, 11]}, "top": 0, "scroll_x": 0}, "why": "the corner with only cells on: every cell"},
+        {"press": {"cell": [3, 2]}, "expect": {"selection": {"kind": "cells", "anchor": [3, 2], "head": [3, 2]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [3, 2], "head": [3, 2]}, "top": 0, "scroll_x": 0}},
+        {"jump": 40, "expect": {"selection": {"kind": "cells", "anchor": [40, 2], "head": [40, 2]}, "top": 40, "scroll_x": 0}, "why": "the jumped-to cell, in the active cell's column"},
+        {"key": "escape", "expect": {"selection": null, "top": 40, "scroll_x": 0}},
+        {"jump": 100, "expect": {"selection": {"kind": "cells", "anchor": [100, 0], "head": [100, 0]}, "top": 100, "scroll_x": 0}, "why": "nothing selected: the first visible column"}
+      ]
+    },
+    {
+      "name": "the keys",
+      "selectable": ["rows", "columns", "cells"],
+      "steps": [
+        {"key": "down", "expect": {"selection": {"kind": "cells", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}, "why": "the first arrow selects the first visible cell, without moving"},
+        {"key": "up", "expect": {"selection": {"kind": "cells", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}, "why": "at the top: nothing, no looping"},
+        {"key": "left", "expect": {"selection": {"kind": "cells", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}},
+        {"key": "shift-up", "expect": {"selection": {"kind": "cells", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}},
+        {"key": "pagedown", "expect": {"selection": {"kind": "cells", "anchor": [19, 0], "head": [19, 0]}, "top": 19, "scroll_x": 0}, "why": "the rows in view less one, and the base's page scroll"},
+        {"key": "shift-pagedown", "expect": {"selection": {"kind": "cells", "anchor": [19, 0], "head": [38, 0]}, "top": 38, "scroll_x": 0}},
+        {"key": "up", "expect": {"selection": {"kind": "cells", "anchor": [18, 0], "head": [18, 0]}, "top": 18, "scroll_x": 0}, "why": "the active cell moves from the anchor; scrolled into view the least distance"},
+        {"key": "end", "expect": {"selection": {"kind": "cells", "anchor": [999, 0], "head": [999, 0]}, "top": 980, "scroll_x": 0}},
+        {"key": "down", "expect": {"selection": {"kind": "cells", "anchor": [999, 0], "head": [999, 0]}, "top": 980, "scroll_x": 0}, "why": "at the end: nothing"},
+        {"key": "shift-home", "expect": {"selection": {"kind": "cells", "anchor": [999, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [999, 1], "head": [999, 1]}, "top": 980, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [999, 2], "head": [999, 2]}, "top": 980, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [999, 3], "head": [999, 3]}, "top": 980, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [999, 4], "head": [999, 4]}, "top": 980, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [999, 5], "head": [999, 5]}, "top": 980, "scroll_x": 120}, "why": "sideways the least distance: the column's right edge at the view's"},
+        {"key": "cmd-up", "expect": {"selection": {"kind": "cells", "anchor": [0, 5], "head": [0, 5]}, "top": 0, "scroll_x": 120}},
+        {"key": "shift-right", "expect": {"selection": {"kind": "cells", "anchor": [0, 5], "head": [0, 6]}, "top": 0, "scroll_x": 240}},
+        {"key": "left", "expect": {"selection": {"kind": "cells", "anchor": [0, 4], "head": [0, 4]}, "top": 0, "scroll_x": 240}},
+        {"key": "left", "expect": {"selection": {"kind": "cells", "anchor": [0, 3], "head": [0, 3]}, "top": 0, "scroll_x": 240}},
+        {"key": "left", "expect": {"selection": {"kind": "cells", "anchor": [0, 2], "head": [0, 2]}, "top": 0, "scroll_x": 240}},
+        {"key": "left", "expect": {"selection": {"kind": "cells", "anchor": [0, 1], "head": [0, 1]}, "top": 0, "scroll_x": 120}},
+        {"key": "space", "expect": {"selection": {"kind": "cells", "anchor": [0, 1], "head": [0, 1]}, "top": 19, "scroll_x": 120}, "why": "space keeps the base's page down"},
+        {"key": "shift-space", "expect": {"selection": {"kind": "cells", "anchor": [0, 1], "head": [0, 1]}, "top": 0, "scroll_x": 120}},
+        {"key": "escape", "expect": {"selection": null, "top": 0, "scroll_x": 120}},
+        {"key": "pagedown", "expect": {"selection": null, "top": 19, "scroll_x": 120}, "why": "nothing selected: the base's keys"},
+        {"key": "home", "expect": {"selection": null, "top": 0, "scroll_x": 120}},
+        {"key": "end", "expect": {"selection": null, "top": 980, "scroll_x": 120}},
+        {"key": "down", "expect": {"selection": {"kind": "cells", "anchor": [980, 1], "head": [980, 1]}, "top": 980, "scroll_x": 120}}
+      ]
+    },
+    {
+      "name": "Shift+End over every row",
+      "selectable": ["rows", "columns", "cells"],
+      "rows": 1567523,
+      "steps": [
+        {"press": {"gutter": 0}, "expect": {"selection": {"kind": "rows", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}},
+        {"key": "shift-end", "expect": {"selection": {"kind": "rows", "anchor": [0, 0], "head": [1567522, 0]}, "top": 1567503, "scroll_x": 0}, "why": "one range of every row"},
+        {"key": "cmd-shift-up", "expect": {"selection": {"kind": "rows", "anchor": [0, 0], "head": [0, 0]}, "top": 0, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "set_rows and set_columns",
+      "selectable": ["rows", "columns", "cells"],
+      "steps": [
+        {"press": {"cell": [3, 1]}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [3, 1]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [3, 1]}, "top": 0, "scroll_x": 0}},
+        {"press": {"cell": [15, 2], "shift": true}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [15, 2]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [15, 2]}, "top": 0, "scroll_x": 0}},
+        {"rows": 10, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [9, 2]}, "top": 0, "scroll_x": 0}, "why": "a corner past the end moves to the last row"},
+        {"rows": 2, "expect": {"selection": null, "top": 0, "scroll_x": 0}, "why": "wholly past the end: cleared"},
+        {"rows": 1000, "expect": {"selection": null, "top": 0, "scroll_x": 0}},
+        {"press": {"header": 1}, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 1]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 1]}, "top": 0, "scroll_x": 0}},
+        {"rows": 3, "expect": {"selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 1]}, "top": 0, "scroll_x": 0}, "why": "a Columns range covers every row"},
+        {"columns": true, "expect": {"selection": null, "top": 0, "scroll_x": 0}, "why": "new columns clear it"}
+      ]
+    },
+    {
+      "name": "set_rows cuts rows",
+      "selectable": ["rows"],
+      "steps": [
+        {"press": {"gutter": 5}, "expect": {"selection": {"kind": "rows", "anchor": [5, 0], "head": [5, 0]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [5, 0], "head": [5, 0]}, "top": 0, "scroll_x": 0}},
+        {"press": {"gutter": 15, "shift": true}, "expect": {"selection": {"kind": "rows", "anchor": [5, 0], "head": [15, 0]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [5, 0], "head": [15, 0]}, "top": 0, "scroll_x": 0}},
+        {"rows": 12, "expect": {"selection": {"kind": "rows", "anchor": [5, 0], "head": [11, 0]}, "top": 0, "scroll_x": 0}},
+        {"rows": 5, "expect": {"selection": null, "top": 0, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "a jump selects",
+      "selectable": ["rows", "columns", "cells"],
+      "steps": [
+        {"jump": 500, "expect": {"selection": {"kind": "rows", "anchor": [500, 0], "head": [500, 0]}, "top": 500, "scroll_x": 0}, "why": "rows on: the row"},
+        {"key": "down", "expect": {"selection": {"kind": "cells", "anchor": [501, 0], "head": [501, 0]}, "top": 500, "scroll_x": 0}},
+        {"jump": 900, "expect": {"selection": {"kind": "rows", "anchor": [900, 0], "head": [900, 0]}, "top": 900, "scroll_x": 0}},
+        {"press": {"header": 3}, "expect": {"selection": {"kind": "columns", "anchor": [900, 3], "head": [900, 3]}, "top": 900, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "columns", "anchor": [900, 3], "head": [900, 3]}, "top": 900, "scroll_x": 0}},
+        {"jump": 100, "expect": {"selection": {"kind": "rows", "anchor": [100, 3], "head": [100, 3]}, "top": 100, "scroll_x": 0}, "why": "in the active cell's column"}
+      ]
+    },
+    {
+      "name": "rows and columns",
+      "selectable": ["rows", "columns"],
+      "steps": [
+        {"press": {"cell": [2, 3]}, "expect": {"selection": {"kind": "rows", "anchor": [2, 3], "head": [2, 3]}, "top": 0, "scroll_x": 0}},
+        {"release": true, "expect": {"selection": {"kind": "rows", "anchor": [2, 3], "head": [2, 3]}, "top": 0, "scroll_x": 0}},
+        {"key": "down", "expect": {"selection": {"kind": "rows", "anchor": [3, 3], "head": [3, 3]}, "top": 0, "scroll_x": 0}, "why": "collapses to the active cell's row"},
+        {"press": {"corner": true}, "expect": {"selection": {"kind": "columns", "anchor": [0, 0], "head": [0, 11]}, "top": 0, "scroll_x": 0}},
+        {"key": "ctrl-a", "expect": {"selection": {"kind": "columns", "anchor": [0, 0], "head": [0, 11]}, "top": 0, "scroll_x": 0}}
+      ]
+    },
+    {
+      "name": "nothing selectable",
+      "selectable": [],
+      "steps": [
+        {"press": {"cell": [3, 1]}, "expect": {"selection": null, "top": 0, "scroll_x": 0}},
+        {"key": "down", "expect": {"selection": null, "top": 1, "scroll_x": 0}, "why": "every key is the base's"},
+        {"key": "end", "expect": {"selection": null, "top": 980, "scroll_x": 0}},
+        {"key": "cmd-a", "expect": {"selection": null, "top": 980, "scroll_x": 0}},
+        {"press": {"corner": true}, "expect": {"selection": null, "top": 980, "scroll_x": 0}}
+      ]
+    }
+  ],
+  "controls": ["loop", "center", "plain-moves-head", "extend-across", "keep-past-rows"]
+}

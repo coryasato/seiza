@@ -33,9 +33,9 @@ import { localDate, machineInfo, option } from '../../../shared-web/perf/protoco
 import { perfDir, repo } from './harness.ts';
 
 /** Each host feature's build (two, comma-separated, for code only both
- *  build), and its own module's mangled path (v0 symbols), which only a
+ *  build), and its own modules' mangled paths (v0 symbols), which only a
  *  build with it may hold. */
-const FEATURES: Record<string, string> = {
+const FEATURES: Record<string, string | string[]> = {
   'custom-cells': 'seiza_tall_table5paint',
   // No module of its own: the cache's re-read report, `PageCache::take_refreshed`.
   live: '14take_refreshed',
@@ -45,6 +45,8 @@ const FEATURES: Record<string, string> = {
   follow: 'seiza_tall_table5state6follow',
   // Resizing: the state's `resize` module.
   resize: 'seiza_tall_table5state6resize',
+  // Selecting: the range type's module and the state's `select` module.
+  select: ['seiza_tall_table9selection', 'seiza_tall_table5state6select'],
 };
 
 /** A feature that turns on another is measured against it too: `follow`
@@ -102,25 +104,37 @@ for (const [feature, size] of Object.entries(featureSizes)) {
   console.log(`host with ${feature}: ${line(size)}: ${features[feature].moreBrotliKiB} KiB brotli more${more}`);
 }
 
-// Unstripped builds, their own target dir so the release cache stays put.
+// Unstripped builds, their own target dir so the release cache stays put:
+// each build once, every marker counted in it.
 const symbolDir = join(repo, 'target/symbols');
+const unstripped = new Map<string, string>();
 function holds(features: string, marker: string): number {
-  run('cargo', ['build', '-p', 'tall-table-host', '--target', 'wasm32-unknown-unknown', '--release', '--target-dir', symbolDir, ...(features ? ['--features', features] : [])]);
-  const wasm = readFileSync(join(symbolDir, 'wasm32-unknown-unknown/release/tall_table_host.wasm')).toString('latin1');
-  return wasm.split(marker).length - 1;
+  if (!unstripped.has(features)) {
+    run('cargo', ['build', '-p', 'tall-table-host', '--target', 'wasm32-unknown-unknown', '--release', '--target-dir', symbolDir, ...(features ? ['--features', features] : [])]);
+    unstripped.set(features, readFileSync(join(symbolDir, 'wasm32-unknown-unknown/release/tall_table_host.wasm')).toString('latin1'));
+  }
+  return unstripped.get(features)!.split(marker).length - 1;
 }
 process.env.CARGO_PROFILE_RELEASE_STRIP = 'false';
-const symbols: Record<string, { base: number; feature: number; alone?: Record<string, number> }> = {};
-for (const [feature, marker] of Object.entries(FEATURES)) {
-  symbols[feature] = { base: holds('', marker), feature: holds(feature, marker) };
-  if (symbols[feature].base) failures.push(`the base holds ${symbols[feature].base} of ${feature}'s symbols (${marker})`);
-  if (!symbols[feature].feature) failures.push(`control: ${feature}'s build holds none of its symbols (${marker}): the check can't see them`);
-  // Code only both features build: neither alone holds it.
-  const parts = feature.includes(',') ? feature.split(',') : [];
-  if (parts.length) symbols[feature].alone = Object.fromEntries(parts.map((part) => [part, holds(part, marker)]));
-  for (const [part, count] of Object.entries(symbols[feature].alone ?? {})) if (count) failures.push(`${part} alone holds ${count} of ${feature}'s symbols (${marker})`);
-  const alone = Object.entries(symbols[feature].alone ?? {}).map(([part, count]) => `, ${part} alone ${count}`).join('');
-  console.log(`symbols ${marker}: base ${symbols[feature].base}${alone}, with ${feature} ${symbols[feature].feature}`);
+type Held = { base: number; feature: number; alone?: Record<string, number> };
+/** By feature: its marker's counts, or with several markers each one's. */
+const symbols: Record<string, Held | { markers: Record<string, Held> }> = {};
+for (const [feature, given] of Object.entries(FEATURES)) {
+  const markers = Array.isArray(given) ? given : [given];
+  const held: Record<string, Held> = {};
+  for (const marker of markers) {
+    const counts: Held = { base: holds('', marker), feature: holds(feature, marker) };
+    if (counts.base) failures.push(`the base holds ${counts.base} of ${feature}'s symbols (${marker})`);
+    if (!counts.feature) failures.push(`control: ${feature}'s build holds none of its symbols (${marker}): the check can't see them`);
+    // Code only both features build: neither alone holds it.
+    const parts = feature.includes(',') ? feature.split(',') : [];
+    if (parts.length) counts.alone = Object.fromEntries(parts.map((part) => [part, holds(part, marker)]));
+    for (const [part, count] of Object.entries(counts.alone ?? {})) if (count) failures.push(`${part} alone holds ${count} of ${feature}'s symbols (${marker})`);
+    const alone = Object.entries(counts.alone ?? {}).map(([part, count]) => `, ${part} alone ${count}`).join('');
+    console.log(`symbols ${marker}: base ${counts.base}${alone}, with ${feature} ${counts.feature}`);
+    held[marker] = counts;
+  }
+  symbols[feature] = markers.length === 1 ? held[markers[0]!]! : { markers: held };
 }
 delete process.env.CARGO_PROFILE_RELEASE_STRIP;
 

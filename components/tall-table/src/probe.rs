@@ -24,6 +24,9 @@ pub struct TallTableProbe {
     pub scroll_x: f32,
     /// The shown tooltip's text.
     pub tooltip: Option<String>,
+    /// What's selected (`select`).
+    #[cfg(feature = "select")]
+    pub selection: Option<crate::TallTableSelection>,
 }
 
 /// Where the cells are, in window pixels. Reported when it changes (the

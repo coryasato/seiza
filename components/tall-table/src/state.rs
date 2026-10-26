@@ -30,7 +30,7 @@ actions!(
 
 pub(crate) const CONTEXT: &str = "TallTable";
 
-/// Binds the table's scrolling keys.
+/// Binds the table's scrolling keys (and with `select`, its selection's).
 pub fn init(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("up", LineUp, Some(CONTEXT)),
@@ -44,6 +44,9 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("cmd-up", ScrollToTop, Some(CONTEXT)),
         KeyBinding::new("cmd-down", ScrollToEnd, Some(CONTEXT)),
     ]);
+    // After the base's: at the same depth, the later binding wins.
+    #[cfg(feature = "select")]
+    select::init(cx);
 }
 
 /// How the table pages through its rows.
@@ -298,6 +301,11 @@ pub enum TallTableEvent {
     /// a drag moves, or when nothing changed.
     #[cfg(feature = "resize")]
     ColumnWidthsChanged(Vec<Option<Pixels>>),
+    /// The selection changed (`select`): a press, a drag, a key, `select`,
+    /// `jump_to`, `set_rows` cutting it, `set_columns` clearing it. Not
+    /// emitted when an input leaves it as it was.
+    #[cfg(feature = "select")]
+    Selected(Option<crate::selection::TallTableSelection>),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -383,6 +391,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The end of the highest tail [`TallTableEvent::TailDrawn`] reported.
     #[cfg(feature = "follow")]
     tail_drawn: u64,
+    /// What's selected, which kinds can be, and a drag selecting (`select`).
+    #[cfg(feature = "select")]
+    selection_state: select::SelectState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -451,6 +462,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             following: false,
             #[cfg(feature = "follow")]
             tail_drawn: 0,
+            #[cfg(feature = "select")]
+            selection_state: select::SelectState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -505,8 +518,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// Scrolls `row` (0-based) to the top, or as near as the end of the rows
     /// allows, and highlights it.
+    ///
+    /// With `select`, it selects the row (rows on), else its cell (cells
+    /// on: in the active cell's column, else the first visible), emitting
+    /// [`TallTableEvent::Selected`], and the selection is its highlight;
+    /// with only columns on, it highlights as without the feature.
     pub fn jump_to(&mut self, row: u64, cx: &mut Context<Self>) {
         self.marked = Some(row);
+        #[cfg(feature = "select")]
+        self.jump_select(row, cx);
         // Decided before the move, so its reads are planned the way
         // following plans them.
         #[cfg(feature = "follow")]
@@ -534,6 +554,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if self.scroll.top() != top {
             self.hover = None;
         }
+        #[cfg(feature = "select")]
+        self.cut_selection(rows, cx);
         if let Some(request) = self.cache.set_rows(rows) {
             self.delegate.cancel(request, cx);
         }
@@ -602,12 +624,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// With `resize`, the widths are what `columns` set
     /// ([`TallTableColumn::width`]): a host keeping widths passes them back.
     /// A column drag in progress ends, with no event.
+    ///
+    /// With `select`, the selection is cleared (a host keeping it calls
+    /// `select` after).
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         self.column_info = columns;
         #[cfg(feature = "resize")]
         {
             self.resizing = None;
         }
+        #[cfg(feature = "select")]
+        self.clear_selection_for_columns(cx);
         self.lay_out();
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         {
@@ -1163,6 +1190,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if self.resizing.is_some() {
             return;
         }
+        // Nor while a drag selects.
+        #[cfg(feature = "select")]
+        if self.is_selecting() {
+            return;
+        }
         let cell = self.cell_at(position);
         if cell == self.hover.as_ref().map(|hover| (hover.row, hover.column)) {
             return;
@@ -1346,12 +1378,35 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    fn render_header(&self, cx: &App) -> Div {
+    fn render_header(&mut self, cx: &App) -> Div {
         let theme = cx.theme();
         let gutter = self.gutter_width();
-        let cells = self.visible_columns().map(|(_, column)| {
-            div()
-                .absolute()
+        #[cfg(feature = "select")]
+        let (_, selected) = self.selected_lines();
+        #[cfg(all(test, feature = "select"))]
+        {
+            self.selection_state.drawn.header = self
+                .visible_columns()
+                .map(|(index, _)| index)
+                .filter(|index| {
+                    selected
+                        .as_ref()
+                        .is_some_and(|columns| columns.contains(index))
+                })
+                .collect();
+        }
+        #[cfg_attr(not(feature = "select"), expect(unused_variables))]
+        let cells = self.visible_columns().map(|(index, column)| {
+            let cell = div();
+            // A selected column's header, in the selection's tint.
+            #[cfg(feature = "select")]
+            let cell = cell.when(
+                selected
+                    .as_ref()
+                    .is_some_and(|columns| columns.contains(&index)),
+                |cell| cell.bg(theme.table_active),
+            );
+            cell.absolute()
                 .top_0()
                 .h_full()
                 .left(px(column.x - self.scroll_x))
@@ -1398,6 +1453,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let mut last_cell = None;
         let probe_frames = self.probe_frames;
         let mut cell_probes = self.probe_cells.then(Vec::new);
+        // The jump's mark, unless the jump selected (`select`).
+        #[cfg(feature = "select")]
+        let marked = self.drawn_mark();
+        #[cfg(not(feature = "select"))]
+        let marked = self.marked;
+        // The selected rows, whose gutter cells are tinted (`select`).
+        #[cfg(feature = "select")]
+        let (selected_rows, _) = self.selected_lines();
+        #[cfg(all(test, feature = "select"))]
+        self.selection_state.drawn.gutter.clear();
         // The fills and bars, in the cells layer's coordinates, painted
         // under the cells' text in this order (`docs/DECISIONS.md`, "Features").
         #[cfg(feature = "custom-cells")]
@@ -1443,10 +1508,23 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         .border_b_1()
                         .border_color(theme.table_row_border)
                         .when(row % 2 == 1, |row| row.bg(theme.table_even))
-                        .when(self.marked == Some(row), |row| row.bg(theme.table_active)),
+                        .when(marked == Some(row), |row| row.bg(theme.table_active)),
                 );
+                let gutter_cell = div();
+                // A selected row's number, in the selection's tint.
+                #[cfg(feature = "select")]
+                let gutter_cell = {
+                    let selected = selected_rows
+                        .as_ref()
+                        .is_some_and(|rows| rows.contains(&row));
+                    #[cfg(test)]
+                    if selected {
+                        self.selection_state.drawn.gutter.push(row);
+                    }
+                    gutter_cell.when(selected, |cell| cell.bg(theme.table_active))
+                };
                 gutter_cells.push(
-                    div()
+                    gutter_cell
                         .absolute()
                         .left_0()
                         .w(px(gutter))
@@ -1462,7 +1540,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 // What the row draws around its cells' fills, for their
                 // text's contrast.
                 #[cfg(feature = "custom-cells")]
-                let row_paint = frame_paint.row(row, self.marked == Some(row));
+                let row_paint = frame_paint.row(row, marked == Some(row));
                 match self.cache.row(row) {
                     RowState::Loaded(page, index) => {
                         loaded += 1;
@@ -1540,7 +1618,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     // draws under the cells, over a fill or
                                     // a flash, edged: its tint alone
                                     // vanished on a blue ramp.
-                                    if self.marked == Some(row) {
+                                    if marked == Some(row) {
                                         quads.push(
                                             fill(bounds, theme.table_active)
                                                 .border_widths(Edges {
@@ -1658,6 +1736,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 last_cell,
                 marked: self.marked,
                 scroll_x: self.scroll_x,
+                #[cfg(feature = "select")]
+                selection: self.selection_state.current,
                 tooltip: self
                     .hover
                     .as_ref()
@@ -1734,6 +1814,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .size_full(),
             )
         });
+        // The selection's tint and the active cell's edge: over the fills
+        // and bars, under the text.
+        #[cfg(feature = "select")]
+        let cells_layer = cells_layer.children(self.render_selection(cx));
 
         div()
             .relative()
@@ -1770,6 +1854,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 moving.update(cx, |this, cx| {
+                                    #[cfg(feature = "select")]
+                                    if this.is_selecting() {
+                                        if event.pressed_button == Some(MouseButton::Left) {
+                                            this.select_drag_to(event.position, cx);
+                                        } else {
+                                            this.end_select();
+                                        }
+                                        return;
+                                    }
                                     #[cfg(feature = "resize")]
                                     if this.resizing.is_some() {
                                         if event.pressed_button == Some(MouseButton::Left) {
@@ -1796,6 +1889,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 releasing.update(cx, |this, cx| {
+                                    #[cfg(feature = "select")]
+                                    this.end_select();
                                     #[cfg(feature = "resize")]
                                     this.end_resize(cx);
                                     if this.drag.is_some() {
@@ -1804,6 +1899,22 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 });
                             }
                         });
+                        // A wheel anywhere in the window during a drag
+                        // selecting scrolls the body (the table's wheel is
+                        // the body's): a header drag reaches columns off
+                        // screen, and the head follows the pointer.
+                        #[cfg(feature = "select")]
+                        {
+                            let wheeling = entity.clone();
+                            window.on_mouse_event(move |event: &ScrollWheelEvent, phase, _, cx| {
+                                if phase == DispatchPhase::Capture
+                                    && wheeling.read(cx).is_selecting()
+                                {
+                                    cx.stop_propagation();
+                                    wheeling.update(cx, |this, cx| this.select_wheel(event, cx));
+                                }
+                            });
+                        }
                     },
                 )
                 .absolute()
@@ -2008,6 +2119,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             }
         }
         self.decide_tooltip(window, cx);
+        #[cfg(feature = "select")]
+        {
+            self.selection_state.focused = self.focus_handle.is_focused(window);
+        }
         let header = self.render_header(cx);
         #[cfg(feature = "resize")]
         let header = header.child(self.render_bands(cx));
@@ -2017,8 +2132,15 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             window.request_animation_frame();
         }
         let tooltip = self.render_tooltip();
-        div()
-            .size_full()
+        let root = div();
+        // A press on a cell, the gutter, a header, or the corner selects
+        // (the bands and scrollbars stop theirs first).
+        #[cfg(feature = "select")]
+        let root = root.on_mouse_down(
+            MouseButton::Left,
+            cx.listener(|this, event: &MouseDownEvent, _, cx| this.press_select(event, cx)),
+        );
+        root.size_full()
             .flex()
             .flex_col()
             .child(header)
@@ -2039,6 +2161,10 @@ mod follow;
 /// `resize`: the bands, the column drag, and the fit.
 #[cfg(feature = "resize")]
 mod resize;
+
+/// `select`: the presses, the drag, the keys, and the drawing.
+#[cfg(feature = "select")]
+pub(crate) mod select;
 
 #[cfg(test)]
 mod tests {

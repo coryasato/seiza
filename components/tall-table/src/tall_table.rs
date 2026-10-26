@@ -5,7 +5,9 @@ use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 
 use crate::delegate::TallTableDelegate;
-use crate::state::{CONTEXT, TEXT_REMS, TallTableState};
+#[cfg(not(feature = "select"))]
+use crate::state::CONTEXT;
+use crate::state::{TEXT_REMS, TallTableState};
 
 /// Draws `state`, filling its parent. Call [`crate::init`] once first, for
 /// the keys.
@@ -32,16 +34,25 @@ impl<D: TallTableDelegate> RenderOnce for TallTable<D> {
         let focus_handle = self.state.read(cx).focus_handle.clone();
         let focused = focus_handle.is_focused(window);
         let theme = cx.theme();
-        div()
+        // With `select`, the selection's context beside the base's while a
+        // kind is on.
+        #[cfg(feature = "select")]
+        let context = crate::state::select::context(&self.state, cx);
+        #[cfg(not(feature = "select"))]
+        let context = CONTEXT;
+        let element = div()
             .id("tall-table")
-            .key_context(CONTEXT)
+            .key_context(context)
             .track_focus(&focus_handle)
             .on_action(window.listener_for(&self.state, TallTableState::line_up))
             .on_action(window.listener_for(&self.state, TallTableState::line_down))
             .on_action(window.listener_for(&self.state, TallTableState::page_up))
             .on_action(window.listener_for(&self.state, TallTableState::page_down))
             .on_action(window.listener_for(&self.state, TallTableState::scroll_to_top))
-            .on_action(window.listener_for(&self.state, TallTableState::scroll_to_end))
+            .on_action(window.listener_for(&self.state, TallTableState::scroll_to_end));
+        #[cfg(feature = "select")]
+        let element = crate::state::select::on_actions(element, &self.state, window);
+        element
             .on_mouse_down(
                 MouseButton::Left,
                 window.listener_for(&self.state, |this, _: &MouseDownEvent, window, cx| {

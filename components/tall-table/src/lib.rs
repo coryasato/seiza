@@ -24,6 +24,8 @@ mod pages;
 mod paint;
 mod probe;
 mod scroll;
+#[cfg(feature = "select")]
+mod selection;
 mod state;
 mod tall_table;
 
@@ -35,5 +37,7 @@ pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
 #[cfg(feature = "custom-cells")]
 pub use probe::PaintProbe;
 pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
+#[cfg(feature = "select")]
+pub use selection::{Cell, Selectable, TallTableSelection};
 pub use state::{ActivityOptions, Paging, TallTableEvent, TallTableState, TallTableStats, init};
 pub use tall_table::TallTable;

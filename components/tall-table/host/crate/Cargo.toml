@@ -24,6 +24,9 @@ follow = ["live", "seiza-tall-table/follow", "tall-table-bridge/follow"]
 # Every column resizable (the table's default), so the bands draw and a
 # drag or a double-click resizes.
 resize = ["seiza-tall-table/resize", "tall-table-bridge/resize"]
+# Every kind of selection on (the table's default), so a press, a drag, and
+# the keys select.
+select = ["seiza-tall-table/select", "tall-table-bridge/select"]
 
 [dependencies]
 gpui-kit.workspace = true

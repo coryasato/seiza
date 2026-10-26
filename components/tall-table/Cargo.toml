@@ -30,3 +30,6 @@ follow = ["live"]
 # A column's width dragged at its header edge, and fitted by a double-click
 # (`TallTableColumn::width`, `TallTableEvent::ColumnWidthsChanged`).
 resize = []
+# Rows, columns, or a block of cells selected by the pointer and the keys,
+# as one range (`TallTableState::select`, `TallTableEvent::Selected`).
+select = []

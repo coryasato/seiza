@@ -397,6 +397,9 @@ fn draw(cx: &mut TestAppContext, layout: &Layout, control: Control) -> Drawn {
     cx.update(|_, cx| {
         table.update(cx, |table, cx| {
             table.paint_control = control;
+            // A jump that selects isn't marked: every kind off, so it marks.
+            #[cfg(feature = "select")]
+            table.set_selectable(crate::Selectable::none(), cx);
             // Every row fits on screen, so the jump marks the row and
             // scrolls nothing.
             if let Some(row) = layout.marked {

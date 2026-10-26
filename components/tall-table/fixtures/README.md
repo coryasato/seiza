@@ -8,6 +8,7 @@ What "the same" means for any other implementation of the table's base level (th
 | `cells.json` | Each float column's budget, and a value's exact and shown text; with `resize`, the budget a set width gives | `src/state/fixtures.rs` (`cell_text`, `cell_controls_fail`); `src/state/fixtures/resize.rs` (`resize_fixture`, `resize_fixture_number_px_gives_the_budgets`, `resize_controls_fail`), with the feature on | `cells`: `just observatory cell-fixture`, from the GPUI contender; `rounding`, `number_px`, and `resize`: hand |
 | `sql.json` | The page SQL and the summary queries, as text | `engines/duckdb/crate/src/tall_table.rs` (`sql_fixture`, `sql_fixture_controls_fail`), where the SQL is written | Hand |
 | `paint.json` | `custom-cells`: a paint value → the colors and the bar's pixels drawn, in light and dark; with `live` too, a change → its flash's color and opacity | `src/state/fixtures/paint.rs` (`paint_fixture`, `paint_fixture_stops_are_the_theme`, `paint_controls_fail`), with the feature on; `src/state/fixtures/flash.rs` (`flash_fixture`, `flash_fade_backwards_fails`, `flash_fall_as_rise_fails`), with both | Cases and stops: hand; `expect`: `just tall-table paint-fixture`, from Chromium |
+| `selection.json` | `select`: presses, drags, wheels during a drag, keys, and `set_rows`, `set_columns`, `jump_to` → the selection, the top row, and the sideways scroll after each, under each kind on | `src/state/fixtures/select.rs` (`selection_scenarios`, `selection_controls_fail`), with the feature on | Hand, a step's `why` saying the rule it checks |
 
 `just observatory fixtures` runs the first three native tests, the same fixtures and controls against the observatory's TanStack contender (`apps/observatory/contenders/tall-table/tanstack/web/test/fixtures.test.ts`), and checks `cells.json` against what the GPUI contender draws.
 
@@ -78,3 +79,35 @@ What a DOM contender draws for a cell's paint (`custom-cells`; the table's READM
 - `flash` (`live` with `custom-cells`): a column's flash through `ramp` (one of `ramps`) for `duration_ms`, and its `cases`: a cell's `old` and `new` value (a number is a float, `"NaN"` a float NaN, `null` NULL, `{"text": …}` text), read again with every case's row changed at once, and drawn `elapsed_ms` later. `expect` is `null` where nothing is drawn (no change, or the flash is over), else `at`, its place in the ramp (a float's rise 1, its fall 0, any other change 0.5; two NaNs are equal), `opacity` (`1 − elapsed / duration`), and the 8-bit RGBA drawn in light and dark: the ramp's color at `at` (Chromium's mix, as `colors`) with `round(opacity × 255)` as its alpha, drawn over the cell's fill. The script writes `at` and `opacity` from the rule above, apart from the table's code.
 
 `paint_controls_fail` checks that each of these fails it: every color two steps off, every bar 2 device pixels off, and the ramps mixed in sRGB instead of Oklab; `below_ignored_fails`, `nearer_token_fails`, and `composite_ignored_fails`, that bars drawn in `color` below zero, text in the token nearer the fill, and a fill read without the row under it and the marked row's tint over it fail the `bars` and `text_over` cases; `flash_fade_backwards_fails` and `flash_fall_as_rise_fails`, that a fade run from nothing to full and a fall flashed as a rise fail the `flash` cases. `just tall-table paint-fixture --check` fails if `expect` is out of date with the cases and stops.
+
+## `selection.json`
+
+What a DOM contender selects and scrolls to (`select`; the table's README), not how it holds it. No contender selects yet: the observatory adds the level when both its sides build it, and the TanStack contender's test names the file skipped.
+
+The table: `columns` float columns, each `column_width` CSS px, over `rows` rows (a scenario's `rows` replaces it), in a view `viewport_rows` rows tall whose cells area (right of the row numbers, left of the vertical scrollbar) is `cells_width` px wide at open. A scenario's `selectable` lists the kinds on (`rows`, `columns`, `cells`; none is the base's input), and its `steps` each have one action, `expect`, and maybe a `why`.
+
+A pointer target is a visible cell's middle (`{"cell": [row, column]}`), a visible row's number (`{"gutter": row}`), a visible column's header (`{"header": column}`), the header over the row numbers (`{"corner": true}`), or past the cells, level with a visible row on their right (`{"right": row}`) or under a visible column below them (`{"below": column}`).
+
+| Action | What it does |
+|---|---|
+| `press: <target>` | A left press there, with `"shift"`, `"cmd"`, or `"ctrl"` held where true. It starts a drag unless it selected nothing or was on the corner. |
+| `drag: <target>` | The pointer moves there with the button down. |
+| `release: true` | The button comes up where the pointer is. |
+| `wheel: {"rows": n, "at": <target>}` | A wheel of `n` rows (negative is up), the pointer at the target. |
+| `key: "<keys>"` | Keys as GPUI writes them (`shift-down`, `cmd-shift-up`, `pagedown`, `space`, `escape`, `cmd-a`, `ctrl-a`). |
+| `rows: <n>` | The source now holds `n` rows (`set_rows`). |
+| `columns: true` | The same columns again (`set_columns`). |
+| `jump: <row>` | `jump_to`. |
+
+`expect` is what holds after the step: `selection`, `null` or its `kind` (`rows`, `columns`, `cells`), `anchor` (the active cell, `[row, column]`), and `head`; `top`, the view's top row (fractional in general; whole here); and `scroll_x`, the cells' sideways scroll in px.
+
+The rules a step checks, in brief (the spec is the table's `PLAN.md`, `select`'s milestone; the decisions are its `docs/DECISIONS.md`, "Features"):
+
+- A press selects the smallest kind that's on and holds what it's on: a cell, else its row; a row's number its row; a header its column (at the top visible row); the corner every column, else every row, else every cell. Otherwise it selects nothing and leaves the selection as it was. Cmd+press is a plain press; Ctrl+press selects nothing.
+- Shift+press, a drag, and a wheel during a drag move the head: only along what the press picked (a cell both ways, a row's number its row, a header its column) and the range spans (`rows` up and down, `columns` across, `cells` both). The pointer is clamped to the visible cells, and past the last column to the last.
+- A plain arrow moves the active cell one cell and collapses the range to the smallest kind that's on and holds it (a cell, a row, a column); Shift+arrow moves the head along the range's direction and nothing across it. Page keys move by the rows in view less one and scroll the base's page; Home, End, Cmd+Up and Down to the first and last row. At an end nothing moves; nothing loops. A moved cell is scrolled into view the least distance, down, up, and sideways.
+- With nothing selected, the first arrow selects the first visible cell (by kind) without moving, and the other keys scroll as without the feature. Cmd+A and Ctrl+A as the corner. Escape clears.
+- `set_rows` cuts a `rows` or `cells` range to the new end (clearing one wholly past it); a `columns` range stays. `set_columns` clears. `jump_to` selects the row (rows on), else the cell (cells on, in the active cell's column, else the first visible), else only scrolls.
+
+`selection_controls_fail` checks that each of `controls` fails it: `loop` (a key past an end wraps), `center` (a moved cell centered instead of scrolled the least distance), `plain-moves-head` (a plain arrow moves the head, not the active cell), `extend-across` (Shift+arrow moves across a range's direction), `keep-past-rows` (`set_rows` doesn't cut the range).
+

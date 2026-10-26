@@ -20,6 +20,8 @@ live = ["seiza-tall-table/live"]
 follow = ["live", "seiza-tall-table/follow"]
 # The widths a resize left (`ColumnWidthsChanged`), on a global.
 resize = ["seiza-tall-table/resize"]
+# The table's selection, forwarded for a host's build.
+select = ["seiza-tall-table/select"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

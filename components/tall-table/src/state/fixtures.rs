@@ -36,6 +36,10 @@ mod follow;
 #[cfg(feature = "resize")]
 mod resize;
 
+/// `selection.json`, and the presses, drag, keys, and drawing in a window.
+#[cfg(feature = "select")]
+mod select;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;

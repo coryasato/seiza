@@ -190,3 +190,11 @@ One entry per milestone part, written before starting the next one: what surpris
 - `DataTable` selects one row, one column, or one cell, never a range: no Shift-extend, no drag, no select-all. The ranges in the feature's row were the table's own need (the wide sheet copies a block), not something to carry over.
 - GPUI carries AccessKit roles (`DataTable` sets `aria_selected` on its rows), but gpui-pre-web has no AccessKit adapter, so on the web none of it reaches a screen reader.
 - The code review found the first spec's anchor and head named only a row for `Rows` and a column for `Columns`, which left an arrow across a range's direction undefined; a cell in every kind settles every case.
+
+## M6: `select` (part B, 2026-10-26)
+
+**Results:** none measured; the cost is part D's. B1's `size --against` waits on the code review.
+
+**Surprises:**
+- The keys' context can't sit on a child of the element: GPUI walks contexts from the focused element up, and the element is what tracks focus. It's the element's own context, the base's and the selection's together, and which binding wins at that depth is the order `init` binds them in.
+- A drag that moved the whole head would have emitted `Selected` at every column a `Rows` drag crossed, and a header drag into the body would have moved a `Columns` range's row; the spec's "a `Rows` drag across a row: none" needed the head to move only along what the press picked and the range spans, which Shift+press then shares.
