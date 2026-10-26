@@ -170,3 +170,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - The smoke check's first narrowing at the right end passed with the held scroll broken (`held_content` returning the content as is): a drag's own moves never clamp the sideways scroll, so nothing moved it. It fails now that a vertical wheel arrives mid-drag, the input that clamps, as the native test does.
 - That wheel first scrolled nothing: the pointer sat on the band, in the header, and the table's wheel is the body's. During a drag the width follows the pointer's x alone, so the script moves straight down into the body before it wheels.
 - A drag paced at a move a frame read 0.9 ms of work per frame (p50) in the throttled wide trial, against `workRecorder`'s 19.2: half the traced frames had no move in them, because each move's delivery waited on a ~19 ms frame. The sideways fling never showed this because it sends a wheel every 8 ms; the drag does now too.
+
+## M5: `resize` (part D, 2026-10-26)
+
+**Results:** [`perf/results/2026-10-26-m5-d.md`](../perf/results/2026-10-26-m5-d.md).
+
+**Surprises:**
+- The drag is cheaper than the sideways fling it was feared to rival (5.5 ms a frame against 6.6, wide, reference): re-laying out 500 columns a move is less work than shaping a new set of columns' text.
+- The bands aren't free when nobody drags: two styled divs per visible column, each with a hitbox, cost 0.05–0.15 ms a frame, small but past the spread in either order of the builds. "Compiled in, unused" wasn't the case to measure: the host's columns are resizable, so the bands draw.
+- Pacing the drag every 8 ms (part C) wasn't the end of empty traced frames: throttled, a wide drag frame is ~18 ms, just over a frame, so Chromium draws every other one, and in 4 of 10 runs the trace's p50 landed on an idle frame (~1 ms). Part C's one trial happened to land in the other mode. `workRecorder` reads it steadily.
+- The wide throttled fling's extra late frames, M4's open question for `follow`, showed up in `resize`'s build too (5.1% against the base's 2.0%), the same split of runs between a ~15 ms and a ~30 ms p95. All a fling does with `resize` is draw the bands (~0.1 ms a frame), so it's likely not either feature's code.
+- brotli moved ~1 KiB between builds the same size after wasm-opt (part B read `resize` at +3.4 KiB brotli, this part +2.8): the after-wasm-opt figure is the one to compare across runs.

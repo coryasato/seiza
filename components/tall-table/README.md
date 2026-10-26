@@ -43,6 +43,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `set_rows(rows, cx)`: the source grew (rows still loading); the scrollbar follows and short pages reload. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
 - `set_columns(columns, cx)`: a column's kind changed.
 - `follow(cx)`, `is_following()` (`follow`): below.
+- `column_width(column)` (`resize`): the width a column is drawn at now.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads and starts no more (a table being replaced).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
@@ -56,6 +57,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Probe`, `Layout` (with `probe_frames(true)`) and `Cells` (with `probe_cells(true)`): what a frame shows, where the cells are, and every drawn cell's exact and shown text, for scripts on a canvas with no DOM.
 - `Refreshed { rows, generation }` (`live`): below.
 - `Following(bool)` and `TailDrawn { rows }` (`follow`): below.
+- `ColumnWidthsChanged(widths)` (`resize`): below.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -139,6 +141,25 @@ TallTableEvent::TailDrawn { rows } => { /* the rows below `rows` are on screen *
 - **Batch the appends:** one `set_rows` a frame at most. The table plans `set_rows`' reads once at the end of the update, but each call still moves the scrollbar and the pin.
 - **Its cost:** the Features table. Compiled in with nothing growing, it costs nothing a frame.
 
+**Resizing columns** (`resize`, off by default): a band at each column's right edge in the header; drag it to set the column's width, double-click it to fit the column to what's drawn.
+
+```rust
+let name = TallTableColumn::new("name", ColumnKind::Text)
+    .width(px(240.))          // a width the host kept; without it, the kind's
+    .min_width(px(60.))       // 40 px unless set
+    .max_width(px(600.))      // 1200 px unless set
+    .resizable(true);         // on unless set
+// From the subscription, at a release or a fit that changed a width:
+TallTableEvent::ColumnWidthsChanged(widths) => { /* keep them, by column name */ }
+```
+
+- **The width:** a column's kind's (laid out as without the feature, never clamped) until the host sets one with `width` or a drag or fit does. A set width is clamped to `min_width` and `max_width`, and may be narrower than the header's name, which is then cut. A float column's rounding follows its width: a drag re-rounds its values on the frame that widens it.
+- **The drag:** the column's edge follows the pointer from the press, live, clamped; the columns right of it move with it. A column whose kind's width is outside its min or max holds until the pointer brings it inside. The sideways scroll holds still until the release (sideways input is ignored meanwhile), so a narrowing at the right end never slides the columns under the pointer; the release clamps it. Vertical scrolling and paging work as without. The resize cursor holds through the drag; no tooltip shows.
+- **The fit** (a double-click on a band): the column's header name and its visible, loaded rows, clamped. A numeric column fits its widest exact value, so a fitted float shows every digit; any other its widest shown text. Rows not loaded, and rows off screen, aren't counted: the table never asks the source for a widest value.
+- **Keeping widths is the host's:** `ColumnWidthsChanged` carries each column's set width (`None` where it's still its kind's) in `columns()`' order, once at a release or a fit, never while a drag moves and never when nothing changed. Give them back through `width` when calling `set_columns` (which replaces the widths with what it's passed, and ends a drag with no event) or in a later session; matching by column name keeps them when the columns change. Reporting only set widths means a width given back never freezes a kind's (an integer column's follows the font). `columns()` returns the widths the drag or fit left.
+- **A column the host doesn't want resized:** `resizable(false)`. No band is drawn for it or the row-number gutter.
+- **Its cost:** the Features table. The bands are drawn every frame, a resizable column's even when nobody drags: ~0.1 ms a frame.
+
 Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
@@ -150,13 +171,15 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `live` | Rows a host says changed are read again and redrawn in place, no placeholders, one read per page in flight; `Refreshed` marks the frame ("Live rows", above) | +3.1 KiB brotli (+14.1 KiB after wasm-opt, the bare host's feed included). Update → refreshed frame, a source answering from memory: 7.7–8.1 ms p50 at 1k–50k updates/s (p95 ~24: a batch landing just after a frame waits for the next). Under the feed, ~310 ms of main thread a second, no late frames (throttled: ~620 ms/s, ≤1.2% late). Compiled in, feed off: no frame cost | [`perf/results/2026-10-25-m3-d.md`](perf/results/2026-10-25-m3-d.md) |
 | `live` + `custom-cells` | A changed cell's flash ("A flash", above) | The flash: ~+10 KiB after wasm-opt over each feature alone (+11.3 KiB brotli for both together). Every visible float flashing at 1k–50k updates/s: ~+50 ms of main thread a second, every frame drawn, no late frames; latency 11–13 ms p50 (a batch waits for the next frame). Throttled (4× CPU), it saturates the main thread: 11–13% late frames, re-reads halved | [`perf/results/2026-10-25-m3-d.md`](perf/results/2026-10-25-m3-d.md) |
 | `follow` | The view kept at the tail as `set_rows` grows the rows, until the reader scrolls up; `Following` and `TailDrawn` ("Following the tail", above). Turns on `live` | +3.7 KiB brotli over `live` (+8.9 KiB after wasm-opt; +7.0 brotli over the base, the bare host's tail feed included). Append → pixel, a source answering from memory: 8.2–8.3 ms p50 at 1k and 10k rows/s, 28 at 100k (every batch starts a page); no placeholder frame at any rate; a wheel up during the feed on screen in ~28 ms. Reference: ~320 ms of main thread a second (348 at 100k), no late frames. Throttled (4× CPU): keeps up to 10k (≤1.4% late); at 100k the main thread saturates and the view trails by ~0.3 s, still without placeholders. Compiled in, feed off: no frame cost (late frames in a throttled wide fling an open question) | [`perf/results/2026-10-25-m4-d.md`](perf/results/2026-10-25-m4-d.md) |
+| `resize` | A column's width dragged at its header edge, or fitted to what's drawn by a double-click; `ColumnWidthsChanged` for a host to keep them ("Resizing columns", above) | +2.8 KiB brotli (+5.0 KiB after wasm-opt, the bare host's widths included). Every column resizable, nobody dragging: +0.05–0.15 ms a frame (1–2%) at the reference run, the bands; within the spread throttled. The drag: 4.8–5.5 ms a frame, under the wide shape's sideways fling (6.6), no late frames; throttled ~15–18 ms, 4–5% late | [`perf/results/2026-10-26-m5-d.md`](perf/results/2026-10-26-m5-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
-- **Read-only.** No editing, selection, sorting, filtering, or column resizing.
-- **Fixed column widths** by kind (and the header's length), not by the values: measuring the widest value would cover only the pages loaded, and a column must not widen under the reader.
+- **Read-only.** No editing, selection, sorting, or filtering.
+- **Column widths by kind** (and the header's length), not by the values: measuring the widest value would cover only the pages loaded, and a column must not widen under the reader. With `resize`, a reader sets them, and a fit counts only the visible, loaded rows.
+- **No auto-scroll during a resize drag** (`resize`): a column's edge dragged past the view's edge doesn't scroll the table; release, scroll, and drag again.
 - **Paging is the delegate's speed.** A frame never waits on data; rows not loaded yet draw as placeholders. A 3 s fling outruns any prefetch (~84% placeholder frames on Tycho's asteroids sample), while steady scrolling shows none.
 
 ## Canvas tradeoffs
@@ -166,6 +189,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 - **Color alone** (`custom-cells`): a heat map's fill, a bar's length, and a value's color carry meaning that a screen reader can't see either, and that a reader who can't tell the colors apart misses. *Today:* the value's text is always drawn over its paint, so the number is there, and over a fill it takes whichever of the theme's text colors contrasts more (a two-way pick, not a contrast score: a mid-lightness fill can leave either one weak). *To close it:* the DOM mirror above, carrying each cell's paint as text.
 - **A flash says "changed" in color and motion alone** (`live` with `custom-cells`): a screen reader hears nothing of it, a reader who can't tell its colors apart can't tell a rise from a fall, and its full color can sit under the text with little contrast (a red flash under dark text). *Today:* the new value is drawn over it; under `App::reduce_motion` it holds still instead of fading. *To close it:* the DOM mirror above, announcing changes in a live region (politely, and batched: at a market watch's rates, every visible row changes every frame).
 - **New rows arrive silently** (`follow`): a screen reader isn't told that rows arrived or that the view moved, the accessibility gap above. *To close it:* the DOM mirror above, announcing appended rows in a live region (politely, and batched: a busy log appends every frame).
+- **Resizing is pointer-only** (`resize`): no key resizes a column, and a screen reader can't reach the bands, the accessibility gap above. *To close it:* keys of the table's own on a focused column (once `select` gives a column focus), and the DOM mirror above exposing each header as a resizable column.
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs
