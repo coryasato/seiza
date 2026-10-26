@@ -12,7 +12,13 @@
 // with the tail feed (`?rows=1000&append=1000&follow`): the tail mark
 // advances right after presented frames with no placeholder row drawn, a
 // wheel up lets go and the view stays put while rows arrive, and End
-// follows again.
+// follows again. Built with `resize`, it runs both shapes again and
+// resizes: a float column's edge dragged wider (the width follows the
+// pointer, the float budget grows, the columns right of it move, and the
+// widths are published once, at the release), a double-click fitting
+// another, and at the right end a drag narrowing a column (the sideways
+// scroll held while the button is down, a vertical wheel then scrolling
+// without moving it, and clamped at the release).
 // Headless, so it stands in for the scripted half of a manual check; how it
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
@@ -24,7 +30,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, TAIL_MARK, SHAPES, builtFeatures, drawnCells, filledWhere, global, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, TAIL_MARK, SHAPES, WIDTHS_GLOBAL, bandAt, builtFeatures, drawnCells, filledWhere, global, hostWebDir, laidOutAt, pixel, shown, sidewaysRoom, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -43,6 +49,12 @@ const TAIL_RATE = 1000;
 /** Tail marks checked against the frame they follow. */
 const TAIL_MARKS = 3;
 const follow = builtFeatures().includes('follow');
+const resize = builtFeatures().includes('resize');
+/** The resize run's drags: wider, then narrower at the right end, CSS px,
+ *  in this many moves. */
+const WIDEN_PX = 80;
+const NARROW_PX = -80;
+const DRAG_MOVES = 8;
 /** Both: the cell probe shows the feed's changes, and `?flash` runs. */
 const flashing = live && painted.length > 0;
 
@@ -165,6 +177,139 @@ async function checkFollow(page: Page, label: string, layout: Layout): Promise<s
   return `, followed to ${first.tail}, held at ${held.top.toFixed(1)} while ${later.rows - held.rows} rows arrived, followed again to ${back.tail}`;
 }
 
+/** What a widths global held at each set: an init script records them on
+ *  `__widthsSets`, with the time. */
+type WidthsSet = { at: number; widths: (number | null)[] };
+
+/** Records each set of global `name` on `__widthsSets`; sent as text in
+ *  an init script ([`widthsRecorder`]), so it closes over nothing. */
+function recordWidths(name: string): void {
+  const sets: { at: number; widths: (number | null)[] }[] = [];
+  const page = globalThis as unknown as Record<string, unknown>;
+  page.__widthsSets = sets;
+  let held: unknown;
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    get: () => held,
+    set: (value: (number | null)[]) => {
+      held = value;
+      sets.push({ at: performance.now(), widths: [...value] });
+    },
+  });
+}
+
+/** The init script recording `WIDTHS_GLOBAL`'s sets: `recordWidths` with
+ *  the name written into its text. */
+// eslint-disable-next-line no-new-func
+const widthsRecorder = new Function(`(${recordWidths.toString()})(${JSON.stringify(WIDTHS_GLOBAL)})`) as () => void;
+
+/** The widths sets so far, once there are `count`, or after 10 s, however
+ *  many there are. */
+async function widthsSets(page: Page, count: number): Promise<WidthsSet[]> {
+  await page.waitForFunction((count) => ((globalThis as { __widthsSets?: unknown[] }).__widthsSets?.length ?? 0) >= count, count, { timeout: 10_000, polling: 10 }).catch(() => {});
+  return (await global<WidthsSet[]>(page, '__widthsSets')) ?? [];
+}
+
+/** Presses column `column`'s band, moves the pointer `by` CSS px in
+ *  `DRAG_MOVES` moves, and calls `held` before the release. */
+async function dragBand(page: Page, layout: Layout, column: number, scrollX: number, by: number, held: () => Promise<void>): Promise<void> {
+  const band = bandAt(layout, column, scrollX);
+  await page.mouse.move(band.x, band.y);
+  await page.mouse.down();
+  for (let step = 1; step <= DRAG_MOVES; step++) await page.mouse.move(band.x + (by * step) / DRAG_MOVES, band.y);
+  await held();
+  await page.mouse.up();
+}
+
+/** With `resize`: a float column dragged wider, another fitted by a
+ *  double-click, and at the right end a column dragged narrower. */
+async function checkResize(page: Page, label: string, start: Layout): Promise<string> {
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
+  const floats = start.columns.flatMap((column, index) => (column.kind === 'float' ? [index] : []));
+  const [wide, fit] = floats as [number, number];
+  const before = start.columns[wide]!;
+  // Wider: no widths and no layout while the button is down.
+  await dragBand(page, start, wide, 0, WIDEN_PX, async () => {
+    await page.waitForTimeout(200);
+    const sets = (await global<WidthsSet[]>(page, '__widthsSets'))!.length;
+    if (sets) failures.push(`${label}: ${sets} widths published during the drag`);
+    const layout = (await shown(page)).layout;
+    if (!near(layout.columns[wide]!.width, before.width)) failures.push(`${label}: the layout reported during the drag (${layout.columns[wide]!.width})`);
+  });
+  const widened = await laidOutAt(page, wide, before.width + WIDEN_PX).catch(async () => {
+    failures.push(`${label}: column ${wide} is ${(await shown(page)).layout.columns[wide]!.width} px after a +${WIDEN_PX} px drag from ${before.width}`);
+    return null;
+  });
+  if (!widened) return '';
+  const after = widened.columns[wide]!;
+  if (after.budget <= before.budget) failures.push(`${label}: the float budget ${before.budget} → ${after.budget} after widening`);
+  const next = widened.columns[wide + 1];
+  if (next && !near(next.x, start.columns[wide + 1]!.x + WIDEN_PX)) failures.push(`${label}: the next column at ${next.x}, not moved ${WIDEN_PX} px`);
+  // Published once, at the release: the dragged column's width, null elsewhere.
+  await page.waitForTimeout(300);
+  let sets = await widthsSets(page, 1);
+  if (!sets.length) {
+    failures.push(`${label}: no widths published at the release`);
+    return '';
+  }
+  if (sets.length !== 1) failures.push(`${label}: ${sets.length} widths published by one drag`);
+  const published = sets[0]!.widths;
+  if (published.length !== start.columns.length) failures.push(`${label}: ${published.length} widths for ${start.columns.length} columns`);
+  if (!near(published[wide] ?? NaN, after.width)) failures.push(`${label}: column ${wide}'s published width ${published[wide]}, drawn ${after.width}`);
+  if (published.some((width, index) => index !== wide && width !== null)) failures.push(`${label}: widths set for columns not dragged (${published.join(',')})`);
+
+  // A double-click fits another float column, published once more.
+  const fitBand = bandAt(widened, fit, 0);
+  await page.mouse.dblclick(fitBand.x, fitBand.y);
+  // Its width was its kind's (null), so a fit sets one, whatever its size.
+  sets = await widthsSets(page, 2);
+  if (sets.length !== 2) {
+    failures.push(`${label}: a double-click on column ${fit}'s band published ${sets.length - 1} widths, not 1`);
+    return '';
+  }
+  const fitted = sets[1]!.widths[fit];
+  const fittedLayout = typeof fitted === 'number' ? await laidOutAt(page, fit, fitted).catch(() => null) : null;
+  if (typeof fitted !== 'number') failures.push(`${label}: the fit published ${fitted} for column ${fit}, no width`);
+  else if (!fittedLayout) failures.push(`${label}: the fit published ${fitted} px for column ${fit}, but didn't draw it`);
+  if (!near(sets[1]!.widths[wide] ?? NaN, after.width)) failures.push(`${label}: the fit changed column ${wide}'s published width`);
+  const laid = fittedLayout ?? widened;
+
+  // At the right end, narrower: the scroll holds while the button is down,
+  // and is clamped at the release.
+  const room = sidewaysRoom(laid);
+  await page.mouse.move(laid.left + 200, laid.top + 200);
+  await wheel(page, 0, room + 500);
+  const end = await filledWhere(page, `s.scrollX >= ${room - 1}`);
+  // The last column whose edge is in view with room left of it.
+  const edges = laid.columns.map((column, index) => ({ index, edge: column.x + column.width - end.scrollX }));
+  const narrow = edges.filter(({ edge }) => edge > 0 && edge < laid.cellsWidth - 2).at(-1)!.index;
+  const was = laid.columns[narrow]!.width;
+  const width = Math.min(Math.max(was + NARROW_PX, 40), 1200);
+  // A vertical wheel during the drag, over the body (the pointer moved
+  // straight down: the width follows its x alone), scrolls, and clamps
+  // nothing sideways.
+  const band = bandAt(laid, narrow, end.scrollX);
+  await dragBand(page, laid, narrow, end.scrollX, NARROW_PX, async () => {
+    await page.mouse.move(band.x + NARROW_PX, laid.top + 200);
+    await wheel(page, 5 * laid.rowHeight);
+    const during = await filledWhere(page, `s.first >= ${end.first + 5}`).catch(() => null);
+    if (!during) failures.push(`${label}: a vertical wheel during a drag didn't scroll`);
+    const { shown: now } = await shown(page);
+    if (!near(now.scrollX, end.scrollX)) failures.push(`${label}: the sideways scroll moved ${end.scrollX} → ${now.scrollX} during a narrowing drag`);
+  });
+  const narrowed = await laidOutAt(page, narrow, width).catch(() => null);
+  if (!narrowed) {
+    failures.push(`${label}: column ${narrow} isn't ${width} px after a ${NARROW_PX} px drag at the right end`);
+    return '';
+  }
+  const clamped = sidewaysRoom(narrowed);
+  const rested = await filledWhere(page, `Math.abs(s.scrollX - ${clamped}) < 0.5`).catch(() => null);
+  if (!rested) failures.push(`${label}: the sideways scroll at ${(await shown(page)).shown.scrollX} after the release, not clamped to ${clamped}`);
+  sets = await widthsSets(page, 3);
+  if (sets.length !== 3) failures.push(`${label}: ${sets.length} widths published after two drags and a fit`);
+  return `, column ${wide} ${before.width} → ${after.width} px (budget ${before.budget} → ${after.budget}), column ${fit} fitted to ${fitted} px, column ${narrow} ${was} → ${width} px at the right end (scroll ${end.scrollX.toFixed(1)} held, then ${rested?.scrollX.toFixed(1)}), widths published ${sets.length}×`;
+}
+
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
 async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
@@ -218,12 +363,14 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false }, ...painted.map((cells) => ({ shape, cells, feed: false, flash: false, tail: false }))]);
-    if (live) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: false, tail: false });
-    if (flashing) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: true, tail: false });
-    if (follow) runs.push({ shape: 'narrow', cells: undefined, feed: false, flash: false, tail: true });
-    for (const { shape, cells, feed, flash, tail } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}`;
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false };
+    const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
+    if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
+    if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
+    if (follow) runs.push({ ...quiet, shape: 'narrow', tail: true });
+    if (resize) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, resizing: true })));
+    for (const { shape, cells, feed, flash, tail, resizing } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}`;
       const params: Record<string, string> = { shape };
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
       if (feed) params.live = String(LIVE_RATE);
@@ -233,12 +380,19 @@ try {
       let session: Awaited<ReturnType<typeof open>> | null = null;
       try {
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, server.url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : [firstDrawProbe] });
+        session = await open(engine, server.url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : [firstDrawProbe] });
         const { page } = session;
         const first = await waitMark(page, FIRST_FRAME_MARK);
         const filled = await waitMark(page, FILLED_MARK);
         const { shown: start, layout } = await shown(page);
         const api = await page.evaluate(() => (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? 'none');
+        // The resize run checks its own moves, from the first screen.
+        if (resizing) {
+          const resized = await checkResize(page, label, layout);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${resized}`);
+          continue;
+        }
         // At the tail already: the tail run checks its own moves.
         const followed = tail ? await checkFollow(page, label, layout) : '';
         await page.mouse.move(layout.left + 200, layout.top + 200);

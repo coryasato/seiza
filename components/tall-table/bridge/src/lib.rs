@@ -4,7 +4,7 @@
 //! `CLAUDE.md`, rule 1), and `seiza` knows no table, so the glue between
 //! them lives here: the filled mark (with `live`, the refreshed mark), the
 //! scrollbar's targets, with `follow` the tail mark and the following
-//! flag, and the probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
+//! flag, with `resize` the widths a resize left, and the probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
 //! on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -54,6 +54,11 @@ pub struct Publish {
     /// tail only rises, except after a shrink.
     #[cfg(feature = "follow")]
     pub tail: Option<&'static str>,
+    /// The global holding each column's set width (`resize`'s
+    /// [`TallTableEvent::ColumnWidthsChanged`], [`js::widths`]), replaced
+    /// at each release or fit that changed one.
+    #[cfg(feature = "resize")]
+    pub widths: Option<&'static str>,
 }
 
 impl Publish {
@@ -109,6 +114,12 @@ impl Publish {
                 }
                 if let Some(mark) = self.tail_mark {
                     drop(seiza::mark_after_current_task(mark));
+                }
+            }
+            #[cfg(all(feature = "resize", target_family = "wasm"))]
+            TallTableEvent::ColumnWidthsChanged(widths) => {
+                if let Some(name) = self.widths {
+                    js::set_global(name, &js::widths(widths));
                 }
             }
             #[cfg(target_family = "wasm")]
@@ -205,6 +216,17 @@ pub mod js {
                 set(&object, "budget", number(column.budget as f64));
                 JsValue::from(object)
             })
+            .collect();
+        list.into()
+    }
+
+    /// `[width | null]`, in the order of the table's columns: each one's set
+    /// width in CSS px, `null` where it's still its kind's.
+    #[cfg(feature = "resize")]
+    pub fn widths<W: Copy + Into<f32>>(widths: &[Option<W>]) -> JsValue {
+        let list: Array = widths
+            .iter()
+            .map(|width| width.map_or(JsValue::NULL, |width| number(width.into())))
             .collect();
         list.into()
     }

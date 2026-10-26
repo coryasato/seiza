@@ -6,7 +6,13 @@
 // - scroll: a steady wheel scroll down, 300 px every 16 ms for 2 s (about
 //   600 rows/s: it crosses a page);
 // - fling: shared-web/perf/'s `fling`, top to the last row in ~3 s;
-// - hfling (wide only): the same sideways, the first column to the last.
+// - hfling (wide only): the same sideways, the first column to the last;
+// - resize (a build with `resize`): the first float column's edge dragged
+//   right 200 px and back, twice, a move every 8 ms (about 2 s), so every
+//   frame re-lays out the columns; back at the press, the release changes
+//   nothing. Every 8 ms, as the sideways fling's wheels and a mouse's
+//   reports: at a move a frame, throttled frames outran the moves' delivery
+//   and half drew nothing.
 //
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
@@ -30,7 +36,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, buildName, builtFeatures, filledWhere, hostWebDir, perfDir, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown } from './harness.ts';
+import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, bandAt, buildName, builtFeatures, filledWhere, hostWebDir, perfDir, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 /** `--name`'s value, which must be one of `known`; all of them without it. */
@@ -55,10 +61,19 @@ const SCROLL_EVERY_MS = 16;
 const SCROLL_STEPS = 125;
 /** The sideways fling's length, as `fling`'s. */
 const FLING_MS = 3_000;
+/** The resize drag: out this far and back, `DRAG_TRIPS` times, a move
+ *  every `DRAG_EVERY_MS`, `DRAG_MOVES` moves each way. */
+const DRAG_PX = 200;
+const DRAG_TRIPS = 2;
+const DRAG_MOVES = 62;
+const DRAG_EVERY_MS = 8;
+const RESIZE = features.includes('resize');
+/** Fewer frames drawn during the drag than this fails the run. */
+const MIN_DRAG_FRAMES = 10;
 /** Idle after a segment's view rests, inside its window. */
 const TAIL_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling';
+type Segment = 'scroll' | 'fling' | 'hfling' | 'resize';
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -77,16 +92,20 @@ interface Reading {
   latePct: number;
   /** Frames showing any placeholder row. */
   placeholderPct: number;
-  /** Visible cells per frame (rows × columns on screen): p50, max. */
-  cells: { p50: number; max: number };
+  /** Visible cells per frame (rows × columns on screen): p50, max. Not
+   *  for the resize drag: the layout isn't reported until its release, so
+   *  the columns on screen during it aren't known. */
+  cells?: { p50: number; max: number };
   windowMs: number;
 }
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 
 /** Traces `act` on its own: from right after tracing starts (the origin
- *  mark) to the end of `act`, which returns once the view rests. */
-async function traced(browser: Browser, page: Page, layout: Layout, act: () => Promise<void>): Promise<Reading> {
+ *  mark) to the end of `act`, which returns once the view rests. `layout`
+ *  counts the visible cells; `null` while it changes unreported (a resize
+ *  drag), when they aren't counted. */
+async function traced(browser: Browser, page: Page, layout: Layout | null, act: () => Promise<void>): Promise<Reading> {
   await browser.startTracing(page, { categories: WORK_CATEGORIES });
   const from = await page.evaluate((name) => (performance.mark(name), performance.now()), ORIGIN_MARK);
   await act();
@@ -101,7 +120,7 @@ async function traced(browser: Browser, page: Page, layout: Layout, act: () => P
   const intervals = frameIntervals(frames);
   const seen = frames.filter((frame) => frame.end !== undefined && frame.first !== undefined);
   const placeholders = seen.filter((frame) => frame.loaded! < frame.end! - frame.first!).length;
-  const cells = percentiles(seen.map((frame) => (frame.end! - frame.first!) * visibleColumns(layout, frame.scrollX ?? 0)));
+  const cells = layout && percentiles(seen.map((frame) => (frame.end! - frame.first!) * visibleColumns(layout, frame.scrollX ?? 0)));
   const round = (ms: number) => Number(ms.toFixed(2));
   return {
     frames: work.frames.length,
@@ -114,7 +133,7 @@ async function traced(browser: Browser, page: Page, layout: Layout, act: () => P
     intervals: { p50Ms: round(stats.p50), p95Ms: round(stats.p95), maxMs: round(stats.max) },
     latePct: round(lateFrames(intervals).share * 100),
     placeholderPct: round(seen.length ? (placeholders / seen.length) * 100 : 0),
-    cells: { p50: cells.p50, max: cells.max },
+    ...(cells ? { cells: { p50: cells.p50, max: cells.max } } : {}),
     windowMs: round(to - from),
   };
 }
@@ -178,6 +197,34 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
         await filledWhere(page, `s.scrollX >= ${room - 1}`).catch(() => failures.push("the sideways fling didn't rest at the last column"));
       });
     }
+
+    // Last, so the other segments run as in a build without it.
+    if (RESIZE) {
+      // Home is vertical: the sideways fling's scroll goes back by wheel.
+      if (shape === 'wide') await wheel(page, 0, -(layout.columns.at(-1)!.x + 1_000));
+      await home(page);
+      const column = layout.columns.findIndex((column) => column.kind === 'float');
+      const band = bandAt(layout, column, 0);
+      await page.mouse.move(band.x, band.y);
+      await page.mouse.down();
+      readings.resize = await traced(browser, page, null, async () => {
+        // On a fixed schedule, as the scroll's wheels.
+        const sent: Promise<void>[] = [];
+        for (let trip = 0; trip < DRAG_TRIPS; trip++) {
+          for (let step = 1; step <= 2 * DRAG_MOVES; step++) {
+            const out = step <= DRAG_MOVES ? step : 2 * DRAG_MOVES - step;
+            sent.push(page.mouse.move(band.x + (DRAG_PX * out) / DRAG_MOVES, band.y));
+            await page.waitForTimeout(DRAG_EVERY_MS);
+          }
+        }
+        await Promise.all(sent);
+        await page.mouse.up();
+      });
+      // Each move redraws: a press that missed the band draws next to
+      // none. Throttled, frames drawn run well under the moves (~86 of 248).
+      const moves = DRAG_TRIPS * 2 * DRAG_MOVES;
+      if (readings.resize.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the resize drag drew ${readings.resize.recorder.frames} frames for ${moves} moves: did it press the band?`);
+    }
     failures.push(...session.problems);
   } catch (error) {
     failures.push((error as Error).message.split('\n')[0]!);
@@ -216,17 +263,17 @@ try {
         const { readings, failures: found } = await run(server.url, shape, profile);
         failures.push(...found.map((failure) => `${shape} ${profile.name} run ${index + 1}: ${failure}`));
         runs.push(readings);
-        const line = Object.entries(readings).map(([segment, reading]) => `${segment} work p50 ${reading.workP50Ms} p95 ${reading.workP95Ms} ms, late ${reading.latePct}%, cells ${reading.cells.p50}`);
+        const line = Object.entries(readings).map(([segment, reading]) => `${segment} work p50 ${reading.workP50Ms} p95 ${reading.workP95Ms} ms, late ${reading.latePct}%${reading.cells ? `, cells ${reading.cells.p50}` : ''}`);
         console.log(`${shape} ${profile.name} ${index + 1}/${RUNS}: ${line.join('; ')}`);
       }
       const summary: Partial<Record<Segment, Record<string, number>>> = {};
-      for (const segment of ['scroll', 'fling', 'hfling'] as Segment[]) {
+      for (const segment of ['scroll', 'fling', 'hfling', 'resize'] as Segment[]) {
         const readings = runs.flatMap((reading) => (reading[segment] ? [reading[segment]] : []));
         if (readings.length) summary[segment] = summarize(readings);
       }
       (results[shape] ??= {})[profile.name] = { runs, summary };
       for (const [segment, numbers] of Object.entries(summary))
-        console.log(`  ${shape} ${profile.name} ${segment} (median of ${RUNS}): work p50 ${numbers.workP50Ms} p95 ${numbers.workP95Ms} ms (recorder ${numbers['recorder.p50Ms']}/${numbers['recorder.p95Ms']}), late ${numbers.latePct}%, intervals p95 ${numbers['intervals.p95Ms']} ms, placeholders ${numbers.placeholderPct}%, cells p50 ${numbers['cells.p50']} max ${numbers['cells.max']}, busy ${numbers.busyMs} ms`);
+        console.log(`  ${shape} ${profile.name} ${segment} (median of ${RUNS}): work p50 ${numbers.workP50Ms} p95 ${numbers.workP95Ms} ms (recorder ${numbers['recorder.p50Ms']}/${numbers['recorder.p95Ms']}), late ${numbers.latePct}%, intervals p95 ${numbers['intervals.p95Ms']} ms, placeholders ${numbers.placeholderPct}%${numbers['cells.p50'] === undefined ? '' : `, cells p50 ${numbers['cells.p50']} max ${numbers['cells.max']}`}, busy ${numbers.busyMs} ms`);
     }
   }
 } finally {
@@ -238,7 +285,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

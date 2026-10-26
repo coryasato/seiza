@@ -51,6 +51,11 @@ export const APPENDED_GLOBAL = '__tallTableAppended';
 export const READS_SENT_GLOBAL = '__tallTableReadsSent';
 export const READS_DRAINED_GLOBAL = '__tallTableReadsDrained';
 
+/** With `resize` (`host/crate/src/host.rs`, `WIDTHS_GLOBAL`): each
+ *  column's set width (CSS px, `null` for its kind's), replaced at each
+ *  release or fit that changed one. */
+export const WIDTHS_GLOBAL = '__tallTableWidths';
+
 /** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
  *  `Cells`, `?cells=`): `text` paints nothing, the control. */
 export const CELL_STYLES = ['text', 'heat', 'bars', 'color'] as const;
@@ -129,4 +134,32 @@ export async function filledWhere(page: Page, test: string, timeout = 30_000): P
 /** The columns at least partly visible at `scrollX` (CSS px). */
 export function visibleColumns(layout: Layout, scrollX: number): number {
   return layout.columns.filter((column) => column.x + column.width > scrollX && column.x < scrollX + layout.cellsWidth).length;
+}
+
+/** The middle of column `column`'s band at `scrollX` (CSS px), with
+ *  `resize`: its hairline, the column's right edge's last pixel, in the
+ *  header, the row above the body. */
+export function bandAt(layout: Layout, column: number, scrollX: number): { x: number; y: number } {
+  const { x, width } = layout.columns[column]!;
+  return { x: layout.left + x + width - scrollX - 0.5, y: layout.top - layout.rowHeight / 2 };
+}
+
+/** The cells' sideways room: how far `scrollX` can go. */
+export function sidewaysRoom(layout: Layout): number {
+  const last = layout.columns.at(-1)!;
+  return Math.max(0, last.x + last.width - layout.cellsWidth);
+}
+
+/** The layout once column `column` is `width` wide in it (the table
+ *  reports it at a resize's release). */
+export async function laidOutAt(page: Page, column: number, width: number, timeout = 10_000): Promise<Layout> {
+  const handle = await page.waitForFunction(
+    ({ column, width }) => {
+      const layout = (globalThis as Global).__tallTableLayout;
+      return layout && Math.abs(layout.columns[column]!.width - width) < 0.01 ? layout : false;
+    },
+    { column, width },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Layout;
 }

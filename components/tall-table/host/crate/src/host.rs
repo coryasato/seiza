@@ -46,6 +46,11 @@ pub const TAIL_GLOBAL: &str = "__tallTableTail";
 #[cfg(feature = "follow")]
 pub const FOLLOWING_GLOBAL: &str = "__tallTableFollowing";
 
+/// Each column's set width, CSS px or `null` for a kind's, replaced at each
+/// release or fit that changed one (`resize`'s `ColumnWidthsChanged`).
+#[cfg(feature = "resize")]
+pub const WIDTHS_GLOBAL: &str = "__tallTableWidths";
+
 /// Set as each batch of the tail feed's rows is appended (`follow`), at
 /// the time it's sent, the rows the source holds then in
 /// [`APPENDED_GLOBAL`], set first: the first tail mark whose
@@ -137,6 +142,8 @@ impl Host {
             tail_mark: Some(TAIL_MARK),
             #[cfg(feature = "follow")]
             tail: Some(TAIL_GLOBAL),
+            #[cfg(feature = "resize")]
+            widths: Some(WIDTHS_GLOBAL),
         };
         // The table emits while its frame renders, so GPUI runs this in the
         // task that presents it, and the mark lands right after the frame.

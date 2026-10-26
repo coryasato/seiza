@@ -161,3 +161,12 @@ One entry per milestone part, written before starting the next one: what surpris
 - The table's own drag starts at the press, so the double-click's second press needs no "ignored until the next press" flag, as `DataTable`'s typed drag does: it fits and starts nothing.
 - The test build with every feature off had carried an unfulfilled `expect(unused_variables)` in the paging fixture since `follow`: lint never compiles the tests without features.
 
+
+## M5: `resize` (part C, 2026-10-26)
+
+**Results:** none measured; trial runs only checked the scripts work (the cost is part D's).
+
+**Surprises:**
+- The smoke check's first narrowing at the right end passed with the held scroll broken (`held_content` returning the content as is): a drag's own moves never clamp the sideways scroll, so nothing moved it. It fails now that a vertical wheel arrives mid-drag, the input that clamps, as the native test does.
+- That wheel first scrolled nothing: the pointer sat on the band, in the header, and the table's wheel is the body's. During a drag the width follows the pointer's x alone, so the script moves straight down into the body before it wheels.
+- A drag paced at a move a frame read 0.9 ms of work per frame (p50) in the throttled wide trial, against `workRecorder`'s 19.2: half the traced frames had no move in them, because each move's delivery waited on a ~19 ms frame. The sideways fling never showed this because it sends a wheel every 8 ms; the drag does now too.

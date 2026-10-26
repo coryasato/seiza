@@ -15,7 +15,9 @@
 //! `follow`, `?rows=<n>` opens with that many rows, `?append=<rows/s>`
 //! appends that many a second (`host::Appends`, marking each batch,
 //! `tall-table:appended`), and `?follow` follows from the start; each frame
-//! whose drawn tail grew marks `tall-table:tail`.
+//! whose drawn tail grew marks `tall-table:tail`. With `resize`, every column
+//! is resizable, and each release or fit that changed a width publishes
+//! each column's set width (`__tallTableWidths`).
 
 mod host;
 pub mod rows;
