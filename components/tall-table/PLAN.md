@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M5 (built, in [`docs/milestones.md`](docs/milestones.md)), M6 (next, opening with its research, [below](#active-milestone)), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M5 (built, in [`docs/milestones.md`](docs/milestones.md)), M6 (active, its research done, [below](#active-milestone)), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -23,7 +23,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M3 | `live`: changed rows re-read and redrawn in place | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | `follow`: follow the tail as rows arrive | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
 | M5 | `resize`: drag a column's width | Done 2026-10-26 ([`docs/milestones.md`](docs/milestones.md)) |
-| M6 | `select`: row, column, and cell selection | Next: its research |
+| M6 | `select`: row, column, and cell selection | Active: part A done 2026-10-26; part B next |
 | M7 | `copy`: a selection to the clipboard | Planned |
 | M8 | `sort`: one column, ascending or descending | Planned |
 | M9 | `pin`: columns fixed at the left | Planned |
@@ -149,7 +149,100 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None open. M6 (`select`) opens with its research (["Long-term goals"](#long-term-goals): reuse, layers, canvas gaps), which writes its spec and checks into this section; until then its spec is its row under "Features".
+### M6: `select`, rows, columns, and blocks of cells selected
+
+**What it adds** (behind the `select` feature, off by default): a press on a cell, the row-number gutter, a header, or the corner selects a cell, a row, a column, or everything; Shift+press, a drag, and Shift+keys extend it to a range; the keys move it. Held as one range from an anchor to a head, so a million rows cost what one does. Drawn as one tint under the text. An event when it changes, for a host (and for `copy`, next). The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`select`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-10-26, M6 part A).
+
+```rust
+// selection.rs, behind `select`.
+/// A cell: a row and a column (an index into `columns()`).
+pub type Cell = (u64, usize);
+
+/// What's selected: one range from `anchor` (the active cell, where a
+/// plain arrow moves from) to `head` (where Shift moves), either way round.
+/// The kind says how far it spans; the cells are where the reader is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TallTableSelection {
+    /// The rows between, every column.
+    Rows { anchor: Cell, head: Cell },
+    /// The columns between, every row, rows that arrive later included.
+    Columns { anchor: Cell, head: Cell },
+    /// The block between.
+    Cells { anchor: Cell, head: Cell },
+}
+
+impl TallTableSelection {
+    /// The rows it covers, given the table's `rows`; `None` if none.
+    pub fn rows(&self, rows: u64) -> Option<RangeInclusive<u64>>;
+    /// The columns it covers, given the table's `columns`; `None` if none.
+    pub fn columns(&self, columns: usize) -> Option<RangeInclusive<usize>>;
+    pub fn contains(&self, row: u64, column: usize) -> bool;
+    pub fn anchor(&self) -> Cell;
+    pub fn head(&self) -> Cell;
+}
+
+/// Which kinds a reader can select: all on by default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Selectable { pub rows: bool, pub columns: bool, pub cells: bool }
+
+impl Default for Selectable { /* all on */ }
+
+impl Selectable {
+    pub fn all() -> Self;
+    pub fn none() -> Self;
+    pub fn rows(self, on: bool) -> Self;
+    pub fn columns(self, on: bool) -> Self;
+    pub fn cells(self, on: bool) -> Self;
+}
+
+impl<D: TallTableDelegate> TallTableState<D> {
+    pub fn selection(&self) -> Option<TallTableSelection>;
+    /// Sets or clears it (no scroll), emitting `Selected` if it changed.
+    pub fn select(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>);
+    /// Which kinds are on; turning one off clears a selection of its kind.
+    pub fn set_selectable(&mut self, selectable: Selectable, cx: &mut Context<Self>);
+}
+
+pub enum TallTableEvent {
+    // …
+    /// The selection changed (a press, a drag, a key, `select`, `jump_to`,
+    /// `set_rows` cutting it, `set_columns` clearing it). Not emitted when
+    /// an input leaves it as it was.
+    #[cfg(feature = "select")]
+    Selected(Option<TallTableSelection>),
+}
+```
+
+The spec below is what part B builds; why each rule is so is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", and the root's research.
+
+- **The model:** one range, `Rows`, `Columns`, or `Cells`, its anchor and head cells in every kind (a gutter press records the first visible column, a header press the top visible row). The host turns rows, columns, and cells on at run time (`Selectable`, all on by default). A selection takes the smallest kind that's on and holds what was pressed or moved to: a cell, else its row, else (for a key) its column; a cell press with only columns on selects nothing. `set_rows` shrinking cuts a `Rows` or `Cells` range (a corner past the end moves to the last row) and clears one wholly past it; a `Columns` range covers every row, those that arrive too. `set_columns` clears it.
+- **`jump_to`:** selects the row with rows on, else the cell with cells on (in the active cell's column, or the first visible column with nothing selected), emitting `Selected`. It sets `marked` as today (the probe), but a mark whose jump selected is never drawn. With only columns on, it marks and draws as today.
+- **The pointer:** a press on a cell, the gutter, a header cell (the resize band wins its 9 px), or the corner (every column; every row with columns off) starts a range; Shift+press moves the head, keeping the anchor and the kind. A drag moves the head to the cell under the pointer, clamped to the cells at the edges: the table's own drag (`selecting`, followed by the body's per-frame move and release handlers), the event and a redraw only when the selection changes. During it a wheel anywhere in the window scrolls the body as the base's wheel does, and the head follows the cell now under the pointer; no auto-scroll past an edge. No tooltip during the drag. Cmd+press is a plain press; Ctrl+press selects nothing (it's a Mac browser's right-click, `context-menu`'s), nor do double- and right-click.
+- **The keys:** actions of their own, bound in a context (`TallTableSelect`) the element adds only while a kind is on; space and Shift+Space keep the base's paging. A plain arrow (left and right too) moves the active cell and collapses to the smallest kind that's on and holds it; Shift+arrows move the head along the range's direction (up and down in `Rows` and `Cells`, left and right in `Columns` and `Cells`) and do nothing across it, the active cell included; at an end, nothing. Page up and down move by the rows in view, Home and End and Cmd+Up and Down to the first and last row in the active cell's column, scrolling as the base does, and with Shift extend; in a `Columns` range plain Home and End collapse as an arrow does and with Shift do nothing. Cmd+A and Ctrl+A select every column (every row with columns off; every cell with only cells on); Escape clears, and propagates with nothing selected. The first arrow with nothing selected selects the first visible cell (its row, its column, by kind) without moving; page keys, Home, and End with nothing selected scroll as the base's. A moved head scrolls into view the least distance, sideways too, through the base's scroll paths. Tab isn't bound.
+- **What's drawn:** the range's visible part as one element in `table_active` with a 1 px `table_active_border` edge, after `custom-cells`' quads and before the text; the active cell edged 2 px in `table_active_border`, in every kind, while the table has focus; the gutter cells of selected rows and the header cells of selected columns in `table_active`. Nothing without the feature.
+- **The fixture:** `fixtures/selection.json`, scenarios of steps (presses with and without Shift on a cell, the gutter, a header, the corner; drags; a wheel during a drag; keys; `set_rows`; `set_columns`; `jump_to`) → the selection, the top row, and `scroll_x` after each, under each `Selectable` kind; a DOM contender matches what's selected and scrolled to, not how it's held.
+- **What's the host's:** the kinds (`set_selectable`); acting on `Selected` (a count in a status bar, `copy`'s source); a selection kept across `set_columns` (`select` after it).
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
+
+- **A. Research and spec** (no shipped code). *Done 2026-10-26,* revised the same day after a code review: the research in the root's `docs/research/tall-table-features.md`, "`select`"; three decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below. No spike: a standing selection is two elements and a range test per visible row and column a frame; the drag is measured in part D.
+- **B. The model, the pointer, the keys, the drawing.** `src/selection.rs` (the type, its ranges, `Selectable`) and `src/state/select.rs` (the presses, the drag and its window-wide wheel, the keys, their actions and context, scrolling into view, `set_rows` and `set_columns`, `jump_to`, the drawing, `Selected`); the probe's `selection`; the host's `select` feature as a forward of the table's and the bridge's, so `size` measures it; `select` in `perf/size.ts`'s `FEATURES` (markers for both `selection` and `state::select`) and in the justfile's `test` runs; native tests; `fixtures/selection.json`, its format in `fixtures/README.md`, with controls. Checks B1–B3.
+- **C. The host and its scripts.** The bridge's arm (the selection on a global the host names, at each `Selected`), the host publishing `__tallTableSelection` with every kind on, the smoke check's selection run, `perf.ts`'s segments (a standing select-all under the scroll and flings, a drag-select). Checks C1–C2.
+- **D. The measurement and the close.** The cost on the final build, then every remaining check and the close-out ("Closing a milestone", above).
+
+**Done when:**
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M6's parent>` (the base after wasm-opt within 0.1 KiB, no `select` symbols in it, from either module, and the `select` build's present). `just tall-table test` passes with every feature off, each on (`select` among them), and all on; `just tall-table lint` passes.
+- [ ] **B2. Selecting, natively:** under each kind on and off, a press on a cell, the gutter, a header, and the corner selects what the model says (a press on a resize band resizes and selects nothing; Ctrl+press selects nothing; Cmd+press as a plain one); Shift+press moves the head and keeps the anchor and the kind; a drag moves the head, clamped at the edges, emitting `Selected` and asking a frame only when the selection changes (a `Rows` drag across one row's cells: none); a wheel during a drag, over the body or the header, scrolls the body and moves the head to the cell under the pointer, paging as the base does; the release ends it, off the table too; no tooltip during it. A plain arrow moves the active cell and collapses to the smallest kind that's on (in rows-only, its row); Shift+arrows extend along the range's direction and move nothing across it; page keys, Home, End, and Cmd+Up and Down as specced (in a `Columns` range too); all stop at the ends (no looping) and scroll the head into view the least distance, sideways too; Shift+End from row 0 of 1,567,523 selects every row as one range; Cmd+A, Ctrl+A, and Escape as specced, Escape propagating with nothing selected; the first arrow with nothing selected selects the first visible cell without scrolling. Space and Shift+Space page as the base's with a kind on; with no kind on, every key scrolls as the base's. `set_rows` shrinking cuts or clears a `Rows` or `Cells` range and keeps a `Columns` one; `set_columns` clears it; `jump_to` selects the row (rows on), the cell (cells only: the active cell's column, else the first visible), or marks (columns only), emitting `Selected` when it selects, `marked` set in each, and the mark never drawn after a jump that selected (nor after the selection moves on); `select` sets it without scrolling; `set_selectable` turning a kind off clears its kind. Drawn: the tint's bounds are the range's visible part, under the text and over a fill, bar, and flash (read from the drawn quads and the cell probe), the active cell's edge in every kind while focused and not while blurred, and the gutter and header cells; a range of 1,567,523 rows draws one tint. With `follow`, a head moved down by a key at the end keeps following. Without `select`, input and drawing are as today.
+- [ ] **B3. A fixture pins it:** `fixtures/selection.json` (the steps and expectations above), its format in `fixtures/README.md`; the native test runs it with `select`, and controls fail it (looping at the ends, centering instead of the least scroll, a plain arrow moving the head instead of the active cell, Shift+arrow moving across a range's direction, `set_rows` not cutting the range). The existing fixtures pass unchanged with `select` off and on: `paint.json`'s `marked` case runs with every kind off (with a kind on, a jump selects and its mark isn't drawn); the TanStack contender's fixture test passes, skipping the file it doesn't build.
+- [ ] **C1. The host uses it:** the bare host's `select` feature turns every mode on and publishes the selection at each `Selected` through the bridge; `just tall-table smoke` with `select` selects in both shapes (a cell press, a Shift+press block, a drag across columns and rows, a gutter press and Shift+End over every row, a header press, Cmd+A, Escape; the published selection and the probe's agreeing, the tint drawn) in Chromium, Firefox, and WebKit.
+- [ ] **C2. The scripts measure it:** `just tall-table perf` gains, when the build has `select`, a select-all standing under the scroll and flings (so the tint draws every frame) and a drag-select segment (the pointer across the visible cells, a move every 8 ms, about 2 s); `just tall-table size` reports the `select` build.
+- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base; the scroll, vertical fling, and horizontal fling with `select` built and a select-all standing, against the base (within spread); the drag-select's work per frame and late frames, beside the scroll's; both shapes, reference and throttled, cold, median of 10, on the final build. In `perf/results/` and the README's Features table.
+- [ ] **D2. The README:** `select`'s use (the modes, the presses and keys, the event, `jump_to` selecting) and its limits (one range, no auto-scroll past an edge, nothing copied until `copy`); "Read-only"'s list loses selection; and with only columns on, a jump's mark and a selected column's tint can overlap; canvas tradeoffs: "Text selection and copy" says what's selectable now and what isn't (part of a value; nothing copied yet), the accessibility gap names `aria-selected` for the DOM mirror, and "Resizing is pointer-only" notes the focused column `select` gives.
+- [ ] **D3. Waiting apps told:** `select` joins Tycho's "Ready so far" list (the date and M6). The observatory has no row: its wide sheet names a range selection copied as a later step but hasn't asked.
+
+**Manual check** (at the close): Firefox and Safari (`just tall-table dev select`, both shapes, with `custom-cells`' `?cells=heat`): the tint over a heat map and its text's contrast, the active cell's edge on focus and blur, a drag across columns and rows (and a header drag with a wheel), the keys (Shift+End over every row), Cmd+A, Escape.
 
 ---
 
@@ -163,13 +256,13 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 - **Stepped ramps** (`Ramp::stepped`, the nearest stop, no mix): bucketed heat maps, as Grafana's thresholds are. Not needed for categories: a category mapped to its stop's place (k / (n − 1)) lands on the stop already.
 - **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
-- **Selection over paint:** settled in `select`'s research (["Long-term goals"](#long-term-goals)).
+- **Selection over paint:** settled in `select`'s research: a tint under the text, over the fill, bar, and flash ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-10-26); built in M6.
 
 ---
 
 ## Next milestones
 
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M6's (`select`) is written after its research, which opens it now that M5 has closed; until then its spec is its row under "Features".
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M7's (`copy`) is written after its research, which opens it once M6 closes; until then its spec is its row under "Features".
 
 ---
 

@@ -181,3 +181,12 @@ One entry per milestone part, written before starting the next one: what surpris
 - Pacing the drag every 8 ms (part C) wasn't the end of empty traced frames: throttled, a wide drag frame is ~18 ms, just over a frame, so Chromium draws every other one, and in 4 of 10 runs the trace's p50 landed on an idle frame (~1 ms). Part C's one trial happened to land in the other mode. `workRecorder` reads it steadily.
 - The wide throttled fling's extra late frames, M4's open question for `follow`, showed up in `resize`'s build too (5.1% against the base's 2.0%), the same split of runs between a ~15 ms and a ~30 ms p95. All a fling does with `resize` is draw the bands (~0.1 ms a frame), so it's likely not either feature's code.
 - brotli moved ~1 KiB between builds the same size after wasm-opt (part B read `resize` at +3.4 KiB brotli, this part +2.8): the after-wasm-opt figure is the one to compare across runs.
+
+## M6: `select` (part A, 2026-10-26)
+
+**Results:** none measured; the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "`select`".
+
+**Surprises:**
+- `DataTable` selects one row, one column, or one cell, never a range: no Shift-extend, no drag, no select-all. The ranges in the feature's row were the table's own need (the wide sheet copies a block), not something to carry over.
+- GPUI carries AccessKit roles (`DataTable` sets `aria_selected` on its rows), but gpui-pre-web has no AccessKit adapter, so on the web none of it reaches a screen reader.
+- The code review found the first spec's anchor and head named only a row for `Rows` and a column for `Columns`, which left an arrow across a range's direction undefined; a cell in every kind settles every case.

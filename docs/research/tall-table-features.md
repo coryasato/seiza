@@ -264,3 +264,86 @@ The bands can't be reached by keyboard or a screen reader. `DataTable`'s can't e
 ### What a DOM contender does
 
 TanStack Table's column sizing (`columnResizeMode: 'onChange'`, to match the live resize), its own min and max, the contender's own handle. Its cells must then show what the table's show at the same width. The DOM side can't measure GPUI's glyph advance, which is why `cells.json` hands it the budgets today. So the fixture hands it the rule: `cells.json` gains `number_px` (GPUI's widest number advance, read from the table in Chromium) and a `resize` section of widths and the budgets they give, at and past the clamps. The observatory adds the level only when both its sides build it.
+
+## `select`
+
+Researched 2026-10-26, from the table's input and drawing code (`src/state.rs`, `src/tall_table.rs`, `src/state/resize.rs`), `DataTable`'s selection in gpui-component 0.8.0 (`src/table/state.rs`, `data_table.rs`; the theme's `table_active` in `src/theme/schema.rs`), and gpui-pre 0.3.9's and gpui-pre-web 0.3.9's accessibility code; revised the same day after a code review. No spike: the selection draws one rectangle a frame and tests a range per visible row and column (below), and the drag's cost is measured in the build.
+
+### What asks for it
+
+- **Tycho:** selecting rows or a block of cells to copy, as every grid allows; Tycho adopts every feature.
+- **The wide sheet** (the observatory): "a range selection copied" ([`apps/observatory/docs/research/scenarios.md`](../../apps/observatory/docs/research/scenarios.md), "Wide sheet"): a block of cells, not one cell or one row. The observatory hasn't asked in its PLAN yet.
+- **`copy`** copies a selection; **`context-menu`** makes the clicked cell the selection (the table's `PLAN.md`, "Features"). And `resize`'s keyboard gap waits for a focused column (the README, "Canvas tradeoffs").
+
+What the table has today: a press anywhere focuses it and hides the tooltip; the keys scroll (up, down, page up and down, space, Home, End, Cmd+Up and Down; nothing sideways); `jump_to` marks a row, drawn in `table_active` under the cells and, over a fill, as a tinted and edged quad (`custom-cells`). Nothing is selected.
+
+### What `DataTable` does
+
+- **Three modes, one thing selected:** `row_selectable` and `col_selectable` (on by default), `cell_selectable` (off). One row, one column, or one cell, never a range: no Shift-extend, no drag, no select-all. A click on a body row selects it; on a header, its column (a column can opt out, `Column::selectable`); with `cell_selectable`, a click selects the cell, and a row header column appears for rows (or, hidden, a second click on the selected cell selects its row). `select_on_modifier_click` lets a delegate keep its own multi-row selection.
+- **Keys:** up and down move the row or cell, looping at the ends by default (`loop_selection`); left, right, Tab, and Shift+Tab the column or cell; Home and End the first and last column; page up and down by a page; Escape clears. Without a selection, a key selects row 0 (or cell (0, 0)). Moving a cell scrolls it to the vertical center.
+- **Drawn:** a selected row in `table_active` (or `accent`, by the theme's `list.active_highlight`); a selected column's cells in `table_active`; a selected cell with a `table_active` overlay over its content. The theme clamps `table_active`'s alpha to 0.2 (`clamp_alpha`), so it's always a tint. A right-clicked row or cell is edged.
+- **Events:** `SelectRow`, `SelectColumn`, `SelectCell`, `ClearSelection` (with every change), and `TableSelection`, the selection as one value. Rows carry `aria_selected`.
+
+### Reuse
+
+Nothing can be reused as code: the selection is crate-private state on `TableState<D>`, its indices are `usize` rows of `uniform_list`, and its scrolling is `scroll_to_item`. What carries over is behavior: the three modes, picked by the host; header click for a column; Escape to clear; the colors (`table_active`, `table_active_border`); an event with each change.
+
+What doesn't carry over, and why:
+
+- **Ranges, not one row:** the wide sheet copies a block, and `copy` would be a one-cell copy otherwise. A range is two corners, so a million rows cost what one does.
+- **No looping:** Up on row 0 jumping to row 1,567,522 is a surprise, and no spreadsheet does it.
+- **No Tab:** `DataTable` binds Tab and Shift+Tab to columns, so the keyboard can't leave the table. The canvas is one focus stop; Tab has to reach the rest of the page.
+- **Home and End keep the table's meaning** (top and end of the rows), not the first and last column: the base binds them so, and Shift+End is how a keyboard selects to the last of 25 M rows.
+- **No centering:** a moved cell is scrolled into view the least distance, as the base's line keys scroll, so the view doesn't jump half a screen per arrow.
+
+### The model
+
+- **One range, from an anchor to a head, each a cell** (a row as `u64`, a column), whatever the kind: `Rows` (the rows between, every column), `Columns` (the columns between, every row, however many there are or come), or `Cells` (the block between). The kind says how far the range spans; the cells say where the reader is, so a gutter press records a column too (the first visible one) and a header press a row (the top visible one). One representation for every kind, the spreadsheet's: the active cell always exists. Disjoint ranges (Cmd-click in a spreadsheet) aren't in this milestone: a copy of two blocks that don't line up has no table shape (Excel refuses it), and a later variant adds them without breaking the API if the enum is `#[non_exhaustive]`.
+- **The anchor is the active cell,** where a plain arrow moves from, as in Excel and Sheets; Shift moves the head.
+- **Columns are indices into `columns()`**, the host's order, a display position. Once `reorder` moves columns, a selection may have to follow a column's identity rather than its position; `reorder`'s research decides.
+- **Kept across `set_rows`:** rows past a shrunk end are cut off the range (a cell past it moves to the last row); a range wholly past it is cleared. A `Columns` range covers rows that arrive (`follow`'s tail); a `Rows` or `Cells` range doesn't grow.
+- **Cleared by `set_columns`** (the columns may be others; Tycho calls it for a new query), with the event.
+- **The host picks the modes at run time:** rows, columns, cells, each on or off (all three on by default once the feature is built: the spreadsheet's model). A selection always takes the smallest kind that's on and holds what was pressed: a cell press is a `Cells` range with cells on, else a `Rows` range with rows on, else nothing. With all three off the table is as without the feature, but for the code.
+- **`jump_to` selects** the row with rows on, else the cell (in the active cell's column, or the first visible column with nothing selected) with cells on, emitting the selection's event as any change does, so a host has one path to what's selected. It still sets the mark (the probe's `marked`, which Tycho's checks read), but a mark set by a jump that selected is never drawn: the selection is its highlight, so no stale second highlight stays behind when the selection moves on. With only columns on, it marks and draws as today, and a selected column's tint and the mark's can overlap (the README says so). The mark is `table_active`, the selection's color: two highlights that look the same would mean different things.
+- **Never reaches the delegate.** A selection is indices; `copy` reads its rows.
+
+### The pointer
+
+- **A press on a cell** starts a selection there (anchor and head); **Shift+press** moves the head to it, keeping the anchor and the range's kind (a Shift+press on a cell during a `Rows` range extends the rows). A press on the row-number gutter does the same for rows, on a header cell for columns (the resize band, painted over it, wins its 9 px), on the header over the gutter for every column.
+- **The drag is the table's own,** as the scrollbars' and `resize`'s are: a field of its own (`selecting`), followed by the move and release handlers the body's `canvas` registers every frame, so a release off the table is never lost. Each move hit-tests the pointer (`cell_at`'s maths, clamped to the cells at the edges, so a pointer past the last column picks the last column) and moves the head; the event and a redraw come only when the selection changes (a `Rows` drag moving across a row's cells changes nothing).
+- **A header drag selects columns.** `reorder` moves a column by a header drag too; Sheets' answer is to move a column by dragging an already-selected header, and `reorder`'s research takes it from there.
+- **No auto-scroll past an edge**, as with `resize`: during the drag a wheel anywhere in the window scrolls the body, as the base's wheel does, and the head follows the cell now under the pointer, which is how a spreadsheet extends a drag too. The table's wheel is the body's, so a header drag needs the window-wide wheel, registered every frame with the drag's other handlers, to reach columns off screen. Shift+press and Shift+keys reach any row.
+- **Cmd+press is a plain press; Ctrl+press selects nothing.** In a Mac browser Ctrl+click is a right-click, and right-click and double-click are `context-menu`'s. No tooltip during the drag (as `resize`).
+
+### The keys
+
+The selection's keys are actions of their own, bound in a key context of their own (`TallTableSelect`) that the element adds only while a mode is on, so they win over the base's there and the base's bindings are untouched. Space and Shift+Space keep the base's page down and up, whose action the base's Page Down and Page Up share.
+
+- **A plain arrow** moves the active cell one cell (left and right too, which the base doesn't bind) and collapses the range to the smallest kind that's on and holds it (a cell, else its row, else its column). **Shift+arrows** move the head along the range's own direction: up and down in `Rows` and `Cells`, left and right in `Columns` and `Cells`. Across it (Shift+Left in a `Rows` range) nothing moves, not even the active cell. At an end they stop.
+- **Page up and down** move by the rows in view and scroll a page, as the base; **Shift** extends. **Home and End** (and Cmd+Up and Down) move to the first and last row in the same column; **Shift** extends, so Shift+End selects to the last row in one range. In a `Columns` range, which spans every row, plain Home and End move the active cell and collapse as an arrow does, and with Shift do nothing.
+- **Cmd+A or Ctrl+A** (both bound: the table can't tell the platform without the browser, which it doesn't depend on) selects every column when columns are selectable, every row (to the current end) otherwise, every cell in cells-only mode. **Escape** clears, and propagates when nothing is selected.
+- **The first arrow with nothing selected** selects the first visible cell (or its row, or its column, by mode) without moving, so the keyboard alone can start one. Page keys, Home, and End with nothing selected scroll as the base's.
+- **A moved head is scrolled into view** the least distance, vertically and sideways, through the base's scroll paths (so `follow` sees a move down as the reader's).
+
+### What's drawn, and where
+
+The layers today, bottom to top: the row's background and stripe (and the jump's mark); with `custom-cells`, one `canvas` of quads (the fill, a flash, the jump's edge over a covered cell, the bar); the text.
+
+- **One tint for the visible part of the range:** a range's intersection with the visible rows and columns is one rectangle, drawn as one element in `table_active` with a 1 px `table_active_border` edge, after the quads and before the text. Under the text, so the text keeps its contrast; over the fill and the bar, so a heat map stays readable and visibly selected (the theme's 0.2 alpha cap makes it a tint at most). A flash shows through it.
+- **The active cell edged** in `table_active_border`, 2 px, in every kind (it's where the keys move from), only while the table has focus, as a spreadsheet's is: an unfocused table shouldn't look like it takes keys.
+- **The gutter cells of selected rows and the header cells of selected columns** drawn in `table_active`, so a reader sees which rows and columns a block spans when its edges are off screen.
+- **Per frame:** a range test per visible row (the gutter) and per visible column (the header), and two elements. Without the feature nothing is drawn and nothing tested.
+
+### Frame-work risk
+
+Low: the standing selection is two elements and a range test per visible row and column, O(visible), never O(selected). The drag's frame is the base's frame plus a hit-test per pointer move (a scan of the laid-out columns, 500 in the wide shape, as the tooltip's hover already does); a frame is asked only when the selection changes. Measured, not spiked: the scroll and flings with a select-all standing (so the tint draws on every frame), and a drag-select segment, against the base.
+
+### Canvas gaps
+
+- **Text selection:** a cell's text still can't be selected in part, and nothing is copied until `copy`. The README's "Text selection and copy" becomes: cells and blocks can be selected (`select`), copied once `copy` lands; part of a value can't.
+- **Accessibility:** GPUI has AccessKit roles (`role`, `aria_selected`, which `DataTable` sets on rows), but gpui-pre-web 0.3.9 has no AccessKit adapter, so nothing reaches a screen reader on the web. The DOM mirror the README names would carry `aria-selected` and announce the range ("rows 12 to 40 selected").
+- **Keyboard:** selecting becomes keyboard-complete (the first arrow starts one), and Tab still leaves the table. The anchor gives a column focus, which `resize`'s keyboard gap waited on; keys to resize it stay a later note.
+
+### What a DOM contender does
+
+TanStack Table's row selection holds a map of row ids (`rowSelection`), built for rows the table holds; select-all over 1.57 M rows would write 1.57 M keys, which the PLAN calls a fair stress. A range model of the contender's own would match the table's behavior at a range's cost. Which is idiomatic is the observatory's decision when it adds the level. Either way the behavior is pinned: a new fixture, `fixtures/selection.json`, of scenarios (presses with Shift, drags, wheels during a drag, keys, `set_rows` and `set_columns`, `jump_to`, under each mode) → the selection after each step and the view's top and `scroll_x`, so a DOM side matches what's selected and what's scrolled into view without matching how it's held.
