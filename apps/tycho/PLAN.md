@@ -41,7 +41,7 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 
 | Needs | For | Status |
 |---|---|---|
-| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3) |
+| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3), `follow` (2026-10-25, tall-table M4) |
 | `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | A milestone of its own: record the wasm's size effect in `perf/results/`, add the home-path check to `check`, redeploy (no rush) | *Not ready* |
 
 ---

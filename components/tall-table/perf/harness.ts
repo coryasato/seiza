@@ -45,6 +45,11 @@ export const TAIL_GLOBAL = '__tallTableTail';
 export const FOLLOWING_GLOBAL = '__tallTableFollowing';
 export const APPENDED_MARK = 'tall-table:appended';
 export const APPENDED_GLOBAL = '__tallTableAppended';
+/** With `follow` (`host/crate/src/rows.rs`, `Reads`): the reads the host's
+ *  source was sent so far, and those cancelled in flight, each set as it
+ *  changes. */
+export const READS_SENT_GLOBAL = '__tallTableReadsSent';
+export const READS_DRAINED_GLOBAL = '__tallTableReadsDrained';
 
 /** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
  *  `Cells`, `?cells=`): `text` paints nothing, the control. */
@@ -91,6 +96,11 @@ export async function pixel(page: Page, x: number, y: number): Promise<number[]>
     context.drawImage(image, 0, 0);
     return Array.from(context.getImageData(0, 0, 1, 1).data);
   }, png);
+}
+
+/** Global `name` on the page. */
+export async function global<T>(page: Page, name: string): Promise<T | undefined> {
+  return page.evaluate((name) => (globalThis as Record<string, unknown>)[name] as T | undefined, name);
 }
 
 /** The probe and layout, once the table has drawn both. */

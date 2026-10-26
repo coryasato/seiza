@@ -24,7 +24,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, TAIL_MARK, SHAPES, builtFeatures, drawnCells, filledWhere, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, TAIL_MARK, SHAPES, builtFeatures, drawnCells, filledWhere, global, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -106,11 +106,6 @@ function tailRecorder(): void {
     }
     return entry;
   };
-}
-
-/** Global `name` on the page. */
-async function global<T>(page: Page, name: string): Promise<T | undefined> {
-  return page.evaluate((name) => (globalThis as Record<string, unknown>)[name] as T | undefined, name);
 }
 
 /** The view follows `count` more tail marks, each right after a presented

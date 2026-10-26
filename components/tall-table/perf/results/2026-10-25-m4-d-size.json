@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-25",
+  "label": "m4-d-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13094.1,
+    "optKiB": 9681.8,
+    "brotliKiB": 2689.9
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13106.1,
+      "optKiB": 9691.8,
+      "brotliKiB": 2692.1,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 2.2
+    },
+    "live": {
+      "rawKiB": 13110,
+      "optKiB": 9695.3,
+      "brotliKiB": 2693.2,
+      "moreOptKiB": 13.5,
+      "moreBrotliKiB": 3.3
+    },
+    "live,custom-cells": {
+      "rawKiB": 13136.3,
+      "optKiB": 9715.6,
+      "brotliKiB": 2705.7,
+      "moreOptKiB": 33.8,
+      "moreBrotliKiB": 15.8,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.3,
+          "moreBrotliKiB": 12.5
+        },
+        "custom-cells": {
+          "moreOptKiB": 23.8,
+          "moreBrotliKiB": 13.6
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13120.1,
+      "optKiB": 9704.2,
+      "brotliKiB": 2696.9,
+      "moreOptKiB": 22.4,
+      "moreBrotliKiB": 7,
+      "against": {
+        "live": {
+          "moreOptKiB": 8.9,
+          "moreBrotliKiB": 3.7
+        }
+      }
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 28
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 23
+    }
+  },
+  "against": {
+    "commit": "0199214",
+    "then": {
+      "rawKiB": 13092.8,
+      "optKiB": 9680.5,
+      "brotliKiB": 2688.5
+    },
+    "now": {
+      "rawKiB": 13092.8,
+      "optKiB": 9680.5,
+      "brotliKiB": 2688.7
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": 0.2
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-ClaE6Rz6.wasm",
+    "optKiB": 9743.6,
+    "brotliKiB": 2707.9,
+    "moreBrotliKiB": 18
+  },
+  "failures": []
+}

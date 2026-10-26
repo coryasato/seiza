@@ -10,8 +10,14 @@
 //! ([`MemoryRows::bump`]); a float's value mixes it in, so a page read
 //! after a bump answers new floats (the other columns, and which floats are
 //! NULL, stay put).
+//!
+//! With `follow`, the source counts its reads ([`Reads`]) and publishes
+//! the counts as they change, for the tail feed's reads a second and
+//! drained reads.
 
 use std::borrow::Cow;
+#[cfg(feature = "follow")]
+use std::cell::Cell;
 use std::cell::RefCell;
 #[cfg(feature = "live")]
 use std::collections::HashMap;
@@ -463,6 +469,47 @@ pub struct MemoryRows {
     /// Each row's version (`live`), read when a page is materialized.
     #[cfg(feature = "live")]
     versions: Rc<RefCell<Versions>>,
+    /// The reads it was sent and those cancelled before they resolved
+    /// (`follow`).
+    #[cfg(feature = "follow")]
+    reads: Reads,
+}
+
+/// What a [`MemoryRows`] was asked (`follow`): each count published on
+/// its global as it changes (wasm), for the scripts.
+#[cfg(feature = "follow")]
+#[derive(Debug, Default)]
+pub struct Reads {
+    sent: Cell<u64>,
+    drained: Cell<u64>,
+}
+
+/// The reads sent so far, and those cancelled in flight ([`Reads`]).
+#[cfg(feature = "follow")]
+pub const READS_SENT_GLOBAL: &str = "__tallTableReadsSent";
+#[cfg(feature = "follow")]
+pub const READS_DRAINED_GLOBAL: &str = "__tallTableReadsDrained";
+
+#[cfg(feature = "follow")]
+impl Reads {
+    fn count(counter: &Cell<u64>, global: &str) {
+        counter.set(counter.get() + 1);
+        #[cfg(target_family = "wasm")]
+        tall_table_bridge::js::set_global(global, &(counter.get() as f64).into());
+        #[cfg(not(target_family = "wasm"))]
+        let _ = global;
+    }
+
+    /// Reads sent so far.
+    pub fn sent(&self) -> u64 {
+        self.sent.get()
+    }
+
+    /// Reads cancelled while still in flight: the table counts them as
+    /// draining until they resolve.
+    pub fn drained(&self) -> u64 {
+        self.drained.get()
+    }
 }
 
 impl MemoryRows {
@@ -476,7 +523,15 @@ impl MemoryRows {
             pending: Rc::default(),
             #[cfg(feature = "live")]
             versions: Rc::default(),
+            #[cfg(feature = "follow")]
+            reads: Reads::default(),
         }
+    }
+
+    /// Its read counts (`follow`).
+    #[cfg(feature = "follow")]
+    pub fn reads(&self) -> &Reads {
+        &self.reads
     }
 
     /// `row` changed (`live`): a page read from now on answers its new
@@ -501,6 +556,8 @@ impl TallTableDelegate for MemoryRows {
         let request = self.next_request;
         self.next_request = self.next_request.wrapping_add(1);
         self.pending.borrow_mut().insert(request);
+        #[cfg(feature = "follow")]
+        Reads::count(&self.reads.sent, READS_SENT_GLOBAL);
         let pending = self.pending.clone();
         let shape = self.shape;
         #[cfg(feature = "custom-cells")]
@@ -536,7 +593,12 @@ impl TallTableDelegate for MemoryRows {
     /// The read makes no page when it resolves; one already resolved won
     /// the race.
     fn cancel(&mut self, request: u32, _: &mut App) {
-        self.pending.borrow_mut().remove(&request);
+        #[cfg_attr(not(feature = "follow"), expect(unused_variables))]
+        let in_flight = self.pending.borrow_mut().remove(&request);
+        #[cfg(feature = "follow")]
+        if in_flight {
+            Reads::count(&self.reads.drained, READS_DRAINED_GLOBAL);
+        }
     }
 }
 
@@ -664,6 +726,9 @@ mod tests {
         );
         // A cancel after the read resolved changes nothing.
         cx.update(|cx| rows.cancel(kept, cx));
+        // Two reads sent, one cancelled in flight (`follow`).
+        #[cfg(feature = "follow")]
+        assert_eq!((rows.reads().sent(), rows.reads().drained()), (2, 1));
     }
 
     #[cfg(feature = "live")]

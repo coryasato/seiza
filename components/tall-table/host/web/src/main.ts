@@ -7,14 +7,16 @@ import init, { start } from '../pkg/tall_table_host.js';
 import wasmUrl from '../pkg/tall_table_host_bg.wasm?url';
 import type { Shown } from './probe.ts';
 
-type Global = { __tallTable?: Shown; __seizaFrameSample?: () => Partial<Shown> };
+type Global = { __tallTable?: Shown; __tallTableFollowing?: boolean; __seizaFrameSample?: () => Partial<Shown> & { following?: boolean } };
 
-// Each animation frame's view, for `shared-web/perf/`'s `frameRecorder`.
+// Each frame's view, for `shared-web/perf/`'s `frameRecorder` and
+// `presentedRecorder`; with `follow`, whether the table follows.
 (globalThis as Global).__seizaFrameSample = () => {
-  const shown = (globalThis as Global).__tallTable;
+  const g = globalThis as Global;
+  const shown = g.__tallTable;
   if (!shown) return {};
   const { top, first, end, loaded, pending, scrollX } = shown;
-  return { top, first, end, loaded, pending, scrollX };
+  return { top, first, end, loaded, pending, scrollX, following: g.__tallTableFollowing };
 };
 
 void boot({ init: () => init({ module_or_path: wasmUrl }), start, fontUrl, wasmUrl });

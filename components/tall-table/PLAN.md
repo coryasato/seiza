@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1, M2, and M3 (built, in [`docs/milestones.md`](docs/milestones.md)), M4 (active: researched and specced 2026-10-25, parts B and C built, [below](#active-milestone)), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M4 (built, in [`docs/milestones.md`](docs/milestones.md)), M5 (next: its research, ["Long-term goals"](#long-term-goals)), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -21,8 +21,8 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M1 | The bare host and the base's baseline | Done 2026-10-23 ([`docs/milestones.md`](docs/milestones.md)) |
 | M2 | `custom-cells`: a cell's fill, bar, and text color | Done 2026-10-24 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | `live`: changed rows re-read and redrawn in place | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
-| M4 | `follow`: follow the tail as rows arrive | Active: parts A, B, and C done 2026-10-25; next, part D |
-| M5 | `resize`: drag a column's width | Planned |
+| M4 | `follow`: follow the tail as rows arrive | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
+| M5 | `resize`: drag a column's width | Next: its research |
 | M6 | `select`: row, column, and cell selection | Planned |
 | M7 | `copy`: a selection to the clipboard | Planned |
 | M8 | `sort`: one column, ascending or descending | Planned |
@@ -149,67 +149,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-### M4: `follow`, the view kept at the tail as rows arrive
-
-**What it adds** (behind the `follow` feature, off by default, which turns on `live`): a reader who goes to the end (or a host calling `follow()`) follows it as `set_rows` grows the rows, the view pinned to the rows read so far, until the reader scrolls up; and, with `live`, a short last page that grows is kept drawn and read again, not dropped. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`follow`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-10-25, M4 part A).
-
-```rust
-// The state (state.rs), behind `follow`.
-impl<D: TallTableDelegate> TallTableState<D> {
-    /// Scrolls to the end and follows it: as `set_rows` grows the rows, the
-    /// view stays at the last rows read, until the reader scrolls up.
-    pub fn follow(&mut self, cx: &mut Context<Self>);
-    /// Whether the view is following the end.
-    pub fn is_following(&self) -> bool;
-}
-
-pub enum TallTableEvent {
-    // …
-    /// Following started (`true`) or stopped: for a host's "back to the
-    /// tail" button.
-    #[cfg(feature = "follow")]
-    Following(bool),
-    /// While following, the drawn tail grew: every row below `rows` is drawn
-    /// with its values. Emitted in render, as `Filled` is; a host that called
-    /// `set_rows(n)` takes the first at or past `n`.
-    #[cfg(feature = "follow")]
-    TailDrawn { rows: u64 },
-}
-```
-
-- **Following** (decided): a flag, off at open. Set by an action that reaches the end (End, a wheel or key ending there, a drag released there, `jump_to` landing there, `follow()`); cleared by vertical input leaving the end, by any amount, and by `jump_to` elsewhere; sideways scrolling leaves it; rows arriving and resizes never set it. A drag holds the view until release.
-- **Pinned to the loaded tail** (decided): while following, the view's bottom is the last row the cache can draw, with every row above it in view loaded; it moves on as reads land and never back. At `follow()`, before a tail read lands, the view goes to `rows()` as a jump does. A follow move keeps the direction, starts no settle timer, and clears the hover; the visible pages are listed bottom first.
-- **The grown tail page** (decided, in `live`): `set_rows` growing a short loaded page marks it stale; it draws the rows it was read with, placeholders past them (the cache answers `Pending` past the count read, not the page's `None`, which draws as NULL), and is read again on `live`'s path (one read in flight, never cancelled for growing, read once more after a read growth overtook, `Refreshed` when drawn). Growing a short page whose first read is out reads it once more after it lands. Shrinking still drops what's past the end. With `live`, `set_rows` plans its reads at the end of the update, as `invalidate_rows` does. Without `live`, the base drops the page and plans at once, as now.
-- **What's the host's:** batching appends (one `set_rows` a frame), calling `follow()` to follow from the start (a log view), a "back to the tail" button on `Following(false)`, and timing appends by `TailDrawn`.
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
-
-- **A. Research and spec** (no shipped code). *Done 2026-10-25,* revised the same day after a code review and a design review: the research in the root's `docs/research/tall-table-features.md`, "`follow`"; four decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below. No spike: what's open needs the tail feed's numbers (part D).
-- **B. The grown tail page, and `set_rows` in the fixture.** `PageCache` keeping a grown short page with `live` (the rows it holds, placeholders past them), `set_rows`' plan deferred with `live`, `paging.json`'s `rows` step and `without` field with base and `live` scenarios, and the `drop-grown` control. Checks B1–B3.
-- **C. Following.** `follow`, `is_following`, `Following`, `TailDrawn`, the pin, bottom-first pages, the reader's moves, the bridge's arms (the flag on a global the host names, and a tail mark), `paging.json`'s `follow` step and `following`/`bottom` checks with their scenarios and controls, and the bare host's tail feed (`?rows=<n>`, `?append=<rows/s>`, `?follow`). Checks C1–C4.
-- **D. The measurement and the close.** The tail feed at 1k, 10k, and 100k rows a second; its cost; whether a first read polled when sent is needed (D2: if so, a part is specced before the close); then every remaining check and the close-out ("Closing a milestone", above).
-
-**Done when:**
-- [x] **B1. The base is unchanged:** `just tall-table size --against <M4's parent>` (the base after wasm-opt within 0.1 KiB, no `live` symbols in it). `just tall-table test` passes with every feature off and on; `just tall-table lint` passes.
-  *Done 2026-10-25:* the base 9,680.5 KiB after wasm-opt at `5878b27` and with this part (0 KiB), `14take_refreshed` 0 times in the base, 4 in `live`'s build; `test` (every feature set) and `lint` pass ([`perf/results/2026-10-25-m4-b.md`](perf/results/2026-10-25-m4-b.md)).
-- [x] **B2. The grown page, natively:** with `live`, a visible short page grown by `set_rows` keeps drawing the rows it was read with, placeholders past them (not counted loaded: no `Filled` until they land), until its re-read lands (never a placeholder where a row was drawn); growing it again while that read is out reads it exactly once more after, never cancelled; growing a short page during its first read reads it once more after it lands; ten `set_rows` in one update cost one read, and `set_rows` then `invalidate_rows(old..new)` in one update one read too; shrinking drops the rows past the end as before; bytes counted once; `Refreshed` once, on the first frame drawing the grown page, and none for one grown off screen. Without `live`, `set_rows` drops the short page and cancels its read, as today.
-  *Done 2026-10-25:* `pages.rs`' `a_grown_page_is_kept` (rows read drawn, `Pending` past them, re-read once per read in flight, bytes swapped), `a_page_grown_during_its_first_read_reads_again`, `a_grown_page_shrinks_or_fails_as_without_live`, `a_grown_pages_new_rows_are_never_compared`; `fixtures/live.rs`' `a_grown_last_page_draws_its_rows_until_read_again` (pending exactly the new rows, no `Filled` until they land, `Refreshed` once), `growth_in_one_update_reads_the_page_once` (ten `set_rows`, and `set_rows` + `invalidate_rows(old..new)`, one read each; answered when sent, landed in the turn), `a_last_page_grown_off_screen_reports_nothing`; without `live`, `growing_forgets_the_short_last_page`. `just tall-table test`: every feature set passes.
-- [x] **B3. A fixture pins it:** `paging.json` gains `rows: <n>` and a scenario's `without: [<feature>, …]` (their format in `fixtures/README.md`); base scenarios pin today's drop and cancel, `without: ["live"]`, and pass with `live` off; `live` scenarios pin the kept page (grown while loaded, during its re-read, during its first read, shrunk); the `drop-grown` control fails at least one of them. The existing scenarios and controls pass unchanged, off and on; the TanStack contender's fixture test passes, skipping the steps and features it doesn't build.
-  *Done 2026-10-25:* base scenarios "the short last page grows" (`without: ["live"]`: drop, cancel, re-read; whole pages kept) and "the rows shrink" (both builds); `live` scenarios "a grown last page is kept", "a last page grows during its first read", "a grown last page shrinks"; `drop-grown` fails the first two `live` ones. `paging_scenarios` and `paging_controls_fail` pass off and on; `just observatory fixtures` passes (the contender skips scenarios with a `rows` step).
-- [x] **C1. Off by default, the base unchanged** (as B1, no `follow` symbols in the base); `follow`'s build turns on `live`; `test` and `lint` pass.
-  *Done 2026-10-25, after the code review:* the base 9,680.5 KiB after wasm-opt at `78373bc` and with this part (0 KiB); `seiza_tall_table5state6follow` 0 times in the base, 23 in `follow`'s build; `follow = ["live"]`; `test` (every feature set) and `lint` pass ([`perf/results/2026-10-25-m4-c.md`](perf/results/2026-10-25-m4-c.md)).
-- [x] **C2. Following, natively:** off at open, also with rows that fit the viewport, and rows growing then don't move the view; End, a wheel past the end, a drag released at the end, `jump_to` landing at the end, and `follow()` turn it on; a wheel or key up by any amount turns it off, and rows growing then leave the top where it was; a sideways scroll leaves it on; a drag holds the view under the pointer while rows grow and decides on release; End while rows are still arriving follows them; `Following` is emitted once per change, never while unchanged. The pin: rows arriving don't move the view until their page lands, then it moves to the loaded tail; no placeholder row is drawn while following once the first tail read has landed; an eviction or a failed read never moves it up; `TailDrawn` is emitted once per growth of the drawn tail, at its new end, never when not following. A follow move leaves the direction as it was and starts no settle timer; the visible pages are planned bottom first while following.
-  *Done 2026-10-25:* `fixtures/follow.rs`' `off_at_open_and_growth_never_sets_it`, `the_readers_moves_set_and_clear_it`, `the_view_is_pinned_to_the_loaded_tail`, `the_pin_never_moves_up`, `a_follow_move_is_not_a_scroll`, `not_following_never_emits_tail_drawn`, `a_resize_keeps_the_bottom`; `pages.rs`' `the_loaded_run_ends_at_a_gap_or_a_grown_pages_read`; the drag and bottom-first planning in C3's scenarios.
-- [x] **C3. A fixture pins it:** `paging.json` gains `follow: true` and a step's `following` and `bottom` checks; scenarios: off at open (a small table growing, not following), `follow()` then growth (the tail page read bottom first, the view held at the loaded tail until it lands), a scroll up then growth (nothing new read, not following), a sideways scroll (still following), End while rows arrive (following); `follow-at-end`, `follow-ignores-reader`, `pin-to-rows`, and `top-first` each fail at least one; the rest pass unchanged.
-  *Done 2026-10-25:* nine `follow` scenarios (with a drag's hold and release, `scroll_x` for the sideways scroll, and End, a jump, and a wheel reaching the end over two pages); `follow-at-end` fails five, `follow-ignores-reader` two, `pin-to-rows` three, `top-first` four; `paging_scenarios` and `paging_controls_fail` pass with every feature set; `just observatory fixtures` passes (the contender skips `follow`'s scenarios and controls).
-- [x] **C4. The host uses it, and smoke:** the bare host's `follow` feature runs the tail feed (`?rows=<n>&append=<rows/s>&follow`) and marks `TailDrawn` through the bridge; `just tall-table smoke` with `follow` loads, follows (the tail mark advancing, no placeholder rows once the first tail read lands, its mark right after a presented frame), scrolls up and stays put while rows grow, and follows again at End, in Chromium, Firefox, and WebKit.
-  *Done 2026-10-25, after the code review:* `?rows=1000&append=1000&follow` in each browser: three tail marks right after presented frames, no placeholder row in each mark's own frame (read as the mark is set), held still for 500 ms after a wheel up while ~700 rows arrived, then following again at End (the results note's table). The host also marks each batch as sent (`tall-table:appended`), for D1's append → pixel.
-- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) of `follow` against the base and against `live`; following at 1k, 10k, and 100k rows a second in the narrow shape: append → pixel (`set_rows` → the first `TailDrawn` at or past it), per-frame work, late frames, the share of frames with placeholder rows (expected 0 after the first tail read), reads a second and drained reads, and scroll-back during the feed (a wheel up → the first frame at the new position, and → its rows real); the build with the feed off against the base (within spread); reference and throttled, cold, median of 10, on the final build. In `perf/results/` and the README's Features table.
-- [ ] **D2. Is a first read polled when sent needed?** At 10k rows a second, reference: append → pixel over two frames (33.3 ms) p50 means yes, specced as a part before the close (under `follow`, the base unchanged); otherwise no, noted in `docs/DECISIONS.md`.
-- [ ] **D3. The README:** `follow`'s use (the flag, `follow()` for a log view, `Following` and the host's button, `TailDrawn`, batching appends, the view behind `rows()` by the rows not yet read) and the grown page under `live`; canvas tradeoffs, if any (a screen reader hears no new rows: whether the README's accessibility gap already says it).
-- [ ] **D4. Waiting apps told:** the observatory's "Waiting on" row for `follow` flips to *Ready* (the date and M4), and `follow` joins Tycho's "Ready so far" list.
-
-**Manual check:** by hand in Firefox and Safari (`just tall-table dev follow`, `?append=10000&follow`): the view stays at the tail without placeholders, a scroll up holds still while rows arrive, End returns to it.
+None: M4 (`follow`) closed 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)). Next, M5, `resize`, opened by its research (["Long-term goals"](#long-term-goals)), its spec and checks then written here.
 
 ---
 
@@ -229,7 +169,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 ## Next milestones
 
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M5's (`resize`) is written after its research, which opens it once M4 closes; until then its spec is its row under "Features".
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M5's (`resize`) is written after its research, which opens it now that M4 has closed; until then its spec is its row under "Features".
 
 ---
 
@@ -259,4 +199,5 @@ Not planned; noted 2026-10-24 after the manual check of `custom-cells`. The host
 ## Open questions
 
 - **A shrink by more than a page keeps the whole pages past the new end** (the base's `PageCache::set_rows` looks only at the old last page): grown back, they draw their old rows as loaded, with or without `live`. Found in M4 part B's review; fixing it changes the base (and `paging.json`'s base scenarios), so it waits for a decision on whether a source that shrinks then grows is a case any host has.
+- **More late frames in a throttled wide fling with `follow` built** (found in M4 part D): over 20 runs each, in both orders, ~8% late (median) against the base's ~3.5%, ranges overlapping (base 0.5–9.6%, `follow` 4.0–12.1%), with work per frame, busy time, and placeholders the same; not in the narrow fling or any reference segment. `follow`'s code on that path is a comparison per wheel and an early return per page landing. Worth a trace comparison of the two builds' slow frames before an app adopts `follow` on a slow machine; not a blocker for the feature, whose frame work matches.
 - **Vertical cell borders** (`DataTable`'s `bordered`): the base draws row lines but no column lines. Nobody has asked; a wide sheet of heat cells may want them.

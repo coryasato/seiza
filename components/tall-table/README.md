@@ -42,6 +42,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it.
 - `set_rows(rows, cx)`: the source grew (rows still loading); the scrollbar follows and short pages reload. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
 - `set_columns(columns, cx)`: a column's kind changed.
+- `follow(cx)`, `is_following()` (`follow`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads and starts no more (a table being replaced).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
@@ -54,6 +55,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Scrollbar { track, thumb }`: the vertical scrollbar's bounds, when they change, for scripts that drag it.
 - `Probe`, `Layout` (with `probe_frames(true)`) and `Cells` (with `probe_cells(true)`): what a frame shows, where the cells are, and every drawn cell's exact and shown text, for scripts on a canvas with no DOM.
 - `Refreshed { rows, generation }` (`live`): below.
+- `Following(bool)` and `TailDrawn { rows }` (`follow`): below.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -119,6 +121,24 @@ let price = TallTableColumn::new("price", ColumnKind::Float).flash(
 - **Its cost:** a comparison per invalidated row and flashing column as each re-read lands, off the frame, and the frames themselves while a flash shows (the Features table). Invalidating a whole table (`invalidate_rows(0..rows)`) compares every wanted page's rows.
 - **Probed:** `CellProbe::paint.flash`, the drawn color with its opacity in the alpha. What a DOM implementation must match: [`fixtures/README.md`](fixtures/README.md), `paint.json`'s `flash`.
 
+**Following the tail** (`follow`, off by default, which turns on `live`): a log or a growing file, its new rows kept in view as they arrive.
+
+```rust
+state.update(cx, |table, cx| table.follow(cx)); // a log view: follow from the start
+// As rows arrive, about once a frame:
+state.update(cx, |table, cx| table.set_rows(rows, cx));
+// From the subscription:
+TallTableEvent::Following(false) => { /* show a "back to the tail" button */ }
+TallTableEvent::TailDrawn { rows } => { /* the rows below `rows` are on screen */ }
+```
+
+- **The flag:** off at open. A reader who goes to the end turns it on (End, a wheel or a key that ends there, a scrollbar drag released there, `jump_to` landing there) and so does `follow()`; any vertical move away from the end, by any amount, or `jump_to` elsewhere, turns it off. Sideways scrolling leaves it, and rows arriving or a resize never set it. A scrollbar drag holds the view under the pointer until its release decides. `Following` is emitted once per change.
+- **The view is pinned to the rows read, not to `rows()`:** while following, its bottom is the last row the table has drawn with its values, and it moves on as each read lands, never back. So the view sits behind `rows()` by the rows not yet read, and no placeholder row is drawn once the first tail read has landed. At `follow()`, before a tail read lands, the view goes to `rows()`, as a jump does. A follow move isn't a scroll: it starts no settle timer and leaves the scroll direction as it was. While following, the visible pages are read bottom first.
+- **The tail page grows in place** (`live`'s grown short page, "Live rows", above): its rows stay drawn, and its re-read lands in the turn that asks if the source has the rows in hand, so a batch is usually on screen in the next frame.
+- **`TailDrawn { rows }`** is emitted in the render of each frame whose drawn tail grew while following, as `Filled` is: a host that called `set_rows(n)` takes the first at or past `n` as the frame showing them.
+- **Batch the appends:** one `set_rows` a frame at most. The table plans `set_rows`' reads once at the end of the update, but each call still moves the scrollbar and the pin.
+- **Its cost:** the Features table. Compiled in with nothing growing, it costs nothing a frame.
+
 Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
@@ -129,6 +149,7 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `custom-cells` | A page's paint for a cell: a fill through a color ramp, a bar from a zero point (its own color below zero), a text color, or over a fill the theme's text color that contrasts ("Paint", above) | +3.3 KiB brotli (+10.0 KiB after wasm-opt). Frame work: nothing compiled in but unused; with every visible cell of the wide shape painted, +0.6–0.8 ms a frame (9–12%) at the reference run, no late frames; the text's contrast within the spread | [`perf/results/2026-10-24-m2.md`](perf/results/2026-10-24-m2.md), [`perf/results/2026-10-25-m2-follow-up.md`](perf/results/2026-10-25-m2-follow-up.md) |
 | `live` | Rows a host says changed are read again and redrawn in place, no placeholders, one read per page in flight; `Refreshed` marks the frame ("Live rows", above) | +3.1 KiB brotli (+14.1 KiB after wasm-opt, the bare host's feed included). Update → refreshed frame, a source answering from memory: 7.7–8.1 ms p50 at 1k–50k updates/s (p95 ~24: a batch landing just after a frame waits for the next). Under the feed, ~310 ms of main thread a second, no late frames (throttled: ~620 ms/s, ≤1.2% late). Compiled in, feed off: no frame cost | [`perf/results/2026-10-25-m3-d.md`](perf/results/2026-10-25-m3-d.md) |
 | `live` + `custom-cells` | A changed cell's flash ("A flash", above) | The flash: ~+10 KiB after wasm-opt over each feature alone (+11.3 KiB brotli for both together). Every visible float flashing at 1k–50k updates/s: ~+50 ms of main thread a second, every frame drawn, no late frames; latency 11–13 ms p50 (a batch waits for the next frame). Throttled (4× CPU), it saturates the main thread: 11–13% late frames, re-reads halved | [`perf/results/2026-10-25-m3-d.md`](perf/results/2026-10-25-m3-d.md) |
+| `follow` | The view kept at the tail as `set_rows` grows the rows, until the reader scrolls up; `Following` and `TailDrawn` ("Following the tail", above). Turns on `live` | +3.7 KiB brotli over `live` (+8.9 KiB after wasm-opt; +7.0 brotli over the base, the bare host's tail feed included). Append → pixel, a source answering from memory: 8.2–8.3 ms p50 at 1k and 10k rows/s, 28 at 100k (every batch starts a page); no placeholder frame at any rate; a wheel up during the feed on screen in ~28 ms. Reference: ~320 ms of main thread a second (348 at 100k), no late frames. Throttled (4× CPU): keeps up to 10k (≤1.4% late); at 100k the main thread saturates and the view trails by ~0.3 s, still without placeholders. Compiled in, feed off: no frame cost (late frames in a throttled wide fling an open question) | [`perf/results/2026-10-25-m4-d.md`](perf/results/2026-10-25-m4-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
@@ -144,6 +165,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 - **Text selection and copy:** cells can't be selected or copied. *To close it:* a selection feature, with copy through the browser's clipboard event.
 - **Color alone** (`custom-cells`): a heat map's fill, a bar's length, and a value's color carry meaning that a screen reader can't see either, and that a reader who can't tell the colors apart misses. *Today:* the value's text is always drawn over its paint, so the number is there, and over a fill it takes whichever of the theme's text colors contrasts more (a two-way pick, not a contrast score: a mid-lightness fill can leave either one weak). *To close it:* the DOM mirror above, carrying each cell's paint as text.
 - **A flash says "changed" in color and motion alone** (`live` with `custom-cells`): a screen reader hears nothing of it, a reader who can't tell its colors apart can't tell a rise from a fall, and its full color can sit under the text with little contrast (a red flash under dark text). *Today:* the new value is drawn over it; under `App::reduce_motion` it holds still instead of fading. *To close it:* the DOM mirror above, announcing changes in a live region (politely, and batched: at a market watch's rates, every visible row changes every frame).
+- **New rows arrive silently** (`follow`): a screen reader isn't told that rows arrived or that the view moved, the accessibility gap above. *To close it:* the DOM mirror above, announcing appended rows in a live region (politely, and batched: a busy log appends every frame).
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs

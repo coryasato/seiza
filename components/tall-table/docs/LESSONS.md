@@ -127,3 +127,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - A frame can draw between two reads landing, so one growth can bring more than one `TailDrawn` (a page's first read, then its re-read). The event is right to say so; a host takes the first at or past its count, and the native test checks they only rise.
 - Firefox and WebKit deliver one scripted wheel in several events. The first lets go of the tail, and the rest go on scrolling, which read at first as the view drifting while not following.
 
+
+## M4: `follow` (part D, 2026-10-25)
+
+**Results:** [`perf/results/2026-10-25-m4-d.md`](../perf/results/2026-10-25-m4-d.md).
+
+**Surprises:**
+- A frame's probe, read at its GPU calls, is the frame before's: GPUI delivers the events emitted in render after the draw and present, in the same task. The first scroll-back readings were a frame off until the frame log read the probe in the presenting task's microtask checkpoint (now `shared-web/perf/`'s `presentedRecorder`).
+- A wheel up while following can land below the last frame drawn: a batch can land and the pin move the view down between that frame and the wheel, so "the first frame above where it was" never came. The wheel's frame is the first one no longer following.
+- Wrapping the GPU calls cost more than expected: a trial with the wrapper on through the traced window read ~520 ms/s busy at 100k rows a second against ~320 without. It now runs only in the window that reads presented frames.
+- At 100k rows a second on a 4× slowed CPU, the drawn frames cost what they do at 10k (~26 ms, ~30 a second); what saturates the main thread is the reads, three times as many, each a page the bare host's source builds on the main thread.
+- The `follow` build's throttled wide fling had more late frames than the base's in both orders (median ~8% against ~3.5% over 20 runs each), with the same work per frame and busy time, and nothing in `follow`'s idle path to explain it. Left open.

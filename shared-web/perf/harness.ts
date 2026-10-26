@@ -261,6 +261,60 @@ export async function recordedBetween<S extends object = object>(page: Page, fro
   return frames as RecordedFrame<S>[];
 }
 
+type PresentedGlobal = { __seizaPresented?: RecordedFrame[]; __seizaPresentedStop?: () => void; __seizaFrameSample?: () => object };
+
+/**
+ * Records each presented frame (see `RecordedFrame`) on `__seizaPresented`:
+ * whatever `__seizaFrameSample()` returns in the microtask checkpoint of each
+ * task that makes GPU calls (WebGL2 draws, WebGPU submits), `t` then. GPUI
+ * delivers a frame's events after its draw and present, in the same task, so
+ * an app's state published from them is read there, not at the GPU calls
+ * (the frame before's). Install with `page.evaluate` for the window that
+ * needs it; `stopPresentedRecorder` puts the GPU calls back, so timed and
+ * traced windows carry no wrapper.
+ */
+export function presentedRecorder(): void {
+  const g = globalThis as PresentedGlobal;
+  const frames: RecordedFrame[] = [];
+  g.__seizaPresented = frames;
+  const restore: (() => void)[] = [];
+  let inTask = false;
+  const hook = (proto: object | undefined, names: string[]) => {
+    if (!proto) return;
+    const methods = proto as Record<string, (...args: unknown[]) => unknown>;
+    for (const name of names) {
+      const original = methods[name];
+      if (!original) continue;
+      restore.push(() => (methods[name] = original));
+      methods[name] = function (this: unknown, ...args: unknown[]) {
+        if (!inTask) {
+          inTask = true;
+          queueMicrotask(() => {
+            inTask = false;
+            frames.push({ ...g.__seizaFrameSample?.(), t: performance.now() });
+          });
+        }
+        return original.apply(this, args);
+      };
+    }
+  };
+  hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']);
+  hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit']);
+  g.__seizaPresentedStop = () => restore.forEach((undo) => undo());
+}
+
+/** Puts back the GPU calls `presentedRecorder` wrapped; what it recorded stays. */
+export async function stopPresentedRecorder(page: Pick<Page, 'evaluate'>): Promise<void> {
+  await page.evaluate(() => (globalThis as PresentedGlobal).__seizaPresentedStop?.());
+}
+
+/** Presented frames after page time `after` (see `presentedRecorder`),
+ *  filtered in the page. */
+export async function presentedAfter<S extends object = object>(page: Pick<Page, 'evaluate'>, after: number): Promise<RecordedFrame<S>[]> {
+  const frames = await page.evaluate((after) => ((globalThis as PresentedGlobal).__seizaPresented ?? []).filter((frame) => frame.t > after), after);
+  return frames as RecordedFrame<S>[];
+}
+
 /** The intervals (ms) between consecutive recorded frames. */
 export function frameIntervals(frames: readonly RecordedFrame[]): number[] {
   return frames.slice(1).map((frame, index) => frame.t - frames[index]!.t);

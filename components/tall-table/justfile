@@ -62,6 +62,17 @@ perf *args:
 live *args:
     node {{component_dir}}/perf/live.ts {{args}}
 
+# `follow` in the bare host's release build, cold, median of 10, the tail
+# feed at --rate rows a second (10000) from 1,000 rows, following: append
+# → pixel (a batch sent → the first tail frame drawing it), the presented
+# frames with placeholder rows, reads a second and drained reads; then, in
+# a second window, per-frame work and late frames; then scroll-back during
+# the feed (a wheel up → the first frame there, and → its rows real).
+# --runs, --profile, --seconds, --inputs, --warmup, --label. Run
+# `just tall-table build follow` first.
+follow *args:
+    node {{component_dir}}/perf/follow.ts {{args}}
+
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
 # one). --browsers. Run `just tall-table build` first.
