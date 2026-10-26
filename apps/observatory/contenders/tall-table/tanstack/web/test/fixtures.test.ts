@@ -293,6 +293,10 @@ describe('cells.json', () => {
     // A character more or less of room rounds differently.
     for (const skew of [-1, 1]) assert.notDeepEqual(cellMismatches(skew, exactText), [], `a budget ${skew} passed the cell fixture`);
   });
+
+  // `number_px` and `resize` pin a resized column's budgets: the level is
+  // added only when both sides build resizing (root CLAUDE.md, "Comparison protocol").
+  test('resize', { skip: 'the contender has no column resizing' }, () => {});
 });
 
 // --- sql ---

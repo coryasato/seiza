@@ -34,8 +34,13 @@ const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtur
 /** The fixture's synthetic values, which this script keeps as they are: no
  *  value in the data file is long enough for its column to round it, so
  *  these exercise the rounding at the same budgets (README.md). */
-const rounding = existsSync(fixturePath) ? ((JSON.parse(readFileSync(fixturePath, 'utf8')) as { rounding?: unknown[] }).rounding ?? []) : [];
+const kept = existsSync(fixturePath) ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as { rounding?: unknown[]; number_px?: number; resize?: unknown }) : {};
+const rounding = kept.rounding ?? [];
 if (rounding.length === 0) throw new Error(`no rounding cases in ${fixturePath}: restore them before writing`);
+/** GPUI's widest number advance and the widths it gives budgets at
+ *  (`resize`), kept as they are too: the budgets drawn here must agree. */
+const { number_px: numberPx, resize } = kept;
+if (numberPx === undefined || resize === undefined) throw new Error(`no number_px or resize section in ${fixturePath}: restore them before writing`);
 const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import.meta.url), 'utf8')) as Record<string, { sha256: string }>;
 
 // --- the rows, from native DuckDB ---
@@ -186,6 +191,11 @@ try {
     if (!column || column.kind !== 'float') throw new Error(`the contender lays ${name} out as ${column?.kind ?? 'nothing'}`);
     return { index, ...column };
   });
+  // The table's budget rule (`column.rs`): a pixel short of the room, at the widest number advance.
+  for (const column of floatColumns) {
+    const budget = Math.max(1, Math.floor((column.width - 16 - 1) / numberPx));
+    if (budget !== column.budget) failures.push(`${column.name}: budget ${column.budget} at ${column.width} px, but number_px ${numberPx} gives ${budget}`);
+  }
   const seen = new Set<string>();
   const cells: { column: string; row: number; value: string | null; exact: string; shown: string }[] = [];
   for (const [position, column] of floatColumns.entries()) {
@@ -207,11 +217,13 @@ try {
   }
   fixture = {
     about:
-      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); and synthetic values the same columns round (rounding, kept by it). See README.md.",
+      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); and with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it). See README.md.",
     source: { file: 'apps/observatory/data/asteroids.parquet', sha256: manifest['asteroids.parquet']!.sha256, contender: 'tall-table-gpui, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)' },
+    number_px: numberPx,
     columns: floatColumns.map(({ name, kind, width, budget }) => ({ name, kind, width, budget })),
     cells,
     rounding,
+    resize,
   };
   const rounded = cells.filter((cell) => cell.shown !== cell.exact && cell.value !== null).length;
   // Whether anything in the file rounds: its longest text against its budget.

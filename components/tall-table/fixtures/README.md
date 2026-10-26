@@ -5,7 +5,7 @@ What "the same" means for any other implementation of the table's base level (th
 | File | What it pins | Native test | Written by |
 |---|---|---|---|
 | `paging.json` | Steps on the table → the page requests, in order | `src/state/fixtures.rs` (`paging_scenarios`, `paging_controls_fail`) | Hand, each step's `why` saying where its requests come from |
-| `cells.json` | Each float column's budget, and a value's exact and shown text | `src/state/fixtures.rs` (`cell_text`, `cell_controls_fail`) | `cells`: `just observatory cell-fixture`, from the GPUI contender; `rounding`: hand |
+| `cells.json` | Each float column's budget, and a value's exact and shown text; with `resize`, the budget a set width gives | `src/state/fixtures.rs` (`cell_text`, `cell_controls_fail`); `src/state/fixtures/resize.rs` (`resize_fixture`, `resize_fixture_number_px_gives_the_budgets`, `resize_controls_fail`), with the feature on | `cells`: `just observatory cell-fixture`, from the GPUI contender; `rounding`, `number_px`, and `resize`: hand |
 | `sql.json` | The page SQL and the summary queries, as text | `engines/duckdb/crate/src/tall_table.rs` (`sql_fixture`, `sql_fixture_controls_fail`), where the SQL is written | Hand |
 | `paint.json` | `custom-cells`: a paint value → the colors and the bar's pixels drawn, in light and dark; with `live` too, a change → its flash's color and opacity | `src/state/fixtures/paint.rs` (`paint_fixture`, `paint_fixture_stops_are_the_theme`, `paint_controls_fail`), with the feature on; `src/state/fixtures/flash.rs` (`flash_fixture`, `flash_fade_backwards_fails`, `flash_fall_as_rise_fails`), with both | Cases and stops: hand; `expect`: `just tall-table paint-fixture`, from Chromium |
 
@@ -53,6 +53,10 @@ A step's `following: <bool>` checks the flag after it, and `bottom: <row>` the e
 `cells` are values from the data file as the contender drew them: `column`, `row` (0-based, in file order), `value` (its shortest round-trip text, as JS's `String` writes it, or `null` for NULL), `exact` (the table's exact text, Rust's `{:?}`: `8.0` where JS writes `8`, and the tooltip's text), and `shown` (the cell's text). No value in the data file is too long for its column, so none is rounded there; `rounding` holds values that are, at the same columns' budgets, each with a `why` naming the case.
 
 `cell_controls_fail` checks that each of these fails the fixture: a float's text written without the `.0` of a whole number (Rust's `Display`, as JS's `toString` does), and each budget a character smaller or larger.
+
+`number_px` is GPUI's widest advance of the characters a number is written with (`0123456789.-+e`), in CSS px, at the cells' 14 px IBM Plex Sans: 8.4 (its digits' 600 units of 1000). A float column's budget at width `w` is `max(1, floor((w − 17) / number_px))`: the cell's 16 px of padding and a pixel short of the room. A DOM contender can't measure GPUI's advance, so a resized column takes its budget from this rule. The native test checks it gives each of `columns`' budgets; `cell-fixture.ts` keeps it and fails if the contender's budgets disagree.
+
+`resize` (with `resize`) pins a set width's budget and text. `min_width` and `max_width` are the column defaults (40 and 1200 px) a set width is clamped to. `widths` are a float column's `set` width (`TallTableColumn::width`) → the `width` it's drawn at and its `budget`, at and past both clamps, each with a `why`. `cells` are values at a `set` width, with their `exact` and `shown` text as `rounding`'s are. `resize_controls_fail` checks that each budget a character smaller or larger, and widths laid out without the clamps, fail it. A DOM contender without resizing skips the section (the TanStack contender's test names it skipped).
 
 ## `sql.json`
 

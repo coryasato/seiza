@@ -31,6 +31,11 @@ mod live;
 #[cfg(feature = "follow")]
 mod follow;
 
+/// `cells.json`'s `resize` section, and the bands, the drag, and the fit
+/// in a window.
+#[cfg(feature = "resize")]
+mod resize;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
@@ -243,7 +248,7 @@ const CHECKS: [&str; 4] = ["expect", "why", "following", "bottom"];
 fn run_scenario(
     cx: &mut TestAppContext,
     paging: Paging,
-    #[cfg_attr(not(feature = "live"), expect(unused_variables))] control: Option<Wrong>,
+    control: Option<Wrong>,
     scenario: &Value,
 ) -> Result<(), String> {
     let name = scenario["name"].as_str().unwrap_or("?");

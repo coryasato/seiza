@@ -27,3 +27,6 @@ live = []
 # scrolls up (`TallTableState::follow`, `TallTableEvent::Following`,
 # `TallTableEvent::TailDrawn`). A grown tail page is kept by `live`.
 follow = ["live"]
+# A column's width dragged at its header edge, and fitted by a double-click
+# (`TallTableColumn::width`, `TallTableEvent::ColumnWidthsChanged`).
+resize = []

@@ -148,3 +148,16 @@ One entry per milestone part, written before starting the next one: what surpris
 - The pin moved under the inventory: gpui-component 0.8.0 added a double-click fit (`fit_col`) that the 0.7.3 reading never saw. Each feature's research re-reads `DataTable` at the current pin.
 - `DataTable`'s width rule (pointer minus the column's left) assumes the scroll never moves under a drag. On a table scrolled to its right end, a narrowing shrinks the content and the scroll clamps, so the columns would slide under the pointer. Anchoring at the press and holding the scroll until the release avoids it.
 - Resizing reaches cell text, not just layout: a float's rounding is a function of its width, so a DOM contender at a resized width needs GPUI's glyph advance, which `cells.json` never had to carry while widths were fixed.
+
+## M5: `resize` (part B, 2026-10-26)
+
+**Results:** none measured beyond B1's size check (its numbers in `PLAN.md`); the cost is part D's.
+
+**Surprises:**
+- GPUI's test text system gives every character 0.6 em, 8.4 px at the cells' 14 px, which is exactly IBM Plex Sans's digit advance (600 of 1000 units). The native fit and budget tests read the same numbers a browser does.
+- Fitting a numeric column to `chars × number_px + 17` can floor a character off its own budget: the product and the division back in f32 don't round-trip. The fit rounds up to a whole pixel.
+- A drag that moved out and back would have set a width equal to the kind's and emitted a change nobody could see. Comparing widths to catch it failed in f32 (`width + dx − dx` drifts for a fractional integer column's width, which the code review caught); comparing the pointer's x with the press's works.
+- A kind's width is never clamped, but a drag's is, so the first version jumped a 31.5 px integer column to the 40 px min on a *narrowing* move. A column outside its bounds now holds until the pointer brings it in.
+- The table's own drag starts at the press, so the double-click's second press needs no "ignored until the next press" flag, as `DataTable`'s typed drag does: it fits and starts nothing.
+- The test build with every feature off had carried an unfulfilled `expect(unused_variables)` in the paging fixture since `follow`: lint never compiles the tests without features.
+

@@ -1,10 +1,11 @@
 {
-  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); and synthetic values the same columns round (rounding, kept by it). See README.md.",
+  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); and with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it). See README.md.",
   "source": {
     "file": "apps/observatory/data/asteroids.parquet",
     "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
     "contender": "tall-table-gpui, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)"
   },
+  "number_px": 8.4,
   "columns": [
     {
       "name": "H",
@@ -1909,5 +1910,97 @@
       "shown": "1e21",
       "why": "exact text that fits stays"
     }
-  ]
+  ],
+  "resize": {
+    "min_width": 40,
+    "max_width": 1200,
+    "widths": [
+      {
+        "set": 10,
+        "width": 40,
+        "budget": 2,
+        "why": "below the min: clamped up to it"
+      },
+      {
+        "set": 40,
+        "width": 40,
+        "budget": 2,
+        "why": "at the min: two characters"
+      },
+      {
+        "set": 60,
+        "width": 60,
+        "budget": 5,
+        "why": "narrowed"
+      },
+      {
+        "set": 120,
+        "width": 120,
+        "budget": 12,
+        "why": "a float's kind width, set"
+      },
+      {
+        "set": 200,
+        "width": 200,
+        "budget": 21,
+        "why": "widened"
+      },
+      {
+        "set": 1200,
+        "width": 1200,
+        "budget": 140,
+        "why": "at the max"
+      },
+      {
+        "set": 5000,
+        "width": 1200,
+        "budget": 140,
+        "why": "past the max: clamped down to it"
+      }
+    ],
+    "cells": [
+      {
+        "set": 40,
+        "value": "45.12345678901234",
+        "exact": "45.12345678901234",
+        "shown": "5e1",
+        "why": "at the min, the magnitude alone (wider than its budget: GPUI cuts it)"
+      },
+      {
+        "set": 60,
+        "value": "45.12345678901234",
+        "exact": "45.12345678901234",
+        "shown": "45.12",
+        "why": "narrowed: decimals cut to the budget"
+      },
+      {
+        "set": 60,
+        "value": "1234567.891",
+        "exact": "1234567.891",
+        "shown": "1.2e6",
+        "why": "narrowed: an integer part past the budget goes to exponent form"
+      },
+      {
+        "set": 60,
+        "value": "-0.000123456789",
+        "exact": "-0.000123456789",
+        "shown": "-1e-4",
+        "why": "narrowed: a small value goes to exponent form"
+      },
+      {
+        "set": 200,
+        "value": "45.12345678901234",
+        "exact": "45.12345678901234",
+        "shown": "45.12345678901234",
+        "why": "widened: every digit fits"
+      },
+      {
+        "set": 200,
+        "value": "0.3333333333333333",
+        "exact": "0.3333333333333333",
+        "shown": "0.3333333333333333",
+        "why": "widened: a value rounded at the kind's width shown whole"
+      }
+    ]
+  }
 }

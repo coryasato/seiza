@@ -43,6 +43,8 @@ const FEATURES: Record<string, string> = {
   'live,custom-cells': 'seiza_tall_table5flash',
   // Following: the state's `follow` module.
   follow: 'seiza_tall_table5state6follow',
+  // Resizing: the state's `resize` module.
+  resize: 'seiza_tall_table5state6resize',
 };
 
 /** A feature that turns on another is measured against it too: `follow`

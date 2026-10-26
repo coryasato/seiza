@@ -290,6 +290,14 @@ pub enum TallTableEvent {
     /// past `n`.
     #[cfg(feature = "follow")]
     TailDrawn { rows: u64 },
+    /// A drag released or a fit changed a width (`resize`): each column's
+    /// set width (by the host's [`TallTableColumn::width`], a drag, or a
+    /// fit), `None` where it's still its kind's, in the order of
+    /// [`TallTableState::columns`], for a host to keep (by column name, if
+    /// its columns change) and give back through `width`. Not emitted while
+    /// a drag moves, or when nothing changed.
+    #[cfg(feature = "resize")]
+    ColumnWidthsChanged(Vec<Option<Pixels>>),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -333,6 +341,10 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The body (rows and scrollbars), measured each frame.
     body: Bounds<Pixels>,
     drag: Option<Drag>,
+    /// A column's edge being dragged (`resize`): not a [`Drag`], which
+    /// holds page reads as a scroll's are.
+    #[cfg(feature = "resize")]
+    resizing: Option<resize::Resizing>,
     /// While a scrollbar drag moves, page loads wait for the pointer to rest
     /// ([`Paging::drag_settle`]); this is that wait.
     drag_settle: Option<Task<()>>,
@@ -418,6 +430,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             paging,
             body: Bounds::default(),
             drag: None,
+            #[cfg(feature = "resize")]
+            resizing: None,
             drag_settle: None,
             #[cfg(feature = "live")]
             drag_resting: true,
@@ -584,8 +598,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// Replaces the columns (a column's kind changed, say). Pages already
     /// loaded keep their values.
+    ///
+    /// With `resize`, the widths are what `columns` set
+    /// ([`TallTableColumn::width`]): a host keeping widths passes them back.
+    /// A column drag in progress ends, with no event.
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         self.column_info = columns;
+        #[cfg(feature = "resize")]
+        {
+            self.resizing = None;
+        }
         self.lay_out();
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         {
@@ -691,8 +713,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         (f32::from(self.viewport().width) - self.gutter_width()).max(0.0)
     }
 
+    /// The cells' width, laid out; with `resize`, held during a column
+    /// drag ([`TallTableState::held_content`]).
+    fn content_width(&self) -> f32 {
+        #[cfg(feature = "resize")]
+        let width = self.held_content(self.content_width);
+        #[cfg(not(feature = "resize"))]
+        let width = self.content_width;
+        width
+    }
+
     fn max_scroll_x(&self) -> f32 {
-        (self.content_width - self.cells_width()).max(0.0)
+        (self.content_width() - self.cells_width()).max(0.0)
     }
 
     fn set_body(&mut self, body: Bounds<Pixels>, cx: &mut Context<Self>) {
@@ -735,6 +767,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             let reach = if rows > 0.0 { Reach::Down } else { Reach::Up };
             self.reader_moved(reach, self.scroll.top() + rows, cx);
         }
+        // A column drag holds the sideways scroll until its release.
+        #[cfg(feature = "resize")]
+        let x = if self.resizing.is_some() { 0.0 } else { x };
         let moved = self.scroll.scroll_by(rows);
         let scroll_x = (self.scroll_x + x).clamp(0.0, self.max_scroll_x());
         let moved_x = scroll_x != self.scroll_x;
@@ -1044,7 +1079,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         scroll::thumb(
             self.cells_width(),
             f64::from(self.cells_width()),
-            f64::from(self.content_width),
+            f64::from(self.content_width()),
             if max > 0.0 {
                 f64::from(self.scroll_x / max)
             } else {
@@ -1123,6 +1158,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// delay or, while a tooltip shows (or just went), is looked at at once.
     /// Nothing redraws until the pointer has rested.
     fn hover_at(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        // No tooltip during a column drag.
+        #[cfg(feature = "resize")]
+        if self.resizing.is_some() {
+            return;
+        }
         let cell = self.cell_at(position);
         if cell == self.hover.as_ref().map(|hover| (hover.row, hover.column)) {
             return;
@@ -1219,22 +1259,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         let exact = value.to_string();
         let shown = cell_text(laid_out, value);
-        let cut = shown == exact && {
-            let run = TextRun {
-                len: shown.len(),
-                font: self.glyphs.font.clone(),
-                color: black(),
-                background_color: None,
-                underline: None,
-                strikethrough: None,
-            };
-            // `shown` has no line breaks (`cell_text`): `shape_line` asserts so.
-            let width = window
-                .text_system()
-                .shape_line(shown.clone().into(), self.glyphs.font_size, &[run], None)
-                .width;
-            f32::from(width) > laid_out.width - CELL_PADDING
-        };
+        // `shown` has no line breaks (`cell_text`).
+        let cut = shown == exact
+            && self.text_width(shown.clone().into(), window) > laid_out.width - CELL_PADDING;
         if shown == exact && !cut {
             return None;
         }
@@ -1258,6 +1285,24 @@ impl<D: TallTableDelegate> TallTableState<D> {
         .shadow_lg()
         .build(window, cx);
         Some((text, view))
+    }
+
+    /// `text`'s width in the cells' font, shaped as GPUI draws it. One
+    /// line: `shape_line` asserts there's no `\n`.
+    fn text_width(&self, text: SharedString, window: &Window) -> f32 {
+        let run = TextRun {
+            len: text.len(),
+            font: self.glyphs.font.clone(),
+            color: black(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let width = window
+            .text_system()
+            .shape_line(text, self.glyphs.font_size, &[run], None)
+            .width;
+        f32::from(width)
     }
 
     /// The hovered cell's tooltip, beside the cell, above everything.
@@ -1711,6 +1756,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             }
                             this.report_scrollbar(bounds, cx);
                         });
+                        // The resize cursor wherever a column drag goes.
+                        #[cfg(feature = "resize")]
+                        if entity.read(cx).resizing.is_some() {
+                            window.set_window_cursor_style(CursorStyle::ResizeColumn);
+                        }
                         // Registered every frame, not only once a drag has
                         // started: a quick click on the track delivers the
                         // press and the release before the next paint, and a
@@ -1720,6 +1770,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 moving.update(cx, |this, cx| {
+                                    #[cfg(feature = "resize")]
+                                    if this.resizing.is_some() {
+                                        if event.pressed_button == Some(MouseButton::Left) {
+                                            this.resize_to(event.position.x, cx);
+                                        } else {
+                                            this.end_resize(cx);
+                                        }
+                                        return;
+                                    }
                                     if this.drag.is_none() {
                                         return;
                                     }
@@ -1737,6 +1796,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 releasing.update(cx, |this, cx| {
+                                    #[cfg(feature = "resize")]
+                                    this.end_resize(cx);
                                     if this.drag.is_some() {
                                         this.end_drag(cx);
                                     }
@@ -1948,6 +2009,8 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         }
         self.decide_tooltip(window, cx);
         let header = self.render_header(cx);
+        #[cfg(feature = "resize")]
+        let header = header.child(self.render_bands(cx));
         let body = self.render_body(cx);
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         if self.flashes.animating {
@@ -1972,6 +2035,10 @@ mod fixtures;
 /// `follow`: the flag, the pin, and the tail drawn.
 #[cfg(feature = "follow")]
 mod follow;
+
+/// `resize`: the bands, the column drag, and the fit.
+#[cfg(feature = "resize")]
+mod resize;
 
 #[cfg(test)]
 mod tests {
