@@ -23,3 +23,7 @@ custom-cells = []
 # Rows a host says changed are read again and redrawn in place
 # (`TallTableState::invalidate_rows`, `TallTableEvent::Refreshed`).
 live = []
+# The view follows the tail as `set_rows` grows the rows, until the reader
+# scrolls up (`TallTableState::follow`, `TallTableEvent::Following`,
+# `TallTableEvent::TailDrawn`). A grown tail page is kept by `live`.
+follow = ["live"]

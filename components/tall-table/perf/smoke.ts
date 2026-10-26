@@ -8,7 +8,11 @@
 // (`?live=1000`): re-read rows draw, and the refreshed mark lands right
 // after a presented frame (shared-web/perf/'s `presentedMark`). Built with
 // both, the drawn cells' text changes under the feed, and once more with
-// `?flash`, flashes are drawn.
+// `?flash`, flashes are drawn. Built with `follow`, it runs the narrow shape
+// with the tail feed (`?rows=1000&append=1000&follow`): the tail mark
+// advances right after presented frames with no placeholder row drawn, a
+// wheel up lets go and the view stays put while rows arrive, and End
+// follows again.
 // Headless, so it stands in for the scripted half of a manual check; how it
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
@@ -20,7 +24,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, SHAPES, builtFeatures, drawnCells, filledWhere, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, TAIL_MARK, SHAPES, builtFeatures, drawnCells, filledWhere, hostWebDir, pixel, shown, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -33,6 +37,12 @@ const LIVE_RATE = 1000;
 /** Refreshed marks checked against the frame they follow. */
 const LIVE_MARKS = 3;
 const live = builtFeatures().includes('live');
+/** The tail feed in the `follow` run: rows at open, rows a second. */
+const TAIL_ROWS = 1000;
+const TAIL_RATE = 1000;
+/** Tail marks checked against the frame they follow. */
+const TAIL_MARKS = 3;
+const follow = builtFeatures().includes('follow');
 /** Both: the cell probe shows the feed's changes, and `?flash` runs. */
 const flashing = live && painted.length > 0;
 
@@ -69,6 +79,95 @@ async function checkLive(page: Page, label: string, flash: boolean): Promise<str
     if (flash) cells += `, ${flashes}/${after.length} cells flashing`;
   }
   return `, refreshed to generation ${generation} (${marks[0]})${cells}`;
+}
+
+/** How long a wheel's view may take to rest before the check gives up. */
+const REST_MS = 2_000;
+
+/** What the frame before each tail mark drew: the tail global and the
+ *  probe's placeholder rows. */
+type TailMark = { at: number; tail: number; pending: number };
+
+/** An init script: records `TailMark`s on `__tailMarks`, read in the
+ *  microtask that sets each `tall-table:tail` mark (seiza's
+ *  `mark_after_current_task`, right after the task that drew the frame,
+ *  before another can draw). Its names are `TAIL_MARK` and `TAIL_GLOBAL`
+ *  written out: an init script is sent as text. */
+function tailRecorder(): void {
+  const marks: { at: number; tail: number; pending: number }[] = [];
+  const page = globalThis as unknown as Record<string, unknown>;
+  page.__tailMarks = marks;
+  const mark = Performance.prototype.mark;
+  Performance.prototype.mark = function (this: Performance, ...args: Parameters<Performance['mark']>) {
+    const entry = mark.apply(this, args);
+    if (args[0] === 'tall-table:tail') {
+      const shown = page.__tallTable as { pending: number } | undefined;
+      marks.push({ at: entry.startTime, tail: (page.__tallTableTail as number | undefined) ?? 0, pending: shown?.pending ?? -1 });
+    }
+    return entry;
+  };
+}
+
+/** Global `name` on the page. */
+async function global<T>(page: Page, name: string): Promise<T | undefined> {
+  return page.evaluate((name) => (globalThis as Record<string, unknown>)[name] as T | undefined, name);
+}
+
+/** The view follows `count` more tail marks, each right after a presented
+ *  frame, the tail each one's frame drew further on than the last, and no
+ *  placeholder row in those frames (`tailRecorder`). Returns the last
+ *  mark's time and tail. */
+async function followsTail(page: Page, label: string, since: number, count: number): Promise<{ at: number; tail: number }> {
+  let at = since;
+  let tail = 0;
+  for (let index = 0; index < count; index++) {
+    at = await waitMark(page, TAIL_MARK, at + 0.001, 10_000);
+    const recorded = (await global<TailMark[]>(page, '__tailMarks'))?.find((entry) => entry.at === at);
+    if (!recorded) {
+      failures.push(`${label}: tail mark ${index + 1} at ${at.toFixed(1)} ms wasn't recorded`);
+      continue;
+    }
+    if (recorded.tail <= tail) failures.push(`${label}: tail mark ${index + 1} drew the tail at ${recorded.tail}, not past ${tail}`);
+    if (recorded.pending) failures.push(`${label}: tail mark ${index + 1}'s frame drew ${recorded.pending} placeholder rows`);
+    tail = recorded.tail;
+    const presented = await presentedMark(page, at);
+    if (!presented.ok) failures.push(`${label}: tail mark ${index + 1}: ${presented.detail}`);
+  }
+  return { at, tail };
+}
+
+/** With the tail feed: it follows, a wheel up lets go and holds the view
+ *  while rows arrive, and End follows again. */
+async function checkFollow(page: Page, label: string, layout: Layout): Promise<string> {
+  if ((await global<boolean>(page, FOLLOWING_GLOBAL)) !== true) failures.push(`${label}: not following at open with ?follow`);
+  const first = await followsTail(page, label, 0, TAIL_MARKS);
+  // A wheel up: following stops, and the view holds while rows arrive.
+  await page.mouse.move(layout.left + 200, layout.top + 200);
+  await wheel(page, -10 * layout.rowHeight);
+  await page.waitForFunction((name) => (globalThis as Record<string, unknown>)[name] === false, FOLLOWING_GLOBAL, { timeout: 10_000, polling: 10 });
+  // Firefox and WebKit deliver one scripted wheel in parts: the view is
+  // the reader's until it rests.
+  let held = (await shown(page)).shown;
+  for (let waited = 0; ; waited += 200) {
+    if (waited >= REST_MS) {
+      failures.push(`${label}: the view still moving ${REST_MS} ms after a wheel up (top ${held.top})`);
+      break;
+    }
+    await page.waitForTimeout(200);
+    const now = (await shown(page)).shown;
+    if (now.top === held.top) break;
+    held = now;
+  }
+  await page.waitForTimeout(500);
+  const later = (await shown(page)).shown;
+  if (later.top !== held.top) failures.push(`${label}: the view moved from ${held.top} to ${later.top} after a wheel up`);
+  if (later.rows <= held.rows) failures.push(`${label}: no rows arrived while let go (${held.rows} → ${later.rows})`);
+  // End: following again, the tail mark advancing past where it was.
+  await page.keyboard.press('End');
+  await page.waitForFunction((name) => (globalThis as Record<string, unknown>)[name] === true, FOLLOWING_GLOBAL, { timeout: 10_000, polling: 10 });
+  const back = await followsTail(page, `${label} (End)`, await page.evaluate(() => performance.now()), TAIL_MARKS);
+  if (back.tail <= later.rows - TAIL_RATE) failures.push(`${label}: after End the tail drawn ${back.tail} is behind the rows (${later.rows})`);
+  return `, followed to ${first.tail}, held at ${held.top.toFixed(1)} while ${later.rows - held.rows} rows arrived, followed again to ${back.tail}`;
 }
 
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
@@ -124,28 +223,32 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined, feed: false, flash: false }, ...painted.map((cells) => ({ shape, cells, feed: false, flash: false }))]);
-    if (live) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: false });
-    if (flashing) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: true });
-    for (const { shape, cells, feed, flash } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}`;
+    const runs = SHAPES.flatMap((shape) => [{ shape, cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false }, ...painted.map((cells) => ({ shape, cells, feed: false, flash: false, tail: false }))]);
+    if (live) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: false, tail: false });
+    if (flashing) runs.push({ shape: 'narrow', cells: undefined, feed: true, flash: true, tail: false });
+    if (follow) runs.push({ shape: 'narrow', cells: undefined, feed: false, flash: false, tail: true });
+    for (const { shape, cells, feed, flash, tail } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}`;
       const params: Record<string, string> = { shape };
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
       if (feed) params.live = String(LIVE_RATE);
       if (feed && flashing) params['probe-cells'] = '';
       if (flash) params.flash = '';
+      if (tail) Object.assign(params, { rows: String(TAIL_ROWS), append: String(TAIL_RATE), follow: '' });
       let session: Awaited<ReturnType<typeof open>> | null = null;
       try {
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, server.url, { params, init: feed ? [firstDrawProbe, presentingTaskRecorder] : [firstDrawProbe] });
+        session = await open(engine, server.url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : [firstDrawProbe] });
         const { page } = session;
         const first = await waitMark(page, FIRST_FRAME_MARK);
         const filled = await waitMark(page, FILLED_MARK);
         const { shown: start, layout } = await shown(page);
         const api = await page.evaluate(() => (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? 'none');
+        // At the tail already: the tail run checks its own moves.
+        const followed = tail ? await checkFollow(page, label, layout) : '';
         await page.mouse.move(layout.left + 200, layout.top + 200);
-        await wheel(page, 40 * layout.rowHeight);
-        const down = await filledWhere(page, `s.first >= ${start.first + 30}`);
+        if (!tail) await wheel(page, 40 * layout.rowHeight);
+        const down = tail ? (await shown(page)).shown : await filledWhere(page, `s.first >= ${start.first + 30}`);
         let sideways = '';
         if (shape === 'wide') {
           await wheel(page, 0, 3_000);
@@ -155,7 +258,7 @@ try {
         const paint = cells ? await checkPaint(page, cells, shape, layout, label) : '';
         const refreshed = feed ? await checkLive(page, label, flash) : '';
         if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
-        console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api}), ${start.rows} rows, ${layout.columns.length} columns, rows ${start.first}–${start.end} → ${down.first}–${down.end}${sideways}${paint}${refreshed}`);
+        console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api}), ${start.rows} rows, ${layout.columns.length} columns, rows ${start.first}–${start.end} → ${down.first}–${down.end}${sideways}${paint}${refreshed}${followed}`);
       } catch (error) {
         failures.push(`${label}: ${(error as Error).message.split('\n')[0]}`);
       } finally {

@@ -20,6 +20,8 @@ use crate::pages::{Direction, PageCache, RowState};
 use crate::paint;
 use crate::probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
 use crate::scroll::{self, RowScroll};
+#[cfg(feature = "follow")]
+use follow::Reach;
 
 actions!(
     seiza_tall_table,
@@ -278,6 +280,16 @@ pub enum TallTableEvent {
         rows: std::ops::Range<u64>,
         generation: u64,
     },
+    /// Following started (`true`) or stopped (`follow`): for a host's "back
+    /// to the tail" button.
+    #[cfg(feature = "follow")]
+    Following(bool),
+    /// While following, the drawn tail grew (`follow`): every row below
+    /// `rows` is drawn with its values. Emitted while the frame renders, as
+    /// `Filled` is; a host that called `set_rows(n)` takes the first at or
+    /// past `n`.
+    #[cfg(feature = "follow")]
+    TailDrawn { rows: u64 },
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -353,9 +365,18 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The cells flashing for a change (`live` with `custom-cells`).
     #[cfg(all(feature = "live", feature = "custom-cells"))]
     pub(crate) flashes: Flashes,
+    /// Following the end (`follow`): set and cleared by the reader's moves.
+    #[cfg(feature = "follow")]
+    following: bool,
+    /// The end of the highest tail [`TallTableEvent::TailDrawn`] reported.
+    #[cfg(feature = "follow")]
+    tail_drawn: u64,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
+    /// The paging fixture's `follow` negative controls.
+    #[cfg(all(test, feature = "follow"))]
+    pub(crate) follow_control: follow::Control,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -412,8 +433,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
             marked: None,
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             flashes: Flashes::default(),
+            #[cfg(feature = "follow")]
+            following: false,
+            #[cfg(feature = "follow")]
+            tail_drawn: 0,
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
+            #[cfg(all(test, feature = "follow"))]
+            follow_control: follow::Control::None,
         };
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         table.track_flashes();
@@ -466,6 +493,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// allows, and highlights it.
     pub fn jump_to(&mut self, row: u64, cx: &mut Context<Self>) {
         self.marked = Some(row);
+        // Decided before the move, so its reads are planned the way
+        // following plans them.
+        #[cfg(feature = "follow")]
+        self.reader_moved(Reach::Land, row as f64, cx);
         self.move_top_to(row as f64, cx);
         // The highlight moved even if the rows didn't.
         cx.notify();
@@ -480,6 +511,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// page is (never cancelled for growing); the reads start once the
     /// update that called this ends, one plan for every `set_rows` and
     /// [`TallTableState::invalidate_rows`] in it.
+    ///
+    /// With `follow`, while following, the view moves on only as the new
+    /// rows' reads land ([`TallTableState::follow`]).
     pub fn set_rows(&mut self, rows: u64, cx: &mut Context<Self>) {
         let top = self.scroll.top();
         self.scroll.set_rows(rows);
@@ -488,6 +522,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         if let Some(request) = self.cache.set_rows(rows) {
             self.delegate.cancel(request, cx);
+        }
+        // Shrunk below the drawn tail: rows past it can be drawn again.
+        #[cfg(feature = "follow")]
+        {
+            self.tail_drawn = self.tail_drawn.min(rows);
+            self.pin_to_tail(cx);
         }
         #[cfg(feature = "live")]
         self.load_after_update(cx);
@@ -662,7 +702,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.body = body;
         let rows = f64::from(f32::from(self.viewport().height) / f32::from(row_height()));
         let before = (self.scroll.top(), self.scroll_x);
+        #[cfg(feature = "follow")]
+        let bottom = self.scroll.top() + self.scroll.viewport_rows();
         let resized = self.scroll.set_viewport_rows(rows);
+        // Following: the bottom stays where it was, then the pin moves it
+        // on to the loaded tail.
+        #[cfg(feature = "follow")]
+        if resized && self.is_following() && !matches!(self.drag, Some(Drag::Vertical { .. })) {
+            self.scroll.set_top(bottom - rows);
+            self.pin_to_tail(cx);
+        }
         self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
         // The cells moved under a still pointer (a resize clamped the
         // scroll), or the window did.
@@ -677,6 +726,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// Scrolls by `rows` (positive is down) and `x` pixels.
     fn scroll_by(&mut self, rows: f64, x: f32, cx: &mut Context<Self>) {
+        // Decided before the move, so its reads are planned the way
+        // following plans them. A move more sideways than vertical (a
+        // trackpad's sideways swipe, a little vertical in it) leaves
+        // following as it is.
+        #[cfg(feature = "follow")]
+        if rows != 0.0 && f64::from(x.abs()) <= (rows * f64::from(f32::from(row_height()))).abs() {
+            let reach = if rows > 0.0 { Reach::Down } else { Reach::Up };
+            self.reader_moved(reach, self.scroll.top() + rows, cx);
+        }
         let moved = self.scroll.scroll_by(rows);
         let scroll_x = (self.scroll_x + x).clamp(0.0, self.max_scroll_x());
         let moved_x = scroll_x != self.scroll_x;
@@ -698,8 +756,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
+    /// Home, End, and the thumb dragged or pressed to `fraction`: a drag
+    /// holds following until it's released.
     fn scroll_to_fraction(&mut self, fraction: f64, cx: &mut Context<Self>) {
-        self.move_top_to(fraction.clamp(0.0, 1.0) * self.scroll.max_top(), cx);
+        let top = fraction.clamp(0.0, 1.0) * self.scroll.max_top();
+        #[cfg(feature = "follow")]
+        self.reader_moved(
+            if fraction <= 0.0 {
+                Reach::Up
+            } else {
+                Reach::Land
+            },
+            top,
+            cx,
+        );
+        self.move_top_to(top, cx);
     }
 
     /// Moves the top row to `top` (clamped), leaning prefetch the way it went.
@@ -762,20 +833,35 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     fn end_drag(&mut self, cx: &mut Context<Self>) {
+        #[cfg(feature = "follow")]
+        let vertical = matches!(self.drag, Some(Drag::Vertical { .. }));
         self.drag = None;
+        // The release decides: following if it let go at the end.
+        #[cfg(feature = "follow")]
+        let pinned = vertical && {
+            self.reader_moved(Reach::Land, self.scroll.top(), cx);
+            self.pin_to_tail(cx)
+        };
+        #[cfg(not(feature = "follow"))]
+        let pinned = false;
         #[cfg(feature = "live")]
         {
             self.drag_resting = true;
         }
-        if self.drag_settle.take().is_some() {
+        if self.drag_settle.take().is_some() || pinned {
             self.load_pages(cx);
         }
         cx.notify();
     }
 
     fn wanted(&self) -> Vec<u64> {
-        self.cache
-            .wanted(self.scroll.visible(), self.direction, self.paging.prefetch)
+        #[cfg_attr(not(feature = "follow"), expect(unused_mut))]
+        let mut wanted =
+            self.cache
+                .wanted(self.scroll.visible(), self.direction, self.paging.prefetch);
+        #[cfg(feature = "follow")]
+        self.tail_first(&mut wanted, self.cache.visible_pages(self.scroll.visible()));
+        wanted
     }
 
     /// Sends the reads the viewport needs and cancels the ones it doesn't.
@@ -831,6 +917,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 self.cache.loaded(page, request, rows, bytes, wanted);
             }
             cx.notify();
+            // Following: the pin moves on to the rows landed, and the new
+            // view's pages are wanted instead.
+            #[cfg(feature = "follow")]
+            let pinned = self.pin_and_want(cx);
+            #[cfg(feature = "follow")]
+            let wanted = pinned.as_deref().unwrap_or(wanted);
             // Pages stale again (or still waiting for a slot) are read now,
             // unless a drag moved on.
             if self.drag.is_none() || self.drag_resting {
@@ -849,7 +941,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if self.closed {
             return;
         }
-        let wanted = self.wanted();
+        #[cfg_attr(not(feature = "follow"), expect(unused_mut))]
+        let mut wanted = self.wanted();
         match result {
             Ok(rows) => {
                 #[cfg(all(feature = "live", feature = "custom-cells"))]
@@ -867,6 +960,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     cx.emit(TallTableEvent::ReadFailed);
                 }
             }
+        }
+        // Following: the pin moves on to the rows landed.
+        #[cfg(feature = "follow")]
+        if let Some(pinned) = self.pin_and_want(cx) {
+            wanted = pinned;
         }
         // A drag still moving: its settle loads what's next. Without it, a
         // read landing (one is nearly always out under a feed) would start
@@ -1486,6 +1584,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             !visible.is_empty() && loaded == visible.end - visible.start
         };
         self.track_filled(filled, cx);
+        #[cfg(feature = "follow")]
+        if filled {
+            self.note_tail_drawn(visible.end, cx);
+        }
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         self.after_flashes(flash_now, flash_drawn, reduce_motion, cx);
         #[cfg(feature = "live")]
@@ -1866,6 +1968,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
 /// so it drives the state's own scroll, drag, and paging paths.
 #[cfg(test)]
 mod fixtures;
+
+/// `follow`: the flag, the pin, and the tail drawn.
+#[cfg(feature = "follow")]
+mod follow;
 
 #[cfg(test)]
 mod tests {

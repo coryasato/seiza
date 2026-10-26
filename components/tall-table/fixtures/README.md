@@ -13,12 +13,13 @@ What "the same" means for any other implementation of the table's base level (th
 
 ## `paging.json`
 
-`paging` is the table's `Paging::default()` (the test fails if they part), in the units a TS side uses: `page_rows`, `prefetch`, `budget_bytes`, `max_in_flight`, `scroll_settle_ms`, `drag_settle_ms`. Each scenario has `rows`, `viewport_rows` (the rows the viewport holds, fractional), `page_bytes` (what every answered page counts against `budget_bytes`), `steps`, and maybe `features`, the table's features it needs (`live`), run only by a build with them, and `without`, the features under which it's skipped (the base's drop of a grown page holds only without `live`). A step has one action, `expect`, and maybe a `why`:
+`paging` is the table's `Paging::default()` (the test fails if they part), in the units a TS side uses: `page_rows`, `prefetch`, `budget_bytes`, `max_in_flight`, `scroll_settle_ms`, `drag_settle_ms`. Each scenario has `rows`, `viewport_rows` (the rows the viewport holds, fractional), `page_bytes` (what every answered page counts against `budget_bytes`), `steps`, and maybe `features`, the table's features it needs (`live`, `follow`), run only by a build with them, and `without`, the features under which it's skipped (the base's drop of a grown page holds only without `live`). A step has one action, `expect`, maybe a `why`, and with `follow` maybe `following` and `bottom` (below):
 
 | Action | What it does |
 |---|---|
 | `open: true` | Opens the table over `rows` rows with that viewport. |
 | `scroll: <rows>` | Scrolls by that many rows (negative is up), as a wheel or a key does. |
+| `scroll_x: <px>` | Scrolls sideways by that many pixels, as Shift+wheel does. The fixture's one column fits, so nothing moves; with `follow`, following stays as it was. |
 | `jump: <row>` | Puts that row at the top, or as near as the end allows. |
 | `fraction: <f>` | Scrolls to `f` of the way down (Home is 0, End is 1): the top row is `f × (rows − viewport_rows)`. |
 | `drag: <f>` | Drags the scrollbar thumb so the top is at `f` (as `fraction`), starting a drag if none is on. A track press is a `drag` then a `release`. |
@@ -28,6 +29,7 @@ What "the same" means for any other implementation of the table's base level (th
 | `answer: [<page>, …]` | Answers the oldest open read of each page, in that order. |
 | `fail: [<page>, …]` | As `answer`, but each read fails (not a broken source: only its rows show the error). |
 | `rows: <n>` | The source now holds `n` rows (`set_rows`); the top row stays where it is, or as near as the new end allows. A short last page that grows is forgotten and read anew, its read cancelled if one is out; with `live` it's kept (below). Shrinking forgets a short last page either way. |
+| `follow: true` | `follow`: follows the end (`follow()`): the view goes to the end as a jump does, and from then stays at the loaded tail as rows arrive (below). |
 | `invalidate: [<start>, <end>]` | `live`: rows `start..end` (end-exclusive) changed in the source (`invalidate_rows`). Its pages loaded or being read go stale; the wanted ones are read again, a loaded one drawn as it is until its read lands. |
 
 A cancelled read always answers as cancelled; the others answer with their page. After each step, everything that can run runs (answers land, reads start) before `expect` is compared.
@@ -38,7 +40,11 @@ A cancelled read always answers as cancelled; the others answer with their page.
 
 With `live`, a short last page that grows is stale the same way: it draws the rows it was read with (placeholders past them) and is read again, never cancelled for growing; grown during a read (a re-read or its first), it's read once more after that read lands.
 
-`controls` each change one `paging` field, or (with `live`) name a way of re-reading wrongly: `reread-unwanted` keeps stale pages outside `wanted` and reads them again, `restart-stale` cancels a page's read when it's invalidated during it and reads it anew, `drop-grown` forgets a short last page that grows, as the base does. Every control must fail at least one scenario the build runs.
+With `follow`, following is a flag, off at open whatever the position. Each move decides it before moving, from where it will land, so a move that starts following reads bottom first. A wheel or key down keeps it on, or turns it on if the view ends at the end; `fraction` (End, a drag) and `jump` turn it on exactly when the view lands at the end (top = rows − viewport_rows) and off otherwise; a wheel or key up by any amount, and Home (`fraction: 0`), turn it off; `scroll_x` and `rows` leave it. During a `drag` it holds as it was, and the `release` decides, as a landing. While it's on, the view's bottom is pinned to the loaded tail: once every row in view is loaded, the view moves down until its bottom is at the end of the rows drawn with their values (a grown page's up to the rows it was read with), only down, and never during a drag. A pin move isn't a scroll: prefetch doesn't lean and no settle timer starts. While following, the visible pages are read bottom first.
+
+A step's `following: <bool>` checks the flag after it, and `bottom: <row>` the end of the rows in view (the row after the last one at least partly visible: `ceil(top + viewport_rows)`, at most `rows`).
+
+`controls` each change one `paging` field, or (with `live`) name a way of re-reading wrongly: `reread-unwanted` keeps stale pages outside `wanted` and reads them again, `restart-stale` cancels a page's read when it's invalidated during it and reads it anew, `drop-grown` forgets a short last page that grows, as the base does; or (with `follow`, its `follow` field) a way of following wrongly: `follow-at-end` takes following to be the view at the end, `follow-ignores-reader` never lets go for the reader, `pin-to-rows` keeps the view at the last row whether it's loaded or not, `top-first` reads the visible pages top first while following. Every control must fail at least one scenario the build runs.
 
 ## `cells.json`
 

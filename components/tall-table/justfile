@@ -10,7 +10,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # The bare host's wasm (debug) and its Vite dev server with COOP/COEP.
 # `?shape=wide` for 500 float columns, `?delay=<ms>` to hold each page read.
 # `features` are the host's (`custom-cells`: `?cells=heat|bars|color`;
-# `live`: `?live=<updates/s>`; both: `?flash`).
+# `live`: `?live=<updates/s>`; both: `?flash`; `follow`:
+# `?rows=<n>&append=<rows/s>&follow`).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
 
@@ -68,9 +69,11 @@ smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 
 # Native tests: the table's (page cache, scroll model, float fitting, cell
-# text, the fixtures) and the host's rows and feed, with every feature off,
-# each on alone (`custom-cells`: the paint fixture; `live`: the re-reads and
-# the paging fixture's live scenarios), and all on. The bridge has none: its
+# text, the fixtures) and the host's rows and feeds, with every feature
+# off, each on alone (`custom-cells`: the paint fixture; `live`: the
+# re-reads and the paging fixture's live scenarios; `follow`, which turns
+# on `live`: the flag, the pin, and the paging fixture's follow scenarios),
+# and all on. The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
 test:
@@ -78,6 +81,8 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/live
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/live
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/follow
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow
 
 # Writes fixtures/paint.json's expected colors from Chromium's
 # color-mix(in oklab) and its bars from their formula (--check compares).

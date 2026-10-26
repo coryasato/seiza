@@ -34,6 +34,18 @@ export const REFRESHED_GLOBAL = '__tallTableRefreshed';
 export const INVALIDATED_MARK = 'tall-table:invalidated';
 export const INVALIDATED_GLOBAL = '__tallTableInvalidated';
 
+/** With `follow` (`host/crate/src/host.rs`): set right after each frame
+ *  whose drawn tail grew while following, the end of the tail it drew in
+ *  `TAIL_GLOBAL` (set while the frame renders, before the mark); whether
+ *  the table follows in `FOLLOWING_GLOBAL`; and as each batch of the tail
+ *  feed is appended, the rows the source holds in `APPENDED_GLOBAL`, set
+ *  first. */
+export const TAIL_MARK = 'tall-table:tail';
+export const TAIL_GLOBAL = '__tallTableTail';
+export const FOLLOWING_GLOBAL = '__tallTableFollowing';
+export const APPENDED_MARK = 'tall-table:appended';
+export const APPENDED_GLOBAL = '__tallTableAppended';
+
 /** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
  *  `Cells`, `?cells=`): `text` paints nothing, the control. */
 export const CELL_STYLES = ['text', 'heat', 'bars', 'color'] as const;

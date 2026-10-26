@@ -18,6 +18,9 @@ custom-cells = ["seiza-tall-table/custom-cells", "tall-table-bridge/custom-cells
 # `?live=<updates/s>` changes that many visible rows a second, seeded, and
 # invalidates them; the rows' floats follow each row's version.
 live = ["seiza-tall-table/live", "tall-table-bridge/live"]
+# The tail feed: `?rows=<n>` rows at open, `?append=<rows/s>` more, a batch
+# about every frame, and `?follow` following from the start.
+follow = ["live", "seiza-tall-table/follow", "tall-table-bridge/follow"]
 
 [dependencies]
 gpui-kit.workspace = true

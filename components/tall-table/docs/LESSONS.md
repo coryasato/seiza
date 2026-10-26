@@ -116,3 +116,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - Holding prefetch for a grown visible page made `live` match the base: the base drops the page, so it's missing and holds prefetch anyway.
 - The probe's `last_cell` is the last visible row's, so a test of "the old rows still draw" can't read it while the last row is a placeholder: the pending count (exactly the new rows) is the evidence.
 
+## M4: `follow` (part C, 2026-10-25)
+
+**Results:** [`perf/results/2026-10-25-m4-c.md`](../perf/results/2026-10-25-m4-c.md).
+
+**Surprises:**
+- The pinned view sits short of the end by the rows not yet read, so "at the end" can't decide a wheel down while following: a nudge down would have let go. Down keeps following on; only a landing (End, a jump, a release) asks whether it reached the end.
+- Following decided after a move plans that move's reads the old way, top first. The `follow()` scenario caught it in `follow()` on its first run; End, `jump_to`, and a wheel reaching the end had the same order and no scenario over two visible pages, so only the code review found them. Every move now decides following first, from where it will land.
+- The smoke check first read the probe and the tail global whenever the script got to them, some frames after each tail mark, so "no placeholder at the mark" was checked against later, fuller frames. It now records both in the microtask that sets the mark (wrapping `performance.mark`), before another frame can draw.
+- A frame can draw between two reads landing, so one growth can bring more than one `TailDrawn` (a page's first read, then its re-read). The event is right to say so; a host takes the first at or past its count, and the native test checks they only rise.
+- Firefox and WebKit deliver one scripted wheel in several events. The first lets go of the tail, and the rest go on scrolling, which read at first as the view drifting while not following.
+

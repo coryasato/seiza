@@ -10,7 +10,8 @@
 //
 // Each feature's build (the host's Cargo feature, which turns on the
 // table's and switches it on at run time) is measured against the base:
-// its added bytes; a build of two features also against each one alone.
+// its added bytes; a build of two features also against each one alone, and
+// a feature that turns on another (`follow`, `live`) against that one.
 // And the base must hold none of a feature's code: an unstripped build of
 // each (`target/symbols/`) is searched for the feature's own module, which
 // the base must lack and the feature's build must hold (the control); code
@@ -40,7 +41,13 @@ const FEATURES: Record<string, string> = {
   live: '14take_refreshed',
   // The flash, `live` with `custom-cells`.
   'live,custom-cells': 'seiza_tall_table5flash',
+  // Following: the state's `follow` module.
+  follow: 'seiza_tall_table5state6follow',
 };
+
+/** A feature that turns on another is measured against it too: `follow`
+ *  turns on `live`. */
+const TURNS_ON: Record<string, string[]> = { follow: ['live'] };
 
 /** Globals only the panel and the engine's bridge write. */
 const MARKERS = { panel: '__seizaPerfOverlay', engine: 'duckdb' };
@@ -85,8 +92,8 @@ for (const [name, marker] of Object.entries(MARKERS)) if (opt.includes(marker)) 
 console.log(`host (base): ${line(host)}`);
 for (const [feature, size] of Object.entries(featureSizes)) {
   const added = (than: Size): Added => ({ moreOptKiB: Number((size.optKiB - than.optKiB).toFixed(1)), moreBrotliKiB: Number((size.brotliKiB - than.brotliKiB).toFixed(1)) });
-  // Against each of its features alone.
-  const parts = feature.split(',').filter((part) => part !== feature && featureSizes[part]);
+  // Against each of its features alone, and each it turns on.
+  const parts = [...feature.split(','), ...(TURNS_ON[feature] ?? [])].filter((part) => part !== feature && featureSizes[part]);
   const against = Object.fromEntries(parts.map((part) => [part, added(featureSizes[part]!)]));
   features[feature] = { ...size, ...added(host), ...(parts.length ? { against } : {}) };
   const more = Object.entries(against).map(([part, by]) => `, ${by.moreBrotliKiB} KiB brotli (${by.moreOptKiB} after wasm-opt) more than ${part} alone`).join('');

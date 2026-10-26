@@ -27,6 +27,10 @@ mod paint;
 #[cfg(feature = "live")]
 mod live;
 
+/// `follow` drawn in a window: the flag, the pin, and its events.
+#[cfg(feature = "follow")]
+mod follow;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
@@ -188,6 +192,7 @@ fn paging_with(mut paging: Paging, fields: &Value) -> Paging {
 fn applies(scenario: &Value) -> bool {
     let built = |feature: &Value| match feature.as_str() {
         Some("live") => cfg!(feature = "live"),
+        Some("follow") => cfg!(feature = "follow"),
         other => panic!("a scenario names an unknown feature: {other:?}"),
     };
     let features = |key: &str| scenario[key].as_array().cloned().unwrap_or_default();
@@ -206,12 +211,39 @@ fn live_control(name: &str) -> crate::pages::Control {
     }
 }
 
-/// One scenario under `paging` (and a `live` control, if one is named):
-/// `Err` names the first step whose requests weren't the expected ones.
+/// A `follow` control's way of getting following wrong, by its fixture name.
+#[cfg(feature = "follow")]
+fn follow_control(name: &str) -> super::follow::Control {
+    use super::follow::Control;
+    match name {
+        "follow-at-end" => Control::FollowAtEnd,
+        "follow-ignores-reader" => Control::IgnoresReader,
+        "pin-to-rows" => Control::PinToRows,
+        "top-first" => Control::TopFirst,
+        other => panic!("unknown follow control {other:?}"),
+    }
+}
+
+/// A control that isn't a paging field: a way of re-reading (`live`) or of
+/// following (`follow`), by its fixture name.
+#[derive(Debug, Clone, Copy)]
+enum Wrong<'a> {
+    #[cfg_attr(not(feature = "live"), expect(dead_code))]
+    Live(&'a str),
+    #[cfg_attr(not(feature = "follow"), expect(dead_code))]
+    Follow(&'a str),
+}
+
+/// What a step may check besides its requests.
+const CHECKS: [&str; 4] = ["expect", "why", "following", "bottom"];
+
+/// One scenario under `paging` (and a `live` or `follow` control, if one is
+/// named): `Err` names the first step whose requests (or checks) weren't
+/// the expected ones.
 fn run_scenario(
     cx: &mut TestAppContext,
     paging: Paging,
-    #[cfg_attr(not(feature = "live"), expect(unused_variables))] control: Option<&str>,
+    #[cfg_attr(not(feature = "live"), expect(unused_variables))] control: Option<Wrong>,
     scenario: &Value,
 ) -> Result<(), String> {
     let name = scenario["name"].as_str().unwrap_or("?");
@@ -232,10 +264,7 @@ fn run_scenario(
     {
         let action = step
             .as_object()
-            .and_then(|step| {
-                step.keys()
-                    .find(|key| !matches!(key.as_str(), "expect" | "why"))
-            })
+            .and_then(|step| step.keys().find(|key| !CHECKS.contains(&key.as_str())))
             .cloned()
             .expect("a step has an action");
         let argument = &step[action.as_str()];
@@ -268,9 +297,12 @@ fn run_scenario(
                         viewport_rows,
                         "{name}: the viewport"
                     );
-                    #[cfg(feature = "live")]
-                    if let Some(control) = control {
-                        table.cache.control = live_control(control);
+                    match control {
+                        #[cfg(feature = "live")]
+                        Some(Wrong::Live(name)) => table.cache.control = live_control(name),
+                        #[cfg(feature = "follow")]
+                        Some(Wrong::Follow(name)) => table.follow_control = follow_control(name),
+                        _ => {}
                     }
                 });
                 table = Some(opened);
@@ -279,6 +311,13 @@ fn run_scenario(
                 let delta = argument.as_f64().expect("scroll: rows");
                 on_table(cx, &table, |table, cx| table.scroll_by(delta, 0.0, cx));
             }
+            // A sideways wheel, in pixels.
+            "scroll_x" => {
+                let x = argument.as_f64().expect("scroll_x: px") as f32;
+                on_table(cx, &table, |table, cx| table.scroll_by(0.0, x, cx));
+            }
+            #[cfg(feature = "follow")]
+            "follow" => on_table(cx, &table, |table, cx| table.follow(cx)),
             "jump" => {
                 let row = argument.as_u64().expect("jump: a row");
                 on_table(cx, &table, |table, cx| table.jump_to(row, cx));
@@ -367,6 +406,34 @@ fn run_scenario(
             return Err(format!(
                 "{name}, step {index} ({action} {argument}): expected {expected:?}, got {actual:?}"
             ));
+        }
+        // The view's bottom (the end of the rows in view), and following.
+        let view = table.as_ref().map(|table| {
+            table.read_with(cx, |table, _| {
+                #[cfg(feature = "follow")]
+                let following = Some(table.is_following());
+                #[cfg(not(feature = "follow"))]
+                let following = None::<bool>;
+                (table.scroll.visible().end, following)
+            })
+        });
+        if let Some(bottom) = step.get("bottom") {
+            let bottom = bottom.as_u64().expect("bottom: a row");
+            let actual = view.expect("the table is open").0;
+            if actual != bottom {
+                return Err(format!(
+                    "{name}, step {index} ({action} {argument}): the bottom at {actual}, not {bottom}"
+                ));
+            }
+        }
+        if let Some(following) = step.get("following") {
+            let following = following.as_bool().expect("following: a bool");
+            let actual = view.and_then(|(_, following)| following);
+            if actual != Some(following) {
+                return Err(format!(
+                    "{name}, step {index} ({action} {argument}): following {actual:?}, not {following}"
+                ));
+            }
         }
     }
     Ok(())
@@ -469,12 +536,16 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
         .filter(|scenario| applies(scenario))
         .collect();
     for control in fixture["controls"].as_array().expect("controls") {
-        // A paging field changed, or (`live`) a way of re-reading.
-        let live = control["live"].as_str();
-        if live.is_some() && !cfg!(feature = "live") {
-            continue;
-        }
-        let changed = match live {
+        // A paging field changed, or a way of re-reading (`live`) or of
+        // following (`follow`).
+        let wrong = match (control["live"].as_str(), control["follow"].as_str()) {
+            (Some(_), _) if !cfg!(feature = "live") => continue,
+            (_, Some(_)) if !cfg!(feature = "follow") => continue,
+            (Some(name), _) => Some(Wrong::Live(name)),
+            (_, Some(name)) => Some(Wrong::Follow(name)),
+            _ => None,
+        };
+        let changed = match wrong {
             Some(_) => paging,
             None => {
                 let changed = paging_with(paging, &control["paging"]);
@@ -484,7 +555,7 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
         };
         let failed = scenarios
             .iter()
-            .filter(|scenario| run_scenario(cx, changed, live, scenario).is_err())
+            .filter(|scenario| run_scenario(cx, changed, wrong, scenario).is_err())
             .count();
         assert!(
             failed > 0,

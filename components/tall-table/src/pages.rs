@@ -431,6 +431,27 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         }
     }
 
+    /// Where the run of rows [`PageCache::row`] draws with their values,
+    /// starting at `row`, ends (`follow`): `row` itself if it isn't loaded,
+    /// at most the rows' end. A page grown past its read ends the run at
+    /// the rows it was read with.
+    #[cfg(feature = "follow")]
+    pub fn loaded_through(&self, row: u64) -> u64 {
+        let mut end = row.min(self.rows);
+        while end < self.rows {
+            let page = end / self.page_rows;
+            let Some(Slot::Loaded { live, .. }) = self.slots.get(&page) else {
+                break;
+            };
+            let page_end = self.rows_of(page).end.min(live.end);
+            if page_end <= end {
+                break;
+            }
+            end = page_end;
+        }
+        end
+    }
+
     /// The pages worth having for the `visible` rows, most urgent first: the
     /// visible pages (from the edge the viewport is moving toward), then
     /// `prefetch` pages behind and `prefetch` ahead, doubled ahead while
@@ -1433,6 +1454,31 @@ mod tests {
             (cache.in_flight(), cache.draining(), cache.used_bytes()),
             (0, 1, 0)
         );
+    }
+
+    #[cfg(feature = "follow")]
+    #[test]
+    fn the_loaded_run_ends_at_a_gap_or_a_grown_pages_read() {
+        let mut cache = Cache::new(250, 100, 1 << 20, 3);
+        for page in [0, 1, 2] {
+            cache.started(page, page as u32);
+            assert!(cache.loaded(page, page as u32, "old", 10, &[]));
+        }
+        assert_eq!(cache.loaded_through(30), 250, "to the end of the rows");
+        assert_eq!(cache.loaded_through(250), 250);
+        // Grown: page 2 draws only what it was read with.
+        cache.set_rows(280);
+        assert_eq!(cache.loaded_through(30), 250);
+        assert_eq!(cache.loaded_through(260), 260, "not loaded: no run");
+        // A gap: page 1 evicted (not wanted, past the budget) or never read.
+        let mut gap = Cache::new(300, 100, 1 << 20, 3);
+        for page in [0, 2] {
+            gap.started(page, page as u32);
+            assert!(gap.loaded(page, page as u32, "old", 10, &[]));
+        }
+        assert_eq!(gap.loaded_through(50), 100);
+        assert_eq!(gap.loaded_through(150), 150);
+        assert_eq!(gap.loaded_through(210), 300);
     }
 
     #[cfg(feature = "live")]

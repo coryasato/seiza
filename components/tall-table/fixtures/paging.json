@@ -21,7 +21,11 @@
     { "name": "a bigger cache", "paging": { "budget_bytes": 134217728 } },
     { "name": "re-read invalidated pages outside wanted", "live": "reread-unwanted" },
     { "name": "cancel a stale read to restart it", "live": "restart-stale" },
-    { "name": "drop a short last page that grows", "live": "drop-grown" }
+    { "name": "drop a short last page that grows", "live": "drop-grown" },
+    { "name": "follow whenever at the end", "follow": "follow-at-end" },
+    { "name": "never let go for the reader", "follow": "follow-ignores-reader" },
+    { "name": "pin the view to the rows, not the loaded tail", "follow": "pin-to-rows" },
+    { "name": "plan the visible pages top first while following", "follow": "top-first" }
   ],
   "scenarios": [
     {
@@ -316,6 +320,135 @@
         { "jump": 1472, "expect": [] },
         { "rows": 1600, "expect": ["load 1"] },
         { "rows": 1400, "expect": ["cancel 1", "load 1"], "why": "Shrinking forgets the short last page, as without live: its re-read is cancelled, and the page read anew at the new end." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "off at open: a small table grows",
+      "features": ["follow"],
+      "rows": 20,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"], "following": false, "bottom": 20, "why": "At the end (every row fits), but following is off until the reader asks." },
+        { "answer": "all", "expect": [], "following": false },
+        { "rows": 40, "expect": ["load 0"], "following": false, "bottom": 28, "why": "The grown page is read again (live); the view stays at the top." },
+        { "answer": "all", "expect": [], "following": false, "bottom": 28 }
+      ]
+    },
+    {
+      "name": "follow() at open, then the tail grows",
+      "features": ["follow"],
+      "rows": 2060,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "follow": true, "expect": ["load 2", "load 1"], "following": true, "bottom": 2060, "why": "To the end, as a jump: rows 2032..2060 are pages 1 and 2, planned bottom first. Page 0's read is still wanted (behind)." },
+        { "rows": 2100, "expect": [], "following": true, "bottom": 2060, "why": "Page 2's first read is out: read once more after it lands. Nothing is loaded at the tail yet: the view stays." },
+        { "answer": [2], "expect": ["load 2"], "bottom": 2060, "why": "It lands holding rows 2048..2060, and is read again for 2060..2100. Page 1 isn't in: the view stays." },
+        { "answer": [1], "expect": [], "bottom": 2060, "why": "Every row in view is loaded; the loaded tail ends at 2060, where the view is." },
+        { "answer": [2], "expect": [], "following": true, "bottom": 2100, "why": "Its re-read lands: the view moves on to the loaded tail, rows 2072..2100, all page 2." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a scroll up lets go",
+      "features": ["follow"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "follow": true, "expect": [], "following": true, "bottom": 1500 },
+        { "scroll": -1, "expect": [], "following": false, "bottom": 1499, "why": "Up by any amount lets go." },
+        { "rows": 1600, "expect": ["load 1"], "following": false, "bottom": 1499, "why": "The grown page is read again (live), the view left where the reader put it." },
+        { "answer": "all", "expect": [], "following": false, "bottom": 1499 }
+      ]
+    },
+    {
+      "name": "a sideways scroll keeps following",
+      "features": ["follow"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "follow": true, "expect": [], "following": true, "bottom": 1500 },
+        { "scroll_x": 100, "expect": [], "following": true },
+        { "rows": 1600, "expect": ["load 1"], "following": true, "bottom": 1500, "why": "Rows arriving don't move the view until their page lands." },
+        { "answer": [1], "expect": [], "following": true, "bottom": 1600 }
+      ]
+    },
+    {
+      "name": "End while rows arrive follows them",
+      "features": ["follow"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "fraction": 1, "expect": [], "following": true, "bottom": 1500, "why": "End reaches the end: following." },
+        { "rows": 1600, "expect": ["load 1"], "following": true, "bottom": 1500 },
+        { "answer": [1], "expect": [], "following": true, "bottom": 1600 },
+        { "rows": 1700, "expect": ["load 1"], "bottom": 1600 },
+        { "answer": "all", "expect": [], "following": true, "bottom": 1700 }
+      ]
+    },
+    {
+      "name": "a drag holds the view, its release decides",
+      "features": ["follow"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "follow": true, "expect": [], "following": true },
+        { "drag": 0.5, "expect": [], "following": true, "bottom": 764, "why": "Top = 0.5 x 1472.5: rows 736..764. Mid-drag, following waits for the release." },
+        { "rows": 1600, "expect": [], "following": true, "bottom": 764, "why": "The view stays under the pointer; the grown page's read waits for the drag." },
+        { "release": true, "expect": ["load 1"], "following": false, "bottom": 764, "why": "Let go away from the end: not following. The drag's loads run, the grown page 1 (prefetch) among them." },
+        { "drag": 1, "expect": [], "following": false, "bottom": 1600 },
+        { "release": true, "expect": [], "following": true, "bottom": 1600, "why": "Let go at the end: following. Page 1's read is out." },
+        { "answer": "all", "expect": [], "following": true, "bottom": 1600 }
+      ]
+    },
+    {
+      "name": "reaching the end over two pages reads them bottom first",
+      "features": ["follow"],
+      "rows": 2060,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "fraction": 1, "expect": ["load 2", "load 1"], "following": true, "bottom": 2060, "why": "End: rows 2032..2060 are pages 1 and 2. Following is decided before the move, so its reads go bottom first. Page 0's read is still wanted (behind)." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a jump to the end reads its pages bottom first",
+      "features": ["follow"],
+      "rows": 2060,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "jump": 2040, "expect": ["load 2", "load 1"], "following": true, "bottom": 2060, "why": "Row 2040 can't reach the top: the view lands at the end, rows 2032..2060." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a wheel down to the end reads its pages bottom first",
+      "features": ["follow"],
+      "rows": 2060,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "scroll": 3000, "expect": ["load 2", "load 1"], "following": true, "bottom": 2060, "why": "Past the end: clamped to it, rows 2032..2060." },
         { "answer": "all", "expect": [] }
       ]
     }

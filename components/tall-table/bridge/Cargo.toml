@@ -16,6 +16,8 @@ seiza-tall-table.workspace = true
 custom-cells = ["seiza-tall-table/custom-cells"]
 # The refreshed mark and the generation drawn.
 live = ["seiza-tall-table/live"]
+# The tail mark (`TailDrawn`) and the following flag on a global.
+follow = ["live", "seiza-tall-table/follow"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

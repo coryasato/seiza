@@ -11,7 +11,11 @@
 //! With `live`, `?live=<updates/s>` changes that many visible rows a second
 //! (`host::Feed`), marking each batch (`tall-table:invalidated`) and each
 //! frame that draws a re-read page (`tall-table:refreshed`). With both,
-//! `?flash` gives every float column a flash (`rows::with_flash`).
+//! `?flash` gives every float column a flash (`rows::with_flash`). With
+//! `follow`, `?rows=<n>` opens with that many rows, `?append=<rows/s>`
+//! appends that many a second (`host::Appends`, marking each batch,
+//! `tall-table:appended`), and `?follow` follows from the start; each frame
+//! whose drawn tail grew marks `tall-table:tail`.
 
 mod host;
 pub mod rows;
@@ -37,6 +41,14 @@ pub fn start(ui_font: Vec<u8>) {
     let probing = seiza::url::has_param("perf");
     #[cfg(feature = "live")]
     let live = host::Live {
+        #[cfg(feature = "follow")]
+        tail: host::Tail {
+            rows: seiza::url::param("rows").and_then(|rows| rows.parse().ok()),
+            append: seiza::url::param("append")
+                .and_then(|rate| rate.parse::<f64>().ok())
+                .filter(|rate| *rate > 0.0),
+            follow: seiza::url::has_param("follow"),
+        },
         feed: seiza::url::param("live")
             .and_then(|rate| rate.parse::<f64>().ok())
             .filter(|rate| *rate > 0.0),

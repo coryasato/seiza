@@ -3,7 +3,8 @@
 //! host). The table depends on gpui-kit alone and sets no marks (its
 //! `CLAUDE.md`, rule 1), and `seiza` knows no table, so the glue between
 //! them lives here: the filled mark (with `live`, the refreshed mark), the
-//! scrollbar's targets, and the probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
+//! scrollbar's targets, with `follow` the tail mark and the following
+//! flag, and the probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
 //! on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -39,6 +40,20 @@ pub struct Publish {
     /// while the frame renders: a script reading it at the refreshed mark
     /// reads that frame's.
     pub refreshed: Option<&'static str>,
+    /// The global holding whether the table follows the end (`follow`'s
+    /// [`TallTableEvent::Following`]), set when it changes.
+    #[cfg(feature = "follow")]
+    pub following: Option<&'static str>,
+    /// Set right after each frame whose drawn tail grew while following
+    /// (`follow`'s [`TallTableEvent::TailDrawn`]).
+    #[cfg(feature = "follow")]
+    pub tail_mark: Option<&'static str>,
+    /// The global holding the end of the tail last drawn (`follow`), set
+    /// while the frame renders, before the tail mark: a script reading it
+    /// at the mark reads that frame's. Replaced, not raised: the table's
+    /// tail only rises, except after a shrink.
+    #[cfg(feature = "follow")]
+    pub tail: Option<&'static str>,
 }
 
 impl Publish {
@@ -78,6 +93,21 @@ impl Publish {
                     js::raise_global(name, *generation as f64);
                 }
                 if let Some(mark) = self.refreshed_mark {
+                    drop(seiza::mark_after_current_task(mark));
+                }
+            }
+            #[cfg(all(feature = "follow", target_family = "wasm"))]
+            TallTableEvent::Following(following) => {
+                if let Some(name) = self.following {
+                    js::set_global(name, &(*following).into());
+                }
+            }
+            #[cfg(all(feature = "follow", target_family = "wasm"))]
+            TallTableEvent::TailDrawn { rows } => {
+                if let Some(name) = self.tail {
+                    js::set_global(name, &(*rows as f64).into());
+                }
+                if let Some(mark) = self.tail_mark {
                     drop(seiza::mark_after_current_task(mark));
                 }
             }
