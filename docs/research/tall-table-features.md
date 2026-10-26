@@ -195,3 +195,72 @@ TanStack Virtual has no follow; a contender keeps `scrollTop` at its loaded tail
 - **The bare host's tail feed:** `?append=<rows/s>`, a batch about every 16 ms (as the `live` feed's), starting from `?rows=<n>` rows and growing the source's count (its rows are already a function of their index); `?follow` calls `follow()` at open. In the narrow shape.
 - **At 1k, 10k, and 100k rows a second, following:** append → pixel (`set_rows` → the first `TailDrawn` at or past it), per-frame work and late frames, reads a second and drained reads, and scroll-back during the feed; reference and throttled, cold, median of 10. The share of frames with placeholder rows is recorded too, expected 0 once the first tail read lands (the pin's point).
 - **The question it answers, as `live`'s push-path check did:** how far behind the tail the view runs with a source answering from memory. A first read isn't polled when sent (only `live`'s re-reads are), so a new tail page always waits for a task. If append → pixel at 10k rows a second is over two frames, a first read polled when sent (under `follow`, the base unchanged) is specced in its own part.
+
+## `resize`
+
+Researched 2026-10-26, from the table's layout and drag code (`src/column.rs`, `src/state.rs`), `DataTable`'s resizing in gpui-component 0.8.0 (the pin since 2026-10-24; `src/table/state.rs`, `column.rs`, `delegate.rs`), gpui-base 0.8.0's `resizable/resize_handle.rs`, and gpui-pre 0.3.9's drag and cursor code; revised the same day after a code review. No spike: the one frame-work risk (below) needs the drag's numbers, which the build measures in the bare host.
+
+### What asks for it
+
+- **Tycho:** columns a reader sizes to the data, as every grid allows; Tycho adopts every feature.
+- **The wide sheet** (the observatory): "later, a column-resize drag", measured as its frame cost ([`apps/observatory/docs/research/scenarios.md`](../../apps/observatory/docs/research/scenarios.md), "Wide sheet"). The observatory hasn't asked in its PLAN yet.
+- **`pin`, `reorder`, `group-headers`** build on its width model (the table's `PLAN.md`, "Order").
+
+What the table has today: each column's width comes from its kind (`column_layout`: 120 px for a float, 200 for text, an integer's widest value at the font's widest number advance), at least its header's estimated width; `layout_columns` places them side by side and gives each float column its character budget from its width. Nothing changes a width but `set_columns`.
+
+### What `DataTable` does
+
+- **The model:** `Column::resizable` (default on), `min_width` (20 px), `max_width` (1200 px); the table's `col_resizable` (default on); a runtime width per column (`ColGroup::width`), read from the delegate again only on `refresh`.
+- **The handle:** a band straddling each boundary, `HANDLE_PADDING` (4 px) on each side of a 1 px hairline drawn in `table_row_border` (`border` on hover), split into two halves, one in the header cell on each side, each painted after its cell so it beats the next column's reorder drag. `cursor_col_resize`, `occlude`. In the header only.
+- **The drag:** GPUI's typed drag (`on_drag(ResizeColumn)`, `on_drag_move`): width = pointer x − 2 px − the column's left as last laid out, clamped. Near the table's left or right edge it scrolls sideways 1 px per move.
+- **The event:** `ColumnWidthsChanged(Vec<Pixels>)`, every column's width, at the release (`on_mouse_up_out` on the band) and after a fit. Not per move.
+- **The fit** (new since 0.7.3, so not in the feature inventory): a double-click on the band calls `TableDelegate::fit_column`, which measures the widest cell, and the table adds the padding and clamps. The double-click's second press also starts a drag, which would move the fitted edge back under the pointer, so drags on that column are ignored until the next single press (`fitted_col`).
+
+### Reuse
+
+Nothing can be reused as code. `ColGroup`, the bands, and `resize_cols` are crate-private and tied to `TableState<D>` and `uniform_list`'s layout. gpui-base's public `resize_handle` is a band for panels: it owns its id, cursor, occlusion, and appearance, and its drag is GPUI's typed drag, which starts only after the pointer moves 2 px (`DRAG_THRESHOLD`) and has no release of its own. `DataTable` reads the release from `on_mouse_up_out`, which fires only when the pointer comes up *off* the band, and the band follows the pointer: a release on the band would emit nothing.
+
+What carries over is behavior and measures: the 4 px on each side of a 1 px hairline, its colors, the header-only grab, the cursor, min and max per column, the event at the release, the double-click fit, and ignoring the second press's drag.
+
+**The drag is the table's own,** as its scrollbars' are: a press on a band starts a column drag, and the move and release handlers the body's `canvas` already registers every frame (the table's `CLAUDE.md`, "A scrollbar release can arrive before the next paint") follow it. That gets the release in every browser, and there's no 2 px dead zone. It's a field of its own (`resizing`), not a variant of `drag`: `drag.is_some()` holds page reads until a scrollbar drag rests (`load_or_settle`, and with `live` `drag_resting`), and a wheel during a column drag must page as the base does. While the drag is on, `Window::set_window_cursor_style` keeps the resize cursor wherever the pointer goes. The cursor otherwise falls back to the cell's when the pointer outruns a narrow column's band.
+
+### The width model
+
+- **A column's width is its kind's unless set:** with `resize`, `TallTableColumn::width` sets it (a width the host kept), clamped to the column's `min_width` and `max_width`. A drag or a fit sets it in the state. A kind's width is laid out as today and never clamped, so a column nobody resized draws as without the feature (a 1-character integer column stays under 40 px), and the with-and-without comparison reads the same layout. The header's estimated width stops being a minimum once a width is set: a reader may narrow a column past its name, which `truncate` already cuts.
+- **Kept where:** in the state, beside the host's columns. `set_columns` replaces them, so a host that changes a column's kind and wants its widths kept passes them back (`width`), as with `DataTable`'s `refresh`. A host keeps widths from the event, which carries only set widths (`Vec<Option<Pixels>>`, `None` for a kind's), not `DataTable`'s every width. Every width given back would freeze the kind's: an integer column's width follows the font's number advance, read again when the font changes. The event is in the order of `columns()`; a host whose columns change (a new query) keys what it keeps by column name. The table stores nothing across sessions.
+- **Defaults:** `max_width` 1200 px (`DataTable`'s). `min_width` 40 px, not `DataTable`'s 20: a value cell's padding is 16 px, so at 20 a float's budget is 1 character, cut to "…". At 40 it's 2 characters at IBM Plex Sans 14 px (a sign and a digit, or `1e` cut), the least that still says something. `resizable` defaults on, as `DataTable`'s does, so a host with the feature built gets it by building columns. There's no table-wide switch: a host that wants none leaves the feature off.
+- **Float budgets follow the width.** A float column's budget (`(width − 17) / number_px`, at least 1) is recomputed with each width. A drag re-rounds the column's floats live, on the frame that widens it: the point of widening a rounded column is to see more digits.
+
+### The drag
+
+- **Width from the start of the drag:** width = the width at the press + (pointer x − x at the press), clamped. Not `DataTable`'s pointer minus the column's laid-out left: that left moves when the sideways scroll clamps, and the edge then jumps from the pointer.
+- **The sideways scroll holds still during the drag.** Narrowing a column with the view scrolled to the right end shrinks the content. Clamping `scroll_x` at once would slide every column right under the pointer, so the drag edge would run ahead of it. So during a drag the content may end short of the viewport (drawn empty), and the release clamps `scroll_x`. Browsers' table resizers behave the same way. Holding it takes three things: a move re-lays out the columns without `lay_out`'s clamp; sideways input during the drag (a wheel's sideways part, Shift+wheel, the horizontal scrollbar) is ignored, since `scroll_by` clamps `scroll_x` on every call, a vertical one too, and so skips the clamp then; and the content counts as at least `scroll_x` + the cells' width, so the horizontal thumb stays at the view (it would draw past the track's end, or jump to its start once the content fits).
+- **No auto-scroll past an edge** in this milestone: a column grows only as far as the pointer can go in the window. `DataTable`'s scroll of 1 px per move is barely movement; a real one (speed by distance past the edge, on a timer) is a later note if Tycho asks. A reader widens, scrolls, and widens again.
+- **Re-laid out on each move:** `layout_columns` is O(columns) with no allocation past the column list (500 in the wide shape). The resized column's text is re-cut on the frame; the others only move.
+- **During a drag:** no tooltip (the hover is cleared at the press, and the pointer's moves over cells don't start one until the release); `set_columns` ends the drag with no event; a vertical wheel still scrolls, paging as without the drag.
+- **The layout probe** (`TallTableEvent::Layout`, behind `probe_frames`) is reported at the release, not on each move. Each report clones every column's name: 500 strings a frame in the wide shape would land in the drag's frame work, which is what's being measured. So a move doesn't bump the layout's generation, and the release does, which republishes it once.
+
+### The fit
+
+A double-click on a band fits the column to its header's name and its visible, loaded rows, clamped. Only what's drawn counts, because the table never holds the column's other rows: a fit here is "make what I see readable".
+
+- **A numeric column** (float, integer, decimal) fits its widest exact text (`CellValue`'s, not the rounded) by character count at the number advance: `chars × number_px` + padding + 1, `column_layout`'s rule for an integer. Not the text's shaped width: a float's budget is `(width − 17) / number_px`, counted at the *widest* number glyph, so a width fitted to the shaped text (narrower digits, a narrow `.`) would give a budget short of the text, and the fitted value would still be rounded.
+- **Any other column** fits its widest shown text (`cell_text`: one line, `¶` for a break, since `shape_line` debug-asserts there's no `\n`), cut to the characters `max_width` could hold, so a multi-megabyte value isn't shaped whole, shaped in the cells' font, plus padding.
+
+Rejected: asking the delegate for the column's widest value (a `max(length(…))` query per double-click, which makes resize reach the data); a host that knows a better width sets it with `width`. It's not public in this milestone (`DataTable`'s `fit_col` is). A host button to fit every column can come later without breaking anything.
+
+### What's drawn
+
+With `resize`, the header draws a band at the right edge of each visible resizable column. Its hairline (`table_row_border`, `border` while hovered or dragged) is the header's only vertical line. The body draws no guide line: the columns resize live, as `DataTable`'s do. The bands are painted after the header's cells, so `reorder`'s header drag will sit under them, as in `DataTable`. Only visible columns get a band, about a dozen at 1440 px in either shape, so the header's elements grow by that, not by the column count.
+
+### Frame-work risk
+
+The one risk is the drag itself: a frame per pointer move that re-lays out every column and re-rounds and re-cuts one column's visible cells (about 45 rows). The rest of the frame is what a sideways scroll draws already. It's measured, not spiked: a scripted drag of a visible boundary back and forth, in both shapes, against the horizontal fling's work per frame. If the wide drag's work per frame is over the wide horizontal fling's by more than the spread, the re-layout is the first suspect (laying out only from the resized column on).
+
+### Canvas gaps
+
+The bands can't be reached by keyboard or a screen reader. `DataTable`'s can't either, and TanStack Table's sizing gives no keyboard of its own; a DOM grid could add a `role="separator"` with `aria-valuenow`. That's covered by the README's accessibility gap; the README says resizing is pointer-only.
+
+### What a DOM contender does
+
+TanStack Table's column sizing (`columnResizeMode: 'onChange'`, to match the live resize), its own min and max, the contender's own handle. Its cells must then show what the table's show at the same width. The DOM side can't measure GPUI's glyph advance, which is why `cells.json` hands it the budgets today. So the fixture hands it the rule: `cells.json` gains `number_px` (GPUI's widest number advance, read from the table in Chromium) and a `resize` section of widths and the budgets they give, at and past the clamps. The observatory adds the level only when both its sides build it.

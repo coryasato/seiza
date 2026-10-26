@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M4 (built, in [`docs/milestones.md`](docs/milestones.md)), M5 (next: its research, ["Long-term goals"](#long-term-goals)), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M4 (built, in [`docs/milestones.md`](docs/milestones.md)), M5 (active: researched and specced 2026-10-26, [below](#active-milestone)), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -22,7 +22,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M2 | `custom-cells`: a cell's fill, bar, and text color | Done 2026-10-24 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | `live`: changed rows re-read and redrawn in place | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | `follow`: follow the tail as rows arrive | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | `resize`: drag a column's width | Next: its research |
+| M5 | `resize`: drag a column's width | Active: part A done 2026-10-26; next, part B |
 | M6 | `select`: row, column, and cell selection | Planned |
 | M7 | `copy`: a selection to the clipboard | Planned |
 | M8 | `sort`: one column, ascending or descending | Planned |
@@ -59,7 +59,7 @@ One milestone per feature, in the order below. A *Planned* row's spec is its row
 
 ## Features
 
-Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels and breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions. Every feature in these tables is `DataTable`'s, read from gpui-component 0.7.3's `src/table/` (the pin); the API it comes from is in each row. Feature names are drafts until each one's milestone.
+Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels and breaks past ~16 M px (`docs/DECISIONS.md`, "Table and paging"). The cost was `DataTable`'s interactions. Every feature in these tables is `DataTable`'s, read from gpui-component 0.7.3's `src/table/` (the pin when planned; 0.8.0, the pin since 2026-10-24, adds `resize`'s fit); the API it comes from is in each row. Feature names are drafts until each one's milestone.
 
 **Columns:** *Depends on* is what must exist first. *Data* says whether the feature reaches the delegate (and so the engine's SQL), the costly kind for a table that never holds its rows. *TanStack* is the counterpart a feature level would build on the DOM side (TanStack Table's headless feature, which the contender doesn't load today), or "—" when there's none and the observatory would skip it.
 
@@ -67,7 +67,7 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 
 | Feature (Cargo) | What it adds | In `DataTable` | Depends on | Data | TanStack |
 |---|---|---|---|---|---|
-| `resize` | Drag a header edge to set a column's width, within a min and max; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged` | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
+| `resize` | Drag a header edge to set a column's width, within a min and max; a double-click fits it; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged`; `fit_col` (0.8.0) | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
 | `pin` | Columns fixed at the left while the rest scroll sideways | `ColumnFixed::Left` (left only), `fixed_left` | `resize`'s width model | No | Column pinning (left and right) |
 | `reorder` | Drag a header to move its column | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
 | `group-headers` | Header rows spanning column groups | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group must move and pin whole) | No | Header groups |
@@ -149,7 +149,68 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None: M4 (`follow`) closed 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)). Next, M5, `resize`, opened by its research (["Long-term goals"](#long-term-goals)), its spec and checks then written here.
+### M5: `resize`, a column's width dragged at its header edge
+
+**What it adds** (behind the `resize` feature, off by default): a band at each visible column's right edge in the header; dragging it sets the column's width live, within its min and max, and double-clicking it fits the column to what's drawn; the new widths come out in an event at the release, for a host to keep and give back. It adds the width model `pin`, `reorder`, and `group-headers` build on. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`resize`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-10-26, M5 part A).
+
+```rust
+// The column (column.rs), behind `resize`.
+impl TallTableColumn {
+    /// Its width, in place of its kind's (a width the host kept from
+    /// `ColumnWidthsChanged`), clamped to its min and max. The header's
+    /// width is no longer a minimum: a name wider than it is cut.
+    pub fn width(self, width: Pixels) -> Self;
+    /// The narrowest a drag or a fit leaves it: 40 px unless set.
+    pub fn min_width(self, width: Pixels) -> Self;
+    /// The widest: 1200 px unless set.
+    pub fn max_width(self, width: Pixels) -> Self;
+    /// Whether its header edge has a band: on unless set.
+    pub fn resizable(self, resizable: bool) -> Self;
+}
+
+// The state (state.rs), behind `resize`.
+impl<D: TallTableDelegate> TallTableState<D> {
+    /// The width column `column` is drawn at now, or `None` past the last.
+    pub fn column_width(&self, column: usize) -> Option<Pixels>;
+}
+
+pub enum TallTableEvent {
+    // …
+    /// A drag released or a fit changed a width: each column's set width
+    /// (by the host's `width`, a drag, or a fit), `None` where it's still
+    /// its kind's, in the order of `columns()`, for a host to keep (by
+    /// column name, if its columns change) and give back through `width`.
+    /// Not emitted while a drag moves, or when nothing changed.
+    #[cfg(feature = "resize")]
+    ColumnWidthsChanged(Vec<Option<Pixels>>),
+}
+```
+
+- **The width model** (decided): a column's width is its kind's, laid out as today (at least its header's), unless the host set one (`width`) or a drag or fit did; a set width is clamped to its `min_width` (40 px default) and `max_width` (1200 px), a kind's width isn't (so an unresized column draws as without the feature). It's kept in the state; `set_columns` replaces it with what the host passes. The event reports set widths only, so a host giving them back never freezes a kind's width (an integer column's follows the font's number advance). A float column's budget follows its width, so a drag re-rounds its floats on the frame that widens it.
+- **The band** (decided): 4 px on each side of a 1 px hairline at each visible resizable column's right edge, in the header only (`table_row_border`; `border` while hovered or dragged), with the column-resize cursor, painted after the header's cells. The body draws no guide line. Nothing of it is drawn without the feature.
+- **The drag** (decided): the table's own, followed by the move and release handlers the body's `canvas` registers every frame, not GPUI's typed drag. It's a field of its own (`resizing`), not a `Drag` variant: `drag.is_some()` holds page reads until a scrollbar drag rests, and a column drag isn't a scroll, so paging during it (a vertical wheel) is the base's. Width = the width at the press + the pointer's move since, clamped. The sideways scroll holds still until the release, which clamps it: during the drag sideways input (a wheel's sideways part, Shift+wheel, the horizontal scrollbar) is ignored, nothing clamps `scroll_x` (a move re-lays out the columns without `lay_out`'s clamp), and the content counts as at least `scroll_x` + the cells' width, so the horizontal thumb stays where the view is; vertical scrolling works as without. No auto-scroll past an edge. The resize cursor holds window-wide while dragging. No tooltip during the drag. `set_columns` ends it with no event. The layout probe is reported once at the release (moves don't bump its generation; the release does), not per move.
+- **The fit** (decided): a double-click on the band fits the column to its header's name and its visible, loaded rows, clamped; the drag the second press starts is ignored until the next single press. A numeric column (float, integer, decimal) fits its widest exact text by character count at the number advance (`chars × number_px` + padding + 1, `column_layout`'s rule), so a fitted float's budget holds every digit; any other fits its widest shown text (`cell_text`: one line, `¶` for breaks), cut to what `max_width` could hold, shaped in the cells' font, plus padding. It never asks the delegate. Not public in this milestone.
+- **What's the host's:** keeping widths from `ColumnWidthsChanged` and giving them back (`width`) across `set_columns` or sessions; a column it doesn't want resized (`resizable(false)`).
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
+
+- **A. Research and spec** (no shipped code). *Done 2026-10-26,* revised the same day after a code review: the research in the root's `docs/research/tall-table-features.md`, "`resize`"; four decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below. No spike: the one frame-work risk (a drag re-laying out 500 columns a move) needs the drag's numbers (part D).
+- **B. The width model, the band, the drag, the fit.** The column settings, `column_width`, the band and its hairline, `Drag::Column`, the scroll held during a drag, `ColumnWidthsChanged`, the double-click fit, the layout probe at the release; native tests; `cells.json`'s `number_px` and `resize` section, with their controls. Checks B1–B3.
+- **C. The host and its scripts.** The bare host's `resize` feature (every column resizable, so the bands draw), the bridge's arm (the widths on a global the host names), the smoke check's drag and fit in three browsers, `perf.ts`'s resize-drag segment, `size.ts`'s `resize` build. Checks C1–C2.
+- **D. The measurement and the close.** The cost on the final build; whether the drag needs a part of its own (D2: if so, specced before the close); then every remaining check and the close-out ("Closing a milestone", above).
+
+**Done when:**
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M5's parent>` (the base after wasm-opt within 0.1 KiB, no `resize` symbols in it). `just tall-table test` passes with every feature off, each on, and all on; `just tall-table lint` passes.
+- [ ] **B2. Resizing, natively:** a column's width is its kind's until set, as without the feature (never clamped: a 1-character integer column stays under 40 px); `width` sets it, clamped to `min_width` and `max_width` (defaults 40 and 1200 px), and may be narrower than its header's estimated width (the name cut); a drag on a band moves the column's edge with the pointer from the press (width at the press + the move), clamped, re-laying out the columns right of it and the column's float budget on that move; during the drag `scroll_x` holds even when the content ends short of the viewport (a vertical wheel scrolls without moving it, sideways input is ignored, the horizontal thumb stays at the view), and the release clamps it; paging during the drag is the base's (a wheel's reads aren't held as a scrollbar drag's are); `ColumnWidthsChanged` is emitted once at the release with each set width (`None` for a kind's), never per move and never when nothing changed; a press elsewhere, a column with `resizable(false)`, and the row-number gutter have no band; a double-click fits to the header and the visible loaded rows (rows not loaded ignored), clamped, emitting once if it changed, and the second press's drag is ignored; a fitted float column shows its widest visible value unrounded; a text column holding a line break or a value longer than `max_width` fits without a panic, to `max_width` at most; `set_columns` mid-drag ends it with no event; no tooltip during a drag; the layout probe is reported at the release, once. Without `resize`, layout is as today (the header's width a minimum, no band).
+- [ ] **B3. A fixture pins it:** `cells.json` gains `number_px` and a `resize` section (a float column's widths → budgets, at and past both clamps; values shown at a narrowed and a widened width), its format in `fixtures/README.md`; the native test runs it with `resize`, and controls fail it (a budget off by a character, the clamps ignored). The existing fixtures pass unchanged, off and on; the TanStack contender's fixture test passes, skipping the section it doesn't build.
+- [ ] **C1. The host uses it:** the bare host's `resize` feature builds every column resizable and publishes the widths at each `ColumnWidthsChanged` through the bridge; `just tall-table smoke` with `resize` drags a boundary in both shapes (the column's width follows and the floats re-round, the release publishes the widths once, the scroll clamped after a narrowing at the right end) and double-click fits a column, in Chromium, Firefox, and WebKit.
+- [ ] **C2. The scripts measure it:** `just tall-table perf` gains a resize-drag segment (a visible boundary dragged ±200 px, a move a frame, about 2 s) run when the build has `resize`; `just tall-table size` reports the `resize` build.
+- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base; the scroll, vertical fling, and horizontal fling with `resize` built against the base (within spread); the resize drag's work per frame and late frames, beside the horizontal fling's; both shapes, reference and throttled, cold, median of 10, on the final build. In `perf/results/` and the README's Features table.
+- [ ] **D2. Does the drag need its own part?** In the wide shape, reference: the drag's work per frame (p50) over the horizontal fling's by more than the spread means yes, specced as a part before the close (laying out from the resized column on, say); otherwise no, noted in `docs/DECISIONS.md`.
+- [ ] **D3. The README:** `resize`'s use (the column settings, the event and keeping widths across `set_columns`, the fit, the budget following the width) and its limits (no auto-scroll past an edge, the fit only over drawn rows); canvas tradeoffs: resizing is pointer-only, no keyboard or screen reader (whether the accessibility gap already says it); "Read-only"'s list loses column resizing.
+- [ ] **D4. Waiting apps told:** `resize` joins Tycho's "Ready so far" list (the date and M5). The observatory has no row: its wide sheet names a resize drag as a later step but hasn't asked.
+
+**Manual check:** by hand in Firefox and Safari (`just tall-table dev resize`, `?shape=wide`): the cursor over a band and held through a drag, the hairline's hover and drag colors, a drag narrowing at the right end without the columns sliding under the pointer, a double-click fit.
 
 ---
 
@@ -169,7 +230,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 ## Next milestones
 
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M5's (`resize`) is written after its research, which opens it now that M4 has closed; until then its spec is its row under "Features".
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M6's (`select`) is written after its research, which opens it once M5 closes; until then its spec is its row under "Features".
 
 ---
 

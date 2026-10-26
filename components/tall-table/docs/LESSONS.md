@@ -138,3 +138,13 @@ One entry per milestone part, written before starting the next one: what surpris
 - Wrapping the GPU calls cost more than expected: a trial with the wrapper on through the traced window read ~520 ms/s busy at 100k rows a second against ~320 without. It now runs only in the window that reads presented frames.
 - At 100k rows a second on a 4× slowed CPU, the drawn frames cost what they do at 10k (~26 ms, ~30 a second); what saturates the main thread is the reads, three times as many, each a page the bare host's source builds on the main thread.
 - The `follow` build's throttled wide fling had more late frames than the base's in both orders (median ~8% against ~3.5% over 20 runs each), with the same work per frame and busy time, and nothing in `follow`'s idle path to explain it. Left open.
+
+## M5: `resize` (part A, 2026-10-26)
+
+**Results:** none measured; the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "`resize`".
+
+**Surprises:**
+- None of gpui-kit's resizing could be reused as code, not even gpui-base's public `resize_handle`: its drag is GPUI's typed drag, which has no release of its own. `DataTable` reads its release from `on_mouse_up_out`, which misses a release over the band the pointer drags. The table's own drag (built for its scrollbars, its handlers registered every frame) already solved that.
+- The pin moved under the inventory: gpui-component 0.8.0 added a double-click fit (`fit_col`) that the 0.7.3 reading never saw. Each feature's research re-reads `DataTable` at the current pin.
+- `DataTable`'s width rule (pointer minus the column's left) assumes the scroll never moves under a drag. On a table scrolled to its right end, a narrowing shrinks the content and the scroll clamps, so the columns would slide under the pointer. Anchoring at the press and holding the scroll until the release avoids it.
+- Resizing reaches cell text, not just layout: a float's rounding is a function of its width, so a DOM contender at a resized width needs GPUI's glyph advance, which `cells.json` never had to carry while widths were fixed.
