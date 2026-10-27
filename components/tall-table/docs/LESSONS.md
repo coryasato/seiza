@@ -252,3 +252,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - A scripted paste into a textarea takes GPUI's focus, and focusing the canvas doesn't give it back: keys go to another element of gpui-pre-web's. Copies after a press still worked, which hid it until the first copy started from the select hook.
 - With reads held, a copy started at the filled mark loses a round to prefetch, whose reads only go out once the visible page lands. Correct paging, but a timed check has to wait it out.
 - A scroll during a copy costs late frames, not per-frame work: the copy's turns run as tasks between frames (~0.8 s of them in a 2 s scroll), and throttled, 53% of frames were late against 42% alone. The first trial's window waited for the copy's end and read the copy's tail as the scroll's (a "doubled" rest time, and a 0.6 ms p50 from idle frames). The code review caught it; a window has to end where the act it measures ends.
+
+## M7: `copy` (part D, 2026-10-27)
+
+**Results:** [`perf/results/2026-10-27-m7-d.md`](../perf/results/2026-10-27-m7-d.md).
+
+**Surprises:**
+- Part C added more bytes than part B: the bridge's writer and the host's hooks took the `copy` build from +4.5 to +8.8 KiB brotli over `select` (+12.9 to +33.3 after wasm-opt). The table's copy is the smaller half of the feature's cost; a host that writes the clipboard its own way pays less.
+- The scripts read a build's features as `just tall-table build` was given them, not as Cargo resolved them: the `copy` build turns on `select` but ran `perf`'s base segments, with no select-all standing. That's the comparison D1 asked for (built, nothing copied), but a build that turns another feature on doesn't run that feature's segments.
+- The wide heap's growth came out at the reads in flight almost exactly (7.0 MiB against 7.8 for two 500-column pages), and the narrow shape's not at all: wasm memory grown once stays, so a copy's heap cost shows only where its pages are larger than anything the view had held.
+- Throttled, a scroll during a copy lost more frames in the narrow shape (27 → 43% late) than in the wide (54 → 55%): the wide scroll alone already misses most frames, probably leaving the copy's turns little more to take.
+- The manual check couldn't select a range past the loaded pages by hand: a Shift+press far away has to get there first, and scrolling there reads the pages between. It took `?perf`'s `__tallTableSelect` in the console. The bare host's Cmd+Shift+C (the host's copy) showed no refusal in the manual check either; raising the key's limit (`?copy-key-cells=`) refused a plain Cmd+C at the cap instead.

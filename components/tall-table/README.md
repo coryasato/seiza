@@ -45,8 +45,9 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `follow(cx)`, `is_following()` (`follow`): below.
 - `column_width(column)` (`resize`): the width a column is drawn at now.
 - `selection()`, `select(selection, cx)`, `selectable()`, `set_selectable(selectable, cx)` (`select`): below.
+- `copy(cx)`, `copying()`, `cancel_copy(cx)`, `set_copy_options(options)` (`copy`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
-- `close(cx)`: cancels its reads and starts no more (a table being replaced).
+- `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
 - `delegate()`, `delegate_mut()`, `rows()`, `visible_rows()`, `columns()`, `focus_handle()`, `has_failed_reads()`.
 
@@ -60,6 +61,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Following(bool)` and `TailDrawn { rows }` (`follow`): below.
 - `ColumnWidthsChanged(widths)` (`resize`): below.
 - `Selected(selection)` (`select`): below.
+- `Copy(TallTableCopy)` (`copy`): below.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -183,10 +185,39 @@ TallTableEvent::Selected(None) => { /* cleared */ }
 - **`jump_to` selects:** the row (rows on), else the cell in the active cell's column (cells on), with `Selected`; the jump's highlight isn't drawn then. With only columns on it highlights as without the feature, and can sit over a selected column's tint.
 - **The host's:** `select(Some(…))` sets one without scrolling (clamped to the last row and column; a kind that's off is a debug assertion), and `select(None)` clears. `set_rows` shrinking cuts a `Rows` or `Cells` range (a corner past the end moves to the last row) and clears one wholly past it; `set_columns` clears it, so a host that keeps it across new columns calls `select` after. `Selected` is emitted at each change (a press, a drag's move to a new cell, a key, `select`, `jump_to`, `set_rows`, `set_columns`), never when an input leaves it as it was.
 - **Drawn:** the range's visible part as one tint (`table_active`, edged in `table_active_border`) under the text and over a fill, a bar, and a flash, so a heat map stays readable; the selected rows' numbers and columns' headers in the same tint; and the active cell edged 2 px while the table has focus.
-- **Nothing is copied yet:** a selection is the source for `copy`, next in [`PLAN.md`](PLAN.md).
+- **Copying it** is `copy`'s (below).
 - **Its cost:** the Features table. A standing selection is one tint a frame however many rows it spans.
 
-Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
+**Copying** (`copy`, off by default, which turns on `select`): the selection to the clipboard as a spreadsheet's tab-separated text of exact values. The table builds the text and reports it in events; the host writes the clipboard (on the web, `tall-table-bridge`'s `clipboard::Clipboard`).
+
+```rust
+use seiza_tall_table::{CopyOptions, TallTableCopy};
+
+state.update(cx, |table, cx| table.set_copy_options(CopyOptions::default().headers(true)));
+// From the subscription: hand each to the clipboard's writer.
+TallTableEvent::Copy(copy) => {
+    if let Some(id) = clipboard.event(copy) {
+        state.update(cx, |table, cx| table.cancel_copy(cx)); // it can't be written here
+    }
+    if let TallTableCopy::Declined { rows, columns } = copy { /* ask the reader; `copy` if they confirm */ }
+}
+// A host's menu, or its confirmation of a declined copy:
+state.update(cx, |table, cx| table.copy(cx)); // Option<CopyId>: None with nothing selected
+```
+
+- **The keys:** Cmd+C or Ctrl+C copies the selection, while it has focus and a kind is on; with nothing selected the key reaches the host. Past `key_max_cells` cells (rows × columns, 100 k by default) it copies nothing, reads nothing, and emits `Declined`, so a reflex Cmd+C on a select-all costs nothing; a host that asks the reader calls `copy`, which the limit doesn't hold. Escape during a copy cancels it and keeps the selection; the next clears it.
+- **What's copied:** a `Cells` block; a `Rows` range's every column; a `Columns` range's every row the table has at the key (rows arriving later aren't copied). Columns in the table's order, no row numbers.
+- **The text:** a tab between cells, `\n` between rows, none after the last, so one cell copies as its value alone. Each value's exact text (the tooltip's, `CellValue`'s `Display`), never the rounded or cut text drawn; a value holding a tab, a line break, or a `"` quoted, its quotes doubled; NULL an empty field. With `headers`, the column names (quoted by the same rule) as a first line.
+- **The reads:** a page loaded at its turn comes from the cache (with `live`, as drawn); any other is read through `load_page` beside the cache, never cached, ahead of prefetch and never while a visible page is loading. A copy's reads and `live`'s re-reads share at most `max_in_flight − 1` places (at least 1), so a page scrolled into view still finds one. Scrolling and changing the selection don't cancel a copy.
+- **The pieces:** the text is formatted between frames, a turn of at most ~16 k cells at a time, each turn's text sent as one `Text` and dropped, so the table never holds the whole copy. A copy whose rows are loaded and that fits one turn emits `Started`, `Text`, and `Copied` in the task that asked.
+- **The cap** (`max_bytes`, 64 MiB by default, under WebKit's ~100 MiB limit on a clipboard write): a copy whose separators alone pass it is refused before any read; one whose first page's worth of rows projects past twice the cap is refused there; otherwise it's refused as soon as its text passes the cap, checked a row at a time (`Failed(TooLarge)`, nothing sent after). Never cut short. A copy keeps the cap it started with.
+- **Ending:** `Copied`, or `Failed` with its reason: `TooLarge`; `Read` (a read failed; never retried, and with `read_failure` the table's `ReadFailed` too); `Cancelled` (a second copy, `set_columns`, `set_rows` shrinking under its last row, `cancel_copy`, or Escape). A cancelled copy's reads are cancelled through the delegate and drain as the cache's do. `close` ends a copy without an event: a host closing the table tells its writer (`closed`), which rejects the write.
+- **The events** (`TallTableEvent::Copy`): `Declined { rows, columns }`; `Started { id, rows, columns }`, in the task that asked (the key's, so a write opened there counts as the reader's gesture); `Text { id, text, rows_done }`, the next piece; `Copied { id, rows, bytes }`; `Failed { id, reason }`. `copying()` reads a running copy's progress.
+- **The bridge's write:** at `Started`, `navigator.clipboard.write([new ClipboardItem({'text/plain': promise})])`; each `Text` kept as a JS string; at `Copied`, the promise resolved with a Blob of them (the strings dropped once it's built: the peak is about twice the text, plus the browser's copy); at `Failed`, rejected, the clipboard as it was. Opened at the key, the write lands however long the copy takes (checked at a minute, and with the tab in the background, in Chromium, Firefox, and WebKit). Without `ClipboardItem`, `writeText` at `Copied`, which a browser allows only within ~5 s of the key. Without `navigator.clipboard` (an insecure context), `event` returns the copy at `Started` for the host to cancel, so nothing is read. What became of each copy (`clipboard::Outcome`: declined, copying, writing, written, refused, failed, unavailable) goes on a global the host names and to a callback it gives.
+- **The host's:** the write, the progress (`copying`, or each `Text`'s `rows_done`) and the result shown to the reader, a cancel button (`cancel_copy`), asking about a declined copy, and the limits (`set_copy_options`).
+- **Its cost:** the Features table. Compiled in with nothing copied, it costs nothing a frame.
+
+Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above); with `copy`, Cmd+C and Ctrl+C copy it ("Copying"). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
 
@@ -199,12 +230,19 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `follow` | The view kept at the tail as `set_rows` grows the rows, until the reader scrolls up; `Following` and `TailDrawn` ("Following the tail", above). Turns on `live` | +3.7 KiB brotli over `live` (+8.9 KiB after wasm-opt; +7.0 brotli over the base, the bare host's tail feed included). Append → pixel, a source answering from memory: 8.2–8.3 ms p50 at 1k and 10k rows/s, 28 at 100k (every batch starts a page); no placeholder frame at any rate; a wheel up during the feed on screen in ~28 ms. Reference: ~320 ms of main thread a second (348 at 100k), no late frames. Throttled (4× CPU): keeps up to 10k (≤1.4% late); at 100k the main thread saturates and the view trails by ~0.3 s, still without placeholders. Compiled in, feed off: no frame cost (late frames in a throttled wide fling an open question) | [`perf/results/2026-10-25-m4-d.md`](perf/results/2026-10-25-m4-d.md) |
 | `resize` | A column's width dragged at its header edge, or fitted to what's drawn by a double-click; `ColumnWidthsChanged` for a host to keep them ("Resizing columns", above) | +2.8 KiB brotli (+5.0 KiB after wasm-opt, the bare host's widths included). Every column resizable, nobody dragging: +0.05–0.15 ms a frame (1–2%) at the reference run, the bands; within the spread throttled. The drag: 4.8–5.5 ms a frame, under the wide shape's sideways fling (6.6), no late frames; throttled ~15–18 ms, 4–5% late | [`perf/results/2026-10-26-m5-d.md`](perf/results/2026-10-26-m5-d.md) |
 | `select` | Rows, columns, or a block of cells selected by press, Shift, drag, and keys, held as one range; `Selected` for a host ("Selecting", above) | +6.2 KiB brotli (+22.0 KiB after wasm-opt, the bare host's publishing included). A select-all standing under the scroll and flings: within the spread in both profiles. The drag-select: 5.0–5.7 ms a frame, under the scroll and the sideways fling, no late frames; throttled ~16–18 ms, 5–8% late | [`perf/results/2026-10-26-m6-d.md`](perf/results/2026-10-26-m6-d.md) |
+| `copy` | The selection to the clipboard as tab-separated exact values, by Cmd+C or a host's `copy`, rows not loaded read beside the cache, a cap in bytes; the bridge's write ("Copying", above). Turns on `select` | +8.8 KiB brotli over `select` (+33.3 KiB after wasm-opt; +13.1 brotli over the base, the bridge's writer and the bare host's hooks included). Built, nothing copied: within the spread in both profiles. A 58 MiB copy from a cold view: written 1.7 s after the key (2.8 s throttled), the wasm heap growing by at most its reads in flight and a piece. A scroll during it keeps its frame work, its turns running between frames: 1.2–1.3% late frames at the reference run (none alone); throttled, 43% late against 27% (narrow) | [`perf/results/2026-10-27-m7-d.md`](perf/results/2026-10-27-m7-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
-- **Read-only.** No editing, sorting, or filtering. With `select`, a reader selects, but nothing is copied until `copy`.
+- **Read-only.** No editing, sorting, or filtering.
+- **A key copies at most `key_max_cells` cells, and nothing copies past the cap** (`copy`): 100 k cells and 64 MiB by default. The key's limit keeps a reflex Cmd+C on a select-all from reading the whole source; the cap keeps a write under what the browsers take (WebKit's ~100 MiB) and the browser's memory sane (the bridge holds about twice the text at its peak).
+- **NULL and empty text paste alike** (`copy`): both are an empty field.
+- **A paste before a copy that reads has finished gets the clipboard's old contents** (`copy`): the write lands only once every row is in. Show the reader the copy's progress.
+- **A `Columns` copy is of the rows at the key** (`copy`): rows that arrive during it aren't copied.
+- **Plain text only** (`copy`): no HTML table or other format on the clipboard.
+- **A block of a few columns reads every column of a page** (`copy`): a page is the delegate's unit, so a copy of two columns past the loaded pages costs a full page read per 1,024 rows.
 - **One selection range** (`select`): rows, columns, or a block, never several ranges at once (no Cmd+press to add one), and never part of a value's text.
 - **No auto-scroll during a selecting drag** (`select`): the head stops at the view's edge; a wheel during the drag scrolls and the head follows.
 - **Column widths by kind** (and the header's length), not by the values: measuring the widest value would cover only the pages loaded, and a column must not widen under the reader. With `resize`, a reader sets them, and a fit counts only the visible, loaded rows.
@@ -214,7 +252,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 ## Canvas tradeoffs
 
 - **Accessibility:** screen readers see nothing: the canvas has no accessibility tree. *Today:* it scrolls entirely from the keyboard (above), and with `select` selects from it too. *To close it:* a hidden DOM mirror of the visible rows, kept in step with each frame, its selected rows, columns, and cells marked `aria-selected`.
-- **Text selection and copy:** the browser can't select the canvas's text. *Today:* with `select`, a reader selects whole cells, rows, and columns, but not part of a value, and nothing is copied yet. *To close it:* `copy`, through the browser's clipboard event ([`PLAN.md`](PLAN.md)).
+- **Text selection and copy:** the browser can't select the canvas's text. *Today:* with `select`, a reader selects whole cells, rows, and columns, and with `copy` copies them (Cmd+C, as tab-separated exact values); part of a value can't be selected, and the tooltip's text can't either. *To close it:* a text selection inside a cell, from the DOM mirror above or a selection of the table's own over a cell's shaped text.
 - **Color alone** (`custom-cells`): a heat map's fill, a bar's length, and a value's color carry meaning that a screen reader can't see either, and that a reader who can't tell the colors apart misses. *Today:* the value's text is always drawn over its paint, so the number is there, and over a fill it takes whichever of the theme's text colors contrasts more (a two-way pick, not a contrast score: a mid-lightness fill can leave either one weak). *To close it:* the DOM mirror above, carrying each cell's paint as text.
 - **A flash says "changed" in color and motion alone** (`live` with `custom-cells`): a screen reader hears nothing of it, a reader who can't tell its colors apart can't tell a rise from a fall, and its full color can sit under the text with little contrast (a red flash under dark text). *Today:* the new value is drawn over it; under `App::reduce_motion` it holds still instead of fading. *To close it:* the DOM mirror above, announcing changes in a live region (politely, and batched: at a market watch's rates, every visible row changes every frame).
 - **New rows arrive silently** (`follow`): a screen reader isn't told that rows arrived or that the view moved, the accessibility gap above. *To close it:* the DOM mirror above, announcing appended rows in a live region (politely, and batched: a busy log appends every frame).

@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M6 (built, in [`docs/milestones.md`](docs/milestones.md)), M7 (`copy`, active, its research done, the copy and its bridge built, [below](#active-milestone)), the [hardening](#hardening) session between M7 and M8, `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M7 (built, in [`docs/milestones.md`](docs/milestones.md)), the [hardening](#hardening) session between M7 and M8 (next), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -24,7 +24,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M4 | `follow`: follow the tail as rows arrive | Done 2026-10-25 ([`docs/milestones.md`](docs/milestones.md)) |
 | M5 | `resize`: drag a column's width | Done 2026-10-26 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | `select`: row, column, and cell selection | Done 2026-10-26 ([`docs/milestones.md`](docs/milestones.md)) |
-| M7 | `copy`: a selection to the clipboard | Active: part A done 2026-10-26; parts B and C done 2026-10-27; part D next |
+| M7 | `copy`: a selection to the clipboard | Done 2026-10-27 ([`docs/milestones.md`](docs/milestones.md)) |
 | M8 | `sort`: one column, ascending or descending | Planned |
 | M9 | `pin`: columns fixed at the left | Planned |
 | M10 | `reorder`: drag a column to move it | Planned |
@@ -151,127 +151,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-### M7: `copy`, a selection to the clipboard
-
-**What it adds** (behind the `copy` feature, which turns on `select`; off by default): Cmd+C or Ctrl+C, or a host's `copy`, copies the selection as a spreadsheet's TSV of exact values. Rows that aren't loaded are read from the delegate a page at a time, beside the cache. The table builds the text and reports it through events; the host writes the clipboard (the bridge, through a `ClipboardItem` it opens when the copy starts, so a copy that takes longer than the browser's ~5 s for a key still lands). A cap in bytes refuses a copy too large for the browsers. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`copy`"; the spike: [`perf/results/2026-10-26-m7-a-spike.md`](perf/results/2026-10-26-m7-a-spike.md); the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-10-26, M7 part A).
-
-```rust
-// copy.rs, behind `copy`.
-/// Names a copy in its events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CopyId(u64);
-
-/// How a copy is made: the host's settings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct CopyOptions {
-    /// Refused past this many bytes of text: 64 MiB by default, under
-    /// WebKit's ~100 MiB limit on a clipboard write. The most ever
-    /// attempted, not a size a key copies.
-    pub max_bytes: usize,
-    /// The most cells (rows × columns) Cmd+C copies: 100 k by default.
-    /// Past it the key copies nothing and emits `Declined`; a host that
-    /// asks the reader calls `copy`, which this doesn't limit.
-    pub key_max_cells: u64,
-    /// The column names as a first line: off by default.
-    pub headers: bool,
-}
-
-impl Default for CopyOptions { /* 64 MiB, 100 k cells, no headers */ }
-
-impl CopyOptions {
-    pub fn max_bytes(self, bytes: usize) -> Self;
-    pub fn key_max_cells(self, cells: u64) -> Self;
-    pub fn headers(self, on: bool) -> Self;
-}
-
-/// A copy's progress, in order: `Started`, any number of `Text`, then
-/// `Copied` or `Failed`.
-#[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
-pub enum TallTableCopy {
-    /// Cmd+C on a selection past `key_max_cells`: nothing copied, nothing
-    /// read. A host may ask the reader, and call `copy` if they confirm
-    /// (the confirming click is a gesture of its own).
-    Declined { rows: u64, columns: usize },
-    /// In the task that asked for it (the key, or `copy`): a host writing
-    /// to the web's clipboard opens its write here.
-    Started { id: CopyId, rows: RangeInclusive<u64>, columns: RangeInclusive<usize> },
-    /// The text's next piece, to append; `rows_done` rows are in so far.
-    Text { id: CopyId, text: String, rows_done: u64 },
-    /// Every piece sent.
-    Copied { id: CopyId, rows: u64, bytes: usize },
-    /// Ended without its text: a host drops the pieces it has and leaves
-    /// the clipboard as it was.
-    Failed { id: CopyId, reason: CopyFailure },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
-pub enum CopyFailure {
-    /// Its text passed `max_bytes`, or its first page's worth of rows said
-    /// it would.
-    TooLarge { bytes: usize, max_bytes: usize },
-    /// A page read for it failed (with `read_failure`, the table's
-    /// `ReadFailed` too, for the host to repair the source).
-    Read(String),
-    /// A second copy, `set_columns`, `set_rows` shrinking under it, or
-    /// `cancel_copy` (`close` ends a copy without an event).
-    Cancelled,
-}
-
-/// A running copy's progress.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CopyProgress { pub id: CopyId, pub rows_done: u64, pub rows: u64 }
-
-impl<D: TallTableDelegate> TallTableState<D> {
-    pub fn set_copy_options(&mut self, options: CopyOptions);
-    /// Copies the selection, as Cmd+C does but past `key_max_cells` too;
-    /// `None` with nothing selected.
-    pub fn copy(&mut self, cx: &mut Context<Self>) -> Option<CopyId>;
-    /// The copy running, if any: its id, rows done, and rows.
-    pub fn copying(&self) -> Option<CopyProgress>;
-    /// Ends the copy running, if any, with `Failed(Cancelled)`.
-    pub fn cancel_copy(&mut self, cx: &mut Context<Self>);
-}
-
-pub enum TallTableEvent {
-    // …
-    #[cfg(feature = "copy")]
-    Copy(TallTableCopy),
-}
-```
-
-The spec below is what part B builds; why each rule is so is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", and the root's research.
-
-- **The keys:** Cmd+C and Ctrl+C, bound in `TallTableSelect` (both, as Cmd+A is), copy the selection of at most `key_max_cells` cells; past it they emit `Declined` and read nothing, so a reflex Cmd+C on a select-all costs nothing; with nothing selected the key propagates. A host's menu, or its confirmation of a declined copy, calls `copy`. Escape while a copy runs cancels it and keeps the selection; the next Escape clears the selection as `select`'s does.
-- **What's copied:** a `Cells` block; a `Rows` range's every column; a `Columns` range's every row the table has at the key (rows arriving later aren't copied). Columns in the table's order, no row numbers.
-- **The text:** tab-separated, a row a line (`\n`), no newline after the last, so one cell's copy is its value alone. A value holding a tab, `\n`, `\r`, or `"` is quoted, its quotes doubled. Each value's exact text (`CellValue`'s `Display`, the tooltip's), never the rounded or cut text drawn; NULL an empty field. With `headers`, the column names (quoted by the same rule) as a first line.
-- **The reads:** each page at its turn (every page before it sent) comes from the cache if it's loaded then and holds every row the copy wants from it, as drawn then (with `live`, a stale page's drawn rows), and is read through `load_page` otherwise (a last page `set_rows` grew holds fewer rows than it now spans, so it's read): a page not loaded when the copy reads ahead is read ahead, and one loaded then but evicted by its turn is read at its turn. Never cached. A copy's reads and `live`'s re-reads together at most `(max_in_flight − 1).max(1)`, counted against `max_in_flight` with the cache's, so with `max_in_flight` 2 or more a visible page always finds a place (at 1, it waits behind the copy's one read); none started while a visible page is loading; ahead of prefetch. Reads in flight when the reader scrolls aren't cancelled. Pages that land out of order wait for their turn.
-- **The pieces:** formatting runs off render, a turn at a time, each turn at most a budget counted in cells (~16 k, a constant: about 1–2 ms natively, measured in the build; wasm has no `Instant`, and a count is the same in a test as in a browser), each turn's text sent as one `Text` and dropped, so the wasm heap holds the pages in flight and one piece, never the copy. A copy whose rows are all loaded and whose cells fit one turn emits `Started`, its `Text`, and `Copied` in the task that asked.
-- **The cap:** before any read, a copy whose least text passes `max_bytes` is refused at once: any value may be NULL (empty), so the least is its separators (a tab between cells, a line break between rows) and, with `headers`, the header line. A column's kind bounds nothing above (an integer can pass `max_chars`, a date arrives as text, and DuckDB writes BC dates and years past 9999 wider than 10). Otherwise it reads: refused early when the bytes a row of its first page's worth of rows (`page_rows` of them, wherever the selection starts) × the copy's rows pass twice `max_bytes`, and else as soon as the text passes it, checked a row at a time. `Failed(TooLarge)`, nothing sent after it. Never cut short. The cap is the copy's from its start: options set during it are the next copy's.
-- **Ending:** a read that fails fails the copy (`Failed(Read)`, never retried; with `read_failure`, the table's `ReadFailed` too, so the host repairs the source, and the reader copies again). A second copy cancels the first (its `Failed(Cancelled)` before the new `Started`), as do `set_columns`, `set_rows` shrinking below the copy's last row, and `cancel_copy`; a copy's reads in flight are cancelled through the delegate and drain as the cache's do. `close` cancels its reads too, but emits nothing (it takes `&mut App`): a host closing the table tells its bridge, which rejects a write still open. Escape cancels it (`Failed(Cancelled)`, the selection kept); the selection changing and scrolling don't.
-- **What's the host's:** writing the clipboard (the bridge, part C), its progress (`copying`, or each `Text`'s `rows_done`) and result shown to the reader, a cancel button (`cancel_copy`), asking the reader about a declined copy, and the limits (`set_copy_options`).
-- **The bridge** (part C): at `Started`, `navigator.clipboard.write([new ClipboardItem({'text/plain': promise})])`; each `Text` kept as a JS string; at `Copied`, the promise resolved with a Blob of them, the strings dropped once it's built (the peak is about twice the text, plus the clipboard's copy); at `Failed`, rejected. Without `ClipboardItem` but with `navigator.clipboard` (an old browser), `writeText` at `Copied`, which lands within ~5 s of the key; without `navigator.clipboard` (an insecure context, where `writeText` doesn't exist either), the refusal published at `Started` and the host told the copy can't be written, which calls `cancel_copy` then, so nothing is read or formatted. At the host's word that the table closed, a write still open rejected. **If a write resolved minutes after the key, or in the background, fails** (C1's checks), a copy that reads changes flow: the table reads, then the host asks the reader to press Cmd+C again, which copies from the text it holds, in that key's task. The outcome (written, or the browser's refusal, or failed) on a global the host names, and to a callback the host gives.
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
-
-- **A. Research and spec** (no shipped code). *Done 2026-10-26,* revised the same day after a code review: the research in the root's `docs/research/tall-table-features.md`, "`copy`"; a spike of the browsers' clipboard (`perf/results/2026-10-26-m7-a-spike.md`); three decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below.
-- **B. The copy.** `src/copy.rs` (the types, the text) and `src/state/copy.rs` (the action and its binding, `copy`, the reads beside the cache, the turns, the cap, the cancels, the events); `PageCache` counting a copy's reads against `max_in_flight`; the host's `copy` feature as a forward of the table's and the bridge's, so `size` measures it; `copy` in `perf/size.ts`'s `FEATURES` and the justfile's `test` runs; native tests. Checks B1–B3. *Done 2026-10-27,* revised after two code reviews.
-- **C. The bridge and the scripts.** The bridge's writer, the host publishing the copy's state (`__tallTableCopy`) and a source's exact text for a script (`?perf`), the smoke check's copy run, and `perf/copy.ts` (`just tall-table copy`). Checks C1–C2. *Done 2026-10-27:* the bridge's `clipboard::Clipboard`; the host's outcome global, Cmd+Shift+C (its `copy`), limits by URL, and `?perf` hooks (exact text, heap, `select`, `close`); the table's copy plans its reads at the update's end (found by C1's insecure run); `serveApp`'s `lan`; the smoke check's copy runs; `perf/copy.ts`. The write lasting a minute and in the background held, so the "press Cmd+C again" flow isn't built (`docs/DECISIONS.md`, "Features").
-- **D. The measurement and the close.** The cost on the final build, then every remaining check and the close-out ("Closing a milestone", above).
-
-**Done when:**
-- [x] **B1. Off by default, the base unchanged:** `just tall-table size --against <M7's parent>` (the base after wasm-opt within 0.1 KiB, no `copy` symbols in it, and the `copy` build's present; `select`'s build unchanged by `copy`'s code). `just tall-table test` passes with every feature off, each on (`copy` among them), and all on; `just tall-table lint` passes. *Passed 2026-10-27, after the code reviews:* `just tall-table size --against 98f3505`: the base 9680.6 KiB after wasm-opt at 98f3505 and in the working tree (+0.0; 2688.6 and 2689.4 KiB brotli, within brotli's drift when bytes shift), both built in a worktree at one path; `seiza_tall_table4copy` and `seiza_tall_table5state4copy` absent from the base (0, 0) and from `select`'s build (0, 0), present with `copy` (5, 46); every other feature's symbols as before. `just tall-table test` (its `copy` run, and `copy` in the all-on run) and `lint` pass. `perf/size.ts` now also fails if a build of what a feature turns on holds its symbols (`select`'s of `copy`'s, `live`'s of `follow`'s).*
-- [x] **B2. Copying, natively:** the text of a `Cells` block, a `Rows` range, and a `Columns` range (its rows at the key, not those a later `set_rows` adds); a value with a tab, a line break, and a `"` quoted; floats exact (not as drawn); NULL empty; one cell with no newline; `headers` on. Cmd+C and Ctrl+C copy and `copy` returns the id; with nothing selected the key propagates and `copy` returns `None`; without the feature Cmd+C is unbound. Past `key_max_cells` the key emits `Declined`, reads nothing, and starts no copy, and `copy` copies it; Escape during a copy cancels it and keeps the selection, the next clears it; `copying` follows the rows done. A copy's `Started` reaches a subscriber before the task that asked ends (the key's dispatch, or the host's update that called `copy`); a copy of loaded rows within one turn's cells emits `Started`, `Text`, `Copied` in that task. A copy past the loaded pages: its reads and re-reads together at most `(max_in_flight − 1).max(1)` (with `max_in_flight` 1, a copy still completes, and a page that becomes visible meanwhile loads after its read), none started while a visible page loads, before prefetch, the cache's pages and bytes unchanged by them, out-of-order landings sent in order, the text equal to a loaded copy's of the same rows; a page loaded at the start and evicted before its turn read at its turn; a last page grown by `set_rows` (with `live`) read, its grown rows copied; a wide page's text in more than one piece, each at most the turn's cells. The cap: a copy whose separators (and header line, with `headers`) pass it refused before any read; refused at the first page only past twice the cap (a first page wide and the rest narrow, fitting, copied); else at the bytes passing it, an integer wider than its `max_chars` counted; nothing sent after. A failed read fails it (`Failed(Read)`), with `read_failure` also emitting the table's `ReadFailed`. Each cancel (a second copy, `set_columns`, `set_rows` shrinking under it, `cancel_copy`) emits `Failed(Cancelled)`, cancels its reads through the delegate, and their answers drain; `close` cancels them and emits nothing; a selection change and a scroll don't cancel. With `live`, a stale page copied as drawn. *Passed 2026-10-27:* `src/state/copy/tests.rs` (24 tests, 28 with `live`), `src/copy.rs`'s 3, and `pages.rs`'s `copy_tests` (7, 9 with `live`), in `just tall-table test`'s `copy` run and its all-on run. The text: `a_block_rows_and_columns` (a `Cells` block exactly, `Copied`'s 41 bytes; a `Rows` range's every column; a `Columns` range's 1,000 rows with `set_rows(1500)` during it), `values_exact_quoted_and_null_empty` (a tab, a `"`, and `\r\n` quoted; 0.30000000000000004 where the column draws 0.3; NULL empty; one cell alone; an empty cell `Started`, `Copied`; the header line quoted). The keys: `the_keys_copy_and_nothing_selected_goes_on` (Cmd+C and Ctrl+C; nothing selected, the host's Cmd+C runs and `copy` is `None`), `the_copy_keys_are_bound_only_with_copy` (the select fixture's, in both builds), `past_the_keys_limit_its_declined` (`Declined { rows: 1000, columns: 4 }`, no read, no copy; then `copy` copies it), `escape_cancels_a_copy_then_clears`, `started_reaches_a_subscriber_in_the_task_that_asked` (a key dispatched without running the executor: `started`, `text`, `copied` for loaded rows; `started`, `text` with reads to come; and from a host's update). The reads: `a_copy_reads_beside_the_cache` (`load 3`, `load 4` at once, page 4 answered first waiting for page 3, `copying` at 300 then 500 of 1,000 rows, at most 2 open, the text equal to the TSV of the rows, the cache's 3 pages and bytes unchanged, nothing draining), `none_while_a_visible_page_loads_then_before_prefetch` (nothing while page 5 loads; then `load 3`, `load 4`, then prefetch's one place), `at_one_in_flight_a_copy_completes` (one read; the visible page loads after it; peak 1), `a_page_evicted_before_its_turn_is_read_then`, `a_grown_last_page_is_read_and_its_rows_copied` and `a_stale_page_is_copied_as_drawn` (with `live`), `a_wide_page_goes_in_pieces` (500 columns: pieces at 32, 64, 96, 100 rows, each at most 16,384 cells); the cache's grant in `pages.rs` (`a_copys_reads_and_rereads_share_one_limit` among them). The cap: `separators_past_the_cap_are_refused_before_a_read` (3,999 bytes of separators against 3,998, no read; 51 with the header line against 45), `the_first_page_refuses_only_past_twice_the_cap` (a 2,899-byte copy projecting ~11,000 copied under a 6,000 cap, refused under 5,000 with nothing sent), `past_the_cap_at_its_bytes_then_nothing` (an integer column's 30-character values, refused past 20,000 bytes, nothing after). Ending: `a_failed_read_fails_it` (`Failed(Read("gone"))`, `ReadFailed` only with `read_failure`, its other read cancelled and drained), `each_cancel_ends_it_and_drains_its_reads` (a second copy's `Failed` before its `Started`, `set_columns`, `set_rows(999)`, `cancel_copy`: each `Failed(Cancelled)`, `cancel 3`, `cancel 4`, draining back to 0), `close_cancels_its_reads_quietly`, `a_selection_change_and_a_scroll_dont_cancel`. Revised after the code review, with the races against the cache's reads: `a_page_the_cache_is_reading_isnt_read_again`, `a_copy_ending_on_the_caches_page_frees_its_own_read` (its own read cancelled, every place back), `a_page_passed_on_the_caches_copy_is_let_go`, `a_page_the_cache_failed_to_read_is_read_by_the_copy`, `a_page_the_cache_stops_reading_is_read_by_the_copy`, `nothing_after_close`, and with `live` `a_grown_page_whose_reread_failed_is_read_by_the_copy` and `a_visible_grown_page_whose_reread_failed_holds_nothing_back` (which fails without its fix); in `pages.rs`, `prefetch_leaves_a_page_the_copy_reads` and `an_answer_frees_a_copys_place_whatever_became_of_it`. After the second review: `the_cap_is_checked_a_row_at_a_time` (100 values of 10,000 characters refused near the 50,000-byte cap, not after a 1 MB piece), `a_page_of_rows_is_projected_not_the_first_pages_tail`, `a_running_copy_keeps_its_cap`, `a_copys_end_gives_its_place_to_the_reader` (copied and refused, at `max_in_flight` 1), `a_resting_drag_lets_the_copy_read` (with `live`), and `a_cache_read_the_plan_cancels_is_the_copys_at_once`; each fails with its fix undone.
-- [x] **B3. The host builds it:** the bare host's `copy` feature forwards the table's and the bridge's; `just tall-table size` reports the `copy` build. *Passed 2026-10-27:* the host's and the bridge's `copy` features forward the table's; `just tall-table size` reports the `copy` build: 2700.3 KiB brotli (9716.8 after wasm-opt), 10.8 KiB brotli more than the base and 4.5 (12.9 after wasm-opt) more than `select` alone. Its cost on the final build is D1's.*
-- [x] **C1. The bridge writes it:** `just tall-table smoke` with `copy` copies in both shapes in Chromium (granted `clipboard-write`, as a real Chrome is), Firefox, and WebKit, each read back through a real paste: a cell (its exact value, no newline), a block, a Shift+press block over every visible row and column, a `Rows` range past the loaded pages with reads held (`?delay`) past 5 s, one held about 60 s, and one finishing with the page in the background (another tab in front); the paste's lines and fields match the copy's rows and columns, and sampled values match the host's source. A copy past the cap is refused, the clipboard left as it was and the refusal published; closing the table during a copy rejects its write; Escape during a copy cancels it, the clipboard left as it was; a reflex Cmd+C on a select-all of the narrow shape declined, nothing read, then copied by the host's `copy` up to the cap (refused there, the clipboard as it was); in an insecure context (`http` on a LAN address), the refusal published and no read sent. *Passed 2026-10-27:* `just tall-table smoke` with `copy`, every run in Chromium, Firefox, and WebKit ([`perf/results/2026-10-27-m7-c.md`](perf/results/2026-10-27-m7-c.md)): a cell (its exact value, no newline), a block, the visible block (27×9 narrow, 27×10 wide), and a `Rows` range past the loaded pages (narrow 2048×11, wide 200×500), each pasted and matching the source (every cell of the small ones, 65 of the large); held reads past 5 s (6.1 s), about a minute (60.1 s), and in the background (6.1 s, another tab in front), each written; Escape during a copy cancelled it with the selection kept and closing the table rejected its write, the clipboard as it was each time; a select-all's Cmd+C declined with 0 reads, then the host's copy (Cmd+Shift+C) refused at the cap (projected 189 MiB against 64), the clipboard as it was; at the LAN address over `http`, `unavailable` and 0 reads. The cap's refusal there is the first page's projection; a copy refused by its bytes passing the cap is the native tests' (B2).*
-- [x] **C2. The scripts measure it:** `just tall-table copy` (`perf/copy.ts`, a `copy` build): in each shape, a copy of rows near the cap from a cold view: the time from the key to `Copied` and to the write resolving, rows a second, and the wasm heap before and after; then frame work and late frames under a scroll during a copy, against the same scroll without one. Reference and throttled, cold, median of 10. *Passed 2026-10-27 as a script (one run each, `perf/results/2026-10-27-m7-c-copy-trial.json`; the median of 10 on the final build is D1's):* in each shape 0.9 of the cap (57.8 MiB narrow, 57.6 wide), key → copied ~1.46 s and → written ~1.63 s at reference (~2.6 and ~3.1 s throttled), the heap 13.69 → 13.69 MiB narrow and 26.94 → 33.94 wide; the scroll during a copy against alone, each window ending at the scroll's rest. It also records the main thread's time outside frames, where a copy's turns run (~0.6–0.8 s during the scroll), and the scroll's time to rest: throttled, late frames 53% against 42% alone (narrow), per-frame work and the rest time about the same.*
-- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base and against `select`; with `copy` built and nothing copied, the scroll and flings within the spread of the base's; `just tall-table copy`'s numbers (C2), the heap growing by no more than the reads in flight and a piece. On the final build. In `perf/results/` and the README's Features table.
-- [ ] **D2. The README:** `copy`'s use (the keys and `copy`, the text, the events, the host's write and the bridge's) and its limits (the key's limit and the cap, and why; NULL and empty text paste alike; a paste elsewhere before a copy that reads has finished gets the clipboard's old contents; a `Columns` copy of the rows at the key; plain text only; every column of a page read for a block of a few); "Read-only" and "Selecting" lose "nothing is copied"; canvas tradeoffs: "Text selection and copy" closed for whole cells, part of a value still not selectable.
-- [ ] **D3. Waiting apps told:** `copy` joins Tycho's "Ready so far" list (the date and M7). The observatory has no row: TanStack Table has no copy.
-
-**Manual check** (at the close): Firefox and Safari (`just tall-table dev copy`, both shapes): a cell pasted into a text field, a block into a spreadsheet (Numbers or Sheets), a `Rows` range past the loaded pages with `?delay` held past 5 s and about 60 s, one finishing with the window in the background, and a copy refused near the cap. The spike checked only Playwright's engines; real Safari's clipboard rules are the ones to confirm.
+None. The [hardening](#hardening) session is next, then M8 (`sort`), which opens with its research.
 
 ---
 
