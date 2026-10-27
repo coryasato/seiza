@@ -4,8 +4,9 @@
 //! `CLAUDE.md`, rule 1), and `seiza` knows no table, so the glue between
 //! them lives here: the filled mark (with `live`, the refreshed mark), the
 //! scrollbar's targets, with `follow` the tail mark and the following
-//! flag, with `resize` the widths a resize left, and the probes (`TallTableProbe`, `TallTableLayout`, `CellProbe`) as JS values
-//! on globals a host names.
+//! flag, with `resize` the widths a resize left, with `select` the
+//! selection, and the probes (`TallTableProbe`, `TallTableLayout`,
+//! `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
 //! ([`Publish::event`]); what only it does (its own state object, its
@@ -59,6 +60,11 @@ pub struct Publish {
     /// at each release or fit that changed one.
     #[cfg(feature = "resize")]
     pub widths: Option<&'static str>,
+    /// The global holding the selection (`select`'s
+    /// [`TallTableEvent::Selected`], [`js::selection`]), replaced at each
+    /// change.
+    #[cfg(feature = "select")]
+    pub selection: Option<&'static str>,
 }
 
 impl Publish {
@@ -122,6 +128,12 @@ impl Publish {
                     js::set_global(name, &js::widths(widths));
                 }
             }
+            #[cfg(all(feature = "select", target_family = "wasm"))]
+            TallTableEvent::Selected(selection) => {
+                if let Some(name) = self.selection {
+                    js::set_global(name, &js::selection(selection.as_ref()));
+                }
+            }
             #[cfg(target_family = "wasm")]
             TallTableEvent::Cells(cells) => {
                 if let Some(name) = self.cells {
@@ -137,6 +149,8 @@ impl Publish {
 #[cfg(target_family = "wasm")]
 pub mod js {
     use js_sys::{Array, Object, Reflect};
+    #[cfg(feature = "select")]
+    use seiza_tall_table::{Cell, TallTableSelection};
     use seiza_tall_table::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
     use wasm_bindgen::JsValue;
 
@@ -169,7 +183,8 @@ pub mod js {
     }
 
     /// `{rows, top, first, end, loaded, pending, failed, lastCell, marked,
-    /// scrollX, tooltip}`: `top` in rows, `scrollX` in CSS px.
+    /// scrollX, tooltip}`: `top` in rows, `scrollX` in CSS px. With
+    /// `select`, also `selection` ([`selection`]).
     pub fn probe(probe: &TallTableProbe) -> JsValue {
         let object = Object::new();
         set(&object, "rows", number(probe.rows as f64));
@@ -187,6 +202,8 @@ pub mod js {
         );
         set(&object, "scrollX", number(probe.scroll_x));
         set(&object, "tooltip", text(probe.tooltip.as_deref()));
+        #[cfg(feature = "select")]
+        set(&object, "selection", selection(probe.selection.as_ref()));
         object.into()
     }
 
@@ -229,6 +246,31 @@ pub mod js {
             .map(|width| width.map_or(JsValue::NULL, |width| number(width.into())))
             .collect();
         list.into()
+    }
+
+    /// `{kind, anchor, head}` or `null`: `kind` is `rows`, `columns`, or
+    /// `cells`, and each cell `[row, column]`, as the table's
+    /// `fixtures/selection.json` writes them.
+    #[cfg(feature = "select")]
+    pub fn selection(selection: Option<&TallTableSelection>) -> JsValue {
+        let Some(selection) = selection else {
+            return JsValue::NULL;
+        };
+        let kind = match selection {
+            TallTableSelection::Rows { .. } => "rows",
+            TallTableSelection::Columns { .. } => "columns",
+            TallTableSelection::Cells { .. } => "cells",
+            // `#[non_exhaustive]`: a kind this bridge doesn't know yet.
+            _ => "unknown",
+        };
+        let cell = |(row, column): Cell| -> JsValue {
+            Array::of2(&number(row as f64), &number(column as f64)).into()
+        };
+        let object = Object::new();
+        set(&object, "kind", JsValue::from_str(kind));
+        set(&object, "anchor", cell(selection.anchor()));
+        set(&object, "head", cell(selection.head()));
+        object.into()
     }
 
     /// `[{row, column, exact, shown}]`: every cell the frame drew. With

@@ -17,7 +17,9 @@
 //! `tall-table:appended`), and `?follow` follows from the start; each frame
 //! whose drawn tail grew marks `tall-table:tail`. With `resize`, every column
 //! is resizable, and each release or fit that changed a width publishes
-//! each column's set width (`__tallTableWidths`).
+//! each column's set width (`__tallTableWidths`). With `select`, every kind
+//! of selection is on, and each change publishes it
+//! (`__tallTableSelection`).
 
 mod host;
 pub mod rows;

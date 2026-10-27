@@ -45,8 +45,10 @@ size *args:
 # The base's frame work in the bare host's release build, per shape (narrow,
 # wide): a vertical scroll, a vertical fling, in the wide shape a horizontal
 # fling, and with `resize` built a resize drag (the first float column's
-# edge out 200 px and back, twice, a move every 8 ms), reference +
-# throttled, cold, median of 10. Per-frame work from Chromium's trace,
+# edge out 200 px and back, twice, a move every 8 ms), and with `select`
+# built a select-all standing under the scroll and flings and a
+# drag-select (a row a move to the last visible cell and back, round
+# trips for about 2 s, a move every 8 ms), reference + throttled, cold, median of 10. Per-frame work from Chromium's trace,
 # cross-checked by `workRecorder`; late frames; frame intervals; visible
 # cells. --runs, --shape, --profile, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
@@ -78,7 +80,8 @@ follow *args:
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
 # one), and with each feature built runs its own checks (with `resize`, a
-# drag, a fit, and a narrowing at the right end, in both shapes).
+# drag, a fit, and a narrowing at the right end, in both shapes; with
+# `select`, presses, a drag, and keys selecting, and the tint, in both).
 # --browsers. Run `just tall-table build` first.
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}

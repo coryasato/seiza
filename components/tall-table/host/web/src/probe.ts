@@ -10,6 +10,18 @@ export interface Shown {
   pending: number;
   failed: number;
   scrollX: number;
+  /** With `select`: what's selected. */
+  selection?: Selection | null;
+}
+
+/** With `select`, as `tall-table-bridge`'s `js::selection` writes it and
+ *  the table's `fixtures/selection.json` spells it: each cell
+ *  `[row, column]`, the anchor the active cell. `unknown` is a kind the
+ *  table added and the bridge doesn't name yet. */
+export interface Selection {
+  kind: 'rows' | 'columns' | 'cells' | 'unknown';
+  anchor: [number, number];
+  head: [number, number];
 }
 
 export interface Layout {

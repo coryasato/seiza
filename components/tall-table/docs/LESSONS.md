@@ -198,3 +198,12 @@ One entry per milestone part, written before starting the next one: what surpris
 **Surprises:**
 - The keys' context can't sit on a child of the element: GPUI walks contexts from the focused element up, and the element is what tracks focus. It's the element's own context, the base's and the selection's together, and which binding wins at that depth is the order `init` binds them in.
 - A drag that moved the whole head would have emitted `Selected` at every column a `Rows` drag crossed, and a header drag into the body would have moved a `Columns` range's row; the spec's "a `Rows` drag across a row: none" needed the head to move only along what the press picked and the range spans, which Shift+press then shares.
+
+## M6: `select` (part C, 2026-10-26)
+
+**Results:** none measured; trial runs only checked the scripts work (the cost is part D's).
+
+**Surprises:**
+- Home in `perf`'s first trial did nothing with the select-all standing: Home moves the active cell to the first row, the select-all's active cell was on it already, and a key that lands where it started does nothing (the spec's "at an end"), so the view stayed at the fling's end. A reader scrolled away from the active cell meets the same: Home doesn't bring the view back while the cell is on row 0.
+- A drag-select paced as the resize drag (a move every 8 ms) still left most traced frames idle: a selection changes only when the head crosses into another cell, and a diagonal of 62 moves each way stayed in one for two or three moves at a time. The resize drag never showed this, since every pixel of it moves an edge.
+- Firefox's screenshot read the tint after Escape in every run, with the probe already reporting no selection: it shows the frame before the one the probe reports, about 100 ms behind. A shorter sequence in a script of its own (a press, a header, Cmd+A, a 300 ms wait, Escape) never showed it; only the smoke check's full one did. Polling the pixel up to 1 s settles it, and a redraw that never came still fails.

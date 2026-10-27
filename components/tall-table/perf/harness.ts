@@ -56,6 +56,10 @@ export const READS_DRAINED_GLOBAL = '__tallTableReadsDrained';
  *  release or fit that changed one. */
 export const WIDTHS_GLOBAL = '__tallTableWidths';
 
+/** With `select` (`host/crate/src/host.rs`, `SELECTION_GLOBAL`): what's
+ *  selected (`Selection`, or `null`), replaced at each change. */
+export const SELECTION_GLOBAL = '__tallTableSelection';
+
 /** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
  *  `Cells`, `?cells=`): `text` paints nothing, the control. */
 export const CELL_STYLES = ['text', 'heat', 'bars', 'color'] as const;
@@ -76,8 +80,8 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, Layout, Shown } from '../host/web/src/probe.ts';
-import type { Cell, Layout, Shown } from '../host/web/src/probe.ts';
+export type { Cell, Layout, Selection, Shown } from '../host/web/src/probe.ts';
+import type { Cell, Layout, Selection, Shown } from '../host/web/src/probe.ts';
 
 type Global = { __tallTable?: Shown; __tallTableLayout?: Layout; __tallTableCells?: Cell[] };
 
@@ -162,4 +166,37 @@ export async function laidOutAt(page: Page, column: number, width: number, timeo
     { timeout, polling: 10 },
   );
   return (await handle.jsonValue()) as Layout;
+}
+
+/** Where to press, in CSS px, with `select`: the middle of a visible
+ *  cell, of a visible row's number (just left of the cells), of a column's
+ *  header, or of the corner over the row numbers. */
+export function cellAt(layout: Layout, view: Shown, row: number, column: number): { x: number; y: number } {
+  const { x, width } = layout.columns[column]!;
+  return { x: layout.left + x + width / 2 - view.scrollX, y: layout.top + (row - view.top + 0.5) * layout.rowHeight };
+}
+export function gutterAt(layout: Layout, view: Shown, row: number): { x: number; y: number } {
+  return { x: layout.left - 6, y: layout.top + (row - view.top + 0.5) * layout.rowHeight };
+}
+export function headerAt(layout: Layout, view: Shown, column: number): { x: number; y: number } {
+  return { ...cellAt(layout, view, 0, column), y: layout.top - layout.rowHeight / 2 };
+}
+export function cornerAt(layout: Layout): { x: number; y: number } {
+  return { x: layout.left - 6, y: layout.top - layout.rowHeight / 2 };
+}
+
+/** The probe once its selection is `want` (compared as JSON; `null` for
+ *  none) and the published global agrees. */
+export async function selected(page: Page, want: Selection | null, timeout = 10_000): Promise<Shown> {
+  const handle = await page.waitForFunction(
+    ({ want, name }) => {
+      const g = globalThis as Global & Record<string, unknown>;
+      const s = g.__tallTable;
+      const json = JSON.stringify(want);
+      return s && JSON.stringify(s.selection ?? null) === json && JSON.stringify(g[name] ?? null) === json ? s : false;
+    },
+    { want, name: SELECTION_GLOBAL },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Shown;
 }

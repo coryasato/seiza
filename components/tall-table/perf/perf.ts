@@ -12,7 +12,19 @@
 //   frame re-lays out the columns; back at the press, the release changes
 //   nothing. Every 8 ms, as the sideways fling's wheels and a mouse's
 //   reports: at a move a frame, throttled frames outran the moves' delivery
-//   and half drew nothing.
+//   and half drew nothing;
+// - select (a build with `select`): a drag-select from a cell near the top
+//   left to the last fully visible row and column and back, a row a move
+//   (the column following along the diagonal), a move every 8 ms, about
+//   2 s of round trips, so every move changes the selection and every frame
+//   redraws the block's tint. Moves that stayed in one cell would draw
+//   nothing (a redraw only when the selection changes), and the trace's
+//   p50 would read those idle frames.
+//
+// Built with `select`, a select-all (a press on the corner: every column)
+// stands under the scroll and both flings, so the tint draws every frame;
+// between segments it's cleared for Home (which would move only its active
+// cell) and pressed again.
 //
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
@@ -36,7 +48,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, bandAt, buildName, builtFeatures, filledWhere, hostWebDir, perfDir, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown } from './harness.ts';
+import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 /** `--name`'s value, which must be one of `known`; all of them without it. */
@@ -68,12 +80,13 @@ const DRAG_TRIPS = 2;
 const DRAG_MOVES = 62;
 const DRAG_EVERY_MS = 8;
 const RESIZE = features.includes('resize');
+const SELECT = features.includes('select');
 /** Fewer frames drawn during the drag than this fails the run. */
 const MIN_DRAG_FRAMES = 10;
 /** Idle after a segment's view rests, inside its window. */
 const TAIL_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling' | 'resize';
+type Segment = 'scroll' | 'fling' | 'hfling' | 'resize' | 'select';
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -98,6 +111,12 @@ interface Reading {
   cells?: { p50: number; max: number };
   windowMs: number;
 }
+
+/** The drag-select's moves in each shape, as its first run laid them out
+ *  (the view's rows and columns set them); a later run laying them out
+ *  otherwise fails. */
+type SelectDrag = { rowsEachWay: number; lastColumn: number; trips: number; moves: number };
+const selectDrags: Partial<Record<Shape, SelectDrag>> = {};
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 
@@ -138,10 +157,28 @@ async function traced(browser: Browser, page: Page, layout: Layout | null, act: 
   };
 }
 
-/** Home, then until row 0 is on screen, filled. */
-async function home(page: Page): Promise<void> {
+/** Home, then until row 0 is on screen, filled. With `select`, Escape
+ *  first (Home moves the active cell, which the select-all left at row 0
+ *  already, so it would scroll nothing), and the select-all again after
+ *  unless `reselect` is false (the drags, which run with nothing selected). */
+async function home(page: Page, layout: Layout, reselect = true): Promise<void> {
+  if (SELECT) {
+    await page.keyboard.press('Escape');
+    await selected(page, null);
+  }
   await page.keyboard.press('Home');
   await filledWhere(page, 's.first === 0 && s.scrollX === 0');
+  if (SELECT && reselect) await selectAll(page, layout);
+}
+
+/** With `select`: a press on the corner, every column selected (anchored
+ *  at the top visible row), then the pointer back over the cells. */
+async function selectAll(page: Page, layout: Layout): Promise<void> {
+  const corner = cornerAt(layout);
+  await page.mouse.click(corner.x, corner.y);
+  const { first } = (await shown(page)).shown;
+  await selected(page, { kind: 'columns', anchor: [first, 0], head: [first, layout.columns.length - 1] });
+  await page.mouse.move(layout.left + 300, layout.top + 300);
 }
 
 /** One cold run of `shape`: every segment, each traced on its own. */
@@ -158,6 +195,11 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     const { shown: start, layout } = await shown(page);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
+    if (SELECT) await selectAll(page, layout);
+    /** With `select`, a failure unless the select-all stood through `segment`. */
+    const stood = async (segment: Segment) => {
+      if (SELECT && (await shown(page)).shown.selection?.kind !== 'columns') failures.push(`the select-all didn't stand through the ${segment}`);
+    };
 
     readings.scroll = await traced(browser, page, layout, async () => {
       const sent: Promise<void>[] = [];
@@ -170,15 +212,17 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       await Promise.all(sent);
       await filledWhere(page, 'true');
     });
-    await home(page);
+    await stood('scroll');
+    await home(page, layout);
 
     readings.fling = await traced(browser, page, layout, async () => {
       await fling(page, start.rows, { rowHeight: layout.rowHeight });
       await filledWhere(page, 's.end === s.rows').catch(() => failures.push("the fling didn't rest at the last row, filled"));
     });
+    await stood('fling');
 
     if (shape === 'wide') {
-      await home(page);
+      await home(page, layout);
       const last = layout.columns.at(-1)!;
       const room = last.x + last.width - layout.cellsWidth;
       readings.hfling = await traced(browser, page, layout, async () => {
@@ -196,13 +240,16 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
         await Promise.all(sent);
         await filledWhere(page, `s.scrollX >= ${room - 1}`).catch(() => failures.push("the sideways fling didn't rest at the last column"));
       });
+      await stood('hfling');
+      // For the drags after it: Home is vertical, so the sideways fling's
+      // scroll goes back by wheel.
+      if (RESIZE || SELECT) await wheel(page, 0, -(layout.columns.at(-1)!.x + 1_000));
     }
 
-    // Last, so the other segments run as in a build without it.
+    // Last, so the other segments run as in a build without it; with
+    // nothing selected, as in a build without `select`.
     if (RESIZE) {
-      // Home is vertical: the sideways fling's scroll goes back by wheel.
-      if (shape === 'wide') await wheel(page, 0, -(layout.columns.at(-1)!.x + 1_000));
-      await home(page);
+      await home(page, layout, false);
       const column = layout.columns.findIndex((column) => column.kind === 'float');
       const band = bandAt(layout, column, 0);
       await page.mouse.move(band.x, band.y);
@@ -224,6 +271,44 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       // none. Throttled, frames drawn run well under the moves (~86 of 248).
       const moves = DRAG_TRIPS * 2 * DRAG_MOVES;
       if (readings.resize.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the resize drag drew ${readings.resize.recorder.frames} frames for ${moves} moves: did it press the band?`);
+    }
+
+    // After the resize drag, which leaves the widths as they were.
+    if (SELECT) {
+      await home(page, layout, false);
+      const view = (await shown(page)).shown;
+      // A row a move, from row 1 to the last row wholly in view (the
+      // column following along the diagonal to the last wholly in view)
+      // and back, a move every `DRAG_EVERY_MS`, in whole round trips for
+      // about the resize drag's moves (`DRAG_TRIPS × 2 × DRAG_MOVES`), so
+      // it ends on the cell it pressed. Every move changes the selection:
+      // a move within one cell would draw nothing.
+      const lastColumn = layout.columns.findLastIndex((column) => column.x + column.width <= layout.cellsWidth);
+      const span = view.end - 3;
+      if (span < 1 || lastColumn < 0) throw new Error(`the drag-select needs 2 rows and a column wholly in view: rows ${view.first}–${view.end}, last whole column ${lastColumn}`);
+      const trips = Math.max(1, Math.round((DRAG_TRIPS * DRAG_MOVES) / span));
+      const moves = trips * 2 * span;
+      const laid: SelectDrag = { rowsEachWay: span, lastColumn, trips, moves };
+      const recorded = (selectDrags[shape] ??= laid);
+      if (JSON.stringify(recorded) !== JSON.stringify(laid)) failures.push(`the drag-select laid out ${JSON.stringify(laid)}, not ${JSON.stringify(recorded)} as the first run did`);
+      const at = (out: number) => cellAt(layout, view, 1 + out, Math.round((out / span) * lastColumn));
+      const from = at(0);
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      readings.select = await traced(browser, page, layout, async () => {
+        const sent: Promise<void>[] = [];
+        for (let step = 1; step <= moves; step++) {
+          const phase = step % (2 * span);
+          const to = at(phase <= span ? phase : 2 * span - phase);
+          sent.push(page.mouse.move(to.x, to.y));
+          await page.waitForTimeout(DRAG_EVERY_MS);
+        }
+        await Promise.all(sent);
+        await page.mouse.up();
+      });
+      // Back where it started: the press's cell alone.
+      await selected(page, { kind: 'cells', anchor: [1, 0], head: [1, 0] }).catch(() => failures.push("the drag-select didn't end on the cell it pressed"));
+      if (readings.select.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the drag-select drew ${readings.select.recorder.frames} frames for ${moves} moves: did it press a cell?`);
     }
     failures.push(...session.problems);
   } catch (error) {
@@ -267,7 +352,7 @@ try {
         console.log(`${shape} ${profile.name} ${index + 1}/${RUNS}: ${line.join('; ')}`);
       }
       const summary: Partial<Record<Segment, Record<string, number>>> = {};
-      for (const segment of ['scroll', 'fling', 'hfling', 'resize'] as Segment[]) {
+      for (const segment of ['scroll', 'fling', 'hfling', 'resize', 'select'] as Segment[]) {
         const readings = runs.flatMap((reading) => (reading[segment] ? [reading[segment]] : []));
         if (readings.length) summary[segment] = summarize(readings);
       }
@@ -285,7 +370,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

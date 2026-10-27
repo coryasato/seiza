@@ -18,7 +18,12 @@
 // widths are published once, at the release), a double-click fitting
 // another, and at the right end a drag narrowing a column (the sideways
 // scroll held while the button is down, a vertical wheel then scrolling
-// without moving it, and clamped at the release).
+// without moving it, and clamped at the release). Built with `select`, it
+// runs both shapes again and selects: a cell press, a Shift+press block
+// (the tint on screen), a drag across columns and rows, a row's number and
+// Shift+End over every row, Home, a header, Cmd+A (the tint again), and
+// Escape (the cell as it was), the published selection and the probe's
+// agreeing after each.
 // Headless, so it stands in for the scripted half of a manual check; how it
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
@@ -30,7 +35,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, TAIL_MARK, SHAPES, WIDTHS_GLOBAL, bandAt, builtFeatures, drawnCells, filledWhere, global, hostWebDir, laidOutAt, pixel, shown, sidewaysRoom, visibleColumns, type Cell, type CellStyle, type Layout, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, WIDTHS_GLOBAL, bandAt, builtFeatures, cellAt, drawnCells, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, pixel, selected, shown, sidewaysRoom, visibleColumns, type Cell, type CellStyle, type Layout, type Selection, type Shown } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -50,6 +55,7 @@ const TAIL_RATE = 1000;
 const TAIL_MARKS = 3;
 const follow = builtFeatures().includes('follow');
 const resize = builtFeatures().includes('resize');
+const select = builtFeatures().includes('select');
 /** The resize run's drags: wider, then narrower at the right end, CSS px,
  *  in this many moves. */
 const WIDEN_PX = 80;
@@ -310,6 +316,101 @@ async function checkResize(page: Page, label: string, start: Layout): Promise<st
   return `, column ${wide} ${before.width} → ${after.width} px (budget ${before.budget} → ${after.budget}), column ${fit} fitted to ${fitted} px, column ${narrow} ${was} → ${width} px at the right end (scroll ${end.scrollX.toFixed(1)} held, then ${rested?.scrollX.toFixed(1)}), widths published ${sets.length}×`;
 }
 
+/** A left press at `at`, with Shift held if `shift`: the pointer moved
+ *  there first and given two frames (WebKit can deliver a scripted press
+ *  before hover updates). */
+async function pressAt(page: Page, at: { x: number; y: number }, shift = false): Promise<void> {
+  await page.mouse.move(at.x, at.y);
+  await page.waitForTimeout(50);
+  if (shift) await page.keyboard.down('Shift');
+  await page.mouse.down({ clickCount: 1 });
+  await page.mouse.up({ clickCount: 1 });
+  if (shift) await page.keyboard.up('Shift');
+}
+
+/** The screen's color at `at` once `done` holds for it, or after 1 s,
+ *  whatever it is then. Firefox's screenshot can show the frame before the
+ *  one the probe reports (seen after Escape, ~100 ms behind); a redraw
+ *  that never came still fails. */
+async function settled(page: Page, at: { x: number; y: number }, done: (seen: number[]) => boolean): Promise<number[]> {
+  let seen = await pixel(page, at.x, at.y);
+  for (let waited = 0; waited < 1_000 && !done(seen); waited += 50) {
+    await page.waitForTimeout(50);
+    seen = await pixel(page, at.x, at.y);
+  }
+  return seen;
+}
+
+/** With `select` and every kind on: presses, a drag, and keys select what
+ *  the model says, the published selection and the probe's agreeing; the
+ *  tint shows under a block and a select-all and is gone after Escape. */
+async function checkSelect(page: Page, label: string, layout: Layout, start: Shown): Promise<string> {
+  const range = (kind: Selection['kind'], anchor: [number, number], head: [number, number] = anchor): Selection => ({ kind, anchor, head });
+  const step = async (what: string, want: Selection | null) =>
+    selected(page, want).catch(async () => {
+      const now = (await shown(page)).shown;
+      failures.push(`${label}: ${what}: selected ${JSON.stringify(now.selection ?? null)} (published ${JSON.stringify(await global(page, SELECTION_GLOBAL))}), not ${JSON.stringify(want)}`);
+      return null;
+    });
+  // A spot inside cell (3, 2), clear of its text and of a block's edge:
+  // the tint is checked there, against how it looked before.
+  const spot = { x: layout.left + layout.columns[2]!.x + 3, y: layout.top + 3 * layout.rowHeight + 3 };
+  const off = (a: number[], b: number[]) => Math.max(...a.slice(0, 3).map((channel, index) => Math.abs(channel - b[index]!)));
+  // The pointer off the table, so no hover is drawn at the spot.
+  await page.mouse.move(1, 1);
+  const bare = await pixel(page, spot.x, spot.y);
+  const tinted: string[] = [];
+
+  await pressAt(page, cellAt(layout, start, 2, 1));
+  await step('a cell press', range('cells', [2, 1]));
+  await pressAt(page, cellAt(layout, start, 5, 3), true);
+  await step('a Shift+press', range('cells', [2, 1], [5, 3]));
+  await page.mouse.move(1, 1);
+  const block = await settled(page, spot, (seen) => off(seen, bare) > FILL_STEPS);
+  if (off(block, bare) <= FILL_STEPS) failures.push(`${label}: no tint inside a block (${block.join(',')}, ${bare.join(',')} unselected)`);
+  tinted.push(`block ${block.slice(0, 3).join(',')}`);
+
+  // A drag across columns and rows, in moves.
+  const from = cellAt(layout, start, 4, 0);
+  const to = cellAt(layout, start, 9, 3);
+  await page.mouse.move(from.x, from.y);
+  await page.waitForTimeout(50);
+  await page.mouse.down({ clickCount: 1 });
+  for (let index = 1; index <= DRAG_MOVES; index++) await page.mouse.move(from.x + ((to.x - from.x) * index) / DRAG_MOVES, from.y + ((to.y - from.y) * index) / DRAG_MOVES);
+  await page.mouse.up({ clickCount: 1 });
+  await step('a drag', range('cells', [4, 0], [9, 3]));
+
+  // A row's number, then Shift+End: every row from it, as one range.
+  await pressAt(page, gutterAt(layout, start, 3));
+  await step("a row's number", range('rows', [3, 0]));
+  await page.keyboard.press('Shift+End');
+  await step('Shift+End', range('rows', [3, 0], [start.rows - 1, 0]));
+  const end = await filledWhere(page, 's.end === s.rows').catch(() => null);
+  if (!end) failures.push(`${label}: Shift+End didn't bring the last row into view`);
+  // Home: the active cell to the first row, collapsed to it.
+  await page.keyboard.press('Home');
+  await step('Home', range('cells', [0, 0]));
+  const top = await filledWhere(page, 's.first === 0').catch(() => null);
+  if (!top) failures.push(`${label}: Home didn't bring the first row into view`);
+
+  await pressAt(page, headerAt(layout, start, 2));
+  await step('a header press', range('columns', [0, 2]));
+  // Cmd+A where it's a Mac, Ctrl+A elsewhere: both are bound.
+  await page.keyboard.press('ControlOrMeta+A');
+  const columns = layout.columns.length;
+  await step('Cmd+A', range('columns', [0, 0], [0, columns - 1]));
+  await page.mouse.move(1, 1);
+  const all = await settled(page, spot, (seen) => off(seen, bare) > FILL_STEPS);
+  if (off(all, bare) <= FILL_STEPS) failures.push(`${label}: no tint under a select-all (${all.join(',')}, ${bare.join(',')} unselected)`);
+  tinted.push(`all ${all.slice(0, 3).join(',')}`);
+
+  await page.keyboard.press('Escape');
+  await step('Escape', null);
+  const cleared = await settled(page, spot, (seen) => off(seen, bare) <= FILL_STEPS);
+  if (off(cleared, bare) > FILL_STEPS) failures.push(`${label}: the tint still drawn after Escape (${cleared.join(',')}, ${bare.join(',')} before)`);
+  return `, selected and cleared (unselected ${bare.slice(0, 3).join(',')}, ${tinted.join(', ')}, Shift+End to row ${end?.end ?? '?'})`;
+}
+
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
 async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
@@ -363,14 +464,15 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
     if (follow) runs.push({ ...quiet, shape: 'narrow', tail: true });
     if (resize) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, resizing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}`;
+    if (select) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, selecting: true })));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}`;
       const params: Record<string, string> = { shape };
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
       if (feed) params.live = String(LIVE_RATE);
@@ -391,6 +493,13 @@ try {
           const resized = await checkResize(page, label, layout);
           if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
           console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${resized}`);
+          continue;
+        }
+        // The select run too, from the first screen.
+        if (selecting) {
+          const chose = await checkSelect(page, label, layout, start);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${chose}`);
           continue;
         }
         // At the tail already: the tail run checks its own moves.
