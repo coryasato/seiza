@@ -227,3 +227,16 @@ One entry per milestone part, written before starting the next one: what surpris
 - WebKit refuses a clipboard write from 100 MiB, where Chromium and Firefox took 256 MiB: the cap is the browsers', not the table's memory.
 - The code review found the spec's copy limit had no floor (a `max_in_flight` of 1 would never read; `live`'s re-reads have one) and that `close` takes `&mut App`, so it can't emit the cancel the spec gave it: a spec that names an existing setter's behavior has to be read against its signature.
 - A second review, after the spec grew a key limit and size bounds in discussion, found the bounds weren't bounds: a column's kind is a display hint, and the value is the source's text (a 128-bit integer, DuckDB's BC dates). A size promised before reading has to come from what the values can't be shorter than, never from what they're expected to be.
+
+## M7: `copy` (part B, 2026-10-27)
+
+**Results:** none measured beyond B1's and B3's `size` run (`PLAN.md`); the cost is part D's.
+
+**Surprises:**
+- Found writing it, not by a test: a copy waiting on a page could stall: a page it skipped because the cache had it, evicted, then loaded again by the cache for the reader, landed in the cache's slot and woke nothing. Every plan now checks the copy's turn page, which a cache landing always runs.
+- The first-page projection, written after a turn, read more than the first page: a turn crosses pages (16 k cells is 4,096 rows of the narrow shape's few columns), so it's taken inside the turn at the first page's end.
+- With two places, a page landing out of order starts nothing until the one before it lands: it keeps its place in the copy's window. The window bounds what the copy holds, at the cost of a source that answers out of order waiting on its slowest read.
+- The code review found a copy's places leaking: the cache counted a copy's reads apart from their requests, and a copy that finished on a page the cache had loaded meanwhile never gave its own read's place back. Three such copies at `max_in_flight` 3 would stop every read. The cache now holds them by request, and every answer frees one, so no end path has to remember to.
+- The sweep for races that followed found the copy and prefetch reading one page at once (each blind to the other's read), and one stall in `live`'s own planning: a visible grown page whose re-read failed held prefetch back for good, so it held a copy back too.
+- A second review found more of the same kind: a copy's end that freed a place without planning it (at `max_in_flight` 1 a page scrolled into view stayed a placeholder), a drag at rest that the cache read through and the copy didn't, a read the copy waited for that the same plan cancelled. And a cap checked only after a turn: cells bound a turn's work, not its bytes. Each was a timing between the copy and the paging that a scenario has to think of; the hardening session (`PLAN.md`) is for those no one thinks of.
+- An eviction can't be staged through the budget in a native test: the copy's turns run in the same park as the reads that would evict, and finish from the cache first. A test-only `evict_page` stands in for the budget.

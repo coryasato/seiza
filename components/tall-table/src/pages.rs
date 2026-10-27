@@ -209,13 +209,22 @@ impl Control {
     }
 }
 
-/// A plan's re-reads: in flight, at most `limit`.
-#[cfg(feature = "live")]
+/// A plan's reads beside the cache's own (`live`'s re-reads, `copy`'s
+/// reads): in flight, at most `limit` together.
+#[cfg(any(feature = "live", feature = "copy"))]
 struct Rereads {
     in_flight: usize,
     limit: usize,
-    /// The visible pages' re-reads were planned.
+    /// The visible pages' re-reads, and the copy's reads, were planned.
     visible_done: bool,
+    /// A visible page has nothing to show yet: no copy read starts.
+    #[cfg(feature = "copy")]
+    visible_missing: bool,
+    /// The copy's reads granted, and where in `fetch` they go.
+    #[cfg(feature = "copy")]
+    copy: usize,
+    #[cfg(feature = "copy")]
+    copy_at: usize,
 }
 
 /// What a row looks like to the renderer.
@@ -237,6 +246,13 @@ pub struct Plan<R> {
     /// In-flight requests nobody needs any more. Report each one's answer
     /// with [`PageCache::finished`] (or `loaded`/`failed` if it wins the race).
     pub cancel: Vec<R>,
+    /// How many of the copy's reads may start now (`copy`), of the
+    /// [`PageCache::set_copy_wants`] it asked for: sent before `fetch[copy_at..]`
+    /// (after the visible pages' re-reads, before prefetch); 0 with none.
+    #[cfg(feature = "copy")]
+    pub copy: usize,
+    #[cfg(feature = "copy")]
+    pub copy_at: usize,
 }
 
 #[derive(Debug)]
@@ -269,6 +285,15 @@ pub struct PageCache<T, R> {
     /// Keep each page's changed rows: a column flashes.
     #[cfg(all(feature = "live", feature = "custom-cells"))]
     track_changes: bool,
+    /// A copy's reads in flight (`copy`), never cached: they count against
+    /// `max_in_flight`, and with `live`'s re-reads against its limit.
+    /// Cancelled, they join `draining`. Held by request, so an answer
+    /// always frees its place, whatever became of the copy.
+    #[cfg(feature = "copy")]
+    copy_reads: Vec<(u64, R)>,
+    /// The pages the copy would read now, in order, for the next plan.
+    #[cfg(feature = "copy")]
+    copy_wants: Vec<u64>,
 }
 
 impl<T, R: Copy + PartialEq> PageCache<T, R> {
@@ -290,6 +315,10 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             control: Control::None,
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             track_changes: false,
+            #[cfg(feature = "copy")]
+            copy_reads: Vec::new(),
+            #[cfg(feature = "copy")]
+            copy_wants: Vec::new(),
         }
     }
 
@@ -559,18 +588,25 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         self.tick += 1;
         let tick = self.tick;
         let mut in_flight = self.in_flight() + self.draining.len();
+        #[cfg(feature = "copy")]
+        {
+            in_flight += self.copy_reads.len();
+        }
         let mut fetch = Vec::new();
         let visible = visible.min(wanted.len());
         // Loading or not asked for yet. A failed page isn't retried while it
         // stays in view, so it mustn't hold prefetch back.
         // With `live`, a grown page whose new rows are in view hasn't them
-        // to show either.
+        // to show either, unless its re-read failed (it isn't read again
+        // until its rows change, as a failed page isn't).
         let visible_missing = wanted[..visible]
             .iter()
             .any(|page| match self.slots.get(page) {
                 None | Some(Slot::Loading { .. }) => true,
                 #[cfg(feature = "live")]
-                Some(Slot::Loaded { live, .. }) => live.end < self.rows_of(*page).end,
+                Some(Slot::Loaded { live, .. }) => {
+                    live.end < self.rows_of(*page).end && !live.failed
+                }
                 _ => false,
             });
         let reach = if visible_missing {
@@ -578,17 +614,24 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         } else {
             wanted.len()
         };
-        #[cfg(feature = "live")]
+        #[cfg(any(feature = "live", feature = "copy"))]
         let mut rereads = Rereads {
-            in_flight: self.rereading(),
-            limit: (self.max_in_flight - 1).max(1),
+            in_flight: self.background_reads(),
+            limit: self.background_limit(),
             visible_done: false,
+            #[cfg(feature = "copy")]
+            visible_missing,
+            #[cfg(feature = "copy")]
+            copy: 0,
+            #[cfg(feature = "copy")]
+            copy_at: 0,
         };
         for (index, page) in wanted.iter().enumerate() {
-            // Past the visible pages: their re-reads go before prefetch.
-            #[cfg(feature = "live")]
+            // Past the visible pages: their re-reads and the copy's reads go
+            // before prefetch.
+            #[cfg(any(feature = "live", feature = "copy"))]
             if index == visible {
-                self.reread_visible(&wanted[..visible], &mut rereads, &mut in_flight, &mut fetch);
+                self.after_visible(&wanted[..visible], &mut rereads, &mut in_flight, &mut fetch);
             }
             if index >= reach {
                 // Still mark loaded prefetch pages as used, so they aren't
@@ -598,6 +641,11 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 }
                 continue;
             }
+            // A prefetch page the copy is reading, or was just granted, isn't
+            // read twice at once: the copy's isn't cached, and the cache
+            // reads it once the copy's lands, if it's still wanted.
+            #[cfg(feature = "copy")]
+            let copy_reads_it = index >= visible && self.copy_has(*page, rereads.copy);
             match self.slots.get_mut(page) {
                 Some(Slot::Loaded { used, .. }) => {
                     *used = tick;
@@ -607,6 +655,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                     }
                 }
                 Some(_) => {}
+                #[cfg(feature = "copy")]
+                None if copy_reads_it => {}
                 None if in_flight < self.max_in_flight => {
                     fetch.push(*page);
                     in_flight += 1;
@@ -614,8 +664,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 None => {}
             }
         }
-        #[cfg(feature = "live")]
-        self.reread_visible(&wanted[..visible], &mut rereads, &mut in_flight, &mut fetch);
+        #[cfg(any(feature = "live", feature = "copy"))]
+        self.after_visible(&wanted[..visible], &mut rereads, &mut in_flight, &mut fetch);
         #[cfg(all(test, feature = "live"))]
         if self.control.reread_unwanted() {
             let unwanted: Vec<u64> = self
@@ -626,21 +676,185 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 .collect();
             self.reread(&unwanted, &mut rereads, &mut in_flight, &mut fetch);
         }
-        Plan { fetch, cancel }
+        Plan {
+            fetch,
+            cancel,
+            #[cfg(feature = "copy")]
+            copy: rereads.copy,
+            #[cfg(feature = "copy")]
+            copy_at: rereads.copy_at,
+        }
     }
 
-    /// Adds the visible pages' re-reads to `fetch`, once a plan: after the
-    /// visible pages with nothing to show, before prefetch.
-    #[cfg(feature = "live")]
-    fn reread_visible(
+    /// Once a plan, after the visible pages with nothing to show and before
+    /// prefetch: the visible pages' re-reads (`live`) into `fetch`, then the
+    /// copy's reads (`copy`), none while a visible page has nothing to show.
+    #[cfg(any(feature = "live", feature = "copy"))]
+    #[cfg_attr(not(feature = "live"), expect(clippy::ptr_arg))]
+    fn after_visible(
         &self,
         visible: &[u64],
         rereads: &mut Rereads,
         in_flight: &mut usize,
         fetch: &mut Vec<u64>,
     ) {
-        if !std::mem::replace(&mut rereads.visible_done, true) {
-            self.reread(visible, rereads, in_flight, fetch);
+        if std::mem::replace(&mut rereads.visible_done, true) {
+            return;
+        }
+        #[cfg(feature = "live")]
+        self.reread(visible, rereads, in_flight, fetch);
+        #[cfg(not(feature = "live"))]
+        let _ = visible;
+        #[cfg(feature = "copy")]
+        if !rereads.visible_missing {
+            let places = (rereads.limit.saturating_sub(rereads.in_flight))
+                .min(self.max_in_flight.saturating_sub(*in_flight));
+            let copy = self.copy_wants.len().min(places);
+            *in_flight += copy;
+            rereads.in_flight += copy;
+            rereads.copy = copy;
+            if copy > 0 {
+                rereads.copy_at = fetch.len();
+            }
+        }
+        #[cfg(not(feature = "copy"))]
+        let _ = (in_flight, fetch);
+    }
+
+    /// The reads beside the cache's own in flight: `live`'s re-reads and
+    /// `copy`'s reads.
+    #[cfg(any(feature = "live", feature = "copy"))]
+    fn background_reads(&self) -> usize {
+        #[cfg(feature = "live")]
+        let rereads = self.rereading();
+        #[cfg(not(feature = "live"))]
+        let rereads = 0;
+        #[cfg(feature = "copy")]
+        let copying = self.copy_reads.len();
+        #[cfg(not(feature = "copy"))]
+        let copying = 0;
+        rereads + copying
+    }
+
+    /// The most reads beside the cache's own at once: one fewer than
+    /// `max_in_flight`, so a visible page always finds a place, and at
+    /// least one, so they go on at a `max_in_flight` of 1.
+    #[cfg(any(feature = "live", feature = "copy"))]
+    pub fn background_limit(&self) -> usize {
+        (self.max_in_flight - 1).max(1)
+    }
+
+    /// Drops `page` as the budget's eviction would (tests).
+    #[cfg(all(test, feature = "copy"))]
+    pub fn evict_page(&mut self, page: u64) {
+        if let Some(Slot::Loaded { bytes, .. }) = self.slots.remove(&page) {
+            self.used_bytes -= bytes;
+        }
+    }
+
+    /// Rows a page holds (`copy`).
+    #[cfg(feature = "copy")]
+    pub fn page_rows(&self) -> u64 {
+        self.page_rows
+    }
+
+    /// The copy would read `pages` now, in order (`copy`): the next
+    /// [`PageCache::plan`] grants the first it can ([`Plan::copy`]).
+    #[cfg(feature = "copy")]
+    pub fn set_copy_wants(&mut self, pages: Vec<u64>) {
+        self.copy_wants = pages;
+    }
+
+    /// The pages the last plan granted the copy ([`Plan::copy`] of them),
+    /// to read now.
+    #[cfg(feature = "copy")]
+    pub fn take_copy_grant(&mut self, granted: usize) -> Vec<u64> {
+        let mut pages = std::mem::take(&mut self.copy_wants);
+        pages.truncate(granted);
+        pages
+    }
+
+    /// Whether the copy is reading `page`, or is granted it among the first
+    /// `granted` of its wants (`copy`).
+    #[cfg(feature = "copy")]
+    fn copy_has(&self, page: u64, granted: usize) -> bool {
+        self.copy_reads.iter().any(|(read, _)| *read == page)
+            || self.copy_wants[..granted.min(self.copy_wants.len())].contains(&page)
+    }
+
+    /// The copy's read of `page` was sent as `request` (`copy`).
+    #[cfg(feature = "copy")]
+    pub fn copy_started(&mut self, page: u64, request: R) {
+        self.copy_reads.push((page, request));
+    }
+
+    /// A copy's read was cancelled (`copy`): it drains as the cache's do,
+    /// counted in flight until it answers ([`PageCache::copy_answered`]).
+    #[cfg(feature = "copy")]
+    pub fn copy_cancelled(&mut self, request: R) {
+        if let Some(index) = self
+            .copy_reads
+            .iter()
+            .position(|(_, read)| *read == request)
+        {
+            self.copy_reads.remove(index);
+            self.draining.push(request);
+        }
+    }
+
+    /// A copy's read answered (`copy`), whether the copy still wants it or
+    /// not: its place frees. One entry only, so a source whose requests
+    /// repeat across reads (a page's first row) frees one place an answer.
+    #[cfg(feature = "copy")]
+    pub fn copy_answered(&mut self, request: R) {
+        if let Some(index) = self
+            .copy_reads
+            .iter()
+            .position(|(_, read)| *read == request)
+        {
+            self.copy_reads.remove(index);
+        } else if let Some(index) = self.draining.iter().position(|read| *read == request) {
+            self.draining.remove(index);
+        }
+    }
+
+    /// The copy's reads in flight, cancelled ones still answering not
+    /// included (`copy`).
+    #[cfg(feature = "copy")]
+    pub fn copy_reads(&self) -> usize {
+        self.copy_reads.len()
+    }
+
+    /// Whether the cache is reading `page` with its rows up to `end`
+    /// (`copy`): a first read, or with `live` a re-read. A copy waits for
+    /// it rather than reading the page a second time.
+    #[cfg(feature = "copy")]
+    pub fn loading(&self, page: u64, end: u64) -> bool {
+        #[cfg(not(feature = "live"))]
+        let _ = end;
+        match self.slots.get(&page) {
+            #[cfg(feature = "live")]
+            Some(Slot::Loading { end: reads_to, .. }) => *reads_to >= end,
+            #[cfg(not(feature = "live"))]
+            Some(Slot::Loading { .. }) => true,
+            #[cfg(feature = "live")]
+            Some(Slot::Loaded { live, .. }) => live.reading.is_some() && live.reading_end >= end,
+            _ => false,
+        }
+    }
+
+    /// `page`, if it's loaded and holds its rows up to `end` (`copy`): with
+    /// `live`, as drawn, a stale page's drawn rows; a last page grown since
+    /// it was read doesn't hold the rows past its read.
+    #[cfg(feature = "copy")]
+    pub fn holding(&self, page: u64, end: u64) -> Option<&T> {
+        #[cfg(not(feature = "live"))]
+        let _ = end;
+        match self.slots.get(&page) {
+            #[cfg(feature = "live")]
+            Some(Slot::Loaded { live, .. }) if live.end < end => None,
+            Some(Slot::Loaded { page, .. }) => Some(page),
+            _ => None,
         }
     }
 
@@ -1027,6 +1241,18 @@ mod tests {
 
     type Cache = PageCache<&'static str, u32>;
 
+    /// A plan with no copy's reads granted.
+    fn plan_of(fetch: Vec<u64>, cancel: Vec<u32>) -> Plan<u32> {
+        Plan {
+            fetch,
+            cancel,
+            #[cfg(feature = "copy")]
+            copy: 0,
+            #[cfg(feature = "copy")]
+            copy_at: 0,
+        }
+    }
+
     #[test]
     fn wanted_orders_visible_then_nearest_prefetch() {
         let cache = Cache::new(10_000, 100, 1 << 20, 4);
@@ -1062,13 +1288,7 @@ mod tests {
     fn plan_limits_in_flight_and_cancels_stale() {
         let mut cache = Cache::new(10_000, 100, 1 << 20, 2);
         let plan = cache.plan(&[5, 6, 7], 0);
-        assert_eq!(
-            plan,
-            Plan {
-                fetch: vec![5, 6],
-                cancel: vec![]
-            }
-        );
+        assert_eq!(plan, plan_of(vec![5, 6], vec![]));
         cache.started(5, 50);
         cache.started(6, 60);
         // The viewport jumped: both in-flight pages are stale. They're
@@ -1266,13 +1486,7 @@ mod tests {
         for _ in 0..10 {
             cache.invalidate(0..100);
             let plan = cache.plan(&[0], 1);
-            assert_eq!(
-                plan,
-                Plan {
-                    fetch: vec![],
-                    cancel: vec![]
-                }
-            );
+            assert_eq!(plan, plan_of(vec![], vec![]));
         }
         assert!(cache.loaded(0, 1, "newer", 10, &[0]));
         assert_eq!(
@@ -1389,13 +1603,7 @@ mod tests {
         // and its page dropped; it drains until it answers.
         cache.started(0, 1);
         let plan = cache.plan(&[9], 1);
-        assert_eq!(
-            plan,
-            Plan {
-                fetch: vec![9],
-                cancel: vec![1]
-            }
-        );
+        assert_eq!(plan, plan_of(vec![9], vec![1]));
         assert_eq!(
             (cache.loaded_pages(), cache.used_bytes(), cache.draining()),
             (0, 0, 1)
@@ -1404,13 +1612,7 @@ mod tests {
         assert_eq!(cache.draining(), 0);
         // Back to page 0: a first read, placeholders until it lands.
         cache.started(9, 9);
-        assert_eq!(
-            cache.plan(&[0], 1),
-            Plan {
-                fetch: vec![0],
-                cancel: vec![9]
-            }
-        );
+        assert_eq!(cache.plan(&[0], 1), plan_of(vec![0], vec![9]));
         // A page that isn't stale stays cached for later, as without `live`.
         let mut cache = loaded_cache(2, 3);
         cache.plan(&[5], 1);
@@ -1500,13 +1702,7 @@ mod tests {
         assert_eq!(cache.plan(&[2], 1).fetch, vec![2]);
         cache.started(2, 10);
         assert_eq!(cache.set_rows(290), None);
-        assert_eq!(
-            cache.plan(&[2], 1),
-            Plan {
-                fetch: vec![],
-                cancel: vec![]
-            }
-        );
+        assert_eq!(cache.plan(&[2], 1), plan_of(vec![], vec![]));
         assert_eq!(cache.row(260), RowState::Pending, "drawn as read meanwhile");
         // It lands with the rows it asked for (200..280), the bytes swapped:
         // still stale for 280..290, so read once more.
@@ -1666,5 +1862,159 @@ mod tests {
         assert_eq!(cache.plan(&[0], 1).fetch, vec![0]);
         cache.invalidate(5..5);
         assert_eq!(cache.invalidate(5..5), 3, "an empty range still counts");
+    }
+}
+
+#[cfg(all(test, feature = "copy"))]
+mod copy_tests {
+    use super::{Direction, PageCache};
+
+    type Cache = PageCache<&'static str, u32>;
+
+    /// A cache over 10 pages of 100 rows, page 0 loaded and visible.
+    fn loaded(max_in_flight: usize) -> Cache {
+        let mut cache = Cache::new(1000, 100, 1 << 20, max_in_flight);
+        assert_eq!(cache.plan(&[0], 1).fetch, vec![0]);
+        cache.started(0, 100);
+        assert!(cache.loaded(0, 100, "page 0", 10, &[0]));
+        cache
+    }
+
+    #[test]
+    fn a_copy_reads_after_the_visible_pages_and_before_prefetch() {
+        let mut cache = loaded(3);
+        let wanted = cache.wanted(0..20, Direction::Still, 2);
+        assert_eq!(wanted, vec![0, 1, 2]);
+        cache.set_copy_wants(vec![3, 4, 5, 6, 7]);
+        let plan = cache.plan(&wanted, 1);
+        // One fewer than `max_in_flight`, ahead of prefetch, which gets
+        // what's left.
+        assert_eq!((plan.copy, plan.copy_at), (2, 0));
+        assert_eq!(plan.fetch, vec![1]);
+    }
+
+    #[test]
+    fn prefetch_leaves_a_page_the_copy_reads() {
+        let mut cache = loaded(3);
+        // Granted pages 1 and 2: prefetch reads neither in the same plan.
+        cache.set_copy_wants(vec![1, 2]);
+        let plan = cache.plan(&[0, 1, 2], 1);
+        assert_eq!((plan.copy, plan.fetch), (2, vec![]));
+        // The copy reading page 1 only: prefetch reads page 2.
+        cache.copy_started(1, 7);
+        cache.set_copy_wants(vec![]);
+        let plan = cache.plan(&[0, 1, 2], 1);
+        assert_eq!((plan.copy, plan.fetch), (0, vec![2]));
+        // A visible page is read whatever the copy reads.
+        let mut cache = Cache::new(1000, 100, 1 << 20, 3);
+        cache.copy_started(0, 7);
+        assert_eq!(cache.plan(&[0], 1).fetch, vec![0]);
+    }
+
+    #[test]
+    fn no_copy_read_while_a_visible_page_loads() {
+        let mut cache = Cache::new(1000, 100, 1 << 20, 3);
+        cache.set_copy_wants(vec![3, 4]);
+        let plan = cache.plan(&[0, 1], 1);
+        assert_eq!((plan.fetch, plan.copy), (vec![0], 0));
+        cache.started(0, 100);
+        assert_eq!(cache.plan(&[0, 1], 1).copy, 0, "still loading");
+        assert!(cache.loaded(0, 100, "page 0", 10, &[0, 1]));
+        assert_eq!(cache.plan(&[0, 1], 1).copy, 2);
+    }
+
+    #[test]
+    fn a_copys_reads_count_in_flight_until_they_answer() {
+        let mut cache = loaded(3);
+        cache.copy_started(5, 7);
+        cache.copy_started(6, 8);
+        cache.set_copy_wants(vec![3, 4, 5]);
+        let plan = cache.plan(&[0, 1, 2], 1);
+        assert_eq!((plan.copy, plan.fetch), (0, vec![1]), "two out, one place");
+        // Cancelled, a read drains: still in flight until it answers.
+        cache.copy_cancelled(7);
+        assert_eq!(cache.draining(), 1);
+        cache.started(1, 101);
+        assert_eq!(cache.plan(&[0, 1, 2], 1).copy, 0, "max_in_flight reached");
+        cache.copy_answered(7);
+        assert_eq!(cache.draining(), 0);
+        assert_eq!(
+            cache.plan(&[0, 1, 2], 1).copy,
+            1,
+            "the drained read's place"
+        );
+        cache.copy_answered(8);
+        assert_eq!(cache.copy_reads(), 0);
+        assert_eq!(cache.plan(&[0, 1, 2], 1).copy, 2);
+    }
+
+    #[test]
+    fn at_one_in_flight_a_copy_still_reads() {
+        let mut cache = loaded(1);
+        cache.set_copy_wants(vec![3, 4]);
+        let plan = cache.plan(&[0, 1], 1);
+        assert_eq!((plan.copy, plan.fetch), (1, vec![]));
+        cache.copy_started(5, 7);
+        // A page scrolled into view waits behind the copy's one read.
+        let plan = cache.plan(&[5], 1);
+        assert_eq!((plan.copy, plan.fetch), (0, vec![]));
+        cache.copy_answered(7);
+        let plan = cache.plan(&[5], 1);
+        assert_eq!((plan.copy, plan.fetch), (0, vec![5]));
+    }
+
+    #[test]
+    fn a_page_holds_the_rows_a_copy_wants() {
+        let mut cache = loaded(3);
+        assert_eq!(cache.holding(0, 100), Some(&"page 0"));
+        assert_eq!(cache.holding(1, 200), None);
+        assert!(!cache.loading(1, 200));
+        cache.started(1, 101);
+        assert!(cache.loading(1, 200), "a copy waits for the cache's read");
+        assert_eq!(cache.holding(1, 200), None);
+    }
+
+    #[test]
+    fn an_answer_frees_a_copys_place_whatever_became_of_it() {
+        let mut cache = loaded(3);
+        cache.copy_started(5, 7);
+        cache.copy_started(6, 8);
+        cache.copy_cancelled(7);
+        assert_eq!((cache.copy_reads(), cache.draining()), (1, 1));
+        // A read the copy no longer wants (it ended without cancelling it,
+        // or it was cancelled): either way, answered, its place frees.
+        cache.copy_answered(8);
+        cache.copy_answered(7);
+        assert_eq!((cache.copy_reads(), cache.draining()), (0, 0));
+        // An answer twice frees nothing more.
+        cache.copy_answered(7);
+        assert_eq!((cache.copy_reads(), cache.draining()), (0, 0));
+    }
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn a_copys_reads_and_rereads_share_one_limit() {
+        let mut cache = loaded(3);
+        cache.invalidate(0..1);
+        cache.set_copy_wants(vec![3, 4]);
+        let plan = cache.plan(&[0, 1, 2], 1);
+        // The visible page's re-read first, then the copy's one place,
+        // then prefetch.
+        assert_eq!(
+            (plan.fetch.as_slice(), plan.copy, plan.copy_at),
+            (&[0, 1][..], 1, 1)
+        );
+    }
+
+    #[cfg(feature = "live")]
+    #[test]
+    fn a_grown_last_page_doesnt_hold_its_new_rows() {
+        let mut cache = Cache::new(50, 100, 1 << 20, 3);
+        cache.plan(&[0], 1);
+        cache.started(0, 100);
+        assert!(cache.loaded(0, 100, "page 0", 10, &[0]));
+        cache.set_rows(80);
+        assert_eq!(cache.holding(0, 50), Some(&"page 0"));
+        assert_eq!(cache.holding(0, 80), None);
     }
 }

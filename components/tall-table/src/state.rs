@@ -47,6 +47,8 @@ pub fn init(cx: &mut App) {
     // After the base's: at the same depth, the later binding wins.
     #[cfg(feature = "select")]
     select::init(cx);
+    #[cfg(feature = "copy")]
+    copy::init(cx);
 }
 
 /// How the table pages through its rows.
@@ -306,6 +308,10 @@ pub enum TallTableEvent {
     /// emitted when an input leaves it as it was.
     #[cfg(feature = "select")]
     Selected(Option<crate::selection::TallTableSelection>),
+    /// A copy's progress (`copy`): declined, or started, its text in
+    /// pieces, and its end ([`TallTableState::copy`]).
+    #[cfg(feature = "copy")]
+    Copy(crate::copy::TallTableCopy),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -313,6 +319,7 @@ pub enum TallTableEvent {
 #[non_exhaustive]
 pub struct TallTableStats {
     pub loaded_pages: usize,
+    /// Reads in flight, with `copy` the copy's too (never cached).
     pub in_flight: usize,
     /// Cancelled reads the delegate is still answering.
     pub draining: usize,
@@ -394,6 +401,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// What's selected, which kinds can be, and a drag selecting (`select`).
     #[cfg(feature = "select")]
     selection_state: select::SelectState,
+    /// The copy running and the host's options (`copy`).
+    #[cfg(feature = "copy")]
+    copy_state: copy::CopyState<D::Page, D::Request>,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -464,6 +474,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             tail_drawn: 0,
             #[cfg(feature = "select")]
             selection_state: select::SelectState::default(),
+            #[cfg(feature = "copy")]
+            copy_state: copy::CopyState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -556,6 +568,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         #[cfg(feature = "select")]
         self.cut_selection(rows, cx);
+        #[cfg(feature = "copy")]
+        self.cut_copy(rows, cx);
         if let Some(request) = self.cache.set_rows(rows) {
             self.delegate.cancel(request, cx);
         }
@@ -626,8 +640,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// A column drag in progress ends, with no event.
     ///
     /// With `select`, the selection is cleared (a host keeping it calls
-    /// `select` after).
+    /// `select` after). With `copy`, a copy running is cancelled.
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
+        #[cfg(feature = "copy")]
+        self.cancel_copy(cx);
         self.column_info = columns;
         #[cfg(feature = "resize")]
         {
@@ -688,9 +704,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// For a table being replaced: the entity can outlive this (the last
     /// frame still holds it), and a page answering meanwhile must not start
     /// new reads of rows nobody shows.
+    ///
+    /// With `copy`, a copy running ends too, its reads cancelled, without
+    /// an event (this can't emit): a host closing the table ends its write.
     pub fn close(&mut self, cx: &mut App) {
         self.closed = true;
         self.hover = None;
+        #[cfg(feature = "copy")]
+        self.drop_copy(cx);
         for request in self.cache.requests() {
             self.delegate.cancel(request, cx);
         }
@@ -715,11 +736,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
     pub fn stats(&mut self, now: f64) -> TallTableStats {
         TallTableStats {
             loaded_pages: self.cache.loaded_pages(),
-            in_flight: self.cache.in_flight(),
+            in_flight: self.in_flight(),
             draining: self.cache.draining(),
             cache_bytes: self.cache.used_bytes(),
             activity: self.activity.stats(now),
         }
+    }
+
+    /// The reads in flight: the cache's, and with `copy` the copy's.
+    fn in_flight(&self) -> usize {
+        #[cfg(feature = "copy")]
+        return self.cache.in_flight() + self.cache.copy_reads();
+        #[cfg(not(feature = "copy"))]
+        self.cache.in_flight()
     }
 
     fn gutter_width(&self) -> f32 {
@@ -910,6 +939,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         {
             self.drag_resting = true;
         }
+        // A copy's reads waited for the release (`copy`).
+        #[cfg(feature = "copy")]
+        let pinned = pinned || self.copy_state.running.is_some();
         if self.drag_settle.take().is_some() || pinned {
             self.load_pages(cx);
         }
@@ -937,6 +969,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         let visible = self.cache.visible_pages(self.scroll.visible());
+        // The copy's next turn, if a page it waits on is in the cache now,
+        // and the pages it would read (`copy`).
+        #[cfg(feature = "copy")]
+        {
+            self.copy_wake(cx);
+            let wants = self.copy_wants(wanted);
+            self.cache.set_copy_wants(wants);
+        }
         let plan = self.cache.plan(wanted, visible);
         for request in plan.cancel {
             self.delegate.cancel(request, cx);
@@ -945,30 +985,32 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // every read of the plan has started, then planned after once.
         #[cfg(feature = "live")]
         let mut ready = Vec::new();
-        for page in plan.fetch {
-            #[cfg_attr(not(feature = "live"), expect(unused_mut))]
-            let (request, mut result) = self.delegate.load_page(self.cache.rows_of(page), cx);
+        // With `copy`, the copy's granted reads go after the visible pages'
+        // re-reads, before prefetch.
+        #[cfg(not(feature = "copy"))]
+        let fetch = plan.fetch;
+        #[cfg(feature = "copy")]
+        let (fetch, later) = {
+            let mut fetch = plan.fetch;
+            let later = fetch.split_off(plan.copy_at.min(fetch.len()));
+            (fetch, later)
+        };
+        for page in fetch {
             #[cfg(feature = "live")]
-            let reread = self.cache.is_loaded(page);
-            self.cache.started(page, request);
-            #[cfg(feature = "live")]
-            if reread && let Some(answer) = answered(&mut result) {
-                match answer {
-                    Ok(rows) => {
-                        ready.push((page, request, rows));
-                        continue;
-                    }
-                    // A failure or a refusal lands from a task, as before:
-                    // a host retrying on `ReadFailed` mustn't loop in one
-                    // turn.
-                    Err(error) => result = Box::pin(std::future::ready(Err(error))),
-                }
+            ready.extend(self.fetch_page(page, cx));
+            #[cfg(not(feature = "live"))]
+            self.fetch_page(page, cx);
+        }
+        #[cfg(feature = "copy")]
+        {
+            let granted = self.cache.take_copy_grant(plan.copy);
+            self.start_copy_reads(&granted, cx);
+            for page in later {
+                #[cfg(feature = "live")]
+                ready.extend(self.fetch_page(page, cx));
+                #[cfg(not(feature = "live"))]
+                self.fetch_page(page, cx);
             }
-            cx.spawn(async move |this, cx| {
-                let result = result.await;
-                let _ = this.update(cx, |this, cx| this.page_done(page, request, result, cx));
-            })
-            .detach();
         }
         #[cfg(feature = "live")]
         if !ready.is_empty() {
@@ -991,6 +1033,37 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 self.load_wanted(wanted, cx);
             }
         }
+    }
+
+    /// Sends `page`'s read, a plan's fetch, answered on a task of its own.
+    /// With `live`, a re-read answered with its page when sent is returned
+    /// instead, to land once every read of the plan has started.
+    #[inline(always)]
+    fn fetch_page(
+        &mut self,
+        page: u64,
+        cx: &mut Context<Self>,
+    ) -> Option<(u64, D::Request, D::Page)> {
+        #[cfg_attr(not(feature = "live"), expect(unused_mut))]
+        let (request, mut result) = self.delegate.load_page(self.cache.rows_of(page), cx);
+        #[cfg(feature = "live")]
+        let reread = self.cache.is_loaded(page);
+        self.cache.started(page, request);
+        #[cfg(feature = "live")]
+        if reread && let Some(answer) = answered(&mut result) {
+            match answer {
+                Ok(rows) => return Some((page, request, rows)),
+                // A failure or a refusal lands from a task, as before: a
+                // host retrying on `ReadFailed` mustn't loop in one turn.
+                Err(error) => result = Box::pin(std::future::ready(Err(error))),
+            }
+        }
+        cx.spawn(async move |this, cx| {
+            let result = result.await;
+            let _ = this.update(cx, |this, cx| this.page_done(page, request, result, cx));
+        })
+        .detach();
+        None
     }
 
     fn page_done(
@@ -1033,6 +1106,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // reads of the pages the drag only passes.
         #[cfg(feature = "live")]
         if self.drag.is_some() && !self.drag_resting {
+            // A copy waiting on this page goes on (`copy`): no plan wakes it.
+            #[cfg(feature = "copy")]
+            self.copy_wake(cx);
             cx.notify();
             return;
         }
@@ -2165,6 +2241,10 @@ mod resize;
 /// `select`: the presses, the drag, the keys, and the drawing.
 #[cfg(feature = "select")]
 pub(crate) mod select;
+
+/// `copy`: the keys, the reads beside the cache, the turns, and the events.
+#[cfg(feature = "copy")]
+pub(crate) mod copy;
 
 #[cfg(test)]
 mod tests {

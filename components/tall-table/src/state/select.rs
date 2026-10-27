@@ -41,7 +41,7 @@ actions!(
 /// The keys' context, added beside the base's only while a kind is on.
 /// Bound after the base's, so at the same depth its bindings win; space
 /// and Shift+Space aren't bound here, so they keep the base's paging.
-const SELECT_CONTEXT: &str = "TallTableSelect";
+pub(super) const SELECT_CONTEXT: &str = "TallTableSelect";
 
 /// The element's key context while a kind is on.
 const CONTEXTS: &str = "TallTable TallTableSelect";
@@ -96,7 +96,7 @@ pub(crate) fn on_actions<D: TallTableDelegate, E: InteractiveElement>(
     state: &Entity<TallTableState<D>>,
     window: &Window,
 ) -> E {
-    element
+    let element = element
         .on_action(window.listener_for(state, TallTableState::select_up))
         .on_action(window.listener_for(state, TallTableState::select_down))
         .on_action(window.listener_for(state, TallTableState::select_left))
@@ -114,7 +114,10 @@ pub(crate) fn on_actions<D: TallTableDelegate, E: InteractiveElement>(
         .on_action(window.listener_for(state, TallTableState::extend_first))
         .on_action(window.listener_for(state, TallTableState::extend_last))
         .on_action(window.listener_for(state, TallTableState::select_all))
-        .on_action(window.listener_for(state, TallTableState::clear_selection))
+        .on_action(window.listener_for(state, TallTableState::clear_selection));
+    #[cfg(feature = "copy")]
+    let element = element.on_action(window.listener_for(state, TallTableState::copy_selection));
+    element
 }
 
 /// The selection fixture's negative controls (`fixtures/selection.json`),
@@ -764,13 +767,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.select_everything(cx);
     }
 
-    /// Escape: clears, or with nothing selected goes on to the host.
+    /// Escape: clears, or with nothing selected goes on to the host. With
+    /// `copy`, a copy running is cancelled first, the selection kept.
     pub(crate) fn clear_selection(
         &mut self,
         _: &ClearSelection,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        #[cfg(feature = "copy")]
+        if self.escape_copy(cx) {
+            return;
+        }
         if self.selection_state.current.is_none() {
             cx.propagate();
             return;

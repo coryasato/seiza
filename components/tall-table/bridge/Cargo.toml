@@ -22,6 +22,9 @@ follow = ["live", "seiza-tall-table/follow"]
 resize = ["seiza-tall-table/resize"]
 # The table's selection, forwarded for a host's build.
 select = ["seiza-tall-table/select"]
+# The table's copy, forwarded for a host's build. No arm of its own yet:
+# `Publish::event` drops the copy's events.
+copy = ["select", "seiza-tall-table/copy"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

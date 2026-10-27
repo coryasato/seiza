@@ -27,6 +27,9 @@ resize = ["seiza-tall-table/resize", "tall-table-bridge/resize"]
 # Every kind of selection on (the table's default), so a press, a drag, and
 # the keys select.
 select = ["seiza-tall-table/select", "tall-table-bridge/select"]
+# The selection copied by Cmd+C and Ctrl+C (the table's keys, bound by its
+# `init`), on `select`'s selection.
+copy = ["select", "seiza-tall-table/copy", "tall-table-bridge/copy"]
 
 [dependencies]
 gpui-kit.workspace = true

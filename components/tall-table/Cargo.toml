@@ -33,3 +33,7 @@ resize = []
 # Rows, columns, or a block of cells selected by the pointer and the keys,
 # as one range (`TallTableState::select`, `TallTableEvent::Selected`).
 select = []
+# A selection copied as TSV by Cmd+C, Ctrl+C, or `TallTableState::copy`,
+# rows not loaded read beside the cache; the text goes to the host in
+# pieces (`TallTableEvent::Copy`), which writes the clipboard.
+copy = ["select"]

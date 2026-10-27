@@ -15,6 +15,8 @@
 
 mod activity;
 mod column;
+#[cfg(feature = "copy")]
+mod copy;
 mod delegate;
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
@@ -31,6 +33,8 @@ mod tall_table;
 
 pub use activity::ActivityStats;
 pub use column::{ColumnKind, TallTableColumn};
+#[cfg(feature = "copy")]
+pub use copy::{CopyFailure, CopyId, CopyOptions, CopyProgress, TallTableCopy};
 pub use delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};

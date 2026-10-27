@@ -579,6 +579,26 @@ fn escape_goes_on_with_nothing_selected(cx: &mut TestAppContext) {
     assert_eq!(sheet.escapes.get(), 1, "nothing selected: the host's");
 }
 
+/// Cmd+C and Ctrl+C are the table's only with `copy`: without it, they
+/// go on to the host.
+#[gpui_kit::test]
+fn the_copy_keys_are_bound_only_with_copy(cx: &mut TestAppContext) {
+    let sheet = open(cx, 1000, Selectable::all());
+    for key in ["cmd-c", "ctrl-c"] {
+        let keystroke = gpui_kit::Keystroke::parse(key).unwrap();
+        let actions: Vec<&str> = sheet.cx.update(|_, cx| {
+            cx.key_bindings()
+                .borrow()
+                .all_bindings_for_input(std::slice::from_ref(&keystroke))
+                .iter()
+                .map(|binding| binding.action().name())
+                .collect()
+        });
+        let copies = actions.contains(&"seiza_tall_table::CopySelection");
+        assert_eq!(copies, cfg!(feature = "copy"), "{key}: {actions:?}");
+    }
+}
+
 #[gpui_kit::test]
 fn no_kind_on_keeps_the_base_keys(cx: &mut TestAppContext) {
     let mut sheet = open(cx, 1000, Selectable::none());

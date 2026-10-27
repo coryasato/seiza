@@ -47,11 +47,14 @@ const FEATURES: Record<string, string | string[]> = {
   resize: 'seiza_tall_table5state6resize',
   // Selecting: the range type's module and the state's `select` module.
   select: ['seiza_tall_table9selection', 'seiza_tall_table5state6select'],
+  // Copying: the text's module and the state's `copy` module.
+  copy: ['seiza_tall_table4copy', 'seiza_tall_table5state4copy'],
 };
 
-/** A feature that turns on another is measured against it too: `follow`
- *  turns on `live`. */
-const TURNS_ON: Record<string, string[]> = { follow: ['live'] };
+/** A feature that turns on another is measured against it too, and the
+ *  other's build must hold none of its symbols: `follow` turns on `live`,
+ *  `copy` turns on `select`. */
+const TURNS_ON: Record<string, string[]> = { follow: ['live'], copy: ['select'] };
 
 /** Globals only the panel and the engine's bridge write. */
 const MARKERS = { panel: '__seizaPerfOverlay', engine: 'duckdb' };
@@ -126,8 +129,9 @@ for (const [feature, given] of Object.entries(FEATURES)) {
     const counts: Held = { base: holds('', marker), feature: holds(feature, marker) };
     if (counts.base) failures.push(`the base holds ${counts.base} of ${feature}'s symbols (${marker})`);
     if (!counts.feature) failures.push(`control: ${feature}'s build holds none of its symbols (${marker}): the check can't see them`);
-    // Code only both features build: neither alone holds it.
-    const parts = feature.includes(',') ? feature.split(',') : [];
+    // Code only both features build: neither alone holds it. A feature's
+    // code: a build of what it turns on doesn't hold it.
+    const parts = feature.includes(',') ? feature.split(',') : (TURNS_ON[feature] ?? []);
     if (parts.length) counts.alone = Object.fromEntries(parts.map((part) => [part, holds(part, marker)]));
     for (const [part, count] of Object.entries(counts.alone ?? {})) if (count) failures.push(`${part} alone holds ${count} of ${feature}'s symbols (${marker})`);
     const alone = Object.entries(counts.alone ?? {}).map(([part, count]) => `, ${part} alone ${count}`).join('');

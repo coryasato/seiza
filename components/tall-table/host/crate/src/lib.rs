@@ -19,7 +19,9 @@
 //! is resizable, and each release or fit that changed a width publishes
 //! each column's set width (`__tallTableWidths`). With `select`, every kind
 //! of selection is on, and each change publishes it
-//! (`__tallTableSelection`).
+//! (`__tallTableSelection`). With `copy`, Cmd+C and Ctrl+C start a copy of
+//! it (the table's keys); nothing writes the clipboard yet (the bridge
+//! drops the copy's events).
 
 mod host;
 pub mod rows;

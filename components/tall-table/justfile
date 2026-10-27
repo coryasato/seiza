@@ -92,8 +92,10 @@ smoke *args:
 # re-reads and the paging fixture's live scenarios; `follow`, which turns
 # on `live`: the flag, the pin, and the paging fixture's follow scenarios;
 # `resize`: the drag, the fit, and the cell fixture's resize section;
-# `select`: the selection fixture, the presses, drag, keys, and drawing),
-# and all on. The bridge has none: its
+# `select`: the selection fixture, the presses, drag, keys, and drawing;
+# `copy`, which turns on `select`: the text, the keys, the reads beside
+# the cache, the turns, the cap, and the cancels), and all on (`copy`'s
+# with `live` among them). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
 test:
@@ -105,7 +107,8 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/resize
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/select
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/copy
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy
 
 # Writes fixtures/paint.json's expected colors from Chromium's
 # color-mix(in oklab) and its bars from their formula (--check compares).
