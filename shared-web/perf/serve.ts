@@ -3,6 +3,7 @@
 
 import { createServer, request as httpRequest } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
+import { networkInterfaces } from 'node:os';
 import { preview } from 'vite';
 
 /**
@@ -144,15 +145,29 @@ export interface DataServer {
   start(): Promise<{ close(): Promise<void> }>;
 }
 
+/** This machine's first non-internal IPv4 address. */
+function lanIPv4(): string {
+  const address = Object.values(networkInterfaces())
+    .flat()
+    .find((entry) => entry?.family === 'IPv4' && !entry.internal)?.address;
+  if (!address) throw new Error('serveApp: lan asked for, and this machine has no LAN IPv4 address');
+  return address;
+}
+
 /**
  * The app under test. With `given` (a script's `--url`: production)
  * nothing starts, and nothing counts data bytes. Otherwise the release build
  * (`webDir`'s dist) through `vite preview` on `port`, and, with `data`, its
- * data server behind a counting proxy.
+ * data server behind a counting proxy. With `lan`, it listens on this
+ * machine's LAN address alone, not localhost, and `url` is there: `http`
+ * off localhost, an insecure context (no `navigator.clipboard`, COOP and
+ * COEP ignored). It fails on a machine with no LAN address.
  */
-export async function serveApp(given: string | undefined, options: { webDir: string; port: number; data?: DataServer }): Promise<AppServer> {
+export async function serveApp(given: string | undefined, options: { webDir: string; port: number; data?: DataServer; lan?: boolean }): Promise<AppServer> {
   if (given) return { url: given, proxy: null, close: async () => {} };
-  const { webDir, port, data } = options;
+  const { webDir, port, data, lan } = options;
+  // Before starting anything: a machine without one fails here.
+  const host = lan ? lanIPv4() : 'localhost';
   // Before starting anything: a dev server already there would otherwise
   // fail the proxy and leave this script's data server running.
   await assertPortFree(port);
@@ -161,9 +176,9 @@ export async function serveApp(given: string | undefined, options: { webDir: str
   let proxy: CountingProxy | null = null;
   try {
     if (data) proxy = await startCountingProxy(data.proxyPort, data.port);
-    const server = await preview({ root: webDir, preview: { port, strictPort: true }, logLevel: 'warn' });
+    const server = await preview({ root: webDir, preview: { port, strictPort: true, ...(lan ? { host } : {}) }, logLevel: 'warn' });
     return {
-      url: `http://localhost:${port}/`,
+      url: `http://${host}:${port}/`,
       proxy,
       close: async () => {
         await server.close();

@@ -5,7 +5,8 @@
 //! them lives here: the filled mark (with `live`, the refreshed mark), the
 //! scrollbar's targets, with `follow` the tail mark and the following
 //! flag, with `resize` the widths a resize left, with `select` the
-//! selection, and the probes (`TallTableProbe`, `TallTableLayout`,
+//! selection, with `copy` the clipboard's writer ([`clipboard`]), and the
+//! probes (`TallTableProbe`, `TallTableLayout`,
 //! `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -13,6 +14,9 @@
 //! panel rows) stays in its own `match`. Natively every call is a no-op.
 
 use seiza_tall_table::TallTableEvent;
+
+#[cfg(feature = "copy")]
+pub mod clipboard;
 
 /// The vertical scrollbar's track and thumb, for scripts that drag it
 /// (`shared-web/perf/`'s `fling` reads the track).

@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from 'playwright';
+import { option } from '../../../shared-web/perf/protocol.ts';
 
 export const perfDir = fileURLToPath(new URL('.', import.meta.url));
 export const componentDir = join(perfDir, '..');
@@ -45,9 +46,9 @@ export const TAIL_GLOBAL = '__tallTableTail';
 export const FOLLOWING_GLOBAL = '__tallTableFollowing';
 export const APPENDED_MARK = 'tall-table:appended';
 export const APPENDED_GLOBAL = '__tallTableAppended';
-/** With `follow` (`host/crate/src/rows.rs`, `Reads`): the reads the host's
- *  source was sent so far, and those cancelled in flight, each set as it
- *  changes. */
+/** With `follow` or `copy` (`host/crate/src/rows.rs`, `Reads`): the reads
+ *  the host's source was sent so far, and those cancelled in flight, each
+ *  set as it changes. */
 export const READS_SENT_GLOBAL = '__tallTableReadsSent';
 export const READS_DRAINED_GLOBAL = '__tallTableReadsDrained';
 
@@ -60,10 +61,26 @@ export const WIDTHS_GLOBAL = '__tallTableWidths';
  *  selected (`Selection`, or `null`), replaced at each change. */
 export const SELECTION_GLOBAL = '__tallTableSelection';
 
+/** With `copy` (`host/crate/src/host.rs`): what became of the last copy
+ *  (`CopyState`), replaced at each step; set as a copy starts (in the
+ *  key's task), as its text is all in, and as the browser wrote it. */
+export const COPY_GLOBAL = '__tallTableCopy';
+export const COPY_STARTED_MARK = 'tall-table:copy-started';
+export const COPIED_MARK = 'tall-table:copied';
+export const COPY_WRITTEN_MARK = 'tall-table:copy-written';
+
 /** The host's paint styles with `custom-cells` (`host/crate/src/rows.rs`,
  *  `Cells`, `?cells=`): `text` paints nothing, the control. */
 export const CELL_STYLES = ['text', 'heat', 'bars', 'color'] as const;
 export type CellStyle = (typeof CELL_STYLES)[number];
+
+/** `--name`'s value, which must be one of `known`; all of them without it. */
+export function pick<T extends string>(name: string, known: readonly T[]): T[] {
+  const given = option(name);
+  if (given === undefined) return [...known];
+  if (!known.includes(given as T)) throw new Error(`--${name} ${given}: not one of ${known.join(', ')}`);
+  return [given as T];
+}
 
 /** The host features the release build in `host/web/dist` was built with
  *  (`just tall-table build <features>` writes `dist/build.json`); none, the
@@ -80,10 +97,19 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, Layout, Selection, Shown } from '../host/web/src/probe.ts';
-import type { Cell, Layout, Selection, Shown } from '../host/web/src/probe.ts';
+export type { Cell, CopyState, Layout, Selection, Shown } from '../host/web/src/probe.ts';
+import type { Cell, CopyState, Layout, Selection, Shown } from '../host/web/src/probe.ts';
 
-type Global = { __tallTable?: Shown; __tallTableLayout?: Layout; __tallTableCells?: Cell[] };
+type Global = {
+  __tallTable?: Shown;
+  __tallTableLayout?: Layout;
+  __tallTableCells?: Cell[];
+  __tallTableCopy?: CopyState;
+  /** With `copy` and `?perf` (`host/crate/src/host.rs`, `script_hooks`). */
+  __tallTableExact?: (row: number, column: number) => string | null;
+  __tallTableSelect?: (kind: string, anchorRow: number, anchorColumn: number, headRow: number, headColumn: number) => void;
+  __tallTableClose?: () => void;
+};
 
 /** The cells the last frame drew, with their paint (`custom-cells`, a
  *  painted style). */
@@ -199,4 +225,109 @@ export async function selected(page: Page, want: Selection | null, timeout = 10_
     { timeout, polling: 10 },
   );
   return (await handle.jsonValue()) as Shown;
+}
+
+/** With `copy`: the copy's state once a copy after `afterId` (or a
+ *  declined one, `afterId` given as is) reaches one of `states`. */
+export async function copyReached(page: Page, afterId: number, states: CopyState['state'][], timeout = 30_000): Promise<CopyState> {
+  const handle = await page
+    .waitForFunction(
+      ({ afterId, states }) => {
+        const copy = (globalThis as Global).__tallTableCopy;
+        return copy && states.includes(copy.state) && (copy.id === null || copy.id > afterId) ? copy : false;
+      },
+      { afterId, states },
+      { timeout, polling: 20 },
+    )
+    .catch(async () => {
+      const now = await page.evaluate(() => (globalThis as Global).__tallTableCopy);
+      throw new Error(`no copy after ${afterId} reached ${states.join(' or ')} in ${timeout} ms: ${JSON.stringify(now ?? null)}`);
+    });
+  const state = (await handle.jsonValue()) as CopyState;
+  if (state.id !== null) seenIds.set(page, Math.max(seenIds.get(page) ?? 0, state.id));
+  return state;
+}
+
+/** The highest copy id each page has published, kept here: a declined
+ *  copy's outcome has none. */
+const seenIds = new WeakMap<Page, number>();
+
+/** The id of the last copy started, 0 before any: the global's, or (while
+ *  it shows a declined copy) the last one seen. */
+export async function lastCopyId(page: Page): Promise<number> {
+  const id = await page.evaluate(() => (globalThis as Global).__tallTableCopy?.id ?? null);
+  const last = Math.max(id ?? 0, seenIds.get(page) ?? 0);
+  seenIds.set(page, last);
+  return last;
+}
+
+/** With `copy` and `?perf`: the table's `select`, through the host's hook,
+ *  then the probe agreeing. */
+export async function selectThrough(page: Page, want: Selection): Promise<void> {
+  await page.evaluate(({ kind, anchor, head }) => (globalThis as Global).__tallTableSelect!(kind, anchor[0], anchor[1], head[0], head[1]), want);
+  await selected(page, want);
+}
+
+/** With `copy` and `?perf`: each `[row, column]`'s exact text, `null` for
+ *  NULL (the host's source, as a read now answers it). */
+export async function exactTexts(page: Page, cells: [number, number][]): Promise<(string | null)[]> {
+  return page.evaluate((cells) => cells.map(([row, column]) => (globalThis as Global).__tallTableExact!(row, column)), cells);
+}
+
+/** A real paste of the clipboard: a textarea put over the page, focused,
+ *  given Cmd+V (Ctrl+V elsewhere), read, and removed, with the element
+ *  that had the focus before (gpui-pre-web's key target) focused again for
+ *  the table's keys. */
+export async function paste(page: Page): Promise<string> {
+  await page.evaluate(() => {
+    (globalThis as { __pasteFocus?: Element | null }).__pasteFocus = document.activeElement;
+    const area = document.createElement('textarea');
+    area.id = '__paste';
+    area.style.cssText = 'position:fixed;left:0;top:0;width:10px;height:10px;opacity:0';
+    document.body.append(area);
+    area.focus();
+  });
+  await page.keyboard.press('ControlOrMeta+V');
+  // The paste lands in the key's task; a large one may take a while more
+  // (Firefox's 2 MB took past 2 s). An empty clipboard waits it all out.
+  const text = await page
+    .waitForFunction(() => (document.getElementById('__paste') as HTMLTextAreaElement).value || false, null, { timeout: 15_000, polling: 20 })
+    .then((handle) => handle.jsonValue() as Promise<string>)
+    .catch(() => '');
+  await page.evaluate(() => {
+    document.getElementById('__paste')!.remove();
+    ((globalThis as { __pasteFocus?: Element | null }).__pasteFocus as HTMLElement | null)?.focus();
+  });
+  return text;
+}
+
+/** Text in a spreadsheet's TSV (`copy`'s): tab-separated fields, a row a
+ *  line, a field holding a tab, a line break, or `"` quoted with its quotes
+ *  doubled. */
+export function parseTsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let index = 0;
+  while (index <= text.length) {
+    if (text[index] === '"' && field === '') {
+      // Quoted: to the closing quote, `""` an escaped one.
+      index++;
+      while (index < text.length) {
+        if (text[index] === '"' && text[index + 1] === '"') (field += '"'), (index += 2);
+        else if (text[index] === '"') break;
+        else field += text[index++];
+      }
+      index++;
+      continue;
+    }
+    const char = text[index];
+    if (char === undefined || char === '\n' || char === '\t') {
+      row.push(field);
+      field = '';
+      if (char !== '\t') (rows.push(row), (row = []));
+    } else field += char;
+    index++;
+  }
+  return rows;
 }

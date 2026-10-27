@@ -39,6 +39,8 @@ pub(super) struct CopyState<P, R> {
     /// The last copy's id: each new one is the next.
     last_id: u64,
     pub(super) running: Option<Running<P, R>>,
+    /// A plan is due at the end of the update (`copy_load`).
+    load_deferred: bool,
 }
 
 impl<P, R> Default for CopyState<P, R> {
@@ -47,6 +49,7 @@ impl<P, R> Default for CopyState<P, R> {
             options: CopyOptions::default(),
             last_id: 0,
             running: None,
+            load_deferred: false,
         }
     }
 }
@@ -373,15 +376,27 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    /// Plans the reads, as a page landing does: with `live`, not while a
-    /// scrollbar drag moves (its settle or release plans them, and would
-    /// otherwise read the pages it passes), but once it rests.
+    /// Plans the reads once the update ends, as a page landing does: after
+    /// the events it emitted reach their subscribers, so a host that can't
+    /// write the copy (no clipboard) cancels it at `Started` before any
+    /// read is sent. With `live`, not while a scrollbar drag moves (its
+    /// settle or release plans them, and would otherwise read the pages it
+    /// passes), but once it rests.
     fn copy_load(&mut self, cx: &mut Context<Self>) {
-        #[cfg(feature = "live")]
-        if self.drag.is_some() && !self.drag_resting {
+        if std::mem::replace(&mut self.copy_state.load_deferred, true) {
             return;
         }
-        self.load_pages(cx);
+        let this = cx.weak_entity();
+        cx.defer(move |cx| {
+            let _ = this.update(cx, |this, cx| {
+                this.copy_state.load_deferred = false;
+                #[cfg(feature = "live")]
+                if this.drag.is_some() && !this.drag_resting {
+                    return;
+                }
+                this.load_pages(cx);
+            });
+        });
     }
 
     /// A turn: formats up to [`TURN_CELLS`] cells from the rows in hand,

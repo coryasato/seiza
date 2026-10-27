@@ -19,9 +19,13 @@
 //! is resizable, and each release or fit that changed a width publishes
 //! each column's set width (`__tallTableWidths`). With `select`, every kind
 //! of selection is on, and each change publishes it
-//! (`__tallTableSelection`). With `copy`, Cmd+C and Ctrl+C start a copy of
-//! it (the table's keys); nothing writes the clipboard yet (the bridge
-//! drops the copy's events).
+//! (`__tallTableSelection`). With `copy`, Cmd+C and Ctrl+C copy it (the
+//! table's keys) and Cmd+Shift+C copies it past the key's limit (the host's
+//! `copy`, as a confirming click would), the bridge's writer puts it on the
+//! clipboard, and what became of it is on `__tallTableCopy`;
+//! `?copy-max-bytes=` and `?copy-key-cells=` set the cap and the key's
+//! limit, and with `?perf` the scripts get a value's exact text, the
+//! table's `select`, and its `close` (`host::script_hooks`).
 
 mod host;
 pub mod rows;
@@ -67,6 +71,8 @@ pub fn start(ui_font: Vec<u8>) {
         .unwrap_or(rows::Cells::Text);
     seiza::Bootstrap::new(host::TITLE, ui_font).run(move |window, cx| {
         seiza_tall_table::init(cx);
+        #[cfg(feature = "copy")]
+        host::init(cx);
         cx.new(|cx| {
             Host::new(
                 shape,

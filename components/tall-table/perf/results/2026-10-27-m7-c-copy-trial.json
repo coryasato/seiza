@@ -1,0 +1,344 @@
+{
+  "date": "2026-10-27",
+  "label": "m7-c-copy-trial",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "protocol": {
+    "browser": "chromium headless=new",
+    "viewport": "1440x900",
+    "dpr": 2,
+    "runs": 1,
+    "cold": true,
+    "fraction": 0.9,
+    "maxBytes": 67108864,
+    "sized": {
+      "narrow": {
+        "rows": 477052,
+        "bytesPerRow": 126.61
+      },
+      "wide": {
+        "rows": 6166,
+        "bytesPerRow": 9794
+      }
+    },
+    "scroll": {
+      "px": 300,
+      "everyMs": 16,
+      "steps": 125
+    },
+    "tailMs": 300,
+    "build": "copy"
+  },
+  "results": {
+    "narrow": {
+      "reference": {
+        "runs": [
+          {
+            "copy": {
+              "rows": 477052,
+              "bytes": 60643051,
+              "keyToCopiedMs": 1484.94,
+              "keyToWrittenMs": 1637.98,
+              "rowsPerS": 321259,
+              "heapBeforeMiB": 13.69,
+              "heapAfterMiB": 13.69
+            },
+            "scroll": {
+              "frames": 145,
+              "workP50Ms": 5.97,
+              "workP95Ms": 7.73,
+              "workMaxMs": 9.46,
+              "busyMs": 815.26,
+              "outsideFramesMs": 35.29,
+              "restMs": 2111.24,
+              "latePct": 0,
+              "intervalsP95Ms": 16.67,
+              "windowMs": 2413.41
+            },
+            "scrollCopying": {
+              "frames": 180,
+              "workP50Ms": 5.35,
+              "workP95Ms": 5.89,
+              "workMaxMs": 7.7,
+              "busyMs": 1509.81,
+              "outsideFramesMs": 832.28,
+              "restMs": 2763.48,
+              "latePct": 1.12,
+              "intervalsP95Ms": 16.67,
+              "windowMs": 3065.84,
+              "coveredPct": 76.32
+            }
+          }
+        ],
+        "summary": {
+          "copy": {
+            "rows": 477052,
+            "bytes": 60643051,
+            "keyToCopiedMs": 1484.94,
+            "keyToWrittenMs": 1637.98,
+            "rowsPerS": 321259,
+            "heapBeforeMiB": 13.69,
+            "heapAfterMiB": 13.69
+          },
+          "scroll": {
+            "frames": 145,
+            "workP50Ms": 5.97,
+            "workP95Ms": 7.73,
+            "workMaxMs": 9.46,
+            "busyMs": 815.26,
+            "outsideFramesMs": 35.29,
+            "restMs": 2111.24,
+            "latePct": 0,
+            "intervalsP95Ms": 16.67,
+            "windowMs": 2413.41
+          },
+          "scrollCopying": {
+            "frames": 180,
+            "workP50Ms": 5.35,
+            "workP95Ms": 5.89,
+            "workMaxMs": 7.7,
+            "busyMs": 1509.81,
+            "outsideFramesMs": 832.28,
+            "restMs": 2763.48,
+            "latePct": 1.12,
+            "intervalsP95Ms": 16.67,
+            "windowMs": 3065.84,
+            "coveredPct": 76.32
+          }
+        }
+      },
+      "throttled": {
+        "runs": [
+          {
+            "copy": {
+              "rows": 477052,
+              "bytes": 60643051,
+              "keyToCopiedMs": 2530.36,
+              "keyToWrittenMs": 3064.03,
+              "rowsPerS": 188532,
+              "heapBeforeMiB": 13.69,
+              "heapAfterMiB": 13.69
+            },
+            "scroll": {
+              "frames": 106,
+              "workP50Ms": 23.35,
+              "workP95Ms": 35.13,
+              "workMaxMs": 42.73,
+              "busyMs": 2134.5,
+              "outsideFramesMs": 96.02,
+              "restMs": 2211.69,
+              "latePct": 41.9,
+              "intervalsP95Ms": 33.34,
+              "windowMs": 2513.9
+            },
+            "scrollCopying": {
+              "frames": 99,
+              "workP50Ms": 21.66,
+              "workP95Ms": 25.68,
+              "workMaxMs": 28.45,
+              "busyMs": 2525.37,
+              "outsideFramesMs": 839.45,
+              "restMs": 2241.95,
+              "latePct": 52.53,
+              "intervalsP95Ms": 33.34,
+              "windowMs": 2546.68,
+              "coveredPct": 100
+            }
+          }
+        ],
+        "summary": {
+          "copy": {
+            "rows": 477052,
+            "bytes": 60643051,
+            "keyToCopiedMs": 2530.36,
+            "keyToWrittenMs": 3064.03,
+            "rowsPerS": 188532,
+            "heapBeforeMiB": 13.69,
+            "heapAfterMiB": 13.69
+          },
+          "scroll": {
+            "frames": 106,
+            "workP50Ms": 23.35,
+            "workP95Ms": 35.13,
+            "workMaxMs": 42.73,
+            "busyMs": 2134.5,
+            "outsideFramesMs": 96.02,
+            "restMs": 2211.69,
+            "latePct": 41.9,
+            "intervalsP95Ms": 33.34,
+            "windowMs": 2513.9
+          },
+          "scrollCopying": {
+            "frames": 99,
+            "workP50Ms": 21.66,
+            "workP95Ms": 25.68,
+            "workMaxMs": 28.45,
+            "busyMs": 2525.37,
+            "outsideFramesMs": 839.45,
+            "restMs": 2241.95,
+            "latePct": 52.53,
+            "intervalsP95Ms": 33.34,
+            "windowMs": 2546.68,
+            "coveredPct": 100
+          }
+        }
+      }
+    },
+    "wide": {
+      "reference": {
+        "runs": [
+          {
+            "copy": {
+              "rows": 6166,
+              "bytes": 60391143,
+              "keyToCopiedMs": 1432.59,
+              "keyToWrittenMs": 1620.83,
+              "rowsPerS": 4304,
+              "heapBeforeMiB": 26.94,
+              "heapAfterMiB": 33.94
+            },
+            "scroll": {
+              "frames": 146,
+              "workP50Ms": 7.2,
+              "workP95Ms": 9.09,
+              "workMaxMs": 10.32,
+              "busyMs": 985.42,
+              "outsideFramesMs": 37.17,
+              "restMs": 2131.8,
+              "latePct": 0,
+              "intervalsP95Ms": 16.67,
+              "windowMs": 2435.86
+            },
+            "scrollCopying": {
+              "frames": 158,
+              "workP50Ms": 6.43,
+              "workP95Ms": 7.95,
+              "workMaxMs": 8.91,
+              "busyMs": 1389.59,
+              "outsideFramesMs": 651.6,
+              "restMs": 2414.86,
+              "latePct": 1.27,
+              "intervalsP95Ms": 16.67,
+              "windowMs": 2717.27,
+              "coveredPct": 73.12
+            }
+          }
+        ],
+        "summary": {
+          "copy": {
+            "rows": 6166,
+            "bytes": 60391143,
+            "keyToCopiedMs": 1432.59,
+            "keyToWrittenMs": 1620.83,
+            "rowsPerS": 4304,
+            "heapBeforeMiB": 26.94,
+            "heapAfterMiB": 33.94
+          },
+          "scroll": {
+            "frames": 146,
+            "workP50Ms": 7.2,
+            "workP95Ms": 9.09,
+            "workMaxMs": 10.32,
+            "busyMs": 985.42,
+            "outsideFramesMs": 37.17,
+            "restMs": 2131.8,
+            "latePct": 0,
+            "intervalsP95Ms": 16.67,
+            "windowMs": 2435.86
+          },
+          "scrollCopying": {
+            "frames": 158,
+            "workP50Ms": 6.43,
+            "workP95Ms": 7.95,
+            "workMaxMs": 8.91,
+            "busyMs": 1389.59,
+            "outsideFramesMs": 651.6,
+            "restMs": 2414.86,
+            "latePct": 1.27,
+            "intervalsP95Ms": 16.67,
+            "windowMs": 2717.27,
+            "coveredPct": 73.12
+          }
+        }
+      },
+      "throttled": {
+        "runs": [
+          {
+            "copy": {
+              "rows": 6166,
+              "bytes": 60391143,
+              "keyToCopiedMs": 2645.55,
+              "keyToWrittenMs": 3177.92,
+              "rowsPerS": 2331,
+              "heapBeforeMiB": 26.94,
+              "heapAfterMiB": 33.94
+            },
+            "scroll": {
+              "frames": 87,
+              "workP50Ms": 28.36,
+              "workP95Ms": 38.51,
+              "workMaxMs": 44.9,
+              "busyMs": 2172.77,
+              "outsideFramesMs": 98.51,
+              "restMs": 2183.76,
+              "latePct": 60.47,
+              "intervalsP95Ms": 50,
+              "windowMs": 2486.4
+            },
+            "scrollCopying": {
+              "frames": 80,
+              "workP50Ms": 29.38,
+              "workP95Ms": 36.01,
+              "workMaxMs": 41.33,
+              "busyMs": 2453.64,
+              "outsideFramesMs": 632.14,
+              "restMs": 2243.02,
+              "latePct": 62.03,
+              "intervalsP95Ms": 50,
+              "windowMs": 2552.78,
+              "coveredPct": 100
+            }
+          }
+        ],
+        "summary": {
+          "copy": {
+            "rows": 6166,
+            "bytes": 60391143,
+            "keyToCopiedMs": 2645.55,
+            "keyToWrittenMs": 3177.92,
+            "rowsPerS": 2331,
+            "heapBeforeMiB": 26.94,
+            "heapAfterMiB": 33.94
+          },
+          "scroll": {
+            "frames": 87,
+            "workP50Ms": 28.36,
+            "workP95Ms": 38.51,
+            "workMaxMs": 44.9,
+            "busyMs": 2172.77,
+            "outsideFramesMs": 98.51,
+            "restMs": 2183.76,
+            "latePct": 60.47,
+            "intervalsP95Ms": 50,
+            "windowMs": 2486.4
+          },
+          "scrollCopying": {
+            "frames": 80,
+            "workP50Ms": 29.38,
+            "workP95Ms": 36.01,
+            "workMaxMs": 41.33,
+            "busyMs": 2453.64,
+            "outsideFramesMs": 632.14,
+            "restMs": 2243.02,
+            "latePct": 62.03,
+            "intervalsP95Ms": 50,
+            "windowMs": 2552.78,
+            "coveredPct": 100
+          }
+        }
+      }
+    }
+  },
+  "failures": []
+}

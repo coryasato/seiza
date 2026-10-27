@@ -240,3 +240,15 @@ One entry per milestone part, written before starting the next one: what surpris
 - The sweep for races that followed found the copy and prefetch reading one page at once (each blind to the other's read), and one stall in `live`'s own planning: a visible grown page whose re-read failed held prefetch back for good, so it held a copy back too.
 - A second review found more of the same kind: a copy's end that freed a place without planning it (at `max_in_flight` 1 a page scrolled into view stayed a placeholder), a drag at rest that the cache read through and the copy didn't, a read the copy waited for that the same plan cancelled. And a cap checked only after a turn: cells bound a turn's work, not its bytes. Each was a timing between the copy and the paging that a scenario has to think of; the hardening session (`PLAN.md`) is for those no one thinks of.
 - An eviction can't be staged through the budget in a native test: the copy's turns run in the same park as the reads that would evict, and finish from the cache first. A test-only `evict_page` stands in for the budget.
+
+## M7: `copy` (part C, 2026-10-27)
+
+**Results:** [`perf/results/2026-10-27-m7-c.md`](../perf/results/2026-10-27-m7-c.md).
+
+**Surprises:**
+- The spike's open question settled the easy way: a `ClipboardItem` resolved 60 s after the key, or with another tab in front, landed in all three engines, so the "press Cmd+C again" fallback isn't needed.
+- The insecure-context check caught a read the spec said wouldn't happen: the copy's first turn planned its reads inside the key's update, before the host heard `Started` and cancelled. Deferring the plan to the update's end fixed it. A native test only catches this with a subscriber that cancels, which no part B test had.
+- The bare host loads fine over `http` at a LAN address. Its wasm needs no `SharedArrayBuffer`, so losing COOP/COEP costs nothing, and the insecure context is a real one rather than a shim. Chromium refuses even to grant clipboard permissions there.
+- A scripted paste into a textarea takes GPUI's focus, and focusing the canvas doesn't give it back: keys go to another element of gpui-pre-web's. Copies after a press still worked, which hid it until the first copy started from the select hook.
+- With reads held, a copy started at the filled mark loses a round to prefetch, whose reads only go out once the visible page lands. Correct paging, but a timed check has to wait it out.
+- A scroll during a copy costs late frames, not per-frame work: the copy's turns run as tasks between frames (~0.8 s of them in a 2 s scroll), and throttled, 53% of frames were late against 42% alone. The first trial's window waited for the copy's end and read the copy's tail as the scroll's (a "doubled" rest time, and a 0.6 ms p50 from idle frames). The code review caught it; a window has to end where the act it measures ends.

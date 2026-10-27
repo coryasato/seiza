@@ -77,11 +77,24 @@ live *args:
 follow *args:
     node {{component_dir}}/perf/follow.ts {{args}}
 
+# `copy` in the bare host's release build, per shape, reference and
+# throttled, cold, median of 10: a copy near the cap (--fraction of it,
+# 0.9) from a cold view, the key → the text all in and → the write
+# resolving, rows a second, and the wasm heap before and after; then frame
+# work and late frames under a scroll during a copy, against the same
+# scroll without one. --runs, --shape, --profile, --label. Run
+# `just tall-table build copy` first.
+copy *args:
+    node {{component_dir}}/perf/copy.ts {{args}}
+
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
 # one), and with each feature built runs its own checks (with `resize`, a
 # drag, a fit, and a narrowing at the right end, in both shapes; with
-# `select`, presses, a drag, and keys selecting, and the tint, in both).
+# `select`, presses, a drag, and keys selecting, and the tint, in both;
+# with `copy`, copies pasted back and compared with the source in both,
+# reads held past 5 s and about a minute, a copy finishing in the
+# background, cancels, the cap, and an insecure context).
 # --browsers. Run `just tall-table build` first.
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}

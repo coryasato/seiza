@@ -11,12 +11,13 @@
 //! after a bump answers new floats (the other columns, and which floats are
 //! NULL, stay put).
 //!
-//! With `follow`, the source counts its reads ([`Reads`]) and publishes
-//! the counts as they change, for the tail feed's reads a second and
-//! drained reads.
+//! With `follow` or `copy`, the source counts its reads ([`Reads`]) and
+//! publishes the counts as they change, for the tail feed's reads a second
+//! and drained reads, and for a copy's reads. With `copy`, it also answers
+//! a value's exact text for a script ([`MemoryRows::exact`]).
 
 use std::borrow::Cow;
-#[cfg(feature = "follow")]
+#[cfg(any(feature = "follow", feature = "copy"))]
 use std::cell::Cell;
 use std::cell::RefCell;
 #[cfg(feature = "live")]
@@ -276,25 +277,30 @@ impl MemoryPage {
         let keys: Vec<u64> = rows.clone().map(|row| versioned(row, versions)).collect();
         #[cfg(feature = "live")]
         let key = |row: u64| keys[(row - rows.start) as usize];
-        let columns = match shape {
-            Shape::Narrow => (0..NARROW.len())
-                .map(|column| narrow_column(column, rows.clone(), key))
-                .collect(),
-            Shape::Wide => (0..WIDE_COLUMNS)
-                .map(|column| {
-                    let scale = wide_scale(column);
-                    Values::Float(
-                        rows.clone()
-                            .map(|row| (unit(key(row), column) - 0.5) * 2.0 * scale)
-                            .collect(),
-                    )
-                })
-                .collect(),
+        let count = match shape {
+            Shape::Narrow => NARROW.len(),
+            Shape::Wide => WIDE_COLUMNS,
         };
         Self {
-            columns,
+            columns: (0..count)
+                .map(|column| shape_column(shape, column, rows.clone(), key))
+                .collect(),
             #[cfg(feature = "custom-cells")]
             paint: None,
+        }
+    }
+}
+
+/// `shape`'s `column` over `rows`, each row's floats hashed from `key(row)`.
+fn shape_column(shape: Shape, column: usize, rows: Range<u64>, key: impl Fn(u64) -> u64) -> Values {
+    match shape {
+        Shape::Narrow => narrow_column(column, rows, key),
+        Shape::Wide => {
+            let scale = wide_scale(column);
+            Values::Float(
+                rows.map(|row| (unit(key(row), column) - 0.5) * 2.0 * scale)
+                    .collect(),
+            )
         }
     }
 }
@@ -470,14 +476,14 @@ pub struct MemoryRows {
     #[cfg(feature = "live")]
     versions: Rc<RefCell<Versions>>,
     /// The reads it was sent and those cancelled before they resolved
-    /// (`follow`).
-    #[cfg(feature = "follow")]
+    /// (`follow`, `copy`).
+    #[cfg(any(feature = "follow", feature = "copy"))]
     reads: Reads,
 }
 
-/// What a [`MemoryRows`] was asked (`follow`): each count published on
-/// its global as it changes (wasm), for the scripts.
-#[cfg(feature = "follow")]
+/// What a [`MemoryRows`] was asked (`follow`, `copy`): each count
+/// published on its global as it changes (wasm), for the scripts.
+#[cfg(any(feature = "follow", feature = "copy"))]
 #[derive(Debug, Default)]
 pub struct Reads {
     sent: Cell<u64>,
@@ -485,12 +491,12 @@ pub struct Reads {
 }
 
 /// The reads sent so far, and those cancelled in flight ([`Reads`]).
-#[cfg(feature = "follow")]
+#[cfg(any(feature = "follow", feature = "copy"))]
 pub const READS_SENT_GLOBAL: &str = "__tallTableReadsSent";
-#[cfg(feature = "follow")]
+#[cfg(any(feature = "follow", feature = "copy"))]
 pub const READS_DRAINED_GLOBAL: &str = "__tallTableReadsDrained";
 
-#[cfg(feature = "follow")]
+#[cfg(any(feature = "follow", feature = "copy"))]
 impl Reads {
     fn count(counter: &Cell<u64>, global: &str) {
         counter.set(counter.get() + 1);
@@ -523,15 +529,40 @@ impl MemoryRows {
             pending: Rc::default(),
             #[cfg(feature = "live")]
             versions: Rc::default(),
-            #[cfg(feature = "follow")]
+            #[cfg(any(feature = "follow", feature = "copy"))]
             reads: Reads::default(),
         }
     }
 
-    /// Its read counts (`follow`).
-    #[cfg(feature = "follow")]
+    /// Its read counts (`follow`, `copy`).
+    #[cfg(any(feature = "follow", feature = "copy"))]
     pub fn reads(&self) -> &Reads {
         &self.reads
+    }
+
+    /// Reads each value's exact text (`copy`), as a read now would answer
+    /// it: `None` for NULL. What a script compares a copy's paste with.
+    #[cfg(feature = "copy")]
+    pub fn exact(&self) -> impl Fn(u64, usize) -> Option<String> + 'static {
+        let shape = self.shape;
+        #[cfg(feature = "live")]
+        let versions = self.versions.clone();
+        move |row, column| {
+            #[cfg(not(feature = "live"))]
+            let key = row;
+            #[cfg(feature = "live")]
+            let key = versioned(row, &versions.borrow());
+            // The asked column alone: a page of one row and one column.
+            let page = MemoryPage {
+                columns: vec![shape_column(shape, column, row..row + 1, |_| key)],
+                #[cfg(feature = "custom-cells")]
+                paint: None,
+            };
+            match page.value(0, 0)? {
+                CellValue::Null => None,
+                value => Some(value.to_string()),
+            }
+        }
     }
 
     /// `row` changed (`live`): a page read from now on answers its new
@@ -556,7 +587,7 @@ impl TallTableDelegate for MemoryRows {
         let request = self.next_request;
         self.next_request = self.next_request.wrapping_add(1);
         self.pending.borrow_mut().insert(request);
-        #[cfg(feature = "follow")]
+        #[cfg(any(feature = "follow", feature = "copy"))]
         Reads::count(&self.reads.sent, READS_SENT_GLOBAL);
         let pending = self.pending.clone();
         let shape = self.shape;
@@ -593,9 +624,12 @@ impl TallTableDelegate for MemoryRows {
     /// The read makes no page when it resolves; one already resolved won
     /// the race.
     fn cancel(&mut self, request: u32, _: &mut App) {
-        #[cfg_attr(not(feature = "follow"), expect(unused_variables))]
+        #[cfg_attr(
+            not(any(feature = "follow", feature = "copy")),
+            expect(unused_variables)
+        )]
         let in_flight = self.pending.borrow_mut().remove(&request);
-        #[cfg(feature = "follow")]
+        #[cfg(any(feature = "follow", feature = "copy"))]
         if in_flight {
             Reads::count(&self.reads.drained, READS_DRAINED_GLOBAL);
         }
@@ -617,6 +651,28 @@ mod tests {
     }
     use gpui_kit::TestAppContext;
     use seiza_tall_table::{CellValue, PageError, TallTableDelegate, TallTablePage};
+
+    #[cfg(feature = "copy")]
+    #[test]
+    fn exact_answers_as_a_page_does() {
+        for shape in [Shape::Narrow, Shape::Wide] {
+            let exact = MemoryRows::new(shape, None).exact();
+            let page = fresh_page(shape, 2000..2010);
+            for row in 0..10 {
+                for column in [0, 1, 3, 7, 10] {
+                    let want = page.value(row, column).and_then(|value| match value {
+                        CellValue::Null => None,
+                        value => Some(value.to_string()),
+                    });
+                    assert_eq!(
+                        exact(2000 + row as u64, column),
+                        want,
+                        "{shape:?} {row} {column}"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn shapes() {

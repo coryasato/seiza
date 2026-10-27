@@ -45,3 +45,14 @@ export interface Cell {
   bar?: { left: number; width: number; color: number[] } | null;
   flash?: number[] | null;
 }
+
+/** With `copy`, what became of the last copy, as `tall-table-bridge`'s
+ *  `clipboard::Outcome::to_js` writes it (`__tallTableCopy`): `id` is the
+ *  copy's (`null` when declined). */
+export type CopyState =
+  | { state: 'declined'; id: null; rows: number; columns: number }
+  | { state: 'copying'; id: number; rows: number; rowsDone: number }
+  | { state: 'writing' | 'written'; id: number; bytes: number }
+  | { state: 'refused'; id: number; error: string }
+  | { state: 'failed'; id: number; reason: 'too-large' | 'read' | 'cancelled' | 'closed'; bytes?: number; maxBytes?: number; error?: string }
+  | { state: 'unavailable'; id: number };

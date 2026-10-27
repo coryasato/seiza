@@ -48,16 +48,9 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown } from './harness.ts';
+import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown , pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
-/** `--name`'s value, which must be one of `known`; all of them without it. */
-function pick<T extends string>(name: string, known: readonly T[]): T[] {
-  const given = option(name);
-  if (given === undefined) return [...known];
-  if (!known.includes(given as T)) throw new Error(`--${name} ${given}: not one of ${known.join(', ')}`);
-  return [given as T];
-}
 const shapes = pick('shape', SHAPES);
 const profiles = pick('profile', PROFILES.map((profile) => profile.name)).map((name) => PROFILES.find((profile) => profile.name === name)!);
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs ${option('runs')}: not a positive whole number`);

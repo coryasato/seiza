@@ -640,6 +640,29 @@ fn started_reaches_a_subscriber_in_the_task_that_asked(cx: &mut TestAppContext) 
     );
 }
 
+#[gpui_kit::test]
+fn a_host_cancelling_at_started_sends_no_read(cx: &mut TestAppContext) {
+    let mut sheet = open(cx);
+    sheet.hold();
+    sheet.select(rows(0, 999));
+    // A host with no clipboard to write: it cancels each copy as it starts.
+    let table = sheet.table.clone();
+    let _cancels = sheet.cx.update(|_, cx| {
+        cx.subscribe(&table, |table, event: &TallTableEvent, cx| {
+            if let TallTableEvent::Copy(TallTableCopy::Started { .. }) = event {
+                table.update(cx, |table, cx| table.cancel_copy(cx));
+            }
+        })
+    });
+    sheet.take_log();
+    sheet.copy().unwrap();
+    // The first turn formatted the loaded pages, but its plan waited for
+    // the update's end, after `Started` reached the host.
+    assert!(sheet.take_log().is_empty());
+    assert_eq!(kinds(&sheet.take_copies()), ["started", "text", "failed"]);
+    assert_eq!(sheet.places_held(), (0, 0));
+}
+
 // --- the reads ---
 
 #[gpui_kit::test]

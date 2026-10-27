@@ -23,7 +23,22 @@
 // (the tint on screen), a drag across columns and rows, a row's number and
 // Shift+End over every row, Home, a header, Cmd+A (the tint again), and
 // Escape (the cell as it was), the published selection and the probe's
-// agreeing after each.
+// agreeing after each. Built with `copy`, it runs both shapes again and
+// copies, each read back through a real paste (a textarea's Cmd+V) and
+// compared with the host's source: a cell (its value alone), a block, a
+// Shift+press block over every visible row and column, and a `Rows` range
+// past the loaded pages; in the narrow shape, a select-all's Cmd+C declined
+// with nothing read, then the host's confirmed copy (Cmd+Shift+C) refused at
+// the cap, the clipboard as it was each time. Then, in the narrow shape with
+// each read held (`?delay`): a copy that takes past 5 s, Escape during one
+// (the selection kept) and closing the table during one (each leaving the
+// clipboard as it was), a copy that takes about a minute, and one that
+// finishes with another tab in front; and at the machine's LAN address
+// over `http` (an insecure context, no clipboard), the refusal published
+// and no read sent. Chromium is granted `clipboard-read` and
+// `clipboard-write` (a real Chrome grants a focused page the write);
+// WebKit on macOS writes the system pasteboard, so the run overwrites
+// what was copied there.
 // Headless, so it stands in for the scripted half of a manual check; how it
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
@@ -35,7 +50,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, WIDTHS_GLOBAL, bandAt, builtFeatures, cellAt, drawnCells, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, pixel, selected, shown, sidewaysRoom, visibleColumns, type Cell, type CellStyle, type Layout, type Selection, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, WIDTHS_GLOBAL, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, pixel, selectThrough, selected, shown, sidewaysRoom, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shown } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -56,6 +71,21 @@ const TAIL_MARKS = 3;
 const follow = builtFeatures().includes('follow');
 const resize = builtFeatures().includes('resize');
 const select = builtFeatures().includes('select');
+const copy = builtFeatures().includes('copy');
+/** The copy runs: `keys` in both shapes, unheld; the rest in the narrow
+ *  shape, each read held `HELD_MS` (`MINUTE_HELD_MS` for `minute`), or
+ *  (`insecure`) at the LAN address. */
+type CopyRun = 'keys' | 'held' | 'minute' | 'background' | 'insecure';
+/** Held reads: 2 in flight (`max_in_flight` 3, less one for the reader),
+ *  so `COPY_PAGES` pages take 3 rounds: ~6 s, and ~60 s at a minute's. */
+const HELD_MS = 2_000;
+const MINUTE_HELD_MS = 20_000;
+const COPY_PAGES = 6;
+/** The first row of a page the view never loaded (pages 0–2 load at
+ *  open: the visible one and prefetch's two). */
+const UNLOADED_ROW = 3 * 1024;
+/** Cells of a large paste compared with the source. */
+const SAMPLED_CELLS = 64;
 /** The resize run's drags: wider, then narrower at the right end, CSS px,
  *  in this many moves. */
 const WIDEN_PX = 80;
@@ -411,6 +441,196 @@ async function checkSelect(page: Page, label: string, layout: Layout, start: Sho
   return `, selected and cleared (unselected ${bare.slice(0, 3).join(',')}, ${tinted.join(', ')}, Shift+End to row ${end?.end ?? '?'})`;
 }
 
+/** With `copy`: `text` holds `rows` × `columns` from (`firstRow`,
+ *  `firstColumn`), each field the source's exact text (NULL empty), every
+ *  cell compared when there are few, else `SAMPLED_CELLS` spread over
+ *  them. Returns a note, or null with the failure pushed. */
+async function matchesSource(page: Page, label: string, what: string, text: string, firstRow: number, rows: number, firstColumn: number, columns: number): Promise<string | null> {
+  const lines = parseTsv(text);
+  if (lines.length !== rows) return failed(`${label}: ${what}: pasted ${lines.length} lines, not ${rows} (${JSON.stringify(text.slice(0, 80))})`);
+  const ragged = lines.findIndex((fields) => fields.length !== columns);
+  if (ragged >= 0) return failed(`${label}: ${what}: line ${ragged + 1} holds ${lines[ragged]!.length} fields, not ${columns}`);
+  const cells: [number, number][] = [];
+  const total = rows * columns;
+  const step = total <= SAMPLED_CELLS * 4 ? 1 : Math.floor(total / SAMPLED_CELLS);
+  for (let index = 0; index < total; index += step) cells.push([Math.floor(index / columns), index % columns]);
+  cells.push([rows - 1, columns - 1]);
+  const exact = await exactTexts(page, cells.map(([row, column]) => [firstRow + row, firstColumn + column]));
+  const wrong = cells.findIndex(([row, column], index) => lines[row]![column] !== (exact[index] ?? ''));
+  if (wrong >= 0) {
+    const [row, column] = cells[wrong]!;
+    return failed(`${label}: ${what}: row ${firstRow + row}, column ${firstColumn + column} pasted ${JSON.stringify(lines[row]![column])}, the source holds ${JSON.stringify(exact[wrong])}`);
+  }
+  return `${rows}×${columns} (${cells.length} cells compared, ${(text.length / 1024).toFixed(0)} KiB)`;
+}
+
+function failed(failure: string): null {
+  failures.push(failure);
+  return null;
+}
+
+/** Cmd+C (Ctrl+C elsewhere) on the canvas, then the copy's end. */
+async function copyByKey(page: Page, timeout = 30_000): Promise<CopyState> {
+  const after = await lastCopyId(page);
+  await page.keyboard.press('ControlOrMeta+c');
+  return copyReached(page, after, ['written', 'refused', 'failed', 'unavailable'], timeout);
+}
+
+/** The reads the host's source was sent so far. */
+const readsSent = async (page: Page) => (await global<number>(page, READS_SENT_GLOBAL)) ?? 0;
+
+/** A `Rows` selection of `rows` rows from `first`, through the host's hook. */
+const rowsFrom = (first: number, rows: number): Selection => ({ kind: 'rows', anchor: [first, 0], head: [first + rows - 1, 0] });
+
+/** With `copy`, unheld: a cell, a block, a Shift+press block over the
+ *  visible cells, and a `Rows` range past the loaded pages, each pasted
+ *  and compared; in the narrow shape, a select-all's key declined and the
+ *  host's copy of it refused at the cap. */
+async function checkCopyKeys(page: Page, label: string, layout: Layout, start: Shown, shape: string): Promise<string> {
+  const notes: string[] = [];
+  const written = (what: string, state: CopyState) => state.state === 'written' || !failed(`${label}: ${what}: ${JSON.stringify(state)}, not written`);
+
+  await pressAt(page, cellAt(layout, start, 2, 1));
+  await selected(page, { kind: 'cells', anchor: [2, 1], head: [2, 1] });
+  if (written('a cell', await copyByKey(page))) {
+    const text = await paste(page);
+    const [exact] = await exactTexts(page, [[2, 1]]);
+    if (text !== (exact ?? '')) failed(`${label}: a cell pasted ${JSON.stringify(text)}, the source holds ${JSON.stringify(exact)}`);
+    else notes.push(`a cell ${JSON.stringify(text)}`);
+  }
+
+  await pressAt(page, cellAt(layout, start, 1, 0));
+  await pressAt(page, cellAt(layout, start, 4, 2), true);
+  await selected(page, { kind: 'cells', anchor: [1, 0], head: [4, 2] });
+  if (written('a block', await copyByKey(page))) {
+    const note = await matchesSource(page, label, 'a block', await paste(page), 1, 4, 0, 3);
+    if (note) notes.push(`a block ${note}`);
+  }
+
+  // Every row and column wholly in view: the last row above the partial
+  // one under the scrollbar.
+  const lastRow = start.end - 2;
+  const lastColumn = layout.columns.findLastIndex((column) => column.x + column.width <= layout.cellsWidth);
+  await pressAt(page, cellAt(layout, start, start.first, 0));
+  await pressAt(page, cellAt(layout, start, lastRow, lastColumn), true);
+  await selected(page, { kind: 'cells', anchor: [start.first, 0], head: [lastRow, lastColumn] });
+  if (written('the visible block', await copyByKey(page))) {
+    const note = await matchesSource(page, label, 'the visible block', await paste(page), start.first, lastRow - start.first + 1, 0, lastColumn + 1);
+    if (note) notes.push(`the visible block ${note}`);
+  }
+
+  // Past the loaded pages, within the key's limit: two pages of the narrow
+  // shape, 200 rows (100 k cells) of the wide.
+  const columns = layout.columns.length;
+  const rows = shape === 'wide' ? 200 : 2048;
+  await selectThrough(page, rowsFrom(UNLOADED_ROW, rows));
+  const before = await readsSent(page);
+  if (written('a Rows range past the loaded pages', await copyByKey(page))) {
+    const read = (await readsSent(page)) - before;
+    if (!read) failed(`${label}: a Rows range past the loaded pages read nothing`);
+    const note = await matchesSource(page, label, 'a Rows range', await paste(page), UNLOADED_ROW, rows, 0, columns);
+    if (note) notes.push(`rows ${UNLOADED_ROW}+ ${note}, ${read} reads`);
+  }
+
+  if (shape === 'narrow') {
+    const kept = await paste(page);
+    // A press gives the table its focus back from the paste's textarea.
+    await pressAt(page, cellAt(layout, start, 2, 1));
+    await page.keyboard.press('ControlOrMeta+A');
+    await selected(page, { kind: 'columns', anchor: [0, 0], head: [0, columns - 1] }).catch(() => failed(`${label}: Cmd+A didn't select every column`));
+    const reads = await readsSent(page);
+    const after = await lastCopyId(page);
+    await page.keyboard.press('ControlOrMeta+c');
+    const declined = await copyReached(page, after, ['declined'], 5_000).catch(() => null);
+    await page.waitForTimeout(300);
+    if (!declined) failed(`${label}: a select-all's Cmd+C wasn't declined`);
+    else if (declined.state === 'declined' && (declined.rows !== start.rows || declined.columns !== columns)) failed(`${label}: declined ${declined.rows}×${declined.columns}, not ${start.rows}×${columns}`);
+    if ((await readsSent(page)) !== reads) failed(`${label}: a declined copy read ${(await readsSent(page)) - reads} pages`);
+    // The host's confirmed copy: no key limit, and the cap refuses it.
+    await page.keyboard.press('ControlOrMeta+Shift+c');
+    const capped = await copyReached(page, after, ['written', 'refused', 'failed', 'unavailable'], 300_000);
+    if (capped.state !== 'failed' || capped.reason !== 'too-large') failed(`${label}: the confirmed select-all ended ${JSON.stringify(capped)}, not refused at the cap`);
+    const left = await paste(page);
+    if (left !== kept) failed(`${label}: the clipboard changed under a declined and a refused copy (${left.length} characters, ${kept.length} before)`);
+    else if (capped.state === 'failed') notes.push(`select-all declined (${(await readsSent(page)) - reads} reads), then refused at ${((capped.bytes ?? 0) / 2 ** 20).toFixed(0)} of ${((capped.maxBytes ?? 0) / 2 ** 20).toFixed(0)} MiB, the clipboard kept`);
+    await page.keyboard.press('Escape');
+  }
+  return `, copied ${notes.join('; ')}`;
+}
+
+/** With `copy`, reads held: a copy of `COPY_PAGES` unloaded pages, written
+ *  and pasted whole. `held` (~6 s) then cancels one with Escape and one by
+ *  closing the table, the clipboard as it was each time; `background`
+ *  finishes with another tab in front. */
+async function checkCopyHeld(page: Page, label: string, layout: Layout, run: CopyRun, heldMs: number): Promise<string> {
+  const columns = layout.columns.length;
+  const rows = COPY_PAGES * 1024;
+  // Prefetch's two reads go out once the visible page lands: past them,
+  // the copy has its two places from the start.
+  await page.waitForTimeout(heldMs + 500);
+  await selectThrough(page, rowsFrom(UNLOADED_ROW, rows));
+  const from = Date.now();
+  const after = await lastCopyId(page);
+  await page.keyboard.press('ControlOrMeta+c');
+  await copyReached(page, after, ['copying'], 5_000);
+  let other: Page | null = null;
+  if (run === 'background') {
+    other = await page.context().newPage();
+    await other.goto('about:blank');
+    await other.bringToFront();
+  }
+  const state = await copyReached(page, after, ['written', 'refused', 'failed', 'unavailable'], 3 * heldMs * 4 + 60_000);
+  const tookMs = Date.now() - from;
+  if (other) {
+    // Hidden until its write settled: the tab in front all along.
+    await page.bringToFront();
+    await other.close();
+  }
+  if (state.state !== 'written') return failed(`${label}: a held copy ended ${JSON.stringify(state)}, not written`) ?? '';
+  if (tookMs < 5_000) failed(`${label}: the held copy took ${tookMs} ms, not past the key's 5 s`);
+  const text = await paste(page);
+  const note = await matchesSource(page, label, 'a held copy', text, UNLOADED_ROW, rows, 0, columns);
+  if (!note) return '';
+  const notes = [`${note} in ${(tookMs / 1000).toFixed(1)} s${other ? ', in the background' : ''}`];
+  if (run !== 'held') return `, copied ${notes.join('; ')}`;
+
+  // Escape while a copy runs: cancelled, the selection kept, the
+  // clipboard as it was. Then closing the table during one.
+  const cancels: [string, Selection, () => Promise<unknown>, string][] = [
+    ['Escape', rowsFrom(UNLOADED_ROW + rows, 2048), () => page.keyboard.press('Escape'), 'cancelled'],
+    ['closing the table', rowsFrom(UNLOADED_ROW + rows + 2048, 2048), () => page.evaluate(() => (globalThis as { __tallTableClose?: () => void }).__tallTableClose!()), 'closed'],
+  ];
+  for (const [what, selection, cancel, reason] of cancels) {
+    await selectThrough(page, selection);
+    const id = await lastCopyId(page);
+    await page.keyboard.press('ControlOrMeta+c');
+    await copyReached(page, id, ['copying'], 5_000);
+    await page.waitForTimeout(500);
+    await cancel();
+    const ended = await copyReached(page, id, ['failed', 'written', 'refused'], 10_000);
+    if (ended.state !== 'failed' || ended.reason !== reason) failed(`${label}: ${what} during a copy ended it ${JSON.stringify(ended)}, not ${reason}`);
+    if (what === 'Escape') await selected(page, selection).catch(() => failed(`${label}: Escape during a copy didn't keep the selection`));
+    const left = await paste(page);
+    if (left !== text) failed(`${label}: ${what} during a copy changed the clipboard (${left.length} characters, ${text.length} before)`);
+    else notes.push(`${what} during one: ${reason}, the clipboard kept`);
+  }
+  return `, copied ${notes.join('; ')}`;
+}
+
+/** With `copy`, in an insecure context: no clipboard, so a copy of rows
+ *  that aren't loaded is refused at its start and reads nothing. */
+async function checkCopyInsecure(page: Page, label: string): Promise<string> {
+  if (await page.evaluate(() => isSecureContext)) return failed(`${label}: the LAN address is a secure context`) ?? '';
+  await selectThrough(page, rowsFrom(UNLOADED_ROW, 1024));
+  const reads = await readsSent(page);
+  const state = await copyByKey(page, 5_000);
+  await page.waitForTimeout(500);
+  const read = (await readsSent(page)) - reads;
+  if (state.state !== 'unavailable') failed(`${label}: a copy with no clipboard ended ${JSON.stringify(state)}, not unavailable`);
+  if (read) failed(`${label}: a copy with no clipboard read ${read} pages`);
+  return `, a copy refused (${state.state}), ${read} reads`;
+}
+
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
 async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
@@ -456,6 +676,9 @@ function darkestOnScreen(cells: Cell[], view: Shown, layout: Layout): Cell {
 }
 const browsers = (option('browsers') ?? 'chromium,firefox,webkit').split(',');
 const server = await serveApp(undefined, { webDir: hostWebDir, port: PORT });
+/** The build again at the LAN address, for the insecure-context run alone:
+ *  started at its first run, so a machine without one fails only that. */
+let lanServer: Awaited<ReturnType<typeof serveApp>> | null = null;
 const failures: string[] = [];
 try {
   for (const name of browsers) {
@@ -464,28 +687,39 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
     if (follow) runs.push({ ...quiet, shape: 'narrow', tail: true });
     if (resize) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, resizing: true })));
     if (select) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, selecting: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}`;
+    if (copy) {
+      runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, copying: 'keys' as CopyRun })));
+      runs.push(...(['held', 'minute', 'background', 'insecure'] as CopyRun[]).map((copying) => ({ ...quiet, shape: 'narrow' as const, copying })));
+    }
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}`;
       const params: Record<string, string> = { shape };
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
       if (feed) params.live = String(LIVE_RATE);
       if (feed && flashing) params['probe-cells'] = '';
       if (flash) params.flash = '';
       if (tail) Object.assign(params, { rows: String(TAIL_ROWS), append: String(TAIL_RATE), follow: '' });
+      const heldMs = copying === 'minute' ? MINUTE_HELD_MS : copying === 'held' || copying === 'background' ? HELD_MS : 0;
+      if (heldMs) params.delay = String(heldMs);
       let session: Awaited<ReturnType<typeof open>> | null = null;
       try {
+        if (copying === 'insecure') lanServer ??= await serveApp(undefined, { webDir: hostWebDir, port: PORT + 1, lan: true });
+        const url = copying === 'insecure' ? lanServer!.url : server.url;
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, server.url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : [firstDrawProbe] });
+        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : [firstDrawProbe] });
         const { page } = session;
+        // The clipboard's permissions, which a real Chrome grants a focused
+        // page (the write); none to grant in an insecure context.
+        if (copying && copying !== 'insecure' && engine === chromium) await session.context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(url).origin });
         const first = await waitMark(page, FIRST_FRAME_MARK);
-        const filled = await waitMark(page, FILLED_MARK);
+        const filled = await waitMark(page, FILLED_MARK, 0, 60_000 + 2 * heldMs);
         const { shown: start, layout } = await shown(page);
         const api = await page.evaluate(() => (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? 'none');
         // The resize run checks its own moves, from the first screen.
@@ -500,6 +734,15 @@ try {
           const chose = await checkSelect(page, label, layout, start);
           if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
           console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${chose}`);
+          continue;
+        }
+        // The copy runs too, from the first screen.
+        if (copying) {
+          const copied = copying === 'keys' ? await checkCopyKeys(page, label, layout, start, shape) : copying === 'insecure' ? await checkCopyInsecure(page, label) : await checkCopyHeld(page, label, layout, copying, heldMs);
+          // Over `http` off localhost, Chromium says it ignored COOP: so it should.
+          const problems = session.problems.filter((problem) => !(copying === 'insecure' && problem.includes('Cross-Origin-Opener-Policy header has been ignored')));
+          if (problems.length) failures.push(`${label}: ${problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${copied}`);
           continue;
         }
         // At the tail already: the tail run checks its own moves.
@@ -526,6 +769,7 @@ try {
   }
 } finally {
   await server.close();
+  await lanServer?.close();
 }
 if (failures.length) {
   console.error(`FAIL\n  ${failures.join('\n  ')}`);

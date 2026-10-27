@@ -4,6 +4,10 @@
 use std::time::Duration;
 
 use gpui_kit::*;
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+use seiza_tall_table::TallTableCopy;
+#[cfg(feature = "copy")]
+use seiza_tall_table::TallTableEvent;
 use seiza_tall_table::{Paging, TallTable, TallTableState};
 use tall_table_bridge::Publish;
 
@@ -56,6 +60,66 @@ pub const WIDTHS_GLOBAL: &str = "__tallTableWidths";
 #[cfg(feature = "select")]
 pub const SELECTION_GLOBAL: &str = "__tallTableSelection";
 
+/// What became of the last copy (`copy`), as `tall-table-bridge`'s
+/// `clipboard::Outcome::to_js` writes it, replaced at each step.
+#[cfg(feature = "copy")]
+pub const COPY_GLOBAL: &str = "__tallTableCopy";
+
+/// Set as a copy starts (`Started`, in the key's task), as its text is all
+/// in (`Copied`), and as the browser says it wrote it (`copy`).
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+pub const COPY_STARTED_MARK: &str = "tall-table:copy-started";
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+pub const COPIED_MARK: &str = "tall-table:copied";
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
+
+/// The scripts' hooks with `?perf` (`copy`): `__tallTableExact(row,
+/// column)`, a value's exact text (`null` for NULL); `__tallTableSelect(kind,
+/// anchorRow, anchorColumn, headRow, headColumn)`, the table's `select`
+/// (`kind` `rows`, `columns`, `cells`, or anything else for none), the
+/// table focused as a press would; `__tallTableClose()`, the table's `close`, told to the clipboard's writer;
+/// and `__tallTableHeap()`, the wasm heap's bytes (its memory, which never
+/// shrinks).
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+const EXACT_HOOK: &str = "__tallTableExact";
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+const HEAP_HOOK: &str = "__tallTableHeap";
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+const SELECT_HOOK: &str = "__tallTableSelect";
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+const CLOSE_HOOK: &str = "__tallTableClose";
+
+/// The host's key context (`copy`), for its own keys.
+#[cfg(feature = "copy")]
+const HOST_CONTEXT: &str = "TallTableHost";
+
+#[cfg(feature = "copy")]
+actions!(
+    tall_table_host,
+    [
+        /// Cmd+Shift+C and Ctrl+Shift+C: the host's `copy`, as a host's
+        /// confirming click would call it after a `Declined` (no key limit;
+        /// the cap still holds). A key, so it's a gesture the clipboard
+        /// takes.
+        CopyConfirmed
+    ]
+);
+
+/// Binds the host's keys (`copy`).
+#[cfg(feature = "copy")]
+#[cfg_attr(
+    not(target_family = "wasm"),
+    expect(dead_code, reason = "only the web build opens a window")
+)]
+pub fn init(cx: &mut App) {
+    let context = Some(HOST_CONTEXT);
+    cx.bind_keys([
+        KeyBinding::new("cmd-shift-c", CopyConfirmed, context),
+        KeyBinding::new("ctrl-shift-c", CopyConfirmed, context),
+    ]);
+}
+
 /// Set as each batch of the tail feed's rows is appended (`follow`), at
 /// the time it's sent, the rows the source holds then in
 /// [`APPENDED_GLOBAL`], set first: the first tail mark whose
@@ -82,6 +146,9 @@ pub type Table = TallTableState<MemoryRows>;
 pub struct Host {
     table: Entity<Table>,
     _events: Subscription,
+    /// The clipboard's writer for the table's copies (`copy`).
+    #[cfg(feature = "copy")]
+    clipboard: tall_table_bridge::clipboard::Clipboard,
     /// The feed's timer (`live`, `?live=`).
     #[cfg(feature = "live")]
     _feed: Option<Task<()>>,
@@ -154,7 +221,37 @@ impl Host {
         };
         // The table emits while its frame renders, so GPUI runs this in the
         // task that presents it, and the mark lands right after the frame.
+        #[cfg(not(feature = "copy"))]
         let events = cx.subscribe(&table, move |_, _, event, _| publish.event(event));
+        // A copy's events reach the writer in the task that emitted them:
+        // `Started` in the key's, so its write opens inside the gesture.
+        #[cfg(feature = "copy")]
+        let events = cx.subscribe(&table, move |host: &mut Self, table, event, cx| {
+            publish.event(event);
+            host.copy_event(&table, event, cx);
+        });
+        #[cfg(feature = "copy")]
+        {
+            #[cfg(target_family = "wasm")]
+            let options = {
+                let number = |name| seiza::url::param(name).and_then(|value| value.parse().ok());
+                let mut options = seiza_tall_table::CopyOptions::default();
+                if let Some(bytes) = number("copy-max-bytes") {
+                    options = options.max_bytes(bytes as usize);
+                }
+                if let Some(cells) = number("copy-key-cells") {
+                    options = options.key_max_cells(cells);
+                }
+                options
+            };
+            #[cfg(not(target_family = "wasm"))]
+            let options = seiza_tall_table::CopyOptions::default();
+            table.update(cx, |table, _| table.set_copy_options(options));
+        }
+        #[cfg(all(feature = "copy", target_family = "wasm"))]
+        if probing {
+            script_hooks(table.read(cx).delegate().exact(), window, cx);
+        }
         // A jump's highlight over painted cells, for its screenshot.
         #[cfg(all(feature = "custom-cells", target_family = "wasm"))]
         if let Some(row) = seiza::url::param("jump").and_then(|row| row.parse().ok()) {
@@ -179,8 +276,138 @@ impl Host {
                 .map(|rate| Feed::new(rate).start(table.clone(), cx)),
             table,
             _events: events,
+            #[cfg(feature = "copy")]
+            clipboard: tall_table_bridge::clipboard::Clipboard::new(
+                Some(COPY_GLOBAL),
+                #[cfg(target_family = "wasm")]
+                Some(Box::new(|outcome| {
+                    if let tall_table_bridge::clipboard::Outcome::Written { .. } = outcome {
+                        let _ = seiza::marks::mark(COPY_WRITTEN_MARK);
+                    }
+                })),
+                #[cfg(not(target_family = "wasm"))]
+                None,
+            ),
         }
     }
+
+    /// Hands a copy's event to the clipboard's writer, and cancels the copy
+    /// when its text can't be written (no clipboard, or the browser
+    /// refused).
+    #[cfg(feature = "copy")]
+    fn copy_event(
+        &mut self,
+        table: &Entity<Table>,
+        event: &TallTableEvent,
+        cx: &mut Context<Self>,
+    ) {
+        let TallTableEvent::Copy(copy) = event else {
+            return;
+        };
+        #[cfg(target_family = "wasm")]
+        match copy {
+            TallTableCopy::Started { .. } => {
+                let _ = seiza::marks::mark(COPY_STARTED_MARK);
+            }
+            TallTableCopy::Copied { .. } => {
+                let _ = seiza::marks::mark(COPIED_MARK);
+            }
+            _ => {}
+        }
+        if let Some(id) = self.clipboard.event(copy) {
+            table.update(cx, |table, cx| {
+                if table.copying().is_some_and(|copying| copying.id == id) {
+                    table.cancel_copy(cx);
+                }
+            });
+        }
+    }
+
+    /// Closes the table, and tells the clipboard's writer (`copy`): a write
+    /// still open is rejected. A script's hook (`?perf`).
+    #[cfg(all(feature = "copy", target_family = "wasm"))]
+    fn close(&mut self, cx: &mut Context<Self>) {
+        self.table.update(cx, |table, cx| table.close(cx));
+        self.clipboard.closed();
+        cx.notify();
+    }
+}
+
+/// Publishes the scripts' hooks (`?perf`, `copy`): [`EXACT_HOOK`],
+/// [`HEAP_HOOK`], [`SELECT_HOOK`], [`CLOSE_HOOK`]. The last two enter GPUI through its
+/// foreground executor, so they've happened by the next turn.
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+fn script_hooks(
+    exact: impl Fn(u64, usize) -> Option<String> + 'static,
+    window: &mut Window,
+    cx: &mut Context<Host>,
+) {
+    use seiza_tall_table::TallTableSelection;
+    use wasm_bindgen::closure::Closure;
+
+    let set = |name, hook: wasm_bindgen::JsValue| tall_table_bridge::js::set_global(name, &hook);
+    set(
+        EXACT_HOOK,
+        Closure::<dyn Fn(f64, f64) -> Option<String>>::new(move |row: f64, column: f64| {
+            exact(row as u64, column as usize)
+        })
+        .into_js_value(),
+    );
+    type Update = Box<dyn FnOnce(&mut Host, &mut Window, &mut Context<Host>)>;
+    set(
+        HEAP_HOOK,
+        Closure::<dyn Fn() -> f64>::new(|| {
+            core::arch::wasm32::memory_size::<0>() as f64 * 65_536.0
+        })
+        .into_js_value(),
+    );
+    let (app, host, handle) = (cx.to_async(), cx.weak_entity(), window.window_handle());
+    let enter = move |update: Update| {
+        let (mut cx, host) = (app.clone(), host.clone());
+        app.foreground_executor()
+            .spawn(async move {
+                let _ = cx.update_window(handle, |_, window, cx| {
+                    host.update(cx, |host, cx| update(host, window, cx))
+                });
+            })
+            .detach();
+    };
+    let on_select = enter.clone();
+    set(
+        SELECT_HOOK,
+        Closure::<dyn Fn(String, f64, f64, f64, f64)>::new(
+            move |kind: String,
+                  anchor_row: f64,
+                  anchor_column: f64,
+                  head_row: f64,
+                  head_column: f64| {
+                let (anchor, head) = (
+                    (anchor_row as u64, anchor_column as usize),
+                    (head_row as u64, head_column as usize),
+                );
+                let selection = match kind.as_str() {
+                    "rows" => Some(TallTableSelection::Rows { anchor, head }),
+                    "columns" => Some(TallTableSelection::Columns { anchor, head }),
+                    "cells" => Some(TallTableSelection::Cells { anchor, head }),
+                    _ => None,
+                };
+                // Focused as a press would: a script's paste elsewhere took
+                // the focus.
+                on_select(Box::new(move |host, window, cx| {
+                    let focus = host.table.read(cx).focus_handle().clone();
+                    window.focus(&focus, cx);
+                    host.table
+                        .update(cx, |table, cx| table.select(selection, cx));
+                }));
+            },
+        )
+        .into_js_value(),
+    );
+    set(
+        CLOSE_HOOK,
+        Closure::<dyn Fn()>::new(move || enter(Box::new(|host, _, cx| host.close(cx))))
+            .into_js_value(),
+    );
 }
 
 /// What the host does with `live`, and with `follow`, which turns it on.
@@ -375,8 +602,24 @@ impl Feed {
 }
 
 impl Render for Host {
+    #[cfg(not(feature = "copy"))]
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div().size_full().p_4().child(TallTable::new(&self.table))
+    }
+
+    /// With `copy`, the host's confirmed copy on Cmd+Shift+C.
+    #[cfg(feature = "copy")]
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .size_full()
+            .p_4()
+            .key_context(HOST_CONTEXT)
+            .on_action(cx.listener(|host, _: &CopyConfirmed, _, cx| {
+                host.table.update(cx, |table, cx| {
+                    let _ = table.copy(cx);
+                });
+            }))
+            .child(TallTable::new(&self.table))
     }
 }
 
