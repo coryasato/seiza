@@ -215,3 +215,15 @@ One entry per milestone part, written before starting the next one: what surpris
 **Surprises:**
 - A select-all standing under the scroll read up to 1.5% *faster* than the base, in both orders, inside the spread: a range costs a tint and a test per visible row and column, less than `resize`'s bands, which draw per column and showed +1–2%. Nothing to chase, but a feature's "cost" can read below zero at this resolution.
 - The wide throttled drag-select's trace p50 split 6/4 between ~19 ms and ~0.9 ms, as the resize drag's did: pacing a row a move fixed the idle moves (part C), not the drawing rate, which drops to every other frame once a frame costs just over 16.7 ms. `workRecorder` stays the number for a throttled drag.
+
+## M7: `copy` (part A, 2026-10-26)
+
+**Results:** [`perf/results/2026-10-26-m7-a-spike.md`](../perf/results/2026-10-26-m7-a-spike.md); the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "`copy`".
+
+**Surprises:**
+- The feature's row said "through the browser's clipboard event", which can't work: GPUI `preventDefault`s a key it handles, so no `copy` event follows, and the event's data must be set before its handler returns, before any read could land.
+- A clipboard write is the reader's for only ~5 s after the key, in every engine, and GPUI's write drops the refusal. A `ClipboardItem` holding a promise has no such limit, which moves the write out of the table and into the host.
+- Headless Chromium refuses every async clipboard write until the context is granted `clipboard-write`, which a real Chrome gives a focused page silently. Tycho's Input copy (Cmd+C through `writeText`) can't be checked headless without it.
+- WebKit refuses a clipboard write from 100 MiB, where Chromium and Firefox took 256 MiB: the cap is the browsers', not the table's memory.
+- The code review found the spec's copy limit had no floor (a `max_in_flight` of 1 would never read; `live`'s re-reads have one) and that `close` takes `&mut App`, so it can't emit the cancel the spec gave it: a spec that names an existing setter's behavior has to be read against its signature.
+- A second review, after the spec grew a key limit and size bounds in discussion, found the bounds weren't bounds: a column's kind is a display hint, and the value is the source's text (a 128-bit integer, DuckDB's BC dates). A size promised before reading has to come from what the values can't be shorter than, never from what they're expected to be.

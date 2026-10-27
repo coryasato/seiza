@@ -347,3 +347,74 @@ Low: the standing selection is two elements and a range test per visible row and
 ### What a DOM contender does
 
 TanStack Table's row selection holds a map of row ids (`rowSelection`), built for rows the table holds; select-all over 1.57 M rows would write 1.57 M keys, which the PLAN calls a fair stress. A range model of the contender's own would match the table's behavior at a range's cost. Which is idiomatic is the observatory's decision when it adds the level. Either way the behavior is pinned: a new fixture, `fixtures/selection.json`, of scenarios (presses with Shift, drags, wheels during a drag, keys, `set_rows` and `set_columns`, `jump_to`, under each mode) → the selection after each step and the view's top and `scroll_x`, so a DOM side matches what's selected and what's scrolled into view without matching how it's held.
+
+## `copy`
+
+Researched 2026-10-26, from gpui-pre-web 0.3.9's clipboard and key handling (`src/platform.rs`, `write_to_clipboard`; `src/events.rs`, `register_key_down` and `register_paste`), `DataTable`'s `dump_range` in gpui-component 0.8.0 (`src/table/state.rs`), the table's paging (`src/pages.rs`, `plan`) and selection (`src/selection.rs`), and a spike: a plain page in Chromium, Firefox, and WebKit under Playwright, each way of writing a copy read back through a real paste, then large writes timed (the numbers: the table's [`perf/results/2026-10-26-m7-a-spike.md`](../../components/tall-table/perf/results/2026-10-26-m7-a-spike.md)), and a page's text formatted natively.
+
+### What asks for it
+
+- **The canvas tradeoff:** the README's "Text selection and copy" waits on it: since `select`, a reader selects cells, rows, and columns but can't take them anywhere.
+- **Tycho:** a block of a query's result pasted into a spreadsheet or a message, as every grid allows; Tycho adopts every feature.
+- **The wide sheet** (the observatory): "a range selection copied", its later step; the observatory hasn't asked, and TanStack Table has no copy, so it builds no level for it.
+
+### What `DataTable` does
+
+Nothing a reader can trigger: no key, no clipboard call. `dump_range(rows)` (and `dump`, every row) returns the headers and each row's cells as strings, through the delegate's `cell_text`, for a host to export; it materializes the whole range at once, since a `DataTable` holds its rows. Nothing to reuse: the tall table holds a few pages, so a range past them has to be read, and its text can't be built in one call.
+
+### How a copy reaches the clipboard on the web
+
+- **GPUI's path is `writeText` in the key's event.** gpui-pre-web dispatches a keydown to GPUI synchronously, and `preventDefault`s it when an action handled it; `Platform::write_to_clipboard` calls `navigator.clipboard.writeText` and drops the promise ("called synchronously inside the user's input event"). It listens for `paste` (permission-free, the reason Cmd+V stays unbound) but not for `copy`.
+- **The `copy` event is out:** it fires only when the key isn't handled (Cmd+C left to the browser), on the canvas (Chromium, WebKit) or the body (Firefox), and its `clipboardData` must be set before the handler returns, so it can't wait on a read. And a GPUI action for Cmd+C `preventDefault`s it.
+- **A write after the key works for about 5 s.** The spike, every engine alike: `writeText` in the keydown and 0.1, 1, and 3 s later pasted; 6 s later it was refused (`NotAllowedError`): browsers count a key as the reader's for 5 s (transient activation). Through GPUI, the refusal is silent: the promise is dropped.
+- **A `ClipboardItem` holding a promise outlasts the 5 s.** `navigator.clipboard.write([new ClipboardItem({'text/plain': promise})])`, called in the keydown, pasted in every engine with the promise resolved 0.1 to 12 s later (a Blob or a string). It's Safari's design for exactly this (text built after the gesture), and Chromium and Firefox follow it. Rejecting the promise leaves the clipboard as it was. Not checked: a promise resolved minutes later, or with the page blurred or hidden meanwhile, as a long copy's may be; the build checks both. If either fails, a copy that reads changes flow: the table reads first, then the host asks the reader to press Cmd+C again, which copies the text in that key's task.
+- **Headless Chromium grants no `clipboard-write`:** every async write was refused until the context was granted it, which a real Chrome does for a focused page without asking (the `copy` event needed nothing). A script that checks a copy grants it in Chromium; Firefox and WebKit need nothing.
+- **Size:** a 256 MiB write took 0.8 s in Chromium and 2.3 s in Firefox; WebKit refused anything from 100 MiB (96 MiB took 0.3 s). The text has to stay under ~100 MiB to copy everywhere.
+
+So the table can't write a large copy itself: it depends on gpui-kit alone, and GPUI's write is `writeText`, which a copy longer than 5 s loses silently. The host can: the bridge depends on `seiza` and runs in the web, and the table's events reach it in the key's task (a key's action runs inside gpui-pre-web's keydown handler, and an entity's events reach its subscribers when the outermost update ends, before the handler returns; the design rests on it, so the build tests it: a copy's start reaches a subscriber before the task that asked ends). So the table builds the text and reports it through events, and the bridge opens a `ClipboardItem` when a copy starts, gives it the text as it comes, and resolves it at the end.
+
+### The text
+
+- **Tab-separated, a row a line,** as Excel and Sheets copy and paste: a block pastes into a spreadsheet's cells, and one cell's text into a text field. Rows joined by `\n`, no newline after the last (a one-cell copy is the value alone). A value holding a tab, a line break, or a `"` is quoted, its quotes doubled, as both spreadsheets write and read it.
+- **The exact value,** the tooltip's (`CellValue`'s `Display`: a float's shortest round-trip text), not the rounded or cut text drawn: a copy that rounds loses data, and pasted into a spreadsheet the column formats it again. Line breaks stay line breaks (quoted), not `¶`.
+- **NULL is an empty field,** as DuckDB's CSV writer and a spreadsheet's empty cell have it; the word `NULL` pasted would be a text value.
+- **What's copied is the selection's cells:** a `Cells` block; a `Rows` range's every column; a `Columns` range's every row as the table has them at the key (a later `set_rows` growing them isn't copied: a copy is of what was selected when asked). Columns in the table's order; no row numbers.
+- **No header row by default,** as a spreadsheet copies only cells. A host that wants one (a data tool's "copy with headers") turns it on: the column names as a first line.
+- **Plain text only.** An HTML table beside it (`text/html`, which spreadsheets also read) would add nothing a TSV paste doesn't, for a second copy of the text. A later note.
+
+### Reading what isn't loaded
+
+- **The rows come from loaded pages where they can,** each page at its turn (every page before it sent): from the cache if it's loaded then and holds every row the copy wants from it (a last page `set_rows` grew holds fewer than it spans), as drawn then (with `live`, a stale page's drawn rows: a copy is of what the reader sees, not a snapshot the source keeps), read from the delegate otherwise, a page at a time, through `load_page` as every read is. A page loaded when the copy starts isn't held for its turn: the cache may evict it or swap in a re-read meanwhile, and one evicted is read at its turn. A page read for a copy isn't put in the cache: a 1,500-page copy would evict every page the reader has, for rows read once.
+- **The reads share the source** (`max_in_flight`, which exists because DuckDB-Wasm runs one query at a time): a copy's reads and `live`'s re-reads together hold at most `max_in_flight − 1`, at least one (`live`'s floor, so a host's `max_in_flight` of 1 still copies), so with `max_in_flight` 2 or more a visible page always finds a place (at 1, it waits behind the copy's one read); a copy starts none while a visible page is loading, and goes before prefetch (the reader asked for it). Reads in flight when the reader scrolls aren't cancelled: a newly visible page shares the source with them, finishing as late as they do, as it does with re-reads. Pages that land out of order wait for their turn, at most those in flight.
+- **Each page's columns all come back:** `load_page` reads every column, so a 3-column block of the wide shape reads 500 columns a page. The source's cost, not the table's; a delegate call that narrows the columns is a later note, for when Tycho measures it.
+- **The text leaves as it's made,** a turn's worth at a time, so the wasm heap holds a few pages and a turn's text, never the copy's (the heap never shrinks: a 64 MiB copy held whole would keep it 64 MiB larger for the page's life). The bridge keeps the pieces as JS strings and joins them in a Blob, dropping the strings once it's built: browsers keep ASCII at a byte a character, so the peak is about twice the text, plus the clipboard's own copy.
+- **Formatting is cut into turns:** a wide page is 512 k cells; formatted natively it took ~40 ms (75 ns a cell, 9.5 MB of text), and wasm is slower. In one turn that's a long task, and a frame waits behind it. The table formats a budget of cells a turn (~16 k, about 1–2 ms natively) and yields, so a frame waits at most that. Counted in cells, not time: wasm has no `Instant`, and GPUI's test clock doesn't move while code runs, so a time budget would never expire in a test.
+
+### How large
+
+- **The key's limit, in cells** (rows × columns, known before any read), 100 k by default, the host's to set: Cmd+C past it copies nothing, reads nothing, and says so (an event with the size), so a reflex Cmd+C on a select-all costs nothing; a host asks the reader and calls `copy`, the confirming click a gesture of its own (Excel for the web asks before a large copy too). The cap below is then the most a confirmed copy ever attempts, not a size a key copies.
+- **A floor before any read, no ceiling:** any value may be NULL (empty), so the least a copy can be is its separators (and a header line, with headers): one whose least passes the cap is refused at once. A column's kind bounds nothing above: an integer can pass `max_chars` (the column cuts it), a date arrives as text, and DuckDB writes BC dates and years past 9999 wider than ten characters. So everything else reads to find out.
+- **A cap in bytes,** the host's to set, 64 MiB by default: under WebKit's ~100 MiB with room, about 7 k rows of the wide shape (9.5 MB a page of 1,024) and, by an estimate of ~150 bytes a row, some 450 k of the narrow (measured when it's built). Rows × columns alone can't say how many bytes; where the bounds don't settle it, a copy is refused early only when its first page's bytes per row project past twice the cap (a misjudgment needs the rest narrower than half the first page), and otherwise as soon as its text passes the cap. Refused, never cut: a copy missing its last rows, pasted, looks complete.
+- A host that knows its browser (Chromium and Firefox took 256 MiB) can raise it.
+
+### Its lifecycle
+
+- **Cmd+C and Ctrl+C,** both bound (as Cmd+A is), in `TallTableSelect`, copy the selection; with nothing selected the key propagates (the browser's default is harmless). A host's menu calls `copy` (a click is a gesture too; `context-menu` will want it).
+- **Events, in order, each with the copy's id:** started (the rows and columns; in the task that asked, so the bridge opens its write while the gesture counts), text (the next piece, in order, with the rows it ends at: a host's progress), copied (the totals), or failed (too large, a read that failed, or cancelled). A copy whose rows are all loaded and small emits all of them in the key's task.
+- **Cancelled** by Escape (the first while a copy runs cancels it and keeps the selection; the next clears the selection), a second copy (it replaces the first), `set_columns`, `set_rows` shrinking under it, and the host's `cancel_copy`, each with the failure's event. `close` ends it quietly: it takes `&mut App`, not the entity's context, so it can't emit; a host closing the table tells its bridge, which rejects a write still open. Not by the selection changing: the copy is of what was selected when asked. A reader who pressed Cmd+C by reflex stops it with Escape, or with the host's cancel beside its progress (each piece's rows done, or `copying`).
+- **A read that fails fails the copy:** no partial clipboard, no retry. A source that's broken (`read_failure`) also gets the table's own read-failed event, so the host repairs it as it does for the cache's reads.
+- **A paste elsewhere before a copy that reads finishes** gets the clipboard's old contents: the write lands at its end. The table can't hold another app's paste; under the key's limit the window is a few seconds at most, the host's progress shows while it lasts, and the README says so. Copies of loaded rows finish in the key's task.
+- **NULL and empty text paste alike** (both empty fields), as in a spreadsheet: quoting the empty text (`""`) would keep them apart but paste the quotes into a text field.
+
+### Frame-work risk
+
+A copy runs outside render: reads land on tasks, and formatting yields every few milliseconds. What it can cost a frame is that slice, and its reads competing with the visible pages': none starts while a visible page loads, and with re-reads they always leave a place, but those in flight when the reader scrolls share the source with a newly visible page. Measured, not spiked: a large copy's turns under the scroll (frame work and late frames against the base's), the copy's own time and rows per second, and the wasm heap before and after.
+
+### Canvas gaps
+
+- **Text selection and copy:** closed for whole cells; part of a value still can't be selected (the tooltip shows the exact value, which a copy takes whole).
+- **Accessibility:** unchanged; the copy has no announcement of its own. A host's progress and result ("Copied 12,345 rows") are its own UI, which a screen reader can reach if it's DOM.
+
+### What a DOM contender does
+
+Nothing to compare: TanStack Table has no copy, and the observatory builds no level for a feature its DOM side lacks. The text format and the reads are pinned by native tests, not a fixture.
