@@ -39,11 +39,12 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 
 **`TallTableState`:**
 
-- `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it.
+- `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it; with `select`, selects it instead (below).
 - `set_rows(rows, cx)`: the source grew (rows still loading); the scrollbar follows and short pages reload. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
 - `set_columns(columns, cx)`: a column's kind changed.
 - `follow(cx)`, `is_following()` (`follow`): below.
 - `column_width(column)` (`resize`): the width a column is drawn at now.
+- `selection()`, `select(selection, cx)`, `selectable()`, `set_selectable(selectable, cx)` (`select`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads and starts no more (a table being replaced).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
@@ -58,6 +59,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Refreshed { rows, generation }` (`live`): below.
 - `Following(bool)` and `TailDrawn { rows }` (`follow`): below.
 - `ColumnWidthsChanged(widths)` (`resize`): below.
+- `Selected(selection)` (`select`): below.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -160,7 +162,31 @@ TallTableEvent::ColumnWidthsChanged(widths) => { /* keep them, by column name */
 - **A column the host doesn't want resized:** `resizable(false)`. No band is drawn for it or the row-number gutter.
 - **Its cost:** the Features table. The bands are drawn every frame, a resizable column's even when nobody drags: ~0.1 ms a frame.
 
-Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
+**Selecting** (`select`, off by default): rows, columns, or a block of cells, by pointer and by key, held as one range.
+
+```rust
+use seiza_tall_table::{Selectable, TallTableSelection};
+
+state.update(cx, |table, cx| table.set_selectable(Selectable::all().columns(false), cx)); // rows and cells only
+// From the subscription, at every change:
+TallTableEvent::Selected(Some(selection)) => {
+    let rows = selection.rows(table.rows());               // RangeInclusive<u64>: a status bar's count
+    let columns = selection.columns(table.columns().len());
+}
+TallTableEvent::Selected(None) => { /* cleared */ }
+```
+
+- **The model:** one `TallTableSelection`, `Rows`, `Columns`, or `Cells`, from an `anchor` (the active cell, where a plain arrow moves from) to a `head` (where Shift moves), either way round. A range is two cells, so every one of 1.57 M rows selected costs what one row does. `rows()`, `columns()`, and `contains()` read it against the table's size; a `Columns` range covers every row, those that arrive later too.
+- **The kinds:** `Selectable` turns rows, columns, and cells on (all on by default; `set_selectable` at run time, which clears a selection of a kind turned off). A press or key takes the smallest kind that's on and holds what it reached: a cell, else its row, else (a key) its column. With none on, the table is as without the feature.
+- **The pointer:** a press on a cell selects it, on a row's number its row, on a header its column (a resize band's 9 px resize instead), on the corner every column (every row with columns off). Shift+press moves the head, keeping the anchor and the kind; a drag moves it to the cell under the pointer, clamped at the edges, and a wheel during the drag scrolls the body and the head follows. Cmd+press is a plain press; Ctrl+press, a double-click's second press, and a right-click select nothing (`context-menu`'s, later).
+- **The keys,** while it has focus and a kind is on: an arrow moves the active cell and collapses the range to it; Shift+arrows extend along the range (up and down for rows and cells, left and right for columns and cells); Page Up/Down a screen, Home/End and Cmd+↑/↓ the first and last row, each with Shift to extend; Cmd+A or Ctrl+A every column (every row with columns off, every cell with only cells on); Escape clears, and reaches the host when nothing's selected. The ends stop, never loop. A moved head scrolls into view the least distance, sideways too. The first arrow with nothing selected selects the first visible cell (by kind) without moving. Space and Shift+Space page as without. Shift+End from the first row selects every row, as one range.
+- **`jump_to` selects:** the row (rows on), else the cell in the active cell's column (cells on), with `Selected`; the jump's highlight isn't drawn then. With only columns on it highlights as without the feature, and can sit over a selected column's tint.
+- **The host's:** `select(Some(…))` sets one without scrolling (clamped to the last row and column; a kind that's off is a debug assertion), and `select(None)` clears. `set_rows` shrinking cuts a `Rows` or `Cells` range (a corner past the end moves to the last row) and clears one wholly past it; `set_columns` clears it, so a host that keeps it across new columns calls `select` after. `Selected` is emitted at each change (a press, a drag's move to a new cell, a key, `select`, `jump_to`, `set_rows`, `set_columns`), never when an input leaves it as it was.
+- **Drawn:** the range's visible part as one tint (`table_active`, edged in `table_active_border`) under the text and over a fill, a bar, and a flash, so a heat map stays readable; the selected rows' numbers and columns' headers in the same tint; and the active cell edged 2 px while the table has focus.
+- **Nothing is copied yet:** a selection is the source for `copy`, next in [`PLAN.md`](PLAN.md).
+- **Its cost:** the Features table. A standing selection is one tint a frame however many rows it spans.
+
+Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
 
@@ -172,24 +198,27 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `live` + `custom-cells` | A changed cell's flash ("A flash", above) | The flash: ~+10 KiB after wasm-opt over each feature alone (+11.3 KiB brotli for both together). Every visible float flashing at 1k–50k updates/s: ~+50 ms of main thread a second, every frame drawn, no late frames; latency 11–13 ms p50 (a batch waits for the next frame). Throttled (4× CPU), it saturates the main thread: 11–13% late frames, re-reads halved | [`perf/results/2026-10-25-m3-d.md`](perf/results/2026-10-25-m3-d.md) |
 | `follow` | The view kept at the tail as `set_rows` grows the rows, until the reader scrolls up; `Following` and `TailDrawn` ("Following the tail", above). Turns on `live` | +3.7 KiB brotli over `live` (+8.9 KiB after wasm-opt; +7.0 brotli over the base, the bare host's tail feed included). Append → pixel, a source answering from memory: 8.2–8.3 ms p50 at 1k and 10k rows/s, 28 at 100k (every batch starts a page); no placeholder frame at any rate; a wheel up during the feed on screen in ~28 ms. Reference: ~320 ms of main thread a second (348 at 100k), no late frames. Throttled (4× CPU): keeps up to 10k (≤1.4% late); at 100k the main thread saturates and the view trails by ~0.3 s, still without placeholders. Compiled in, feed off: no frame cost (late frames in a throttled wide fling an open question) | [`perf/results/2026-10-25-m4-d.md`](perf/results/2026-10-25-m4-d.md) |
 | `resize` | A column's width dragged at its header edge, or fitted to what's drawn by a double-click; `ColumnWidthsChanged` for a host to keep them ("Resizing columns", above) | +2.8 KiB brotli (+5.0 KiB after wasm-opt, the bare host's widths included). Every column resizable, nobody dragging: +0.05–0.15 ms a frame (1–2%) at the reference run, the bands; within the spread throttled. The drag: 4.8–5.5 ms a frame, under the wide shape's sideways fling (6.6), no late frames; throttled ~15–18 ms, 4–5% late | [`perf/results/2026-10-26-m5-d.md`](perf/results/2026-10-26-m5-d.md) |
+| `select` | Rows, columns, or a block of cells selected by press, Shift, drag, and keys, held as one range; `Selected` for a host ("Selecting", above) | +6.2 KiB brotli (+22.0 KiB after wasm-opt, the bare host's publishing included). A select-all standing under the scroll and flings: within the spread in both profiles. The drag-select: 5.0–5.7 ms a frame, under the scroll and the sideways fling, no late frames; throttled ~16–18 ms, 5–8% late | [`perf/results/2026-10-26-m6-d.md`](perf/results/2026-10-26-m6-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
-- **Read-only.** No editing, selection, sorting, or filtering.
+- **Read-only.** No editing, sorting, or filtering. With `select`, a reader selects, but nothing is copied until `copy`.
+- **One selection range** (`select`): rows, columns, or a block, never several ranges at once (no Cmd+press to add one), and never part of a value's text.
+- **No auto-scroll during a selecting drag** (`select`): the head stops at the view's edge; a wheel during the drag scrolls and the head follows.
 - **Column widths by kind** (and the header's length), not by the values: measuring the widest value would cover only the pages loaded, and a column must not widen under the reader. With `resize`, a reader sets them, and a fit counts only the visible, loaded rows.
 - **No auto-scroll during a resize drag** (`resize`): a column's edge dragged past the view's edge doesn't scroll the table; release, scroll, and drag again.
 - **Paging is the delegate's speed.** A frame never waits on data; rows not loaded yet draw as placeholders. A 3 s fling outruns any prefetch (~84% placeholder frames on Tycho's asteroids sample), while steady scrolling shows none.
 
 ## Canvas tradeoffs
 
-- **Accessibility:** screen readers see nothing: the canvas has no accessibility tree. *Today:* it scrolls entirely from the keyboard (above). *To close it:* a hidden DOM mirror of the visible rows, kept in step with each frame.
-- **Text selection and copy:** cells can't be selected or copied. *To close it:* a selection feature, with copy through the browser's clipboard event.
+- **Accessibility:** screen readers see nothing: the canvas has no accessibility tree. *Today:* it scrolls entirely from the keyboard (above), and with `select` selects from it too. *To close it:* a hidden DOM mirror of the visible rows, kept in step with each frame, its selected rows, columns, and cells marked `aria-selected`.
+- **Text selection and copy:** the browser can't select the canvas's text. *Today:* with `select`, a reader selects whole cells, rows, and columns, but not part of a value, and nothing is copied yet. *To close it:* `copy`, through the browser's clipboard event ([`PLAN.md`](PLAN.md)).
 - **Color alone** (`custom-cells`): a heat map's fill, a bar's length, and a value's color carry meaning that a screen reader can't see either, and that a reader who can't tell the colors apart misses. *Today:* the value's text is always drawn over its paint, so the number is there, and over a fill it takes whichever of the theme's text colors contrasts more (a two-way pick, not a contrast score: a mid-lightness fill can leave either one weak). *To close it:* the DOM mirror above, carrying each cell's paint as text.
 - **A flash says "changed" in color and motion alone** (`live` with `custom-cells`): a screen reader hears nothing of it, a reader who can't tell its colors apart can't tell a rise from a fall, and its full color can sit under the text with little contrast (a red flash under dark text). *Today:* the new value is drawn over it; under `App::reduce_motion` it holds still instead of fading. *To close it:* the DOM mirror above, announcing changes in a live region (politely, and batched: at a market watch's rates, every visible row changes every frame).
 - **New rows arrive silently** (`follow`): a screen reader isn't told that rows arrived or that the view moved, the accessibility gap above. *To close it:* the DOM mirror above, announcing appended rows in a live region (politely, and batched: a busy log appends every frame).
-- **Resizing is pointer-only** (`resize`): no key resizes a column, and a screen reader can't reach the bands, the accessibility gap above. *To close it:* keys of the table's own on a focused column (once `select` gives a column focus), and the DOM mirror above exposing each header as a resizable column.
+- **Resizing is pointer-only** (`resize`): no key resizes a column, and a screen reader can't reach the bands, the accessibility gap above. *To close it:* keys of the table's own on the active cell's column (`select` gives a column focus), and the DOM mirror above exposing each header as a resizable column.
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs

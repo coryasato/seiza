@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-26",
+  "label": "m6-d-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13094.2,
+    "optKiB": 9681.9,
+    "brotliKiB": 2689.3
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13106.2,
+      "optKiB": 9691.8,
+      "brotliKiB": 2694,
+      "moreOptKiB": 9.9,
+      "moreBrotliKiB": 4.7
+    },
+    "live": {
+      "rawKiB": 13110.1,
+      "optKiB": 9695.4,
+      "brotliKiB": 2694.1,
+      "moreOptKiB": 13.5,
+      "moreBrotliKiB": 4.8
+    },
+    "live,custom-cells": {
+      "rawKiB": 13136.4,
+      "optKiB": 9715.7,
+      "brotliKiB": 2701.2,
+      "moreOptKiB": 33.8,
+      "moreBrotliKiB": 11.9,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.3,
+          "moreBrotliKiB": 7.1
+        },
+        "custom-cells": {
+          "moreOptKiB": 23.9,
+          "moreBrotliKiB": 7.2
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13120.2,
+      "optKiB": 9704.3,
+      "brotliKiB": 2695.9,
+      "moreOptKiB": 22.4,
+      "moreBrotliKiB": 6.6,
+      "against": {
+        "live": {
+          "moreOptKiB": 8.9,
+          "moreBrotliKiB": 1.8
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13100.6,
+      "optKiB": 9686.9,
+      "brotliKiB": 2691.7,
+      "moreOptKiB": 5,
+      "moreBrotliKiB": 2.4
+    },
+    "select": {
+      "rawKiB": 13133.6,
+      "optKiB": 9703.9,
+      "brotliKiB": 2695.5,
+      "moreOptKiB": 22,
+      "moreBrotliKiB": 6.2
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 28
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 23
+    },
+    "resize": {
+      "base": 0,
+      "feature": 10
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 203
+        }
+      }
+    }
+  },
+  "against": {
+    "commit": "4cfa542",
+    "then": {
+      "rawKiB": 13092.9,
+      "optKiB": 9680.5,
+      "brotliKiB": 2689.8
+    },
+    "now": {
+      "rawKiB": 13092.9,
+      "optKiB": 9680.6,
+      "brotliKiB": 2688.6
+    },
+    "moreOptKiB": 0.1,
+    "moreBrotliKiB": -1.2
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-ClaE6Rz6.wasm",
+    "optKiB": 9743.6,
+    "brotliKiB": 2707.9,
+    "moreBrotliKiB": 18.6
+  },
+  "failures": []
+}

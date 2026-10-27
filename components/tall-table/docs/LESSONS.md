@@ -207,3 +207,11 @@ One entry per milestone part, written before starting the next one: what surpris
 - Home in `perf`'s first trial did nothing with the select-all standing: Home moves the active cell to the first row, the select-all's active cell was on it already, and a key that lands where it started does nothing (the spec's "at an end"), so the view stayed at the fling's end. A reader scrolled away from the active cell meets the same: Home doesn't bring the view back while the cell is on row 0.
 - A drag-select paced as the resize drag (a move every 8 ms) still left most traced frames idle: a selection changes only when the head crosses into another cell, and a diagonal of 62 moves each way stayed in one for two or three moves at a time. The resize drag never showed this, since every pixel of it moves an edge.
 - Firefox's screenshot read the tint after Escape in every run, with the probe already reporting no selection: it shows the frame before the one the probe reports, about 100 ms behind. A shorter sequence in a script of its own (a press, a header, Cmd+A, a 300 ms wait, Escape) never showed it; only the smoke check's full one did. Polling the pixel up to 1 s settles it, and a redraw that never came still fails.
+
+## M6: `select` (part D, 2026-10-26)
+
+**Results:** [`perf/results/2026-10-26-m6-d.md`](../perf/results/2026-10-26-m6-d.md).
+
+**Surprises:**
+- A select-all standing under the scroll read up to 1.5% *faster* than the base, in both orders, inside the spread: a range costs a tint and a test per visible row and column, less than `resize`'s bands, which draw per column and showed +1–2%. Nothing to chase, but a feature's "cost" can read below zero at this resolution.
+- The wide throttled drag-select's trace p50 split 6/4 between ~19 ms and ~0.9 ms, as the resize drag's did: pacing a row a move fixed the idle moves (part C), not the drawing rate, which drops to every other frame once a frame costs just over 16.7 ms. `workRecorder` stays the number for a throttled drag.
