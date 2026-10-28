@@ -29,7 +29,7 @@ What "the same" means for any other implementation of the table's base level (th
 | `answer: "all"` | Answers every open read in the order they were sent, one at a time, the reads they start included, until none is open. |
 | `answer: [<page>, …]` | Answers the oldest open read of each page, in that order. |
 | `fail: [<page>, …]` | As `answer`, but each read fails (not a broken source: only its rows show the error). |
-| `rows: <n>` | The source now holds `n` rows (`set_rows`); the top row stays where it is, or as near as the new end allows. A short last page that grows is forgotten and read anew, its read cancelled if one is out; with `live` it's kept (below). Shrinking forgets a short last page either way. |
+| `rows: <n>` | The source now holds `n` rows (`set_rows`); the top row stays where it is, or as near as the new end allows. A short last page that grows is forgotten and read anew, its read cancelled if one is out; with `live` it's kept (below). Shrinking forgets a short last page either way, and every page wholly past the new end, loaded or being read (its read cancelled): grown back, they're read anew. |
 | `follow: true` | `follow`: follows the end (`follow()`): the view goes to the end as a jump does, and from then stays at the loaded tail as rows arrive (below). |
 | `invalidate: [<start>, <end>]` | `live`: rows `start..end` (end-exclusive) changed in the source (`invalidate_rows`). Its pages loaded or being read go stale; the wanted ones are read again, a loaded one drawn as it is until its read lands. |
 
@@ -45,7 +45,7 @@ With `follow`, following is a flag, off at open whatever the position. Each move
 
 A step's `following: <bool>` checks the flag after it, and `bottom: <row>` the end of the rows in view (the row after the last one at least partly visible: `ceil(top + viewport_rows)`, at most `rows`).
 
-`controls` each change one `paging` field, or (with `live`) name a way of re-reading wrongly: `reread-unwanted` keeps stale pages outside `wanted` and reads them again, `restart-stale` cancels a page's read when it's invalidated during it and reads it anew, `drop-grown` forgets a short last page that grows, as the base does; or (with `follow`, its `follow` field) a way of following wrongly: `follow-at-end` takes following to be the view at the end, `follow-ignores-reader` never lets go for the reader, `pin-to-rows` keeps the view at the last row whether it's loaded or not, `top-first` reads the visible pages top first while following. Every control must fail at least one scenario the build runs.
+`controls` each change one `paging` field, or (`cache`, in every build) name a way of keeping pages wrongly: `keep-past-end` keeps the pages wholly past a shrink's new end, forgetting only a short last page; or (with `live`) a way of re-reading wrongly: `reread-unwanted` keeps stale pages outside `wanted` and reads them again, `restart-stale` cancels a page's read when it's invalidated during it and reads it anew, `drop-grown` forgets a short last page that grows, as the base does; or (with `follow`, its `follow` field) a way of following wrongly: `follow-at-end` takes following to be the view at the end, `follow-ignores-reader` never lets go for the reader, `pin-to-rows` keeps the view at the last row whether it's loaded or not, `top-first` reads the visible pages top first while following. Every control must fail at least one scenario the build runs.
 
 ## `cells.json`
 

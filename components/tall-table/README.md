@@ -40,14 +40,14 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 **`TallTableState`:**
 
 - `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it; with `select`, selects it instead (below).
-- `set_rows(rows, cx)`: the source grew (rows still loading); the scrollbar follows and short pages reload. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
+- `set_rows(rows, cx)`: the source grew (rows still loading) or shrank; the scrollbar follows and short pages reload. A shrink forgets every page wholly past the new end (a read of one cancelled), so rows that come back are read anew. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
 - `set_columns(columns, cx)`: a column's kind changed.
 - `follow(cx)`, `is_following()` (`follow`): below.
 - `column_width(column)` (`resize`): the width a column is drawn at now.
 - `selection()`, `select(selection, cx)`, `selectable()`, `set_selectable(selectable, cx)` (`select`): below.
 - `copy(cx)`, `copying()`, `cancel_copy(cx)`, `set_copy_options(options)` (`copy`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
-- `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced).
+- `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced); after it, nothing reads or cancels again (a second `close`, `set_rows`, which only moves the scrollbar).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
 - `delegate()`, `delegate_mut()`, `rows()`, `visible_rows()`, `columns()`, `focus_handle()`, `has_failed_reads()`.
 

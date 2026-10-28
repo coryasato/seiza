@@ -312,7 +312,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// [`background_limit`](crate::pages::PageCache::background_limit)
     /// from its turn's that it hasn't in hand, isn't reading, and the cache
     /// neither holds nor is reading for `wanted` (the copy waits for that
-    /// read, and takes the page from the cache; a read the plan is about to
+    /// read, and takes the page from the cache, or reads it itself if the
+    /// read was short of rows that grew since; a read the plan is about to
     /// cancel, of a page no longer wanted, it doesn't wait for). A page
     /// evicted since it was passed over is read at its turn.
     pub(super) fn copy_wants(&self, wanted: &[u64]) -> Vec<u64> {
@@ -336,8 +337,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 !running.holds(page)
                     && !running.reading(page)
                     && self.cache.holding(page, page_end).is_none()
-                    && (ignore_loading
-                        || !(self.cache.loading(page, page_end) && wanted.contains(&page)))
+                    && (ignore_loading || !(self.cache.loading(page) && wanted.contains(&page)))
             })
             .collect()
     }

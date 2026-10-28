@@ -1,0 +1,171 @@
+{
+  "date": "2026-10-28",
+  "label": "hardening-c-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13093.8,
+    "optKiB": 9681.5,
+    "brotliKiB": 2688.4
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13105.7,
+      "optKiB": 9691.5,
+      "brotliKiB": 2691.8,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 3.4
+    },
+    "live": {
+      "rawKiB": 13109.8,
+      "optKiB": 9695.2,
+      "brotliKiB": 2693.2,
+      "moreOptKiB": 13.7,
+      "moreBrotliKiB": 4.8
+    },
+    "live,custom-cells": {
+      "rawKiB": 13136.1,
+      "optKiB": 9715.5,
+      "brotliKiB": 2701.9,
+      "moreOptKiB": 34,
+      "moreBrotliKiB": 13.5,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.3,
+          "moreBrotliKiB": 8.7
+        },
+        "custom-cells": {
+          "moreOptKiB": 24,
+          "moreBrotliKiB": 10.1
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13121.1,
+      "optKiB": 9705,
+      "brotliKiB": 2695.9,
+      "moreOptKiB": 23.5,
+      "moreBrotliKiB": 7.5,
+      "against": {
+        "live": {
+          "moreOptKiB": 9.8,
+          "moreBrotliKiB": 2.7
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13100.2,
+      "optKiB": 9686.6,
+      "brotliKiB": 2691,
+      "moreOptKiB": 5.1,
+      "moreBrotliKiB": 2.6
+    },
+    "select": {
+      "rawKiB": 13133.2,
+      "optKiB": 9703.5,
+      "brotliKiB": 2695.2,
+      "moreOptKiB": 22,
+      "moreBrotliKiB": 6.8
+    },
+    "copy": {
+      "rawKiB": 13175.3,
+      "optKiB": 9736.8,
+      "brotliKiB": 2705.4,
+      "moreOptKiB": 55.3,
+      "moreBrotliKiB": 17,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.3,
+          "moreBrotliKiB": 10.2
+        }
+      }
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 28
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 23,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 10
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 203
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    }
+  },
+  "against": {
+    "commit": "e8a1f9f",
+    "then": {
+      "rawKiB": 13092.4,
+      "optKiB": 9680.2,
+      "brotliKiB": 2688.1
+    },
+    "now": {
+      "rawKiB": 13092.4,
+      "optKiB": 9680.2,
+      "brotliKiB": 2689
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": 0.9
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-CgjN5dK4.wasm",
+    "optKiB": 9743.6,
+    "brotliKiB": 2707.3,
+    "moreBrotliKiB": 18.9
+  },
+  "failures": []
+}

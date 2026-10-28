@@ -19,6 +19,7 @@
     { "name": "more reads in flight", "paging": { "max_in_flight": 4 } },
     { "name": "smaller pages", "paging": { "page_rows": 512 } },
     { "name": "a bigger cache", "paging": { "budget_bytes": 134217728 } },
+    { "name": "keep the pages past a shrink's new end", "cache": "keep-past-end" },
     { "name": "re-read invalidated pages outside wanted", "live": "reread-unwanted" },
     { "name": "cancel a stale read to restart it", "live": "restart-stale" },
     { "name": "drop a short last page that grows", "live": "drop-grown" },
@@ -164,6 +165,33 @@
         { "jump": 1472, "expect": [] },
         { "rows": 1200, "expect": ["load 1"], "why": "The top moves up to the new end (rows 1172.5..1200, page 1). Page 1 was short: forgotten, with or without live, and read anew." },
         { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a shrink past a page forgets the pages past it",
+      "rows": 3000,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"], "why": "Prefetch 2 below the view: pages 1 (rows 1024..2048) and 2 (2048..3000, short)." },
+        { "rows": 1000, "expect": [], "why": "Row 1000 is in page 0: pages 1 and 2 are wholly past the new end, forgotten though loaded (no read out to cancel). Page 0 stays; with live, it holds rows up to 1000 now." },
+        { "rows": 3000, "expect": ["load 0"], "why": "Page 0 was short (0..1000) and grows: read anew (with live, kept drawn and read again). Prefetch waits for the visible page." },
+        { "answer": "all", "expect": ["load 1", "load 2"], "why": "Pages 1 and 2 are read anew, never drawn from the reads before the cut: kept, page 1 would show its old rows as loaded and only page 2 be read." }
+      ]
+    },
+    {
+      "name": "a shrink cancels the reads past it",
+      "rows": 3000,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": [0], "expect": ["load 1", "load 2"] },
+        { "rows": 1000, "expect": ["cancel 1", "cancel 2"], "why": "Pages 1 and 2 are wholly past the new end: both reads cancelled by the shrink, one decision (each still holds its place until it answers)." },
+        { "answer": "all", "expect": [] },
+        { "rows": 3000, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"], "why": "The reads cancelled at the shrink answered as cancelled: pages 1 and 2 are read anew." }
       ]
     },
     {

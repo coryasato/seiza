@@ -1,9 +1,9 @@
 //! The random test of the paging: random sequences of the reader's moves,
 //! the source's changes, each built feature's calls, and reads answered in
 //! any order, on GPUI's seeded test executor, the table's invariants
-//! checked against the source's own books after every step (`PLAN.md`,
-//! "Hardening"; the root's `docs/research/tall-table-features.md`,
-//! "Hardening"; `docs/DECISIONS.md`, "Fixtures").
+//! checked against the source's own books after every step (the root's
+//! `docs/research/tall-table-features.md`, "Hardening";
+//! `docs/DECISIONS.md`, "Fixtures").
 //!
 //! Proptest, driven by hand from a plain `#[test]` (gpui-kit's
 //! `property_test` doesn't compile at the pin): each case is a scheduler
@@ -12,8 +12,9 @@
 //! its few steps that matter and prints them with the scheduler seed;
 //! `SEED` picks the cases (0 unset), so a rerun recurs it, and
 //! `PROPTEST_CASES` how many. A bug it finds becomes a scenario test of its
-//! own (`#[ignore]`d until it's fixed), and an [`Exclusion`] keeps the
-//! test from it meanwhile. Each negative control (a fault in the table, all
+//! own (`#[ignore]`d until it's fixed), and an exclusion keeps the test
+//! from it meanwhile (a step generated, a step run, or a pair checked, left
+//! out; none today: `docs/DECISIONS.md`, "Fixtures"). Each negative control (a fault in the table, all
 //! test-only) must fail the all-on run's cases at its invariant.
 
 use std::cell::RefCell;
@@ -70,42 +71,6 @@ const MAX_PAGES: u64 = 64;
 /// Steps on a closed table (answers, moves, all checking only that it
 /// reads nothing) before a drain and a new table over the source.
 const CLOSED_STEPS: usize = 8;
-
-/// What the test leaves out while a bug it found waits for its fix (a step
-/// generated, a step run, or a pair checked): each with its minimal steps
-/// and `#[ignore]`d scenario test below, and in `PLAN.md`, "Hardening".
-/// The scenarios run without them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Exclusion {
-    /// `ShrinkPast`: `PageCache::set_rows` keeps the pages wholly past a
-    /// shrink's new end, and grown back they draw their old rows as loaded
-    /// (`shrink_past_a_page_forgets_the_pages_past_it`), or with `live`
-    /// never read the page a shrink to its start kept
-    /// (`shrink_to_a_page_start_reads_its_page_when_grown`).
-    ShrinkPast,
-    /// The rows' steps once the table is closed: `set_rows` on a closed
-    /// table cancels the short last page's read again, which `close`
-    /// cancelled (or which has answered since)
-    /// (`a_closed_table_cancels_nothing_again`). Skipped when they run, not
-    /// generated out: whether they come after `close` is the case's.
-    RowsAfterClose,
-    /// Invariant 2's pair of a copy's read and the cache's read of a page
-    /// that grew (`live`): `PageCache::plan` re-reads a stale prefetch page
-    /// the copy is reading (a grown last page, which the copy can't take
-    /// from the cache), where a first read skips it: the re-read after the
-    /// copy's (`a_prefetch_reread_skips_a_page_the_copy_reads`); and a copy
-    /// reads a page whose read the cache sent before it grew: the cache's
-    /// before the copy's, holding fewer rows
-    /// (`a_copy_beside_a_short_read_of_a_grown_page`). Excluded from the
-    /// check, not the steps: no step alone triggers either.
-    GrownPageBesideCopy,
-}
-
-const EXCLUSIONS: &[Exclusion] = &[
-    Exclusion::ShrinkPast,
-    Exclusion::RowsAfterClose,
-    Exclusion::GrownPageBesideCopy,
-];
 
 // --- the source ---
 
@@ -431,9 +396,7 @@ fn step() -> impl Strategy<Value = Step> {
         (4, Just(Step::AtOnce(false)).boxed()),
         (3, Just(Step::Refuse).boxed()),
     ];
-    if !EXCLUSIONS.contains(&Exclusion::ShrinkPast) {
-        steps.push((8, any::<u16>().prop_map(Step::ShrinkPast).boxed()));
-    }
+    steps.push((4, any::<u16>().prop_map(Step::ShrinkPast).boxed()));
     #[cfg(feature = "live")]
     steps.push((
         16,
@@ -630,7 +593,6 @@ struct Copying {
 enum Control {
     #[cfg(feature = "copy")]
     Copy(super::copy::Control),
-    #[cfg(feature = "live")]
     Cache(crate::pages::Control),
 }
 
@@ -652,8 +614,6 @@ struct Run {
     closed_at: Option<usize>,
     /// Steps taken since `close`.
     closed_steps: usize,
-    /// The exclusions honoured: a generated case's, none in a scenario.
-    exclusions: &'static [Exclusion],
     #[cfg(feature = "copy")]
     events: Rc<RefCell<Vec<TallTableCopy>>>,
     #[cfg(feature = "copy")]
@@ -674,12 +634,7 @@ struct Before {
 }
 
 impl Run {
-    fn open(
-        cx: &mut TestAppContext,
-        case: &Case,
-        control: Option<Control>,
-        exclusions: &'static [Exclusion],
-    ) -> Self {
+    fn open(cx: &mut TestAppContext, case: &Case, control: Option<Control>) -> Self {
         cx.update(|cx| {
             gpui_kit::component::init(cx);
             crate::init(cx);
@@ -720,7 +675,6 @@ impl Run {
             most_rows: case.rows,
             closed_at: None,
             closed_steps: 0,
-            exclusions,
             #[cfg(feature = "copy")]
             events: Rc::default(),
             #[cfg(feature = "copy")]
@@ -742,9 +696,8 @@ impl Run {
             match control {
                 #[cfg(feature = "copy")]
                 Some(Control::Copy(control)) => table.copy_state.control = control,
-                #[cfg(feature = "live")]
                 Some(Control::Cache(control)) => table.cache.control = control,
-                _ => {}
+                None => {}
             }
             #[cfg(feature = "copy")]
             table.set_copy_options(options);
@@ -841,9 +794,6 @@ impl Run {
 
     /// The source holds `rows` rows now: the rows cut go to a new era.
     fn set_rows(&mut self, rows: u64) {
-        if self.closed_at.is_some() && self.exclusions.contains(&Exclusion::RowsAfterClose) {
-            return;
-        }
         let rows = rows.min(MAX_PAGES * self.paging.page_rows);
         {
             let mut books = self.books.borrow_mut();
@@ -1146,23 +1096,11 @@ impl Run {
             let visible = table.visible_rows();
             let visible_pages = visible.start / page_rows..visible.end.div_ceil(page_rows);
             let sent_as = |request: usize| table.cache.sent_as(request);
-            // A copy's read `copy` and the cache's `cache` of a page that
-            // grew under them: a re-read sent after the copy's, or a read
-            // sent before it that holds fewer rows than the copy's asks for.
-            let grown = |copy: usize, cache: usize| match sent_as(cache) {
-                Some(Sent::Reread) => cache > copy,
-                Some(Sent::Read) => {
-                    cache < copy && books.reads[cache].rows.end < books.reads[copy].rows.end
-                }
-                _ => false,
-            };
             for (request, read) in new().filter(|(_, read)| !read.cancelled) {
                 for &other in read.beside.iter().filter(|&&other| !books.reads[other].cancelled) {
                     let copy_reads_it = sent_as(request) == Some(Sent::Copy)
                         || sent_as(other) == Some(Sent::Copy);
-                    let excluded = self.exclusions.contains(&Exclusion::GrownPageBesideCopy)
-                        && (grown(request, other) || grown(other, request));
-                    if !excluded && !(copy_reads_it && visible_pages.contains(&read.page)) {
+                    if !(copy_reads_it && visible_pages.contains(&read.page)) {
                         return Err(Violation::new(
                             2,
                             format!(
@@ -1420,21 +1358,15 @@ fn columns_of(count: usize) -> Vec<TallTableColumn> {
         .collect()
 }
 
-/// One case on scheduler `seed`, honouring `exclusions`: `Err` names the
-/// invariant and the step.
-fn run_case(
-    seed: u64,
-    case: &Case,
-    control: Option<Control>,
-    exclusions: &'static [Exclusion],
-) -> Result<(), String> {
+/// One case on scheduler `seed`: `Err` names the invariant and the step.
+fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), String> {
     let case = case.clone();
     gpui_kit::run_test_once(
         seed,
         Box::new(move |dispatcher| {
             let mut cx = TestAppContext::build(dispatcher.clone(), Some("random_paging"));
             let result = {
-                let mut run = Run::open(&mut cx, &case, control, exclusions);
+                let mut run = Run::open(&mut cx, &case, control);
                 let before = run.before();
                 let mut result = run.check(&before).map_err(|v| (v, "open".to_string()));
                 for (index, step) in case.steps.iter().enumerate() {
@@ -1486,7 +1418,7 @@ fn run(control: Option<Control>) -> Result<(), String> {
     let mut runner = TestRunner::new(config);
     runner
         .run(&(any::<u64>(), case()), |(seed, case)| {
-            run_case(seed, &case, control, EXCLUSIONS).map_err(TestCaseError::fail)
+            run_case(seed, &case, control).map_err(TestCaseError::fail)
         })
         .map_err(|error| match error {
             TestError::Fail(reason, (seed, case)) => format!(
@@ -1504,13 +1436,12 @@ fn random_paging() {
     }
 }
 
-/// Found by the random test: a shrink to the last page's start or below
-/// keeps the pages wholly past the new end (`PageCache::set_rows` looks
-/// only at the old last page), and grown back they draw their old rows as
-/// loaded. Three full pages read, the rows shrunk to 5 and grown back to
-/// 30: row 10, page 1's, drawn from the read before the cut.
+/// Found by the random test (the shrink it had to find): a shrink forgets
+/// the pages wholly past the new end, where the cache once looked only at
+/// the old last page, and grown back drew their old rows as loaded. Three
+/// full pages read, the rows shrunk to 5 and grown back to 30: row 10,
+/// page 1's, was drawn from the read before the cut.
 #[test]
-#[ignore = "a shrink past a page keeps the pages past it, until the hardening fixes it"]
 fn shrink_past_a_page_forgets_the_pages_past_it() {
     let case = Case {
         page_rows: 10,
@@ -1528,18 +1459,18 @@ fn shrink_past_a_page_forgets_the_pages_past_it() {
             Step::GrowBack,
         ],
     };
-    if let Err(failure) = run_case(0, &case, None, &[]) {
+    if let Err(failure) = run_case(0, &case, None) {
         panic!("{failure}");
     }
 }
 
-/// The same with `live`, shrunk to a page's start: the page the new end
-/// falls on is kept, its end clamped to its start, and grown back (from a
-/// count that's a page's multiple, so not marked stale) it's never read
-/// again: its rows stay placeholders with no read open.
+/// The same with `live`, shrunk to a page's start: that page is past the
+/// new end, so it's forgotten. Kept, its end clamped to its start, and
+/// grown back (from a count that's a page's multiple, so not marked stale)
+/// it was never read again: its rows stayed placeholders with no read
+/// open.
 #[cfg(feature = "live")]
 #[test]
-#[ignore = "a shrink to a page's start keeps that page, until the hardening fixes it"]
 fn shrink_to_a_page_start_reads_its_page_when_grown() {
     let case = Case {
         page_rows: 10,
@@ -1557,18 +1488,17 @@ fn shrink_to_a_page_start_reads_its_page_when_grown() {
             Step::GrowBack,
         ],
     };
-    if let Err(failure) = run_case(0, &case, None, &[]) {
+    if let Err(failure) = run_case(0, &case, None) {
         panic!("{failure}");
     }
 }
 
-/// Found by the random test: `set_rows` on a closed table cancels a read
+/// Found by the random test: `set_rows` on a closed table cancelled a read
 /// `close` already cancelled. Three short pages, all read at open, the
-/// table closed, the rows shrunk within the last page: its read is
+/// table closed, the rows shrunk within the last page: its read was
 /// cancelled a second time (and had it answered meanwhile, cancelled once
 /// answered). A source may not know the request by then.
 #[test]
-#[ignore = "a closed table cancels reads again, until the hardening fixes it"]
 fn a_closed_table_cancels_nothing_again() {
     let case = Case {
         page_rows: 8,
@@ -1582,19 +1512,18 @@ fn a_closed_table_cancels_nothing_again() {
         copy: CopyOptions::default(),
         steps: vec![Step::Close, Step::ShrinkWithin(0)],
     };
-    if let Err(failure) = run_case(0, &case, None, &[]) {
+    if let Err(failure) = run_case(0, &case, None) {
         panic!("{failure}");
     }
 }
 
 /// Found by the random test (`live` with `copy`): a copy reads a grown
 /// last page itself (the cache's drawn copy lacks the new rows), and the
-/// cache's prefetch re-read of that stale page goes out beside it, the
-/// page off screen: two reads of one page. A prefetch first read skips a
-/// page the copy reads; the re-read doesn't.
+/// cache's prefetch re-read of that stale page went out beside it, the
+/// page off screen: two reads of one page. A prefetch re-read skips a page
+/// the copy reads, as a first read does.
 #[cfg(all(feature = "live", feature = "copy"))]
 #[test]
-#[ignore = "a prefetch re-read reads a page the copy reads, until the hardening fixes it"]
 fn a_prefetch_reread_skips_a_page_the_copy_reads() {
     let case = Case {
         page_rows: 8,
@@ -1632,19 +1561,18 @@ fn a_prefetch_reread_skips_a_page_the_copy_reads() {
             Step::Wheel(-1),
         ],
     };
-    if let Err(failure) = run_case(0, &case, None, &[]) {
+    if let Err(failure) = run_case(0, &case, None) {
         panic!("{failure}");
     }
 }
 
 /// Found by the soak (`live` with `copy`): a prefetch read of the short
-/// last page is out when the rows grow to fill it; a copy of the rows reads
+/// last page is out when the rows grow to fill it; a copy of the rows read
 /// the page itself, since the cache's read doesn't hold the new rows, and
-/// the two are out at once, off screen (and the cache reads it again once
-/// its own lands).
+/// the two were out at once, off screen. The copy waits for the cache's
+/// read, then reads the page itself if it's still short.
 #[cfg(all(feature = "live", feature = "copy"))]
 #[test]
-#[ignore = "a copy reads a grown page beside the cache's short read, until the hardening fixes it"]
 fn a_copy_beside_a_short_read_of_a_grown_page() {
     let case = Case {
         page_rows: 14,
@@ -1672,7 +1600,7 @@ fn a_copy_beside_a_short_read_of_a_grown_page() {
             Step::Copy,
         ],
     };
-    if let Err(failure) = run_case(0, &case, None, &[]) {
+    if let Err(failure) = run_case(0, &case, None) {
         panic!("{failure}");
     }
 }
@@ -1680,10 +1608,8 @@ fn a_copy_beside_a_short_read_of_a_grown_page() {
 /// Each control fails the cases (no shrinking) at the invariant it breaks.
 /// Built with each control's feature, run in the all-on run only: its
 /// cases are the ones the controls are counted over.
-#[cfg(any(feature = "copy", feature = "live"))]
 mod controls {
     use super::{ALL_ON, Control, run};
-    #[cfg(feature = "live")]
     use crate::pages::Control as Cache;
     #[cfg(feature = "copy")]
     use crate::state::copy::Control as Copy;
@@ -1758,5 +1684,13 @@ mod controls {
     #[test]
     fn a_shrink_unclamped() {
         fails(Control::Cache(Cache::ShrinkUnclamped), &[5]);
+    }
+
+    /// The shrink's old rule: the pages past the new end kept.
+    #[test]
+    fn the_pages_past_a_shrink_kept() {
+        // Their old rows drawn, or (`live`) a page a shrink to its start
+        // kept never read again.
+        fails(Control::Cache(Cache::KeepPastShrink), &[5, 8]);
     }
 }

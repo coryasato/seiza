@@ -549,8 +549,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The delegate holds `rows` rows now (a source that grows while it
-    /// loads): the scrollbar follows, and pages that were short or missing
-    /// load.
+    /// loads, or a query run again): the scrollbar follows, and pages that
+    /// were short or missing load. A shrink forgets every page wholly past
+    /// the new end, cancelling the reads out for them (each through
+    /// [`TallTableDelegate::cancel`], in page order), so rows that come back
+    /// are read anew. On a closed table ([`TallTableState::close`]) only the
+    /// scrollbar follows: nothing is read or cancelled.
     ///
     /// With `live`, a short last page that grows stays drawn, placeholders
     /// past the rows it was read with, and is read again as an invalidated
@@ -570,8 +574,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.cut_selection(rows, cx);
         #[cfg(feature = "copy")]
         self.cut_copy(rows, cx);
-        if let Some(request) = self.cache.set_rows(rows) {
-            self.delegate.cancel(request, cx);
+        // A closed table cancelled every read at `close`, and never frees
+        // their places: its cache is left as it was.
+        if !self.closed {
+            for request in self.cache.set_rows(rows) {
+                self.delegate.cancel(request, cx);
+            }
         }
         // Shrunk below the drawn tail: rows past it can be drawn again.
         #[cfg(feature = "follow")]
@@ -703,12 +711,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// Stops the table for good: cancels its page reads and starts no more.
     /// For a table being replaced: the entity can outlive this (the last
     /// frame still holds it), and a page answering meanwhile must not start
-    /// new reads of rows nobody shows.
+    /// new reads of rows nobody shows. Once closed, nothing it's called with
+    /// reads or cancels anything again (a second `close`, `set_rows`).
     ///
     /// With `copy`, a copy running ends too, its reads cancelled, without
     /// an event (this can't emit): a host closing the table ends its write.
     pub fn close(&mut self, cx: &mut App) {
-        self.closed = true;
+        // Once: a second close would cancel the reads again.
+        if std::mem::replace(&mut self.closed, true) {
+            return;
+        }
         self.hover = None;
         #[cfg(all(test, feature = "copy"))]
         if self.copy_state.control == copy::Control::CloseKeepsReads {

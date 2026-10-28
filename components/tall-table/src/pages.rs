@@ -173,37 +173,53 @@ impl<R: Copy> Live<R> {
 }
 
 /// A paging fixture's negative controls (`fixtures/paging.json`), each a
-/// way to get re-reads wrong that the fixture must catch.
-#[cfg(all(test, feature = "live"))]
+/// way to get the cache wrong that the fixture must catch.
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Control {
     #[default]
     None,
-    /// Stale pages outside `wanted` are kept and read again.
+    /// A shrink keeps the pages wholly past the new end, forgetting only a
+    /// short last page (the rule a shrink once had).
+    KeepPastShrink,
+    /// `live`'s: stale pages outside `wanted` are kept and read again.
+    #[cfg(feature = "live")]
     RereadUnwanted,
     /// A page invalidated during its re-read cancels it and reads anew.
+    #[cfg(feature = "live")]
     RestartStale,
     /// A short last page that grows is dropped, as without `live`.
+    #[cfg(feature = "live")]
     DropGrown,
     /// The random test's (`state/random.rs`), each a fault it must catch:
     /// `plan` counts the draining reads out of `max_in_flight`.
+    #[cfg(feature = "live")]
     LimitWithoutDraining,
     /// `holding` takes a page by rows it doesn't hold (a grown page's).
-    #[cfg(feature = "copy")]
+    #[cfg(all(feature = "live", feature = "copy"))]
     HoldingWithoutEnd,
     /// A re-read landing evicts nothing.
+    #[cfg(feature = "live")]
     KeepOnReread,
     /// A shrink into a page that stays leaves its end as it was.
+    #[cfg(feature = "live")]
     ShrinkUnclamped,
 }
 
 /// Outside the tests, no control.
-#[cfg(all(not(test), feature = "live"))]
+#[cfg(not(test))]
 #[derive(Debug, Clone, Copy)]
 struct Control;
 
-#[cfg(feature = "live")]
 impl Control {
+    fn keep_past_shrink(self) -> bool {
+        #[cfg(test)]
+        return self == Self::KeepPastShrink;
+        #[cfg(not(test))]
+        false
+    }
+
+    #[cfg(feature = "live")]
     fn reread_unwanted(self) -> bool {
         #[cfg(test)]
         return self == Self::RereadUnwanted;
@@ -211,6 +227,7 @@ impl Control {
         false
     }
 
+    #[cfg(feature = "live")]
     fn drop_grown(self) -> bool {
         #[cfg(test)]
         return self == Self::DropGrown;
@@ -218,6 +235,7 @@ impl Control {
         false
     }
 
+    #[cfg(feature = "live")]
     fn shrink_unclamped(self) -> bool {
         #[cfg(test)]
         return self == Self::ShrinkUnclamped;
@@ -297,7 +315,7 @@ pub struct PageCache<T, R> {
     /// taken yet.
     #[cfg(feature = "live")]
     landed: bool,
-    #[cfg(all(test, feature = "live"))]
+    #[cfg(test)]
     pub(crate) control: Control,
     /// Keep each page's changed rows: a column flashes.
     #[cfg(all(feature = "live", feature = "custom-cells"))]
@@ -321,8 +339,8 @@ pub struct PageCache<T, R> {
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Sent {
-    Read,
-    Reread,
+    /// The cache's: a first read or a re-read.
+    Cache,
     Copy,
 }
 
@@ -341,7 +359,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             generation: 0,
             #[cfg(feature = "live")]
             landed: false,
-            #[cfg(all(test, feature = "live"))]
+            #[cfg(test)]
             control: Control::None,
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             track_changes: false,
@@ -364,17 +382,35 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         start.min(self.rows)..(start + self.page_rows).min(self.rows)
     }
 
-    /// Changes the row count (a CSV grows while it loads). If the old last
-    /// page was short, it no longer holds every row it covers: it's
-    /// forgotten, and its request, if one is out, is returned for the caller
-    /// to cancel (it counts as in flight until it answers).
+    /// Changes the row count (a CSV grows while it loads). A shrink forgets
+    /// every page wholly past the new end, loaded or being read; and if the
+    /// old last page was short, it no longer holds every row it covers: it's
+    /// forgotten too. The requests out for what's forgotten are returned, in
+    /// page order, for the caller to cancel (each counts as in flight until
+    /// it answers).
     ///
     /// With `live`, a short last page that grows is kept instead, stale: it
     /// draws the rows it holds, placeholders past them, and [`PageCache::plan`]
     /// reads it again; a read of it in flight isn't cancelled, and the page
     /// is read once more after it lands. Shrinking still forgets it.
-    pub fn set_rows(&mut self, rows: u64) -> Option<R> {
+    pub fn set_rows(&mut self, rows: u64) -> Vec<R> {
         let old = std::mem::replace(&mut self.rows, rows);
+        let mut cancel = Vec::new();
+        if rows < old && !self.control().keep_past_shrink() {
+            // Grown back, a page past the cut must be read anew, never drawn
+            // from a read before it.
+            let first = rows.div_ceil(self.page_rows);
+            let mut past: Vec<u64> = self
+                .slots
+                .keys()
+                .copied()
+                .filter(|&page| page >= first)
+                .collect();
+            past.sort_unstable();
+            for page in past {
+                cancel.extend(self.forget(page));
+            }
+        }
         // Shrunk into a page that stays: it holds rows only up to the new
         // end, so rows that come back later aren't drawn from its reads.
         #[cfg(feature = "live")]
@@ -389,7 +425,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             }
         }
         if old.is_multiple_of(self.page_rows) || rows == old {
-            return None;
+            return cancel;
         }
         let page = old / self.page_rows;
         #[cfg(feature = "live")]
@@ -398,25 +434,31 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 Some(Slot::Loaded { live, .. }) => {
                     live.stale = true;
                     live.failed = false;
-                    return None;
+                    return cancel;
                 }
                 Some(Slot::Loading { stale, .. }) => {
                     *stale = true;
-                    return None;
+                    return cancel;
                 }
                 // A failure is forgotten, as without `live`: read anew.
                 _ => {}
             }
         }
-        match self.slots.remove(&page) {
-            Some(Slot::Loaded {
+        cancel.extend(self.forget(page));
+        cancel
+    }
+
+    /// Forgets `page`: a loaded one's bytes freed, a read of it out (or with
+    /// `live` a re-read) moved to `draining` and returned to cancel.
+    fn forget(&mut self, page: u64) -> Option<R> {
+        match self.slots.remove(&page)? {
+            Slot::Loaded {
                 bytes,
                 #[cfg(feature = "live")]
                 live,
                 ..
-            }) => {
+            } => {
                 self.used_bytes -= bytes;
-                // Its re-read, if one is out, goes with it.
                 #[cfg(feature = "live")]
                 if let Some((request, _)) = live.reading {
                     self.draining.push(request);
@@ -424,11 +466,11 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 }
                 None
             }
-            Some(Slot::Loading { request, .. }) => {
+            Slot::Loading { request, .. } => {
                 self.draining.push(request);
                 Some(request)
             }
-            _ => None,
+            Slot::Failed(_) => None,
         }
     }
 
@@ -678,15 +720,19 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 continue;
             }
             // A prefetch page the copy is reading, or was just granted, isn't
-            // read twice at once: the copy's isn't cached, and the cache
-            // reads it once the copy's lands, if it's still wanted.
+            // read twice at once, first read or re-read (a grown last page,
+            // whose new rows the copy reads itself): the copy's isn't cached,
+            // and the cache reads it once the copy's lands, if it's still
+            // wanted.
             #[cfg(feature = "copy")]
             let copy_reads_it = index >= visible && self.copy_has(*page, rereads.copy);
+            #[cfg(all(feature = "live", not(feature = "copy")))]
+            let copy_reads_it = false;
             match self.slots.get_mut(page) {
                 Some(Slot::Loaded { used, .. }) => {
                     *used = tick;
                     #[cfg(feature = "live")]
-                    if index >= visible {
+                    if index >= visible && !copy_reads_it {
                         self.reread(&[*page], &mut rereads, &mut in_flight, &mut fetch);
                     }
                 }
@@ -862,20 +908,17 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         self.copy_reads.len()
     }
 
-    /// Whether the cache is reading `page` with its rows up to `end`
-    /// (`copy`): a first read, or with `live` a re-read. A copy waits for
-    /// it rather than reading the page a second time.
+    /// Whether the cache is reading `page` (`copy`): a first read, or with
+    /// `live` a re-read. A copy waits for it rather than reading the page a
+    /// second time, even a read sent before the rows grew, short of the
+    /// rows the copy wants: once it lands, the copy reads the rest itself
+    /// (or takes the cache's next re-read).
     #[cfg(feature = "copy")]
-    pub fn loading(&self, page: u64, end: u64) -> bool {
-        #[cfg(not(feature = "live"))]
-        let _ = end;
+    pub fn loading(&self, page: u64) -> bool {
         match self.slots.get(&page) {
-            #[cfg(feature = "live")]
-            Some(Slot::Loading { end: reads_to, .. }) => *reads_to >= end,
-            #[cfg(not(feature = "live"))]
             Some(Slot::Loading { .. }) => true,
             #[cfg(feature = "live")]
-            Some(Slot::Loaded { live, .. }) => live.reading.is_some() && live.reading_end >= end,
+            Some(Slot::Loaded { live, .. }) => live.reading.is_some(),
             _ => false,
         }
     }
@@ -928,6 +971,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// `page`'s query was sent as `request`. With `live`, a loaded page's
     /// is a re-read: it keeps drawing until the read lands.
     pub fn started(&mut self, page: u64, request: R) {
+        #[cfg(test)]
+        self.sent.push((request, Sent::Cache));
         #[cfg(feature = "live")]
         let end = self.rows_of(page).end;
         #[cfg(feature = "live")]
@@ -935,12 +980,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             live.reading = Some((request, self.generation));
             live.reading_end = end;
             live.stale = false;
-            #[cfg(test)]
-            self.sent.push((request, Sent::Reread));
             return;
         }
-        #[cfg(test)]
-        self.sent.push((request, Sent::Read));
         self.slots.insert(
             page,
             Slot::Loading {
@@ -1216,7 +1257,6 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             .count()
     }
 
-    #[cfg(feature = "live")]
     fn control(&self) -> Control {
         #[cfg(test)]
         return self.control;
@@ -1480,18 +1520,18 @@ mod tests {
         assert!(cache.loaded(0, 0, "full", 10, &[]));
         assert!(cache.loaded(2, 2, "short", 10, &[]));
         // Page 2 held rows 200..250 of 200..300: gone once there are more.
-        assert_eq!(cache.set_rows(400), None);
+        assert_eq!(cache.set_rows(400), Vec::<u32>::new());
         assert_eq!(cache.row(210), RowState::Pending);
         assert_eq!(cache.used_bytes(), 10);
         assert!(matches!(cache.row(10), RowState::Loaded(..)));
         assert_eq!(cache.pages(), 4);
         // A short page still loading: cancelled, and draining until it answers.
         cache.started(3, 3);
-        assert_eq!(cache.set_rows(450), None);
-        assert_eq!(cache.set_rows(450), None);
+        assert_eq!(cache.set_rows(450), Vec::<u32>::new());
+        assert_eq!(cache.set_rows(450), Vec::<u32>::new());
         let mut cache = Cache::new(250, 100, 1 << 20, 4);
         cache.started(2, 2);
-        assert_eq!(cache.set_rows(300), Some(2));
+        assert_eq!(cache.set_rows(300), vec![2]);
         assert_eq!(cache.draining(), 1);
         assert!(!cache.loaded(2, 2, "late", 10, &[]));
         assert_eq!(cache.draining(), 0);
@@ -1499,8 +1539,38 @@ mod tests {
         let mut cache = Cache::new(200, 100, 1 << 20, 4);
         cache.started(1, 1);
         assert!(cache.loaded(1, 1, "full", 10, &[]));
-        assert_eq!(cache.set_rows(300), None);
+        assert_eq!(cache.set_rows(300), Vec::<u32>::new());
         assert!(matches!(cache.row(150), RowState::Loaded(..)));
+    }
+
+    #[test]
+    fn shrinking_forgets_every_page_past_the_new_end() {
+        let mut cache = Cache::new(500, 100, 1 << 20, 4);
+        for page in 0..4 {
+            cache.started(page, page as u32);
+        }
+        for page in [0, 1, 3] {
+            assert!(cache.loaded(page, page as u32, "page", 10, &[]));
+        }
+        cache.started(4, 4);
+        cache.failed(2, 2, "broken".into());
+        // Rows 150.. are cut: page 1 is kept (short now), pages 2 to 4 are
+        // forgotten, the failure and the loaded page with it, and page 4's
+        // read cancelled, draining until it answers.
+        assert_eq!(cache.set_rows(150), vec![4]);
+        assert_eq!((cache.used_bytes(), cache.draining()), (20, 1));
+        assert!(matches!(cache.row(120), RowState::Loaded(..)));
+        // Grown back, nothing past the cut is drawn from before it.
+        cache.set_rows(500);
+        for row in [210, 350, 450] {
+            assert_eq!(cache.row(row), RowState::Pending, "row {row}");
+        }
+        // To a page's start: that page is past the end too.
+        let mut cache = Cache::new(300, 100, 1 << 20, 4);
+        cache.started(1, 1);
+        assert!(cache.loaded(1, 1, "page", 10, &[]));
+        assert_eq!(cache.set_rows(100), Vec::<u32>::new());
+        assert_eq!(cache.used_bytes(), 0);
     }
 
     #[test]
@@ -1742,7 +1812,7 @@ mod tests {
         cache.invalidate(100..150);
         cache.plan(&[1], 1);
         cache.started(1, 2);
-        assert_eq!(cache.set_rows(120), Some(2));
+        assert_eq!(cache.set_rows(120), vec![2]);
         assert_eq!(
             (cache.in_flight(), cache.draining(), cache.used_bytes()),
             (0, 1, 0)
@@ -1783,7 +1853,7 @@ mod tests {
             cache.started(page, page as u32);
             assert!(cache.loaded(page, page as u32, "old", 10, &[]));
         }
-        assert_eq!(cache.set_rows(280), None, "nothing to cancel");
+        assert_eq!(cache.set_rows(280), Vec::<u32>::new(), "nothing to cancel");
         // The rows it was read with draw; the new ones are placeholders.
         assert_eq!(cache.row(249), RowState::Loaded(&"old", 49));
         assert_eq!(cache.row(250), RowState::Pending);
@@ -1792,7 +1862,7 @@ mod tests {
         // nothing and starts nothing.
         assert_eq!(cache.plan(&[2], 1).fetch, vec![2]);
         cache.started(2, 10);
-        assert_eq!(cache.set_rows(290), None);
+        assert_eq!(cache.set_rows(290), Vec::<u32>::new());
         assert_eq!(cache.plan(&[2], 1), plan_of(vec![], vec![]));
         assert_eq!(cache.row(260), RowState::Pending, "drawn as read meanwhile");
         // It lands with the rows it asked for (200..280), the bytes swapped:
@@ -1811,7 +1881,7 @@ mod tests {
         // Grown past it: the page is whole now, and read again once. Its
         // new rows are a visible page's with nothing to show: no prefetch
         // until they land, as when a visible page is missing.
-        assert_eq!(cache.set_rows(450), None);
+        assert_eq!(cache.set_rows(450), Vec::<u32>::new());
         assert_eq!(cache.row(290), RowState::Pending);
         assert_eq!(cache.plan(&[2, 3], 1).fetch, vec![2]);
         cache.started(2, 12);
@@ -1836,8 +1906,8 @@ mod tests {
         cache.started(1, 2);
         // Shrunk to 180 and grown back while that read is out: it lands
         // holding rows up to 180 only, and 180..200 are read again.
-        assert_eq!(cache.set_rows(180), None);
-        assert_eq!(cache.set_rows(200), None);
+        assert_eq!(cache.set_rows(180), Vec::<u32>::new());
+        assert_eq!(cache.set_rows(200), Vec::<u32>::new());
         assert!(cache.loaded(1, 2, "read", 10, &[1]));
         assert_eq!(cache.row(179), RowState::Loaded(&"read", 79));
         assert_eq!(cache.row(180), RowState::Pending);
@@ -1880,7 +1950,7 @@ mod tests {
         let mut cache = Cache::new(150, 100, 1 << 20, 3);
         assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
         cache.started(1, 1);
-        assert_eq!(cache.set_rows(180), None, "not cancelled");
+        assert_eq!(cache.set_rows(180), Vec::<u32>::new(), "not cancelled");
         assert!(cache.plan(&[1], 1).fetch.is_empty(), "nothing more started");
         // It holds the rows it asked for: 100..150.
         assert!(cache.loaded(1, 1, "first", 10, &[1]));
@@ -1901,7 +1971,7 @@ mod tests {
         cache.set_rows(180);
         cache.plan(&[1], 1);
         cache.started(1, 2);
-        assert_eq!(cache.set_rows(140), Some(2));
+        assert_eq!(cache.set_rows(140), vec![2]);
         assert_eq!(cache.row(120), RowState::Pending);
         assert_eq!((cache.used_bytes(), cache.draining()), (0, 1));
         // Shrunk inside a page it keeps (300 rows were whole pages, so
@@ -1921,14 +1991,14 @@ mod tests {
         let mut cache = Cache::new(150, 100, 1 << 20, 3);
         cache.started(1, 1);
         cache.failed(1, 1, "network".into());
-        assert_eq!(cache.set_rows(180), None);
+        assert_eq!(cache.set_rows(180), Vec::<u32>::new());
         assert_eq!(cache.row(160), RowState::Pending);
         assert_eq!(cache.plan(&[1], 1).fetch, vec![1]);
         // The control drops it, as the base does.
         let mut cache = Cache::new(150, 100, 1 << 20, 3);
         cache.control = Control::DropGrown;
         cache.started(1, 1);
-        assert_eq!(cache.set_rows(180), Some(1));
+        assert_eq!(cache.set_rows(180), vec![1]);
     }
 
     #[cfg(feature = "live")]
@@ -2059,9 +2129,9 @@ mod copy_tests {
         let mut cache = loaded(3);
         assert_eq!(cache.holding(0, 100), Some(&"page 0"));
         assert_eq!(cache.holding(1, 200), None);
-        assert!(!cache.loading(1, 200));
+        assert!(!cache.loading(1));
         cache.started(1, 101);
-        assert!(cache.loading(1, 200), "a copy waits for the cache's read");
+        assert!(cache.loading(1), "a copy waits for the cache's read");
         assert_eq!(cache.holding(1, 200), None);
     }
 

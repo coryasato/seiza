@@ -223,7 +223,8 @@ describe('paging.json', () => {
   const paging = fixture('paging.json');
   // The contender builds the table's base level: no scenario or control of
   // a feature (`features`, a `live` control) applies to it yet, nor a
-  // scenario with a step it doesn't build (`rows`: its row count is fixed).
+  // scenario with a step it doesn't build (`rows`: its row count is fixed),
+  // nor a fault in the table's own code (a `cache` control).
   const built = new Set(['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail']);
   const scenarios = (paging.scenarios as any[]).filter(
     (scenario) =>

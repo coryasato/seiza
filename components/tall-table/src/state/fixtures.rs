@@ -220,6 +220,16 @@ fn live_control(name: &str) -> crate::pages::Control {
     }
 }
 
+/// A `cache` control's way of getting the base's cache wrong, by its
+/// fixture name.
+fn cache_control(name: &str) -> crate::pages::Control {
+    use crate::pages::Control;
+    match name {
+        "keep-past-end" => Control::KeepPastShrink,
+        other => panic!("unknown cache control {other:?}"),
+    }
+}
+
 /// A `follow` control's way of getting following wrong, by its fixture name.
 #[cfg(feature = "follow")]
 fn follow_control(name: &str) -> super::follow::Control {
@@ -233,10 +243,11 @@ fn follow_control(name: &str) -> super::follow::Control {
     }
 }
 
-/// A control that isn't a paging field: a way of re-reading (`live`) or of
-/// following (`follow`), by its fixture name.
+/// A control that isn't a paging field: a way of keeping pages (`cache`),
+/// of re-reading (`live`), or of following (`follow`), by its fixture name.
 #[derive(Debug, Clone, Copy)]
 enum Wrong<'a> {
+    Cache(&'a str),
     #[cfg_attr(not(feature = "live"), expect(dead_code))]
     Live(&'a str),
     #[cfg_attr(not(feature = "follow"), expect(dead_code))]
@@ -246,9 +257,9 @@ enum Wrong<'a> {
 /// What a step may check besides its requests.
 const CHECKS: [&str; 4] = ["expect", "why", "following", "bottom"];
 
-/// One scenario under `paging` (and a `live` or `follow` control, if one is
-/// named): `Err` names the first step whose requests (or checks) weren't
-/// the expected ones.
+/// One scenario under `paging` (and a `cache`, `live`, or `follow` control,
+/// if one is named): `Err` names the first step whose requests (or checks)
+/// weren't the expected ones.
 fn run_scenario(
     cx: &mut TestAppContext,
     paging: Paging,
@@ -307,6 +318,7 @@ fn run_scenario(
                         "{name}: the viewport"
                     );
                     match control {
+                        Some(Wrong::Cache(name)) => table.cache.control = cache_control(name),
                         #[cfg(feature = "live")]
                         Some(Wrong::Live(name)) => table.cache.control = live_control(name),
                         #[cfg(feature = "follow")]
@@ -545,13 +557,18 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
         .filter(|scenario| applies(scenario))
         .collect();
     for control in fixture["controls"].as_array().expect("controls") {
-        // A paging field changed, or a way of re-reading (`live`) or of
-        // following (`follow`).
-        let wrong = match (control["live"].as_str(), control["follow"].as_str()) {
-            (Some(_), _) if !cfg!(feature = "live") => continue,
-            (_, Some(_)) if !cfg!(feature = "follow") => continue,
-            (Some(name), _) => Some(Wrong::Live(name)),
-            (_, Some(name)) => Some(Wrong::Follow(name)),
+        // A paging field changed, or a way of keeping pages (`cache`), of
+        // re-reading (`live`), or of following (`follow`).
+        let wrong = match (
+            control["cache"].as_str(),
+            control["live"].as_str(),
+            control["follow"].as_str(),
+        ) {
+            (Some(name), _, _) => Some(Wrong::Cache(name)),
+            (_, Some(_), _) if !cfg!(feature = "live") => continue,
+            (_, _, Some(_)) if !cfg!(feature = "follow") => continue,
+            (_, Some(name), _) => Some(Wrong::Live(name)),
+            (_, _, Some(name)) => Some(Wrong::Follow(name)),
             _ => None,
         };
         let changed = match wrong {
