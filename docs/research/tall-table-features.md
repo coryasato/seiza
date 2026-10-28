@@ -423,7 +423,7 @@ Nothing to compare: TanStack Table has no copy, and the observatory builds no le
 
 ## Hardening: a random test of the paging
 
-Not a feature: the research that opens the hardening (the table's `PLAN.md`, "Hardening"), a seeded random test of the paging under every feature at once. It settles how the test runs, what it drives, what it checks after each step, the faults it must catch, and what it costs a run of `just tall-table test`. Its decisions are in the table's `docs/DECISIONS.md`, "Fixtures".
+Not a feature: the research that opens the hardening (the table's `PLAN.md`, "Hardening"), a seeded random test of the paging under every feature at once. It settles how the test runs, what it drives, what it checks after each step, the faults it must catch, and what it costs a run of `just tall-table test`. Its decisions are in the table's `docs/DECISIONS.md`, "Fixtures". Building it changed some of what follows (the cases' count and draw, when invariants 6 and 8 are checked, what follows a `close`, how a bug is left out until its fix, the budget's landing): those decisions follow the research's there, and the test itself is the table's `src/state/random.rs`.
 
 ### What asks for it
 

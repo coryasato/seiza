@@ -108,7 +108,8 @@ smoke *args:
 # `select`: the selection fixture, the presses, drag, keys, and drawing;
 # `copy`, which turns on `select`: the text, the keys, the reads beside
 # the cache, the turns, the cap, and the cancels), and all on (`copy`'s
-# with `live` among them). The bridge has none: its
+# with `live` among them); in each, the random test of the paging with that
+# run's features (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
 test:
@@ -122,6 +123,18 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/select
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/copy
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy
+
+# The random test of the paging soaked: `cases` cases for each of `seeds`
+# (`SEED`: a different set of cases each), every feature on, in a release
+# build with debug assertions and overflow checks (its time:
+# docs/DECISIONS.md, "Fixtures"). A failure prints its minimal steps and
+# scheduler seed; `SEED=<n>` recurs it in `test`.
+soak seeds="1 2 3 4" cases="500":
+    for seed in {{seeds}}; do \
+        SEED=$seed PROPTEST_CASES={{cases}} \
+        CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy state::random::random_paging || exit 1; \
+    done
 
 # Writes fixtures/paint.json's expected colors from Chromium's
 # color-mix(in oklab) and its bars from their formula (--check compares).

@@ -33,6 +33,27 @@ pub(crate) fn init(cx: &mut App) {
     ]);
 }
 
+/// The random test's negative controls for `copy` (`random.rs`), each a
+/// race between a copy and the paging it must catch, `copy`'s code
+/// reviews' among them.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Control {
+    #[default]
+    None,
+    /// A read answering after its copy moved past its page, or ended,
+    /// keeps its place.
+    LeakPlaces,
+    /// The copy reads a page the cache is reading for the reader.
+    IgnoreLoading,
+    /// A copy's end frees its places without planning.
+    EndWithoutPlan,
+    /// A failed read leaves its copy running, its turns stopped.
+    FailureKeepsCopy,
+    /// `close` drops the copy without cancelling its reads.
+    CloseKeepsReads,
+}
+
 /// The table's copy, with the feature.
 pub(super) struct CopyState<P, R> {
     pub(super) options: CopyOptions,
@@ -41,6 +62,26 @@ pub(super) struct CopyState<P, R> {
     pub(super) running: Option<Running<P, R>>,
     /// A plan is due at the end of the update (`copy_load`).
     load_deferred: bool,
+    #[cfg(test)]
+    pub(crate) control: Control,
+}
+
+impl<P, R> CopyState<P, R> {
+    /// The random test's `EndWithoutPlan` control, once copy `id` has
+    /// ended: its end plans nothing (never outside the tests).
+    fn end_without_plan(&self, id: CopyId) -> bool {
+        #[cfg(test)]
+        return self.control == Control::EndWithoutPlan
+            && !self
+                .running
+                .as_ref()
+                .is_some_and(|running| running.id == id);
+        #[cfg(not(test))]
+        {
+            let _ = id;
+            false
+        }
+    }
 }
 
 impl<P, R> Default for CopyState<P, R> {
@@ -50,6 +91,8 @@ impl<P, R> Default for CopyState<P, R> {
             last_id: 0,
             running: None,
             load_deferred: false,
+            #[cfg(test)]
+            control: Control::None,
         }
     }
 }
@@ -283,13 +326,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let page_rows = self.cache.page_rows();
         let turn = running.next_row / page_rows;
         let last = (end / page_rows).min(turn + self.cache.background_limit() as u64 - 1);
+        #[cfg(test)]
+        let ignore_loading = self.copy_state.control == Control::IgnoreLoading;
+        #[cfg(not(test))]
+        let ignore_loading = false;
         (turn..=last)
             .filter(|&page| {
                 let page_end = running.page_end(page, page_rows);
                 !running.holds(page)
                     && !running.reading(page)
                     && self.cache.holding(page, page_end).is_none()
-                    && !(self.cache.loading(page, page_end) && wanted.contains(&page))
+                    && (ignore_loading
+                        || !(self.cache.loading(page, page_end) && wanted.contains(&page)))
             })
             .collect()
     }
@@ -327,7 +375,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         result: Result<D::Page, PageError>,
         cx: &mut Context<Self>,
     ) {
-        self.cache.copy_answered(request);
+        #[cfg(test)]
+        let leaks = self.copy_state.control == Control::LeakPlaces
+            && !self.copy_state.running.as_ref().is_some_and(|running| {
+                running.id == id && running.reads.contains(&(page, request))
+            });
+        #[cfg(not(test))]
+        let leaks = false;
+        if !leaks {
+            self.cache.copy_answered(request);
+        }
         let page_rows = self.cache.page_rows();
         let read = self
             .copy_state
@@ -343,10 +400,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
             });
         let Some((running, index)) = read else {
             // Cancelled, or its copy ended: its place is free.
-            self.copy_load(cx);
+            if !self.copy_state.end_without_plan(id) {
+                self.copy_load(cx);
+            }
             return;
         };
         running.reads.remove(index);
+        #[cfg(test)]
+        if self.copy_state.control == Control::FailureKeepsCopy
+            && matches!(result, Err(PageError::Failed { .. }))
+        {
+            running.turn_pending = true;
+            return;
+        }
         match result {
             Ok(rows) => {
                 if page >= running.next_row / page_rows {
@@ -494,7 +560,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 rows: rows_done,
                 bytes,
             }));
-            self.copy_load(cx);
+            if !self.copy_state.end_without_plan(id) {
+                self.copy_load(cx);
+            }
             return;
         }
         self.drop_passed(cx);

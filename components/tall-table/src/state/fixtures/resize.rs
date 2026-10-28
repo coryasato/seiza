@@ -171,13 +171,18 @@ impl TallTableDelegate for Memory {
 
     fn load_page(&mut self, rows: Range<u64>, _: &mut App) -> (u64, PageLoad<Rows>) {
         let page = rows.start / self.page_rows;
-        self.loads.borrow_mut().push(page);
+        // Its id: the load's place in the log, never reused.
+        let request = {
+            let mut loads = self.loads.borrow_mut();
+            loads.push(page);
+            loads.len() as u64
+        };
         if rows.start >= self.hold {
-            return (page, Box::pin(std::future::pending()));
+            return (request, Box::pin(std::future::pending()));
         }
         let values = self.values;
         (
-            page,
+            request,
             Box::pin(std::future::ready(Ok(Rows { rows, values }))),
         )
     }

@@ -17,7 +17,9 @@ pub type PageLoad<P> = Pin<Box<dyn Future<Output = Result<P, PageError>>>>;
 /// once); the delegate reads them.
 pub trait TallTableDelegate: 'static {
     type Page: TallTablePage;
-    /// Names a read in flight, so the table can cancel it.
+    /// Names a read in flight, so the table can cancel it. Never reused
+    /// for the table's life (a counter, say): two open reads under one id
+    /// couldn't be told apart, by a cancel or by an answer.
     type Request: Copy + PartialEq + 'static;
 
     /// Starts reading `rows` (0-based, end-exclusive), in order.

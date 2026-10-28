@@ -185,6 +185,16 @@ pub(crate) enum Control {
     RestartStale,
     /// A short last page that grows is dropped, as without `live`.
     DropGrown,
+    /// The random test's (`state/random.rs`), each a fault it must catch:
+    /// `plan` counts the draining reads out of `max_in_flight`.
+    LimitWithoutDraining,
+    /// `holding` takes a page by rows it doesn't hold (a grown page's).
+    #[cfg(feature = "copy")]
+    HoldingWithoutEnd,
+    /// A re-read landing evicts nothing.
+    KeepOnReread,
+    /// A shrink into a page that stays leaves its end as it was.
+    ShrinkUnclamped,
 }
 
 /// Outside the tests, no control.
@@ -204,6 +214,13 @@ impl Control {
     fn drop_grown(self) -> bool {
         #[cfg(test)]
         return self == Self::DropGrown;
+        #[cfg(not(test))]
+        false
+    }
+
+    fn shrink_unclamped(self) -> bool {
+        #[cfg(test)]
+        return self == Self::ShrinkUnclamped;
         #[cfg(not(test))]
         false
     }
@@ -294,6 +311,19 @@ pub struct PageCache<T, R> {
     /// The pages the copy would read now, in order, for the next plan.
     #[cfg(feature = "copy")]
     copy_wants: Vec<u64>,
+    /// Every read started, and what for (the random test's: a read
+    /// answered when sent has left the cache's books by the time it looks).
+    #[cfg(test)]
+    sent: Vec<(R, Sent)>,
+}
+
+/// What a read was started for (the random test's).
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Sent {
+    Read,
+    Reread,
+    Copy,
 }
 
 impl<T, R: Copy + PartialEq> PageCache<T, R> {
@@ -319,6 +349,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             copy_reads: Vec::new(),
             #[cfg(feature = "copy")]
             copy_wants: Vec::new(),
+            #[cfg(test)]
+            sent: Vec::new(),
         }
     }
 
@@ -346,7 +378,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         // Shrunk into a page that stays: it holds rows only up to the new
         // end, so rows that come back later aren't drawn from its reads.
         #[cfg(feature = "live")]
-        if rows < old {
+        if rows < old && !self.control().shrink_unclamped() {
             match self.slots.get_mut(&(rows / self.page_rows)) {
                 Some(Slot::Loaded { live, .. }) => {
                     live.end = live.end.min(rows);
@@ -592,6 +624,10 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         {
             in_flight += self.copy_reads.len();
         }
+        #[cfg(all(test, feature = "live"))]
+        if self.control == Control::LimitWithoutDraining {
+            in_flight -= self.draining.len();
+        }
         let mut fetch = Vec::new();
         let visible = visible.min(wanted.len());
         // Loading or not asked for yet. A failed page isn't retried while it
@@ -786,6 +822,8 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     #[cfg(feature = "copy")]
     pub fn copy_started(&mut self, page: u64, request: R) {
         self.copy_reads.push((page, request));
+        #[cfg(test)]
+        self.sent.push((request, Sent::Copy));
     }
 
     /// A copy's read was cancelled (`copy`): it drains as the cache's do,
@@ -803,8 +841,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     }
 
     /// A copy's read answered (`copy`), whether the copy still wants it or
-    /// not: its place frees. One entry only, so a source whose requests
-    /// repeat across reads (a page's first row) frees one place an answer.
+    /// not: its place frees.
     #[cfg(feature = "copy")]
     pub fn copy_answered(&mut self, request: R) {
         if let Some(index) = self
@@ -850,6 +887,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     pub fn holding(&self, page: u64, end: u64) -> Option<&T> {
         #[cfg(not(feature = "live"))]
         let _ = end;
+        #[cfg(all(test, feature = "live"))]
+        let end = if self.control == Control::HoldingWithoutEnd {
+            0
+        } else {
+            end
+        };
         match self.slots.get(&page) {
             #[cfg(feature = "live")]
             Some(Slot::Loaded { live, .. }) if live.end < end => None,
@@ -892,8 +935,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             live.reading = Some((request, self.generation));
             live.reading_end = end;
             live.stale = false;
+            #[cfg(test)]
+            self.sent.push((request, Sent::Reread));
             return;
         }
+        #[cfg(test)]
+        self.sent.push((request, Sent::Read));
         self.slots.insert(
             page,
             Slot::Loading {
@@ -945,6 +992,10 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
                 live.changed = std::mem::take(&mut live.changed_during);
             }
             self.landed = true;
+            #[cfg(test)]
+            if self.control == Control::KeepOnReread {
+                return true;
+            }
             self.evict(wanted);
             return true;
         }
@@ -1196,6 +1247,46 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// holds a place in flight. `loaded` and `failed` call this themselves.
     pub fn finished(&mut self, request: R) {
         self.draining.retain(|draining| *draining != request);
+    }
+
+    /// The loaded pages, and whether each is being read again (the random
+    /// test's: `state/random.rs`).
+    #[cfg(test)]
+    pub(crate) fn loaded_slots(&self) -> impl Iterator<Item = (u64, &T, bool)> + '_ {
+        self.slots.iter().filter_map(|(page, slot)| match slot {
+            #[cfg(feature = "live")]
+            Slot::Loaded {
+                page: data, live, ..
+            } => Some((*page, data, live.reading.is_some())),
+            #[cfg(not(feature = "live"))]
+            Slot::Loaded { page: data, .. } => Some((*page, data, false)),
+            _ => None,
+        })
+    }
+
+    /// Whether `page` is loaded and its last re-read failed (the random
+    /// test's): a grown page's rows past its read stay placeholders.
+    #[cfg(test)]
+    pub(crate) fn reread_failed(&self, page: u64) -> bool {
+        #[cfg(feature = "live")]
+        return matches!(self.slots.get(&page), Some(Slot::Loaded { live, .. }) if live.failed);
+        #[cfg(not(feature = "live"))]
+        {
+            let _ = page;
+            false
+        }
+    }
+
+    /// What `request` was started for (the random test's).
+    #[cfg(test)]
+    pub(crate) fn sent_as(&self, request: R) -> Option<Sent> {
+        let at = self.sent.iter().rposition(|(sent, _)| *sent == request)?;
+        Some(self.sent[at].1)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn budget_bytes(&self) -> usize {
+        self.budget_bytes
     }
 
     fn evict(&mut self, wanted: &[u64]) {

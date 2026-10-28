@@ -355,15 +355,17 @@ struct PaintRows {
 
 impl TallTableDelegate for PaintRows {
     type Page = PaintPage;
-    type Request = ();
+    type Request = usize;
 
-    fn load_page(&mut self, _: Range<u64>, _: &mut App) -> ((), PageLoad<PaintPage>) {
-        self.loads.set(self.loads.get() + 1);
+    /// Its ids count up, never reused: the loads so far.
+    fn load_page(&mut self, _: Range<u64>, _: &mut App) -> (usize, PageLoad<PaintPage>) {
+        let request = self.loads.get() + 1;
+        self.loads.set(request);
         let page = PaintPage(self.paints.clone());
-        ((), Box::pin(async move { Ok::<_, PageError>(page) }))
+        (request, Box::pin(async move { Ok::<_, PageError>(page) }))
     }
 
-    fn cancel(&mut self, _: (), _: &mut App) {}
+    fn cancel(&mut self, _: usize, _: &mut App) {}
 }
 
 /// What the table drew in the light theme and then the dark one, and the

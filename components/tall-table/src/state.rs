@@ -710,6 +710,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     pub fn close(&mut self, cx: &mut App) {
         self.closed = true;
         self.hover = None;
+        #[cfg(all(test, feature = "copy"))]
+        if self.copy_state.control == copy::Control::CloseKeepsReads {
+            self.copy_state.running = None;
+        }
         #[cfg(feature = "copy")]
         self.drop_copy(cx);
         for request in self.cache.requests() {
@@ -2229,6 +2233,11 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
 /// so it drives the state's own scroll, drag, and paging paths.
 #[cfg(test)]
 mod fixtures;
+
+/// The random test of the paging under every feature built: a child
+/// module, so it reads the cache's books and drives the state's own paths.
+#[cfg(test)]
+mod random;
 
 /// `follow`: the flag, the pin, and the tail drawn.
 #[cfg(feature = "follow")]

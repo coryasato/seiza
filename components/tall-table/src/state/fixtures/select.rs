@@ -30,8 +30,12 @@ const SELECTION: &str = include_str!("../../../fixtures/selection.json");
 actions!(select_test, [HostEscape]);
 
 /// Rows from memory, every value its row, answered when asked; with
-/// `custom-cells`, painted (`true`: the first column filled halfway).
-struct Memory(bool);
+/// `custom-cells`, painted (`painted`: the first column filled halfway).
+/// Its ids count up, never reused.
+struct Memory {
+    painted: bool,
+    next: u64,
+}
 
 struct Rows(Range<u64>, bool);
 
@@ -58,8 +62,9 @@ impl TallTableDelegate for Memory {
     type Request = u64;
 
     fn load_page(&mut self, rows: Range<u64>, _: &mut App) -> (u64, PageLoad<Rows>) {
-        let page = Rows(rows.clone(), self.0);
-        (rows.start, Box::pin(std::future::ready(Ok(page))))
+        let page = Rows(rows, self.painted);
+        self.next += 1;
+        (self.next, Box::pin(std::future::ready(Ok(page))))
     }
 
     fn cancel(&mut self, _: u64, _: &mut App) {}
@@ -128,7 +133,7 @@ impl<'a> Sheet<'a> {
         let painted = false;
         let (shell, cx) = cx.add_window_view(move |_, cx| {
             let table = cx.new(|cx| {
-                let delegate = Memory(painted);
+                let delegate = Memory { painted, next: 0 };
                 let mut table =
                     TallTableState::new(delegate, columns, rows, Default::default(), cx)
                         .probe_frames(true)
