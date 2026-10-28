@@ -37,7 +37,10 @@ struct Memory {
     next: u64,
 }
 
-struct Rows(Range<u64>, bool);
+struct Rows(
+    Range<u64>,
+    #[cfg_attr(not(feature = "custom-cells"), expect(dead_code))] bool,
+);
 
 impl TallTablePage for Rows {
     fn value(&self, row: usize, _: usize) -> Option<CellValue<'_>> {
@@ -104,6 +107,7 @@ struct Sheet<'a> {
     selected: Rc<RefCell<Vec<Option<TallTableSelection>>>>,
     notified: Rc<Counter<usize>>,
     /// The drawn cells, last frame, when the first column is filled.
+    #[cfg_attr(not(feature = "custom-cells"), expect(dead_code))]
     cells: Rc<RefCell<Vec<crate::CellProbe>>>,
     escapes: Rc<Counter<usize>>,
     /// The pointer's last position.

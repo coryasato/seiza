@@ -16,7 +16,9 @@ use gpui_kit::{
     actions, div, px, size,
 };
 
-use super::super::{Drag, Paging, TallTableEvent, TallTableState, row_height};
+#[cfg(feature = "live")]
+use super::super::Drag;
+use super::super::{Paging, TallTableEvent, TallTableState, row_height};
 use crate::column::{ColumnKind, TallTableColumn};
 use crate::copy::{CopyFailure, CopyId, CopyOptions, TURN_CELLS, TallTableCopy};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
