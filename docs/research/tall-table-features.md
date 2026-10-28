@@ -1,6 +1,6 @@
 # Research: the tall table's features
 
-The research that opens each feature's milestone (the table's [`PLAN.md`](../../components/tall-table/PLAN.md), "Research each feature's design before building it"): how a feature is built on the table's f64-row scroll model, not whether. One section per feature, in the order they're built. Each section's decisions are logged in the table's [`docs/DECISIONS.md`](../../components/tall-table/docs/DECISIONS.md), "Features", and its numbers are in the table's `perf/results/`; this file keeps the reasoning and the options weighed.
+The research that opens each feature's milestone (the table's [`PLAN.md`](../../components/tall-table/PLAN.md), "Research each feature's design before building it"): how a feature is built on the table's f64-row scroll model, not whether. One section per feature, in the order they're built, and one for the hardening's random test of the paging. Each section's decisions are logged in the table's [`docs/DECISIONS.md`](../../components/tall-table/docs/DECISIONS.md), "Features", and its numbers are in the table's `perf/results/`; this file keeps the reasoning and the options weighed.
 
 ---
 
@@ -418,3 +418,83 @@ A copy runs outside render: reads land on tasks, and formatting yields every few
 ### What a DOM contender does
 
 Nothing to compare: TanStack Table has no copy, and the observatory builds no level for a feature its DOM side lacks. The text format and the reads are pinned by native tests, not a fixture.
+
+---
+
+## Hardening: a random test of the paging
+
+Not a feature: the research that opens the hardening (the table's `PLAN.md`, "Hardening"), a seeded random test of the paging under every feature at once. It settles how the test runs, what it drives, what it checks after each step, the faults it must catch, and what it costs a run of `just tall-table test`. Its decisions are in the table's `docs/DECISIONS.md`, "Fixtures".
+
+### What asks for it
+
+Two code reviews of `copy`'s reads (the table's `docs/LESSONS.md`) each found races between `copy` and the paging that no scenario test had: a copy's places leaking (a copy that ended on a page the cache had loaded meanwhile never gave its own read's place back, so three such copies at `max_in_flight` 3 stopped every read), a copy and prefetch reading one page at once, a copy's end that freed a place without planning it (at `max_in_flight` 1 a page scrolled into view stayed a placeholder), a drag at rest that the cache read through and the copy didn't, a read the copy waited for that the same plan cancelled. Each is a timing someone had to think of; a scenario test only checks the timings someone did.
+
+### Proptest by hand, not `property_test`
+
+GPUI offers both at the pin: `#[gpui_kit::test(iterations = N)]` runs seeds 0..N on its `TestDispatcher` (a seeded `StdRng` argument, `SEED` and `ITERATIONS` from the environment, the failing seed printed), and `#[gpui_kit::property_test]` runs proptest with the scheduler's seed as one of the inputs. Proptest shrinks a failing input; plain seeds give a few hundred steps to read by hand. Shrinking is most of "how a failure prints its steps".
+
+- **`property_test` doesn't compile at the pin.** It passes proptest's attribute `proptest_path`, which `proptest-macro` 0.6 (proptest 1.12) reads; the lock has proptest 1.11.0 and `proptest-macro` 0.5.0, which panics on it ("unexpected token, expected `;`"), even on `fn f(x: u8)`, and so does proptest's own attribute given the path. Bumping proptest in `Cargo.lock` would fix it, a lock change outside the gpui family's own crates for one macro.
+- **What the macro does is a few lines by hand,** with what gpui-kit already exports (`gpui_kit::proptest`, `seed_strategy`, `apply_seed_to_proptest_config`, `run_test_once`, `TestAppContext::build`): a plain `#[test]` runs proptest's `TestRunner` over `(any::<u64>(), steps)`, a scheduler seed and the steps, and each case runs `run_test_once(seed, …)` on a fresh `TestAppContext`. A spike did this over `copy/tests.rs`' `Sheet` (a window, held reads, scrolls, jumps, answers, copies, cancels): it ran, and a forced failure shrank to a short input printed with its scheduler seed. No new dependency: proptest is in the lock through gpui-kit's `test-support`, with `std` on (so `PROPTEST_CASES` and the other variables work).
+- **What the spike showed to set:** the steps must be `vec(step, 0..=n)`, a range, or the length can't shrink (a fixed 200 shrank only the steps' values); the shrink was capped at 32 iterations, too few for a few hundred steps, so the test sets `max_shrink_iters` and a `max_shrink_time`; `failure_persistence: None`, since a failure becomes a scenario test of its own (the hardening's rule: `PLAN.md`), not a regressions file in `src/`.
+- **Replay:** `apply_seed_to_proptest_config` seeds proptest from `SEED` (0 when unset), so a plain run tries the same cases every time and a failure recurs on a rerun; `SEED=<n>` tries another set. The scheduler's seed is drawn per case with `any::<u64>()`, not `seed_strategy()`: with `SEED` set, that returns `Just(SEED)`, one task order for every case of the run, so a soak of 4 `SEED`s would try 4 orders. The minimal input prints with its scheduler seed, so its scenario test replays it through `run_test_once(seed, …)`.
+
+### The source
+
+The paging fixture's `Script` (reads answered when the scenario says) and `copy/tests.rs`' `Source` (values of row, column, and version, so a copy's text can be checked) merged, and wider:
+
+- **Values** are a function of the row, the column, the row's version, and its era. `invalidate_rows` bumps the version of its rows (with `live`, a page drawn from an older version is allowed: "as drawn"); a `set_rows` that cuts rows bumps their era (a row drawn or copied from a read made before its rows were cut is never allowed). The era is what makes the shrink by more than a page visible: today the pages past the new end come back, grown, with their old era.
+- **Answers:** an `answer` step picks an open read by index (`k % open`), so a step means the same thing whatever's open, which shrinking needs. It answers with the page (a cancelled read too: it won the race), fails it (`read_failure` or not), or refuses it (a ready `Failed` when sent, as a source that won't take the query). Never `Cancelled` for a read the table didn't cancel: the delegate's docs reserve it for a cancel, and the cache keeps such a read's page loading. Some reads answer when sent, as a source with the rows in hand (a ready future: with `live`, a re-read lands in the same turn).
+- **Requests:** ids that never repeat, a counter, as DuckDB's `RequestId` and the bare host's are. The trait asked only `Copy + PartialEq` and said nothing of reuse, and `copy_answered`'s comment named a source whose ids are a page's first row, which a cache read and a copy read of one visible page would share while both are open: `cancel(request)` names neither, and `finished` drops every draining entry equal to an answer's request (`retain`) where `copy_answered` frees one, so one answer would free two places. Settled the other way (2026-10-28): an id is never reused for the table's life, which the trait's docs say, so the test's source never repeats one. Rejected: ids recycled once answered (a free list), and repeats supported, which would ask the table to tell apart reads a cancel can't name, for a source nobody has.
+- **What it logs:** each read's page, rows, request, who asked (the cache, a re-read, or a copy, from the cache's own books at the step), whether it was cancelled, and its answer, so an invariant reads the source's truth, not the cache's counters.
+
+### The steps
+
+Each a small enum value whose arguments are taken modulo what they index, cfg'd with its feature, so every run of the test recipe builds the steps its features have. Weights are a starting mix for the build to tune by what the steps reach (the spike's: answers about half the steps).
+
+- **The reader:** a wheel (a few rows to a few pages, up or down), a sideways wheel, Home and End, `jump_to` a row, `scroll_to_fraction`, a scrollbar drag (pressed, moved, resting past `drag_settle`, released), and waits on the test clock (past `scroll_settle` and `drag_settle`, or short of them).
+- **The source:** `set_rows` growing, shrinking within the last page, and shrinking by more than a page (then growing back), `retry_failed`, and `set_columns` (it cancels a copy).
+- **`live`:** `invalidate_rows` over visible, prefetched, and unloaded rows. **`follow`:** `follow`, and the reader's moves that let go of it (a wheel up, Home).
+- **`select` and `copy`:** a selection (rows, columns, cells, possibly past the loaded pages), `copy` (the host's: no key limit), Cmd+C (the key: `Declined` past its limit), `cancel_copy`, Escape, and a second copy over a running one. Each case draws its `CopyOptions` (sometimes a cap small enough for `TooLarge`).
+- **`close`,** rarely, after which the case keeps answering reads and stepping, and checks only invariant 3 (and 6's exemption): a closed table's places are never freed (`close` cancels the cache's reads without moving them to `draining`, and its answers are dropped unread), so the places and the stall don't apply.
+- **A frame** (`window.draw`), so what happens in render happens (`take_refreshed`, the tail drawn, `Filled`); the spike drew after every step, and drawing only on a frame step saved ~20%, so frames are steps of their own.
+- **A drain,** sometimes and always at the end: answer every read (with the page) and advance the clock past the settles, until no read is open and nothing is waiting.
+
+**Each case draws its `Paging`:** `page_rows` 8 to 64, the viewport 20 rows (the window's), the rows up to ~40 pages, `prefetch` 0 to 2, `max_in_flight` 1 to 4, a budget of 2 to 12 pages' bytes (so eviction runs), the settle times at their defaults (the steps' waits pick around them); 2 to 6 columns, sometimes enough for a page to take two of the copy's turns (`TURN_CELLS`).
+
+### The invariants
+
+Checked after every step, once the executor is parked (an answer's task has run), until `close` (after it, only 3):
+
+1. **Places.** The cache's places (`in_flight` + `draining` + `copy_reads`) equal the source's open reads, cancelled ones included. Equal, not at most: one place more is a leak (the first review's), one fewer a read the cache has forgotten (an answer that freed two places). And the open reads never pass `max_in_flight`.
+2. **One read a page,** at the step a read is sent: no two open reads of a page that aren't cancelled, unless one is the copy's and the page is visible after that step. Checked when the second read goes out, not after: a page the cache read in view and the reader then moved into prefetch is still wanted, so neither read is cancelled, and that's right.
+3. **Nothing after `close`:** no read sent, and every open read cancelled.
+4. **The budget:** after every step, the loaded pages' bytes are what the cache counts; right after a step a page landed in, past the budget only pages wanted then (or being re-read) stay. Eviction runs only at a landing, so a move that leaves loaded pages unwanted can sit over budget until the next one, and that's right.
+5. **Rows drawn are of their era:** every visible row drawn as loaded holds its current era (and, without `live`, its current version).
+6. **Every copy ends,** after a drain: each `Started` has its `Copied` or `Failed`, unless `close` came first; one copy runs at a time.
+7. **A copy's text:** a `Copied` copy's text is the TSV of its rows and columns, each row of its current era, the rows from one page of one version, a version the source served for that page.
+8. **Nothing stalls,** after a drain: every visible row is loaded or failed, and no copy waits. This is the stall the second review found (an end that freed a place without planning it).
+
+### The controls
+
+Each a test-only fault (a `Control`, as the fixtures' are) that the test must catch within its cases in the all-on run:
+
+- **The places leak** (the first review's): a copy's read that answers after the copy has moved past its page doesn't free its place. Caught by 1.
+- **Copy and prefetch on one page** (the first review's second): `copy_wants` ignores `loading`. Caught by 2.
+- **An end without a plan** (the second review's): a copy's end frees its place without planning. Caught by 8.
+- **The limit:** `plan` counts the draining reads out of `max_in_flight`. Caught by 1.
+- **A failed read that doesn't end its copy.** Caught by 6.
+- **A turn that takes a page by rows it doesn't hold** (`holding` without its end). Caught by 7.
+- **`close` that leaves a copy's reads out.** Caught by 3.
+- **No eviction when a re-read lands.** Caught by 4.
+- **A shrink that doesn't clamp the page it ends in** (`live`: the page keeps its old `end`, so grown back, its rows past the shrink draw from the read before the cut). Caught by 5.
+- **The shrink's old rule,** once it's fixed: pages past the new end kept. Caught by 5, and the paging fixture's new scenario's control too. The cache's `Control` is only `cfg(all(test, feature = "live"))` today and `paging.json`'s controls only `paging`, `live`, and `follow`: this one is the base's, so the fix widens the `Control` to `cfg(test)` and gives the fixture a `cache` kind of control.
+
+### What a run costs
+
+Native debug tests, all features on, this machine: the spike's steps cost about 8 ms each (10 with two draws a step), the table's own work more than the drawing, so the test is counted in steps. `just tall-table test`'s all-on run takes 39 s wall, set by `selection_controls_fail` (33.5 s; the rest run beside it), so a random test up to ~25 s adds nothing to it. That's about 3,000 steps: 16 cases of up to 300 (150 on average). The other nine runs (fewer features, cheaper steps, no 33 s test) take 8 cases. A soak (before the hardening closes, and after any change to the paging) runs a release build with debug assertions and overflow checks on (`CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`, `…_OVERFLOW_CHECKS=true`), several `SEED`s × many cases. The spike's steps ran ~1.4 ms each there (20 cases of 200 in 6.2 s), ~6× the debug build, after a ~10 min build (the workspace's release profile, LTO and all). So 4 `SEED`s × 500 cases (~300 k steps) is ~7 min once built, a `just tall-table soak` recipe; its build makes the whole soak a run to ask about before (root `CLAUDE.md`, the 20-minute rule) when the release build isn't cached.
+
+### What it leaves out
+
+- **`resize`'s and `select`'s pointer paths** (bands, drag-selects): they don't reach the paging but through `scroll_by`, which the wheel steps drive; their fixtures cover them.
+- **The paint** (`custom-cells`): built in the all-on run, so a frame draws it, but nothing paints differently by timing; `live`'s flash compares a landing re-read's rows, which the era and version steps reach.
+- **Browsers:** the native test runs GPUI's test platform; the smoke checks stay the browsers' check.

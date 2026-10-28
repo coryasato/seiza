@@ -263,3 +263,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - The wide heap's growth came out at the reads in flight almost exactly (7.0 MiB against 7.8 for two 500-column pages), and the narrow shape's not at all: wasm memory grown once stays, so a copy's heap cost shows only where its pages are larger than anything the view had held.
 - Throttled, a scroll during a copy lost more frames in the narrow shape (27 → 43% late) than in the wide (54 → 55%): the wide scroll alone already misses most frames, probably leaving the copy's turns little more to take.
 - The manual check couldn't select a range past the loaded pages by hand: a Shift+press far away has to get there first, and scrolling there reads the pages between. It took `?perf`'s `__tallTableSelect` in the console. The bare host's Cmd+Shift+C (the host's copy) showed no refusal in the manual check either; raising the key's limit (`?copy-key-cells=`) refused a plain Cmd+C at the cap instead.
+
+## Hardening (part A, 2026-10-28)
+
+**Results:** none measured (a spike's timings are in the root's `docs/research/tall-table-features.md`, "Hardening").
+
+**Surprises:**
+- GPUI's `#[property_test]` is exported at the pin and doesn't compile: it passes `proptest_path`, which the locked `proptest-macro` 0.5.0 doesn't know, and the panic ("expected `;`") reads like a mistake in the test, not the macro. Proptest's own attribute fails the same way. What the macro does is a few lines by hand on what gpui-kit exports.
+- Proptest can't shrink a fixed-length `vec`: a forced failure at step 23 of 200 came back with all 200, and the default shrink stopped at 32 iterations.
+- Drawing isn't a step's cost: drawing only on a frame step saved ~20% of ~10 ms. The table's own work in a debug build is.
+- Reading the cache for the test's invariants found a gap in the contract before any test ran: `finished` drops every draining entry equal to an answer's request, where `copy_answered` frees one and its comment names a source whose ids repeat (a page's first row). Two cancelled reads under one id would free two places with one answer. The trait never says whether ids may repeat while their reads are open, and no source the repo has repeats them.
+- The code review found the spec's invariants checked a rule at the wrong moment: places after `close` (a closed table never frees them), a page read twice judged by where the view is now rather than when the read went out, the budget between landings (the cache evicts only at one). An invariant read off the cache's state has to hold whenever it's checked, and the table's own rules hold at events. It also found `seed_strategy()` gives every case one task order once `SEED` is set, so a soak by `SEED` would have tried four.
