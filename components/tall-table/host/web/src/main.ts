@@ -10,13 +10,14 @@ import type { Shown } from './probe.ts';
 type Global = { __tallTable?: Shown; __tallTableFollowing?: boolean; __seizaFrameSample?: () => Partial<Shown> & { following?: boolean } };
 
 // Each frame's view, for `shared-web/perf/`'s `frameRecorder` and
-// `presentedRecorder`; with `follow`, whether the table follows.
+// `presentedRecorder`; with `follow`, whether the table follows; with
+// `sort`, the order.
 (globalThis as Global).__seizaFrameSample = () => {
   const g = globalThis as Global;
   const shown = g.__tallTable;
   if (!shown) return {};
-  const { top, first, end, loaded, pending, scrollX } = shown;
-  return { top, first, end, loaded, pending, scrollX, following: g.__tallTableFollowing };
+  const { top, first, end, loaded, pending, scrollX, sort } = shown;
+  return { top, first, end, loaded, pending, scrollX, sort, following: g.__tallTableFollowing };
 };
 
 void boot({ init: () => init({ module_or_path: wasmUrl }), start, fontUrl, wasmUrl });

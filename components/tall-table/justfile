@@ -48,7 +48,9 @@ size *args:
 # edge out 200 px and back, twice, a move every 8 ms), and with `select`
 # built a select-all standing under the scroll and flings and a
 # drag-select (a row a move to the last visible cell and back, round
-# trips for about 2 s, a move every 8 ms), reference + throttled, cold, median of 10. Per-frame work from Chromium's trace,
+# trips for about 2 s, a move every 8 ms), and with `sort` built the
+# scroll and flings again with a column sorted, reference + throttled,
+# cold, median of 10. Per-frame work from Chromium's trace,
 # cross-checked by `workRecorder`; late frames; frame intervals; visible
 # cells. --runs, --shape, --profile, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
@@ -87,6 +89,17 @@ follow *args:
 copy *args:
     node {{component_dir}}/perf/copy.ts {{args}}
 
+# `sort` in the bare host's release build, per shape, reference and
+# throttled, cold, median of 10: a click on a float column's arrow through
+# its cycle (--cycles, 3), its order computed beforehand, → the first frame
+# drawing the new arrow and → the first filled frame at the top; with
+# reads answered at once, held --delay ms (200) with nothing out, and held
+# with three reads out at the click (the new top page waiting for the
+# first to drain). --runs, --shape, --profile, --label. Run
+# `just tall-table build sort` first.
+sort *args:
+    node {{component_dir}}/perf/sort.ts {{args}}
+
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
 # one), and with each feature built runs its own checks (with `resize`, a
@@ -94,7 +107,9 @@ copy *args:
 # `select`, presses, a drag, and keys selecting, and the tint, in both;
 # with `copy`, copies pasted back and compared with the source in both,
 # reads held past 5 s and about a minute, a copy finishing in the
-# background, cancels, the cap, and an insecure context).
+# background, cancels, the cap, and an insecure context; with `sort`, the
+# arrows clicked through their cycles in both, with the glyphs and the
+# icons, the drawn order checked against the source, and opened sorted).
 # --browsers. Run `just tall-table build` first.
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}

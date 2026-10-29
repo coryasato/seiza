@@ -287,20 +287,33 @@ impl<D: TallTableDelegate> TallTableState<D> {
         (self.column_info[index].sortable && column.width >= CELL_PADDING + room).then_some(room)
     }
 
+    /// Column `index`'s arrow box (laid out as `column`), if it draws one:
+    /// its left from the column's left edge, and its width.
+    pub(super) fn arrow_box(&self, index: usize, column: &LaidOutColumn) -> Option<(f32, f32)> {
+        self.arrow_room(index, column)?;
+        let box_px = box_width(self.glyphs.arrow_px);
+        Some((column.width - CELL_PADDING / 2.0 - box_px, box_px))
+    }
+
     /// The arrows over the header's cells, each a target of its own: under
     /// `resize`'s bands, beside `select`'s header press.
     pub(super) fn render_arrows(&mut self, cx: &mut Context<Self>) -> Option<Div> {
-        let visible: Vec<(usize, f32)> = self
+        // Each drawn arrow's right edge and box left in the header's cells,
+        // the box as the layout probe reports it (`arrow_box`).
+        let visible: Vec<(usize, f32, f32)> = self
             .visible_columns()
-            .filter(|(index, column)| self.arrow_room(*index, column).is_some())
-            .map(|(index, column)| (index, column.x + column.width - self.scroll_x))
+            .filter_map(|(index, column)| {
+                let (box_x, _) = self.arrow_box(index, column)?;
+                let left = column.x - self.scroll_x;
+                Some((index, left + column.width, left + box_x))
+            })
             .collect();
         #[cfg(test)]
         self.sort_state.drawn.clear();
         // An arrow no longer drawn (scrolled away) never hears the pointer
         // leave or come up: its hover and press are forgotten.
         for state in [&mut self.sort_state.hovered, &mut self.sort_state.pressed] {
-            if state.is_some_and(|index| !visible.iter().any(|(drawn, _)| *drawn == index)) {
+            if state.is_some_and(|index| !visible.iter().any(|(drawn, ..)| *drawn == index)) {
                 *state = None;
             }
         }
@@ -312,7 +325,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let box_px = box_width(self.glyphs.arrow_px);
         let gutter = self.gutter_width();
         let mut arrows = Vec::with_capacity(visible.len());
-        for (index, edge) in visible {
+        for (index, edge, box_left) in visible {
             let direction = self
                 .sort_state
                 .current
@@ -322,7 +335,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 None if self.sort_state.hovered != Some(index) => full.opacity(0.5),
                 _ => full,
             };
-            let box_left = edge - CELL_PADDING / 2.0 - box_px;
             let left = box_left - TARGET_PAD;
             let width = edge - BAND_REACH - left;
             let (glyph, icon) = match (&self.sort_state.icons, direction) {

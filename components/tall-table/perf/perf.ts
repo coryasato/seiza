@@ -21,6 +21,12 @@
 //   nothing (a redraw only when the selection changes), and the trace's
 //   p50 would read those idle frames.
 //
+// Built with `sort`, the scroll and both flings run again with a column
+// sorted (`scroll-sorted`, `fling-sorted`, `hfling-sorted`: the narrow
+// shape's `H`, the wide's first column, descending, through the host's
+// hook, its order computed before the window), against the unsorted ones
+// before them; the sort is undone before the drags.
+//
 // Built with `select`, a select-all (a press on the corner: every column)
 // stands under the scroll and both flings, so the tint draws every frame;
 // between segments it's cleared for Home (which would move only its active
@@ -48,7 +54,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, visibleColumns, type CellStyle, type Layout, type Shape, type Shown , pick } from './harness.ts';
+import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, SORTED_COLUMN, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 const shapes = pick('shape', SHAPES);
@@ -74,12 +80,17 @@ const DRAG_MOVES = 62;
 const DRAG_EVERY_MS = 8;
 const RESIZE = features.includes('resize');
 const SELECT = features.includes('select');
+const SORT = features.includes('sort');
+/** The sorted segments' order: each shape's `SORTED_COLUMN`, descending
+ *  (a float's first click). */
+const SORTED: Record<Shape, Sort> = { narrow: { column: SORTED_COLUMN.narrow, direction: 'descending' }, wide: { column: SORTED_COLUMN.wide, direction: 'descending' } };
 /** Fewer frames drawn during the drag than this fails the run. */
 const MIN_DRAG_FRAMES = 10;
 /** Idle after a segment's view rests, inside its window. */
 const TAIL_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling' | 'resize' | 'select';
+type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select';
+const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select'];
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -194,49 +205,65 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       if (SELECT && (await shown(page)).shown.selection?.kind !== 'columns') failures.push(`the select-all didn't stand through the ${segment}`);
     };
 
-    readings.scroll = await traced(browser, page, layout, async () => {
-      const sent: Promise<void>[] = [];
-      // On a fixed schedule, not awaiting each wheel: Playwright's waits
-      // for the page's handling, which would pace the input by its cost.
-      for (let step = 0; step < SCROLL_STEPS; step++) {
-        sent.push(wheel(page, SCROLL_PX));
-        await page.waitForTimeout(SCROLL_EVERY_MS);
-      }
-      await Promise.all(sent);
-      await filledWhere(page, 'true');
-    });
-    await stood('scroll');
-    await home(page, layout);
-
-    readings.fling = await traced(browser, page, layout, async () => {
-      await fling(page, start.rows, { rowHeight: layout.rowHeight });
-      await filledWhere(page, 's.end === s.rows').catch(() => failures.push("the fling didn't rest at the last row, filled"));
-    });
-    await stood('fling');
-
-    if (shape === 'wide') {
-      await home(page, layout);
-      const last = layout.columns.at(-1)!;
-      const room = last.x + last.width - layout.cellsWidth;
-      readings.hfling = await traced(browser, page, layout, async () => {
-        const wallStart = Date.now();
+    /** The scroll, the fling, and (wide) the sideways fling, each from
+     *  the top, named with `suffix`; the sideways scroll back at 0 after. */
+    const scrollAndFlings = async (suffix: '' | '-sorted') => {
+      readings[`scroll${suffix}`] = await traced(browser, page, layout, async () => {
         const sent: Promise<void>[] = [];
-        let moved = 0;
-        while (Date.now() - wallStart < FLING_MS) {
-          const remaining = FLING_MS - (Date.now() - wallStart);
-          const delta = Math.max(100, ((room - moved) * 16) / Math.max(remaining, 16));
-          sent.push(wheel(page, 0, delta));
-          moved += delta;
-          await page.waitForTimeout(8);
+        // On a fixed schedule, not awaiting each wheel: Playwright's waits
+        // for the page's handling, which would pace the input by its cost.
+        for (let step = 0; step < SCROLL_STEPS; step++) {
+          sent.push(wheel(page, SCROLL_PX));
+          await page.waitForTimeout(SCROLL_EVERY_MS);
         }
-        if (moved < room) sent.push(wheel(page, 0, room - moved));
         await Promise.all(sent);
-        await filledWhere(page, `s.scrollX >= ${room - 1}`).catch(() => failures.push("the sideways fling didn't rest at the last column"));
+        await filledWhere(page, 'true');
       });
-      await stood('hfling');
-      // For the drags after it: Home is vertical, so the sideways fling's
-      // scroll goes back by wheel.
-      if (RESIZE || SELECT) await wheel(page, 0, -(layout.columns.at(-1)!.x + 1_000));
+      await stood(`scroll${suffix}`);
+      await home(page, layout);
+
+      readings[`fling${suffix}`] = await traced(browser, page, layout, async () => {
+        await fling(page, start.rows, { rowHeight: layout.rowHeight });
+        await filledWhere(page, 's.end === s.rows').catch(() => failures.push(`the fling${suffix} didn't rest at the last row, filled`));
+      });
+      await stood(`fling${suffix}`);
+
+      if (shape === 'wide') {
+        await home(page, layout);
+        const last = layout.columns.at(-1)!;
+        const room = last.x + last.width - layout.cellsWidth;
+        readings[`hfling${suffix}`] = await traced(browser, page, layout, async () => {
+          const wallStart = Date.now();
+          const sent: Promise<void>[] = [];
+          let moved = 0;
+          while (Date.now() - wallStart < FLING_MS) {
+            const remaining = FLING_MS - (Date.now() - wallStart);
+            const delta = Math.max(100, ((room - moved) * 16) / Math.max(remaining, 16));
+            sent.push(wheel(page, 0, delta));
+            moved += delta;
+            await page.waitForTimeout(8);
+          }
+          if (moved < room) sent.push(wheel(page, 0, room - moved));
+          await Promise.all(sent);
+          await filledWhere(page, `s.scrollX >= ${room - 1}`).catch(() => failures.push(`the sideways fling${suffix} didn't rest at the last column`));
+        });
+        await stood(`hfling${suffix}`);
+        // For what follows: Home is vertical, so the sideways fling's
+        // scroll goes back by wheel.
+        await wheel(page, 0, -(layout.columns.at(-1)!.x + 1_000));
+      }
+    };
+
+    await scrollAndFlings('');
+    if (SORT) {
+      // Sorted from the top, the order computed before the windows: the
+      // host's source sorts on the main thread, at the order's first sort.
+      await home(page, layout, false);
+      await sortThrough(page, SORTED[shape], 60_000);
+      await home(page, layout);
+      await scrollAndFlings('-sorted');
+      await home(page, layout, false);
+      await sortThrough(page, null);
     }
 
     // Last, so the other segments run as in a build without it; with
@@ -345,7 +372,7 @@ try {
         console.log(`${shape} ${profile.name} ${index + 1}/${RUNS}: ${line.join('; ')}`);
       }
       const summary: Partial<Record<Segment, Record<string, number>>> = {};
-      for (const segment of ['scroll', 'fling', 'hfling', 'resize', 'select'] as Segment[]) {
+      for (const segment of SEGMENTS) {
         const readings = runs.flatMap((reading) => (reading[segment] ? [reading[segment]] : []));
         if (readings.length) summary[segment] = summarize(readings);
       }
@@ -363,7 +390,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

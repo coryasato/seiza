@@ -5,7 +5,8 @@
 //! them lives here: the filled mark (with `live`, the refreshed mark), the
 //! scrollbar's targets, with `follow` the tail mark and the following
 //! flag, with `resize` the widths a resize left, with `select` the
-//! selection, with `copy` the clipboard's writer ([`clipboard`]), and the
+//! selection, with `copy` the clipboard's writer ([`clipboard`]), with
+//! `sort` the order and its mark, and the
 //! probes (`TallTableProbe`, `TallTableLayout`,
 //! `CellProbe`) as JS values on globals a host names.
 //!
@@ -69,6 +70,15 @@ pub struct Publish {
     /// change.
     #[cfg(feature = "select")]
     pub selection: Option<&'static str>,
+    /// The global holding the order (`sort`'s [`TallTableEvent::Sorted`],
+    /// [`js::sort`]), replaced at each change.
+    #[cfg(feature = "sort")]
+    pub sort: Option<&'static str>,
+    /// Set as the order changes (`sort`'s [`TallTableEvent::Sorted`]), in
+    /// the task that changed it (a click's, or `set_sort`'s caller's), after
+    /// the global.
+    #[cfg(feature = "sort")]
+    pub sorted_mark: Option<&'static str>,
 }
 
 impl Publish {
@@ -138,6 +148,15 @@ impl Publish {
                     js::set_global(name, &js::selection(selection.as_ref()));
                 }
             }
+            #[cfg(all(feature = "sort", target_family = "wasm"))]
+            TallTableEvent::Sorted(sort) => {
+                if let Some(name) = self.sort {
+                    js::set_global(name, &js::sort(sort.as_ref()));
+                }
+                if let Some(mark) = self.sorted_mark {
+                    let _ = seiza::marks::mark(mark);
+                }
+            }
             #[cfg(target_family = "wasm")]
             TallTableEvent::Cells(cells) => {
                 if let Some(name) = self.cells {
@@ -156,6 +175,8 @@ pub mod js {
     #[cfg(feature = "select")]
     use seiza_tall_table::{Cell, TallTableSelection};
     use seiza_tall_table::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
+    #[cfg(feature = "sort")]
+    use seiza_tall_table::{Sort, SortDirection};
     use wasm_bindgen::JsValue;
 
     fn set(object: &Object, key: &str, value: JsValue) {
@@ -188,7 +209,8 @@ pub mod js {
 
     /// `{rows, top, first, end, loaded, pending, failed, lastCell, marked,
     /// scrollX, tooltip}`: `top` in rows, `scrollX` in CSS px. With
-    /// `select`, also `selection` ([`selection`]).
+    /// `select`, also `selection` ([`selection`]); with `sort`, `sort`
+    /// ([`sort`]).
     pub fn probe(probe: &TallTableProbe) -> JsValue {
         let object = Object::new();
         set(&object, "rows", number(probe.rows as f64));
@@ -208,6 +230,8 @@ pub mod js {
         set(&object, "tooltip", text(probe.tooltip.as_deref()));
         #[cfg(feature = "select")]
         set(&object, "selection", selection(probe.selection.as_ref()));
+        #[cfg(feature = "sort")]
+        set(&object, "sort", sort(probe.sort.as_ref()));
         object.into()
     }
 
@@ -224,7 +248,8 @@ pub mod js {
     }
 
     /// `[{name, x, width, kind, budget}]`: `budget` is the characters a
-    /// float may take.
+    /// float may take. With `sort`, also `arrow`: its box, `{x, width}` in
+    /// CSS px from the column's left edge, or `null` where none is drawn.
     pub fn columns(columns: &[ColumnProbe]) -> JsValue {
         let list: Array = columns
             .iter()
@@ -235,6 +260,17 @@ pub mod js {
                 set(&object, "width", number(column.width));
                 set(&object, "kind", JsValue::from_str(column.kind));
                 set(&object, "budget", number(column.budget as f64));
+                #[cfg(feature = "sort")]
+                set(
+                    &object,
+                    "arrow",
+                    column.arrow.map_or(JsValue::NULL, |(x, width)| {
+                        let arrow = Object::new();
+                        set(&arrow, "x", number(x));
+                        set(&arrow, "width", number(width));
+                        arrow.into()
+                    }),
+                );
                 JsValue::from(object)
             })
             .collect();
@@ -274,6 +310,23 @@ pub mod js {
         set(&object, "kind", JsValue::from_str(kind));
         set(&object, "anchor", cell(selection.anchor()));
         set(&object, "head", cell(selection.head()));
+        object.into()
+    }
+
+    /// `{column, direction}` or `null`: `direction` is `ascending` or
+    /// `descending`, `column` the column's index.
+    #[cfg(feature = "sort")]
+    pub fn sort(sort: Option<&Sort>) -> JsValue {
+        let Some(sort) = sort else {
+            return JsValue::NULL;
+        };
+        let direction = match sort.direction {
+            SortDirection::Ascending => "ascending",
+            SortDirection::Descending => "descending",
+        };
+        let object = Object::new();
+        set(&object, "column", number(sort.column as f64));
+        set(&object, "direction", JsValue::from_str(direction));
         object.into()
     }
 

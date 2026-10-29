@@ -35,7 +35,20 @@
 // clipboard as it was), a copy that takes about a minute, and one that
 // finishes with another tab in front; and at the machine's LAN address
 // over `http` (an insecure context, no clipboard), the refusal published
-// and no read sent. Chromium is granted `clipboard-read` and
+// and no read sent. Built with `sort`, it runs both shapes again, with the
+// glyphs and with gpui-kit's icons (`?sort-icons`), and sorts by clicks:
+// each column's arrow through its cycle (the narrow shape's `class`, a text
+// column, then `diameter`, a float column mostly NULL; the wide shape's
+// first), the published order and the probe's agreeing, the arrow's box on
+// screen different in each state (dim, hovered, each direction) and dim
+// again at off, and after each click the drawn cells at the top checked
+// against the host's exact values and its own rows: in order, ties by the
+// source's row, NULLs last (a value at the top, and NULLs at the end of
+// `diameter`), and back at off the values the top held before any sort;
+// with `select`, a press beside the arrow still selects the column, and
+// the arrow's selects nothing. And once opened sorted (`?sort=` with `H`
+// descending), the order at the first filled frame. Chromium is granted
+// `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
 // WebKit on macOS writes the system pasteboard, so the run overwrites
 // what was copied there.
@@ -50,7 +63,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, WIDTHS_GLOBAL, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, pixel, selectThrough, selected, shown, sidewaysRoom, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shown } from './harness.ts';
+import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, pixel, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -72,6 +85,13 @@ const follow = builtFeatures().includes('follow');
 const resize = builtFeatures().includes('resize');
 const select = builtFeatures().includes('select');
 const copy = builtFeatures().includes('copy');
+const sort = builtFeatures().includes('sort');
+/** The sort runs: by clicks with the glyphs or the host's icons, or
+ *  opened sorted (`OPEN_SORT`, the narrow shape's `H` descending). */
+type SortRun = 'glyphs' | 'icons' | 'opened';
+const OPEN_SORT: Sort = { column: SORTED_COLUMN.narrow, direction: 'descending' };
+/** The columns each shape's sort run clicks through their cycles. */
+const SORT_COLUMNS: Record<string, number[]> = { narrow: [2, 6], wide: [0] };
 /** The copy runs: `keys` in both shapes, unheld; the rest in the narrow
  *  shape, each read held `HELD_MS` (`MINUTE_HELD_MS` for `minute`), or
  *  (`insecure`) at the LAN address. */
@@ -631,6 +651,151 @@ async function checkCopyInsecure(page: Page, label: string): Promise<string> {
   return `, a copy refused (${state.state}), ${read} reads`;
 }
 
+/** With `sort`: the cells the table drew at the top (or the end) once
+ *  they're the order's (each of `column`'s visible cells the host's exact
+ *  value at its row), checked in `want`'s order: each pair non-decreasing
+ *  ascending, non-increasing descending, ties by the source's row, NULLs
+ *  last: a value first at the top, and at the end (`at`, for a column
+ *  holding NULLs) a NULL last; for none, the values `unsorted` held there
+ *  before any sort. Polls: a frame or two can pass before the cells probe
+ *  shows the new order's. Returns a note. */
+async function checkOrder(page: Page, label: string, what: string, layout: Layout, column: number, want: Sort | null, { at = 'top', unsorted }: { at?: 'top' | 'end'; unsorted?: (string | null)[] } = {}): Promise<string> {
+  const view = await filledWhere(page, at === 'top' ? 's.first === 0 && s.top === 0' : 's.end === s.rows').catch(() => null);
+  if (!view) return failed(`${label}: ${what}: the view didn't rest at the ${at}, filled`) ?? '';
+  // The rows wholly drawn: the partial last one sits under the scrollbar.
+  const rows = Array.from({ length: view.end - view.first }, (_, index) => view.first + index);
+  const exact = await exactTexts(page, rows.map((row) => [row, column]));
+  const expected = exact.map((text) => text ?? 'NULL');
+  let drawn: Cell[] = [];
+  for (let waited = 0; waited < 5_000; waited += 50) {
+    const cells = new Map((await drawnCells(page)).filter((cell) => cell.column === column).map((cell) => [cell.row, cell.exact]));
+    if (rows.every((row, index) => cells.get(row) === expected[index])) {
+      drawn = rows.map((row, index) => ({ row, column, exact: expected[index]!, shown: '' }));
+      break;
+    }
+    await page.waitForTimeout(50);
+  }
+  if (!drawn.length) {
+    const cells = (await drawnCells(page)).filter((cell) => cell.column === column).slice(0, 4);
+    return failed(`${label}: ${what}: the drawn cells of column ${column} aren't the source's at rows ${view.first}–${view.end} (drawn ${JSON.stringify(cells.map((cell) => [cell.row, cell.exact]))}, the source ${JSON.stringify(expected.slice(0, 4))})`) ?? '';
+  }
+  if (!want) {
+    if (!unsorted || unsorted.length !== exact.length) return failed(`${label}: ${what}: ${exact.length} rows at the top, ${unsorted?.length} before any sort`) ?? '';
+    const moved = exact.findIndex((text, index) => text !== unsorted[index]);
+    if (moved >= 0) return failed(`${label}: ${what}: row ${rows[moved]} drew ${JSON.stringify(exact[moved])}, ${JSON.stringify(unsorted[moved])} before any sort`) ?? '';
+    return `${what} the source's order`;
+  }
+  // NULLs last both ways: a NULL-first order passes the pairs below.
+  if (at === 'top' && exact[0] === null) return failed(`${label}: ${what}: a NULL at the top`) ?? '';
+  if (at === 'end' && exact.at(-1) !== null) return failed(`${label}: ${what}: ${JSON.stringify(exact.at(-1))} at the end, not a NULL`) ?? '';
+  const source = await sourceRows(page, rows);
+  const kind = layout.columns[column]!.kind;
+  const compare = (a: string, b: string) => (kind === 'float' ? Number(a) - Number(b) : a < b ? -1 : a > b ? 1 : 0);
+  const sign = want.direction === 'ascending' ? 1 : -1;
+  for (let index = 1; index < rows.length; index++) {
+    const [a, b] = [exact[index - 1]!, exact[index]!];
+    const tie = (a === null && b === null) || (a !== null && b !== null && compare(a, b) === 0);
+    const wrong =
+      a === null && b !== null ? 'a NULL before a value'
+      : tie && source[index - 1]! >= source[index]! ? `a tie out of the source's order (rows ${source[index - 1]}, ${source[index]})`
+      : !tie && a !== null && b !== null && sign * compare(a, b) > 0 ? `out of ${want.direction} order`
+      : null;
+    if (wrong) return failed(`${label}: ${what}: rows ${rows[index - 1]}, ${rows[index]} (${JSON.stringify(a)}, ${JSON.stringify(b)}): ${wrong}`) ?? '';
+  }
+  const ties = rows.slice(1).filter((_, index) => exact[index] === exact[index + 1]).length;
+  const nulls = exact.filter((text) => text === null).length;
+  return `${what} (${JSON.stringify(exact[0])}…${JSON.stringify(exact.at(-1))}${ties ? `, ${ties} ties` : ''}${nulls ? `, ${nulls} NULL` : ''})`;
+}
+
+/** The arrow's box of `column` on screen, as a PNG's base64, once it
+ *  differs from each of `not` (or after 1 s, whatever it is then). */
+async function arrowShot(page: Page, layout: Layout, column: number, not: string[] = []): Promise<string> {
+  const { x, arrow } = layout.columns[column]!;
+  const clip = { x: layout.left + x + arrow!.x, y: layout.top - layout.rowHeight, width: arrow!.width, height: layout.rowHeight };
+  let shot = (await page.screenshot({ clip })).toString('base64');
+  for (let waited = 0; waited < 1_000 && not.includes(shot); waited += 50) {
+    await page.waitForTimeout(50);
+    shot = (await page.screenshot({ clip })).toString('base64');
+  }
+  return shot;
+}
+
+/** Each sort run's dim arrow by browser, shape, and column, with the
+ *  glyphs or the icons: the two must differ. */
+const dimArrows = new Map<string, Partial<Record<SortRun, string>>>();
+
+/** With `sort`: each of the shape's `SORT_COLUMNS` clicked through its
+ *  cycle (a text column ascending first, any other descending), the order
+ *  and the arrow checked at each step. */
+async function checkSort(page: Page, label: string, layout: Layout, shape: string, key: string, sorting: SortRun): Promise<string> {
+  const notes: string[] = [];
+  // Off the arrows, into the body: at the page's corner sits gpui-pre-web's
+  // key textarea, and a move over it never reaches the canvas.
+  const away = () => page.mouse.move(layout.left + 300, layout.top + 300);
+  for (const column of SORT_COLUMNS[shape]!) {
+    const arrow = arrowAt(layout, column, 0);
+    if (!arrow) {
+      failed(`${label}: column ${column} draws no arrow`);
+      continue;
+    }
+    const kind = layout.columns[column]!.kind;
+    // The values at the top before any sort, for off to come back to.
+    const top = await filledWhere(page, 's.first === 0 && s.top === 0');
+    const unsorted = await exactTexts(page, Array.from({ length: top.end - top.first }, (_, index) => [top.first + index, column] as [number, number]));
+    const first = kind === 'text' ? 'ascending' : 'descending';
+    const second = first === 'ascending' ? 'descending' : 'ascending';
+    await away();
+    const dim = await arrowShot(page, layout, column);
+    await page.mouse.move(arrow.x, arrow.y);
+    const hovered = await arrowShot(page, layout, column, [dim]);
+    if (hovered === dim) failed(`${label}: column ${column}'s arrow drew the same hovered as dim`);
+    const other = dimArrows.get(`${key} ${column}`) ?? {};
+    other[sorting] = dim;
+    dimArrows.set(`${key} ${column}`, other);
+    if (other.glyphs && other.glyphs === other.icons) failed(`${label}: column ${column}'s arrow drew the same with the icons as with the glyphs`);
+    if (select) {
+      // A press beside the arrow selects the column; one on it, nothing.
+      await pressAt(page, { x: layout.left + layout.columns[column]!.x + 8, y: arrow.y });
+      await selected(page, { kind: 'columns', anchor: [0, column], head: [0, column] }).catch(() => failed(`${label}: a press beside column ${column}'s arrow didn't select the column`));
+      await page.keyboard.press('Escape');
+      await selected(page, null).catch(() => failed(`${label}: Escape kept the selection`));
+    }
+    const shots = [dim, hovered];
+    const steps: [string, Sort | null][] = [
+      [first, { column, direction: first }],
+      [second, { column, direction: second }],
+      ['off', null],
+    ];
+    for (const [what, want] of steps) {
+      await pressAt(page, arrow);
+      const done = await sortedAs(page, want).catch(() => null);
+      if (!done) {
+        failed(`${label}: a click on column ${column}'s arrow didn't sort ${JSON.stringify(want)} (probe ${JSON.stringify((await shown(page)).shown.sort ?? null)})`);
+        break;
+      }
+      if (select && (await shown(page)).shown.selection) failed(`${label}: a click on column ${column}'s arrow selected ${JSON.stringify((await shown(page)).shown.selection)}`);
+      notes.push(`${layout.columns[column]!.name} ${await checkOrder(page, label, what, layout, column, want, { unsorted })}`);
+      // NULLs last both ways: at the end, mostly NULL (diameter's).
+      if (want && kind === 'float' && shape === 'narrow') {
+        await page.keyboard.press('End');
+        notes.push(`${await checkOrder(page, label, `${what} at the end`, layout, column, want, { at: 'end' })}`);
+      }
+      await away();
+      if (want) {
+        const shot = await arrowShot(page, layout, column, shots);
+        if (shots.includes(shot)) failed(`${label}: column ${column}'s arrow ${what} drew as an earlier state`);
+        shots.push(shot);
+      } else {
+        const shot = await arrowShot(page, layout, column, shots.slice(1));
+        if (shot !== dim) failed(`${label}: column ${column}'s arrow at off isn't dim as before the cycle`);
+      }
+    }
+    // The End check left the view there; the next column's starts at the top.
+    await page.keyboard.press('Home');
+  }
+  return `, sorted ${notes.join('; ')}`;
+}
+
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
 async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
@@ -687,7 +852,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -698,9 +863,16 @@ try {
       runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, copying: 'keys' as CopyRun })));
       runs.push(...(['held', 'minute', 'background', 'insecure'] as CopyRun[]).map((copying) => ({ ...quiet, shape: 'narrow' as const, copying })));
     }
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}`;
+    if (sort) {
+      runs.push(...SHAPES.flatMap((shape) => (['glyphs', 'icons'] as SortRun[]).map((sorting) => ({ ...quiet, shape, sorting }))));
+      runs.push({ ...quiet, shape: 'narrow', sorting: 'opened' });
+    }
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}`;
       const params: Record<string, string> = { shape };
+      if (sorting) params['probe-cells'] = '';
+      if (sorting === 'icons') params['sort-icons'] = '';
+      if (sorting === 'opened') params.sort = `${OPEN_SORT.column},${OPEN_SORT.direction === 'ascending' ? 'asc' : 'desc'}`;
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
       if (feed) params.live = String(LIVE_RATE);
       if (feed && flashing) params['probe-cells'] = '';
@@ -734,6 +906,18 @@ try {
           const chose = await checkSelect(page, label, layout, start);
           if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
           console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${chose}`);
+          continue;
+        }
+        // The sort runs too, from the first screen.
+        if (sorting) {
+          const sorted =
+            sorting === 'opened'
+              ? await sortedAs(page, OPEN_SORT, 5_000)
+                  .then(async () => `, opened ${await checkOrder(page, label, 'sorted', layout, OPEN_SORT.column, OPEN_SORT)}`)
+                  .catch(() => failed(`${label}: not sorted ${JSON.stringify(OPEN_SORT)} at open`) ?? '')
+              : await checkSort(page, label, layout, shape, `${name} ${shape}`, sorting);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${sorted}`);
           continue;
         }
         // The copy runs too, from the first screen.

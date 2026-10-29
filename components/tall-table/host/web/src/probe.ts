@@ -12,6 +12,15 @@ export interface Shown {
   scrollX: number;
   /** With `select`: what's selected. */
   selection?: Selection | null;
+  /** With `sort`: the order the rows are read in. */
+  sort?: Sort | null;
+}
+
+/** With `sort`, as `tall-table-bridge`'s `js::sort` writes it: the
+ *  column's index among the table's columns. */
+export interface Sort {
+  column: number;
+  direction: 'ascending' | 'descending';
 }
 
 /** With `select`, as `tall-table-bridge`'s `js::selection` writes it and
@@ -29,7 +38,9 @@ export interface Layout {
   top: number;
   rowHeight: number;
   cellsWidth: number;
-  columns: { name: string; x: number; width: number; kind: string; budget: number }[];
+  /** With `sort`, each column's `arrow`: its box in CSS px from the
+   *  column's left edge, `null` where none is drawn. */
+  columns: { name: string; x: number; width: number; kind: string; budget: number; arrow?: { x: number; width: number } | null }[];
 }
 
 /** A drawn cell, as `tall-table-bridge`'s `js::cells` writes it: with

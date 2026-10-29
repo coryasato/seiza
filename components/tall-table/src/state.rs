@@ -1918,12 +1918,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     columns: self
                         .columns
                         .iter()
-                        .map(|column| ColumnProbe {
+                        // The index is `sort`'s alone (clippy's
+                        // `unused_enumerate_index` without it).
+                        .zip(0..)
+                        .map(|(column, _index)| ColumnProbe {
                             name: column.name.to_string(),
                             x: column.x,
                             width: column.width,
                             kind: column.kind.as_str(),
                             budget: column.budget,
+                            #[cfg(feature = "sort")]
+                            arrow: self.arrow_box(_index, column),
                         })
                         .collect(),
                 }));

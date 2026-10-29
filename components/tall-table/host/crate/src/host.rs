@@ -60,6 +60,13 @@ pub const WIDTHS_GLOBAL: &str = "__tallTableWidths";
 #[cfg(feature = "select")]
 pub const SELECTION_GLOBAL: &str = "__tallTableSelection";
 
+/// The order, `{column, direction}` or `null`, replaced at each change,
+/// and the mark set as it changes (`sort`'s `Sorted`).
+#[cfg(feature = "sort")]
+pub const SORTED_GLOBAL: &str = "__tallTableSorted";
+#[cfg(feature = "sort")]
+pub const SORTED_MARK: &str = "tall-table:sorted";
+
 /// What became of the last copy (`copy`), as `tall-table-bridge`'s
 /// `clipboard::Outcome::to_js` writes it, replaced at each step.
 #[cfg(feature = "copy")]
@@ -74,14 +81,21 @@ pub const COPIED_MARK: &str = "tall-table:copied";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 
-/// The scripts' hooks with `?perf` (`copy`): `__tallTableExact(row,
-/// column)`, a value's exact text (`null` for NULL); `__tallTableSelect(kind,
+/// The scripts' hooks with `?perf` (`copy` or `sort`):
+/// `__tallTableExact(row, column)`, a value's exact text (`null` for NULL)
+/// at a row of the order read now. With `copy`: `__tallTableSelect(kind,
 /// anchorRow, anchorColumn, headRow, headColumn)`, the table's `select`
 /// (`kind` `rows`, `columns`, `cells`, or anything else for none), the
-/// table focused as a press would; `__tallTableClose()`, the table's `close`, told to the clipboard's writer;
-/// and `__tallTableHeap()`, the wasm heap's bytes (its memory, which never
-/// shrinks).
-#[cfg(all(feature = "copy", target_family = "wasm"))]
+/// table focused as a press would; `__tallTableClose()`, the table's
+/// `close`, told to the clipboard's writer; and `__tallTableHeap()`, the
+/// wasm heap's bytes (its memory, which never shrinks). With `sort`:
+/// `__tallTableSort(column, direction)`, the table's `set_sort`
+/// (`direction` `ascending` or `descending`, anything else for none;
+/// `false`, and nothing sent, for a column that isn't one), and
+/// `__tallTableSourceRow(row)`, the source's own row at a row of the order
+/// read now; and `__tallTableDrained()`, the reads cancelled in flight so
+/// far.
+#[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
 const EXACT_HOOK: &str = "__tallTableExact";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 const HEAP_HOOK: &str = "__tallTableHeap";
@@ -89,6 +103,12 @@ const HEAP_HOOK: &str = "__tallTableHeap";
 const SELECT_HOOK: &str = "__tallTableSelect";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 const CLOSE_HOOK: &str = "__tallTableClose";
+#[cfg(all(feature = "sort", target_family = "wasm"))]
+const SORT_HOOK: &str = "__tallTableSort";
+#[cfg(all(feature = "sort", target_family = "wasm"))]
+const SOURCE_ROW_HOOK: &str = "__tallTableSourceRow";
+#[cfg(all(feature = "sort", target_family = "wasm"))]
+const DRAINED_HOOK: &str = "__tallTableDrained";
 
 // gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
 // `assets`), for `?sort-icons`: bundled whichever the page draws, so the
@@ -194,9 +214,16 @@ impl Host {
         // The drawn cells and their paint, for the smoke check
         // (`?probe-cells`), never in a perf run: building them costs every
         // frame. Only with the feature, so the base host is unchanged.
-        #[cfg(not(all(feature = "custom-cells", target_family = "wasm")))]
+        // With `sort` too, whose smoke check reads the drawn order.
+        #[cfg(not(all(
+            any(feature = "custom-cells", feature = "sort"),
+            target_family = "wasm"
+        )))]
         let probe_cells = false;
-        #[cfg(all(feature = "custom-cells", target_family = "wasm"))]
+        #[cfg(all(
+            any(feature = "custom-cells", feature = "sort"),
+            target_family = "wasm"
+        ))]
         let probe_cells = probing && seiza::url::has_param("probe-cells");
         #[cfg(not(feature = "custom-cells"))]
         let columns = shape.columns();
@@ -235,6 +262,10 @@ impl Host {
             widths: Some(WIDTHS_GLOBAL),
             #[cfg(feature = "select")]
             selection: Some(SELECTION_GLOBAL),
+            #[cfg(feature = "sort")]
+            sort: Some(SORTED_GLOBAL),
+            #[cfg(feature = "sort")]
+            sorted_mark: Some(SORTED_MARK),
         };
         // The table emits while its frame renders, so GPUI runs this in the
         // task that presents it, and the mark lands right after the frame.
@@ -265,9 +296,19 @@ impl Host {
             let options = seiza_tall_table::CopyOptions::default();
             table.update(cx, |table, _| table.set_copy_options(options));
         }
-        #[cfg(all(feature = "copy", target_family = "wasm"))]
+        #[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
         if probing {
-            script_hooks(table.read(cx).delegate().exact(), window, cx);
+            let rows = table.read(cx).delegate();
+            let source = Source {
+                exact: Box::new(rows.exact()),
+                #[cfg(feature = "sort")]
+                source_row: Box::new(rows.source_row()),
+                #[cfg(feature = "sort")]
+                columns: table.read(cx).columns().len(),
+                #[cfg(feature = "sort")]
+                drained: Box::new(rows.drained_reads()),
+            };
+            script_hooks(source, window, cx);
         }
         // A jump's highlight over painted cells, for its screenshot.
         #[cfg(all(feature = "custom-cells", target_family = "wasm"))]
@@ -278,6 +319,17 @@ impl Host {
         #[cfg(all(feature = "sort", target_family = "wasm"))]
         if seiza::url::has_param("sort-icons") {
             table.update(cx, |table, cx| table.set_sort_icons(Some(sort_icons()), cx));
+        }
+        // Sorted from the start, before the first frame: the order computed
+        // first (`sort`, `?sort=<column>,<asc|desc>`).
+        #[cfg(all(feature = "sort", target_family = "wasm"))]
+        if let Some(sort) = seiza::url::param("sort")
+            .and_then(|sort| parse_sort(&sort, table.read(cx).columns().len()))
+        {
+            // Every column sortable and the column in range: the table
+            // refuses nothing, and the source's refusal leaves its order,
+            // which the scripts read.
+            table.update(cx, |table, cx| drop(table.set_sort(Some(sort), cx)));
         }
         // Following from the start, before the first frame (a log view).
         #[cfg(feature = "follow")]
@@ -355,34 +407,78 @@ impl Host {
     }
 }
 
-/// Publishes the scripts' hooks (`?perf`, `copy`): [`EXACT_HOOK`],
-/// [`HEAP_HOOK`], [`SELECT_HOOK`], [`CLOSE_HOOK`]. The last two enter GPUI through its
-/// foreground executor, so they've happened by the next turn.
-#[cfg(all(feature = "copy", target_family = "wasm"))]
-fn script_hooks(
-    exact: impl Fn(u64, usize) -> Option<String> + 'static,
-    window: &mut Window,
-    cx: &mut Context<Host>,
-) {
-    use seiza_tall_table::TallTableSelection;
+/// `?sort=`'s `<column>,<asc|desc>` (`sort`), for a column of the
+/// `columns`: `None` for anything else, which the table's own refusal
+/// would meet with a debug assertion.
+#[cfg(all(feature = "sort", target_family = "wasm"))]
+fn parse_sort(sort: &str, columns: usize) -> Option<seiza_tall_table::Sort> {
+    use seiza_tall_table::{Sort, SortDirection};
+    let (column, direction) = sort.split_once(',')?;
+    let direction = match direction {
+        "asc" => SortDirection::Ascending,
+        "desc" => SortDirection::Descending,
+        _ => return None,
+    };
+    let column = column.parse().ok().filter(|column| *column < columns)?;
+    Some(Sort::new(column, direction))
+}
+
+/// What the scripts' hooks read of the source (`MemoryRows::exact`, with
+/// `sort` `MemoryRows::source_row`).
+#[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
+struct Source {
+    exact: Box<dyn Fn(u64, usize) -> Option<String>>,
+    #[cfg(feature = "sort")]
+    source_row: Box<dyn Fn(u64) -> u64>,
+    /// The table's columns, every one sortable (`sort`).
+    #[cfg(feature = "sort")]
+    columns: usize,
+    #[cfg(feature = "sort")]
+    drained: Box<dyn Fn() -> u64>,
+}
+
+/// Publishes the scripts' hooks (`?perf`, `copy` or `sort`):
+/// [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`], [`SELECT_HOOK`], and
+/// [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`], [`SOURCE_ROW_HOOK`], and
+/// [`DRAINED_HOOK`]. Those
+/// that change the table enter GPUI through its foreground executor, so
+/// they've happened by the next turn.
+#[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
+fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
     use wasm_bindgen::closure::Closure;
 
     let set = |name, hook: wasm_bindgen::JsValue| tall_table_bridge::js::set_global(name, &hook);
+    let Source {
+        exact,
+        #[cfg(feature = "sort")]
+        source_row,
+        #[cfg(feature = "sort")]
+        columns,
+        #[cfg(feature = "sort")]
+        drained,
+    } = source;
     set(
         EXACT_HOOK,
-        Closure::<dyn Fn(f64, f64) -> Option<String>>::new(move |row: f64, column: f64| {
+        // `null` for NULL: wasm-bindgen would answer `None` as `undefined`.
+        Closure::<dyn Fn(f64, f64) -> wasm_bindgen::JsValue>::new(move |row: f64, column: f64| {
             exact(row as u64, column as usize)
+                .map_or(wasm_bindgen::JsValue::NULL, |text| text.as_str().into())
         })
         .into_js_value(),
     );
+    #[cfg(feature = "sort")]
+    {
+        set(
+            SOURCE_ROW_HOOK,
+            Closure::<dyn Fn(f64) -> f64>::new(move |row: f64| source_row(row as u64) as f64)
+                .into_js_value(),
+        );
+        set(
+            DRAINED_HOOK,
+            Closure::<dyn Fn() -> f64>::new(move || drained() as f64).into_js_value(),
+        );
+    }
     type Update = Box<dyn FnOnce(&mut Host, &mut Window, &mut Context<Host>)>;
-    set(
-        HEAP_HOOK,
-        Closure::<dyn Fn() -> f64>::new(|| {
-            core::arch::wasm32::memory_size::<0>() as f64 * 65_536.0
-        })
-        .into_js_value(),
-    );
     let (app, host, handle) = (cx.to_async(), cx.weak_entity(), window.window_handle());
     let enter = move |update: Update| {
         let (mut cx, host) = (app.clone(), host.clone());
@@ -394,6 +490,61 @@ fn script_hooks(
             })
             .detach();
     };
+    #[cfg(feature = "sort")]
+    {
+        let on_sort = enter.clone();
+        set(
+            SORT_HOOK,
+            Closure::<dyn Fn(f64, String) -> bool>::new(move |column: f64, direction: String| {
+                use seiza_tall_table::{Sort, SortDirection};
+                let direction = match direction.as_str() {
+                    "ascending" => Some(SortDirection::Ascending),
+                    "descending" => Some(SortDirection::Descending),
+                    _ => None,
+                };
+                // A whole column in range, or nothing is sent: the table's
+                // own refusal is a debug assertion.
+                let sort = match direction {
+                    None => None,
+                    Some(direction) => {
+                        if column.fract() != 0.0 || !(0.0..columns as f64).contains(&column) {
+                            return false;
+                        }
+                        Some(Sort::new(column as usize, direction))
+                    }
+                };
+                on_sort(Box::new(move |host, _, cx| {
+                    // Every column sortable: only the source can refuse,
+                    // and its refusal leaves the order, which the scripts
+                    // read.
+                    host.table
+                        .update(cx, |table, cx| drop(table.set_sort(sort, cx)));
+                }));
+                true
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "copy")]
+    copy_hooks(set, enter);
+}
+
+/// `copy`'s hooks: [`HEAP_HOOK`], [`SELECT_HOOK`], [`CLOSE_HOOK`].
+#[cfg(all(feature = "copy", target_family = "wasm"))]
+fn copy_hooks(
+    set: impl Fn(&'static str, wasm_bindgen::JsValue),
+    enter: impl Fn(Box<dyn FnOnce(&mut Host, &mut Window, &mut Context<Host>)>) + Clone + 'static,
+) {
+    use seiza_tall_table::TallTableSelection;
+    use wasm_bindgen::closure::Closure;
+
+    set(
+        HEAP_HOOK,
+        Closure::<dyn Fn() -> f64>::new(|| {
+            core::arch::wasm32::memory_size::<0>() as f64 * 65_536.0
+        })
+        .into_js_value(),
+    );
     let on_select = enter.clone();
     set(
         SELECT_HOOK,

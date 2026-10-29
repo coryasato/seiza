@@ -61,6 +61,17 @@ export const WIDTHS_GLOBAL = '__tallTableWidths';
  *  selected (`Selection`, or `null`), replaced at each change. */
 export const SELECTION_GLOBAL = '__tallTableSelection';
 
+/** With `sort` (`host/crate/src/host.rs`): the order (`Sort`, or `null`),
+ *  replaced at each change, and the mark set as it changes, in the task
+ *  that changed it (a click's). */
+export const SORTED_GLOBAL = '__tallTableSorted';
+export const SORTED_MARK = 'tall-table:sorted';
+/** The column each shape's sort scripts sort by (`perf.ts`'s sorted
+ *  segments, `sort.ts`'s clicks, `smoke.ts`'s opened run): the narrow
+ *  shape's `H` and the wide's first, floats, so a click sorts descending
+ *  first. */
+export const SORTED_COLUMN: Record<Shape, number> = { narrow: 5, wide: 0 };
+
 /** With `copy` (`host/crate/src/host.rs`): what became of the last copy
  *  (`CopyState`), replaced at each step; set as a copy starts (in the
  *  key's task), as its text is all in, and as the browser wrote it. */
@@ -97,16 +108,19 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, CopyState, Layout, Selection, Shown } from '../host/web/src/probe.ts';
-import type { Cell, CopyState, Layout, Selection, Shown } from '../host/web/src/probe.ts';
+export type { Cell, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+import type { Cell, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
 
 type Global = {
   __tallTable?: Shown;
   __tallTableLayout?: Layout;
   __tallTableCells?: Cell[];
   __tallTableCopy?: CopyState;
-  /** With `copy` and `?perf` (`host/crate/src/host.rs`, `script_hooks`). */
+  /** With `copy` or `sort` and `?perf` (`host/crate/src/host.rs`, `script_hooks`). */
   __tallTableExact?: (row: number, column: number) => string | null;
+  __tallTableSort?: (column: number, direction: string) => boolean;
+  __tallTableSourceRow?: (row: number) => number;
+  __tallTableDrained?: () => number;
   __tallTableSelect?: (kind: string, anchorRow: number, anchorColumn: number, headRow: number, headColumn: number) => void;
   __tallTableClose?: () => void;
 };
@@ -268,8 +282,8 @@ export async function selectThrough(page: Page, want: Selection): Promise<void> 
   await selected(page, want);
 }
 
-/** With `copy` and `?perf`: each `[row, column]`'s exact text, `null` for
- *  NULL (the host's source, as a read now answers it). */
+/** With `copy` or `sort` and `?perf`: each `[row, column]`'s exact text,
+ *  `null` for NULL (the host's source, as a read now answers it). */
 export async function exactTexts(page: Page, cells: [number, number][]): Promise<(string | null)[]> {
   return page.evaluate((cells) => cells.map(([row, column]) => (globalThis as Global).__tallTableExact!(row, column)), cells);
 }
@@ -330,4 +344,47 @@ export function parseTsv(text: string): string[][] {
     index++;
   }
   return rows;
+}
+
+/** With `sort`: the middle of column `column`'s arrow box at `scrollX`, in
+ *  the header (CSS px); `null` where it draws none. */
+export function arrowAt(layout: Layout, column: number, scrollX: number): { x: number; y: number } | null {
+  const { x, arrow } = layout.columns[column]!;
+  return arrow ? { x: layout.left + x + arrow.x + arrow.width / 2 - scrollX, y: layout.top - layout.rowHeight / 2 } : null;
+}
+
+/** With `sort`: the probe once its order is `want` (`null` for the
+ *  source's) and the published global agrees. */
+export async function sortedAs(page: Page, want: Sort | null, timeout = 30_000): Promise<Shown> {
+  const handle = await page.waitForFunction(
+    ({ want, name }) => {
+      const g = globalThis as Global & Record<string, unknown>;
+      const s = g.__tallTable;
+      const json = JSON.stringify(want);
+      return s && JSON.stringify(s.sort ?? null) === json && JSON.stringify(g[name] ?? null) === json ? s : false;
+    },
+    { want, name: SORTED_GLOBAL },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Shown;
+}
+
+/** With `sort` and `?perf`: the table's `set_sort`, through the host's
+ *  hook, then the probe agreeing. */
+export async function sortThrough(page: Page, want: Sort | null, timeout = 30_000): Promise<Shown> {
+  const sent = await page.evaluate((want) => (globalThis as Global).__tallTableSort!(want?.column ?? 0, want?.direction ?? 'none'), want);
+  if (!sent) throw new Error(`the host's sort hook refused ${JSON.stringify(want)}: no such column`);
+  return sortedAs(page, want, timeout);
+}
+
+/** With `sort` and `?perf`: the source's own row at each row of the order
+ *  read now. */
+export async function sourceRows(page: Page, rows: number[]): Promise<number[]> {
+  return page.evaluate((rows) => rows.map((row) => (globalThis as Global).__tallTableSourceRow!(row)), rows);
+}
+
+/** With `sort` and `?perf`: the reads the host's source was cancelled in
+ *  flight so far. */
+export async function drainedReads(page: Page): Promise<number> {
+  return page.evaluate(() => (globalThis as Global).__tallTableDrained!());
 }

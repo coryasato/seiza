@@ -57,6 +57,10 @@ pub struct ColumnProbe {
     pub kind: &'static str,
     /// The characters a float may take.
     pub budget: usize,
+    /// Its arrow's box (`sort`), its left from the column's left edge and
+    /// its width; `None` for a column that draws none.
+    #[cfg(feature = "sort")]
+    pub arrow: Option<(f32, f32)>,
 }
 
 /// A drawn cell's value and the text handed to GPUI for it (which GPUI may

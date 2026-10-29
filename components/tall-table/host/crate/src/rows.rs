@@ -11,13 +11,15 @@
 //! after a bump answers new floats (the other columns, and which floats are
 //! NULL, stay put).
 //!
-//! With `follow` or `copy`, the source counts its reads ([`Reads`]) and
-//! publishes the counts as they change, for the tail feed's reads a second
-//! and drained reads, and for a copy's reads. With `copy`, it also answers
-//! a value's exact text for a script ([`MemoryRows::exact`]).
+//! With `follow`, `copy`, or `sort`, the source counts its reads
+//! ([`Reads`]): with the first two it publishes the counts as they change,
+//! for the tail feed's reads a second and drained reads and a copy's reads;
+//! with `sort`, a script reads the reads a sort drains through a hook. With `copy` or `sort`, it also answers a value's exact text for a
+//! script ([`MemoryRows::exact`]), and with `sort` the source's own row at a
+//! row of the order ([`MemoryRows::source_row`]).
 
 use std::borrow::Cow;
-#[cfg(any(feature = "follow", feature = "copy"))]
+#[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
 use std::cell::Cell;
 use std::cell::RefCell;
 #[cfg(any(feature = "live", feature = "sort"))]
@@ -524,9 +526,9 @@ pub struct MemoryRows {
     #[cfg(feature = "live")]
     versions: Rc<RefCell<Versions>>,
     /// The reads it was sent and those cancelled before they resolved
-    /// (`follow`, `copy`).
-    #[cfg(any(feature = "follow", feature = "copy"))]
-    reads: Reads,
+    /// (`follow`, `copy`, `sort`).
+    #[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
+    reads: Rc<Reads>,
     /// The last sorted column's orders (`sort`), by whether each is
     /// descending: computed at the column's first sort in that direction,
     /// kept until another column is sorted. Each is 4 bytes a row (6.3 MB
@@ -540,9 +542,12 @@ pub struct MemoryRows {
     sorted: Rc<RefCell<Option<Rc<[u32]>>>>,
 }
 
-/// What a [`MemoryRows`] was asked (`follow`, `copy`): each count
-/// published on its global as it changes (wasm), for the scripts.
-#[cfg(any(feature = "follow", feature = "copy"))]
+/// What a [`MemoryRows`] was asked (`follow`, `copy`, `sort`): with
+/// `follow` or `copy`, each count published on its global as it changes
+/// (wasm), for the scripts; with `sort` alone, read through a hook
+/// ([`MemoryRows::drained_reads`]), so a perf run's reads cost the page no
+/// call into JS the base's don't.
+#[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
 #[derive(Debug, Default)]
 pub struct Reads {
     sent: Cell<u64>,
@@ -550,18 +555,18 @@ pub struct Reads {
 }
 
 /// The reads sent so far, and those cancelled in flight ([`Reads`]).
-#[cfg(any(feature = "follow", feature = "copy"))]
+#[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
 pub const READS_SENT_GLOBAL: &str = "__tallTableReadsSent";
-#[cfg(any(feature = "follow", feature = "copy"))]
+#[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
 pub const READS_DRAINED_GLOBAL: &str = "__tallTableReadsDrained";
 
-#[cfg(any(feature = "follow", feature = "copy"))]
+#[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
 impl Reads {
     fn count(counter: &Cell<u64>, global: &str) {
         counter.set(counter.get() + 1);
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(any(feature = "follow", feature = "copy"), target_family = "wasm"))]
         tall_table_bridge::js::set_global(global, &(counter.get() as f64).into());
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(not(all(any(feature = "follow", feature = "copy"), target_family = "wasm")))]
         let _ = global;
     }
 
@@ -588,8 +593,8 @@ impl MemoryRows {
             pending: Rc::default(),
             #[cfg(feature = "live")]
             versions: Rc::default(),
-            #[cfg(any(feature = "follow", feature = "copy"))]
-            reads: Reads::default(),
+            #[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
+            reads: Rc::default(),
             #[cfg(feature = "sort")]
             orders: HashMap::new(),
             #[cfg(feature = "sort")]
@@ -597,15 +602,16 @@ impl MemoryRows {
         }
     }
 
-    /// Its read counts (`follow`, `copy`).
-    #[cfg(any(feature = "follow", feature = "copy"))]
+    /// Its read counts (`follow`, `copy`, `sort`).
+    #[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
     pub fn reads(&self) -> &Reads {
         &self.reads
     }
 
-    /// Reads each value's exact text (`copy`), as a read now would answer
-    /// it: `None` for NULL. What a script compares a copy's paste with.
-    #[cfg(feature = "copy")]
+    /// Reads each value's exact text (`copy`, `sort`), as a read now would
+    /// answer it: `None` for NULL. What a script compares a copy's paste,
+    /// or a sort's drawn cells, with.
+    #[cfg(any(feature = "copy", feature = "sort"))]
     pub fn exact(&self) -> impl Fn(u64, usize) -> Option<String> + 'static {
         let shape = self.shape;
         #[cfg(feature = "live")]
@@ -633,6 +639,22 @@ impl MemoryRows {
         }
     }
 
+    /// The reads cancelled in flight so far, as they change (`sort`): what a
+    /// script counts a sort's drained reads by.
+    #[cfg(feature = "sort")]
+    pub fn drained_reads(&self) -> impl Fn() -> u64 + 'static {
+        let reads = self.reads.clone();
+        move || reads.drained()
+    }
+
+    /// The source's own row at each row of the order read now (`sort`):
+    /// what a script reads a sort's ties by.
+    #[cfg(feature = "sort")]
+    pub fn source_row(&self) -> impl Fn(u64) -> u64 + 'static {
+        let sorted = self.sorted.clone();
+        move |row| at_position(sorted.borrow().as_deref(), row)
+    }
+
     /// The table's row `row` changed (`live`): a page read from now on
     /// answers its new floats. With `sort`, `row` is a position in the order
     /// read now, so the row bumped is the one there.
@@ -658,7 +680,7 @@ impl TallTableDelegate for MemoryRows {
         let request = self.next_request;
         self.next_request = self.next_request.wrapping_add(1);
         self.pending.borrow_mut().insert(request);
-        #[cfg(any(feature = "follow", feature = "copy"))]
+        #[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
         Reads::count(&self.reads.sent, READS_SENT_GLOBAL);
         let pending = self.pending.clone();
         let shape = self.shape;
@@ -700,11 +722,11 @@ impl TallTableDelegate for MemoryRows {
     /// the race.
     fn cancel(&mut self, request: u32, _: &mut App) {
         #[cfg_attr(
-            not(any(feature = "follow", feature = "copy")),
+            not(any(feature = "follow", feature = "copy", feature = "sort")),
             expect(unused_variables)
         )]
         let in_flight = self.pending.borrow_mut().remove(&request);
-        #[cfg(any(feature = "follow", feature = "copy"))]
+        #[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
         if in_flight {
             Reads::count(&self.reads.drained, READS_DRAINED_GLOBAL);
         }
