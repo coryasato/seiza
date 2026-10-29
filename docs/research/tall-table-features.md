@@ -498,3 +498,90 @@ Native debug tests, all features on, this machine: the spike's steps cost about 
 - **`resize`'s and `select`'s pointer paths** (bands, drag-selects): they don't reach the paging but through `scroll_by`, which the wheel steps drive; their fixtures cover them.
 - **The paint** (`custom-cells`): built in the all-on run, so a frame draws it, but nothing paints differently by timing; `live`'s flash compares a landing re-read's rows, which the era and version steps reach.
 - **Browsers:** the native test runs GPUI's test platform; the smoke checks stay the browsers' check.
+
+---
+
+## `sort`
+
+Researched 2026-10-29, from `DataTable`'s sort in gpui-component 0.8.0 (`src/table/state.rs`, `perform_sort` and `render_sort_icon`; `src/table/column.rs`, `ColumnSort`; `src/table/delegate.rs`, `TableDelegate::perform_sort`), the table's paging (`src/pages.rs`: `set_rows`, `forget`, `loaded`) and header (`render_header`, `select`'s `target_at`), the DuckDB source (`engines/duckdb/crate/src/tall_table.rs`, `ParquetFile::page_sql`), TanStack Table's sorting (`manualSorting`, `getAutoSortDir`, `sortDescFirst`, `enableSortingRemoval`), the bundled UI face's character map (`shared-web/fonts/IBMPlexSans-Regular.ttf`), and a spike: native DuckDB 1.4.5 over the asteroids and Gaia files, each way a source could answer a sorted page timed (the numbers: the table's [`perf/results/2026-10-29-m8-a-spike.md`](../../components/tall-table/perf/results/2026-10-29-m8-a-spike.md)).
+
+### What asks for it
+
+- **Tycho:** a query's result sorted by a click on a column, as every data grid does; Tycho adopts every feature, and sorting is the last of its core three (resize, select and copy, sort).
+- **The observatory:** hasn't asked. TanStack Table sorts (with `manualSorting`, since a client-side sort holds every row), so a sort level could be built on both sides once a scenario wants one; none of the five does today.
+
+### What `DataTable` does
+
+- **The model:** each `Column` carries `sort: Option<ColumnSort>` (`None`: not sortable; `Default`, `Ascending`, `Descending`), and the table's `sortable` turns them all off. A click cycles the clicked column `Default` → `Descending` → `Ascending` → `Default` and sets every other sortable column to `Default`, so one column sorts at a time; then it calls the delegate's `perform_sort(col_ix, sort)`, which reorders the rows it holds, and redraws. No event.
+- **What's drawn:** an icon button at a sortable header's right, 0.75 rem with 2 px of padding (`ChevronsUpDown` at half opacity when unsorted, `SortAscending` or `SortDescending` when on), with a hover and an active background. The rest of the header is the column's selection (`on_col_head_click`) and its drag (`col_movable`). `fit_col`'s docs ask a header measurement to count the icon's room.
+- **Nothing to reuse but the shape.** Its rows are in memory and its sort is the delegate's in place; the tall table holds a few pages, so the order has to come from the source. Its icons are SVG assets (`IconName::SortAscending`, …), which a host brings through its own asset source: the table depends on gpui-kit alone and can't count on them. `ColumnSort` folds "not sorted" into the column's state, which a table sorting one column at a time doesn't need per column.
+
+### The order
+
+What the table asks of a source, whatever answers it:
+
+- **One column, ascending or descending, or none** (the source's own order). Multi-column sorting stays a candidate (`PLAN.md`, "Beyond `DataTable`").
+- **A row index is a position in the order.** Page *k* is the order's rows `k × page_rows` up, read as every page is (`load_page`, by index): the cache, prefetch, `jump_to`, the scrollbar, and `copy` work unchanged.
+- **A total order, so pages read apart join up:** ties in the source's own order, in both directions (a stable sort: descending isn't ascending reversed), and NULLs last in both directions, as spreadsheets and DuckDB's default (`NULLS LAST`) put them. Without the tie-break a source answering `ORDER BY … LIMIT … OFFSET` page by page could repeat or skip rows across pages; the spike's queries all end in `file_row_number` (or `rowid`) for that reason. How values compare is the source's (its type's order, its collation): the table only names the column and the direction.
+
+### The delegate's calls
+
+The question the PLAN put: the table asks for rows by index, and a source that pages by row-group range (`file_row_number`) can't answer a sorted order that way. Three ways were weighed for how the order reaches the source:
+
+- **The sort in every `load_page`** (a parameter): changes the trait's signature for every source and every build, with or without the feature. Rejected.
+- **The host's:** the table draws the arrows and emits the click; the host prepares its source, changes its query (`delegate_mut`), and calls the table to re-read. TanStack's `manualSorting` is this shape. It keeps the trait as it is, but leaves each host to get the swap right (reads of the old order in flight, a copy running, the selection), and the random test can't reach any of it. Rejected.
+- **A delegate call, `sort`** (chosen): the table tells its source the new order, then forgets its pages and reads the new order's, as it reads any page. One call, synchronous: from its return every `load_page` reads the new order; reads out when it's called are cancelled right after and their answers dropped, whatever they hold (the cache stores an answer only for the read its slot is waiting on, `PageCache::loaded`, so an old read winning its cancel's race is dropped today). It returns a refusal (`Err`) when the source can't sort that column: the table keeps its order and says so. A default refuses every sort and accepts going back to none, so a delegate written before the feature compiles with it on and is never silently wrong (an arrow over unsorted rows).
+
+**No preparation step in the API.** A source that needs one (an index, a sorted copy: below) starts it in `sort` and holds its first reads until it's done; the table shows placeholders meanwhile, as for any read in flight, and its first filled frame after the sort is the sorted view. Weighed: a future the table awaits before it swaps, keeping the old rows drawn under a pending arrow. It shows rows in an order about to vanish, needs a pending state, a cancel of a preparation, and a second kind of read in the cache's books, for the same click → rows time. The placeholders say what's true: the new order is loading.
+
+### What a source does to answer
+
+The source's cost, measured by the engine when an app adopts the feature; what the spike says it will be, natively (DuckDB 1.4.5, one thread, the files on a local disk), so the table's design can be checked against it:
+
+- **Each page its own `ORDER BY … LIMIT 1024 OFFSET k`:** no preparation, but every page sorts the column again, and the deeper the page the longer: on the asteroids 48–119 ms at the top, 558–660 ms at the middle, 710–1,037 ms at 90%; on Gaia 2.4–2.6 s for the top page alone. Fine for the first page after a click (a top-N), not for paging.
+- **An index:** one query writes the order as row numbers (`CREATE TABLE … AS SELECT file_row_number … ORDER BY …`: 129–209 ms on the asteroids, ~20 MiB; 1.9 s on Gaia), and each page joins its slice of the index to the rows. Over rows already in DuckDB's memory (Tycho's CSV, copied into in-memory tables) a page took 7–43 ms. Over a Parquet file, a sorted page's rows are scattered through every row group, so the join reads every group's columns: 17–102 ms natively from a warm disk, but over HTTP the whole file each page (22.8 MB for the asteroids, 1.57 GB for Gaia), unless DuckDB's file cache holds it.
+- **A sorted copy:** the rows written once in order into a compressed in-memory table (1.1 s and ~35 MiB on the asteroids), then paged by `rowid` (1–2 ms a page). It reads the whole file once and holds it in memory: fine for the asteroids, not for Gaia (at the asteroids' ratio, ~1.5× the Parquet file, about 2.4 GB, past Tycho's 1.5 GiB DuckDB budget, `apps/tycho/crate/src/csv.rs`'s `MEMORY_BUDGET`).
+
+So a source's sort ranges from a tenth of a second to impossible: in memory, an index; a Parquet file that fits the memory budget, a sorted copy (its first page answered by a top-N while the copy builds, if the wait shows); a file past it, refused, with the reason for the host to show ("sorting reads the whole file: 1.5 GB"). That's why `sort` can refuse, and why a host can mark a column unsortable up front. None of it holds the result in the app's memory (Tycho's rule 3): the table still holds a few pages, and what a source holds is in DuckDB.
+
+### What a sort does to the table
+
+A sort changes which row every index means, so everything the table keeps by index goes or moves:
+
+- **The pages:** every page forgotten, its read cancelled (draining as any cancelled read does; with `live`, re-reads too, and the invalidations with their pages); a flash on screen cleared (`live` with `custom-cells`: its cell is another row now). The cancelled reads hold their places (`max_in_flight`) until they answer, as after a jump, so on a source that can't stop a started read (DuckDB-Wasm) the new order's top page waits for them: a sort made while reads are out costs up to an old read more. Measured with reads held out, and said in the README.
+- **The view goes to the top** (row 0; the sideways scroll kept): a sort is clicked to see the order's start, and the top page is the one a source answers first (a top-N). `DataTable` keeps the scroll, but its rows reorder in place and a short table shows the top anyway; at 25 M rows, staying at 47% shows the middle of the order. With `follow`, following lets go, as a landing at the top does.
+- **The selection:** a `Columns` range stays (columns don't move), its anchor's and head's rows moved to the top, where the view is: kept, they'd be rows of the old order, and the next key would scroll back to one; `Rows` and `Cells` ranges are cleared (`Selected(None)`). Kept as positions, as Excel keeps a range, a selection made of three rows would now hold three other rows, and a Cmd+C would copy those. The jump's highlight goes too. Hover and the tooltip reset.
+- **A copy running is cancelled** (`Failed(Cancelled)`), as `set_columns` cancels one: its later pages would come from the new order.
+- **The reads of the new order** are planned once the update that sorted ends, as `copy`'s and `live`'s are, so a host that sorts and does more in one update plans once.
+- **`set_columns`** can't tell whether the sorted column is still there: a `Sort` names it by index, and a column dropped before it moves it. So it keeps the sort only when the column at its index has the name it had and is sortable; otherwise it clears it, as `set_sort(None)` would (the source told, the rows read again). A host that moved the column sorts again by its new index (`reorder` will ask the same of its moves).
+- **`set_rows`** under a sort means the sorted source has that many rows; **`live`'s `invalidate_rows`**, that rows at those positions changed. A change that moves rows within the order is the source's to settle: a host sorts again (`set_sort` with the same sort re-reads everything). The README says so.
+
+### The click
+
+- **Sortable is the host's word.** `DataTable`'s columns aren't sortable until set, and only the host knows its source can sort a column: on by default, a delegate that can't sort would put an arrow on every header, each click refused, and widen every long-named column for it. A table whose columns don't say so lays out as without the feature, so the fixtures pinned without it hold with it built.
+- **An arrow at each sortable header's right,** its own target: `select` owns the rest of the header (a press selects the column) and `resize` its right edge (the band, 4 px inside it), and `reorder` will want the header's drag. One behavior with or without `select`, rather than a header click that sorts until a host turns `select` on.
+- **The cycle, by kind, as TanStack's `getAutoSortDir`:** text ascending first, every other kind (numbers, dates, timestamps, booleans) descending first, then the other direction, then off. A data tool's first wish is usually the largest number or the newest date, and A→Z for names. `DataTable` starts every kind descending. Another column's arrow starts its own cycle; the old column's arrow goes back to unsorted.
+- **No key.** `DataTable` has none, and a header's arrow isn't reachable by the keys today (the keys move the active cell). A host's menu (`context-menu`'s, later) calls `set_sort`.
+
+### What's drawn
+
+- **Text by default, a host's icons if it gives them:** IBM Plex Sans, the web build's one face, has `↑` (U+2191), `↓` (U+2193), and `↕` (U+2195), so the arrow is a glyph shaped as the header's text is: no SVG asset for a host to bring. `↕` when unsorted at half the header's text color (`DataTable`'s half opacity), full on hover; `↑` ascending and `↓` descending, full. A host that wants icons (gpui-kit's `SortAscending`, `SortDescending`, `ChevronsUpDown`, which it bundles with `icon_assets!` as Tycho bundles its theme icons, or its own) passes their asset paths, drawn as `svg()` in the same colors. The table can't see whether a host bundled an asset until it draws (GPUI logs a missing one and draws nothing), but `App::asset_source()` is public, so it loads each path once when they're set and falls back to the glyphs if any fails. GPUI's SVG renderer is linked already (`usvg`, `resvg` in the bare host's wasm), so icons cost the element's code, not a renderer.
+- **Room reserved:** one fixed box for the arrow, the widest of the three glyphs' advances and at least the icon size, the arrow centered in it, plus a gap, counted in a sortable column's name estimate (`column_layout`, at least the header's width) and in `resize`'s fit (as `DataTable`'s docs ask), so neither a click nor icons change a width or move a name. The estimate isn't the shaped width, and a set width (`resize`, down to its minimum) ignores it, so the name's text box ends at the gap and a name that doesn't fit is cut with "…" there; a column too narrow for the box draws no arrow and has no target. A numeric column's name stays right-aligned, against the arrow.
+- **An app's placeholder shell** (an HTML copy of its first frame, in a font subset of printable ASCII and "…") can't draw the arrows: an app whose first frame shows a sortable header adds them to its placeholder font when it adopts the feature.
+
+### Frame-work risk
+
+None to spike: a sortable header draws one more glyph (or one SVG, cached by GPUI as any icon is) in each visible header cell (a dozen at the protocol's 1440 px), the target is one more hit test in the header's press, and a sort is one cache clear and the reads any jump makes. Measured: the scroll and flings with a column sorted against the base, and the click → the first frame showing the new arrow (the table's own work) and → the first filled frame, over a source answering from memory with its order computed beforehand (and with `?delay`, a source's time added).
+
+### Canvas gaps
+
+- **Accessibility:** the sorted column and its direction aren't announced, and the arrow isn't a button a screen reader or the keys can reach. A host's own DOM ("Sorted by H, descending") can say it.
+- Nothing else changes: Ctrl+F and text selection are as before.
+
+### What a DOM contender does
+
+TanStack Table with `manualSorting`: the header's click sets the sorting state (`getAutoSortDir`, then the other, then off), and the page queries change; with the same source the SQL is the same. No level is built until the observatory asks. Two fixtures pin what's the table's, so a contender built later matches: the paging fixture gains a sort step (the source told, every page forgotten and its read cancelled, the view at the top, the top pages read), and a sort fixture pins the cycle by kind and the order (NULLs last and ties in source order, both ways) for a source to check against, run natively against the bare host's in-memory order now and against a source's SQL when one is built.
+
+### What the random test gains
+
+A `sort` step (a column, a direction, or none, over columns made sortable), whose source renumbers its rows under a new permutation and bumps every row's era, so invariant 5 (rows drawn are of their era) catches a page of the old order drawn after the sort, and 7 a copy's text crossing it. Two controls: a sort that keeps the cache's pages, and one that forgets the loaded pages but leaves the reads out in their slots (an old read's answer then stored as the new order's page). A sort clears the cache and cancels reads: a change to the paging, so the build soaks before its code review (the table's `CLAUDE.md`, rule 5).
