@@ -35,6 +35,9 @@ pub struct TallTableColumn {
     pub(crate) max_width: f32,
     #[cfg(feature = "resize")]
     pub(crate) resizable: bool,
+    /// Whether its header has an arrow to sort by it (`sort`).
+    #[cfg(feature = "sort")]
+    pub(crate) sortable: bool,
 }
 
 /// A set width's least and most, unless a column sets its own (`resize`):
@@ -66,7 +69,16 @@ impl TallTableColumn {
             max_width: MAX_WIDTH,
             #[cfg(feature = "resize")]
             resizable: true,
+            #[cfg(feature = "sort")]
+            sortable: false,
         }
+    }
+
+    /// Whether its header has an arrow to sort by it (`sort`): off unless
+    /// set, since the source must be able to sort it.
+    #[cfg(feature = "sort")]
+    pub fn sortable(self, sortable: bool) -> Self {
+        Self { sortable, ..self }
     }
 
     /// Its width, in place of its kind's (`resize`: a width the host kept
@@ -247,9 +259,14 @@ pub(crate) fn digits_width(chars: f32, number_px: f32) -> f32 {
 
 /// Width and cell kind. An integer column fits its widest value at
 /// `number_px` a character. The name's width is estimated at the UI font's
-/// average advance; a longer name is cut. With `resize`, a set width
-/// replaces all that, clamped.
-fn column_layout(column: &TallTableColumn, number_px: f32) -> (f32, CellKind) {
+/// average advance; a longer name is cut. With `sort`, a sortable column's
+/// name has `sort_room` more beside it, for its arrow. With `resize`, a
+/// set width replaces all that, clamped.
+fn column_layout(
+    column: &TallTableColumn,
+    number_px: f32,
+    #[cfg(feature = "sort")] sort_room: f32,
+) -> (f32, CellKind) {
     let digits = |chars: f32| digits_width(chars, number_px);
     let (width, kind) = match column.kind {
         ColumnKind::Boolean => (72.0, CellKind::Text),
@@ -265,19 +282,32 @@ fn column_layout(column: &TallTableColumn, number_px: f32) -> (f32, CellKind) {
         return (f32::from(set), kind);
     }
     let name = column.name.chars().count() as f32 * 7.5 + 24.0;
+    #[cfg(feature = "sort")]
+    let name = if column.sortable {
+        name + sort_room
+    } else {
+        name
+    };
     (width.max(name), kind)
 }
 
-/// Lays `columns` out side by side; also returns their total width.
+/// Lays `columns` out side by side; also returns their total width. With
+/// `sort`, `sort_room` is a sortable header's arrow and its gap.
 pub(crate) fn layout_columns(
     columns: &[TallTableColumn],
     number_px: f32,
+    #[cfg(feature = "sort")] sort_room: f32,
 ) -> (Vec<LaidOutColumn>, f32) {
     let mut x = 0.0;
     let columns = columns
         .iter()
         .map(|column| {
-            let (width, kind) = column_layout(column, number_px);
+            let (width, kind) = column_layout(
+                column,
+                number_px,
+                #[cfg(feature = "sort")]
+                sort_room,
+            );
             // A pixel short of the room, for rounding in the shaped width.
             let budget = ((width - CELL_PADDING - 1.0) / number_px).floor().max(1.0) as usize;
             let laid_out = LaidOutColumn {
@@ -304,9 +334,31 @@ mod tests {
     fn a_name_widens_its_kind() {
         let width = |name: &str| {
             let column = TallTableColumn::new(name, ColumnKind::Float);
-            layout_columns(&[column], 8.4).0[0].width
+            layout_columns(
+                &[column],
+                8.4,
+                #[cfg(feature = "sort")]
+                30.0,
+            )
+            .0[0]
+                .width
         };
         assert_eq!(width("f"), 120.0);
         assert_eq!(width("a long column name"), 159.0);
+    }
+
+    /// A sortable column's name estimate counts its arrow's room; one that
+    /// isn't sortable is laid out as without the feature.
+    #[cfg(feature = "sort")]
+    #[test]
+    fn a_sortable_name_counts_its_arrow() {
+        let width = |column: TallTableColumn| layout_columns(&[column], 8.4, 18.0).0[0].width;
+        let name = "a long column name";
+        assert_eq!(width(TallTableColumn::new(name, ColumnKind::Float)), 159.0);
+        let sortable = TallTableColumn::new(name, ColumnKind::Float).sortable(true);
+        assert_eq!(width(sortable), 177.0);
+        // A kind's width past the name's leaves it as it was.
+        let short = TallTableColumn::new("f", ColumnKind::Float).sortable(true);
+        assert_eq!(width(short), 120.0);
     }
 }

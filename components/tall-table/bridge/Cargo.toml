@@ -25,6 +25,8 @@ select = ["seiza-tall-table/select"]
 # The clipboard's writer for the table's copies (`clipboard::Clipboard`),
 # beside `Publish`, which drops the copy's events.
 copy = ["select", "seiza-tall-table/copy"]
+# The table's sort, forwarded for a host's build.
+sort = ["seiza-tall-table/sort"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

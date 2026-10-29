@@ -121,6 +121,9 @@ struct Glyphs {
     font: Font,
     font_size: Pixels,
     number_px: f32,
+    /// The widest of the sort arrows' advances (`sort`).
+    #[cfg(feature = "sort")]
+    arrow_px: f32,
 }
 
 impl Glyphs {
@@ -134,6 +137,8 @@ impl Glyphs {
             font: font(".SystemUIFont"),
             font_size: px(0.),
             number_px: Self::ESTIMATE,
+            #[cfg(feature = "sort")]
+            arrow_px: 0.0,
         }
     }
 
@@ -157,7 +162,25 @@ impl Glyphs {
             } else {
                 Self::ESTIMATE
             },
+            #[cfg(feature = "sort")]
+            arrow_px: sort::ARROWS
+                .into_iter()
+                .filter_map(|ch| text_system.advance(id, font_size, ch).ok())
+                .map(|advance| f32::from(advance.width))
+                .fold(0.0, f32::max),
         }
+    }
+
+    /// `columns` laid out by these glyphs (with `sort`, a sortable header's
+    /// arrow counted).
+    #[inline(always)]
+    fn lay_out(&self, columns: &[TallTableColumn]) -> (Vec<LaidOutColumn>, f32) {
+        layout_columns(
+            columns,
+            self.number_px,
+            #[cfg(feature = "sort")]
+            sort::room(self.arrow_px),
+        )
     }
 }
 
@@ -312,6 +335,12 @@ pub enum TallTableEvent {
     /// pieces, and its end ([`TallTableState::copy`]).
     #[cfg(feature = "copy")]
     Copy(crate::copy::TallTableCopy),
+    /// The order changed (`sort`), by a click or `set_sort`.
+    #[cfg(feature = "sort")]
+    Sorted(Option<crate::sort::Sort>),
+    /// A click's sort the source refused (`sort`); the order is as it was.
+    #[cfg(feature = "sort")]
+    SortRefused(crate::sort::Sort, crate::sort::SortRefused),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -404,6 +433,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The copy running and the host's options (`copy`).
     #[cfg(feature = "copy")]
     copy_state: copy::CopyState<D::Page, D::Request>,
+    /// The order the rows are read in, and the arrows' state (`sort`).
+    #[cfg(feature = "sort")]
+    pub(crate) sort_state: sort::SortState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -424,7 +456,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx: &mut Context<Self>,
     ) -> Self {
         let glyphs = Glyphs::estimate();
-        let (laid_out, content_width) = layout_columns(&columns, glyphs.number_px);
+        let (laid_out, content_width) = glyphs.lay_out(&columns);
         let mut table = Self {
             delegate,
             column_info: columns,
@@ -476,6 +508,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             selection_state: select::SelectState::default(),
             #[cfg(feature = "copy")]
             copy_state: copy::CopyState::default(),
+            #[cfg(feature = "sort")]
+            sort_state: sort::SortState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -649,9 +683,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ///
     /// With `select`, the selection is cleared (a host keeping it calls
     /// `select` after). With `copy`, a copy running is cancelled.
+    ///
+    /// With `sort`, the sort stays if the column at its index has the name
+    /// it had and is sortable; otherwise it's cleared as `set_sort(None)`
+    /// would (a host that moved the sorted column calls `set_sort` with its
+    /// new index).
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         #[cfg(feature = "copy")]
         self.cancel_copy(cx);
+        #[cfg(feature = "sort")]
+        let sorted = self.sorted_name();
         self.column_info = columns;
         #[cfg(feature = "resize")]
         {
@@ -659,6 +700,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         #[cfg(feature = "select")]
         self.clear_selection_for_columns(cx);
+        #[cfg(feature = "sort")]
+        self.keep_sort(sorted, cx);
         self.lay_out();
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         {
@@ -701,8 +744,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     fn lay_out(&mut self) {
-        (self.columns, self.content_width) =
-            layout_columns(&self.column_info, self.glyphs.number_px);
+        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info);
         self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
         self.hover = None;
         self.layout_generation += 1;
@@ -1487,7 +1529,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 })
                 .collect();
         }
-        #[cfg_attr(not(feature = "select"), expect(unused_variables))]
+        #[cfg(all(test, feature = "sort"))]
+        let header_padding = std::cell::RefCell::new(Vec::new());
+        #[cfg_attr(
+            not(any(feature = "select", feature = "sort")),
+            expect(unused_variables)
+        )]
         let cells = self.visible_columns().map(|(index, column)| {
             let cell = div();
             // A selected column's header, in the selection's tint.
@@ -1498,18 +1545,31 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .is_some_and(|columns| columns.contains(&index)),
                 |cell| cell.bg(theme.table_active),
             );
-            cell.absolute()
+            let cell = cell
+                .absolute()
                 .top_0()
                 .h_full()
                 .left(px(column.x - self.scroll_x))
                 .w(px(column.width))
-                .px_2()
-                .line_height(row_height())
+                .px_2();
+            // A sortable name ends at its arrow's gap (`sort`): after
+            // `px_2`, which sets both sides.
+            #[cfg(feature = "sort")]
+            #[cfg_attr(not(test), expect(unused_mut))]
+            let mut cell = cell.when_some(self.arrow_room(index, column), |cell, room| {
+                cell.pr(px(CELL_PADDING / 2.0 + room))
+            });
+            // The padding the cell ends up with, for the tests.
+            #[cfg(all(test, feature = "sort"))]
+            header_padding
+                .borrow_mut()
+                .push((index, cell.style().padding.right));
+            cell.line_height(row_height())
                 .when(column.kind.numeric(), |cell| cell.text_right())
                 .truncate()
                 .child(column.name.clone())
         });
-        div()
+        let header = div()
             .relative()
             .flex_shrink_0()
             .h(row_height())
@@ -1526,7 +1586,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .right(Scrollbar::width())
                     .overflow_hidden()
                     .children(cells),
-            )
+            );
+        #[cfg(all(test, feature = "sort"))]
+        {
+            self.sort_state.header_padding = header_padding.into_inner();
+        }
+        header
     }
 
     fn render_body(&mut self, cx: &mut Context<Self>) -> Div {
@@ -1830,6 +1895,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 scroll_x: self.scroll_x,
                 #[cfg(feature = "select")]
                 selection: self.selection_state.current,
+                #[cfg(feature = "sort")]
+                sort: self.sort_state.current,
                 tooltip: self
                     .hover
                     .as_ref()
@@ -2216,6 +2283,9 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             self.selection_state.focused = self.focus_handle.is_focused(window);
         }
         let header = self.render_header(cx);
+        // Under the bands, which stay the edge's.
+        #[cfg(feature = "sort")]
+        let header = header.children(self.render_arrows(cx));
         #[cfg(feature = "resize")]
         let header = header.child(self.render_bands(cx));
         let body = self.render_body(cx);
@@ -2266,6 +2336,10 @@ pub(crate) mod select;
 /// `copy`: the keys, the reads beside the cache, the turns, and the events.
 #[cfg(feature = "copy")]
 pub(crate) mod copy;
+
+/// `sort`: the arrows, their cycle, and what a sort does.
+#[cfg(feature = "sort")]
+pub(crate) mod sort;
 
 #[cfg(test)]
 mod tests {

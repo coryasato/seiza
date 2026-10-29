@@ -9,7 +9,7 @@ use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::*;
 
 use super::{TallTableEvent, TallTableState, shown_text};
-use crate::column::{CELL_PADDING, digits_width, layout_columns};
+use crate::column::{CELL_PADDING, digits_width};
 use crate::delegate::{CellValue, TallTableDelegate, TallTablePage as _};
 use crate::pages::RowState;
 
@@ -104,8 +104,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         info.width = set;
         // Laid out without `lay_out`'s generation bump: the release
         // reports the layout. The scroll holds (`content_width`).
-        (self.columns, self.content_width) =
-            layout_columns(&self.column_info, self.glyphs.number_px);
+        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info);
         cx.notify();
     }
 
@@ -163,6 +162,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
             (self.text_width(text.into(), window) + CELL_PADDING + 1.0).ceil()
         };
         let mut widest = shaped(CellValue::Text(laid_out.name.as_ref().into()));
+        // A sortable header's arrow and its gap beside the name (`sort`).
+        #[cfg(feature = "sort")]
+        if info.sortable {
+            widest += super::sort::room(self.glyphs.arrow_px);
+        }
         for row in self.scroll.visible() {
             let RowState::Loaded(page, index) = self.cache.row(row) else {
                 continue;

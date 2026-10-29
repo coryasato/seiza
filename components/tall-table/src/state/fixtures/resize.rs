@@ -35,7 +35,12 @@ fn resize_mismatches(skew: isize, column: fn(f32) -> TallTableColumn) -> Vec<Str
         "the fixture's max is the default"
     );
     let laid_out = |set: f32| {
-        let (mut columns, _) = layout_columns(&[column(set)], number_px);
+        let (mut columns, _) = layout_columns(
+            &[column(set)],
+            number_px,
+            #[cfg(feature = "sort")]
+            0.0,
+        );
         let mut column = columns.remove(0);
         column.budget = (column.budget as isize + skew).max(1) as usize;
         column
@@ -87,7 +92,12 @@ fn resize_fixture_number_px_gives_the_budgets() {
     let number_px = fixture["number_px"].as_f64().expect("number_px") as f32;
     for column in fixture["columns"].as_array().expect("columns") {
         let width = column["width"].as_f64().expect("width") as f32;
-        let (laid_out, _) = layout_columns(&[float_at(width)], number_px);
+        let (laid_out, _) = layout_columns(
+            &[float_at(width)],
+            number_px,
+            #[cfg(feature = "sort")]
+            0.0,
+        );
         assert_eq!(
             laid_out[0].budget as u64,
             column["budget"].as_u64().expect("budget"),
@@ -120,7 +130,16 @@ fn resize_controls_fail() {
 
 #[test]
 fn a_kind_width_until_set() {
-    let width = |column: TallTableColumn| layout_columns(&[column], 8.4).0[0].width;
+    let width = |column: TallTableColumn| {
+        layout_columns(
+            &[column],
+            8.4,
+            #[cfg(feature = "sort")]
+            0.0,
+        )
+        .0[0]
+            .width
+    };
     // A kind's width isn't clamped: a one-character integer column stays
     // under the min, at its name's estimated width.
     let narrow = TallTableColumn::new("i", ColumnKind::Integer { max_chars: 1 });

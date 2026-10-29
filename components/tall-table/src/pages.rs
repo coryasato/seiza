@@ -204,6 +204,14 @@ pub(crate) enum Control {
     /// A shrink into a page that stays leaves its end as it was.
     #[cfg(feature = "live")]
     ShrinkUnclamped,
+    /// `sort`'s: a sort keeps every page (the paging fixture's and the
+    /// random test's).
+    #[cfg(feature = "sort")]
+    SortKeepsPages,
+    /// A sort forgets the loaded pages but leaves the reads out in their
+    /// slots (the random test's).
+    #[cfg(feature = "sort")]
+    SortKeepsReads,
 }
 
 /// Outside the tests, no control.
@@ -472,6 +480,32 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
             }
             Slot::Failed(_) => None,
         }
+    }
+
+    /// Forgets every page (`sort`: each index means another row now), as a
+    /// shrink forgets the pages past its end: a loaded one's bytes freed,
+    /// every read out for one moved to `draining` and returned to cancel,
+    /// in page order. An answer to one is dropped, whatever it holds.
+    #[cfg(feature = "sort")]
+    pub fn forget_all(&mut self) -> Vec<R> {
+        #[cfg(test)]
+        let keep_reads = match self.control {
+            Control::SortKeepsPages => return Vec::new(),
+            control => control == Control::SortKeepsReads,
+        };
+        #[cfg(not(test))]
+        let keep_reads = false;
+        let mut pages: Vec<u64> = self
+            .slots
+            .iter()
+            .filter(|(_, slot)| !(keep_reads && matches!(slot, Slot::Loading { .. })))
+            .map(|(page, _)| *page)
+            .collect();
+        pages.sort_unstable();
+        pages
+            .into_iter()
+            .filter_map(|page| self.forget(page))
+            .collect()
     }
 
     /// Whether `page` is loaded: a read of it now is a re-read (`live`).

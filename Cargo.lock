@@ -7155,6 +7155,7 @@ dependencies = [
  "gpui-kit",
  "seiza",
  "seiza-tall-table",
+ "serde_json",
  "tall-table-bridge",
  "wasm-bindgen",
 ]

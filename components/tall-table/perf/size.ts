@@ -49,6 +49,8 @@ const FEATURES: Record<string, string | string[]> = {
   select: ['seiza_tall_table9selection', 'seiza_tall_table5state6select'],
   // Copying: the text's module and the state's `copy` module.
   copy: ['seiza_tall_table4copy', 'seiza_tall_table5state4copy'],
+  // Sorting: the order's types and the state's `sort` module.
+  sort: ['seiza_tall_table4sort', 'seiza_tall_table5state4sort'],
 };
 
 /** A feature that turns on another is measured against it too, and the

@@ -27,6 +27,9 @@ pub struct TallTableProbe {
     /// What's selected (`select`).
     #[cfg(feature = "select")]
     pub selection: Option<crate::TallTableSelection>,
+    /// The order the rows are read in (`sort`).
+    #[cfg(feature = "sort")]
+    pub sort: Option<crate::Sort>,
 }
 
 /// Where the cells are, in window pixels. Reported when it changes (the

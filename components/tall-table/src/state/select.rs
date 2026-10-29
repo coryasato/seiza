@@ -346,6 +346,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.replace_selection(cut, cx);
     }
 
+    /// A sort moved every row (`sort`): a `Rows` or `Cells` selection goes
+    /// (kept as positions, it would be other rows); a `Columns` one stays,
+    /// its anchor's and head's rows at the top, so the keys go on from the
+    /// view.
+    #[cfg(feature = "sort")]
+    pub(super) fn sort_selection(&mut self, cx: &mut Context<Self>) {
+        let kept = self
+            .selection_state
+            .current
+            .filter(|selection| selection.kind() == Kind::Columns)
+            .map(|selection| selection.with((0, selection.anchor().1), (0, selection.head().1)));
+        self.selection_state.jump_selected = false;
+        self.replace_selection(kept, cx);
+    }
+
     /// The columns were replaced: the selection goes, a drag with it.
     pub(super) fn clear_selection_for_columns(&mut self, cx: &mut Context<Self>) {
         self.replace_selection(None, cx);

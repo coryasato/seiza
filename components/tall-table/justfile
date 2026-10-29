@@ -107,8 +107,10 @@ smoke *args:
 # `resize`: the drag, the fit, and the cell fixture's resize section;
 # `select`: the selection fixture, the presses, drag, keys, and drawing;
 # `copy`, which turns on `select`: the text, the keys, the reads beside
-# the cache, the turns, the cap, and the cancels), and all on (`copy`'s
-# with `live` among them); in each, the random test of the paging with that
+# the cache, the turns, the cap, and the cancels; `sort`: the cycle and
+# the order fixture, the arrows, the refusals, what a sort does, and the
+# paging fixture's sort scenario), and all on (`copy`'s with `live`
+# among them); in each, the random test of the paging with that
 # run's features (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
@@ -122,7 +124,8 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/resize
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/select
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/copy
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/sort
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort
 
 # The random test of the paging soaked: `cases` cases for each of `seeds`
 # (`SEED`: a different set of cases each), every feature on, in a release
@@ -133,7 +136,7 @@ soak seeds="1 2 3 4" cases="500":
     for seed in {{seeds}}; do \
         SEED=$seed PROPTEST_CASES={{cases}} \
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy state::random::random_paging || exit 1; \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort state::random::random_paging || exit 1; \
     done
 
 # Writes fixtures/paint.json's expected colors from Chromium's

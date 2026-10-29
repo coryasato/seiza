@@ -26,7 +26,8 @@
     { "name": "follow whenever at the end", "follow": "follow-at-end" },
     { "name": "never let go for the reader", "follow": "follow-ignores-reader" },
     { "name": "pin the view to the rows, not the loaded tail", "follow": "pin-to-rows" },
-    { "name": "plan the visible pages top first while following", "follow": "top-first" }
+    { "name": "plan the visible pages top first while following", "follow": "top-first" },
+    { "name": "keep the pages through a sort", "sort": "keep-pages" }
   ],
   "scenarios": [
     {
@@ -478,6 +479,28 @@
         { "open": true, "expect": ["load 0"] },
         { "scroll": 3000, "expect": ["load 2", "load 1"], "following": true, "bottom": 2060, "why": "Past the end: clamped to it, rows 2032..2060." },
         { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a sort reads the new order from the top",
+      "features": ["sort"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "scroll": 1000, "expect": ["load 3", "load 4", "load 5"], "why": "As in the first scenario: rows 1000..1028, leaning ahead." },
+        { "sort": { "column": 0, "direction": "descending" }, "expect": ["sort 0 descending", "cancel 3", "cancel 4", "cancel 5"], "why": "The source is told first; then every page is forgotten and every read out cancelled, one decision. The view goes to the top, but the cancelled reads hold every place until they answer." },
+        { "answer": [3], "expect": ["load 0"], "why": "A place is free: the new order's top page. Page 3's answer is dropped (it answers as cancelled here; a page would be dropped too)." },
+        { "answer": [4], "expect": [], "why": "No prefetch while the visible page loads." },
+        { "answer": [0], "expect": ["load 1", "load 2"], "why": "A sort isn't a scroll, so prefetch doesn't lean: pages 1 and 2, the two places page 5's draining read leaves." },
+        { "answer": [5], "expect": [], "why": "The last cancelled read answers: nothing more is wanted." },
+        { "answer": "all", "expect": [] },
+        { "sort": { "column": 0, "direction": "descending" }, "expect": ["sort 0 descending", "load 0"], "why": "The same sort again re-reads every row: the pages are forgotten, and the top page read once the step's update ends." },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "sort": null, "expect": ["sort none", "load 0"], "why": "Back to the source's own order, the same way." },
+        { "answer": "all", "expect": ["load 1", "load 2"] }
       ]
     }
   ]

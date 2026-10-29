@@ -90,6 +90,23 @@ const SELECT_HOOK: &str = "__tallTableSelect";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 const CLOSE_HOOK: &str = "__tallTableClose";
 
+// gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
+// `assets`), for `?sort-icons`: bundled whichever the page draws, so the
+// `sort` build holds the icons' code either way.
+#[cfg(feature = "sort")]
+gpui_kit::assets::icon_assets!(pub SortIconAssets, [SortAscending, SortDescending, ChevronsUpDown]);
+
+/// gpui-kit's three sort icons' paths (`sort`, `?sort-icons`).
+#[cfg(all(feature = "sort", target_family = "wasm"))]
+fn sort_icons() -> seiza_tall_table::SortIcons {
+    use gpui_kit::assets::IconName;
+    seiza_tall_table::SortIcons::new(
+        IconName::SortAscending.path(),
+        IconName::SortDescending.path(),
+        IconName::ChevronsUpDown.path(),
+    )
+}
+
 /// The host's key context (`copy`), for its own keys.
 #[cfg(feature = "copy")]
 const HOST_CONTEXT: &str = "TallTableHost";
@@ -256,6 +273,11 @@ impl Host {
         #[cfg(all(feature = "custom-cells", target_family = "wasm"))]
         if let Some(row) = seiza::url::param("jump").and_then(|row| row.parse().ok()) {
             table.update(cx, |table, cx| table.jump_to(row, cx));
+        }
+        // gpui-kit's icons in place of the glyphs (`sort`).
+        #[cfg(all(feature = "sort", target_family = "wasm"))]
+        if seiza::url::has_param("sort-icons") {
+            table.update(cx, |table, cx| table.set_sort_icons(Some(sort_icons()), cx));
         }
         // Following from the start, before the first frame (a log view).
         #[cfg(feature = "follow")]

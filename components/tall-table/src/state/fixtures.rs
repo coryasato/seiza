@@ -40,6 +40,11 @@ mod resize;
 #[cfg(feature = "select")]
 mod select;
 
+/// `sort.json`'s cycle, and the arrows, their target, and what a sort
+/// does, in a window.
+#[cfg(feature = "sort")]
+mod sort;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
@@ -153,6 +158,36 @@ impl TallTableDelegate for Script {
         let page = read.page;
         reads.log.push(format!("cancel {page}"));
     }
+
+    /// Every sort accepted, and logged.
+    #[cfg(feature = "sort")]
+    fn sort(&mut self, sort: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+        let logged = match sort {
+            Some(sort) => format!("sort {} {}", sort.column, direction_name(sort.direction)),
+            None => "sort none".to_string(),
+        };
+        self.reads.borrow_mut().log.push(logged);
+        Ok(())
+    }
+}
+
+/// A direction as the fixtures write it.
+#[cfg(feature = "sort")]
+pub(super) fn direction_name(direction: crate::SortDirection) -> &'static str {
+    match direction {
+        crate::SortDirection::Ascending => "ascending",
+        crate::SortDirection::Descending => "descending",
+    }
+}
+
+/// A fixture's direction.
+#[cfg(feature = "sort")]
+pub(super) fn direction_of(name: &Value) -> crate::SortDirection {
+    match name.as_str() {
+        Some("ascending") => crate::SortDirection::Ascending,
+        Some("descending") => crate::SortDirection::Descending,
+        other => panic!("not a direction: {other:?}"),
+    }
 }
 
 /// `Paging`'s fields, as the fixture names them.
@@ -196,12 +231,21 @@ fn paging_with(mut paging: Paging, fields: &Value) -> Paging {
     paging
 }
 
+/// Whether `scenario` names `feature` among those it needs.
+#[cfg(feature = "sort")]
+fn needs(scenario: &Value, feature: &str) -> bool {
+    scenario["features"]
+        .as_array()
+        .is_some_and(|features| features.iter().any(|named| named == feature))
+}
+
 /// Whether this build has every feature `scenario` needs (`features`) and
 /// none it's skipped under (`without`).
 fn applies(scenario: &Value) -> bool {
     let built = |feature: &Value| match feature.as_str() {
         Some("live") => cfg!(feature = "live"),
         Some("follow") => cfg!(feature = "follow"),
+        Some("sort") => cfg!(feature = "sort"),
         other => panic!("a scenario names an unknown feature: {other:?}"),
     };
     let features = |key: &str| scenario[key].as_array().cloned().unwrap_or_default();
@@ -243,8 +287,19 @@ fn follow_control(name: &str) -> super::follow::Control {
     }
 }
 
+/// A `sort` control's way of getting a sort wrong, by its fixture name.
+#[cfg(feature = "sort")]
+fn sort_control(name: &str) -> crate::pages::Control {
+    use crate::pages::Control;
+    match name {
+        "keep-pages" => Control::SortKeepsPages,
+        other => panic!("unknown sort control {other:?}"),
+    }
+}
+
 /// A control that isn't a paging field: a way of keeping pages (`cache`),
-/// of re-reading (`live`), or of following (`follow`), by its fixture name.
+/// of re-reading (`live`), of following (`follow`), or of sorting (`sort`),
+/// by its fixture name.
 #[derive(Debug, Clone, Copy)]
 enum Wrong<'a> {
     Cache(&'a str),
@@ -252,6 +307,8 @@ enum Wrong<'a> {
     Live(&'a str),
     #[cfg_attr(not(feature = "follow"), expect(dead_code))]
     Follow(&'a str),
+    #[cfg_attr(not(feature = "sort"), expect(dead_code))]
+    Sort(&'a str),
 }
 
 /// What a step may check besides its requests.
@@ -294,15 +351,16 @@ fn run_scenario(
                     reads: reads.clone(),
                     page_rows: paging.page_rows,
                 };
-                let opened = cx.new(|cx| {
-                    TallTableState::new(
-                        delegate,
-                        vec![TallTableColumn::new("value", ColumnKind::Float)],
-                        rows,
-                        paging,
-                        cx,
-                    )
-                });
+                #[cfg_attr(not(feature = "sort"), expect(unused_mut))]
+                let mut column = TallTableColumn::new("value", ColumnKind::Float);
+                // Sortable only where a scenario sorts: the others are
+                // pinned without the feature.
+                #[cfg(feature = "sort")]
+                {
+                    column = column.sortable(needs(scenario, "sort"));
+                }
+                let opened =
+                    cx.new(|cx| TallTableState::new(delegate, vec![column], rows, paging, cx));
                 // The body the first frame measures: `viewport_rows` rows
                 // above the horizontal scrollbar.
                 let bar = f32::from(Scrollbar::width());
@@ -323,6 +381,8 @@ fn run_scenario(
                         Some(Wrong::Live(name)) => table.cache.control = live_control(name),
                         #[cfg(feature = "follow")]
                         Some(Wrong::Follow(name)) => table.follow_control = follow_control(name),
+                        #[cfg(feature = "sort")]
+                        Some(Wrong::Sort(name)) => table.cache.control = sort_control(name),
                         _ => {}
                     }
                 });
@@ -360,6 +420,17 @@ fn run_scenario(
                 });
             }
             "release" => on_table(cx, &table, |table, cx| table.end_drag(cx)),
+            // The table sorted by a column and direction, or `null`.
+            #[cfg(feature = "sort")]
+            "sort" => {
+                let sort = (!argument.is_null()).then(|| {
+                    let column = argument["column"].as_u64().expect("sort: a column") as usize;
+                    crate::Sort::new(column, direction_of(&argument["direction"]))
+                });
+                on_table(cx, &table, |table, cx| {
+                    table.set_sort(sort, cx).expect("the scenario's sort");
+                });
+            }
             // The source now holds that many rows.
             "rows" => {
                 let rows = argument.as_u64().expect("rows: a count");
@@ -558,17 +629,20 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
         .collect();
     for control in fixture["controls"].as_array().expect("controls") {
         // A paging field changed, or a way of keeping pages (`cache`), of
-        // re-reading (`live`), or of following (`follow`).
+        // re-reading (`live`), of following (`follow`), or of sorting (`sort`).
         let wrong = match (
             control["cache"].as_str(),
             control["live"].as_str(),
             control["follow"].as_str(),
+            control["sort"].as_str(),
         ) {
-            (Some(name), _, _) => Some(Wrong::Cache(name)),
-            (_, Some(_), _) if !cfg!(feature = "live") => continue,
-            (_, _, Some(_)) if !cfg!(feature = "follow") => continue,
-            (_, Some(name), _) => Some(Wrong::Live(name)),
-            (_, _, Some(name)) => Some(Wrong::Follow(name)),
+            (Some(name), _, _, _) => Some(Wrong::Cache(name)),
+            (_, Some(_), _, _) if !cfg!(feature = "live") => continue,
+            (_, _, Some(_), _) if !cfg!(feature = "follow") => continue,
+            (_, _, _, Some(_)) if !cfg!(feature = "sort") => continue,
+            (_, Some(name), _, _) => Some(Wrong::Live(name)),
+            (_, _, Some(name), _) => Some(Wrong::Follow(name)),
+            (_, _, _, Some(name)) => Some(Wrong::Sort(name)),
             _ => None,
         };
         let changed = match wrong {

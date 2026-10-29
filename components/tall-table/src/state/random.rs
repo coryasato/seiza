@@ -53,7 +53,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "custom-cells",
     feature = "follow",
     feature = "resize",
-    feature = "copy"
+    feature = "copy",
+    feature = "sort"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -164,6 +165,9 @@ struct Books {
     at_once: bool,
     /// The next read is refused when sent (a ready failure).
     refuse_next: bool,
+    /// The columns whose sort it refuses (`sort`), by bit (`column % 8`).
+    #[cfg(feature = "sort")]
+    refused: u8,
     /// The table's calls that broke the delegate's contract.
     faults: Vec<String>,
 }
@@ -266,6 +270,23 @@ impl TallTableDelegate for Source {
             read.cancelled = true;
         }
     }
+
+    /// Refuses the columns drawn refused; otherwise answers in a new order
+    /// from now on: every row's era bumped, so a row drawn or copied from a
+    /// read of the old order is of an era gone.
+    #[cfg(feature = "sort")]
+    fn sort(&mut self, sort: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+        let mut books = self.0.borrow_mut();
+        if let Some(sort) = sort
+            && books.refused & (1 << (sort.column % 8)) != 0
+        {
+            return Err(crate::SortRefused::new("the test refused it"));
+        }
+        for stamp in &mut books.stamps {
+            stamp.era += 1;
+        }
+        Ok(())
+    }
 }
 
 /// The host: the table's element, so the keys go through its contexts.
@@ -341,6 +362,13 @@ enum Step {
     CancelCopy,
     #[cfg(feature = "copy")]
     Escape,
+    /// `set_sort`: none (`direction % 3 == 0`), ascending, or descending
+    /// by column `column % columns`, sortable or not, refused or not.
+    #[cfg(feature = "sort")]
+    Sort {
+        column: u8,
+        direction: u8,
+    },
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
     /// failed as broken (`how`); a cancelled one with its page or
@@ -434,6 +462,13 @@ fn step() -> impl Strategy<Value = Step> {
         (3, Just(Step::CancelCopy).boxed()),
         (3, Just(Step::Escape).boxed()),
     ]);
+    #[cfg(feature = "sort")]
+    steps.push((
+        4,
+        (any::<u8>(), any::<u8>())
+            .prop_map(|(column, direction)| Step::Sort { column, direction })
+            .boxed(),
+    ));
     Union::new_weighted(steps)
 }
 
@@ -449,6 +484,12 @@ struct Case {
     at_once: bool,
     #[cfg(feature = "copy")]
     copy: CopyOptions,
+    /// The columns made sortable, and those the source refuses to sort,
+    /// by bit (`column % 8`; `sort`).
+    #[cfg(feature = "sort")]
+    sortable: u8,
+    #[cfg(feature = "sort")]
+    refused: u8,
     steps: Vec<Step>,
 }
 
@@ -479,6 +520,12 @@ impl fmt::Display for Case {
         )?;
         #[cfg(feature = "copy")]
         writeln!(f, "{:?}", self.copy)?;
+        #[cfg(feature = "sort")]
+        writeln!(
+            f,
+            "sortable {:08b}, refused {:08b}",
+            self.sortable, self.refused
+        )?;
         writeln!(f, "{} steps:", self.steps.len())?;
         for (index, step) in self.steps.iter().enumerate() {
             writeln!(f, "  {index}: {step:?}")?;
@@ -523,14 +570,23 @@ fn case() -> impl Strategy<Value = Case> {
     });
     #[cfg(not(feature = "copy"))]
     let copy = Just(());
-    (shape, copy, vec(step(), 0..=MAX_STEPS)).prop_map(
+    #[cfg(feature = "sort")]
+    let sorting = (any::<u8>(), any::<u8>());
+    #[cfg(not(feature = "sort"))]
+    let sorting = Just(());
+    (shape, copy, sorting, vec(step(), 0..=MAX_STEPS)).prop_map(
         |(
             (page_rows, prefetch, max_in_flight, budget_pages, (pages, rest), columns, at_once),
             copy,
+            sorting,
             steps,
         )| {
             #[cfg(not(feature = "copy"))]
             let () = copy;
+            #[cfg(feature = "sort")]
+            let (sortable, refused) = sorting;
+            #[cfg(not(feature = "sort"))]
+            let () = sorting;
             Case {
                 page_rows,
                 prefetch,
@@ -545,6 +601,10 @@ fn case() -> impl Strategy<Value = Case> {
                 at_once,
                 #[cfg(feature = "copy")]
                 copy,
+                #[cfg(feature = "sort")]
+                sortable,
+                #[cfg(feature = "sort")]
+                refused,
                 steps,
             }
         },
@@ -606,6 +666,9 @@ struct Run {
     control: Option<Control>,
     /// How many columns the table has.
     columns: usize,
+    /// The columns made sortable, by bit (`sort`).
+    #[cfg(feature = "sort")]
+    sortable: u8,
     #[cfg(feature = "copy")]
     copy_options: CopyOptions,
     /// The most rows the source has held.
@@ -645,13 +708,20 @@ impl Run {
             rows: case.rows,
             stamps: vec![Stamp::default(); case.rows as usize],
             at_once: case.at_once,
+            #[cfg(feature = "sort")]
+            refused: case.refused,
             ..Books::default()
         }));
         let source = books.clone();
         let (columns, rows) = (case.columns, case.rows);
+        #[cfg(feature = "sort")]
+        let sortable = case.sortable;
+        #[cfg(not(feature = "sort"))]
+        let sortable = 0;
         let (shell, cx) = cx.add_window_view(move |_, cx| {
             let table = cx.new(|cx| {
-                TallTableState::new(Source(source), columns_of(columns), rows, paging, cx)
+                let columns = columns_of(columns, sortable);
+                TallTableState::new(Source(source), columns, rows, paging, cx)
             });
             Shell { table }
         });
@@ -670,6 +740,8 @@ impl Run {
             paging,
             control,
             columns,
+            #[cfg(feature = "sort")]
+            sortable: case.sortable,
             #[cfg(feature = "copy")]
             copy_options: case.copy,
             most_rows: case.rows,
@@ -725,7 +797,7 @@ impl Run {
     /// replacing a table: once every read the closed one sent has answered.
     fn reopen(&mut self) {
         let (source, paging) = (Source(self.books.clone()), self.paging);
-        let (columns, rows) = (columns_of(self.columns), self.rows());
+        let (columns, rows) = (columns_of(self.columns, self.sortable()), self.rows());
         let table = self.shell.update(&mut self.cx, |shell, cx| {
             shell.table = cx.new(|cx| TallTableState::new(source, columns, rows, paging, cx));
             cx.notify();
@@ -766,6 +838,14 @@ impl Run {
 
     fn rows(&self) -> u64 {
         self.books.borrow().rows
+    }
+
+    /// The columns made sortable, by bit (none without `sort`).
+    fn sortable(&self) -> u8 {
+        #[cfg(feature = "sort")]
+        return self.sortable;
+        #[cfg(not(feature = "sort"))]
+        0
     }
 
     fn before(&self) -> Before {
@@ -877,7 +957,7 @@ impl Run {
             Step::Retry => self.update(|table, cx| table.retry_failed(cx)),
             Step::Columns(pick) => {
                 self.columns = column_count(pick, page_rows);
-                let columns = columns_of(self.columns);
+                let columns = columns_of(self.columns, self.sortable());
                 self.update(|table, cx| table.set_columns(columns, cx));
             }
             #[cfg(feature = "live")]
@@ -942,6 +1022,20 @@ impl Run {
             Step::Escape => {
                 self.cx.simulate_keystrokes("escape");
                 self.park();
+            }
+            // The table's refusal (a column past the end or not sortable)
+            // and the source's are steps too.
+            #[cfg(feature = "sort")]
+            Step::Sort { column, direction } => {
+                let column = usize::from(column) % self.columns;
+                let sort = match direction % 3 {
+                    0 => None,
+                    1 => Some(crate::Sort::new(column, crate::SortDirection::Ascending)),
+                    _ => Some(crate::Sort::new(column, crate::SortDirection::Descending)),
+                };
+                self.update(|table, cx| {
+                    let _ = table.set_sort(sort, cx);
+                });
             }
             Step::Close => {
                 if self.closed_at.is_none() {
@@ -1351,10 +1445,18 @@ fn following(table: &TallTableState<Source>) -> bool {
     }
 }
 
-/// `count` text columns, named `c0`, `c1`, …
-fn columns_of(count: usize) -> Vec<TallTableColumn> {
+/// `count` text columns, named `c0`, `c1`, …; with `sort`, those whose
+/// bit (`index % 8`) is set in `sortable` sortable.
+fn columns_of(count: usize, sortable: u8) -> Vec<TallTableColumn> {
     (0..count)
-        .map(|index| TallTableColumn::new(format!("c{index}"), ColumnKind::Text))
+        .map(|index| {
+            let column = TallTableColumn::new(format!("c{index}"), ColumnKind::Text);
+            #[cfg(feature = "sort")]
+            let column = column.sortable(sortable & (1 << (index % 8)) != 0);
+            #[cfg(not(feature = "sort"))]
+            let _ = sortable;
+            column
+        })
         .collect()
 }
 
@@ -1453,6 +1555,10 @@ fn shrink_past_a_page_forgets_the_pages_past_it() {
         at_once: false,
         #[cfg(feature = "copy")]
         copy: CopyOptions::default(),
+        #[cfg(feature = "sort")]
+        sortable: 0,
+        #[cfg(feature = "sort")]
+        refused: 0,
         steps: vec![
             Step::Drain { newest: false },
             Step::ShrinkPast(15),
@@ -1482,6 +1588,10 @@ fn shrink_to_a_page_start_reads_its_page_when_grown() {
         at_once: false,
         #[cfg(feature = "copy")]
         copy: CopyOptions::default(),
+        #[cfg(feature = "sort")]
+        sortable: 0,
+        #[cfg(feature = "sort")]
+        refused: 0,
         steps: vec![
             Step::Drain { newest: false },
             Step::ShrinkPast(0),
@@ -1510,6 +1620,10 @@ fn a_closed_table_cancels_nothing_again() {
         at_once: false,
         #[cfg(feature = "copy")]
         copy: CopyOptions::default(),
+        #[cfg(feature = "sort")]
+        sortable: 0,
+        #[cfg(feature = "sort")]
+        refused: 0,
         steps: vec![Step::Close, Step::ShrinkWithin(0)],
     };
     if let Err(failure) = run_case(0, &case, None) {
@@ -1536,6 +1650,10 @@ fn a_prefetch_reread_skips_a_page_the_copy_reads() {
         copy: CopyOptions::default()
             .max_bytes(64 << 10)
             .key_max_cells(200),
+        #[cfg(feature = "sort")]
+        sortable: 0,
+        #[cfg(feature = "sort")]
+        refused: 0,
         steps: vec![
             Step::Grow(17691),
             Step::AtOnce(false),
@@ -1583,6 +1701,10 @@ fn a_copy_beside_a_short_read_of_a_grown_page() {
         columns: 2,
         at_once: true,
         copy: CopyOptions::default(),
+        #[cfg(feature = "sort")]
+        sortable: 0,
+        #[cfg(feature = "sort")]
+        refused: 0,
         steps: vec![
             Step::AtOnce(false),
             Step::Grow(13348),
@@ -1684,6 +1806,21 @@ mod controls {
     #[test]
     fn a_shrink_unclamped() {
         fails(Control::Cache(Cache::ShrinkUnclamped), &[5]);
+    }
+
+    /// A sort that keeps the cache's pages: the old order's rows drawn.
+    #[cfg(feature = "sort")]
+    #[test]
+    fn a_sort_keeps_the_pages() {
+        fails(Control::Cache(Cache::SortKeepsPages), &[5]);
+    }
+
+    /// A sort that forgets the loaded pages but leaves the reads out in
+    /// their slots: their answers, of the old order, drawn.
+    #[cfg(feature = "sort")]
+    #[test]
+    fn a_sort_keeps_the_reads() {
+        fails(Control::Cache(Cache::SortKeepsReads), &[5]);
     }
 
     /// The shrink's old rule: the pages past the new end kept.

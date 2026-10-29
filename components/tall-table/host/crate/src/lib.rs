@@ -25,7 +25,11 @@
 //! clipboard, and what became of it is on `__tallTableCopy`;
 //! `?copy-max-bytes=` and `?copy-key-cells=` set the cap and the key's
 //! limit, and with `?perf` the scripts get a value's exact text, the
-//! table's `select`, and its `close` (`host::script_hooks`).
+//! table's `select`, and its `close` (`host::script_hooks`). With `sort`,
+//! every column is sortable, the source sorting a column from memory (its
+//! order computed at its first sort, `rows::column_order`), and
+//! `?sort-icons` draws gpui-kit's sort icons, which the host bundles, in
+//! place of the glyphs.
 
 mod host;
 pub mod rows;
@@ -69,7 +73,11 @@ pub fn start(ui_font: Vec<u8>) {
     let cells = seiza::url::param("cells")
         .and_then(|name| rows::Cells::from_name(&name))
         .unwrap_or(rows::Cells::Text);
-    seiza::Bootstrap::new(host::TITLE, ui_font).run(move |window, cx| {
+    let bootstrap = seiza::Bootstrap::new(host::TITLE, ui_font);
+    // gpui-kit's sort icons, for `?sort-icons` (`sort`).
+    #[cfg(feature = "sort")]
+    let bootstrap = bootstrap.assets(host::SortIconAssets);
+    bootstrap.run(move |window, cx| {
         seiza_tall_table::init(cx);
         #[cfg(feature = "copy")]
         host::init(cx);

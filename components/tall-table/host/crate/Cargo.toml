@@ -30,6 +30,10 @@ select = ["seiza-tall-table/select", "tall-table-bridge/select"]
 # The selection copied by Cmd+C and Ctrl+C (the table's keys, bound by its
 # `init`), on `select`'s selection.
 copy = ["select", "seiza-tall-table/copy", "tall-table-bridge/copy"]
+# Every column sortable; the source sorts a column from memory, its order
+# computed at its first sort and kept. `?sort-icons` draws gpui-kit's sort
+# icons, which the host bundles, in place of the glyphs.
+sort = ["seiza-tall-table/sort", "tall-table-bridge/sort"]
 
 [dependencies]
 gpui-kit.workspace = true
@@ -47,6 +51,8 @@ seiza.workspace = true
 wasm-bindgen.workspace = true
 
 [dev-dependencies]
-# The rows' tests: GPUI's test app, and a read's answer. Never in a build.
+# The rows' tests: GPUI's test app, a read's answer, and the sort fixture.
+# Never in a build.
 gpui-kit = { workspace = true, features = ["test-support"] }
 futures = "0.3"
+serde_json.workspace = true

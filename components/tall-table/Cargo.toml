@@ -37,3 +37,7 @@ select = []
 # rows not loaded read beside the cache; the text goes to the host in
 # pieces (`TallTableEvent::Copy`), which writes the clipboard.
 copy = ["select"]
+# The rows read in one column's order, ascending or descending, by a click
+# on an arrow at a sortable header's right or `TallTableState::set_sort`;
+# the source reads in it or refuses (`TallTableDelegate::sort`).
+sort = []

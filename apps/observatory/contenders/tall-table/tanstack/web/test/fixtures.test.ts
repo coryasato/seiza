@@ -379,3 +379,10 @@ test('an open without a row count fails, naming it', async () => {
 // `selection.json` pins what `select` selects and scrolls to: the level is
 // added only when both sides build selecting (root CLAUDE.md, "Comparison protocol").
 test('selection.json', { skip: 'the contender has no selection' }, () => {});
+
+// --- sort ---
+
+// `sort.json` pins a sort's cycle and the order a source answers in, and
+// `paging.json`'s sort scenario what a sort reads: the level is added only
+// when both sides build sorting.
+test('sort.json', { skip: 'the contender has no sort' }, () => {});

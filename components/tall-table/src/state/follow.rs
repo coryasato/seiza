@@ -99,6 +99,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.set_following(following, cx);
     }
 
+    /// A sort put the view at the top (`sort`): following lets go, unless
+    /// every row fits, and the tail drawn is forgotten (its rows are others
+    /// now).
+    #[cfg(feature = "sort")]
+    pub(super) fn sort_lets_go(&mut self, cx: &mut Context<Self>) {
+        self.tail_drawn = 0;
+        let fits = self.scroll.max_top() <= 0.0;
+        self.set_following(self.following && fits, cx);
+    }
+
     /// While following, moves the view down to the loaded tail: its bottom
     /// at the end of the rows drawn with their values from its top row on,
     /// if that's past where it is and every row in view is loaded. Never

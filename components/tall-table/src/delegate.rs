@@ -41,6 +41,26 @@ pub trait TallTableDelegate: 'static {
     /// the race): until it does, the table counts it as in flight, since a
     /// source may not be able to stop a read it has started.
     fn cancel(&mut self, request: Self::Request, cx: &mut App);
+
+    /// Reads in `sort`'s order from now on (`None`: the source's own), or
+    /// refuses. Ascending or descending by the column's values, ties in the
+    /// source's own order and NULLs last, both ways: a total order, so
+    /// pages read apart join up. A source that needs to prepare (an index,
+    /// a sorted copy) starts here and holds its reads until it's ready.
+    /// Reads out when this is called are cancelled after it returns `Ok`;
+    /// their answers are dropped, whichever order they hold. Called inside
+    /// the table's update, as `load_page` is: nothing it starts may touch
+    /// the table (or an entity being updated around it) before its first
+    /// await. By default every sort is refused and going back to none
+    /// accepted; a source must always accept `None`.
+    #[cfg(feature = "sort")]
+    fn sort(&mut self, sort: Option<crate::Sort>, cx: &mut App) -> Result<(), crate::SortRefused> {
+        let _ = cx;
+        match sort {
+            Some(_) => Err(crate::SortRefused::new("This source can't sort")),
+            None => Ok(()),
+        }
+    }
 }
 
 /// A loaded page of rows.

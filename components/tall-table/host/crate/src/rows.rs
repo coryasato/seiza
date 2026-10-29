@@ -20,7 +20,7 @@ use std::borrow::Cow;
 #[cfg(any(feature = "follow", feature = "copy"))]
 use std::cell::Cell;
 use std::cell::RefCell;
-#[cfg(feature = "live")]
+#[cfg(any(feature = "live", feature = "sort"))]
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -28,10 +28,12 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui_kit::App;
+use gpui_kit::{App, SharedString};
 use seiza_tall_table::{
     CellValue, ColumnKind, PageError, PageLoad, TallTableColumn, TallTableDelegate, TallTablePage,
 };
+#[cfg(feature = "sort")]
+use seiza_tall_table::{Sort, SortDirection, SortRefused};
 
 /// The rows of both shapes: the observatory's data file's (its
 /// `data/MANIFEST.json`), so the paging differs between them only by the
@@ -86,6 +88,14 @@ impl Shape {
         ROWS
     }
 
+    /// How many columns it has.
+    pub fn column_count(self) -> usize {
+        match self {
+            Self::Narrow => NARROW.len(),
+            Self::Wide => WIDE_COLUMNS,
+        }
+    }
+
     /// A float column's range, `min..max`, as a source would read it (its
     /// minimum and maximum); `None` for the others.
     pub fn range(self, column: usize) -> Option<(f64, f64)> {
@@ -113,14 +123,22 @@ impl Shape {
             .map(|(min, max)| seiza_tall_table::Domain::new(min, max))
     }
 
+    /// Its columns; with `sort`, every one sortable (the source sorts
+    /// each from memory).
     pub fn columns(self) -> Vec<TallTableColumn> {
+        let column = |name: SharedString, kind| {
+            let column = TallTableColumn::new(name, kind);
+            #[cfg(feature = "sort")]
+            let column = column.sortable(true);
+            column
+        };
         match self {
             Self::Narrow => NARROW
                 .iter()
-                .map(|(name, kind)| TallTableColumn::new(*name, *kind))
+                .map(|(name, kind)| column((*name).into(), *kind))
                 .collect(),
             Self::Wide => (1..=WIDE_COLUMNS)
-                .map(|column| TallTableColumn::new(format!("c{column:03}"), ColumnKind::Float))
+                .map(|index| column(format!("c{index:03}").into(), ColumnKind::Float))
                 .collect(),
         }
     }
@@ -269,20 +287,40 @@ impl MemoryPage {
         shape: Shape,
         rows: Range<u64>,
         #[cfg(feature = "live")] versions: &Versions,
+        #[cfg(feature = "sort")] order: Option<&[u32]>,
     ) -> Self {
+        // Sorted: the rows at the order's positions `rows`.
+        #[cfg(feature = "sort")]
+        if let Some(order) = order {
+            #[cfg(not(feature = "live"))]
+            let key = |row: u64| row;
+            #[cfg(feature = "live")]
+            let key = |row: u64| versioned(row, versions);
+            let rows = rows.map(|position| at_position(Some(order), position));
+            return Self::of(shape, rows, key);
+        }
         #[cfg(not(feature = "live"))]
         let key = |row: u64| row;
         // Each row's key once a page, not once a cell.
         #[cfg(feature = "live")]
         let keys: Vec<u64> = rows.clone().map(|row| versioned(row, versions)).collect();
         #[cfg(feature = "live")]
-        let key = |row: u64| keys[(row - rows.start) as usize];
-        let count = match shape {
-            Shape::Narrow => NARROW.len(),
-            Shape::Wide => WIDE_COLUMNS,
-        };
+        let start = rows.start;
+        #[cfg(feature = "live")]
+        let key = |row: u64| keys[(row - start) as usize];
+        Self::of(shape, rows, key)
+    }
+
+    /// `shape`'s columns over `rows`, each row's floats hashed from
+    /// `key(row)`.
+    #[inline(always)]
+    fn of(
+        shape: Shape,
+        rows: impl Iterator<Item = u64> + Clone,
+        key: impl Fn(u64) -> u64 + Copy,
+    ) -> Self {
         Self {
-            columns: (0..count)
+            columns: (0..shape.column_count())
                 .map(|column| shape_column(shape, column, rows.clone(), key))
                 .collect(),
             #[cfg(feature = "custom-cells")]
@@ -291,8 +329,14 @@ impl MemoryPage {
     }
 }
 
-/// `shape`'s `column` over `rows`, each row's floats hashed from `key(row)`.
-fn shape_column(shape: Shape, column: usize, rows: Range<u64>, key: impl Fn(u64) -> u64) -> Values {
+/// `shape`'s `column` over `rows` (in order, or with `sort` in a column's
+/// order), each row's floats hashed from `key(row)`.
+fn shape_column(
+    shape: Shape,
+    column: usize,
+    rows: impl Iterator<Item = u64> + Clone,
+    key: impl Fn(u64) -> u64,
+) -> Values {
     match shape {
         Shape::Narrow => narrow_column(column, rows, key),
         Shape::Wide => {
@@ -308,7 +352,11 @@ fn shape_column(shape: Shape, column: usize, rows: Range<u64>, key: impl Fn(u64)
 /// The narrow shape's `column` over `rows`, in the ranges the asteroids'
 /// columns hold (`diameter` and `albedo` mostly NULL, as there). A float is
 /// hashed from `key(row)`.
-fn narrow_column(column: usize, rows: Range<u64>, key: impl Fn(u64) -> u64) -> Values {
+fn narrow_column(
+    column: usize,
+    rows: impl Iterator<Item = u64> + Clone,
+    key: impl Fn(u64) -> u64,
+) -> Values {
     let floats = |value: fn(u64, f64) -> f64| {
         Values::Float(
             rows.clone()
@@ -479,6 +527,17 @@ pub struct MemoryRows {
     /// (`follow`, `copy`).
     #[cfg(any(feature = "follow", feature = "copy"))]
     reads: Reads,
+    /// The last sorted column's orders (`sort`), by whether each is
+    /// descending: computed at the column's first sort in that direction,
+    /// kept until another column is sorted. Each is 4 bytes a row (6.3 MB
+    /// of the shape's rows), in a heap that never shrinks: every column's
+    /// kept, a sort across the wide shape would pass wasm32's 4 GiB.
+    #[cfg(feature = "sort")]
+    orders: HashMap<(usize, bool), Rc<[u32]>>,
+    /// The order reads answer in now (`sort`; `None`: the rows' own). A read
+    /// keeps the order it was sent in.
+    #[cfg(feature = "sort")]
+    sorted: Rc<RefCell<Option<Rc<[u32]>>>>,
 }
 
 /// What a [`MemoryRows`] was asked (`follow`, `copy`): each count
@@ -531,6 +590,10 @@ impl MemoryRows {
             versions: Rc::default(),
             #[cfg(any(feature = "follow", feature = "copy"))]
             reads: Reads::default(),
+            #[cfg(feature = "sort")]
+            orders: HashMap::new(),
+            #[cfg(feature = "sort")]
+            sorted: Rc::default(),
         }
     }
 
@@ -547,7 +610,12 @@ impl MemoryRows {
         let shape = self.shape;
         #[cfg(feature = "live")]
         let versions = self.versions.clone();
+        #[cfg(feature = "sort")]
+        let sorted = self.sorted.clone();
         move |row, column| {
+            // The row at that position of the order now (`sort`).
+            #[cfg(feature = "sort")]
+            let row = at_position(sorted.borrow().as_deref(), row);
             #[cfg(not(feature = "live"))]
             let key = row;
             #[cfg(feature = "live")]
@@ -565,10 +633,13 @@ impl MemoryRows {
         }
     }
 
-    /// `row` changed (`live`): a page read from now on answers its new
-    /// floats.
+    /// The table's row `row` changed (`live`): a page read from now on
+    /// answers its new floats. With `sort`, `row` is a position in the order
+    /// read now, so the row bumped is the one there.
     #[cfg(feature = "live")]
     pub fn bump(&mut self, row: u64) {
+        #[cfg(feature = "sort")]
+        let row = at_position(self.sorted.borrow().as_deref(), row);
         *self.versions.borrow_mut().entry(row).or_default() += 1;
     }
 
@@ -598,6 +669,8 @@ impl TallTableDelegate for MemoryRows {
             .map(|delay| cx.background_executor().timer(delay));
         #[cfg(feature = "live")]
         let versions = self.versions.clone();
+        #[cfg(feature = "sort")]
+        let order = self.sorted.borrow().clone();
         let load = async move {
             if let Some(timer) = timer {
                 timer.await;
@@ -611,6 +684,8 @@ impl TallTableDelegate for MemoryRows {
                 rows,
                 #[cfg(feature = "live")]
                 &versions.borrow(),
+                #[cfg(feature = "sort")]
+                order.as_deref(),
             );
             #[cfg(feature = "custom-cells")]
             if cells != Cells::Text {
@@ -634,6 +709,196 @@ impl TallTableDelegate for MemoryRows {
             Reads::count(&self.reads.drained, READS_DRAINED_GLOBAL);
         }
     }
+
+    /// Reads in `sort`'s order from now on: the column's order computed at
+    /// its first sort in that direction (the rows' values as they are then),
+    /// on the main thread, inside the table's update: the click that asks
+    /// waits for it (a script measuring a sort's frames sorts the column
+    /// once first). Kept while the column is the last sorted. The order is
+    /// the shape's rows' ([`Shape::rows`]): with `follow`, rows appended past
+    /// them read in their own order after it, and a table opened with fewer
+    /// reads the order's first positions, rows it may not hold yet. Reads
+    /// out keep the order they were sent in; the table drops them.
+    #[cfg(feature = "sort")]
+    fn sort(&mut self, sort: Option<Sort>, _: &mut App) -> Result<(), SortRefused> {
+        let order = match sort {
+            None => None,
+            Some(sort) => {
+                if sort.column >= self.shape.column_count() {
+                    return Err(SortRefused::new(format!("No column {}", sort.column)));
+                }
+                let descending = sort.direction == SortDirection::Descending;
+                let (shape, rows) = (self.shape, self.shape.rows());
+                #[cfg(feature = "live")]
+                let versions = self.versions.borrow();
+                #[cfg(feature = "live")]
+                let key = |row: u64| versioned(row, &versions);
+                #[cfg(not(feature = "live"))]
+                let key = |row: u64| row;
+                self.orders.retain(|(column, _), _| *column == sort.column);
+                let order = self
+                    .orders
+                    .entry((sort.column, descending))
+                    .or_insert_with(|| column_order(shape, sort.column, descending, rows, key));
+                Some(order.clone())
+            }
+        };
+        *self.sorted.borrow_mut() = order;
+        Ok(())
+    }
+}
+
+/// The row at `position` of `order` (`sort`): itself without one, or past
+/// its end (rows appended since it was computed).
+#[cfg(feature = "sort")]
+fn at_position(order: Option<&[u32]>, position: u64) -> u64 {
+    order
+        .and_then(|order| order.get(position as usize))
+        .map_or(position, |row| u64::from(*row))
+}
+
+/// How the source orders a column (`sort`): the table's contract
+/// (`TallTableDelegate::sort`) is [`Rules::SOURCE`]; the others are
+/// `fixtures/sort.json`'s controls.
+#[cfg(feature = "sort")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rules {
+    /// NULLs last both ways (else first).
+    pub nulls_last: bool,
+    /// Descending keeps ties in the rows' order (else it reverses the
+    /// ascending order, ties and all).
+    pub stable_descending: bool,
+}
+
+#[cfg(feature = "sort")]
+impl Rules {
+    pub const SOURCE: Self = Self {
+        nulls_last: true,
+        stable_descending: true,
+    };
+}
+
+/// `rows` rows' positions in order: by `compare` (ascending, or reversed
+/// if `descending`), ties in the rows' own order, NULLs (`is_null`) last,
+/// as `rules` says. A stable sort, so ties keep their order both ways.
+#[cfg(feature = "sort")]
+pub fn order(
+    rows: u32,
+    descending: bool,
+    is_null: impl Fn(u32) -> bool,
+    compare: impl Fn(u32, u32) -> std::cmp::Ordering,
+    rules: Rules,
+) -> Vec<u32> {
+    use std::cmp::Ordering;
+    let reverse = descending && rules.stable_descending;
+    let mut order: Vec<u32> = (0..rows).collect();
+    order.sort_by(|&a, &b| {
+        let nulls = match (is_null(a), is_null(b)) {
+            (true, true) => Some(Ordering::Equal),
+            (true, false) => Some(Ordering::Greater),
+            (false, true) => Some(Ordering::Less),
+            (false, false) => None,
+        };
+        match nulls {
+            Some(nulls) if rules.nulls_last => nulls,
+            Some(nulls) => nulls.reverse(),
+            None if reverse => compare(a, b).reverse(),
+            None => compare(a, b),
+        }
+    });
+    if descending && !rules.stable_descending {
+        let values = order.iter().filter(|&&row| !is_null(row)).count();
+        let start = if rules.nulls_last {
+            0
+        } else {
+            order.len() - values
+        };
+        order[start..start + values].reverse();
+    }
+    order
+}
+
+/// How many rows [`column_order`] reads a column for at once.
+#[cfg(feature = "sort")]
+const ORDER_CHUNK: u64 = 4096;
+
+/// `shape`'s `column` over its first `rows` rows in order (`descending`
+/// or not), as the source answers it ([`Rules::SOURCE`]): each value
+/// compared as its type (a float's NULL is NaN; a boolean false first; a
+/// date by its day; text by its bytes, its first 8 in a key and the rest
+/// read again only for a tie there), each row's floats hashed from
+/// `key(row)`.
+#[cfg(feature = "sort")]
+fn column_order(
+    shape: Shape,
+    column: usize,
+    descending: bool,
+    rows: u64,
+    key: impl Fn(u64) -> u64 + Copy,
+) -> Rc<[u32]> {
+    let count = rows as usize;
+    let mut keys = Vec::with_capacity(count);
+    let mut nulls = Vec::new();
+    let mut long = Vec::new();
+    let mut start = 0;
+    while start < rows {
+        let end = (start + ORDER_CHUNK).min(rows);
+        match shape_column(shape, column, start..end, key) {
+            Values::Float(values) => {
+                nulls.extend(values.iter().map(|value| value.is_nan()));
+                keys.extend(values.iter().map(|value| {
+                    let bits = value.to_bits();
+                    if bits >> 63 == 1 {
+                        !bits
+                    } else {
+                        bits | 1 << 63
+                    }
+                }));
+            }
+            Values::Integer(values) => {
+                keys.extend(values.iter().map(|value| (*value as u64) ^ (1 << 63)));
+            }
+            Values::Boolean(values) => keys.extend(values.iter().map(|value| u64::from(*value))),
+            Values::Date(values) => {
+                keys.extend(
+                    values
+                        .iter()
+                        .map(|day| (i64::from(*day) as u64) ^ (1 << 63)),
+                );
+            }
+            Values::Text(values) => {
+                long.extend(values.iter().map(|text| text.len() > 8));
+                keys.extend(values.iter().map(|text| {
+                    let mut prefix = [0u8; 8];
+                    let bytes = &text.as_bytes()[..text.len().min(8)];
+                    prefix[..bytes.len()].copy_from_slice(bytes);
+                    u64::from_be_bytes(prefix)
+                }));
+            }
+        }
+        start = end;
+    }
+    let text = |row: u32| match shape_column(shape, column, row as u64..row as u64 + 1, key) {
+        Values::Text(mut values) => values.pop().unwrap_or_default(),
+        _ => String::new(),
+    };
+    let order = order(
+        rows as u32,
+        descending,
+        |row| nulls.get(row as usize).copied().unwrap_or(false),
+        |a, b| {
+            let (a, b) = (a as usize, b as usize);
+            keys[a].cmp(&keys[b]).then_with(|| {
+                if long.get(a).copied().unwrap_or(false) || long.get(b).copied().unwrap_or(false) {
+                    text(a as u32).cmp(&text(b as u32))
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            })
+        },
+        Rules::SOURCE,
+    );
+    order.into()
 }
 
 #[cfg(test)]
@@ -647,6 +912,8 @@ mod tests {
             rows,
             #[cfg(feature = "live")]
             &Default::default(),
+            #[cfg(feature = "sort")]
+            None,
         )
     }
     use gpui_kit::TestAppContext;
@@ -765,6 +1032,189 @@ mod tests {
         assert_eq!(page.paint(0, 0), Default::default());
         assert_eq!(Cells::from_name("heat"), Some(Cells::Heat));
         assert_eq!(Cells::from_name("blue"), None);
+    }
+
+    /// `fixtures/sort.json`'s orders that `rules` doesn't give: each case's
+    /// values compared as the source compares them (numbers as numbers,
+    /// text by its bytes, false before true).
+    #[cfg(feature = "sort")]
+    fn order_mismatches(rules: super::Rules) -> Vec<String> {
+        use serde_json::Value;
+        let fixture: Value =
+            serde_json::from_str(include_str!("../../../fixtures/sort.json")).expect("sort.json");
+        let mut mismatches = Vec::new();
+        for case in fixture["orders"].as_array().expect("orders") {
+            let values = case["values"].as_array().expect("values");
+            let compare = |a: u32, b: u32| {
+                let (a, b) = (&values[a as usize], &values[b as usize]);
+                match (a, b) {
+                    (Value::Number(a), Value::Number(b)) => {
+                        a.as_f64().unwrap().total_cmp(&b.as_f64().unwrap())
+                    }
+                    (Value::String(a), Value::String(b)) => a.as_bytes().cmp(b.as_bytes()),
+                    (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+                    _ => panic!("a case mixes kinds: {a} and {b}"),
+                }
+            };
+            for (name, descending) in [("ascending", false), ("descending", true)] {
+                let order = super::order(
+                    values.len() as u32,
+                    descending,
+                    |row| values[row as usize].is_null(),
+                    compare,
+                    rules,
+                );
+                let expected: Vec<u32> = case[name]
+                    .as_array()
+                    .expect("an order")
+                    .iter()
+                    .map(|row| row.as_u64().expect("a row") as u32)
+                    .collect();
+                if order != expected {
+                    mismatches.push(format!(
+                        "{}: {name} {order:?}, not {expected:?}",
+                        case["why"]
+                    ));
+                }
+            }
+        }
+        mismatches
+    }
+
+    #[cfg(feature = "sort")]
+    #[test]
+    fn sort_fixture_orders() {
+        let mismatches = order_mismatches(super::Rules::SOURCE);
+        assert!(mismatches.is_empty(), "{mismatches:#?}");
+    }
+
+    #[cfg(feature = "sort")]
+    #[test]
+    fn sort_order_controls_fail() {
+        use super::Rules;
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/sort.json")).expect("sort.json");
+        for control in fixture["order_controls"]
+            .as_array()
+            .expect("order_controls")
+        {
+            let rules = match control.as_str() {
+                Some("nulls-first") => Rules {
+                    nulls_last: false,
+                    ..Rules::SOURCE
+                },
+                Some("ties-reversed") => Rules {
+                    stable_descending: false,
+                    ..Rules::SOURCE
+                },
+                other => panic!("unknown order control {other:?}"),
+            };
+            assert!(
+                !order_mismatches(rules).is_empty(),
+                "{control} passed the sort fixture's orders"
+            );
+        }
+    }
+
+    /// Each kind of the narrow shape's columns, its first rows in order: a
+    /// value never before the one above it, ties by row, NULLs last.
+    #[cfg(feature = "sort")]
+    #[test]
+    fn a_columns_order_is_its_values_order() {
+        use std::cmp::Ordering;
+        let rows = 20_000;
+        let page = fresh_page(Shape::Narrow, 0..rows);
+        for column in 0..11 {
+            for descending in [false, true] {
+                let order = super::column_order(Shape::Narrow, column, descending, rows, |row| row);
+                assert_eq!(order.len(), rows as usize);
+                let value = |row: u32| page.value(row as usize, column).expect("a value");
+                for pair in order.windows(2) {
+                    let (a, b) = (value(pair[0]), value(pair[1]));
+                    let compared = match (&a, &b) {
+                        (CellValue::Null, CellValue::Null) => Ordering::Equal,
+                        (_, CellValue::Null) => Ordering::Less,
+                        (CellValue::Null, _) => Ordering::Greater,
+                        (CellValue::Float(a), CellValue::Float(b)) => a.total_cmp(b),
+                        // Integers as numbers; the rest's text orders as they do.
+                        (CellValue::Text(a), CellValue::Text(b)) if column == 0 => {
+                            a.parse::<i64>().unwrap().cmp(&b.parse::<i64>().unwrap())
+                        }
+                        (CellValue::Text(a), CellValue::Text(b)) => a.as_bytes().cmp(b.as_bytes()),
+                        _ => panic!("column {column}: {a:?}, {b:?}"),
+                    };
+                    let compared = match (&a, &b, descending) {
+                        (CellValue::Null, _, _) | (_, CellValue::Null, _) | (_, _, false) => {
+                            compared
+                        }
+                        (_, _, true) => compared.reverse(),
+                    };
+                    assert_ne!(compared, Ordering::Greater, "column {column}, {pair:?}");
+                    if compared == Ordering::Equal {
+                        assert!(pair[0] < pair[1], "column {column}: a tie out of row order");
+                    }
+                }
+            }
+        }
+    }
+
+    /// A sorted read answers the rows at its positions of the order; a read
+    /// sent before the sort, the order it was sent in.
+    #[cfg(feature = "sort")]
+    #[gpui_kit::test]
+    fn a_sorted_read_answers_in_the_order(cx: &mut TestAppContext) {
+        use seiza_tall_table::{Sort, SortDirection};
+        let mut rows = MemoryRows::new(Shape::Narrow, None);
+        let (_, before) = cx.update(|cx| rows.load_page(0..1024, cx));
+        let sort = Sort::new(5, SortDirection::Ascending);
+        cx.update(|cx| rows.sort(Some(sort), cx)).expect("sorted");
+        let (_, sorted) = cx.update(|cx| rows.load_page(0..1024, cx));
+        let (before, sorted) = (
+            futures::executor::block_on(before).expect("a page"),
+            futures::executor::block_on(sorted).expect("a page"),
+        );
+        let float = |page: &MemoryPage, row| match page.value(row, 5) {
+            Some(CellValue::Float(value)) => value,
+            other => panic!("{other:?}"),
+        };
+        // `H` runs 10 to 22: the top of the ascending order is near 10.
+        assert!(float(&sorted, 0) < 10.001, "{}", float(&sorted, 0));
+        for row in 1..1024 {
+            assert!(float(&sorted, row - 1) <= float(&sorted, row));
+        }
+        assert_eq!(before.value(0, 0), Some(CellValue::Text("20000001".into())));
+        // Back to the rows' own order.
+        cx.update(|cx| rows.sort(None, cx)).expect("unsorted");
+        let (_, own) = cx.update(|cx| rows.load_page(0..1024, cx));
+        let own = futures::executor::block_on(own).expect("a page");
+        assert_eq!(own.value(0, 0), before.value(0, 0));
+        // A column past the end is refused.
+        let past = Sort::new(11, SortDirection::Ascending);
+        assert!(cx.update(|cx| rows.sort(Some(past), cx)).is_err());
+    }
+
+    /// Under a sort, a bump names a position in the order: the row read
+    /// there changes, and the row at that index in the rows' own order
+    /// doesn't.
+    #[cfg(all(feature = "sort", feature = "live"))]
+    #[gpui_kit::test]
+    fn a_bump_under_a_sort_changes_the_row_at_its_position(cx: &mut TestAppContext) {
+        use seiza_tall_table::{Sort, SortDirection};
+        let mut rows = MemoryRows::new(Shape::Narrow, None);
+        let read = |rows: &mut MemoryRows, cx: &mut TestAppContext| {
+            let (_, load) = cx.update(|cx| rows.load_page(0..1024, cx));
+            futures::executor::block_on(load).expect("a page")
+        };
+        let sort = Sort::new(5, SortDirection::Descending);
+        cx.update(|cx| rows.sort(Some(sort), cx)).expect("sorted");
+        let before = read(&mut rows, cx);
+        rows.bump(0);
+        let after = read(&mut rows, cx);
+        assert_ne!(before.value(0, 5), after.value(0, 5), "position 0's float");
+        // Row 0 of the rows' own order is elsewhere in the order: unchanged.
+        cx.update(|cx| rows.sort(None, cx)).expect("unsorted");
+        let own = read(&mut rows, cx);
+        assert_eq!(own.value(0, 5), fresh_page(Shape::Narrow, 0..1).value(0, 5));
     }
 
     #[gpui_kit::test]
