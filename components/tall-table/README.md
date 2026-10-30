@@ -41,12 +41,13 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 
 - `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it; with `select`, selects it instead (below).
 - `set_rows(rows, cx)`: the source grew (rows still loading) or shrank; the scrollbar follows and short pages reload. A shrink forgets every page wholly past the new end (a read of one cancelled), so rows that come back are read anew. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
-- `set_columns(columns, cx)`: a column's kind changed (with `sort`, the sort kept while its column keeps its name: below).
+- `set_columns(columns, cx)`: a column's kind changed (with `sort`, the sort kept while its column keeps its name; with `pin`, the count kept: below).
 - `follow(cx)`, `is_following()` (`follow`): below.
 - `column_width(column)` (`resize`): the width a column is drawn at now.
 - `selection()`, `select(selection, cx)`, `selectable()`, `set_selectable(selectable, cx)` (`select`): below.
 - `copy(cx)`, `copying()`, `cancel_copy(cx)`, `set_copy_options(options)` (`copy`): below.
 - `sort()`, `set_sort(sort, cx)`, `set_sort_icons(icons, cx)` (`sort`): below.
+- `set_pinned(columns, cx)`, `pinned()`, `pinned_in_effect()` (`pin`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced); after it, nothing reads or cancels again (a second `close`, `set_rows`, which only moves the scrollbar).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
@@ -64,6 +65,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Selected(selection)` (`select`): below.
 - `Copy(TallTableCopy)` (`copy`): below.
 - `Sorted(sort)` and `SortRefused(sort, refused)` (`sort`): below.
+- `Pinned(columns)` (`pin`): below.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -253,6 +255,25 @@ TallTableEvent::SortRefused(sort, refused) => { /* a click the source refused: s
 - **The host's:** which columns are sortable, the source's order and its preparation, a refusal's message shown to the reader, the icons if it wants its own, and a menu that sorts. `tall-table-bridge` publishes each order on a global the host names (`{column, direction}` or `null`) and as a mark set in the task that sorted.
 - **Its cost:** the Features table. The arrows are drawn every frame, a sortable column's even when nothing is sorted: ~0.15 ms a frame for a dozen. A sorted column costs no more a frame than an unsorted one; what a source pays for its order is its own (below, "Limits").
 
+**Pinning columns** (`pin`, off by default): the first columns fixed at the left while the rest scroll sideways under them.
+
+```rust
+state.update(cx, |table, cx| table.set_pinned(2, cx)); // the first two; 0 for none
+// From the subscription, when the columns pinned in effect change:
+TallTableEvent::Pinned(columns) => {
+    if columns < table.pinned() { /* the view is too narrow for them all: say so */ }
+}
+```
+
+- **A count, not a flag per column:** the first *n* columns in the table's order pin, so the drawn order stays the index order every range (`select`, `copy`, `sort`) is in. Pinning a column that isn't first is the host's: move it into the run with `set_columns` (later `reorder`'s drag).
+- **The run in effect** (`pinned_in_effect()`): the count, clamped to the columns, and cut to the leading columns whose right edge is within half the cells' width, so the scrolled columns keep at least half the view. A narrower view pins fewer, a wider one pins them again; `Pinned` reports each change (once at the first frame when a count was set, never at construction). Before the first frame gives the view a width, nothing is pinned in effect. `pinned()` is the count as set, kept across `set_columns`.
+- **Drawn:** the pinned columns at their place, the scrolled ones at their place less the sideways scroll, clipped at the run's right edge (none drawn wholly under the run), and a 1 px line in `border` at the edge through the header and body while a column is pinned. The row backgrounds are one layer under both, so a stripe runs across unbroken. The horizontal scrollbar's track starts at the edge. The sideways scroll's range is unchanged: pinning moves no scroll, and at a sideways scroll of 0 every cell is where it is unpinned.
+- **With `resize`:** a pinned column's band drags as any other, moving the edge and the scrolled columns with it; its width stops where the run would pass half the cells' width (or at its `max_width`, the lesser), so a release unpins nothing. The run is held through a drag and computed again at the release. A scrolled column's band under the run isn't drawn.
+- **With `select`:** a press left of the edge is on a pinned column, right of it on a scrolled one; a drag reaches across. A range across the edge draws in two pieces, each edged, and spans the scrolled columns under the run too. A key move to a scrolled column brings it into view right of the edge; to a pinned one it scrolls nothing sideways.
+- **With `sort`:** a pinned column's arrow draws and clicks as any other; a scrolled column's isn't drawn while under the run. `copy`, `live`, and `follow` work unchanged.
+- **The host's:** the count (a menu: "Pin first column"), moving a column into the run, and saying why fewer pin when `Pinned` reports it. `tall-table-bridge` publishes the run in effect on a global the host names, and the layout probe carries it (`pinned`: column `c`'s left edge is `left + x`, less `scroll_x` only when `c >= pinned`).
+- **Its cost:** the Features table. The second region and the edge line cost a few hundredths of a millisecond a frame; built with nothing pinned, nothing.
+
 Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above); with `copy`, Cmd+C and Ctrl+C copy it ("Copying"). No key sorts (`sort`). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
@@ -268,12 +289,15 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `select` | Rows, columns, or a block of cells selected by press, Shift, drag, and keys, held as one range; `Selected` for a host ("Selecting", above) | +6.2 KiB brotli (+22.0 KiB after wasm-opt, the bare host's publishing included). A select-all standing under the scroll and flings: within the spread in both profiles. The drag-select: 5.0–5.7 ms a frame, under the scroll and the sideways fling, no late frames; throttled ~16–18 ms, 5–8% late | [`perf/results/2026-10-26-m6-d.md`](perf/results/2026-10-26-m6-d.md) |
 | `copy` | The selection to the clipboard as tab-separated exact values, by Cmd+C or a host's `copy`, rows not loaded read beside the cache, a cap in bytes; the bridge's write ("Copying", above). Turns on `select` | +8.8 KiB brotli over `select` (+33.3 KiB after wasm-opt; +13.1 brotli over the base, the bridge's writer and the bare host's hooks included). Built, nothing copied: within the spread in both profiles. A 58 MiB copy from a cold view: written 1.7 s after the key (2.8 s throttled), the wasm heap growing by at most its reads in flight and a piece. A scroll during it keeps its frame work, its turns running between frames: 1.2–1.3% late frames at the reference run (none alone); throttled, 43% late against 27% (narrow) | [`perf/results/2026-10-27-m7-d.md`](perf/results/2026-10-27-m7-d.md) |
 | `sort` | A click on a sortable header's arrow sorts by its column, the source reading pages in the order or refusing; `set_sort`, the host's icons, `Sorted` and `SortRefused` ("Sorting", above) | +19.8 KiB brotli (+82.9 KiB after wasm-opt, the bare host's in-memory sort, icons, and hooks included). Every column sortable: +0.15–0.24 ms a frame (2.5–5%) at the reference run, ~0.13–0.15 of it the arrows; throttled within the spread but for the flings (+0.6–0.8 ms). A sorted column no more than an unsorted. A click: the table's own work under 2 ms, the top filled ~40 ms later with reads answered at once (54–70 throttled), a source's read time added; three reads out at the click add 25–45 ms (the oldest's remainder) | [`perf/results/2026-10-29-m8-d.md`](perf/results/2026-10-29-m8-d.md) |
+| `pin` | The first *n* columns fixed at the left while the rest scroll sideways, at most half the view; `set_pinned`, `Pinned` ("Pinning columns", above) | +2.3 KiB brotli (+9.7 KiB after wasm-opt, the bridge's and the bare host's `?pin=` included). Pinned: +0.03–0.06 ms a frame (≤ 0.9%) in the wide shape at the reference run, at the base in the narrow; built with nothing pinned, the base; throttled within the spread | [`perf/results/2026-10-29-m9-d.md`](perf/results/2026-10-29-m9-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
 - **Read-only.** No editing or filtering.
+- **Left only, a leading run** (`pin`): no column pins at the right, and only the first columns pin; a host moves a column into the run (`set_columns`). No gesture of the table's own pins one.
+- **At most half the view pins** (`pin`): the run in effect stops at the last leading column within half the cells' width, so a narrow window pins fewer than the host set (`Pinned` says how many).
 - **One sorted column** (`sort`): ascending or descending, never by several columns at once; no key sorts.
 - **A sort costs what the source pays for its order** (`sort`): from a tenth of a second to more than it can hold. Measured natively over DuckDB ([the research](../../docs/research/tall-table-features.md), "`sort`"; [the spike](perf/results/2026-10-29-m8-a-spike.md)): an `ORDER BY … OFFSET` per page grows with depth (48 ms at the top of 1.57 M rows, ~1 s at 90%), an index over rows in memory takes ~0.15 s to build and 7–43 ms a page, a sorted copy of a Parquet file 1.1 s and ~35 MiB, then 1–2 ms a page; a file whose copy passes the memory budget is refused. The table holds a few pages whatever the source does.
 - **A sort made while reads are out waits for them** (`sort`): the old order's reads are cancelled but hold their places until they answer (a source may not be able to stop a started read), so the new order's top page waits for what's left of the oldest (with 200 ms reads and three out, 25–45 ms: the Features table).
@@ -301,6 +325,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 - **New rows arrive silently** (`follow`): a screen reader isn't told that rows arrived or that the view moved, the accessibility gap above. *To close it:* the DOM mirror above, announcing appended rows in a live region (politely, and batched: a busy log appends every frame).
 - **Resizing is pointer-only** (`resize`): no key resizes a column, and a screen reader can't reach the bands, the accessibility gap above. *To close it:* keys of the table's own on the active cell's column (`select` gives a column focus), and the DOM mirror above exposing each header as a resizable column.
 - **The sort is silent and pointer-only** (`sort`): a screen reader isn't told which column is sorted or which way, and the arrow isn't a button the keys or a screen reader can reach. *Today:* a host's menu can sort (`set_sort`), and a host's own DOM can say the order ("Sorted by H, descending"). *To close it:* the DOM mirror above, each header carrying `aria-sort` and its arrow a button.
+- **Which columns hold isn't announced** (`pin`): a screen reader isn't told that the first columns stay while the rest scroll, the accessibility gap above. *To close it:* the DOM mirror above, the pinned headers marked as row headers of each row.
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs

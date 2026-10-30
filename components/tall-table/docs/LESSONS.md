@@ -373,3 +373,12 @@ One entry per milestone part, written before starting the next one: what surpris
 - The edge's place can't be read off the screen by itself: the table draws no column lines, so the scripts' only way to see where a column is drawn is to compare. A view against itself unpinned at the same scroll is the same pixels right of the edge if every scrolled column is at its `x − scrollX`, and the same everywhere but the line at a scroll of 0, so the check matches no shifted image, and no text is compared drawn at another subpixel offset.
 - The wide shape's horizontal thumb is a 24 px thumb over 58,700 px of content: a CSS px of pointer is 51 px of scroll, and Chromium's drag landed 13–19 px off. A thumb check's tolerance is a pixel of its travel, not a pixel of scroll.
 - The bare host's cells start at a half pixel (`left` 108.5), so a screenshot clip on a column boundary would split a device pixel at DPR 1; the regions are clipped to whole CSS px inside each one, and the line sampled at both CSS px it can round to.
+
+## M9: `pin` (part D, 2026-10-29)
+
+**Results:** [`perf/results/2026-10-29-m9-d.md`](../perf/results/2026-10-29-m9-d.md) (the bytes, frame work pinned and built with nothing pinned, and the close).
+
+**Surprises:**
+- Pinning came in under every built feature's frame cost: +0.03–0.06 ms in the wide shape, nothing in the narrow. The control said where it was. With `--pin 0`, every segment read the base to 0.04 ms, so the code each site now runs through the mappings is too small to see, and what's left is the second clipped region's drawing. A control that builds the feature but switches it off splits a code cost from a drawing cost in one extra run. `sort` needed a hand-edited build to do the same.
+- The narrow shape read 0.04–0.07 ms *under* the base when pinned, with ranges apart in the first run. Pinning can't save work in a shape that never scrolls sideways (its two regions draw the same cells). The re-run after the base closed half the gap, so a gap that small is the session's, not the feature's. A difference outside the ranges is a cost only if it points the way the code could.
+- The open question's late frames in the throttled wide fling didn't show: 1.96% pinned against the base's 2.99%, after four features' builds read higher. It's more evidence that the gap belongs to builds or sessions, not to any one feature's code.
