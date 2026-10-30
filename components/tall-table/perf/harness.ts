@@ -72,6 +72,14 @@ export const SORTED_MARK = 'tall-table:sorted';
  *  first. */
 export const SORTED_COLUMN: Record<Shape, number> = { narrow: 5, wide: 0 };
 
+/** With `pin` (`host/crate/src/host.rs`, `PINNED_GLOBAL`): the columns
+ *  pinned in effect, replaced as the run changes. */
+export const PINNED_GLOBAL = '__tallTablePinned';
+/** The columns each shape pins by default (`host/crate/src/rows.rs`,
+ *  `Shape::pinned`): the narrow shape's `spkid` and `full_name`, the
+ *  wide's first. */
+export const DEFAULT_PINNED: Record<Shape, number> = { narrow: 2, wide: 1 };
+
 /** With `copy` (`host/crate/src/host.rs`): what became of the last copy
  *  (`CopyState`), replaced at each step; set as a copy starts (in the
  *  key's task), as its text is all in, and as the browser wrote it. */
@@ -123,6 +131,8 @@ type Global = {
   __tallTableDrained?: () => number;
   __tallTableSelect?: (kind: string, anchorRow: number, anchorColumn: number, headRow: number, headColumn: number) => void;
   __tallTableClose?: () => void;
+  /** With `pin` and `?perf`. */
+  __tallTablePin?: (columns: number) => boolean;
 };
 
 /** The cells the last frame drew, with their paint (`custom-cells`, a
@@ -135,16 +145,51 @@ export async function drawnCells(page: Page): Promise<Cell[]> {
 /** The screen's color at (`x`, `y`) in CSS px, 8-bit RGBA: a 1×1 CSS px
  *  screenshot, its top-left device pixel. */
 export async function pixel(page: Page, x: number, y: number): Promise<number[]> {
-  const png = (await page.screenshot({ clip: { x, y, width: 1, height: 1 } })).toString('base64');
-  return page.evaluate(async (png) => {
-    const image = new Image();
-    image.src = `data:image/png;base64,${png}`;
-    await image.decode();
-    const canvas = new OffscreenCanvas(image.width, image.height);
-    const context = canvas.getContext('2d')!;
-    context.drawImage(image, 0, 0);
-    return Array.from(context.getImageData(0, 0, 1, 1).data);
-  }, png);
+  return (await decoded(page, [await screenshot(page, { x, y, width: 1, height: 1 })], null)) as number[];
+}
+
+/** The screen in `clip` (CSS px), a PNG as base64, at the screenshot's
+ *  device pixels. */
+export async function screenshot(page: Page, clip: { x: number; y: number; width: number; height: number }): Promise<string> {
+  return (await page.screenshot({ clip })).toString('base64');
+}
+
+/** How many pixels of two screenshots (`screenshot`'s) differ by more than
+ *  `within` in a color channel, compared in the page: 0 for the same,
+ *  every pixel for different sizes. */
+export async function differingPixels(page: Page, a: string, b: string, within: number): Promise<number> {
+  return a === b ? 0 : ((await decoded(page, [a, b], within)) as number);
+}
+
+/** The screenshots `pngs` decoded in the page: with `within` null, the
+ *  first one's pixels (8-bit RGBA, row by row); else the count of the two's
+ *  pixels differing by more than `within` in a color channel. Decoded and
+ *  compared there, so a large clip's pixels never cross to Node. */
+async function decoded(page: Page, pngs: string[], within: number | null): Promise<number[] | number> {
+  return page.evaluate(
+    async ({ pngs, within }) => {
+      const images = await Promise.all(
+        pngs.map(async (png) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${png}`;
+          await image.decode();
+          const canvas = new OffscreenCanvas(image.width, image.height);
+          const context = canvas.getContext('2d')!;
+          context.drawImage(image, 0, 0);
+          return context.getImageData(0, 0, image.width, image.height);
+        }),
+      );
+      const [a, b] = images as [ImageData, ImageData | undefined];
+      if (within === null || !b) return Array.from(a.data);
+      if (a.width !== b.width || a.height !== b.height) return Math.max(a.width * a.height, b.width * b.height);
+      let count = 0;
+      for (let index = 0; index < a.data.length; index += 4) {
+        if (Math.abs(a.data[index]! - b.data[index]!) > within || Math.abs(a.data[index + 1]! - b.data[index + 1]!) > within || Math.abs(a.data[index + 2]! - b.data[index + 2]!) > within) count++;
+      }
+      return count;
+    },
+    { pngs, within },
+  );
 }
 
 /** Global `name` on the page. */
@@ -175,17 +220,35 @@ export async function filledWhere(page: Page, test: string, timeout = 30_000): P
   return (await handle.jsonValue()) as Shown;
 }
 
-/** The columns at least partly visible at `scrollX` (CSS px). */
+/** With `pin`, the run's edge (*P*): the pinned columns' right edge, in
+ *  CSS px from the cells' left; 0 with none pinned (or without `pin`). */
+export function pinEdge(layout: Layout): number {
+  const pinned = layout.pinned ?? 0;
+  return pinned ? Math.min(layout.columns[pinned - 1]!.x + layout.columns[pinned - 1]!.width, layout.cellsWidth) : 0;
+}
+
+/** Column `column`'s left edge on screen at `scrollX`, CSS px from the
+ *  cells' left: a pinned column (`pin`) stays at its `x`. */
+export function screenLeft(layout: Layout, column: number, scrollX: number): number {
+  return layout.columns[column]!.x - (column < (layout.pinned ?? 0) ? 0 : scrollX);
+}
+
+/** The columns at least partly visible at `scrollX` (CSS px): with `pin`,
+ *  every pinned one, and the scrolled ones reaching right of the run. */
 export function visibleColumns(layout: Layout, scrollX: number): number {
-  return layout.columns.filter((column) => column.x + column.width > scrollX && column.x < scrollX + layout.cellsWidth).length;
+  const edge = pinEdge(layout);
+  return layout.columns.filter((column, index) => {
+    const left = screenLeft(layout, index, scrollX);
+    return index < (layout.pinned ?? 0) || (left + column.width > edge && left < layout.cellsWidth);
+  }).length;
 }
 
 /** The middle of column `column`'s band at `scrollX` (CSS px), with
  *  `resize`: its hairline, the column's right edge's last pixel, in the
  *  header, the row above the body. */
 export function bandAt(layout: Layout, column: number, scrollX: number): { x: number; y: number } {
-  const { x, width } = layout.columns[column]!;
-  return { x: layout.left + x + width - scrollX - 0.5, y: layout.top - layout.rowHeight / 2 };
+  const { width } = layout.columns[column]!;
+  return { x: layout.left + screenLeft(layout, column, scrollX) + width - 0.5, y: layout.top - layout.rowHeight / 2 };
 }
 
 /** The cells' sideways room: how far `scrollX` can go. */
@@ -212,8 +275,8 @@ export async function laidOutAt(page: Page, column: number, width: number, timeo
  *  cell, of a visible row's number (just left of the cells), of a column's
  *  header, or of the corner over the row numbers. */
 export function cellAt(layout: Layout, view: Shown, row: number, column: number): { x: number; y: number } {
-  const { x, width } = layout.columns[column]!;
-  return { x: layout.left + x + width / 2 - view.scrollX, y: layout.top + (row - view.top + 0.5) * layout.rowHeight };
+  const { width } = layout.columns[column]!;
+  return { x: layout.left + screenLeft(layout, column, view.scrollX) + width / 2, y: layout.top + (row - view.top + 0.5) * layout.rowHeight };
 }
 export function gutterAt(layout: Layout, view: Shown, row: number): { x: number; y: number } {
   return { x: layout.left - 6, y: layout.top + (row - view.top + 0.5) * layout.rowHeight };
@@ -349,8 +412,8 @@ export function parseTsv(text: string): string[][] {
 /** With `sort`: the middle of column `column`'s arrow box at `scrollX`, in
  *  the header (CSS px); `null` where it draws none. */
 export function arrowAt(layout: Layout, column: number, scrollX: number): { x: number; y: number } | null {
-  const { x, arrow } = layout.columns[column]!;
-  return arrow ? { x: layout.left + x + arrow.x + arrow.width / 2 - scrollX, y: layout.top - layout.rowHeight / 2 } : null;
+  const { arrow } = layout.columns[column]!;
+  return arrow ? { x: layout.left + screenLeft(layout, column, scrollX) + arrow.x + arrow.width / 2, y: layout.top - layout.rowHeight / 2 } : null;
 }
 
 /** With `sort`: the probe once its order is `want` (`null` for the
@@ -387,4 +450,27 @@ export async function sourceRows(page: Page, rows: number[]): Promise<number[]> 
  *  flight so far. */
 export async function drainedReads(page: Page): Promise<number> {
   return page.evaluate(() => (globalThis as Global).__tallTableDrained!());
+}
+
+/** With `pin`: the layout once `pinned` columns are pinned in effect and
+ *  the published global agrees. */
+export async function pinnedAs(page: Page, pinned: number, timeout = 10_000): Promise<Layout> {
+  const handle = await page.waitForFunction(
+    ({ pinned, name }) => {
+      const g = globalThis as Global & Record<string, unknown>;
+      const layout = g.__tallTableLayout;
+      return layout && layout.pinned === pinned && (g[name] ?? 0) === pinned ? layout : false;
+    },
+    { pinned, name: PINNED_GLOBAL },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Layout;
+}
+
+/** With `pin` and `?perf`: the table's `set_pinned`, through the host's
+ *  hook, then the layout once `inEffect` (by default the count) pin. */
+export async function pinThrough(page: Page, columns: number, inEffect = columns): Promise<Layout> {
+  const sent = await page.evaluate((columns) => (globalThis as Global).__tallTablePin!(columns), columns);
+  if (!sent) throw new Error(`the host's pin hook refused ${columns}`);
+  return pinnedAs(page, inEffect);
 }

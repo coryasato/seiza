@@ -47,7 +47,21 @@
 // `diameter`), and back at off the values the top held before any sort;
 // with `select`, a press beside the arrow still selects the column, and
 // the arrow's selects nothing. And once opened sorted (`?sort=` with `H`
-// descending), the order at the first filled frame. Chromium is granted
+// descending), the order at the first filled frame. Built with `pin`, it
+// runs both shapes again with the shape's columns pinned (the host's
+// default): the screen left and right of the run's edge at the sideways
+// scroll's 0 and after a sideways wheel, against the same view with
+// nothing pinned (the host's hook): the pinned columns' pixels unchanged by
+// the scroll, the scrolled ones moved and drawn as unpinned (so each is
+// where the layout probe puts it), and the edge line drawn only while a
+// column is pinned; the horizontal thumb, its track from the edge, dragged
+// half its travel and its track pressed, the scroll landing at the
+// fraction under the pointer; a viewport narrowed past the half pinning
+// one fewer (the published count and the probe's) and widened pinning it
+// again; with `select`, a press on a pinned cell and on a scrolled one
+// selecting each; with `resize`, the last pinned column's band dragged
+// wider, the edge moving with it. The other runs keep the host's default
+// pin. Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
 // WebKit on macOS writes the system pasteboard, so the run overwrites
@@ -63,7 +77,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FILLED_MARK, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, pixel, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shown, type Sort } from './harness.ts';
+import { DEFAULT_PINNED, FILLED_MARK, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -86,6 +100,7 @@ const resize = builtFeatures().includes('resize');
 const select = builtFeatures().includes('select');
 const copy = builtFeatures().includes('copy');
 const sort = builtFeatures().includes('sort');
+const pin = builtFeatures().includes('pin');
 /** The sort runs: by clicks with the glyphs or the host's icons, or
  *  opened sorted (`OPEN_SORT`, the narrow shape's `H` descending). */
 type SortRun = 'glyphs' | 'icons' | 'opened';
@@ -336,9 +351,12 @@ async function checkResize(page: Page, label: string, start: Layout): Promise<st
   await page.mouse.move(laid.left + 200, laid.top + 200);
   await wheel(page, 0, room + 500);
   const end = await filledWhere(page, `s.scrollX >= ${room - 1}`);
-  // The last column whose edge is in view with room left of it.
-  const edges = laid.columns.map((column, index) => ({ index, edge: column.x + column.width - end.scrollX }));
-  const narrow = edges.filter(({ edge }) => edge > 0 && edge < laid.cellsWidth - 2).at(-1)!.index;
+  // The last column whose edge is in view with room left of it (with
+  // `pin`, past the last pinned column's band, which reaches its 4 px half
+  // right of the run's edge and takes a press there).
+  const edges = laid.columns.map((column, index) => ({ index, edge: screenLeft(laid, index, end.scrollX) + column.width }));
+  const clear = (laid.pinned ?? 0) > 0 ? pinEdge(laid) + 4 : 0;
+  const narrow = edges.filter(({ edge }) => edge > clear && edge < laid.cellsWidth - 2).at(-1)!.index;
   const was = laid.columns[narrow]!.width;
   const width = Math.min(Math.max(was + NARROW_PX, 40), 1200);
   // A vertical wheel during the drag, over the body (the pointer moved
@@ -710,8 +728,9 @@ async function checkOrder(page: Page, label: string, what: string, layout: Layou
 /** The arrow's box of `column` on screen, as a PNG's base64, once it
  *  differs from each of `not` (or after 1 s, whatever it is then). */
 async function arrowShot(page: Page, layout: Layout, column: number, not: string[] = []): Promise<string> {
-  const { x, arrow } = layout.columns[column]!;
-  const clip = { x: layout.left + x + arrow!.x, y: layout.top - layout.rowHeight, width: arrow!.width, height: layout.rowHeight };
+  const { arrow } = layout.columns[column]!;
+  // At the sideways scroll's 0, where `checkSort` runs.
+  const clip = { x: layout.left + screenLeft(layout, column, 0) + arrow!.x, y: layout.top - layout.rowHeight, width: arrow!.width, height: layout.rowHeight };
   let shot = (await page.screenshot({ clip })).toString('base64');
   for (let waited = 0; waited < 1_000 && not.includes(shot); waited += 50) {
     await page.waitForTimeout(50);
@@ -755,7 +774,7 @@ async function checkSort(page: Page, label: string, layout: Layout, shape: strin
     if (other.glyphs && other.glyphs === other.icons) failed(`${label}: column ${column}'s arrow drew the same with the icons as with the glyphs`);
     if (select) {
       // A press beside the arrow selects the column; one on it, nothing.
-      await pressAt(page, { x: layout.left + layout.columns[column]!.x + 8, y: arrow.y });
+      await pressAt(page, { x: layout.left + screenLeft(layout, column, 0) + 8, y: arrow.y });
       await selected(page, { kind: 'columns', anchor: [0, column], head: [0, column] }).catch(() => failed(`${label}: a press beside column ${column}'s arrow didn't select the column`));
       await page.keyboard.press('Escape');
       await selected(page, null).catch(() => failed(`${label}: Escape kept the selection`));
@@ -796,6 +815,164 @@ async function checkSort(page: Page, label: string, layout: Layout, shape: strin
   return `, sorted ${notes.join('; ')}`;
 }
 
+/** With `pin`: the pinned and scrolled regions' screen under a sideways
+ *  scroll, against the same table with nothing pinned (the host's hook),
+ *  the edge line, the horizontal thumb pressed and dragged from the run's
+ *  edge, a viewport narrowed past the half and widened again, and with
+ *  `select` a press on a pinned cell and a scrolled one, with `resize` the
+ *  last pinned column's band dragged. */
+async function checkPin(page: Page, label: string, start: Layout, shape: Shape): Promise<string> {
+  const notes: string[] = [];
+  const want = DEFAULT_PINNED[shape];
+  const layout = await pinnedAs(page, want).catch(async () => failed(`${label}: ${start.pinned} pinned at open (published ${JSON.stringify(await global(page, PINNED_GLOBAL))}), not the shape's ${want}`));
+  if (!layout) return '';
+  const edge = pinEdge(layout);
+  // Whole CSS px inside each region, a band of rows below the header: the
+  // pinned one up to the edge line (`edge - 1 .. edge`), the scrolled one
+  // from the edge to the cells' right.
+  const top = Math.ceil(layout.top + layout.rowHeight);
+  const height = Math.floor(8 * layout.rowHeight);
+  const pinnedClip = { x: Math.ceil(layout.left), y: top, width: Math.floor(layout.left + edge - 1) - Math.ceil(layout.left), height };
+  const scrolledFrom = Math.ceil(layout.left + edge);
+  const scrolledClip = { x: scrolledFrom, y: top, width: Math.floor(layout.left + layout.cellsWidth) - scrolledFrom, height };
+  // The line's two CSS px, whichever a device pixel rounds it to, mid-row.
+  const lineAt = [Math.floor(layout.left + edge - 1), Math.floor(layout.left + edge - 1) + 1].map((x) => ({ x, y: Math.floor(layout.top + 2.5 * layout.rowHeight) }));
+  // The pointer over the row numbers, in the body: it wheels the body and
+  // hovers no cell, so every shot draws the same hover (none).
+  const rest = { x: layout.left - 6, y: layout.top + 12 * layout.rowHeight };
+  await page.mouse.move(rest.x, rest.y);
+  const shots = async () => ({ pinned: await screenshot(page, pinnedClip), scrolled: await screenshot(page, scrolledClip), line: await Promise.all(lineAt.map((at) => pixel(page, at.x, at.y))) });
+  // Pixels differing beyond the browsers' own color handling.
+  const differing = (a: string, b: string) => differingPixels(page, a, b, FILL_STEPS);
+  const lineOff = (a: number[][], b: number[][]) => Math.max(...a.map((seen, index) => Math.max(...seen.slice(0, 3).map((channel, at) => Math.abs(channel - b[index]![at]!)))));
+  const settle = () => page.waitForTimeout(200);
+
+  // At the sideways scroll's 0: pinned and unpinned the same but the line.
+  await settle();
+  const at0 = await shots();
+  await pinThrough(page, 0);
+  await settle();
+  const at0Unpinned = await shots();
+  const at0Left = await differing(at0.pinned, at0Unpinned.pinned);
+  const at0Right = await differing(at0.scrolled, at0Unpinned.scrolled);
+  if (at0Left || at0Right) failed(`${label}: at scroll 0, pinned and unpinned drew differently (${at0Left} px left of the edge, ${at0Right} right)`);
+  if (lineOff(at0.line, at0Unpinned.line) <= FILL_STEPS) failed(`${label}: no edge line at ${lineAt[0]!.x}: ${at0.line.map((seen) => seen.slice(0, 3).join(',')).join(' ')} pinned, ${at0Unpinned.line.map((seen) => seen.slice(0, 3).join(',')).join(' ')} not`);
+
+  // Sideways: the pinned region's pixels unchanged, the scrolled one's
+  // moved, and drawn as with nothing pinned (each column at x - scrollX).
+  await pinThrough(page, want);
+  const by = Math.min(shape === 'wide' ? 600 : 100, sidewaysRoom(layout));
+  await wheel(page, 0, by);
+  const moved = await filledWhere(page, `s.scrollX >= ${by - 1}`).catch(() => null);
+  if (!moved) return failed(`${label}: a sideways wheel of ${by} px left the scroll at ${(await shown(page)).shown.scrollX}`) ?? '';
+  await settle();
+  const atBy = await shots();
+  // The scroll at rest, the wheel's last frame drawn: what unpinning keeps.
+  const rested = (await shown(page)).shown.scrollX;
+  const pinnedChanged = await differing(atBy.pinned, at0.pinned);
+  const scrolledMoved = await differing(atBy.scrolled, at0.scrolled);
+  if (pinnedChanged) failed(`${label}: ${pinnedChanged} px of the pinned columns changed under a sideways scroll`);
+  if (!scrolledMoved) failed(`${label}: the scrolled columns didn't move under a sideways scroll`);
+  await pinThrough(page, 0);
+  const unpinnedView = (await shown(page)).shown;
+  if (unpinnedView.scrollX !== rested) failed(`${label}: unpinning moved the sideways scroll ${rested} → ${unpinnedView.scrollX}`);
+  await settle();
+  const atByUnpinned = await shots();
+  const rightOff = await differing(atBy.scrolled, atByUnpinned.scrolled);
+  if (rightOff) failed(`${label}: right of the edge, ${rightOff} px drew otherwise than with nothing pinned`);
+  if (!(await differing(atBy.pinned, atByUnpinned.pinned))) failed(`${label}: left of the edge drew the same pinned as scrolled unpinned`);
+  await pinThrough(page, want);
+  notes.push(`${want} pinned to ${edge.toFixed(1)} px, scrolled ${rested.toFixed(1)} px: ${pinnedClip.width}×${pinnedClip.height} CSS px pinned held, ${scrolledMoved} px moved`);
+
+  // With `select`, at the sideways scroll: a pinned cell, then a scrolled
+  // one wholly right of the run.
+  if (select) {
+    const view = (await shown(page)).shown;
+    const scrolled = layout.columns.findIndex((column, index) => index >= want && screenLeft(layout, index, view.scrollX) >= edge && screenLeft(layout, index, view.scrollX) + column.width <= layout.cellsWidth);
+    if (scrolled < 0) failed(`${label}: no scrolled column wholly in view at scroll ${view.scrollX} to press`);
+    for (const [row, column] of (scrolled < 0 ? [[2, 0]] : [[2, 0], [3, scrolled]]) as [number, number][]) {
+      await pressAt(page, cellAt(layout, view, view.first + row, column));
+      const want: Selection = { kind: 'cells', anchor: [view.first + row, column], head: [view.first + row, column] };
+      await selected(page, want).catch(async () => failed(`${label}: a press on cell (${view.first + row}, ${column}) at scroll ${view.scrollX} selected ${JSON.stringify((await shown(page)).shown.selection ?? null)}`));
+    }
+    await page.keyboard.press('Escape');
+    await selected(page, null).catch(() => failed(`${label}: Escape kept the selection`));
+    await page.mouse.move(rest.x, rest.y);
+    notes.push(`pressed pinned (·, 0) and scrolled (·, ${scrolled})`);
+  }
+
+  // The horizontal thumb, its track from the edge: a drag from its middle
+  // (grabbed where pressed: the scroll stays), half its travel along; then
+  // a press on the track past it (the thumb centred under the pointer).
+  const [, trackY, bar, trackHeight] = (await page.evaluate(() => (globalThis as { __seizaTargets?: Record<string, number[]> }).__seizaTargets?.['table-scroll-track'])) ?? [];
+  const y = trackY! + trackHeight! + bar! / 2;
+  const track = layout.cellsWidth - edge;
+  const content = layout.columns.at(-1)!.x + layout.columns.at(-1)!.width - edge;
+  const length = Math.min(track, Math.max(24, (track * track) / content));
+  const travel = track - length;
+  const room = sidewaysRoom(layout);
+  // Through the thumb, within a pixel of its travel: what a pointer
+  // resolves (the wide shape's is ~51 px of scroll).
+  const thumbPx = travel > 0 ? room / travel : 1;
+  const scrollTo = async (x: number, what: string, within = 1) => {
+    const done = await filledWhere(page, `Math.abs(s.scrollX - ${x}) < ${within}`).catch(() => null);
+    if (!done) failed(`${label}: ${what}: the sideways scroll at ${(await shown(page)).shown.scrollX}, not ${x.toFixed(1)} (within ${within.toFixed(1)})`);
+    return done?.scrollX ?? NaN;
+  };
+  await wheel(page, 0, -(room + 1_000));
+  await scrollTo(0, 'back to the left');
+  const grab = layout.left + edge + length / 2;
+  await page.mouse.move(grab, y);
+  await page.mouse.down();
+  await page.waitForTimeout(50);
+  await scrollTo(0, 'a press on the thumb', thumbPx);
+  for (let step = 1; step <= DRAG_MOVES; step++) await page.mouse.move(grab + (travel / 2) * (step / DRAG_MOVES), y);
+  const dragged = await scrollTo(room / 2, 'a thumb dragged half its travel', thumbPx);
+  await page.mouse.up();
+  await wheel(page, 0, -(room + 1_000));
+  await scrollTo(0, 'back to the left');
+  const along = Math.min(Math.max(0.75 * track, length + 4), track - 2);
+  const expected = Math.min(Math.max((along - length / 2) / travel, 0), 1) * room;
+  await page.mouse.move(layout.left + edge + along, y);
+  await page.mouse.down();
+  await page.mouse.up();
+  const pressed = await scrollTo(expected, `a track press ${along.toFixed(0)} px from the edge`, thumbPx);
+  notes.push(`thumb dragged to ${dragged.toFixed(1)} (${(room / 2).toFixed(1)}), track pressed to ${pressed.toFixed(1)} (${expected.toFixed(1)})`);
+  await wheel(page, 0, -(room + 1_000));
+  await scrollTo(0, 'back to the left');
+
+  // Narrowed past the half: the last pinned column unpins; widened, it pins
+  // again.
+  const viewport = page.viewportSize()!;
+  const lastPinned = layout.columns[want - 1]!;
+  const narrowTo = Math.round(viewport.width - (layout.cellsWidth - (2 * edge - lastPinned.width)));
+  await page.setViewportSize({ width: narrowTo, height: viewport.height });
+  const narrowed = await pinnedAs(page, want - 1).catch(async () => failed(`${label}: at ${narrowTo} px wide, ${(await shown(page)).layout.pinned} pinned (published ${JSON.stringify(await global(page, PINNED_GLOBAL))}), not ${want - 1}`));
+  await page.setViewportSize(viewport);
+  const widened = await pinnedAs(page, want).catch(() => failed(`${label}: widened again, not ${want} pinned`));
+  if (narrowed) notes.push(`${narrowed.pinned} pinned at ${narrowTo} px wide (cells ${narrowed.cellsWidth.toFixed(1)}), ${widened?.pinned} again at ${viewport.width}`);
+
+  // With `resize`: the last pinned column's band dragged wider, the run's
+  // edge and the scrolled columns moving with it, nothing unpinned.
+  if (resize && widened) {
+    const column = want - 1;
+    const before = widened.columns[column]!.width;
+    const band = bandAt(widened, column, 0);
+    await page.mouse.move(band.x, band.y);
+    await page.mouse.down();
+    for (let step = 1; step <= DRAG_MOVES; step++) await page.mouse.move(band.x + (20 * step) / DRAG_MOVES, band.y);
+    await page.mouse.up();
+    const after = await laidOutAt(page, column, before + 20).catch(() => failed(`${label}: the pinned column ${column}'s band dragged 20 px didn't widen it`));
+    if (after) {
+      if (after.pinned !== want) failed(`${label}: ${after.pinned} pinned after the pinned band's drag, not ${want}`);
+      if (Math.abs(pinEdge(after) - edge - 20) > 0.01) failed(`${label}: the run's edge at ${pinEdge(after)} after a 20 px drag, from ${edge}`);
+      if (Math.abs(after.columns[want]!.x - widened.columns[want]!.x - 20) > 0.01) failed(`${label}: the first scrolled column at ${after.columns[want]!.x}, not moved 20 px`);
+      notes.push(`pinned column ${column} dragged ${before} → ${after.columns[column]!.width} px, the edge at ${pinEdge(after).toFixed(1)}`);
+    }
+  }
+  return `, ${notes.join('; ')}`;
+}
+
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
 async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
@@ -819,7 +996,7 @@ async function checkPaint(page: Page, style: CellStyle, shape: string, layout: L
   const unset = paintedCells.filter((cell) => !cell.text).length;
   if (unset) failures.push(`${label}: ${unset} filled cells drew their text in no color of their own`);
   const cell = darkestOnScreen(paintedCells, view, layout);
-  const x = layout.left + layout.columns[cell.column]!.x - view.scrollX + 2;
+  const x = layout.left + screenLeft(layout, cell.column, view.scrollX) + 2;
   const y = layout.top + (cell.row - view.top) * layout.rowHeight + 2;
   const seen = await pixel(page, x, y);
   const off = Math.max(...cell.fill!.map((channel, index) => Math.abs(channel - seen[index]!)));
@@ -833,8 +1010,11 @@ async function checkPaint(page: Page, style: CellStyle, shape: string, layout: L
  *  so a sample of the bare background can't pass. */
 function darkestOnScreen(cells: Cell[], view: Shown, layout: Layout): Cell {
   const onScreen = cells.filter((cell) => {
-    const column = layout.columns[cell.column]!;
-    return cell.row >= Math.ceil(view.top) && cell.row < view.end - 1 && column.x >= view.scrollX && column.x + column.width <= view.scrollX + layout.cellsWidth;
+    // Wholly in its region: a pinned one, or a scrolled one right of the
+    // run (`pin`) and left of the cells' right edge.
+    const left = screenLeft(layout, cell.column, view.scrollX);
+    const from = cell.column < (layout.pinned ?? 0) ? 0 : pinEdge(layout);
+    return cell.row >= Math.ceil(view.top) && cell.row < view.end - 1 && left >= from && left + layout.columns[cell.column]!.width <= layout.cellsWidth;
   });
   const sum = (cell: Cell) => cell.fill![0]! + cell.fill![1]! + cell.fill![2]!;
   return (onScreen.length ? onScreen : cells).reduce((darkest, cell) => (sum(cell) < sum(darkest) ? cell : darkest));
@@ -852,7 +1032,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -867,8 +1047,9 @@ try {
       runs.push(...SHAPES.flatMap((shape) => (['glyphs', 'icons'] as SortRun[]).map((sorting) => ({ ...quiet, shape, sorting }))));
       runs.push({ ...quiet, shape: 'narrow', sorting: 'opened' });
     }
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}`;
+    if (pin) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, pinning: true })));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}`;
       const params: Record<string, string> = { shape };
       if (sorting) params['probe-cells'] = '';
       if (sorting === 'icons') params['sort-icons'] = '';
@@ -899,6 +1080,13 @@ try {
           const resized = await checkResize(page, label, layout);
           if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
           console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${resized}`);
+          continue;
+        }
+        // The pin run too, from the first screen.
+        if (pinning) {
+          const pinned = await checkPin(page, label, layout, shape);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${pinned}`);
           continue;
         }
         // The select run too, from the first screen.

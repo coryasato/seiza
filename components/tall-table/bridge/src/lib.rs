@@ -6,7 +6,7 @@
 //! scrollbar's targets, with `follow` the tail mark and the following
 //! flag, with `resize` the widths a resize left, with `select` the
 //! selection, with `copy` the clipboard's writer ([`clipboard`]), with
-//! `sort` the order and its mark, and the
+//! `sort` the order and its mark, with `pin` the columns pinned, and the
 //! probes (`TallTableProbe`, `TallTableLayout`,
 //! `CellProbe`) as JS values on globals a host names.
 //!
@@ -79,6 +79,10 @@ pub struct Publish {
     /// the global.
     #[cfg(feature = "sort")]
     pub sorted_mark: Option<&'static str>,
+    /// The global holding the columns pinned in effect (`pin`'s
+    /// [`TallTableEvent::Pinned`]), replaced as the run changes.
+    #[cfg(feature = "pin")]
+    pub pinned: Option<&'static str>,
 }
 
 impl Publish {
@@ -155,6 +159,12 @@ impl Publish {
                 }
                 if let Some(mark) = self.sorted_mark {
                     let _ = seiza::marks::mark(mark);
+                }
+            }
+            #[cfg(all(feature = "pin", target_family = "wasm"))]
+            TallTableEvent::Pinned(columns) => {
+                if let Some(name) = self.pinned {
+                    js::set_global(name, &(*columns as f64).into());
                 }
             }
             #[cfg(target_family = "wasm")]
@@ -236,7 +246,9 @@ pub mod js {
     }
 
     /// `{left, top, rowHeight, cellsWidth, columns}` (CSS px from the
-    /// canvas's top-left), `columns` as [`columns`] writes them.
+    /// canvas's top-left), `columns` as [`columns`] writes them. With
+    /// `pin`, also `pinned`: the columns pinned in effect, the first
+    /// `pinned` drawn at `left + x` whatever the sideways scroll.
     pub fn layout(layout: &TallTableLayout) -> JsValue {
         let object = Object::new();
         set(&object, "left", number(layout.left));
@@ -244,6 +256,8 @@ pub mod js {
         set(&object, "rowHeight", number(layout.row_height));
         set(&object, "cellsWidth", number(layout.cells_width));
         set(&object, "columns", columns(&layout.columns));
+        #[cfg(feature = "pin")]
+        set(&object, "pinned", number(layout.pinned as f64));
         object.into()
     }
 

@@ -67,6 +67,11 @@ pub const SORTED_GLOBAL: &str = "__tallTableSorted";
 #[cfg(feature = "sort")]
 pub const SORTED_MARK: &str = "tall-table:sorted";
 
+/// The columns pinned in effect, replaced as the run changes (`pin`'s
+/// `Pinned`).
+#[cfg(feature = "pin")]
+pub const PINNED_GLOBAL: &str = "__tallTablePinned";
+
 /// What became of the last copy (`copy`), as `tall-table-bridge`'s
 /// `clipboard::Outcome::to_js` writes it, replaced at each step.
 #[cfg(feature = "copy")]
@@ -81,9 +86,9 @@ pub const COPIED_MARK: &str = "tall-table:copied";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 
-/// The scripts' hooks with `?perf` (`copy` or `sort`):
-/// `__tallTableExact(row, column)`, a value's exact text (`null` for NULL)
-/// at a row of the order read now. With `copy`: `__tallTableSelect(kind,
+/// The scripts' hooks with `?perf` (`copy`, `sort`, or `pin`). With `copy`
+/// or `sort`: `__tallTableExact(row, column)`, a value's exact text (`null`
+/// for NULL) at a row of the order read now. With `copy`: `__tallTableSelect(kind,
 /// anchorRow, anchorColumn, headRow, headColumn)`, the table's `select`
 /// (`kind` `rows`, `columns`, `cells`, or anything else for none), the
 /// table focused as a press would; `__tallTableClose()`, the table's
@@ -94,7 +99,8 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `false`, and nothing sent, for a column that isn't one), and
 /// `__tallTableSourceRow(row)`, the source's own row at a row of the order
 /// read now; and `__tallTableDrained()`, the reads cancelled in flight so
-/// far.
+/// far. With `pin`: `__tallTablePin(columns)`, the table's `set_pinned`
+/// (`false`, and nothing sent, for anything but a whole count).
 #[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
 const EXACT_HOOK: &str = "__tallTableExact";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
@@ -109,6 +115,8 @@ const SORT_HOOK: &str = "__tallTableSort";
 const SOURCE_ROW_HOOK: &str = "__tallTableSourceRow";
 #[cfg(all(feature = "sort", target_family = "wasm"))]
 const DRAINED_HOOK: &str = "__tallTableDrained";
+#[cfg(all(feature = "pin", target_family = "wasm"))]
+const PIN_HOOK: &str = "__tallTablePin";
 
 // gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
 // `assets`), for `?sort-icons`: bundled whichever the page draws, so the
@@ -266,6 +274,8 @@ impl Host {
             sort: Some(SORTED_GLOBAL),
             #[cfg(feature = "sort")]
             sorted_mark: Some(SORTED_MARK),
+            #[cfg(feature = "pin")]
+            pinned: Some(PINNED_GLOBAL),
         };
         // The table emits while its frame renders, so GPUI runs this in the
         // task that presents it, and the mark lands right after the frame.
@@ -296,10 +306,15 @@ impl Host {
             let options = seiza_tall_table::CopyOptions::default();
             table.update(cx, |table, _| table.set_copy_options(options));
         }
-        #[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
+        #[cfg(all(
+            any(feature = "copy", feature = "sort", feature = "pin"),
+            target_family = "wasm"
+        ))]
         if probing {
+            #[cfg(any(feature = "copy", feature = "sort"))]
             let rows = table.read(cx).delegate();
             let source = Source {
+                #[cfg(any(feature = "copy", feature = "sort"))]
                 exact: Box::new(rows.exact()),
                 #[cfg(feature = "sort")]
                 source_row: Box::new(rows.source_row()),
@@ -436,10 +451,14 @@ fn parse_sort(sort: &str, columns: usize) -> Option<seiza_tall_table::Sort> {
     Some(Sort::new(column, direction))
 }
 
-/// What the scripts' hooks read of the source (`MemoryRows::exact`, with
-/// `sort` `MemoryRows::source_row`).
-#[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
+/// What the scripts' hooks read of the source (with `copy` or `sort`
+/// `MemoryRows::exact`, with `sort` `MemoryRows::source_row`).
+#[cfg(all(
+    any(feature = "copy", feature = "sort", feature = "pin"),
+    target_family = "wasm"
+))]
 struct Source {
+    #[cfg(any(feature = "copy", feature = "sort"))]
     exact: Box<dyn Fn(u64, usize) -> Option<String>>,
     #[cfg(feature = "sort")]
     source_row: Box<dyn Fn(u64) -> u64>,
@@ -450,18 +469,22 @@ struct Source {
     drained: Box<dyn Fn() -> u64>,
 }
 
-/// Publishes the scripts' hooks (`?perf`, `copy` or `sort`):
-/// [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`], [`SELECT_HOOK`], and
-/// [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`], [`SOURCE_ROW_HOOK`], and
-/// [`DRAINED_HOOK`]. Those
-/// that change the table enter GPUI through its foreground executor, so
-/// they've happened by the next turn.
-#[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
+/// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, or `pin`): with
+/// `copy` or `sort` [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`],
+/// [`SELECT_HOOK`], and [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`],
+/// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`].
+/// Those that change the table enter GPUI through its foreground executor,
+/// so they've happened by the next turn.
+#[cfg(all(
+    any(feature = "copy", feature = "sort", feature = "pin"),
+    target_family = "wasm"
+))]
 fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
     use wasm_bindgen::closure::Closure;
 
     let set = |name, hook: wasm_bindgen::JsValue| tall_table_bridge::js::set_global(name, &hook);
     let Source {
+        #[cfg(any(feature = "copy", feature = "sort"))]
         exact,
         #[cfg(feature = "sort")]
         source_row,
@@ -470,6 +493,7 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
         #[cfg(feature = "sort")]
         drained,
     } = source;
+    #[cfg(any(feature = "copy", feature = "sort"))]
     set(
         EXACT_HOOK,
         // `null` for NULL: wasm-bindgen would answer `None` as `undefined`.
@@ -532,6 +556,24 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                     // read.
                     host.table
                         .update(cx, |table, cx| drop(table.set_sort(sort, cx)));
+                }));
+                true
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "pin")]
+    {
+        let on_pin = enter.clone();
+        set(
+            PIN_HOOK,
+            Closure::<dyn Fn(f64) -> bool>::new(move |columns: f64| {
+                if columns.fract() != 0.0 || !(0.0..=f64::from(u32::MAX)).contains(&columns) {
+                    return false;
+                }
+                on_pin(Box::new(move |host, _, cx| {
+                    host.table
+                        .update(cx, |table, cx| table.set_pinned(columns as usize, cx));
                 }));
                 true
             })

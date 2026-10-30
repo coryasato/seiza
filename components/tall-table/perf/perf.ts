@@ -27,6 +27,13 @@
 // hook, its order computed before the window), against the unsorted ones
 // before them; the sort is undone before the drags.
 //
+// Built with `pin`, every segment runs with the shape's columns pinned (the
+// host's default: 2 in the narrow shape, 1 in the wide), or `--pin <n>`'s
+// (`?pin=`; `--pin 0` builds the feature with nothing pinned, the control
+// that splits the code's cost from the drawing's), checked at open; the
+// visible cells count the pinned columns and the scrolled ones right of
+// them.
+//
 // Built with `select`, a select-all (a press on the corner: every column)
 // stands under the scroll and both flings, so the tint draws every frame;
 // between segments it's cleared for Home (which would move only its active
@@ -44,7 +51,7 @@
 // paints every float column that way (`text`, the control, paints nothing).
 //
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
-//          [--profile reference|throttled] [--cells <style>] [--label <name>]
+//          [--profile reference|throttled] [--cells <style>] [--pin <n>] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -54,7 +61,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, FILLED_MARK, PORT, SHAPES, SORTED_COLUMN, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
+import { CELL_STYLES, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SORTED_COLUMN, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 const shapes = pick('shape', SHAPES);
@@ -65,7 +72,13 @@ const BUILD = buildName(features);
 const CELLS = option('cells') as CellStyle | undefined;
 if (CELLS !== undefined && !CELL_STYLES.includes(CELLS)) throw new Error(`--cells ${CELLS}: not one of ${CELL_STYLES.join(', ')}`);
 if (CELLS !== undefined && !features.includes('custom-cells')) throw new Error('--cells needs the host built with custom-cells: `just tall-table build custom-cells`');
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}`);
+const PIN = features.includes('pin');
+const PIN_OPTION = option('pin');
+if (PIN_OPTION !== undefined && !PIN) throw new Error('--pin needs the host built with pin: `just tall-table build pin`');
+if (PIN_OPTION !== undefined && !/^\d+$/.test(PIN_OPTION)) throw new Error(`--pin ${PIN_OPTION}: not a whole count`);
+/** The columns each shape pins (`pin`): `--pin`'s, or the host's default. */
+const pinned = (shape: Shape) => (PIN_OPTION === undefined ? DEFAULT_PINNED[shape] : Number(PIN_OPTION));
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -192,11 +205,16 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
   let session: Awaited<ReturnType<typeof open>> | null = null;
   try {
     // Inside the try: a browser that fails to launch fails this run, not the rest.
-    session = await open(chromium, url, { profile, params: CELLS ? { shape, cells: CELLS } : { shape }, init: [workRecorder, frameRecorder] });
+    const params: Record<string, string> = { shape };
+    if (CELLS) params.cells = CELLS;
+    if (PIN_OPTION !== undefined) params.pin = PIN_OPTION;
+    session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
     await waitMark(page, FILLED_MARK);
     const { shown: start, layout } = await shown(page);
+    // The run in effect, at 1440 wide: every count here within the half.
+    if (PIN && layout.pinned !== pinned(shape)) throw new Error(`${layout.pinned} columns pinned at open, not ${pinned(shape)}`);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
     if (SELECT) await selectAll(page, layout);
@@ -390,7 +408,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

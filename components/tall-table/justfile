@@ -49,10 +49,11 @@ size *args:
 # built a select-all standing under the scroll and flings and a
 # drag-select (a row a move to the last visible cell and back, round
 # trips for about 2 s, a move every 8 ms), and with `sort` built the
-# scroll and flings again with a column sorted, reference + throttled,
-# cold, median of 10. Per-frame work from Chromium's trace,
-# cross-checked by `workRecorder`; late frames; frame intervals; visible
-# cells. --runs, --shape, --profile, --label
+# scroll and flings again with a column sorted, and with `pin` built every
+# segment with the shape's columns pinned (or --pin <n>'s; --pin 0 the
+# control), reference + throttled, cold, median of 10. Per-frame work
+# from Chromium's trace, cross-checked by `workRecorder`; late frames;
+# frame intervals; visible cells. --runs, --shape, --profile, --pin, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -109,8 +110,11 @@ sort *args:
 # reads held past 5 s and about a minute, a copy finishing in the
 # background, cancels, the cap, and an insecure context; with `sort`, the
 # arrows clicked through their cycles in both, with the glyphs and the
-# icons, the drawn order checked against the source, and opened sorted).
-# --browsers. Run `just tall-table build` first.
+# icons, the drawn order checked against the source, and opened sorted;
+# with `pin`, in both, the screen either side of the run's edge under a
+# sideways scroll against nothing pinned, the edge line, the horizontal
+# thumb, a viewport narrowed past the half and widened, and with `select`
+# and `resize` a press and a band on the pinned columns). --browsers. Run `just tall-table build` first.
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 

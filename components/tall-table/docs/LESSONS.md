@@ -363,3 +363,13 @@ One entry per milestone part, written before starting the next one: what surpris
 - A stand-in that does the unpinned math still cost the base bytes. Written once through `Place`, every site should have compiled to what it was, and four didn't: `gutter + 0.0` (LLVM can't drop an add of zero, since −0 + 0 is +0; a subtraction of zero it does drop), `.children(None)`, a filter that recomputed the view's right edge per column, and a helper's new parameter. 224 bytes after wasm-opt, twice the gate, from code that does nothing.
 - The random test's controls are counted over one fixed draw, so a feature's new step broke two of them without touching the paging: a weighted step moved every later case, and so did a step drawn after the others. Steps placed from a value already drawn left every draw alone, and every control failed again.
 - `add_window_view` draws the first frame before a test can subscribe to the table, so a test of "`Pinned` once, at the first frame" heard nothing; the table has to be made by a view that subscribes as it makes it.
+
+## M9: `pin` (part C, 2026-10-29)
+
+**Results:** none (the scripts' trials; part D measures).
+
+**Surprises:**
+- The scripts placed every press by `x − scrollX`, in five helpers and two of the smoke check's own samples, so on a `pin` build every feature's run would press a pinned column's neighbour once scrolled sideways. The scripts needed the same one mapping the table did (each column's screen left), and with it the other features' runs could stay pinned at the host's default, which exercises `pin` beside each of them in the browsers for free.
+- The edge's place can't be read off the screen by itself: the table draws no column lines, so the scripts' only way to see where a column is drawn is to compare. A view against itself unpinned at the same scroll is the same pixels right of the edge if every scrolled column is at its `x − scrollX`, and the same everywhere but the line at a scroll of 0, so the check matches no shifted image, and no text is compared drawn at another subpixel offset.
+- The wide shape's horizontal thumb is a 24 px thumb over 58,700 px of content: a CSS px of pointer is 51 px of scroll, and Chromium's drag landed 13–19 px off. A thumb check's tolerance is a pixel of its travel, not a pixel of scroll.
+- The bare host's cells start at a half pixel (`left` 108.5), so a screenshot clip on a column boundary would split a device pixel at DPR 1; the regions are clipped to whole CSS px inside each one, and the line sampled at both CSS px it can round to.

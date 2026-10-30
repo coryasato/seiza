@@ -38,6 +38,10 @@ export interface Layout {
   top: number;
   rowHeight: number;
   cellsWidth: number;
+  /** With `pin`: the columns pinned in effect. The first `pinned` are
+   *  drawn at `left + x` whatever the sideways scroll; the rest at
+   *  `left + x - scrollX`, clipped at the run's edge. */
+  pinned?: number;
   /** With `sort`, each column's `arrow`: its box in CSS px from the
    *  column's left edge, `null` where none is drawn. */
   columns: { name: string; x: number; width: number; kind: string; budget: number; arrow?: { x: number; width: number } | null }[];
