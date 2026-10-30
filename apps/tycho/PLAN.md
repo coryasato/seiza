@@ -41,7 +41,7 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 
 | Needs | For | Status |
 |---|---|---|
-| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3), `follow` (2026-10-25, tall-table M4), `resize` (2026-10-26, tall-table M5), `select` (2026-10-26, tall-table M6), `copy` (2026-10-27, tall-table M7) |
+| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3), `follow` (2026-10-25, tall-table M4), `resize` (2026-10-26, tall-table M5), `select` (2026-10-26, tall-table M6), `copy` (2026-10-27, tall-table M7), `sort` (2026-10-29, tall-table M8: adopting it builds the DuckDB source's order, one of the research's options by source, an index for a CSV in memory, a sorted copy for a Parquet file within the memory budget, a refusal past it ([the research](../../docs/research/tall-table-features.md), "`sort`"), measured against Tycho's budgets) |
 | `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | A milestone of its own: record the wasm's size effect in `perf/results/`, add the home-path check to `check`, redeploy (no rush) | *Not ready* |
 
 ---

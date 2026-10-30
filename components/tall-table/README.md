@@ -41,11 +41,12 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 
 - `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it; with `select`, selects it instead (below).
 - `set_rows(rows, cx)`: the source grew (rows still loading) or shrank; the scrollbar follows and short pages reload. A shrink forgets every page wholly past the new end (a read of one cancelled), so rows that come back are read anew. With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
-- `set_columns(columns, cx)`: a column's kind changed.
+- `set_columns(columns, cx)`: a column's kind changed (with `sort`, the sort kept while its column keeps its name: below).
 - `follow(cx)`, `is_following()` (`follow`): below.
 - `column_width(column)` (`resize`): the width a column is drawn at now.
 - `selection()`, `select(selection, cx)`, `selectable()`, `set_selectable(selectable, cx)` (`select`): below.
 - `copy(cx)`, `copying()`, `cancel_copy(cx)`, `set_copy_options(options)` (`copy`): below.
+- `sort()`, `set_sort(sort, cx)`, `set_sort_icons(icons, cx)` (`sort`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced); after it, nothing reads or cancels again (a second `close`, `set_rows`, which only moves the scrollbar).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
@@ -62,6 +63,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `ColumnWidthsChanged(widths)` (`resize`): below.
 - `Selected(selection)` (`select`): below.
 - `Copy(TallTableCopy)` (`copy`): below.
+- `Sorted(sort)` and `SortRefused(sort, refused)` (`sort`): below.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -217,7 +219,41 @@ state.update(cx, |table, cx| table.copy(cx)); // Option<CopyId>: None with nothi
 - **The host's:** the write, the progress (`copying`, or each `Text`'s `rows_done`) and the result shown to the reader, a cancel button (`cancel_copy`), asking about a declined copy, and the limits (`set_copy_options`).
 - **Its cost:** the Features table. Compiled in with nothing copied, it costs nothing a frame.
 
-Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above); with `copy`, Cmd+C and Ctrl+C copy it ("Copying"). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
+**Sorting** (`sort`, off by default): an arrow at the right of each header the host makes sortable; a click sorts the table by that column. The table tells its source the order, and the source reads its pages in it, or refuses.
+
+```rust
+use seiza_tall_table::{Sort, SortDirection, SortIcons, SortRefused};
+
+let name = TallTableColumn::new("name", ColumnKind::Text).sortable(true); // off unless set
+
+impl TallTableDelegate for MyRows {
+    fn sort(&mut self, sort: Option<Sort>, cx: &mut App) -> Result<(), SortRefused> {
+        // Start preparing the order (an index, a sorted copy); hold the next reads until it's ready.
+        // Or: Err(SortRefused::new("Sorting reads the whole file: 1.5 GB"))
+    }
+    // load_page, cancel …
+}
+
+// A host's menu: the same as a click.
+state.update(cx, |table, cx| table.set_sort(Some(Sort::new(2, SortDirection::Descending)), cx))?;
+// From the subscription:
+TallTableEvent::Sorted(sort) => { /* the order changed: a click or set_sort */ }
+TallTableEvent::SortRefused(sort, refused) => { /* a click the source refused: show refused.message */ }
+```
+
+- **Sortable is the host's word:** only a column given `sortable(true)` has an arrow, since only the host knows its source can sort it. A table with no sortable column draws and lays out as without the feature.
+- **The cycle:** a text column ascending first, every other kind (numbers, dates, timestamps, booleans) descending first, then the other direction, then off (`None`, the source's own order). One column at a time: a click on another column's arrow starts that column's cycle, and the old one's arrow goes back to unsorted. No key sorts; a host's menu calls `set_sort`.
+- **The arrow:** `↕` at half the header's text color when the column isn't the sort (full while hovered), `↑` ascending, `↓` descending, as glyphs of the header's face. Or the host's SVGs: `set_sort_icons(Some(SortIcons::new(ascending, descending, unsorted)))`, paths in the host's asset source (gpui-kit's `IconName::SortAscending`, `SortDescending`, and `ChevronsUpDown`, bundled with `icon_assets!`, say), drawn in the same colors and states. Each path is loaded once, when set; if any doesn't load, the glyphs are drawn for all three (and a debug assertion names it), so a missing asset never leaves a blank target. The arrow sits in one fixed box (the widest glyph's advance, at least 14 px) after a 4 px gap, both counted in the column's width by kind and in `resize`'s fit, so a sort or icons change no width. A name that doesn't fit is cut with "…" before the gap; a numeric column's name stays right-aligned, against the arrow. A column too narrow for its padding, the gap, and the box draws no arrow.
+- **The click:** the target is the box with 4 px each side, the header's height, ending where `resize`'s band begins; a press there sorts on its release inside it, and selects nothing (`select`'s press is the rest of the header). The pointer cursor over it.
+- **The delegate's `sort`:** from its return, every `load_page` reads `sort`'s order (`None`: the source's own). Ascending or descending by the column's values, ties in the source's own order and NULLs last, both ways: a total order, so pages read apart join up (descending isn't ascending reversed). A row index is a position in the order, so paging, the scrollbar, `jump_to`, and `copy` work unchanged. A source that needs to prepare starts it in `sort` and holds its reads until it's ready; the table draws placeholders meanwhile, and its next `Filled` is the sorted view. Reads out when it's called are cancelled after it returns `Ok`, and their answers are dropped, whichever order they hold. It's called inside the table's update, as `load_page` is. The default refuses every sort and accepts going back to none, so a delegate written without the feature is never wrong under an arrow.
+- **Refused:** by the source, nothing changes: a click emits `SortRefused`, `set_sort` returns it. `set_sort` on a column past the end or not sortable, or on a closed table, returns the table's own refusal, the source not told and no event (a debug assertion for the column).
+- **What an accepted sort does:** every page is forgotten and its read cancelled (with `live`, re-reads too, and flashes cleared); the view goes to row 0, the sideways scroll kept (with `follow`, following lets go, unless every row fits); a `Rows` or `Cells` selection is cleared, a `Columns` one kept with its rows moved to the top (`Selected` either way); the jump's highlight, hover, and the tooltip are cleared; a copy running is cancelled (`Failed(Cancelled)`); `Sorted` is emitted; the new order's reads are planned once the update ends. The same sort again re-reads every row.
+- **Across `set_columns`:** the sort is kept when the column at its index has the name it had and is still sortable; otherwise it's cleared as `set_sort(None)` would (the source told). A `Sort` names its column by index, so a host that moves the sorted column sorts again by its new index.
+- **`set_rows` and `invalidate_rows` under a sort** mean the sorted source's rows and positions: the count, and rows at those positions that changed. A change that moves rows within the order is the host's to settle, with `set_sort` (the same sort re-reads).
+- **The host's:** which columns are sortable, the source's order and its preparation, a refusal's message shown to the reader, the icons if it wants its own, and a menu that sorts. `tall-table-bridge` publishes each order on a global the host names (`{column, direction}` or `null`) and as a mark set in the task that sorted.
+- **Its cost:** the Features table. The arrows are drawn every frame, a sortable column's even when nothing is sorted: ~0.15 ms a frame for a dozen. A sorted column costs no more a frame than an unsorted one; what a source pays for its order is its own (below, "Limits").
+
+Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above); with `copy`, Cmd+C and Ctrl+C copy it ("Copying"). No key sorts (`sort`). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
 
@@ -231,12 +267,19 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `resize` | A column's width dragged at its header edge, or fitted to what's drawn by a double-click; `ColumnWidthsChanged` for a host to keep them ("Resizing columns", above) | +2.8 KiB brotli (+5.0 KiB after wasm-opt, the bare host's widths included). Every column resizable, nobody dragging: +0.05–0.15 ms a frame (1–2%) at the reference run, the bands; within the spread throttled. The drag: 4.8–5.5 ms a frame, under the wide shape's sideways fling (6.6), no late frames; throttled ~15–18 ms, 4–5% late | [`perf/results/2026-10-26-m5-d.md`](perf/results/2026-10-26-m5-d.md) |
 | `select` | Rows, columns, or a block of cells selected by press, Shift, drag, and keys, held as one range; `Selected` for a host ("Selecting", above) | +6.2 KiB brotli (+22.0 KiB after wasm-opt, the bare host's publishing included). A select-all standing under the scroll and flings: within the spread in both profiles. The drag-select: 5.0–5.7 ms a frame, under the scroll and the sideways fling, no late frames; throttled ~16–18 ms, 5–8% late | [`perf/results/2026-10-26-m6-d.md`](perf/results/2026-10-26-m6-d.md) |
 | `copy` | The selection to the clipboard as tab-separated exact values, by Cmd+C or a host's `copy`, rows not loaded read beside the cache, a cap in bytes; the bridge's write ("Copying", above). Turns on `select` | +8.8 KiB brotli over `select` (+33.3 KiB after wasm-opt; +13.1 brotli over the base, the bridge's writer and the bare host's hooks included). Built, nothing copied: within the spread in both profiles. A 58 MiB copy from a cold view: written 1.7 s after the key (2.8 s throttled), the wasm heap growing by at most its reads in flight and a piece. A scroll during it keeps its frame work, its turns running between frames: 1.2–1.3% late frames at the reference run (none alone); throttled, 43% late against 27% (narrow) | [`perf/results/2026-10-27-m7-d.md`](perf/results/2026-10-27-m7-d.md) |
+| `sort` | A click on a sortable header's arrow sorts by its column, the source reading pages in the order or refusing; `set_sort`, the host's icons, `Sorted` and `SortRefused` ("Sorting", above) | +19.8 KiB brotli (+82.9 KiB after wasm-opt, the bare host's in-memory sort, icons, and hooks included). Every column sortable: +0.15–0.24 ms a frame (2.5–5%) at the reference run, ~0.13–0.15 of it the arrows; throttled within the spread but for the flings (+0.6–0.8 ms). A sorted column no more than an unsorted. A click: the table's own work under 2 ms, the top filled ~40 ms later with reads answered at once (54–70 throttled), a source's read time added; three reads out at the click add 25–45 ms (the oldest's remainder) | [`perf/results/2026-10-29-m8-d.md`](perf/results/2026-10-29-m8-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
-- **Read-only.** No editing, sorting, or filtering.
+- **Read-only.** No editing or filtering.
+- **One sorted column** (`sort`): ascending or descending, never by several columns at once; no key sorts.
+- **A sort costs what the source pays for its order** (`sort`): from a tenth of a second to more than it can hold. Measured natively over DuckDB ([the research](../../docs/research/tall-table-features.md), "`sort`"; [the spike](perf/results/2026-10-29-m8-a-spike.md)): an `ORDER BY … OFFSET` per page grows with depth (48 ms at the top of 1.57 M rows, ~1 s at 90%), an index over rows in memory takes ~0.15 s to build and 7–43 ms a page, a sorted copy of a Parquet file 1.1 s and ~35 MiB, then 1–2 ms a page; a file whose copy passes the memory budget is refused. The table holds a few pages whatever the source does.
+- **A sort made while reads are out waits for them** (`sort`): the old order's reads are cancelled but hold their places until they answer (a source may not be able to stop a started read), so the new order's top page waits for what's left of the oldest (with 200 ms reads and three out, 25–45 ms: the Features table).
+- **`set_rows` and `invalidate_rows` don't re-sort** (`sort`): a change that moves rows within the order needs `set_sort` with the same sort.
+- **A `Sort` names its column by index** (`sort`): across `set_columns` it holds only while that index keeps its name; a host that moves the sorted column sorts again.
+- **An app's placeholder font needs the arrows** (`sort`): an HTML copy of a first frame with a sortable header, in a font subset of printable ASCII and "…", can't draw `↑`, `↓`, or `↕`; add them to the subset.
 - **A key copies at most `key_max_cells` cells, and nothing copies past the cap** (`copy`): 100 k cells and 64 MiB by default. The key's limit keeps a reflex Cmd+C on a select-all from reading the whole source; the cap keeps a write under what the browsers take (WebKit's ~100 MiB) and the browser's memory sane (the bridge holds about twice the text at its peak).
 - **NULL and empty text paste alike** (`copy`): both are an empty field.
 - **A paste before a copy that reads has finished gets the clipboard's old contents** (`copy`): the write lands only once every row is in. Show the reader the copy's progress.
@@ -257,6 +300,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 - **A flash says "changed" in color and motion alone** (`live` with `custom-cells`): a screen reader hears nothing of it, a reader who can't tell its colors apart can't tell a rise from a fall, and its full color can sit under the text with little contrast (a red flash under dark text). *Today:* the new value is drawn over it; under `App::reduce_motion` it holds still instead of fading. *To close it:* the DOM mirror above, announcing changes in a live region (politely, and batched: at a market watch's rates, every visible row changes every frame).
 - **New rows arrive silently** (`follow`): a screen reader isn't told that rows arrived or that the view moved, the accessibility gap above. *To close it:* the DOM mirror above, announcing appended rows in a live region (politely, and batched: a busy log appends every frame).
 - **Resizing is pointer-only** (`resize`): no key resizes a column, and a screen reader can't reach the bands, the accessibility gap above. *To close it:* keys of the table's own on the active cell's column (`select` gives a column focus), and the DOM mirror above exposing each header as a resizable column.
+- **The sort is silent and pointer-only** (`sort`): a screen reader isn't told which column is sorted or which way, and the arrow isn't a button the keys or a screen reader can reach. *Today:* a host's menu can sort (`set_sort`), and a host's own DOM can say the order ("Sorted by H, descending"). *To close it:* the DOM mirror above, each header carrying `aria-sort` and its arrow a button.
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs
