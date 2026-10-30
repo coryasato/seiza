@@ -104,7 +104,7 @@ Decided 2026-10-30 ([`../DECISIONS.md`](../DECISIONS.md), "Scenarios"): **each s
 
 ## What changes in the protocol
 
-The root `CLAUDE.md`'s "Comparison protocol" defines a comparison by its level (base, or base plus features). A scenario adds a workload to it: the dataset or feed, the script, and the stops, each stop with cold numbers. The protocol change, and its entry in root `docs/DECISIONS.md`, land with the first scenario's milestone. Features stay the component's and Tycho's ([`components/tall-table/PLAN.md`](../../../../components/tall-table/PLAN.md)); a scenario is the observatory's.
+The root `CLAUDE.md`'s "Comparison protocol" defines a comparison by its level (base, or base plus features). A scenario adds a workload to it: the dataset or feed, the script, and the stops, each stop with cold numbers. Each feature level is a build of each contender (Cargo features are compile-time), so a scenario on a level of its own adds a build per side, and every results file records the versions it was measured with. The protocol change, and its entry in root `docs/DECISIONS.md`, land with the first scenario's milestone. Features stay the component's and Tycho's ([`components/tall-table/PLAN.md`](../../../../components/tall-table/PLAN.md)); a scenario is the observatory's.
 
 ---
 

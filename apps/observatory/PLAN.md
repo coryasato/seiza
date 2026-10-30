@@ -21,7 +21,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | The deploy | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
-| M7 | `trim-paths`: no home paths in the shipped wasm, redeployed (with the repo-wide change and Tycho's M10, one session) | Planned |
+| M7 | `trim-paths`: no home paths in the shipped wasm; the asteroids credited; redeployed (with the repo-wide change and Tycho's M10, one session) | Planned |
 | M8 | The scenarios on the page: the design (a design session, no code) | Planned |
 | M9 | Scenario: wide sheet | Planned; waits on tall-table M10 (`density`) |
 | M10 | Scenario: market watch | Planned |
@@ -59,9 +59,17 @@ None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.
 
 The "done when" checks are drafts until their milestone becomes active. The scenarios (M9–M13) are in the research's build order ([`docs/research/scenarios.md`](docs/research/scenarios.md), where each one's workload, measures, dial, and needs are); each scenario's research and spec open its milestone as part A, as the table's features do, and its later parts are split there.
 
+**Every scenario milestone** (decided 2026-10-30, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"), each item a "done when" check of its own:
+- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall market watch's, if its features match).
+- **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
+- **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
+- **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
+
 ### M7: `trim-paths`, no home paths in the shipped wasm
 
 Every release wasm the repo builds embeds the builder's home-directory paths, its dependencies' and the toolchain's panic locations: the GPUI contender's `web/dist` holds 977 (counted 2026-10-30), and it's what's deployed at seiza.io, against the root's rule never to publish a home-directory path. It goes first because it moves every wasm's bytes: done before the scenarios, the contender's wasm baseline is rewritten once, before the scenarios' feature levels are measured against it, and builds identical across checkouts make those byte changes exact.
+
+**And the asteroids credited:** the observatory shows 1.57 M rows of NASA/JPL's Small-Body Database and credits it nowhere, in the README or on the page (Tycho's README has "Data credits"). The redeploy carries the credit, so every scenario's credit check ("Every scenario milestone", above) starts from a page that has one.
 
 **One session, three records**, each in its own home:
 1. **The repo-wide change**, first: [`docs/research/build-paths.md`](../../docs/research/build-paths.md)'s "Done when" (the profile setting and its decision, the home-path check in the table's `size` with its control, the bare host byte-identical across checkouts, both apps' rows flipped to *Ready*). It checks first that the pinned nightly takes `trim-paths` and that its `"object"` scope covers the panic locations.
@@ -72,6 +80,7 @@ Every release wasm the repo builds embeds the builder's home-directory paths, it
 - [ ] The GPUI contender's wasm before and after the change (raw, after wasm-opt, brotli 11) in a results note; `perf/baseline.json`'s wasm rewritten, and TTFP's only if `check` shows it moved.
 - [ ] `sizes --check` (in `check`) fails on a home path in the shipped wasm (the builder's `$HOME`, `/Users/`, `/home/`), with a control (a build without the setting fails it).
 - [ ] Redeployed (`just observatory deploy`, `worker-check` passing), and the wasm fetched from production holds no home path.
+- [ ] The asteroids credited: on the page (where the description says what the table shows), in the README ("Data credits"), and the credit and terms in `MANIFEST.json`'s entry.
 - [ ] `just observatory report`; "Waiting on"'s row removed (adopted).
 
 ### M8: the scenarios on the page, designed (a design session, no code)
@@ -79,10 +88,11 @@ Every release wasm the repo builds embeds the builder's home-directory paths, it
 How a visitor picks a scenario and a stop, and what the contender's window shows for each, decided for all five scenarios before the first is built, as M5's parts A1 and C decided the page's layout and its numbers ([`docs/milestones.md`](docs/milestones.md)). It needs no scenario built: each one's dial and measures are in the research. What it decides, mocked in light and dark, desktop and phone:
 
 - **Where a scenario is picked:** the sidebar (items under the tall table), a route per scenario (`/observatory/tall-table/<scenario>`), a control in the window's title bar, or a mix (the research's open question); and the base level's place (the session the page shows today: a scenario of its own, or the default).
-- **The dial:** a few stops, each labelled with what it sets; what a switch does (the frame destroyed and made again, as a flip is; the toggle disabled until the new frame fills; a second load labelled warm); the URL (`?side=` today, a scenario and a stop added).
+- **A switch is a load:** each scenario on a level of its own is a build of its own ("Every scenario milestone", below), so a switch loads another wasm or JS bundle (cold), with the engine and the font cached and its data file maybe not: a loading state per switch, and labels for a load that's warm in part (today's rule calls the second load warm). A stop within a scenario is the same build, new parameters.
+- **The dial:** a few stops, each labelled with what it sets; what a switch does (the frame destroyed and made again, as a flip is; the toggle disabled until the new frame fills); the URL (`?side=` today, a scenario and a stop added).
 - **The numbers per scenario:** the status bar's readings and the meter (today's four, or each scenario's own: market watch's update → pixel, live tail's append rate held), the Compare panel's cards (cold numbers per stop and side, both devices), and how a verdict reads across stops (where each side stops keeping up), with room for the benchmark button's curves later ("Long-term goals").
 - **The two that aren't speed:** the admin table's capabilities (prompts to try on each side, a yes/no list), and the monitoring wall's several tables in one frame.
-- **The description below the window** per scenario (what it models, the mechanisms behind its result), and the phone.
+- **The description below the window** per scenario (what it models, the mechanisms behind its result), its data's credit, and "measured with …" (the versions its numbers came from; the base level's results predate the field, so theirs are read once from the lockfiles at their commits); and the phone.
 
 **Done when:**
 - [ ] A design canvas (an artifact): the chosen design in light and dark, desktop and phone, the picker and the dial interactive; the options compared, and why one won.
@@ -102,11 +112,12 @@ Why `density`: the table's base at 500 columns (tall-table M1, [its results](../
   - **The verdict's measure, defined so part D doesn't redefine it:** the cells each side holds at the display's rate, over which scrolls (steady and fling, down and sideways), the late-frame threshold for "held", and whether the slower direction sets it.
   - **The slow device:** at 4× CPU a steady scroll already drops frames in both shapes at the base, so every stop may fail on both sides there. Either stops below the base for it, or "neither holds its rate at any stop" said plainly; decided here, before the long run.
   - **The TanStack side's counterparts:** two-axis virtualization (a column virtualizer beside the rows'), cell renderers matched to `paint.json` (its colors are Chromium's `color-mix(in oklab)`, which the DOM side uses itself), and pinned columns matched to `pin.json`. A spike of the one risky combination: sticky pinned columns beside a column virtualizer, inside the scroll model's translated content (the gutter is sticky there already).
-  - **The scenario in the root protocol** (root `CLAUDE.md`, "Comparison protocol", and root `docs/DECISIONS.md`), and M8's asks of the contenders. Ends with the checks below written.
-- **B: the data file and the GPUI contender at the level.** The file: its `prep` script and pinned source, `MANIFEST.json`'s entry (with its license and credit), and the hosting for several files (the Worker's edge cache keyed per file, not by one `DATA_SHA256`; `prep.ts`, `contenders/data.ts`, the deploy, `worker-check`); `cell-fixture` over it. The contender: the scenario and stop from its URL, the file and its page SQL, the paint, the pin, the density; the fixtures natively; its wasm with the features recorded.
-- **C: the TanStack contender at the level:** `paint.json` and `pin.json` run in TS with their controls; `tanstack-parity` extended to the sideways scroll and the pinned edge.
+  - **The scenario in the root protocol** (root `CLAUDE.md`, "Comparison protocol", and root `docs/DECISIONS.md`): its workload, a build per level, and the versions in every results file (recorded by `shared-web/perf/protocol.ts`, beside the machine label, so Tycho's results gain them too); and M8's asks of the contenders.
+  - **The suite's time** for the stops chosen, against the full protocol ("Every scenario milestone"). Ends with the checks below written.
+- **B: the data file and the GPUI contender at the level.** The file: its `prep` script and pinned source, `MANIFEST.json`'s entry (with its license and credit), and the hosting for several files (the Worker's edge cache keyed per file, not by one `DATA_SHA256`; `prep.ts`, `contenders/data.ts`, the deploy, `worker-check`); `cell-fixture` over it. The contender: a build at the level (`custom-cells`, `pin`, `density`) at a base of its own beside the base level's, staged and served by the Worker, its TTFP and wasm budgets; the stop from its URL, the file and its page SQL, the paint, the pin, the density; the fixtures natively; its wasm with the features recorded.
+- **C: the TanStack contender at the level,** a build of its own beside the base level's, with its first-paint JS budgets: `paint.json` and `pin.json` run in TS with their controls; `tanstack-parity` extended to the sideways scroll and the pinned edge.
 - **D: the numbers:** the metric scripts at each stop (a sideways fling added), cold on both sides, a results note; memory after a long sideways session as well as after load (GPUI's wasm memory grows to its peak and never shrinks, while the DOM's frees on a GC). A long run: ask about a code review first.
-- **E: the page,** built to M8's design, its explainer crediting the data (or saying the columns are derived, if part A kept them); the README; `report`; `burst` again before the deploy (a ~21-page cache re-reads more, and a wide page read may send more requests, either of which changes what a visitor sends in 10 s against the zone's rate limit); the deploy; the close.
+- **E: the page,** built to M8's design, its explainer crediting the data (or saying the columns are derived, if part A kept them); the README (its "Data credits" too); `report`; `burst` again before the deploy (a ~21-page cache re-reads more, and a wide page read may send more requests, either of which changes what a visitor sends in 10 s against the zone's rate limit); the deploy; the close.
 
 **Done when:** written in part A.
 
