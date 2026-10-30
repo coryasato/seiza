@@ -204,7 +204,7 @@ Researched 2026-10-26, from the table's layout and drag code (`src/column.rs`, `
 
 - **Tycho:** columns a reader sizes to the data, as every grid allows; Tycho adopts every feature.
 - **The wide sheet** (the observatory): "later, a column-resize drag", measured as its frame cost ([`apps/observatory/docs/research/scenarios.md`](../../apps/observatory/docs/research/scenarios.md), "Wide sheet"). The observatory hasn't asked in its PLAN yet.
-- **`pin`, `reorder`, `group-headers`** build on its width model (the table's `PLAN.md`, "Order").
+- **`reorder` and `group-headers`** build on its width model (the table's `PLAN.md`, "Order"). `pin` was listed here too; its research (below) found it needs only the laid-out widths the base has, and `resize` moves its edge.
 
 What the table has today: each column's width comes from its kind (`column_layout`: 120 px for a float, 200 for text, an integer's widest value at the font's widest number advance), at least its header's estimated width; `layout_columns` places them side by side and gives each float column its character budget from its width. Nothing changes a width but `set_columns`.
 
@@ -585,3 +585,81 @@ TanStack Table with `manualSorting`: the header's click sets the sorting state (
 ### What the random test gains
 
 A `sort` step (a column, a direction, or none, over columns made sortable), whose source renumbers its rows under a new permutation and bumps every row's era, so invariant 5 (rows drawn are of their era) catches a page of the old order drawn after the sort, and 7 a copy's text crossing it. Two controls: a sort that keeps the cache's pages, and one that forgets the loaded pages but leaves the reads out in their slots (an old read's answer then stored as the new order's page). A sort clears the cache and cancels reads: a change to the paging, so the build soaks before its code review (the table's `CLAUDE.md`, rule 5).
+
+## `pin`
+
+Researched 2026-10-29, from the table's horizontal layout and every place it turns a column's x into a screen x (`src/state.rs`: `visible_columns`, `cell_at`, `render_header`, `render_body`, `render_tooltip`, the horizontal thumb; `src/state/resize.rs`'s bands and `held_content`; `src/state/select.rs`'s `cell_clamped`, `target_at`, `scroll_into_view`, and `render_selection`; `src/state/sort.rs`'s arrows; `src/probe.rs`'s layout), `DataTable`'s fixed columns in gpui-component 0.8.0 (`src/table/column.rs`, `ColumnFixed`; `src/table/state.rs`, `fixed_left_cols_count`, `render_table_header`, `render_table_row`, `render_fixed_cols_border`, `render_horizontal_scrollbar`, `drag_gap_at`, `scroll_to_col`), and TanStack Table's column pinning (v8: `columnPinning`, `column.pin`, `getStart`, the left, center, and right leaf columns). No spike: a pin draws no more cells than the base (below), and its cost is measured in the build.
+
+### What asks for it
+
+- **Tycho:** a query's key columns (an id, a name) kept in view while the reader scrolls a wide result sideways; Tycho adopts every feature.
+- **The wide sheet** (the observatory): 500 columns scrolled sideways lose the row's identity after the first screen; a pinned key column is how a spreadsheet keeps it. Not asked for in its PLAN.
+- **`group-headers`** depends on it: a group must pin whole (the table's `PLAN.md`, "Columns").
+
+What the table has today: one pinned column already, of a kind, the row-number gutter, drawn at the cells' left and never scrolled. Everything else sits in one cells layer (`overflow_hidden`, left of it the gutter, right of it the vertical scrollbar), each column at `column.x − scroll_x`. That expression appears at a dozen sites: the header's cells, the body's cells and their `custom-cells` quads, the flash, the jump's edge, the cell probe, the tooltip, `resize`'s bands, `sort`'s arrows, `select`'s tint and active cell; and its inverse (`x + scroll_x`) in three hit tests (`cell_at`, `cell_clamped`, `target_at`'s header case) and in `select`'s `scroll_into_view`.
+
+### What `DataTable` does
+
+- **The model:** `Column::fixed_left()` (`ColumnFixed`, `Left` only) and the table's `col_fixed` switch (on). `fixed_left_cols_count` counts the columns marked, and rendering pins the *first* that many: it assumes the marked columns come first. A column marked but not first pins the wrong column. Its reorder (`drag_gap_at`) refuses a move across the boundary for that reason: a move would change which columns pin without changing their flags.
+- **What's drawn:** each row and the header split in two: the fixed columns in a plain flex row, then the rest in a horizontally scrolled one (`overflow_scroll`, the header's and the rows' handles shared). A 1 px line in `border` at the fixed columns' right edge, header and body (`fixed_cols_border`, on by default; off for a host whose cells draw the edge). The horizontal scrollbar starts at the fixed columns' right edge (`render_horizontal_scrollbar`'s `left`).
+- **What it skips:** fixed columns wider than the view (the scrolled part gets no room, and nothing says so); `scroll_to_col` counts from the first unfixed column.
+- **Nothing to reuse but the shape:** it's elements per cell in two flex rows, the tall table's cells are absolutely placed in one layer. What carries over: left only, the leading run, the edge line and its color, the scrollbar beside the pinned columns.
+
+### TanStack Table
+
+`columnPinning: { left: [ids], right: [ids] }`; a pinned column is drawn on its side whatever its place in the column order (`getLeftLeafColumns`, `getCenterLeafColumns`), so pinning column 7 moves it to the left. It's headless: a DOM grid draws pinned cells with `position: sticky` and a `left` from `column.getStart('left')`, each with an opaque background (a sticky cell overlaps the scrolled ones under it), on the compositor.
+
+### A count, not a flag
+
+Two models: a flag per column (`DataTable`, TanStack), or a count, the first *n* columns (a spreadsheet's "freeze first columns").
+
+- **A flag on a column that isn't first** must either move it (TanStack: the drawn order is no longer the index order) or be refused (`DataTable`, silently wrong). Moving it is the costly one here: `select`'s ranges are spans of indices (`Columns`, `Cells`: anchor to head), `copy` writes them in index order, the keys step by index, and `sort` names a column by index. With a drawn order apart from the index order, a range dragged across the boundary would select columns that aren't between the two the reader pressed, and every one of those would need a mapping.
+- **A count** keeps the drawn order the index order: the first *n* columns are pinned, and a host that wants column 7 pinned moves it first (`set_columns`, later `reorder`). Nothing about selection, copy, the keys, or sort changes. A DOM contender's TanStack state is `left: [the first n ids]`.
+
+So a count, set on the state (`set_pinned`), not a flag in `TallTableColumn`: pinning is a reader's choice through a host's menu (as a spreadsheet's freeze is), and a setter changes it without `set_columns`' work (a copy cancelled, the selection cleared). It's kept across `set_columns` (a new query keeps its first columns pinned, as a sheet's freeze outlives its data), clamped to the columns there are. Right-pinned columns stay a candidate (`PLAN.md`, "Beyond `DataTable`").
+
+### The geometry
+
+Pinned columns come first, so they're laid out at x from 0 to *P* (their widths' sum), and the rest from *P* on, as today. A pinned column is drawn at `x`, a scrolled one at `x − scroll_x`, clipped to the cells area right of *P*. Two consequences, both worth pinning in a fixture:
+
+- **The sideways scroll's range doesn't change:** the scrolled columns show content x from `P + scroll_x` to `cells_width + scroll_x`, so the last column is reached at `scroll_x = content_width − cells_width`, as today. Pinning or unpinning never moves the scroll, and at `scroll_x = 0` every cell is where it is unpinned.
+- **One mapping each way** replaces the dozen sites' expression: a column's screen left (`x`, or `x − scroll_x` past the run), and a screen x's content x (`x` left of *P*, `x + scroll_x` right of it). The hit tests keep their one search over the columns: a screen x right of *P* maps to a content x past *P*, which no pinned column holds. A scrolled column is visible when it overlaps `P + scroll_x .. cells_width + scroll_x`, so one wholly under the pinned columns isn't drawn.
+
+**The horizontal scrollbar** starts at *P*, as `DataTable`'s does: its track and its view are `cells_width − P`, its content `content_width − P`, the same fraction of the same range. Its press and drag (`press_track`, `drag_to`) measure from the gutter's edge over `cells_width` today; they measure from *P* over the track, or a press would miss the thumb and a drag land at the wrong fraction.
+
+### When the pinned columns don't fit
+
+Pinned columns wider than the view leave the scrolled ones no room, and nothing in the table could reach them. `DataTable` doesn't handle it. Options: let it be (a host's problem), refuse a `set_pinned` that doesn't fit (but the view's width changes after: a window narrowed, a column resized), or pin fewer while the view is narrow. **Pin fewer:** the run in effect is the longest leading part of the host's count whose right edge is within half the cells' width; the columns past it scroll as if unpinned, and the host's count is kept, so a wider view pins them again. Half leaves the scrolled columns at least as much room as the pinned, whatever the widths; a fixed least width would depend on the columns'. The run in effect is reported (`pinned_in_effect`, an event, the layout probe), so a host can say why a column stopped holding.
+
+It's computed wherever the columns or the view's width change (`set_pinned`, `set_columns`, a fit, a `resize` release, and `set_body`, which takes a new width without `lay_out`), with `Pinned` emitted there, not on a `resize` drag's moves. Until the first `set_body` the cells' width is 0 and nothing pins, so the run takes effect with the first frame's width. Not on the drag's moves either: a pinned column dragged wider than the half would otherwise stop pinning under the pointer, and the edge would jump by the scroll. Nor at the release: a reader who widened a pinned column would see it (or the next one) stop pinning when they let go, something moving after the hand stopped. So **a pinned column's drag is clamped** so the run stays within half the cells' width (its max that, or its `max_width`, whichever is less), as a spreadsheet stops a frozen pane's edge rather than unfreezing it; the release changes nothing but the width. Weighed: unpinning at the release (the first draft; revised after a second reading). What can still pass the half is the view narrowing during the drag (`set_body`): the run is held, and so as not to leave the scrolled region a negative width, *P* is clamped to the cells' width while held (the scrolled region at least empty, its thumb's track at least 0); the release computes the run again.
+
+### What's drawn
+
+- **Two cells layers, side by side, each clipped:** the pinned one from the gutter's edge to *P*, the scrolled one from *P* to the scrollbar. Each holds its columns' cells, its own `custom-cells` canvas (fills, bars, flashes, the jump's edge), and its own `select` canvas, so nothing scrolled draws under a pinned cell. The row backgrounds (stripes, the row lines, the jump's tint) stay one layer under both, the full width, as today: the pinned cells need no opaque fill of their own, unlike a DOM grid's sticky cells. The header splits the same way, and `resize`'s bands and `sort`'s arrows go in their region's layer. A failed row's message stays across the cells, as today (it never scrolled).
+- **The pin's edge:** a 1 px line in `border` at *P*, through the header and body, over both layers, while a column is pinned in effect (`DataTable`'s default). The last pinned column's band (`resize`) still drags there; its hairline is under the edge line, the same color as a lit band.
+- **A selection across the boundary** draws in two pieces, one per layer, each edged: a `Columns` or `Cells` range from a pinned column to a scrolled one spans the scrolled columns under the pin too, as a spreadsheet's does, and the scrolled piece starts at *P*. The active cell's edge is in its column's layer.
+- **The tooltip** is placed from the column's screen left, so a pinned cell's sits still while the rest scroll.
+
+### What the features do with it
+
+- **`resize`:** a pinned column's band is at its screen edge and drags as any other, its width clamped so the run stays within half the view (above); widening it moves *P* and every scrolled column with it. `held_content` is unchanged (the scroll's range is). A band of a scrolled column under the pinned run isn't drawn.
+- **`select`:** a press left of *P* is on a pinned column, right of it on a scrolled one; a drag clamps to the visible cells as before, so dragging from a scrolled column across *P* reaches the pinned ones. A key move to a scrolled column brings it into view right of *P* (`scroll_into_view`'s view left is `scroll_x + P`); a pinned column is always in view, so a move there scrolls nothing sideways.
+- **`sort`:** a pinned column's arrow is drawn and clicked as any other. A `Sort` names an index, and the count changes no index.
+- **`copy`, `live`, `follow`:** nothing: the data and the paging don't see columns' places.
+- **`reorder`** (next): a move within the run, across its edge, or into it is its research's question; `DataTable` refuses a move across. With a count, a drag across the edge is the natural pin and unpin gesture (the count changes by one), so `reorder` starts from that rather than a second model.
+
+### Frame-work risk
+
+None to spike: a frame draws the same visible cells (the pinned ones are among the columns a scrolled view drew at `scroll_x = 0`, and a scrolled column under them isn't drawn), plus a second clip region, a second quads canvas with `custom-cells`, a second selection canvas with `select`, and the edge line. What could cost is the per-site mapping, a comparison per column per frame. Measured: the scroll and flings (the sideways fling above all) with columns pinned against the base, and against the `pin` build with none pinned, which splits the code's cost from the drawing's, each compared with the base at the same place in the session.
+
+### Canvas gaps
+
+A screen reader isn't told which columns hold; the README's accessibility gap covers it. Pinning has no key or pointer gesture of its own (a host's menu), as in `DataTable` and TanStack. Nothing else changes.
+
+### What a DOM contender does
+
+TanStack's `columnPinning` with the first *n* ids, sticky cells with `left` from `getStart('left')` and opaque backgrounds, a shadow or line at the edge. Its cells would match only if it pins the same run in effect and its scrolled cells start where the table's do, so a fixture pins the geometry: `fixtures/pin.json`, cases of the cells' width, the columns' widths, the count, and a scroll → the run in effect, the scroll's range, each visible column's screen left, hit tests (a screen x → a column), and a column brought into view (the `scroll_x` that shows it right of *P*, as `select`'s keys do: a key move that only reached `x ≥ 0` would leave the active cell under a pinned column), run natively against the table's own functions, with negative controls (no cap; the pinned columns scrolled; a scrolled column under the run still drawn; into view at the gutter's edge, not *P*). The fixture's cases are chosen; a property test checks the mappings over random widths, counts, and scrolls (a screen x → a column → back inside it, and no screen x mapping to a column under the run), which covers every site that uses them at once. No level is built until the observatory asks.
+
+### What the random test gains
+
+A `pin` step (a count from 0 to past the columns), beside `set_columns` and `resize`'s steps, so a run in effect past a shrunk column list, or a held run while the view's width changes during a drag, would panic there (a drag can't outlive `set_columns`, which ends it). Pinning doesn't touch the paging: no invariant changes, no control, and no soak (the table's `CLAUDE.md`, rule 5).

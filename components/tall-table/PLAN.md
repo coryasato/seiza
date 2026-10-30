@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M8 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M9 (`pin`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M8 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M9 (`pin`, active: its research and spec done, part B next), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -27,7 +27,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M7 | `copy`: a selection to the clipboard | Done 2026-10-27 ([`docs/milestones.md`](docs/milestones.md)) |
 | — | Hardening: a random test of the paging, and its fixes | Done 2026-10-28 ([`docs/milestones.md`](docs/milestones.md)) |
 | M8 | `sort`: one column, ascending or descending | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
-| M9 | `pin`: columns fixed at the left | Planned |
+| M9 | `pin`: columns fixed at the left | Active: part A done 2026-10-29, part B next |
 | M10 | `reorder`: drag a column to move it | Planned |
 | M11 | `context-menu`: right- and double-click events | Planned |
 | M12 | `group-headers`: header rows over column groups | Planned |
@@ -69,8 +69,8 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 | Feature (Cargo) | What it adds | In `DataTable` | Depends on | Data | TanStack |
 |---|---|---|---|---|---|
 | `resize` | Drag a header edge to set a column's width, within a min and max; a double-click fits it; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged`; `fit_col` (0.8.0) | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
-| `pin` | Columns fixed at the left while the rest scroll sideways | `ColumnFixed::Left` (left only), `fixed_left` | `resize`'s width model | No | Column pinning (left and right) |
-| `reorder` | Drag a header to move its column | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
+| `pin` | The first *n* columns fixed at the left while the rest scroll sideways (M9's research) | `ColumnFixed::Left` (left only), `fixed_left` | — (`resize` moves its edge) | No | Column pinning (left and right), with the first *n* ids |
+| `reorder` | Drag a header to move its column; with `pin`, a drag across the run's edge pins or unpins it (the count by one), for its research to settle | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
 | `group-headers` | Header rows spanning column groups | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group must move and pin whole) | No | Header groups |
 
 ### Selection
@@ -144,7 +144,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.)
 
 - **The scenarios' features first,** in the observatory's scenario order: the wide sheet (`custom-cells`), market watch (`live`, and `custom-cells` for its flash), live tail (`follow`). Each is small, none breaks the paging, and Tycho uses them too (a growing CSV, a refreshed query).
-- **Then Tycho's core:** `resize` first because `pin`, `reorder`, and `group-headers` build on its width model; `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"), and they're the wide sheet's later steps; `sort` is the hardest: paging by row-group range stops working, and its research settles how the delegate reads pages in a sorted order.
+- **Then Tycho's core:** `resize` first because `reorder` and `group-headers` build on its width model (and it moves `pin`'s edge); `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"), and they're the wide sheet's later steps; `sort` is the hardest: paging by row-group range stops working, and its research settles how the delegate reads pages in a sorted order.
 - **The component's features come first, built in a run;** the apps adopt them after, each in a milestone of its own (decided 2026-10-23). A *Ready* row in an app's "Waiting on" table doesn't interrupt the run.
 - **A feature can move up** when an app needs it sooner. The change goes here, with a decision, never in the app's PLAN.
 
@@ -152,7 +152,67 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None: M9 (`pin`) is next, opening with its research.
+### M9: `pin`, the first columns fixed at the left
+
+**What it adds** (behind the `pin` feature, off by default): the first *n* columns, as a host sets them, drawn fixed at the cells' left while the rest scroll sideways under them, with a line at their edge. A count, not a flag per column, so the drawn order stays the index order; while they'd take more than half the cells' width, fewer pin. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`pin`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-10-29, M9 part A).
+
+```rust
+// state.rs, behind `pin`.
+impl<D: TallTableDelegate> TallTableState<D> {
+    /// Pins the first `columns` columns at the left (0: none), kept across
+    /// `set_columns` and clamped to the columns there are. Moves no scroll.
+    pub fn set_pinned(&mut self, columns: usize, cx: &mut Context<Self>);
+    /// The count the host set.
+    pub fn pinned(&self) -> usize;
+    /// The columns pinned now: the count, clamped to the columns, and cut
+    /// to the leading ones whose right edge is within half the cells' width.
+    pub fn pinned_in_effect(&self) -> usize;
+}
+
+pub enum TallTableEvent {
+    // …
+    /// The columns pinned in effect changed: by `set_pinned`,
+    /// `set_columns`, the view's width, or a width (`resize`).
+    #[cfg(feature = "pin")]
+    Pinned(usize),
+}
+
+// probe.rs: `TallTableLayout::pinned` (in effect), with `pin`; column `c`'s
+// left edge is `left + columns[c].x`, less `probe.scroll_x` when
+// `c >= pinned`.
+```
+
+The spec below is what part B builds; why each rule is so is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", and the root's research.
+
+- **The run:** the first `pinned_in_effect()` columns, laid out first as today (x from 0 to *P*, their widths' sum). The host's count is kept as set; in effect it's clamped to the columns and cut to the leading columns whose right edge is within half `cells_width`, so the scrolled columns keep at least half the view, and a wider view pins the rest again. Computed wherever the columns or the view's width change (`set_pinned`, `set_columns`, a fit, a `resize` release, and `set_body`, which takes a new width without `lay_out`), never on a drag's moves. Before the first frame's width the cells' width is 0 and `pinned_in_effect()` is 0; the run takes effect at the first `set_body`. `Pinned` is emitted when the run in effect changes (so once at the first frame when a count was set), never at construction.
+- **The geometry:** a pinned column is drawn at its x, a scrolled one at `x − scroll_x`, clipped to the cells right of *P*; a scrolled column wholly under the run isn't drawn. The sideways scroll's range is unchanged (`content_width − cells_width`): pinning never moves the scroll, and at `scroll_x = 0` every cell is where it is unpinned. One mapping each way, a column's screen left and a screen x's content x, used at every site (the header, the cells, `custom-cells`' quads, flashes, and the jump's edge, the cell probe, the tooltip, the hit tests, `resize`'s bands, `sort`'s arrows, `select`'s tint, active cell, and `scroll_into_view`, and the horizontal thumb's press and drag, `press_track` and `drag_to`, which measure from *P* over the track). A table with nothing pinned draws and hit-tests exactly as without the feature.
+- **What's drawn:** two clipped cells layers, pinned (the gutter's edge to *P*) and scrolled (*P* to the scrollbar), each with its own `custom-cells` canvas and `select` canvas, over the one layer of row backgrounds; the header split the same way, its bands and arrows in their column's region. A 1 px line in `border` at *P* through the header and body, over both layers, while a column is pinned in effect. The horizontal scrollbar's track starts at *P* (track and view `cells_width − P`, content `content_width − P`). A failed row's message stays across the cells.
+- **With `resize`:** a pinned column's band drags as any other (its hairline under the edge line), moving *P* and the scrolled columns with it, its width clamped so the run stays within half the cells' width (or its `max_width`, the lesser), so a release unpins nothing. The run in effect is held through the drag and computed again at the release; the view narrowed during a drag can still pass the half, so while held *P* is clamped to the cells' width, the scrolled region and the thumb's track never negative. A scrolled column's band under the run isn't drawn.
+- **With `select`:** a press left of *P* is on a pinned column, right of it on a scrolled one; a drag reaches the pinned columns from the scrolled ones (clamped to the visible cells, as now). A range across the boundary spans the scrolled columns under the run too and draws in two pieces, one per layer, each edged; the active cell's edge is in its layer. A key move to a scrolled column brings it into view right of *P*; to a pinned one, scrolls nothing sideways.
+- **With `sort`:** a pinned column's arrow draws and clicks as any other. **`copy`, `live`, `follow`:** unchanged.
+- **What's the host's:** the count (a menu: "Pin first column", later `context-menu`'s), moving a column into the run (`set_columns`, later `reorder`), and saying why fewer pin when `Pinned` reports it.
+- **The bare host** (part B, so `size` measures it; its scripts part C): `?pin=<n>`, by default 2 in the narrow shape (`spkid`, `full_name`) and 1 in the wide; `?pin=0` builds the feature with nothing pinned, the control that splits the code's cost from the drawing's. With `?perf`, `__tallTablePin(n)` (the table's `set_pinned`, through GPUI's foreground executor).
+- **The bridge** (part C): `Pinned` on a global the host names, and the layout probe's `pinned`.
+- **Fixtures:** `fixtures/pin.json`: cases of the cells' width, the columns' widths, the count, and a `scroll_x` → the run in effect, the scroll's range, each visible column's screen left, hit tests (a screen x → a column, or none), and columns brought into view (→ the `scroll_x` that shows each right of *P*, as `select`'s keys bring the active cell); run natively against the table's own functions, with negative controls (`no-cap`, `pinned-scroll`, `under-run`, `into-view-at-gutter`), each failing. A property test of the two mappings beside it (proptest, natively: random widths, counts, cells' widths, and scrolls; a screen x → a column → its screen span holding the x, and no screen x mapping to a column wholly under the run). A DOM contender's test names it skipped until the observatory builds a pin level. The fixtures pinned without `pin` unchanged in the all-on run (nothing pinned).
+- **The random test** gains a `pin` step (a count from 0 to past the columns), no invariant or control. No soak: the paging is untouched (`CLAUDE.md`, rule 5); if part B's code does touch it, the soak runs.
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
+
+- **A. Research and spec** (no shipped code). *Done 2026-10-29,* revised the same day after a code review (the run computed at `set_body` too, a held run clamped to the view, the thumb's press and drag through the mapping, `follow`'s pin renamed its tail pin in the docs), and after a second reading (a pinned column's drag clamped at the half, not unpinned at the release; the mappings' property test; columns brought into view in the fixture; an unclipped-paint control): the research in the root's `docs/research/tall-table-features.md`, "`pin`"; four decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below. No spike (the research's "Frame-work risk").
+- **B. The pin.** The geometry (a pure module with its native tests, the fixture's subject), `set_pinned` and the run in effect, the two layers and the edge line, every site through the mappings, the scrollbar, `resize`'s, `select`'s, and `sort`'s parts; the host's `pin` feature forwarding the table's and the bridge's, with `?pin=`, so `size` measures it; `pin` in `perf/size.ts`'s `FEATURES` and the justfile's `test` runs; the fixture; the random test's step; native tests. Checks B1–B3.
+- **C. The bridge and the scripts.** The bridge's `Pinned` arm and the layout's `pinned`; the host's `?perf` hook; the smoke check's pin runs; `perf.ts`'s pinned segments. Checks C1–C2.
+- **D. The measurement and the close.** The cost on the final build, then every remaining check and the close-out ("Closing a milestone", above).
+
+**Done when:**
+- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "`pin`"; its decisions in `docs/DECISIONS.md`; the API and the checks here. *Evidence:* the research section (`DataTable`'s fixed columns and TanStack's pinning read; a count chosen over a flag; the geometry keeping the scroll's range; the cap at half the view; what each built feature does with it); `docs/DECISIONS.md`, "Features" (2026-10-29, M9 part A, four entries).
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M9's parent>` (the base after wasm-opt within 0.1 KiB, no `pin` symbols in it, and the `pin` build's present; every other feature's build unchanged by `pin`'s code). `just tall-table test` passes with every feature off, each on (`pin` among them), and all on, the fixtures pinned without `pin` unchanged; `just tall-table lint` passes.
+- [ ] **B2. Pinning, natively:** `pin.json` passes and each control fails; the mappings' property test passes. In a window: pinned cells stay put under a sideways scroll while the scrolled ones move and clip at *P*, none drawn wholly under the run; at `scroll_x = 0` every cell's left is the same pinned and unpinned; `set_pinned` moves no scroll and leaves its range as it was; the thumb's track starts at *P*, and a press and a drag on it with columns pinned grab the thumb where pressed and scroll to the fraction under the pointer; the edge line drawn while a column is pinned in effect, never otherwise; hover and the tooltip on a pinned cell and a scrolled one, the tooltip at the cell's screen left; the cap (a narrow view pins fewer, `Pinned` emitted, a wider one pins them again, through `set_body`; a count set before the first frame pinning at it) and `set_columns` keeping the count, clamped. With `resize`: a pinned column's band drags, moving the scrolled columns; a drag past the half stops at it, and the release leaves the run as it was; the view narrowed during a drag leaves *P* at the cells' width and the thumb's track at least 0; no band under the run. With `select`: presses, a drag across *P*, the keys' sideways scroll into the scrolled region and none to a pinned column, the tint in two pieces. With `sort`: a pinned arrow clicks. With `custom-cells`: a scrolled heat column passing under a pinned one, its fills, bars, and flashes clipped at *P*, with a control that draws them in one unclipped canvas, failing. The random test with its `pin` step passes.
+- [ ] **B3. The host builds it:** the bare host's `pin` feature forwards the table's and the bridge's, `?pin=` pinning at run time; `just tall-table size` reports the `pin` build.
+- [ ] **C1. In the browsers:** `just tall-table smoke` with `pin`, in both shapes, in Chromium, Firefox, and WebKit: a sideways scroll leaves the pinned columns' pixels unchanged and moves the rest, the drawn cells' screen lefts agreeing with the layout probe; the edge line on screen; the horizontal thumb pressed and dragged with columns pinned, the scroll landing at the fraction under the pointer; a viewport narrowed past the half pins fewer (`Pinned`, the probe) and widened pins again; with `select`, a press on a pinned cell and on a scrolled one selecting each; with `resize`, a pinned column's band dragged.
+- [ ] **C2. The scripts measure it:** `perf.ts` on a `pin` build: the scroll, the fling, and (wide) the sideways fling with columns pinned, and with `?pin=0`. Reference and throttled, cold, median of 10.
+- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base; the scroll and flings with columns pinned and with none, each against the base's spread at the same place in the session (M8 part D's lesson). On the final build. In `perf/results/` and the README's Features table.
+- [ ] **D2. The README:** `pin`'s use (`set_pinned`, the count, `pinned_in_effect`, `Pinned`), what's drawn (the edge, the scrollbar), the run kept across `set_columns`, what `resize`, `select`, and `sort` do with it; its limits (left only; a leading run, a host moving a column into it; the half-width cap; no gesture of its own); canvas tradeoffs: which columns hold isn't announced.
+- [ ] **D3. Waiting apps told:** `pin` joins Tycho's "Ready so far" list (the date and M9). The observatory has no row: it hasn't asked.
 
 ---
 
@@ -172,7 +232,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 ## Next milestones
 
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M9's (`pin`) is written after its research, which opens it (M8 closed 2026-10-29); until then its spec is its row under "Features".
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M10's (`reorder`) is written after its research, which opens it once M9 closes; until then its spec is its row under "Features".
 
 ---
 
