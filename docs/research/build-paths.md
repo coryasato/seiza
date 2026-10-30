@@ -19,7 +19,7 @@ Remapping build paths in release artifacts is standard: Rust's own release build
 
 ## The plan
 
-One change to the root `Cargo.toml`, in a session of its own, after the tall table's `custom-cells` milestone closes. It changes every app's bytes (root rule 1), but each app records its own size effect and redeploys in a milestone of its own, when it gets to it: each app's `PLAN.md` carries the note ("Waiting on"), flipped to *Ready* when this lands. No rush to redeploy.
+One change to the root `Cargo.toml`. It changes every app's bytes (root rule 1), and each app records its own size effect and redeploys in a milestone of its own: each app's `PLAN.md` carries the note ("Waiting on"), flipped to *Ready* when this lands. Planned 2026-10-30 as one session that builds this change first and then both apps' adoptions (the observatory's and Tycho's PLANs), since the deployed wasm already carries the paths (977 in the observatory's GPUI contender, 1,013 in Tycho's). The session checks first that the pinned nightly takes the setting, and that its `"object"` scope covers the panic locations (`file!()`); if not, `"all"`, or the `RUSTFLAGS` route above.
 
 **Done when:**
 - [ ] `cargo-features = ["trim-paths"]` and `[profile.release] trim-paths = "object"` in the root `Cargo.toml`, with a comment linking here; a decision under root `docs/DECISIONS.md`, "Toolchain and build".

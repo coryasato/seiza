@@ -1,6 +1,6 @@
 # Research: scenarios
 
-Research for the observatory's long-term goal "Scenarios" ([`../../PLAN.md`](../../PLAN.md)). Drafted 2026-10-23 in a planning discussion; nothing here is measured yet. The decision to lead by scenarios is in [`../DECISIONS.md`](../DECISIONS.md), "Scenarios".
+Research for the observatory's long-term goal "Scenarios" ([`../../PLAN.md`](../../PLAN.md)). Drafted 2026-10-23 in a planning discussion; planned as milestones on 2026-10-30, one per scenario in this order ([`../../PLAN.md`](../../PLAN.md)). The table's features are measured in its bare host, reading from memory; nothing here is measured against the engine yet. The decisions are in [`../DECISIONS.md`](../DECISIONS.md), "Scenarios".
 
 **The question a visitor brings:** "for my table, should I use the DOM (TanStack) or WebAssembly drawn on the GPU (GPUI)?" The base level (scrolling 1.57 M asteroids) answers it only for one use, and on it GPUI reads mostly as the heavier side. A scenario answers it for a real use: a kind of app people build, its workload, and what that workload costs on each side.
 
@@ -32,8 +32,8 @@ Each is a real use, built from a feature level of the table (both sides), a data
 - **Workload:** 100–500 columns, compact rows, heat-map and data-bar cells; later, a column-resize drag and a range selection copied.
 - **Mechanisms:** A, C.
 - **Measures:** the visible cells each side holds at the display's rate; a horizontal and a vertical fling's late frames and per-frame work; with `resize`, a resize drag's frame cost.
-- **Dial:** columns and row height (cells on screen), then cell style (text → heat → bars).
-- **Needs:** columns from the SQL projection over the same file (no new bytes); the table's `custom-cells` feature and its TanStack counterpart (cell renderers); column virtualization on the TanStack side, which it doesn't have at 11 columns.
+- **Dial:** the cells on screen (each stop a row height, column width, and text size, named by its cell count), then cell style (text → heat → bars). The columns are derived from the file's five floats, and the page says so.
+- **Needs:** columns from the SQL projection over the same file (no new bytes); the table's `custom-cells` (built) and its TanStack counterpart (cell renderers); `pin` (built) for its key columns, frozen as every wide sheet freezes them, and TanStack's column pinning; the table's `density` (a row height, a width set without `resize`, and a text size), asked of the table: at the base's 120 px columns and 30 px rows only ~360 cells are on screen, too few for the dial ([the table's M1 results](../../../../components/tall-table/perf/results/2026-10-23-m1.md)); column virtualization on the TanStack side, which it doesn't have at 11 columns.
 - **Why first:** the fewest new features, and the cheapest test that scenarios separate the stacks at all.
 
 ### 2. Market watch
@@ -43,7 +43,7 @@ Each is a real use, built from a feature level of the table (both sides), a data
 - **Mechanisms:** A, B, C. The strongest test of what WebAssembly adds beyond the canvas (B).
 - **Measures:** update → pixel latency; the highest sustained update rate before frames go late; GC pauses in the trace (V8's GC events against late frames).
 - **Dial:** updates per second.
-- **Needs:** a table call for "these rows changed" (pages re-read or patched), and `custom-cells` for the flash; a deterministic feed.
+- **Needs:** the table's `live` (changed rows re-read in place) and its flash with `custom-cells`, both built: reading from memory in the bare host they keep up at 1k–50k updates/s ([the table's README](../../../../components/tall-table/README.md), "Features"), so the dial's ceiling is likely the engine's update rate; a deterministic feed; the TanStack side's port of `live`'s re-reads and its flash.
 
 ### 3. Live tail
 
@@ -52,7 +52,7 @@ Each is a real use, built from a feature level of the table (both sides), a data
 - **Mechanisms:** B, and A at density.
 - **Measures:** the append rate held while following; scroll-back latency during ingest; memory and late frames over a 10-minute soak.
 - **Dial:** rows per second.
-- **Needs:** the table's `follow` feature (pinned to the last row while rows arrive, released when the reader scrolls up; `set_rows` already grows the source); the engine's append path; a deterministic feed.
+- **Needs:** the table's `follow` (built: the view kept at the tail as `set_rows` grows the rows, let go when the reader scrolls up; from memory it keeps up at 1k–100k rows/s, [the table's README](../../../../components/tall-table/README.md), "Features"); the engine's append path, likely the dial's ceiling; a deterministic feed.
 - **Not a log viewer:** wrapped lines of varying height break the table's uniform f64 row index. A `log-view` component would be a comparison of its own.
 
 ### 4. Admin table (the control)
@@ -90,6 +90,6 @@ The root `CLAUDE.md`'s "Comparison protocol" defines a comparison by its level (
 ## Open questions
 
 - **Saying "canvas or WebAssembly" on the page:** whether each scenario names the mechanisms behind its result now (A against B and C), or waits until a Glide contender can measure the split.
-- **The stops per scenario:** how many, and what each holds, decided when its milestone is drafted.
-- **The engine's feed and append path:** where the seeded generator lives (`engines/duckdb/`, behind a feature, or the observatory's own worker code), and DuckDB-Wasm's insert rate in its worker, which caps live tail's dial.
-- **How the page presents scenarios:** a picker in the contender's window, a route per scenario (`/observatory/tall-table/<scenario>`), or both.
+- **The stops per scenario:** how many, and what each holds, decided in its milestone's part A.
+- **The engine's feed and append path:** where the seeded generator lives (`engines/duckdb/`, behind a feature, or the observatory's own worker code), and DuckDB-Wasm's update and insert rates in its worker, which likely cap market watch's and live tail's dials (the table keeps up past them from memory). A spike opens market watch's milestone.
+- **How the page presents scenarios:** a picker in the contender's window, a route per scenario (`/observatory/tall-table/<scenario>`), or both. Decided in the design milestone that comes before the first scenario.

@@ -29,6 +29,7 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | M7 | Observation panel, jump to row, and hardening (parts A–G) | Done 2026-10-09 |
 | M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
+| M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Planned: in one session with the repo-wide change and the observatory's M7 |
 | Later | Table features: column resizing, selection, sorting | Planned in [the table's `PLAN.md`](../../components/tall-table/PLAN.md); adopted here one at a time |
 | Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
 | Later | A density plot linked to the table | Not started; research first |
@@ -42,13 +43,23 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 | Needs | For | Status |
 |---|---|---|
 | Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3), `follow` (2026-10-25, tall-table M4), `resize` (2026-10-26, tall-table M5), `select` (2026-10-26, tall-table M6), `copy` (2026-10-27, tall-table M7), `sort` (2026-10-29, tall-table M8: adopting it builds the DuckDB source's order, one of the research's options by source, an index for a CSV in memory, a sorted copy for a Parquet file within the memory budget, a refusal past it ([the research](../../docs/research/tall-table-features.md), "`sort`"), measured against Tycho's budgets), `pin` (2026-10-29, tall-table M9) |
-| `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | A milestone of its own: record the wasm's size effect in `perf/results/`, add the home-path check to `check`, redeploy (no rush) | *Not ready* |
+| `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | M10 (below) | *Not ready*: built in M10's session, before the adoption |
 
 ---
 
 ## Active milestone
 
-None. The observatory's milestones come next ([`../observatory/PLAN.md`](../observatory/PLAN.md)), built on the table component and the DuckDB engine; Tycho's own next ones come out of the research for a long-term goal below.
+None. M10 is next, in one session with the repo-wide change it adopts and the observatory's M7 ([`../observatory/PLAN.md`](../observatory/PLAN.md)); Tycho's own milestones after it come out of the research for a long-term goal below.
+
+### M10: `trim-paths`, no home paths in the shipped wasm (draft)
+
+Tycho's release wasm embeds the builder's home-directory paths, its dependencies' and the toolchain's panic locations: 1,013 in `web/dist` on 2026-10-30, deployed at tycho.seiza.io. The repo-wide change is [`docs/research/build-paths.md`](../../docs/research/build-paths.md)'s; this milestone adopts it. One session builds the change, this, and the observatory's M7, but each records its own evidence: this one's goes in Tycho's `perf/results/` and `docs/milestones.md`.
+
+**Done when:**
+- [ ] The app wasm before and after the change (raw, after wasm-opt, brotli 11) in a results note; `perf/baseline.json`'s wasm rewritten, and TTFP's only if `check` shows it moved.
+- [ ] `check` fails on a home path in the shipped wasm (the builder's `$HOME`, `/Users/`, `/home/`), with a control (a build without the setting fails it).
+- [ ] Redeployed: the deploy's checks pass, and the wasm fetched from production holds no home path.
+- [ ] `just tycho report`; "Waiting on"'s row removed (adopted).
 
 ---
 

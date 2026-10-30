@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M9 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`reorder`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M9 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, next, opening with its research), M11 (`reorder`), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -28,9 +28,10 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | — | Hardening: a random test of the paging, and its fixes | Done 2026-10-28 ([`docs/milestones.md`](docs/milestones.md)) |
 | M8 | `sort`: one column, ascending or descending | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
 | M9 | `pin`: columns fixed at the left | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
-| M10 | `reorder`: drag a column to move it | Planned |
-| M11 | `context-menu`: right- and double-click events | Planned |
-| M12 | `group-headers`: header rows over column groups | Planned |
+| M10 | `density`: a row height, a set column width, and a text size | Planned |
+| M11 | `reorder`: drag a column to move it | Planned |
+| M12 | `context-menu`: right- and double-click events | Planned |
+| M13 | `group-headers`: header rows over column groups | Planned |
 
 One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
 
@@ -54,7 +55,7 @@ One milestone per feature, in the order below. A *Planned* row's spec is its row
 **Its details** are a decision (`docs/DECISIONS.md`, "Features", "The bare host's shape"). The spec pins the delegate's two shapes, since every feature's numbers are read against them, at the protocol's 1440×900, DPR 2:
 - **Narrow:** the observatory's: its 11 columns' kinds, 1.57 M rows.
 - **Wide:** 500 `ColumnKind::Float` columns (120 px each, the kind's width), 1.57 M rows, so the paging differs from the narrow shape only by the columns.
-- **Rows** are the table's own height (`table_row_height`, not a setting today). The wide sheet's row-height dial would need a setting, a change to the base that the observatory asks for when it plans that stop.
+- **Rows** are the table's own height (`table_row_height`, not a setting today). The wide sheet's denser stops need one, and a column width set without `resize`: asked for by the observatory on 2026-10-30 as `density` (M10, "Asked for by the observatory's scenarios").
 
 ---
 
@@ -125,8 +126,9 @@ The observatory leads its comparison by scenarios, real uses (its [`docs/researc
 |---|---|---|---|---|---|
 | `follow` | Follow the tail: the view stays at the last rows read while `set_rows` grows the source, and lets go when the reader scrolls up; a way back to it | Live tail | `live` (a grown tail page kept and read again; M4's research) | No (`set_rows` exists) | — (the contender's own, on its scroller) |
 | `live` | A host says "these rows changed"; their pages are re-read (or patched) and redrawn, the scroll unmoved | Market watch | — | Yes: the changed pages are read again | — (the contender's own, through its cache) |
+| `density` | Three numbers a host sets: the row height, a column's width without `resize`'s drag, and the cells' text size (a shorter row with the same text clips its glyphs); the padding and paint fitting them; defaults unchanged. A setting on the base or a feature of its own, for its research (M10), as is how `resize`'s width model takes over a set width. Asked for 2026-10-30 | Wide sheet (its denser stops: today ~360 cells are on screen at 120 px × 30 px) | — | No | Row height and column widths in CSS (column sizing's `size`, no resizing) |
 
-What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells) and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
+What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells), `density` (its denser stops), and `pin` (its key columns frozen), and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
 
 ### Who's waiting
 
@@ -137,22 +139,26 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `custom-cells` | Observatory: the wide sheet (heat and bar cells), then market watch (a cell flashing on change) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `live` | Observatory: market watch | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `density` | Observatory: the wide sheet's denser stops | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `pin` | Observatory: the wide sheet's key columns frozen | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
 
-Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.)
+Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.) Since 2026-10-30, `density` goes after `pin`, ahead of `reorder` (below).
 
 - **The scenarios' features first,** in the observatory's scenario order: the wide sheet (`custom-cells`), market watch (`live`, and `custom-cells` for its flash), live tail (`follow`). Each is small, none breaks the paging, and Tycho uses them too (a growing CSV, a refreshed query).
 - **Then Tycho's core:** `resize` first because `reorder` and `group-headers` build on its width model (and it moves `pin`'s edge); `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"), and they're the wide sheet's later steps; `sort` is the hardest: paging by row-group range stops working, and its research settles how the delegate reads pages in a sorted order.
 - **The component's features come first, built in a run;** the apps adopt them after, each in a milestone of its own (decided 2026-10-23). A *Ready* row in an app's "Waiting on" table doesn't interrupt the run.
 - **A feature can move up** when an app needs it sooner. The change goes here, with a decision, never in the app's PLAN.
+- **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
 
 ## Active milestone
 
-None: M10 (`reorder`) is next, opening with its research.
+None: M10 (`density`) is next, opening with its research. The observatory's wide sheet waits on it.
 
 ---
 
@@ -172,7 +178,19 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 ## Next milestones
 
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. M10's (`reorder`) is written after its research, which opens it (M9 closed 2026-10-29); until then its spec is its row under "Features".
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
+
+### M10: `density`, a row height, a set column width, and a text size (draft)
+
+Its spec until part A writes it is its row under "Asked for by the observatory's scenarios". What its research settles:
+
+- **Setting or feature:** a row height on the state (gpui-kit's `DataTable` takes a `Size` through `Sizable::with_size`: 26, 30, 32, or 40 px, or any), and `TallTableColumn::width` out from behind `resize`, against a Cargo feature of its own. A setting changes the base for every host (its bytes measured, its defaults unchanged); a feature keeps the base as it is.
+- **What follows the row height:** the scroll model's rows (`row_height()`'s callers: the viewport's rows, the wheel's pixel delta, `hover_at`, the probe's `row_height`), the cells' padding, `custom-cells`' bar inset, the gutter, the jump's edge, `select`'s tint, and the fixtures that assume 30 px (`paging.json`'s views, `selection.json`, `pin.json`).
+- **What follows the text size:** the glyph measurements (`Glyphs`, read once per font today: once per size), the widths by kind and an integer column's fit, a float's budget, the tooltip, `resize`'s fit, `cells.json`'s `number_px` and budgets, and the header. The observatory names its stops by the cells on screen, so the three numbers are set together; whether the table offers presets (as `DataTable`'s sizes) or the three alone is for the research.
+- **A set width without `resize`:** how `resize`'s min, max, and fit take over a width set this way, and `cells.json`'s budgets (a float's budget already follows its width).
+- **The cost:** the base's bytes with the setting, and frame work in the wide shape at a dense setting (more cells a frame, at a smaller text), the number the observatory's dial leans on.
+
+M11's (`reorder`) is written after its research, which opens it once M10 closes; until then its spec is its row under "Features".
 
 ---
 
@@ -202,4 +220,5 @@ Not planned; noted 2026-10-24 after the manual check of `custom-cells`. The host
 ## Open questions
 
 - **More late frames in a throttled wide fling with a feature built** (found in M4 part D with `follow`, again in M5 part D with `resize`): with `follow`, over 20 runs each, in both orders, ~8% late (median) against the base's ~3.5%, ranges overlapping (base 0.5–9.6%, `follow` 4.0–12.1%); with `resize`, 5.1% against 2.0% over 10 each (base 1.5–8.4, `resize` 1.0–12.0), its runs' p95 at ~30 ms in 7 of 10 against the base's 3 (the two modes ~15 and ~30 ms). With `select` (M6 part D), 4.1% against 2.75% (base 0.5–8.4, `select` 1.5–6.8), with no frame cost measured in any segment. With `pin` (M9 part D) it didn't show: 1.96% against the base's 2.99% (base 1.5–6.8, `pin` 0.5–4.5). Work per frame, busy time, and placeholders the same; not in the narrow fling or any reference segment. `follow`'s code on that path is a comparison per wheel and an early return per page landing, and `resize`'s the bands' ~0.1 ms a frame, which every reference segment shows without a late frame, so it's likely not either feature's code (the build's layout, say). Worth a trace comparison of the two builds' slow frames before an app adopts `follow` on a slow machine; not a blocker for the feature, whose frame work matches.
+- **Pages of the visible columns only** (two-dimensional paging): a page holds every column of its rows, so at the wide shape's 500 floats it's ~4 MB of Arrow and the 64 MiB cache holds ~16 pages. A page of the visible column range would cut the bytes read, sent, and decoded per frame of a sideways scroll, but it changes the delegate's unit and every paging decision, and a sideways scroll would then read pages too. Noted 2026-10-30 from the observatory's wide sheet, which keeps full-row pages (the same on both sides); worth research only if its data path measures the page's cost as the wide sheet's bottleneck.
 - **Vertical cell borders** (`DataTable`'s `bordered`): the base draws row lines but no column lines. Nobody has asked; a wide sheet of heat cells may want them.
