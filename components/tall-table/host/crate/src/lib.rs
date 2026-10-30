@@ -29,7 +29,9 @@
 //! every column is sortable, the source sorting a column from memory (its
 //! order computed at its first sort, `rows::column_order`), and
 //! `?sort-icons` draws gpui-kit's sort icons, which the host bundles, in
-//! place of the glyphs.
+//! place of the glyphs. With `pin`, `?pin=<n>` pins the first `n` columns
+//! (by default 2 in the narrow shape, its `spkid` and `full_name`, and 1 in
+//! the wide); `?pin=0` builds the feature with nothing pinned.
 
 mod host;
 pub mod rows;

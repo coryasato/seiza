@@ -9,6 +9,7 @@
 use std::sync::Arc;
 
 use gpui_kit::component::ActiveTheme as _;
+#[cfg(not(feature = "pin"))]
 use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::*;
 
@@ -298,13 +299,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The arrows over the header's cells, each a target of its own: under
     /// `resize`'s bands, beside `select`'s header press.
     pub(super) fn render_arrows(&mut self, cx: &mut Context<Self>) -> Option<Div> {
-        // Each drawn arrow's right edge and box left in the header's cells,
-        // the box as the layout probe reports it (`arrow_box`).
+        // Each drawn arrow's right edge and box left in its column's region
+        // (with `pin`, the pinned columns' or the scrolled ones'), the box as
+        // the layout probe reports it (`arrow_box`).
+        let place = self.place();
         let visible: Vec<(usize, f32, f32)> = self
             .visible_columns()
             .filter_map(|(index, column)| {
                 let (box_x, _) = self.arrow_box(index, column)?;
-                let left = column.x - self.scroll_x;
+                let left = place.layer_left(index, column.x, self.scroll_x);
+                // A scrolled column's arrow partly under the run (`pin`)
+                // isn't drawn: it couldn't be pressed there.
+                #[cfg(feature = "pin")]
+                if !place.holds(index) && left + box_x - TARGET_PAD < 0.0 {
+                    return None;
+                }
                 Some((index, left + column.width, left + box_x))
             })
             .collect();
@@ -323,6 +332,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let theme = cx.theme();
         let full = theme.table_head_foreground;
         let box_px = box_width(self.glyphs.arrow_px);
+        #[cfg(any(test, not(feature = "pin")))]
         let gutter = self.gutter_width();
         let mut arrows = Vec::with_capacity(visible.len());
         for (index, edge, box_left) in visible {
@@ -355,7 +365,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 color,
                 target: Bounds::new(
                     point(
-                        self.body.origin.x + px(gutter + left),
+                        self.body.origin.x
+                            + px(gutter
+                                + left
+                                + if place.holds(index) {
+                                    0.0
+                                } else {
+                                    place.edge()
+                                }),
                         self.body.origin.y - row_height(),
                     ),
                     size(px(width), row_height()),
@@ -378,7 +395,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 }
                 (None, None) => mark,
             };
-            arrows.push(
+            arrows.push((
+                place.holds(index),
                 div()
                     .id(("tall-table-sort", index))
                     .absolute()
@@ -423,17 +441,27 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         }),
                     )
                     .child(mark),
-            );
+            ));
         }
-        Some(
-            div()
-                .absolute()
-                .top_0()
-                .bottom_0()
-                .left(px(gutter))
-                .right(Scrollbar::width())
-                .overflow_hidden()
-                .children(arrows),
-        )
+        #[cfg(not(feature = "pin"))]
+        let arrows = div()
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(px(gutter))
+            .right(Scrollbar::width())
+            .overflow_hidden()
+            .children(arrows.into_iter().map(|(_, arrow)| arrow));
+        #[cfg(feature = "pin")]
+        let arrows = {
+            let (pinned, scrolled): (Vec<_>, Vec<_>) =
+                arrows.into_iter().partition(|(holds, _)| *holds);
+            self.split_layer(
+                place,
+                pinned.into_iter().map(|(_, arrow)| arrow),
+                scrolled.into_iter().map(|(_, arrow)| arrow),
+            )
+        };
+        Some(arrows)
     }
 }

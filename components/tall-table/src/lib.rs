@@ -24,6 +24,8 @@ mod format;
 mod pages;
 #[cfg(feature = "custom-cells")]
 mod paint;
+#[cfg(feature = "pin")]
+mod pin;
 mod probe;
 mod scroll;
 #[cfg(feature = "select")]

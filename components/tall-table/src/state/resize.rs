@@ -5,6 +5,7 @@
 //! until the release (`docs/DECISIONS.md`, "Features").
 
 use gpui_kit::component::ActiveTheme as _;
+#[cfg(not(feature = "pin"))]
 use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::*;
 
@@ -29,6 +30,10 @@ pub(super) struct Resizing {
     width: f32,
     /// Its set width at the press, as the host or a drag left it.
     was: Option<f32>,
+    /// The widest a pinned column may go (`pin`): so wide that the run
+    /// reaches half the cells' width, as they were at the press.
+    #[cfg(feature = "pin")]
+    pin_limit: f32,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -66,11 +71,24 @@ impl<D: TallTableDelegate> TallTableState<D> {
         else {
             return;
         };
+        // A pinned column's drag stops where the run would pass half the
+        // view, so its release unpins nothing (`pin`).
+        #[cfg(feature = "pin")]
+        let pin_limit = {
+            let place = self.place();
+            if place.holds(column) {
+                self.cells_width() / 2.0 - (place.edge - laid_out.width)
+            } else {
+                f32::INFINITY
+            }
+        };
         self.resizing = Some(Resizing {
             column,
             press_x: f32::from(x),
             width: laid_out.width,
             was: info.width,
+            #[cfg(feature = "pin")]
+            pin_limit,
         });
         // No tooltip until the release.
         self.hide_tooltip(cx);
@@ -96,7 +114,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let set = if f32::from(x) == resizing.press_x || outside {
             resizing.was
         } else {
-            Some(info.clamp_width(raw))
+            let width = info.clamp_width(raw);
+            // Never narrower than at the press for it, so a column pinned
+            // past the half (the view narrowed) only holds.
+            #[cfg(feature = "pin")]
+            let width = width.min(resizing.pin_limit.max(start));
+            Some(width)
         };
         if set == info.width {
             return;
@@ -120,9 +143,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .get(resizing.column)
             .is_some_and(|column| column.width != resizing.was)
         {
-            self.lay_out();
+            self.lay_out(cx);
             cx.emit(TallTableEvent::ColumnWidthsChanged(self.set_widths()));
         }
+        // The run was held through the drag, and the view may have narrowed
+        // meanwhile: computed again even when no width changed.
+        #[cfg(feature = "pin")]
+        self.repin(cx);
         cx.notify();
     }
 
@@ -188,23 +215,28 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         self.column_info[column].width = Some(width);
-        self.lay_out();
+        // A fit isn't clamped at the half: a pinned column fitted wider may
+        // leave the run (`pin`).
+        self.lay_out(cx);
         cx.emit(TallTableEvent::ColumnWidthsChanged(self.set_widths()));
         cx.notify();
     }
 
     /// The bands at each visible resizable column's right edge, over the
     /// header's cells: a 1 px hairline with [`BAND_PADDING`] on each side.
+    /// With `pin`, each in its column's region, so a scrolled column's band
+    /// under the run isn't drawn.
     pub(super) fn render_bands(&self, cx: &mut Context<Self>) -> Div {
         let theme = cx.theme();
         let (line, lit) = (theme.table_row_border, theme.border);
         let dragged = self.resizing.map(|resizing| resizing.column);
-        let bands: Vec<_> = self
+        let place = self.place();
+        let bands = self
             .visible_columns()
             .filter(|(index, _)| self.column_info[*index].resizable)
             .map(|(index, column)| {
-                let edge = column.x + column.width - self.scroll_x;
-                div()
+                let edge = place.layer_left(index, column.x, self.scroll_x) + column.width;
+                let band = div()
                     .id(("tall-table-band", index))
                     .group(BAND_GROUP)
                     .absolute()
@@ -231,16 +263,39 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             .w(px(1.))
                             .bg(if dragged == Some(index) { lit } else { line })
                             .group_hover(BAND_GROUP, move |line| line.bg(lit)),
-                    )
-            })
-            .collect();
-        div()
+                    );
+                (place.holds(index), band)
+            });
+        #[cfg(not(feature = "pin"))]
+        let bands = div()
             .absolute()
             .top_0()
             .bottom_0()
             .left(px(self.gutter_width()))
             .right(Scrollbar::width())
             .overflow_hidden()
-            .children(bands)
+            .children(bands.map(|(_, band)| band));
+        #[cfg(feature = "pin")]
+        // A pinned column's band is clipped to the cells only, not at the
+        // run's edge: the last one's straddles it, and its right half must
+        // draw and take the press. Over the scrolled region's.
+        let bands = {
+            let (pinned, scrolled): (Vec<_>, Vec<_>) = bands.partition(|(holds, _)| *holds);
+            let [_, scrolled] = self.regions(
+                place,
+                std::iter::empty::<Div>(),
+                scrolled.into_iter().map(|(_, band)| band),
+            );
+            div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .left(px(self.gutter_width()))
+                .right(gpui_kit::component::scroll::Scrollbar::width())
+                .overflow_hidden()
+                .children(scrolled)
+                .children(pinned.into_iter().map(|(_, band)| band))
+        };
+        bands
     }
 }

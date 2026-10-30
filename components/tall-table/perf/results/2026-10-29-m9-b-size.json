@@ -1,0 +1,209 @@
+{
+  "date": "2026-10-29",
+  "label": "m9-b-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13093.8,
+    "optKiB": 9681.5,
+    "brotliKiB": 2688.7
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13106.2,
+      "optKiB": 9691.9,
+      "brotliKiB": 2694.9,
+      "moreOptKiB": 10.4,
+      "moreBrotliKiB": 6.2
+    },
+    "live": {
+      "rawKiB": 13109.8,
+      "optKiB": 9695.2,
+      "brotliKiB": 2693.6,
+      "moreOptKiB": 13.7,
+      "moreBrotliKiB": 4.9
+    },
+    "live,custom-cells": {
+      "rawKiB": 13136.5,
+      "optKiB": 9715.9,
+      "brotliKiB": 2701.6,
+      "moreOptKiB": 34.4,
+      "moreBrotliKiB": 12.9,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.7,
+          "moreBrotliKiB": 8
+        },
+        "custom-cells": {
+          "moreOptKiB": 24,
+          "moreBrotliKiB": 6.7
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13121.2,
+      "optKiB": 9705.1,
+      "brotliKiB": 2696,
+      "moreOptKiB": 23.6,
+      "moreBrotliKiB": 7.3,
+      "against": {
+        "live": {
+          "moreOptKiB": 9.9,
+          "moreBrotliKiB": 2.4
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13099.5,
+      "optKiB": 9686.2,
+      "brotliKiB": 2692.1,
+      "moreOptKiB": 4.7,
+      "moreBrotliKiB": 3.4
+    },
+    "select": {
+      "rawKiB": 13133.7,
+      "optKiB": 9704,
+      "brotliKiB": 2695.1,
+      "moreOptKiB": 22.5,
+      "moreBrotliKiB": 6.4
+    },
+    "copy": {
+      "rawKiB": 13176.2,
+      "optKiB": 9737.7,
+      "brotliKiB": 2704.8,
+      "moreOptKiB": 56.2,
+      "moreBrotliKiB": 16.1,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.7,
+          "moreBrotliKiB": 9.7
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13188.5,
+      "optKiB": 9765.8,
+      "brotliKiB": 2708.3,
+      "moreOptKiB": 84.3,
+      "moreBrotliKiB": 19.6
+    },
+    "pin": {
+      "rawKiB": 13101.9,
+      "optKiB": 9688,
+      "brotliKiB": 2691.8,
+      "moreOptKiB": 6.5,
+      "moreBrotliKiB": 3.1
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 28
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 23,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 10
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 206
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 15
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    }
+  },
+  "against": {
+    "commit": "a0cc05f",
+    "then": {
+      "rawKiB": 13092.4,
+      "optKiB": 9680.2,
+      "brotliKiB": 2690.2
+    },
+    "now": {
+      "rawKiB": 13092.4,
+      "optKiB": 9680.2,
+      "brotliKiB": 2687.5
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": -2.7
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-DDbCK9Gm.wasm",
+    "optKiB": 9743.6,
+    "brotliKiB": 2707.2,
+    "moreBrotliKiB": 18.5
+  },
+  "failures": []
+}

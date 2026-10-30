@@ -27,6 +27,8 @@ select = ["seiza-tall-table/select"]
 copy = ["select", "seiza-tall-table/copy"]
 # The table's sort, forwarded for a host's build.
 sort = ["seiza-tall-table/sort"]
+# The table's pin, forwarded for a host's build.
+pin = ["seiza-tall-table/pin"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

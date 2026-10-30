@@ -54,7 +54,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "follow",
     feature = "resize",
     feature = "copy",
-    feature = "sort"
+    feature = "sort",
+    feature = "pin"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -369,6 +370,9 @@ enum Step {
         column: u8,
         direction: u8,
     },
+    /// `set_pinned`: a count from none to past the columns.
+    #[cfg(feature = "pin")]
+    Pin(u8),
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
     /// failed as broken (`how`); a cancelled one with its page or
@@ -1037,6 +1041,12 @@ impl Run {
                     let _ = table.set_sort(sort, cx);
                 });
             }
+            // Past the columns, by up to two: the run clamped to them.
+            #[cfg(feature = "pin")]
+            Step::Pin(count) => {
+                let count = usize::from(count) % (self.columns + 3);
+                self.update(|table, cx| table.set_pinned(count, cx));
+            }
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -1497,6 +1507,29 @@ fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), Stri
     )
 }
 
+/// `pin`'s steps, up to eight, each a count at a place among the case's
+/// steps, from the scheduler seed: never drawn, so every case's draw is the
+/// one without the feature, and the controls' cases stay the ones they're
+/// counted over (`docs/DECISIONS.md`, "Fixtures"). Placed by the runner
+/// alone (`run`), so a written scenario runs its own steps; a failure
+/// prints the case with them, which recurs as a scenario.
+#[cfg(feature = "pin")]
+fn with_pins(seed: u64, steps: &mut Vec<Step>) {
+    // SplitMix64.
+    let mut state = seed;
+    let mut next = move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    };
+    for _ in 0..next() % 9 {
+        let (at, count) = (next(), next());
+        steps.insert(at as usize % (steps.len() + 1), Step::Pin(count as u8));
+    }
+}
+
 /// How many cases: `PROPTEST_CASES`, else 48 in the all-on run, 16 in the
 /// others.
 fn cases() -> u32 {
@@ -1520,7 +1553,19 @@ fn run(control: Option<Control>) -> Result<(), String> {
     let mut runner = TestRunner::new(config);
     runner
         .run(&(any::<u64>(), case()), |(seed, case)| {
-            run_case(seed, &case, control).map_err(TestCaseError::fail)
+            // A failure names its step in the case as run, `pin`'s steps
+            // among them, so it's printed with them.
+            #[cfg(feature = "pin")]
+            let case = {
+                let mut case = case;
+                with_pins(seed, &mut case.steps);
+                case
+            };
+            run_case(seed, &case, control).map_err(|failure| {
+                #[cfg(feature = "pin")]
+                let failure = format!("{failure}\nthe case as run, with pin's steps:\n{case}");
+                TestCaseError::fail(failure)
+            })
         })
         .map_err(|error| match error {
             TestError::Fail(reason, (seed, case)) => format!(

@@ -11,7 +11,7 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # `?shape=wide` for 500 float columns, `?delay=<ms>` to hold each page read.
 # `features` are the host's (`custom-cells`: `?cells=heat|bars|color`;
 # `live`: `?live=<updates/s>`; both: `?flash`; `follow`:
-# `?rows=<n>&append=<rows/s>&follow`).
+# `?rows=<n>&append=<rows/s>&follow`; `pin`: `?pin=<n>`).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
 
@@ -124,9 +124,11 @@ smoke *args:
 # `copy`, which turns on `select`: the text, the keys, the reads beside
 # the cache, the turns, the cap, and the cancels; `sort`: the cycle and
 # the order fixture, the arrows, the refusals, what a sort does, and the
-# paging fixture's sort scenario), and all on (`copy`'s with `live`
-# among them); in each, the random test of the paging with that
-# run's features (16 cases; 48 all on, with its controls). The bridge has none: its
+# paging fixture's sort scenario; `pin`: the geometry fixture and the
+# mappings' property test, and the pin in a window), and all on
+# (`copy`'s with `live` among them, and `pin` with `resize`, `select`,
+# `sort`, and `custom-cells`); in each, the random test of the paging
+# with that run's features (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
 test:
@@ -140,7 +142,8 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/select
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/copy
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/sort
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/pin
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin
 
 # The random test of the paging soaked: `cases` cases for each of `seeds`
 # (`SEED`: a different set of cases each), every feature on, in a release
@@ -151,7 +154,7 @@ soak seeds="1 2 3 4" cases="500":
     for seed in {{seeds}}; do \
         SEED=$seed PROPTEST_CASES={{cases}} \
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort state::random::random_paging || exit 1; \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin state::random::random_paging || exit 1; \
     done
 
 # Writes fixtures/paint.json's expected colors from Chromium's

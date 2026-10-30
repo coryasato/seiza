@@ -34,6 +34,9 @@ copy = ["select", "seiza-tall-table/copy", "tall-table-bridge/copy"]
 # computed at its first sort and kept. `?sort-icons` draws gpui-kit's sort
 # icons, which the host bundles, in place of the glyphs.
 sort = ["seiza-tall-table/sort", "tall-table-bridge/sort"]
+# The first columns pinned: `?pin=<n>`, by default 2 in the narrow shape and
+# 1 in the wide; `?pin=0` builds the feature with nothing pinned.
+pin = ["seiza-tall-table/pin", "tall-table-bridge/pin"]
 
 [dependencies]
 gpui-kit.workspace = true

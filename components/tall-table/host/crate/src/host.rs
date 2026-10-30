@@ -331,6 +331,19 @@ impl Host {
             // which the scripts read.
             table.update(cx, |table, cx| drop(table.set_sort(Some(sort), cx)));
         }
+        // The first columns pinned (`pin`, `?pin=<n>`, by default the
+        // shape's): set before the first frame, which pins them. `?pin=0`
+        // builds the feature with nothing pinned.
+        #[cfg(feature = "pin")]
+        {
+            #[cfg(target_family = "wasm")]
+            let pinned = seiza::url::param("pin")
+                .and_then(|count| count.parse().ok())
+                .unwrap_or(shape.pinned());
+            #[cfg(not(target_family = "wasm"))]
+            let pinned = shape.pinned();
+            table.update(cx, |table, cx| table.set_pinned(pinned, cx));
+        }
         // Following from the start, before the first frame (a log view).
         #[cfg(feature = "follow")]
         if live.tail.follow {

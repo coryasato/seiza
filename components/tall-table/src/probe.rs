@@ -41,9 +41,14 @@ pub struct TallTableLayout {
     pub left: f32,
     pub top: f32,
     /// Row `r`'s top is `top + (r - probe.top) * row_height`, and column
-    /// `c`'s left edge is `left + columns[c].x - probe.scroll_x`.
+    /// `c`'s left edge is `left + columns[c].x - probe.scroll_x` (with
+    /// `pin`, less `probe.scroll_x` only when `c >= pinned`).
     pub row_height: f32,
     pub cells_width: f32,
+    /// The columns pinned in effect (`pin`): the first `pinned` don't
+    /// scroll, and the rest are clipped right of their edge.
+    #[cfg(feature = "pin")]
+    pub pinned: usize,
     pub columns: Vec<ColumnProbe>,
 }
 

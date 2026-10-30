@@ -90,6 +90,16 @@ impl Shape {
         ROWS
     }
 
+    /// The columns pinned without `?pin=` (`pin`): the narrow shape's key
+    /// columns (`spkid`, `full_name`), the wide shape's first.
+    #[cfg(feature = "pin")]
+    pub fn pinned(self) -> usize {
+        match self {
+            Self::Narrow => 2,
+            Self::Wide => 1,
+        }
+    }
+
     /// How many columns it has.
     pub fn column_count(self) -> usize {
         match self {

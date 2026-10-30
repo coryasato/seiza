@@ -162,7 +162,11 @@ pub(super) struct SelectState {
 #[cfg(test)]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct Drawn {
+    /// The tint's piece in the scrolled region (all of it without `pin`).
     pub(crate) tint: Option<Bounds<Pixels>>,
+    /// Its piece in the pinned region (`pin`).
+    #[cfg(feature = "pin")]
+    pub(crate) pinned_tint: Option<Bounds<Pixels>>,
     pub(crate) active: Option<Bounds<Pixels>>,
     pub(crate) gutter: Vec<u64>,
     pub(crate) header: Vec<usize>,
@@ -381,7 +385,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
         let y = f32::from(position.y - self.body.origin.y);
         // A hair inside the far edges, so the clamp lands on a cell there.
-        let x = x.clamp(0.0, (self.cells_width() - 0.5).max(0.0)) + self.scroll_x;
+        let x = self.place().content_x(
+            x.clamp(0.0, (self.cells_width() - 0.5).max(0.0)),
+            self.scroll_x,
+        );
         let y = y.clamp(0.0, (f32::from(self.viewport().height) - 0.5).max(0.0));
         let row = (self.scroll.top() + f64::from(y / f32::from(row_height()))).floor() as u64;
         let column = self
@@ -408,10 +415,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 // The hover's hit test.
                 return self.cell_at(position).map(Target::Cell);
             }
-            let past = !self
-                .columns
-                .last()
-                .is_some_and(|column| x + self.scroll_x < column.x + column.width);
+            let past = !self.columns.last().is_some_and(|column| {
+                self.place().content_x(x, self.scroll_x) < column.x + column.width
+            });
             if y < -f32::from(row_height()) || x >= self.cells_width() || past {
                 return None;
             }
@@ -680,15 +686,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let Some(column) = self.columns.get(cell.1).filter(|_| columns) else {
             return;
         };
-        let (left, right) = (column.x, column.x + column.width);
-        let (view_left, view_right) = (self.scroll_x, self.scroll_x + self.cells_width());
-        let x = if left < view_left {
-            left - view_left
-        } else if right > view_right {
-            (right - view_right).min(left - view_left)
-        } else {
-            0.0
-        };
+        // Right of the pinned run (`pin`); a pinned column is in view.
+        let x = self.place().into_view(
+            cell.1,
+            column.x,
+            column.width,
+            self.scroll_x,
+            self.cells_width(),
+        );
         if x != 0.0 {
             self.scroll_by(0.0, x, cx);
         }
@@ -820,25 +825,39 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    /// The selection's tint and the active cell's edge, in the cells
-    /// layer's coordinates: one canvas, after `custom-cells`' quads and
-    /// before the text. The tint is the range's visible part, its edges
-    /// past the view's where the range goes on; the edge only while the
+    /// The selection's tint and the active cell's edge, each region's in
+    /// its own coordinates: one canvas a region (the pinned one's only with
+    /// `pin`), after `custom-cells`' quads and before the text. The tint is
+    /// the range's visible part, its edges past the view's where the range
+    /// goes on, in two pieces, each edged, where it spans the run's edge;
+    /// the active cell's edge is in its column's region, and only while the
     /// table has focus.
-    pub(super) fn render_selection(&mut self, cx: &App) -> Option<impl IntoElement + use<D>> {
+    pub(super) fn render_selection(
+        &mut self,
+        cx: &App,
+    ) -> (Option<Canvas<()>>, Option<Canvas<()>>) {
         let selection = self.selection_state.current;
         #[cfg(test)]
         {
             self.selection_state.drawn.tint = None;
             self.selection_state.drawn.active = None;
+            #[cfg(feature = "pin")]
+            {
+                self.selection_state.drawn.pinned_tint = None;
+            }
         }
-        let selection = selection?;
+        let Some(selection) = selection else {
+            return (None, None);
+        };
         let theme = cx.theme();
+        let place = self.place();
+        let edge = place.edge();
         let row_h = f32::from(row_height());
         let visible = self.scroll.visible();
         let (view_w, view_h) = (self.cells_width(), f32::from(self.viewport().height));
         let row_y = |row: u64| (self.scroll.offset_of(row) * f64::from(row_h)) as f32;
-        let mut quads = Vec::with_capacity(2);
+        // The pinned region's quads, and the scrolled one's.
+        let mut quads: [Vec<PaintQuad>; 2] = Default::default();
         let rows = selection.rows(self.scroll.rows());
         let columns = selection.columns(self.columns.len());
         if let (Some(rows), Some(columns)) = (rows, columns)
@@ -857,59 +876,90 @@ impl<D: TallTableDelegate> TallTableState<D> {
             } else {
                 row_y(*rows.end() + 1)
             };
-            let (first, last) = (
-                &self.columns[*columns.start()],
-                &self.columns[*columns.end()],
-            );
-            let left = (first.x - self.scroll_x).max(-1.0);
-            let right = (last.x + last.width - self.scroll_x).min(view_w + 1.0);
-            if left < right {
-                let bounds = Bounds::new(
-                    point(px(left), px(top)),
-                    size(px(right - left), px(bottom - top)),
-                );
-                #[cfg(test)]
-                {
-                    self.selection_state.drawn.tint = Some(bounds);
+            // The range's columns in each region, and the region's width: the
+            // pinned ones, and the scrolled ones (those under the run among
+            // them), from the run's first past it.
+            let pinned = place.pinned();
+            let (first, last) = (*columns.start(), *columns.end());
+            let pieces = [
+                (first < pinned).then(|| (first, last.min(pinned - 1), edge)),
+                (last >= pinned).then(|| (first.max(pinned), last, view_w - edge)),
+            ];
+            for (region, piece) in pieces.into_iter().enumerate() {
+                let Some((first, last, width)) = piece else {
+                    continue;
+                };
+                let (first_column, last_column) = (&self.columns[first], &self.columns[last]);
+                let left = place
+                    .layer_left(first, first_column.x, self.scroll_x)
+                    .max(-1.0);
+                let right = (place.layer_left(last, last_column.x, self.scroll_x)
+                    + last_column.width)
+                    .min(width + 1.0);
+                if left < right {
+                    let bounds = Bounds::new(
+                        point(px(left), px(top)),
+                        size(px(right - left), px(bottom - top)),
+                    );
+                    // In the cells layer's coordinates.
+                    #[cfg(test)]
+                    {
+                        let drawn = &mut self.selection_state.drawn;
+                        if region == 1 {
+                            drawn.tint = Some(bounds + point(px(edge), px(0.)));
+                        }
+                        #[cfg(feature = "pin")]
+                        if region == 0 {
+                            drawn.pinned_tint = Some(bounds);
+                        }
+                    }
+                    quads[region].push(
+                        fill(bounds, theme.table_active)
+                            .border_widths(px(1.))
+                            .border_color(theme.table_active_border),
+                    );
                 }
-                quads.push(
-                    fill(bounds, theme.table_active)
-                        .border_widths(px(1.))
-                        .border_color(theme.table_active_border),
-                );
             }
         }
         let (row, column) = selection.anchor();
         if self.selection_state.focused
             && visible.contains(&row)
-            && let Some(column) = self.columns.get(column)
+            && let Some(laid_out) = self.columns.get(column)
         {
+            let region = usize::from(!place.holds(column));
             let bounds = Bounds::new(
-                point(px(column.x - self.scroll_x), px(row_y(row))),
-                size(px(column.width), px(row_h)),
+                point(
+                    px(place.layer_left(column, laid_out.x, self.scroll_x)),
+                    px(row_y(row)),
+                ),
+                size(px(laid_out.width), px(row_h)),
             );
             #[cfg(test)]
             {
-                self.selection_state.drawn.active = Some(bounds);
+                let offset = if region == 1 { edge } else { 0.0 };
+                self.selection_state.drawn.active = Some(bounds + point(px(offset), px(0.)));
             }
-            quads.push(
+            quads[region].push(
                 fill(bounds, transparent_black())
                     .border_widths(px(2.))
                     .border_color(theme.table_active_border),
             );
         }
-        (!quads.is_empty()).then(|| {
-            canvas(
-                |_, _, _| {},
-                move |bounds, _, window, _| {
-                    for mut quad in quads {
-                        quad.bounds.origin += bounds.origin;
-                        window.paint_quad(quad);
-                    }
-                },
-            )
-            .absolute()
-            .size_full()
-        })
+        let [pinned, scrolled] = quads.map(|quads| {
+            (!quads.is_empty()).then(|| {
+                canvas(
+                    |_, _, _| {},
+                    move |bounds, _, window, _| {
+                        for mut quad in quads {
+                            quad.bounds.origin += bounds.origin;
+                            window.paint_quad(quad);
+                        }
+                    },
+                )
+                .absolute()
+                .size_full()
+            })
+        });
+        (pinned, scrolled)
     }
 }

@@ -41,3 +41,7 @@ copy = ["select"]
 # on an arrow at a sortable header's right or `TallTableState::set_sort`;
 # the source reads in it or refuses (`TallTableDelegate::sort`).
 sort = []
+# The first columns fixed at the left while the rest scroll sideways
+# (`TallTableState::set_pinned`, `TallTableEvent::Pinned`); fewer pin
+# while they'd take more than half the view.
+pin = []

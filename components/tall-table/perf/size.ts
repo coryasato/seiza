@@ -51,6 +51,8 @@ const FEATURES: Record<string, string | string[]> = {
   copy: ['seiza_tall_table4copy', 'seiza_tall_table5state4copy'],
   // Sorting: the order's types and the state's `sort` module.
   sort: ['seiza_tall_table4sort', 'seiza_tall_table5state4sort'],
+  // Pinning: the geometry's module and the state's `pin` module.
+  pin: ['seiza_tall_table3pin', 'seiza_tall_table5state3pin'],
 };
 
 /** A feature that turns on another is measured against it too, and the

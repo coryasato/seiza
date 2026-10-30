@@ -10,6 +10,7 @@ What "the same" means for any other implementation of the table's base level (th
 | `paint.json` | `custom-cells`: a paint value → the colors and the bar's pixels drawn, in light and dark; with `live` too, a change → its flash's color and opacity | `src/state/fixtures/paint.rs` (`paint_fixture`, `paint_fixture_stops_are_the_theme`, `paint_controls_fail`), with the feature on; `src/state/fixtures/flash.rs` (`flash_fixture`, `flash_fade_backwards_fails`, `flash_fall_as_rise_fails`), with both | Cases and stops: hand; `expect`: `just tall-table paint-fixture`, from Chromium |
 | `selection.json` | `select`: presses, drags, wheels during a drag, keys, and `set_rows`, `set_columns`, `jump_to` → the selection, the top row, and the sideways scroll after each, under each kind on | `src/state/fixtures/select.rs` (`selection_scenarios`, `selection_controls_fail`), with the feature on | Hand, a step's `why` saying the rule it checks |
 | `sort.json` | `sort`: a column's kind → the cycle its arrow's clicks go through; a column's values (NULLs and ties among them) → the order a source answers, ascending and descending | `src/state/fixtures/sort.rs` (`sort_fixture_cycle`, `sort_cycle_controls_fail`), clicked through the element; `host/crate/src/rows.rs` (`sort_fixture_orders`, `sort_order_controls_fail`), the bare host's in-memory order; each with the feature on | Hand |
+| `pin.json` | `pin`: the cells' width, the columns' widths, the count, and a sideways scroll → the run in effect, its edge, the scroll's range, each drawn column's screen left, hit tests, and the scroll that brings a column into view | `src/state/fixtures/pin.rs` (`pin_fixture`, `pin_controls_fail`), against the geometry's own functions (`src/pin.rs`), with the feature on | Hand, each case's `why` saying what it pins |
 
 `just observatory fixtures` runs the first three native tests, the same fixtures and controls against the observatory's TanStack contender (`apps/observatory/contenders/tall-table/tanstack/web/test/fixtures.test.ts`), and checks `cells.json` against what the GPUI contender draws.
 
@@ -120,4 +121,19 @@ The rules a step checks, in brief (the spec is the table's `PLAN.md`, `select`'s
 - `set_rows` cuts a `rows` or `cells` range to the new end (clearing one wholly past it); a `columns` range stays. `set_columns` clears. `jump_to` selects the row (rows on), else the cell (cells on, in the active cell's column, else the first visible), else only scrolls.
 
 `selection_controls_fail` checks that each of `controls` fails it: `loop` (a key past an end wraps), `center` (a moved cell centered instead of scrolled the least distance), `plain-moves-head` (a plain arrow moves the head, not the active cell), `extend-across` (Shift+arrow moves across a range's direction), `keep-past-rows` (`set_rows` doesn't cut the range).
+
+## `pin.json`
+
+What a DOM contender's pinned columns must match to draw the same cells (`pin`; the table's README), not how it draws them (a DOM grid's sticky cells). No contender pins yet: the observatory adds the level when both its sides build it.
+
+Each of `cases` is a table's `cells_width` (CSS px, the cells area right of the row numbers), its columns' `widths` (laid out left to right from 0, each column's `x` the sum of the widths before it), the host's `count` (`set_pinned`), and a sideways `scroll_x`; its `hits` are screen x's (px from the cells' left) and its `into_view` column indices. `expect` holds:
+
+- `pinned`: the run in effect, the first `count` columns clamped to the columns and cut to the leading ones whose right edge is within half `cells_width` (the table allows 0.001 px over, float rounding's, which no case comes near); none while `cells_width` is 0.
+- `edge`: the run's right edge, *P* (its last column's right, at most `cells_width`; 0 with none pinned).
+- `max_scroll_x`: the sideways scroll's range, `content − cells_width` (at least 0), the same pinned or not.
+- `lefts`: each drawn column, `[index, left]` in order, its left edge on screen: a pinned column at its `x`, a scrolled one at `x − scroll_x`. A pinned column is drawn where it starts in the view; a scrolled one where it overlaps `P + scroll_x .. cells_width + scroll_x`, so one wholly under the run isn't drawn (one partly under it is, clipped at *P*).
+- `hits`: `[x, column]`, the column under screen x `x` (`null` past the last): left of *P* the pinned columns' own x, right of it `x + scroll_x`.
+- `into_view`: `[column, scroll_x]`, the sideways scroll after a key moves to that column (`select`): the least move that shows it right of *P* (`P + scroll_x .. cells_width + scroll_x`), then clamped to `0..max_scroll_x`; a pinned column moves nothing.
+
+`pin_controls_fail` checks that each of `controls` fails it: `no-cap` (the count pinned whatever the view), `pinned-scroll` (the pinned columns scroll with the rest), `under-run` (a column wholly under the run still drawn), `into-view-at-gutter` (a column brought into view at the cells' left, under the run).
 

@@ -1,0 +1,167 @@
+{
+  "cases": [
+    {
+      "name": "nothing-pinned",
+      "why": "No run: every column scrolls, as without the feature.",
+      "cells_width": 300,
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "scroll_x": 150,
+      "hits": [0, 49, 50, 299],
+      "into_view": [0, 1, 6],
+      "expect": {
+        "pinned": 0,
+        "edge": 0,
+        "max_scroll_x": 500,
+        "lefts": [[1, -50], [2, 50], [3, 150], [4, 250]],
+        "hits": [[0, 1], [49, 1], [50, 2], [299, 4]],
+        "into_view": [[0, 0], [1, 100], [6, 400]]
+      }
+    },
+    {
+      "name": "pinned-at-zero",
+      "why": "At scroll 0 every column is where it is unpinned: the run is laid out first, from 0 to P.",
+      "cells_width": 600,
+      "widths": [80, 120, 100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "scroll_x": 0,
+      "hits": [50, 199, 200, 599],
+      "into_view": [0, 2, 6],
+      "expect": {
+        "pinned": 2,
+        "edge": 200,
+        "max_scroll_x": 200,
+        "lefts": [[0, 0], [1, 80], [2, 200], [3, 300], [4, 400], [5, 500]],
+        "hits": [[50, 0], [199, 1], [200, 2], [599, 5]],
+        "into_view": [[0, 0], [2, 0], [6, 100]]
+      }
+    },
+    {
+      "name": "pinned-scrolled",
+      "why": "The pinned columns hold; the rest move by the scroll and clip at P (200). Column 2 (200..300) is wholly under the run, so it isn't drawn; column 3 is partly under it. A screen x right of P is the scrolled content's, so x 200 is column 3, not 2. Into view: column 2 and 3 are brought right of P (scroll 0 and 100), not to the gutter's edge; column 7 to the view's right (the scroll's end, 200); a pinned column scrolls nothing.",
+      "cells_width": 600,
+      "widths": [80, 120, 100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "scroll_x": 150,
+      "hits": [50, 150, 199, 200, 249, 250, 599],
+      "into_view": [0, 1, 2, 3, 7],
+      "expect": {
+        "pinned": 2,
+        "edge": 200,
+        "max_scroll_x": 200,
+        "lefts": [[0, 0], [1, 80], [3, 150], [4, 250], [5, 350], [6, 450], [7, 550]],
+        "hits": [[50, 0], [150, 1], [199, 1], [200, 3], [249, 3], [250, 4], [599, 7]],
+        "into_view": [[0, 150], [1, 150], [2, 0], [3, 100], [7, 200]]
+      }
+    },
+    {
+      "name": "cap-cuts",
+      "why": "Column 1's right edge (350) is past half the view (300): one column pins, the second scrolls.",
+      "cells_width": 600,
+      "widths": [200, 150, 100, 100, 100],
+      "count": 2,
+      "scroll_x": 0,
+      "hits": [199, 200, 349],
+      "into_view": [1],
+      "expect": {
+        "pinned": 1,
+        "edge": 200,
+        "max_scroll_x": 50,
+        "lefts": [[0, 0], [1, 200], [2, 350], [3, 450], [4, 550]],
+        "hits": [[199, 0], [200, 1], [349, 1]],
+        "into_view": [[1, 0]]
+      }
+    },
+    {
+      "name": "cap-wider",
+      "why": "A wider view (half 350) pins both again: the host's count is kept.",
+      "cells_width": 700,
+      "widths": [200, 150, 100, 100, 100],
+      "count": 2,
+      "scroll_x": 0,
+      "hits": [199, 349, 350],
+      "into_view": [2],
+      "expect": {
+        "pinned": 2,
+        "edge": 350,
+        "max_scroll_x": 0,
+        "lefts": [[0, 0], [1, 200], [2, 350], [3, 450], [4, 550]],
+        "hits": [[199, 0], [349, 1], [350, 2]],
+        "into_view": [[2, 0]]
+      }
+    },
+    {
+      "name": "cap-none",
+      "why": "Even the first column is past the half: nothing pins, and every column scrolls.",
+      "cells_width": 600,
+      "widths": [400, 100, 100],
+      "count": 1,
+      "scroll_x": 100,
+      "hits": [0, 399],
+      "into_view": [0],
+      "expect": {
+        "pinned": 0,
+        "edge": 0,
+        "max_scroll_x": 0,
+        "lefts": [[0, -100], [1, 300], [2, 400]],
+        "hits": [[0, 0], [399, 1]],
+        "into_view": [[0, 0]]
+      }
+    },
+    {
+      "name": "count-past-columns",
+      "why": "The count is clamped to the columns there are; past the last, a screen x is on no column, and nothing scrolls.",
+      "cells_width": 400,
+      "widths": [50, 50, 50],
+      "count": 9,
+      "scroll_x": 0,
+      "hits": [0, 149, 150, 399],
+      "into_view": [2],
+      "expect": {
+        "pinned": 3,
+        "edge": 150,
+        "max_scroll_x": 0,
+        "lefts": [[0, 0], [1, 50], [2, 100]],
+        "hits": [[0, 0], [149, 2], [150, null], [399, null]],
+        "into_view": [[2, 0]]
+      }
+    },
+    {
+      "name": "no-view",
+      "why": "Before the first frame gives the cells a width, nothing pins.",
+      "cells_width": 0,
+      "widths": [100, 100, 100],
+      "count": 2,
+      "scroll_x": 0,
+      "hits": [],
+      "into_view": [],
+      "expect": {
+        "pinned": 0,
+        "edge": 0,
+        "max_scroll_x": 300,
+        "lefts": [],
+        "hits": [],
+        "into_view": []
+      }
+    },
+    {
+      "name": "scrolled-to-the-end",
+      "why": "At the scroll's end (content 1200 \u2212 cells 1000 = 200, as unpinned: pinning never changes the range), the last column ends at the view's right; column 1 (120..240) is wholly under the run, and brought into view right of P it's at scroll 0.",
+      "cells_width": 1000,
+      "widths": [120, 120, 120, 120, 120, 120, 120, 120, 120, 120],
+      "count": 1,
+      "scroll_x": 200,
+      "hits": [0, 119, 120, 999],
+      "into_view": [1, 9],
+      "expect": {
+        "pinned": 1,
+        "edge": 120,
+        "max_scroll_x": 200,
+        "lefts": [[0, 0], [2, 40], [3, 160], [4, 280], [5, 400], [6, 520], [7, 640], [8, 760], [9, 880]],
+        "hits": [[0, 0], [119, 0], [120, 2], [999, 9]],
+        "into_view": [[1, 0], [9, 200]]
+      }
+    }
+  ],
+  "controls": ["no-cap", "pinned-scroll", "under-run", "into-view-at-gutter"]
+}

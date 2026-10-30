@@ -263,6 +263,61 @@ fn row_height() -> Pixels {
     ROW_SIZE.table_row_height()
 }
 
+/// Where the columns are drawn without `pin`: every column scrolls. A
+/// stand-in for `pin`'s run in effect ([`crate::pin::Pin`]), with its
+/// methods, so each site is written once.
+#[cfg(not(feature = "pin"))]
+#[derive(Clone, Copy)]
+struct Place;
+
+#[cfg(not(feature = "pin"))]
+impl Place {
+    /// Column `index`'s left edge on screen.
+    #[inline(always)]
+    fn left(self, _: usize, x: f32, scroll_x: f32) -> f32 {
+        x - scroll_x
+    }
+
+    /// The content x under screen x `x`.
+    #[inline(always)]
+    fn content_x(self, x: f32, scroll_x: f32) -> f32 {
+        x + scroll_x
+    }
+
+    /// Whether column `index` is pinned: none is.
+    #[cfg(any(feature = "resize", feature = "select", feature = "sort"))]
+    #[inline(always)]
+    fn holds(self, _: usize) -> bool {
+        false
+    }
+
+    /// The pinned run's right edge: the cells' left.
+    #[inline(always)]
+    fn edge(self) -> f32 {
+        0.0
+    }
+
+    /// Column `index`'s left edge in its region: the one layer's.
+    #[inline(always)]
+    fn layer_left(self, index: usize, x: f32, scroll_x: f32) -> f32 {
+        self.left(index, x, scroll_x)
+    }
+
+    /// The sideways move that brings column `index` into view the least
+    /// distance (`select`'s keys).
+    #[cfg(feature = "select")]
+    fn into_view(self, _: usize, x: f32, width: f32, scroll_x: f32, cells_width: f32) -> f32 {
+        scroll::into_view(x, x + width, scroll_x, scroll_x + cells_width)
+    }
+
+    /// The columns pinned: none.
+    #[cfg(feature = "select")]
+    #[inline(always)]
+    fn pinned(self) -> usize {
+        0
+    }
+}
+
 /// Which scrollbar is being dragged, and where on the thumb it was grabbed.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Drag {
@@ -341,6 +396,12 @@ pub enum TallTableEvent {
     /// A click's sort the source refused (`sort`); the order is as it was.
     #[cfg(feature = "sort")]
     SortRefused(crate::sort::Sort, crate::sort::SortRefused),
+    /// The columns pinned in effect changed (`pin`): by
+    /// [`TallTableState::set_pinned`], `set_columns`, the view's width, or a
+    /// width (`resize`). Fewer than the host's count while they'd take more
+    /// than half the cells' width.
+    #[cfg(feature = "pin")]
+    Pinned(usize),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -436,6 +497,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The order the rows are read in, and the arrows' state (`sort`).
     #[cfg(feature = "sort")]
     pub(crate) sort_state: sort::SortState,
+    /// The columns pinned at the left (`pin`).
+    #[cfg(feature = "pin")]
+    pub(crate) pin_state: pin::PinState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -510,6 +574,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             copy_state: copy::CopyState::default(),
             #[cfg(feature = "sort")]
             sort_state: sort::SortState::default(),
+            #[cfg(feature = "pin")]
+            pin_state: pin::PinState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -702,7 +768,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.clear_selection_for_columns(cx);
         #[cfg(feature = "sort")]
         self.keep_sort(sorted, cx);
-        self.lay_out();
+        // The count is kept, the run computed over the new columns (`pin`).
+        self.lay_out(cx);
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         {
             self.flashes.clear();
@@ -743,11 +810,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    fn lay_out(&mut self) {
+    /// The columns laid out again, and with `pin` the run in effect over
+    /// them, so no layout leaves a stale run.
+    #[cfg_attr(not(feature = "pin"), expect(unused_variables))]
+    fn lay_out(&mut self, cx: &mut Context<Self>) {
         (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info);
         self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
         self.hover = None;
         self.layout_generation += 1;
+        #[cfg(feature = "pin")]
+        self.repin(cx);
     }
 
     /// Stops the table for good: cancels its page reads and starts no more.
@@ -867,6 +939,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if resized {
             self.rows_moved(cx);
         }
+        // The view's width moved the half the pinned run must fit in.
+        #[cfg(feature = "pin")]
+        self.repin(cx);
         cx.notify();
     }
 
@@ -1234,13 +1309,22 @@ impl<D: TallTableDelegate> TallTableState<D> {
         )
     }
 
-    /// The horizontal thumb, in pixels from the cells' left edge.
+    /// The horizontal thumb, in pixels from the cells' left edge (with
+    /// `pin`, from the run's edge, the track the view right of it over the
+    /// content right of it: the same fraction of the same range).
     fn horizontal_thumb(&self) -> scroll::Thumb {
         let max = self.max_scroll_x();
+        #[cfg(feature = "pin")]
+        let (track, view, content) = {
+            let (track, content) = self.place().track(self.cells_width(), self.content_width());
+            (track, track, content)
+        };
+        #[cfg(not(feature = "pin"))]
+        let (track, view, content) = (self.cells_width(), self.cells_width(), self.content_width());
         scroll::thumb(
-            self.cells_width(),
-            f64::from(self.cells_width()),
-            f64::from(self.content_width()),
+            track,
+            f64::from(view),
+            f64::from(content),
             if max > 0.0 {
                 f64::from(self.scroll_x / max)
             } else {
@@ -1261,7 +1345,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         } else {
             (
                 self.horizontal_thumb(),
-                f32::from(position.x - self.body.origin.x) - self.gutter_width(),
+                f32::from(position.x - self.body.origin.x)
+                    - self.gutter_width()
+                    - self.place().edge(),
             )
         };
         let grab = if (thumb.offset..thumb.offset + thumb.length).contains(&along) {
@@ -1287,9 +1373,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
             }
             Some(Drag::Horizontal { grab }) => {
                 let thumb = self.horizontal_thumb();
+                let edge = self.place().edge();
                 let offset =
-                    f32::from(position.x - self.body.origin.x) - self.gutter_width() - grab;
-                let fraction = scroll::fraction_at(self.cells_width(), thumb.length, offset);
+                    f32::from(position.x - self.body.origin.x) - self.gutter_width() - edge - grab;
+                // With `pin`, the track right of the run.
+                #[cfg(feature = "pin")]
+                let track = (self.cells_width() - edge).max(0.0);
+                #[cfg(not(feature = "pin"))]
+                let track = self.cells_width();
+                let fraction = scroll::fraction_at(track, thumb.length, offset);
                 let scroll_x = fraction as f32 * self.max_scroll_x();
                 self.scroll_by(0.0, scroll_x - self.scroll_x, cx);
             }
@@ -1307,7 +1399,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return None;
         }
         let row = (self.scroll.top() + f64::from(y / f32::from(row_height()))).floor() as u64;
-        let x = x + self.scroll_x;
+        let x = self.place().content_x(x, self.scroll_x);
         let column = self
             .columns
             .iter()
@@ -1473,32 +1565,72 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// The hovered cell's tooltip, beside the cell, above everything.
     fn render_tooltip(&self) -> Option<Deferred> {
-        let hover = self.hover.as_ref()?;
-        let (_, view) = hover.tooltip.as_ref()?;
-        let column = self.columns.get(hover.column)?;
-        if !self.scroll.visible().contains(&hover.row) {
-            return None;
-        }
-        let row_h = row_height();
-        let origin = point(
-            self.body.origin.x + px(self.gutter_width() + column.x - self.scroll_x),
-            self.body.origin.y
-                + px((self.scroll.offset_of(hover.row) * f64::from(f32::from(row_h))) as f32),
-        );
-        let cell = Bounds::new(origin, size(px(column.width), row_h));
+        let (_, view) = self.hover.as_ref()?.tooltip.as_ref()?;
+        let cell = self.tooltip_cell()?;
         Some(
             deferred(TooltipPositioner::new(cell).child(view.clone()))
                 .with_priority(TOOLTIP_PRIORITY),
         )
     }
 
-    /// Visible columns: those overlapping the cells area at `scroll_x`.
+    /// The hovered cell, in window pixels, as the tooltip is placed beside
+    /// it: with `pin`, a scrolled cell's part right of the run.
+    #[inline(always)]
+    fn tooltip_cell(&self) -> Option<Bounds<Pixels>> {
+        let hover = self.hover.as_ref()?;
+        let column = self.columns.get(hover.column)?;
+        if !self.scroll.visible().contains(&hover.row) {
+            return None;
+        }
+        let row_h = row_height();
+        #[cfg(feature = "pin")]
+        let (left, width) = {
+            let place = self.place();
+            let left = place.left(hover.column, column.x, self.scroll_x);
+            if place.holds(hover.column) {
+                (left, column.width)
+            } else {
+                let visible = left.max(place.edge);
+                (visible, column.width - (visible - left))
+            }
+        };
+        #[cfg(not(feature = "pin"))]
+        let (left, width) = (column.x - self.scroll_x, column.width);
+        let origin = point(
+            self.body.origin.x + px(self.gutter_width() + left),
+            self.body.origin.y
+                + px((self.scroll.offset_of(hover.row) * f64::from(f32::from(row_h))) as f32),
+        );
+        Some(Bounds::new(origin, size(px(width), row_h)))
+    }
+
+    /// Every column scrolls (without `pin`).
+    #[cfg(not(feature = "pin"))]
+    #[inline(always)]
+    fn place(&self) -> Place {
+        Place
+    }
+
+    /// Visible columns: those overlapping the cells area at `scroll_x`
+    /// (with `pin`, a pinned one, or a scrolled one right of the run).
+    #[cfg(not(feature = "pin"))]
     fn visible_columns(&self) -> impl Iterator<Item = (usize, &LaidOutColumn)> {
         let (left, right) = (self.scroll_x, self.scroll_x + self.cells_width());
         self.columns
             .iter()
             .enumerate()
             .filter(move |(_, column)| column.x + column.width > left && column.x < right)
+    }
+
+    #[cfg(feature = "pin")]
+    fn visible_columns(&self) -> impl Iterator<Item = (usize, &LaidOutColumn)> {
+        let (place, scroll_x, cells_width) = (self.place(), self.scroll_x, self.cells_width());
+        self.columns
+            .iter()
+            .enumerate()
+            .filter(move |(index, column)| {
+                place.visible(*index, column.x, column.width, scroll_x, cells_width)
+            })
     }
 
     /// Emits [`TallTableEvent::Filled`] for the frames where the viewport becomes
@@ -1514,6 +1646,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     fn render_header(&mut self, cx: &App) -> Div {
         let theme = cx.theme();
+        #[cfg(not(feature = "pin"))]
         let gutter = self.gutter_width();
         #[cfg(feature = "select")]
         let (_, selected) = self.selected_lines();
@@ -1531,10 +1664,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         #[cfg(all(test, feature = "sort"))]
         let header_padding = std::cell::RefCell::new(Vec::new());
-        #[cfg_attr(
-            not(any(feature = "select", feature = "sort")),
-            expect(unused_variables)
-        )]
+        let place = self.place();
         let cells = self.visible_columns().map(|(index, column)| {
             let cell = div();
             // A selected column's header, in the selection's tint.
@@ -1549,7 +1679,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .absolute()
                 .top_0()
                 .h_full()
-                .left(px(column.x - self.scroll_x))
+                .left(px(place.layer_left(index, column.x, self.scroll_x)))
                 .w(px(column.width))
                 .px_2();
             // A sortable name ends at its arrow's gap (`sort`): after
@@ -1564,11 +1694,34 @@ impl<D: TallTableDelegate> TallTableState<D> {
             header_padding
                 .borrow_mut()
                 .push((index, cell.style().padding.right));
-            cell.line_height(row_height())
+            let cell = cell
+                .line_height(row_height())
                 .when(column.kind.numeric(), |cell| cell.text_right())
                 .truncate()
-                .child(column.name.clone())
+                .child(column.name.clone());
+            #[cfg(feature = "pin")]
+            let cell = (place.holds(index), cell);
+            cell
         });
+        // With `pin`, the pinned columns' region and the scrolled ones'.
+        #[cfg(not(feature = "pin"))]
+        let layer = div()
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(px(gutter))
+            .right(Scrollbar::width())
+            .overflow_hidden()
+            .children(cells);
+        #[cfg(feature = "pin")]
+        let layer = {
+            let (pinned, scrolled): (Vec<_>, Vec<_>) = cells.partition(|(holds, _)| *holds);
+            self.split_layer(
+                place,
+                pinned.into_iter().map(|(_, cell)| cell),
+                scrolled.into_iter().map(|(_, cell)| cell),
+            )
+        };
         let header = div()
             .relative()
             .flex_shrink_0()
@@ -1577,16 +1730,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .text_color(theme.table_head_foreground)
             .border_b_1()
             .border_color(theme.border)
-            .child(
-                div()
-                    .absolute()
-                    .top_0()
-                    .bottom_0()
-                    .left(px(gutter))
-                    .right(Scrollbar::width())
-                    .overflow_hidden()
-                    .children(cells),
-            );
+            .child(layer);
         #[cfg(all(test, feature = "sort"))]
         {
             self.sort_state.header_padding = header_padding.into_inner();
@@ -1598,15 +1742,28 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let row_h = row_height();
         let gutter = self.gutter_width();
         let visible = self.scroll.visible();
+        #[cfg(any(feature = "pin", feature = "custom-cells"))]
+        let place = self.place();
         let columns: Vec<(usize, LaidOutColumn)> = self
             .visible_columns()
             .map(|(index, column)| (index, column.clone()))
             .collect();
+        #[cfg(all(test, feature = "pin"))]
+        {
+            self.pin_state.drawn = columns
+                .iter()
+                .map(|(index, column)| (*index, place.left(*index, column.x, self.scroll_x)))
+                .collect();
+        }
 
         let (mut loaded, mut pending, mut failed) = (0u64, 0u64, 0u64);
         let mut row_backgrounds = Vec::new();
         let mut gutter_cells = Vec::new();
         let mut cells = Vec::new();
+        // The pinned columns' cells, and a failed row's message, which
+        // spans both regions (`pin`).
+        #[cfg(feature = "pin")]
+        let (mut pinned_cells, mut spanning) = (Vec::new(), Vec::new());
         let mut last_cell = None;
         let probe_frames = self.probe_frames;
         let mut cell_probes = self.probe_cells.then(Vec::new);
@@ -1624,6 +1781,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // under the cells' text in this order (`docs/DECISIONS.md`, "Features").
         #[cfg(feature = "custom-cells")]
         let mut quads: Vec<PaintQuad> = Vec::new();
+        #[cfg(all(feature = "custom-cells", feature = "pin"))]
+        let mut pinned_quads: Vec<PaintQuad> = Vec::new();
         // The flashes' clock, read once a frame while any is live, and
         // whether this frame draws one.
         #[cfg(all(feature = "live", feature = "custom-cells"))]
@@ -1706,6 +1865,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         }
                         #[cfg_attr(not(feature = "custom-cells"), expect(unused_variables))]
                         for (position, (column_index, column)) in columns.iter().enumerate() {
+                            // Its left edge in its region (with `pin`, the
+                            // pinned columns' or the scrolled ones').
+                            #[cfg(any(feature = "pin", feature = "custom-cells"))]
+                            let left = place.layer_left(*column_index, column.x, self.scroll_x);
+                            // The pinned columns' cells and paint go in
+                            // their region (`pin`).
+                            #[cfg(feature = "pin")]
+                            let pinned = place.holds(*column_index);
+                            #[cfg(all(feature = "custom-cells", feature = "pin"))]
+                            let quads = if pinned {
+                                &mut pinned_quads
+                            } else {
+                                &mut quads
+                            };
                             let value = page.value(index, *column_index).unwrap_or(CellValue::Null);
                             let exact = cell_probes.is_some().then(|| value.to_string());
                             #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
@@ -1728,7 +1901,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                             &paints[position],
                                             &frame_paint,
                                             row_paint,
-                                            column.x - self.scroll_x,
+                                            left,
                                             f32::from(top),
                                             column.width,
                                             f32::from(row_h),
@@ -1749,7 +1922,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     flash_drawn = true;
                                     quads.push(fill(
                                         paint::cell_box(
-                                            column.x - self.scroll_x,
+                                            left,
                                             f32::from(top),
                                             column.width,
                                             f32::from(row_h),
@@ -1762,7 +1935,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     .flash
                                     .map(|_| {
                                         paint::cell_box(
-                                            column.x - self.scroll_x,
+                                            left,
                                             f32::from(top),
                                             column.width,
                                             f32::from(row_h),
@@ -1808,36 +1981,62 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     exact,
                                     shown: text.clone(),
                                     #[cfg(feature = "custom-cells")]
-                                    paint: drawn.probe(column.x - self.scroll_x),
+                                    paint: drawn.probe(left),
                                 });
                             }
-                            cells.push(
-                                self.value_cell(column, top, row_h)
-                                    .text_color(color)
-                                    .child(text),
-                            );
+                            let cell = self
+                                .value_cell(
+                                    #[cfg(feature = "pin")]
+                                    left,
+                                    column,
+                                    top,
+                                    row_h,
+                                )
+                                .text_color(color)
+                                .child(text);
+                            #[cfg(feature = "pin")]
+                            if pinned {
+                                pinned_cells.push(cell);
+                                continue;
+                            }
+                            cells.push(cell);
                         }
                     }
                     RowState::Pending => {
                         pending += 1;
-                        for (_, column) in &columns {
+                        #[cfg_attr(not(feature = "pin"), expect(unused_variables))]
+                        for (column_index, column) in &columns {
+                            #[cfg(feature = "pin")]
+                            let cells = if place.holds(*column_index) {
+                                &mut pinned_cells
+                            } else {
+                                &mut cells
+                            };
                             cells.push(
-                                self.cell(column, top, row_h)
-                                    .flex()
-                                    .items_center()
-                                    .when(column.kind.numeric(), |cell| cell.justify_end())
-                                    .child(
-                                        div()
-                                            .h(px(8.))
-                                            .w(relative(0.6))
-                                            .rounded_sm()
-                                            .bg(theme.skeleton),
-                                    ),
+                                self.cell(
+                                    #[cfg(feature = "pin")]
+                                    place.layer_left(*column_index, column.x, self.scroll_x),
+                                    column,
+                                    top,
+                                    row_h,
+                                )
+                                .flex()
+                                .items_center()
+                                .when(column.kind.numeric(), |cell| cell.justify_end())
+                                .child(
+                                    div()
+                                        .h(px(8.))
+                                        .w(relative(0.6))
+                                        .rounded_sm()
+                                        .bg(theme.skeleton),
+                                ),
                             );
                         }
                     }
                     RowState::Failed(message) => {
                         failed += 1;
+                        #[cfg(feature = "pin")]
+                        let cells = &mut spanning;
                         cells.push(
                             div()
                                 .absolute()
@@ -1915,6 +2114,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     top: f32::from(self.body.origin.y),
                     row_height: f32::from(row_h),
                     cells_width: self.cells_width(),
+                    #[cfg(feature = "pin")]
+                    pinned: self.pin_state.in_effect,
                     columns: self
                         .columns
                         .iter()
@@ -1962,28 +2163,48 @@ impl<D: TallTableDelegate> TallTableState<D> {
             }));
         // One element for every fill and bar, the layer's first child: under
         // the text, clipped with the cells.
-        #[cfg(feature = "custom-cells")]
-        let cells_layer = cells_layer.when(!quads.is_empty(), |layer| {
-            layer.child(
-                canvas(
-                    |_, _, _| {},
-                    move |bounds, _, window, _| {
-                        for mut quad in quads {
-                            quad.bounds.origin += bounds.origin;
-                            window.paint_quad(quad);
-                        }
-                    },
-                )
-                .absolute()
-                .size_full(),
-            )
-        });
+        #[cfg(all(feature = "custom-cells", not(feature = "pin")))]
+        let cells_layer = cells_layer.children(self.quads_canvas(quads, 0));
         // The selection's tint and the active cell's edge: over the fills
         // and bars, under the text.
-        #[cfg(feature = "select")]
-        let cells_layer = cells_layer.children(self.render_selection(cx));
+        #[cfg(all(feature = "select", not(feature = "pin")))]
+        let cells_layer = cells_layer.children(self.render_selection(cx).1);
+        #[cfg(not(feature = "pin"))]
+        let cells_layer = cells_layer.children(cells);
+        // With `pin`, each region holds its columns' fills and bars, tint,
+        // and cells, clipped at the run's edge; a failed row's message spans
+        // both, and the edge's line is over them.
+        #[cfg(feature = "pin")]
+        let cells_layer = {
+            #[cfg(feature = "select")]
+            let (pinned_selection, selection) = self.render_selection(cx);
+            #[cfg(not(feature = "select"))]
+            let (pinned_selection, selection) = (None::<Div>, None::<Div>);
+            #[cfg(feature = "custom-cells")]
+            let (pinned_paint, paint, unclipped) = self.pinned_quads(place, pinned_quads, quads);
+            #[cfg(not(feature = "custom-cells"))]
+            let (pinned_paint, paint, unclipped) = (None::<Div>, None::<Div>, None::<Div>);
+            let [pinned, scrolled] = self.regions(
+                place,
+                pinned_paint
+                    .map(IntoElement::into_any_element)
+                    .into_iter()
+                    .chain(pinned_selection.map(IntoElement::into_any_element))
+                    .chain(pinned_cells.into_iter().map(IntoElement::into_any_element)),
+                paint
+                    .map(IntoElement::into_any_element)
+                    .into_iter()
+                    .chain(selection.map(IntoElement::into_any_element))
+                    .chain(cells.into_iter().map(IntoElement::into_any_element)),
+            );
+            cells_layer
+                .children(unclipped)
+                .children(pinned)
+                .children(scrolled)
+                .children(spanning)
+        };
 
-        div()
+        let body = div()
             .relative()
             .flex_1()
             .min_h_0()
@@ -2085,7 +2306,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .size_full(),
             )
             .children(row_backgrounds)
-            .child(cells_layer.children(cells))
+            .child(cells_layer)
             .child(
                 div()
                     .absolute()
@@ -2137,7 +2358,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         .id("tall-table-hscroll")
                         .absolute()
                         .bottom_0()
-                        .left(px(gutter))
+                        .left(px({
+                            #[cfg(feature = "pin")]
+                            let left = gutter + place.edge();
+                            #[cfg(not(feature = "pin"))]
+                            let left = gutter;
+                            left
+                        }))
                         .right(bar)
                         .h(bar)
                         .bg(theme.scrollbar)
@@ -2164,7 +2391,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 }),
                         ),
                 )
-            })
+            });
+        // The run's edge, over the cells (`pin`).
+        #[cfg(feature = "pin")]
+        let body = body.children(self.edge_line(place, true, cx));
+        body
     }
 
     /// After a frame's flashes: a fading one on screen asks for the next
@@ -2202,12 +2433,52 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.flashes.timer = Some((end, task));
     }
 
-    fn cell(&self, column: &LaidOutColumn, top: Pixels, height: Pixels) -> Div {
+    /// One element painting `quads` (`custom-cells`' fills and bars) in its
+    /// region's coordinates, under the text; none for none. With `pin`'s
+    /// tests, it records each quad as the window clipped it, those from
+    /// `scrolled_from` on as the scrolled region's.
+    #[cfg(feature = "custom-cells")]
+    fn quads_canvas(&self, quads: Vec<PaintQuad>, scrolled_from: usize) -> Option<Canvas<()>> {
+        #[cfg(all(test, feature = "pin"))]
+        let painted = self.pin_state.painted.clone();
+        #[cfg(not(all(test, feature = "pin")))]
+        let _ = scrolled_from;
+        (!quads.is_empty()).then(|| {
+            canvas(
+                |_, _, _| {},
+                move |bounds, _, window, _| {
+                    #[cfg_attr(not(all(test, feature = "pin")), expect(unused_variables))]
+                    for (at, mut quad) in quads.into_iter().enumerate() {
+                        quad.bounds.origin += bounds.origin;
+                        #[cfg(all(test, feature = "pin"))]
+                        painted.borrow_mut().push((
+                            at >= scrolled_from,
+                            quad.bounds.intersect(&window.content_mask().bounds),
+                        ));
+                        window.paint_quad(quad);
+                    }
+                },
+            )
+            .absolute()
+            .size_full()
+        })
+    }
+
+    /// A cell; with `pin`, at `left` in its region (`Pin::layer_left`).
+    fn cell(
+        &self,
+        #[cfg(feature = "pin")] left: f32,
+        column: &LaidOutColumn,
+        top: Pixels,
+        height: Pixels,
+    ) -> Div {
+        #[cfg(not(feature = "pin"))]
+        let left = column.x - self.scroll_x;
         div()
             .absolute()
             .top(top)
             .h(height)
-            .left(px(column.x - self.scroll_x))
+            .left(px(left))
             .w(px(column.width))
             .px_2()
     }
@@ -2216,8 +2487,22 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// cuts text only when its width is definite, and a flex item's isn't,
     /// so a right-aligned value spilled out the cell's left side and lost its
     /// front with no sign. The line height centers it.
-    fn value_cell(&self, column: &LaidOutColumn, top: Pixels, height: Pixels) -> Div {
-        let cell = self.cell(column, top, height).line_height(height);
+    fn value_cell(
+        &self,
+        #[cfg(feature = "pin")] left: f32,
+        column: &LaidOutColumn,
+        top: Pixels,
+        height: Pixels,
+    ) -> Div {
+        let cell = self
+            .cell(
+                #[cfg(feature = "pin")]
+                left,
+                column,
+                top,
+                height,
+            )
+            .line_height(height);
         match column.kind {
             CellKind::Text => cell.truncate(),
             CellKind::Float => cell.text_right().truncate(),
@@ -2279,7 +2564,7 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             let glyphs = Glyphs::read(window, cx);
             if glyphs != self.glyphs {
                 self.glyphs = glyphs;
-                self.lay_out();
+                self.lay_out(cx);
             }
         }
         self.decide_tooltip(window, cx);
@@ -2293,6 +2578,9 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         let header = header.children(self.render_arrows(cx));
         #[cfg(feature = "resize")]
         let header = header.child(self.render_bands(cx));
+        // Over the bands: the last pinned column's hairline is under it.
+        #[cfg(feature = "pin")]
+        let header = header.children(self.edge_line(self.place(), false, cx));
         let body = self.render_body(cx);
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         if self.flashes.animating {
@@ -2345,6 +2633,10 @@ pub(crate) mod copy;
 /// `sort`: the arrows, their cycle, and what a sort does.
 #[cfg(feature = "sort")]
 pub(crate) mod sort;
+
+/// `pin`: the count, the run in effect, the regions, and the edge.
+#[cfg(feature = "pin")]
+pub(crate) mod pin;
 
 #[cfg(test)]
 mod tests {

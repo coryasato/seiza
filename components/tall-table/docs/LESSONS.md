@@ -354,3 +354,12 @@ One entry per milestone part, written before starting the next one: what surpris
 - A pinned cell needs no background of its own here. A DOM grid's sticky cells overlap the scrolled ones and must be opaque, so a stripe is drawn twice; the table clips its scrolled layer at the run's edge instead, and the row backgrounds stay one layer under both.
 - Neither `DataTable` nor TanStack says what happens when the pinned columns are wider than the view. Here a window narrowed or a pinned column widened would leave nothing that scrolls, so the run in effect is capped at half the cells' width, and the cap can't be applied on a resize drag's moves without moving the edge out from under the pointer.
 - The code review found the spec's "computed at a layout" missed the one change the cap exists for: a new view width goes through `set_body`, which never calls `lay_out`, so the run would never have followed the window, and before the first frame (a cells' width of 0) nothing would have pinned. It also found that holding the run through a drag lets it outgrow the view, and that the scrollbar's press and drag measure from the gutter, a site the grep for `scroll_x` didn't list because it counts from `cells_width` instead.
+
+## M9: `pin` (part B, 2026-10-29)
+
+**Results:** [`perf/results/2026-10-29-m9-b.md`](../perf/results/2026-10-29-m9-b.md) (the bytes; part D measures the frame work).
+
+**Surprises:**
+- A stand-in that does the unpinned math still cost the base bytes. Written once through `Place`, every site should have compiled to what it was, and four didn't: `gutter + 0.0` (LLVM can't drop an add of zero, since −0 + 0 is +0; a subtraction of zero it does drop), `.children(None)`, a filter that recomputed the view's right edge per column, and a helper's new parameter. 224 bytes after wasm-opt, twice the gate, from code that does nothing.
+- The random test's controls are counted over one fixed draw, so a feature's new step broke two of them without touching the paging: a weighted step moved every later case, and so did a step drawn after the others. Steps placed from a value already drawn left every draw alone, and every control failed again.
+- `add_window_view` draws the first frame before a test can subscribe to the table, so a test of "`Pinned` once, at the first frame" heard nothing; the table has to be made by a view that subscribes as it makes it.

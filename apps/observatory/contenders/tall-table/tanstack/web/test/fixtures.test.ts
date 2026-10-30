@@ -386,3 +386,9 @@ test('selection.json', { skip: 'the contender has no selection' }, () => {});
 // `paging.json`'s sort scenario what a sort reads: the level is added only
 // when both sides build sorting.
 test('sort.json', { skip: 'the contender has no sort' }, () => {});
+
+// --- pin ---
+
+// `pin.json` pins where pinned columns put every cell: the level is added
+// only when both sides build pinning.
+test('pin.json', { skip: 'the contender has no pinned columns' }, () => {});

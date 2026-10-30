@@ -9,6 +9,20 @@
 
 use std::ops::Range;
 
+/// The sideways move that brings `left..right` into the view
+/// `view_left..view_right` the least distance (a column wider than the view
+/// to its left edge): `select`'s keys, with `pin` the view right of the run.
+#[cfg(any(feature = "select", all(test, feature = "pin")))]
+pub(crate) fn into_view(left: f32, right: f32, view_left: f32, view_right: f32) -> f32 {
+    if left < view_left {
+        left - view_left
+    } else if right > view_right {
+        (right - view_right).min(left - view_left)
+    } else {
+        0.0
+    }
+}
+
 /// Where the viewport's top edge is, in rows, and how many rows it shows.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RowScroll {

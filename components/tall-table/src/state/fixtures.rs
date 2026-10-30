@@ -45,6 +45,10 @@ mod select;
 #[cfg(feature = "sort")]
 mod sort;
 
+/// `pin.json`, and the pin drawn and driven in a window.
+#[cfg(feature = "pin")]
+mod pin;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
