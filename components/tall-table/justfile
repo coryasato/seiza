@@ -38,7 +38,7 @@ wasm profile="debug" features="":
 # The bare host's wasm: raw (cargo's output), after wasm-bindgen and wasm-opt, and
 # brotli 11 (built by the `wasm` recipe), against the observatory's GPUI contender's shipped wasm when
 # it's built (`just observatory gpui-build`); fails if an engine or the
-# observation panel links. --label writes perf/results/<date>-<label>.json.
+# observation panel links, or a build holds a home-directory path. --label writes perf/results/<date>-<label>.json.
 size *args:
     node {{component_dir}}/perf/size.ts {{args}}
 

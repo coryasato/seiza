@@ -433,6 +433,7 @@ export function Description({ contenders }: { contenders: [Contender, Contender]
         { className: 'mt-2 flex flex-col gap-1.5' },
         ...contenders.map((contender) => h(Fragment, { key: contender.side }, item(seriesDot(contender.side), h(Fragment, null, name(`${contender.label}:`), ` ${contender.stack}.`)))),
       ),
+      h('p', { 'data-credit': '', className: 'mt-2 text-muted-foreground' }, `Data: ${cold.credit}.`),
     ),
     block(
       `Why ${millions(cold.rows)} rows`,

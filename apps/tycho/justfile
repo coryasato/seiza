@@ -180,9 +180,16 @@ burst *args:
 
 # Lint, release build, then the perf budgets: fails if reference TTFP regresses
 # more than 10% from perf/baseline.json, or the wasm grows more than 15% (brotli)
-# without a row in perf/budget-notes.md.
+# without a row in perf/budget-notes.md. Also fails if the shipped wasm holds
+# a home-directory path (the root release profile's trim-paths).
 check: lint build
+    node {{root}}/shared-web/perf/home-paths.ts {{web}}/dist/assets/tycho_bg-*.wasm
     node {{app_dir}}/perf/perf.ts --check
+
+# The home-path check's control: Tycho built without trim-paths (a cold build
+# in target/untrimmed/) must fail it, and the release build must pass.
+home-paths: build
+    node {{root}}/shared-web/perf/home-paths.ts {{web}}/dist/assets/tycho_bg-*.wasm --control tycho
 
 # The full perf suite: cold load, the observation panel, the table on
 # both samples, jump to row, and the ~1 GB CSV, reference + throttled, median

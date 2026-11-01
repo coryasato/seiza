@@ -238,3 +238,11 @@ M7 is split into five parts, one session each (`milestones.md`, M7). Part E writ
 - **`--only` takes one part.** `csv --only fixture,supersede,browsers` matched nothing, ran nothing, wrote an empty results file, and exited 0; the 1-second runtime gave it away.
 - **The pre-M9 build couldn't be clicked by the new harness:** it published `__tychoTargets`, which part A renamed. An A/B that clicks needs the old name aliased.
 - **The A/B wrote a home-directory path** into four committed results files (`--ab`'s absolute dist path). The script now records it relative to the repo; the pushed history keeps the old ones.
+
+## M10: `trim-paths`, no home paths in the shipped wasm (2026-11-01)
+
+**Results:** [`perf/results/2026-11-01-m10.md`](../perf/results/2026-11-01-m10.md)
+
+**Surprises:**
+- **The paths were nearly free on the wire.** 1,015 of them came to 42.9 KiB after wasm-opt but only 0.4 KiB brotli, so the wasm budget could never have caught them; only a search of the bytes does.
+- **A home path in a check's search term needs its trailing `/`.** Without it, a builder whose home is `/root` would match every trimmed `src/root.rs` (gpui-kit has one) and fail a clean wasm (code review).

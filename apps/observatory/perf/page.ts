@@ -42,8 +42,9 @@
 // The window's numbers, checked once (`readouts`): the status bar's box in
 // the HTML and the frame unmoved when its numbers render (control: without
 // the box it moves), this tab's readings, the explainers, the panel's cold
-// values and verdicts against perf/results/, the description's wins, and a
-// phone's status bar.
+// values and verdicts against perf/results/, the description's wins and its
+// data credit (data/MANIFEST.json's, the README's too), and a phone's
+// status bar.
 //
 // Usage: node apps/observatory/perf/page.ts [--runs 10] [--check] [--label <name>] [--write-baseline] [--reference-only] [--shots <dir>] [--url <origin>]
 // --shots: screenshots of the comparison, light and dark, desktop (open,
@@ -917,6 +918,11 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect(JSON.stringify(sentences) === JSON.stringify(want), `where each side wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')}`);
+    const credit = await page.locator('[data-credit]').textContent();
+    expect(credit === `Data: ${cold.credit}.`, `the data's credit: ${JSON.stringify(credit)}, data/MANIFEST.json says ${JSON.stringify(cold.credit)}`);
+    // The README's credit is typed: held to the same.
+    expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids:** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
+    console.log(`credit: ${credit} (the page's and the README's)`);
     expect(found.length === 0, `page problems: ${found.join('; ')}`);
     await context.close();
 

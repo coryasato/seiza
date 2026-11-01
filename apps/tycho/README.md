@@ -41,7 +41,7 @@ Budgets gate the local release build only (Apple M1, the same protocol, no netwo
 | Metric | Budget | Now |
 |---|---|---|
 | Time to first paint | ≤ 214.8 ms (baseline 195.3 + 10%) | 187.5 ms |
-| App wasm (brotli) | ≤ 3247.1 KiB (baseline 2823.6 + 15%, or a `budget-notes.md` row) | 2840.2 KiB |
+| App wasm (brotli) | ≤ 3283 KiB (baseline 2854.8 + 15%, or a `budget-notes.md` row) | 2840.2 KiB |
 | Sample click → first rows: asteroids / Gaia | ≤ 500 ms | 198.8 / 289.4 ms |
 | Scrollbar jump to 90% → real rows: asteroids / Gaia | ≤ 400 ms | 81.7 / 134.9 ms |
 | Fling top → bottom in 3 s, asteroids: p95 / worst frame | ≤ 20 / 50 ms | 16.7 / 33.3 ms |

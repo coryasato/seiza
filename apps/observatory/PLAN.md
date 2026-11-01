@@ -21,7 +21,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M4 | The numbers: cold runs of both contenders (parts A–B) | Done 2026-10-18 ([`docs/milestones.md`](docs/milestones.md)) |
 | M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | The deploy | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
-| M7 | `trim-paths`: no home paths in the shipped wasm; the asteroids credited; redeployed (with the repo-wide change and Tycho's M10, one session) | Planned |
+| M7 | `trim-paths`: no home paths in the shipped wasm; the asteroids credited; redeployed | Done 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)) |
 | M8 | The scenarios on the page: the design (a design session, no code) | Planned |
 | M9 | Scenario: wide sheet | Planned; waits on tall-table M10 (`density`) |
 | M10 | Scenario: market watch | Planned |
@@ -45,13 +45,12 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | tall-table `live` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios"; [its README](../../components/tall-table/README.md), "Live rows" and "A flash") | Market watch, its flash included (`live` with `custom-cells`) (M10) | *Ready* (2026-10-25, tall-table M3) |
 | tall-table `follow` (same; [its README](../../components/tall-table/README.md), "Following the tail") | Live tail (M11) | *Ready* (2026-10-25, tall-table M4) |
 | tall-table `resize`, `select`, `copy` ([its PLAN](../../components/tall-table/PLAN.md), "Columns" and "Selection") | The wide sheet's later steps, a resize drag and a range copied: not in M9, a milestone after it | *Ready* (`resize` 2026-10-26, tall-table M5; `select` 2026-10-26, M6; `copy` 2026-10-27, M7) |
-| `trim-paths` in the root release profile ([the plan](../../docs/research/build-paths.md)): no home-directory paths in the shipped wasm | M7 (below) | *Not ready*: built in M7's session, before the adoption |
 
 ---
 
 ## Active milestone
 
-None: M6, the deploy, closed 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)). Next, in order: M7 (`trim-paths`, in one session with the repo-wide change and Tycho's M10), M8 (the scenarios' design), then M9 (the wide sheet) once the table's `density` is ready (tall-table M10, "Waiting on"). The table's M10 and this app's M7 and M8 don't depend on each other. The scenarios were planned as milestones on 2026-10-30 ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios").
+None: M7, `trim-paths` and the asteroids' credit, closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Next, in order: M8 (the scenarios' design), then M9 (the wide sheet) once the table's `density` is ready (tall-table M10, "Waiting on"). The table's M10 and this app's M8 don't depend on each other. The scenarios were planned as milestones on 2026-10-30 ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios").
 
 ---
 
@@ -64,24 +63,6 @@ The "done when" checks are drafts until their milestone becomes active. The scen
 - **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
 - **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
 - **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
-
-### M7: `trim-paths`, no home paths in the shipped wasm
-
-Every release wasm the repo builds embeds the builder's home-directory paths, its dependencies' and the toolchain's panic locations: the GPUI contender's `web/dist` holds 977 (counted 2026-10-30), and it's what's deployed at seiza.io, against the root's rule never to publish a home-directory path. It goes first because it moves every wasm's bytes: done before the scenarios, the contender's wasm baseline is rewritten once, before the scenarios' feature levels are measured against it, and builds identical across checkouts make those byte changes exact.
-
-**And the asteroids credited:** the observatory shows 1.57 M rows of NASA/JPL's Small-Body Database and credits it nowhere, in the README or on the page (Tycho's README has "Data credits"). The redeploy carries the credit, so every scenario's credit check ("Every scenario milestone", above) starts from a page that has one.
-
-**One session, three records**, each in its own home:
-1. **The repo-wide change**, first: [`docs/research/build-paths.md`](../../docs/research/build-paths.md)'s "Done when" (the profile setting and its decision, the home-path check in the table's `size` with its control, the bare host byte-identical across checkouts, both apps' rows flipped to *Ready*). It checks first that the pinned nightly takes `trim-paths` and that its `"object"` scope covers the panic locations.
-2. **This app's adoption**, the checks below.
-3. **Tycho's adoption**, its own M10 ([its PLAN](../tycho/PLAN.md)), its evidence in its own `perf/results/` and `docs/milestones.md`.
-
-**Done when:**
-- [ ] The GPUI contender's wasm before and after the change (raw, after wasm-opt, brotli 11) in a results note; `perf/baseline.json`'s wasm rewritten, and TTFP's only if `check` shows it moved.
-- [ ] `sizes --check` (in `check`) fails on a home path in the shipped wasm (the builder's `$HOME`, `/Users/`, `/home/`), with a control (a build without the setting fails it).
-- [ ] Redeployed (`just observatory deploy`, `worker-check` passing), and the wasm fetched from production holds no home path.
-- [ ] The asteroids credited: on the page (where the description says what the table shows), in the README ("Data credits"), and the credit and terms in `MANIFEST.json`'s entry.
-- [ ] `just observatory report`; "Waiting on"'s row removed (adopted).
 
 ### M8: the scenarios on the page, designed (a design session, no code)
 
@@ -150,7 +131,7 @@ Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.j
 |---|---|---|---|---|---|
 | GPUI contender: time to first paint | ≤ 187.6 ms (baseline 170.5 + 10%) | `check` | 170.5 ms | 329.5 ms | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json), [2026-10-21-gpui-cold-production](perf/results/2026-10-21-gpui-cold-production.json) |
 | GPUI contender: time to first paint, throttled | — | recorded | 3502.5 ms | 3550.5 ms | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json), [2026-10-21-gpui-cold-production](perf/results/2026-10-21-gpui-cold-production.json) |
-| GPUI contender: wasm (brotli) | ≤ 3099.7 KiB (baseline 2695.4 + 15%) | `check` | 2695.4 KiB | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
+| GPUI contender: wasm (brotli) | ≤ 3113.3 KiB (baseline 2707.2 + 15%) | `check` | 2695.4 KiB | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
 | TanStack contender: first-paint JS (brotli) | ≤ 79.3 KiB (baseline 72.1 + 10%) | `check` | 72.2 KiB | — | [2026-10-18-m4-b-tanstack-sizes](perf/results/2026-10-18-m4-b-tanstack-sizes.json) |
 | TanStack contender: data layer and Arrow, after first paint (brotli) | ≤ 38.2 KiB (baseline 34.7 + 10%) | `check` | 34.7 KiB | — | [2026-10-18-m4-b-tanstack-sizes](perf/results/2026-10-18-m4-b-tanstack-sizes.json) |
 | Page: first paint (paint timing), /observatory/tall-table/ | ≤ 85 ms (baseline 70.8 + 20%) | `check` | 70.8 ms | 210.2 ms | [2026-10-19-m5-a-page](perf/results/2026-10-19-m5-a-page.json), [2026-10-21-page-production](perf/results/2026-10-21-page-production.json) |

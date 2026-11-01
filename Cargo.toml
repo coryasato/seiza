@@ -1,3 +1,6 @@
+# `trim-paths` is unstable on the pinned nightly; see [profile.release].
+cargo-features = ["trim-paths"]
+
 [workspace]
 resolver = "3"
 members = [
@@ -40,6 +43,10 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+# Remap build paths in the compiled output (panic locations), so no wasm
+# carries the builder's home directory and builds match across checkouts.
+# docs/research/build-paths.md; root docs/DECISIONS.md, "Toolchain and build".
+trim-paths = "object"
 
 [profile.dev]
 panic = "abort"

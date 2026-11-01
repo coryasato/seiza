@@ -4,6 +4,8 @@
     "bytes": 22812292,
     "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
     "source": "apps/tycho/data/asteroids.parquet (sha256 4ee7f31ea67b…), from https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "credit": "NASA/JPL Small-Body Database (JPL Solar System Dynamics), courtesy NASA/JPL-Caltech",
+    "terms": "No license stated: the SBDB Query API's documentation (ssd-api.jpl.nasa.gov/doc/sbdb_query.html) gives no terms of use. JPL's use policy (jpl.nasa.gov/jpl-image-use-policy) covers its images and video, free for any purpose with the credit line \"Courtesy NASA/JPL-Caltech\"; the credit follows it. Checked 2026-11-01.",
     "fetched": "2026-09-24",
     "rowGroups": 52,
     "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid",

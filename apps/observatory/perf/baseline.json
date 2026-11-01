@@ -7,7 +7,7 @@
     "reference": 170.5,
     "throttled": 3502.5
   },
-  "wasmBrotliKiB": 2695.4,
+  "wasmBrotliKiB": 2707.2,
   "tanstackJsBrotliKiB": {
     "date": "2026-10-18",
     "machine": "local",

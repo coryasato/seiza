@@ -2,8 +2,8 @@
 // each metric of src/readouts.ts resolved from perf/budgets.json and
 // perf/results/ at build time, the way `just observatory report` resolves
 // them for the README, the Download card's parts by the same resolver, and
-// the data file's rows from data/MANIFEST.json, so the page holds no typed
-// copy. Node only.
+// the data file's rows and credit from data/MANIFEST.json, so the page holds
+// no typed copy. Node only.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,10 +20,12 @@ const ROWS_RESOLVED = `\0${ROWS_ID}`;
 const app = fileURLToPath(new URL('..', import.meta.url));
 const manifest = fileURLToPath(new URL('../data/MANIFEST.json', import.meta.url));
 
-function dataRows(): number {
-  const rows = JSON.parse(readFileSync(manifest, 'utf8'))['asteroids.parquet']?.rows;
+/** The data file's rows and credit, from one read of data/MANIFEST.json. */
+function dataFile(): { rows: number; credit: string } {
+  const { rows, credit } = JSON.parse(readFileSync(manifest, 'utf8'))['asteroids.parquet'] ?? {};
   if (typeof rows !== 'number') throw new Error('data/MANIFEST.json has no rows for asteroids.parquet');
-  return rows;
+  if (typeof credit !== 'string' || !credit) throw new Error('data/MANIFEST.json has no credit for asteroids.parquet');
+  return { rows, credit };
 }
 
 /** The cold numbers, and the files they came from: the page's module, and
@@ -49,13 +51,14 @@ export function resolveCold(): { numbers: ColdNumbers; sources: string[] } {
     parts[part] = Number(format(found.value));
     partFiles.add(found.from.replace(/^results\//, ''));
   }
-  const rows = dataRows();
+  const { rows, credit } = dataFile();
   const meta = [...files].map((name) => reporter.results.find((file) => file.name === name)!.json);
   const unique = <T>(list: T[]) => [...new Set(list)];
   const numbers: ColdNumbers = {
     values,
     parts,
     rows,
+    credit,
     runs: unique(meta.map((json) => Number(json.runs))).sort((a, b) => a - b),
     cpus: unique(meta.map((json) => String(json.cpu))).sort(),
   };
@@ -70,7 +73,7 @@ export function coldNumbers(): Plugin {
     load(id) {
       if (id === ROWS_RESOLVED) {
         this.addWatchFile(manifest);
-        return `export default ${dataRows()};`;
+        return `export default ${dataFile().rows};`;
       }
       if (id !== RESOLVED) return;
       const { numbers, sources } = resolveCold();

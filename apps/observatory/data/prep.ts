@@ -2,7 +2,7 @@
 // asteroid sample (apps/tycho/data/asteroids.parquet, its SHA-256 in Tycho's
 // MANIFEST.json): runs prep.sql with native DuckDB, checks the result fits a
 // Workers static asset, and writes MANIFEST.json (committed) with its rows,
-// bytes, SHA-256, row groups, and source.
+// bytes, SHA-256, row groups, source, credit, and terms.
 //
 // Usage: node apps/observatory/data/prep.ts   (`just observatory data`)
 // Needs Tycho's file first: `just tycho data`.
@@ -26,11 +26,20 @@ interface ManifestFile {
   bytes: number;
   sha256: string;
   source: string;
+  /** How the page and the README credit it. */
+  credit?: string;
+  /** The source's terms, as found. */
+  terms?: string;
   fetched?: string;
   rowGroups?: number;
   writer: string;
   notes?: string[];
 }
+
+/** The asteroids' credit and terms, for MANIFEST.json (the page and the README show the credit). */
+const CREDIT = 'NASA/JPL Small-Body Database (JPL Solar System Dynamics), courtesy NASA/JPL-Caltech';
+const TERMS =
+  'No license stated: the SBDB Query API\'s documentation (ssd-api.jpl.nasa.gov/doc/sbdb_query.html) gives no terms of use. JPL\'s use policy (jpl.nasa.gov/jpl-image-use-policy) covers its images and video, free for any purpose with the credit line "Courtesy NASA/JPL-Caltech"; the credit follows it. Checked 2026-11-01.';
 
 const sqlText = (value: string) => value.replaceAll("'", "''");
 
@@ -74,6 +83,8 @@ const entry: ManifestFile = {
   bytes,
   sha256: await sha256(output),
   source: `apps/tycho/data/asteroids.parquet (sha256 ${pinned.sha256.slice(0, 12)}…), from ${pinned.source}`,
+  credit: CREDIT,
+  terms: TERMS,
   fetched: pinned.fetched,
   rowGroups: Number(await value(conn, "SELECT num_row_groups FROM parquet_file_metadata('asteroids.parquet')")),
   writer: `DuckDB ${await value(conn, 'SELECT version()')}, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid`,

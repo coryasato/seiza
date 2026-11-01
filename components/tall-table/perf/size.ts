@@ -15,10 +15,14 @@
 // And the base must hold none of a feature's code: an unstripped build of
 // each (`target/symbols/`) is searched for the feature's own module, which
 // the base must lack and the feature's build must hold (the control); code
-// only two features together build, also lacking from each one's build. `--against <commit>` also builds the base at
-// that commit and the working tree's, each in a git worktree, and fails if
-// they differ by more than 0.1 KiB after wasm-opt (brotli is recorded, not
-// gated: it swings by up to ~2 KiB when a few bytes shift).
+// only two features together build, also lacking from each one's build.
+// And no build holds a home-directory path (the root release profile's
+// `trim-paths`), with the base built without it as the control, which must.
+// `--against <commit>` also builds the base at that commit and the working
+// tree's, each in a git worktree, and fails if they differ by more than
+// 0.1 KiB after wasm-opt (brotli is recorded, not gated: it swings by up to
+// ~2 KiB when a few bytes shift). A commit from before `trim-paths` builds
+// with the home paths and fails it by their bytes (about 41 KiB).
 //
 // Usage: node components/tall-table/perf/size.ts [--against <commit>] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Leaves host/web/pkg/ as
@@ -29,6 +33,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
+import { homePaths, untrimmedControl } from '../../../shared-web/perf/home-paths.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { perfDir, repo } from './harness.ts';
 
@@ -85,11 +90,15 @@ type Size = { rawKiB: number; optKiB: number; brotliKiB: number };
  *  cargo, wasm-bindgen, wasm-opt with the apps' flags), so this measures the
  *  binary the build ships, in `dir` (a checkout). Raw is cargo's output,
  *  before either. */
-function measure(features: string, dir = repo): { size: Size; opt: Buffer } {
+function measure(features: string, dir = repo): { size: Size; opt: Buffer; homePaths: number } {
   execFileSync('just', ['tall-table', 'wasm', 'release', ...(features ? [features] : [])], { cwd: dir, stdio: ['ignore', 'pipe', 'inherit'] });
   const raw = readFileSync(join(dir, 'target/wasm32-unknown-unknown/release/tall_table_host.wasm'));
   const opt = readFileSync(join(dir, 'components/tall-table/host/web/pkg/tall_table_host_bg.wasm'));
-  return { size: { rawKiB: kib(raw.length), optKiB: kib(opt.length), brotliKiB: kib(brotli(opt).length) }, opt };
+  // The working tree's builds only: an `--against` commit from before
+  // `trim-paths` holds them, and fails by its size alone.
+  const home = homePaths(`the host's wasm${features ? ` with ${features}` : ''}`, opt);
+  if (home.failure && dir === repo) failures.push(home.failure);
+  return { size: { rawKiB: kib(raw.length), optKiB: kib(opt.length), brotliKiB: kib(brotli(opt).length) }, opt, homePaths: home.total };
 }
 const line = (size: Size) => `${size.rawKiB} KiB raw, ${size.optKiB} KiB after wasm-opt, ${size.brotliKiB} KiB brotli`;
 
@@ -98,9 +107,13 @@ type Added = { moreBrotliKiB: number; moreOptKiB: number };
 const features: Record<string, Size & Added & { against?: Record<string, Added> }> = {};
 const featureSizes: Record<string, Size> = {};
 for (const feature of Object.keys(FEATURES)) featureSizes[feature] = measure(feature).size;
-const { size: host, opt } = measure('');
+const { size: host, opt, homePaths: hostHomePaths } = measure('');
 for (const [name, marker] of Object.entries(MARKERS)) if (opt.includes(marker)) failures.push(`the host's wasm holds "${marker}": the ${name} linked`);
-console.log(`host (base): ${line(host)}`);
+console.log(`host (base): ${line(host)}, ${hostHomePaths} home paths`);
+// The control: the base without trim-paths holds home paths.
+const untrimmed = untrimmedControl('tall-table-host');
+if (untrimmed.failure) failures.push(untrimmed.failure);
+console.log(`host (base) without trim-paths, the control: ${untrimmed.total} home paths`);
 for (const [feature, size] of Object.entries(featureSizes)) {
   const added = (than: Size): Added => ({ moreOptKiB: Number((size.optKiB - than.optKiB).toFixed(1)), moreBrotliKiB: Number((size.brotliKiB - than.brotliKiB).toFixed(1)) });
   // Against each of its features alone, and each it turns on.
@@ -147,14 +160,14 @@ for (const [feature, given] of Object.entries(FEATURES)) {
 delete process.env.CARGO_PROFILE_RELEASE_STRIP;
 
 // The base at another commit against the working tree's, each built in turn
-// in a worktree at one fixed path: the base unchanged (within a little:
-// panic sites keep their line numbers, which code above them shifts). The
-// same path for both, because the build embeds it (panic locations): the
-// same commit built in the repo and in a worktree differed by 1.4 KiB
-// before brotli, and in two worktrees at random paths by 0.5 KiB brotli.
+// in a worktree: the base unchanged (within a little: panic sites keep
+// their line numbers, which code above them shifts). Where a checkout sits
+// no longer changes its bytes (`trim-paths`: the same commit built in the
+// repo and in a worktree is byte-identical); one fixed path keeps the two
+// builds alike even for a commit from before it.
 const against = option('against');
 let parent: { commit: string; then: Size; now: Size; moreOptKiB: number; moreBrotliKiB: number } | null = null;
-/** The base built in a worktree of `commit` at the fixed path, with
+/** The base built in a worktree of `commit` at one fixed path, with
  *  `prepare` run in it first; its own target dir (the recipe reads the wasm from its checkout's),
  *  a cold build, removed with the worktree. */
 function inWorktree(commit: string, prepare: (dir: string) => void = () => {}): Size {
@@ -187,7 +200,7 @@ if (against) {
   parent = { commit, then, now, moreOptKiB: Number((now.optKiB - then.optKiB).toFixed(1)), moreBrotliKiB: Number((now.brotliKiB - then.brotliKiB).toFixed(1)) };
   console.log(`host (base) in a worktree, at ${commit}: ${line(then)}; the working tree: ${line(now)}: ${parent.moreOptKiB} KiB after wasm-opt, ${parent.moreBrotliKiB} KiB brotli more`);
   // Gated before brotli: brotli moves up to ~2 KiB when a few bytes shift
-  // (a panic site's line number), the same commit at two paths by 0.5 KiB.
+  // (a panic site's line number).
   if (Math.abs(parent.moreOptKiB) > 0.1) failures.push(`the base changed: ${parent.moreOptKiB} KiB after wasm-opt against ${commit}`);
 }
 
@@ -206,7 +219,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), build: 'base', cargo: linked, host, features, symbols, against: parent, contender, failures }, null, 2)}\n`);
+  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), build: 'base', cargo: linked, host, homePaths: { host: hostHomePaths, untrimmedControl: untrimmed.total }, features, symbols, against: parent, contender, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }
 if (failures.length) {

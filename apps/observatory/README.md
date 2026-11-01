@@ -71,4 +71,10 @@ Where the GPUI side falls short of a DOM table, said here and in the page's desc
 
 The diagnosis: [`perf/results/2026-10-19-m5-a1-phone.md`](perf/results/2026-10-19-m5-a1-phone.md).
 
+## Data credits
+
+The table's data is a re-hosted copy of public data, rewritten as Parquet ([`data/MANIFEST.json`](data/MANIFEST.json) pins it, with its source's terms as found):
+
+- **Asteroids:** NASA/JPL Small-Body Database (JPL Solar System Dynamics), courtesy NASA/JPL-Caltech.
+
 The rules are the root [`CLAUDE.md`](../../CLAUDE.md)'s "Comparison protocol", and the decisions behind them are in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md). What's next is in [`PLAN.md`](PLAN.md).

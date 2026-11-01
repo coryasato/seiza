@@ -192,6 +192,8 @@ export interface ColdNumbers {
   parts: Record<string, number>;
   /** The data file's rows (`data/MANIFEST.json`). */
   rows: number;
+  /** The data file's credit (`data/MANIFEST.json`). */
+  credit: string;
   /** The metrics' results files' runs per median, and machine. */
   runs: number[];
   cpus: string[];

@@ -96,3 +96,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - A test can depend on how fast its server is. "A theme change while the frame loads" holds the frame's HTML and waits on the page's `load` event. Locally the page loaded before it created the frame; over a real network the frame came first, so `load` waited on the frame the test was holding.
 - Throttled, production came within 1.4% of local (GPUI 3550.5 against 3502.5 ms). At the reference speed it took about twice as long, from the network's round trips alone. So the throttle hides hosting differences, and only the reference run shows them.
 - Without R2, the two DuckDB bundles over the asset limit still fit as compressed copies (5.1 and 5.7 MiB as brotli). The 25 MiB limit is on the stored file, not on what the browser decodes.
+
+## M7: `trim-paths`, no home paths in the shipped wasm (2026-11-01)
+
+**Results:** [`perf/results/2026-11-01-m7.md`](../perf/results/2026-11-01-m7.md)
+
+**Surprises:**
+- The paths cost almost nothing on the wire. Taking 979 of them out removed 40.9 KiB after wasm-opt but only 0.8 KiB brotli, so the wasm budget could never have noticed them. Only a search of the bytes finds them.
+- An unstable Cargo setting didn't need a `-Z` flag on the pinned nightly: `cargo-features = ["trim-paths"]` in the root manifest was enough, and `"object"` covered every panic location on the first try.
+- The asteroids' source states no terms. The SBDB Query API's documentation gives none, and JPL's use policy covers only images and video. The credit follows that policy's line ("Courtesy NASA/JPL-Caltech"), and `MANIFEST.json` records the terms as found, not as a license.

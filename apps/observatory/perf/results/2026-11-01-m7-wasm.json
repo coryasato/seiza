@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-01",
+  "label": "m7-wasm",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "what": "the release wasm before and after trim-paths: raw (cargo output), after wasm-bindgen and wasm-opt (shipped), brotli 11; home-directory paths counted in the shipped wasm",
+  "before": {
+    "rawBytes": 13490113,
+    "optBytes": 9977586,
+    "brotliBytes": 2772965,
+    "homePaths": 979
+  },
+  "after": {
+    "rawBytes": 13451726,
+    "optBytes": 9935621,
+    "brotliBytes": 2772196,
+    "homePaths": 0
+  }
+}

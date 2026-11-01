@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-01",
+  "label": "m7-trim-paths",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "cargo": {
+    "panelAlone": false,
+    "panelWithTycho": true
+  },
+  "shipped": {
+    "file": "tall_table_gpui_bg-DSR6ISp9.wasm",
+    "rawKiB": 9702.8,
+    "brotliKiB": 2707.2,
+    "panel": false,
+    "homePaths": 0
+  },
+  "untrimmedHomePaths": 987,
+  "variants": {
+    "withPanel": {
+      "rawKiB": 9734.2,
+      "brotliKiB": 2718,
+      "panel": true
+    },
+    "withoutPanel": {
+      "rawKiB": 9702.8,
+      "brotliKiB": 2707.2,
+      "panel": false
+    }
+  },
+  "failures": []
+}

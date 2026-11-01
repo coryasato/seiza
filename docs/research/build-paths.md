@@ -1,6 +1,6 @@
 # Build paths in the shipped wasm
 
-Found 2026-10-24, measuring the tall table's bare host: every release wasm the repo builds embeds the builder's absolute paths. Planned here as a repo-wide change of its own; not built yet.
+Found 2026-10-24, measuring the tall table's bare host: every release wasm the repo builds embeds the builder's absolute paths. Planned here as a repo-wide change of its own; built 2026-11-01 (root `docs/DECISIONS.md`, "Toolchain and build").
 
 ## What's there
 
@@ -22,7 +22,7 @@ Remapping build paths in release artifacts is standard: Rust's own release build
 One change to the root `Cargo.toml`. It changes every app's bytes (root rule 1), and each app records its own size effect and redeploys in a milestone of its own: each app's `PLAN.md` carries the note ("Waiting on"), flipped to *Ready* when this lands. Planned 2026-10-30 as one session that builds this change first and then both apps' adoptions (the observatory's and Tycho's PLANs), since the deployed wasm already carries the paths (977 in the observatory's GPUI contender, 1,013 in Tycho's). The session checks first that the pinned nightly takes the setting, and that its `"object"` scope covers the panic locations (`file!()`); if not, `"all"`, or the `RUSTFLAGS` route above.
 
 **Done when:**
-- [ ] `cargo-features = ["trim-paths"]` and `[profile.release] trim-paths = "object"` in the root `Cargo.toml`, with a comment linking here; a decision under root `docs/DECISIONS.md`, "Toolchain and build".
-- [ ] **No home path in a release wasm:** a check that fails on `$HOME` (and `/Users/`, `/home/`) in the built wasm, in the tall table's `size` (the bare host), with a control (a build without the setting must fail it). Each app adds the same check to its own `check` when it adopts the change.
-- [ ] **Reproducible across checkouts:** the bare host's base built in the repo and in a worktree is byte-identical (or, if not, the remaining difference is explained). If it is, the table's `size --against` can gate on brotli again (its `docs/DECISIONS.md`, "Features", 2026-10-24).
-- [ ] **The apps told:** Tycho's and the observatory's "Waiting on" rows flip to *Ready*, with the date.
+- [x] `cargo-features = ["trim-paths"]` and `[profile.release] trim-paths = "object"` in the root `Cargo.toml`, with a comment linking here; a decision under root `docs/DECISIONS.md`, "Toolchain and build". *2026-11-01: the pinned nightly takes it with no `-Z` flag, and `"object"` covers the panic locations.*
+- [x] **No home path in a release wasm:** a check that fails on `$HOME` (and `/Users/`, `/home/`) in the built wasm, in the tall table's `size` (the bare host), with a control (a build without the setting must fail it). Each app adds the same check to its own `check` when it adopts the change. *2026-11-01: `shared-web/perf/home-paths.ts`, in `size` on every build it makes; the base 979 home paths before, 0 after, the control (built with `CARGO_PROFILE_RELEASE_TRIM_PATHS=none`) 987 ([the note](../../components/tall-table/perf/results/2026-11-01-trim-paths.md)). `just tall-table size --label trim-paths-size` passed with it: no home path in any feature's build.*
+- [x] **Reproducible across checkouts:** the bare host's base built in the repo and in a worktree is byte-identical (or, if not, the remaining difference is explained). If it is, the table's `size --against` can gate on brotli again (its `docs/DECISIONS.md`, "Features", 2026-10-24). *2026-11-01: byte-identical, cargo's output and after wasm-opt. `--against` still gates after wasm-opt: two commits' panic sites differ in their line numbers, which swing brotli whatever the path.*
+- [x] **The apps told:** Tycho's and the observatory's "Waiting on" rows flip to *Ready*, with the date. *2026-11-01.*

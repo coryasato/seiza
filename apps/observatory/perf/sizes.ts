@@ -10,10 +10,13 @@
 //   Tycho's `panel` into it, must.
 // - The shipped wasm (web/dist, from `just observatory gpui-build`) must not
 //   hold the panel's global (`__seizaPerfOverlay`, which only the panel
-//   writes).
-// Without --check, also: the release wasm built with `--features seiza/panel`
-// (bindgen + wasm-opt as shipped), whose bytes must hold that global (the
-// control), and raw and brotli sizes of both. The contender's own build is
+//   writes), nor a home-directory path (the builder's `$HOME`, `/Users/`,
+//   `/home/`: the root release profile's `trim-paths` remaps them).
+// Without --check, also: the contender built without `trim-paths`, which
+// must hold home paths (the control, a cold build in target/untrimmed/); the
+// release wasm built with `--features seiza/panel` (bindgen + wasm-opt as
+// shipped), whose bytes must hold that global (the control), and raw and
+// brotli sizes of both. The contender's own build is
 // rebuilt last, so target/ is left as `gpui-build` made it.
 //
 // Usage: node apps/observatory/perf/sizes.ts [--check] [--label <name>]
@@ -24,6 +27,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
+import { homePaths, untrimmedControl } from '../../../shared-web/perf/home-paths.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { gpuiWebDir, perfDir } from './harness.ts';
 
@@ -47,9 +51,12 @@ const sizes = (bytes: Buffer) => ({ rawKiB: Number((bytes.length / 1024).toFixed
 const assets = join(gpuiWebDir, 'dist/assets');
 const shippedName = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-]+\.wasm$/.test(name));
 if (!shippedName) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build\` first`);
-const shipped = sizes(readFileSync(join(assets, shippedName)));
+const shippedBytes = readFileSync(join(assets, shippedName));
+const home = homePaths('the shipped wasm', shippedBytes);
+const shipped = { ...sizes(shippedBytes), homePaths: home.total };
 if (shipped.panel) failures.push(`the shipped wasm holds ${PANEL_MARKER}: the panel linked`);
-console.log(`shipped: ${shipped.rawKiB} KiB raw, ${shipped.brotliKiB} KiB brotli, panel ${shipped.panel}`);
+if (home.failure) failures.push(home.failure);
+console.log(`shipped: ${shipped.rawKiB} KiB raw, ${shipped.brotliKiB} KiB brotli, panel ${shipped.panel}, ${shipped.homePaths} home paths`);
 
 /** The release wasm with `features`, through wasm-bindgen and wasm-opt. */
 function build(features: string[]): Buffer {
@@ -62,7 +69,12 @@ function build(features: string[]): Buffer {
 }
 
 let variants: { withPanel: ReturnType<typeof sizes>; withoutPanel: ReturnType<typeof sizes> } | null = null;
+let untrimmed: number | null = null;
 if (!flag('check')) {
+  const control = untrimmedControl('tall-table-gpui');
+  untrimmed = control.total;
+  if (control.failure) failures.push(control.failure);
+  console.log(`without trim-paths (control): ${control.total} home paths`);
   const withPanel = sizes(build(['--features', 'seiza/panel']));
   const withoutPanel = sizes(build([]));
   variants = { withPanel, withoutPanel };
@@ -77,7 +89,7 @@ if (label) {
   const date = new Date().toISOString().slice(0, 10);
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), cargo: { panelAlone: alone, panelWithTycho: unified }, shipped: { file: shippedName, ...shipped }, variants, failures }, null, 2)}\n`);
+  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), cargo: { panelAlone: alone, panelWithTycho: unified }, shipped: { file: shippedName, ...shipped }, untrimmedHomePaths: untrimmed, variants, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }
 if (failures.length) {

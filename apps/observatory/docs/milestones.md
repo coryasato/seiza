@@ -190,3 +190,27 @@ Evidence ([`perf/results/2026-10-21-m6.md`](../perf/results/2026-10-21-m6.md)):
 - `page --url https://seiza.io`: PASS, `crossOriginIsolated` true in the page and both frames; first paint 210.2 ms reference, 474.7 throttled (local 70.8, 437.4).
 - `cold --url https://seiza.io`: PASS, the wasm as br; GPUI TTFP 329.5 ms reference, 3550.5 throttled (local 170.5, 3502.5).
 - `burst`: the busiest 10 s 125 requests (5 reloads), a visit 66, against the limit of 500 ([`2026-10-21-m6-burst.json`](../perf/results/2026-10-21-m6-burst.json)).
+
+## M7: `trim-paths`, no home paths in the shipped wasm; the asteroids credited (closed 2026-11-01)
+
+Every release wasm the repo builds embeds the builder's home-directory paths, its dependencies' and the toolchain's panic locations: the GPUI contender's `web/dist` holds 977 (counted 2026-10-30), and it's what's deployed at seiza.io, against the root's rule never to publish a home-directory path. It goes first because it moves every wasm's bytes: done before the scenarios, the contender's wasm baseline is rewritten once, before the scenarios' feature levels are measured against it, and builds identical across checkouts make those byte changes exact.
+
+**And the asteroids credited:** the observatory shows 1.57 M rows of NASA/JPL's Small-Body Database and credits it nowhere, in the README or on the page (Tycho's README has "Data credits"). The redeploy carries the credit, so every scenario's credit check ("Every scenario milestone", above) starts from a page that has one.
+
+**One session, three records**, each in its own home:
+1. **The repo-wide change**, first: [`docs/research/build-paths.md`](../../docs/research/build-paths.md)'s "Done when" (the profile setting and its decision, the home-path check in the table's `size` with its control, the bare host byte-identical across checkouts, both apps' rows flipped to *Ready*). It checks first that the pinned nightly takes `trim-paths` and that its `"object"` scope covers the panic locations.
+2. **This app's adoption**, the checks below.
+3. **Tycho's adoption**, its own M10 ([its PLAN](../tycho/PLAN.md)), its evidence in its own `perf/results/` and `docs/milestones.md`.
+
+**Done when:**
+- [x] The GPUI contender's wasm before and after the change (raw, after wasm-opt, brotli 11) in a results note; `perf/baseline.json`'s wasm rewritten, and TTFP's only if `check` shows it moved. *2026-11-01: 9,743.7 → 9,702.8 KiB after wasm-opt, 2,708.0 → 2,707.2 KiB brotli; the wasm baseline 2,707.2; TTFP kept (`cold --check` 173.3 ms against 170.5, passing) ([`perf/results/2026-11-01-m7.md`](perf/results/2026-11-01-m7.md)).*
+- [x] `sizes --check` (in `check`) fails on a home path in the shipped wasm (the builder's `$HOME`, `/Users/`, `/home/`), with a control (a build without the setting fails it). *2026-11-01: 979 home paths before, 0 after; the control 987 (`sizes`, `perf/results/2026-11-01-m7-trim-paths.json`).*
+- [x] Redeployed (`just observatory deploy`, `worker-check` passing), and the wasm fetched from production holds no home path. *2026-11-01: `just observatory deploy --behind-waf` passed (Worker version `f19ebfdd`); the contender's wasm fetched from seiza.io as br, decompressed, byte-identical to the build, and no home path in it.*
+- [x] The asteroids credited: on the page (where the description says what the table shows), in the README ("Data credits"), and the credit and terms in `MANIFEST.json`'s entry. *2026-11-01: the page reads the credit from `MANIFEST.json` at build (`cold.ts`), and `page` checks it is shown; the terms as found (the SBDB API states none; JPL's credit line followed). Live since the redeploy: the credit is in the page's `numbers` chunk as seiza.io serves it.*
+- [x] `just observatory report`; "Waiting on"'s row removed (adopted). *2026-11-01.*
+
+Evidence ([`perf/results/2026-11-01-m7.md`](../perf/results/2026-11-01-m7.md)):
+- The repo-wide change: `trim-paths = "object"` in the root release profile, taken by the pinned nightly without a `-Z` flag; the bare host byte-identical built in the repo and in a worktree; `just tall-table size` passing with no home path in any feature's build (root `docs/DECISIONS.md`, "Toolchain and build"; `components/tall-table/perf/results/2026-11-01-trim-paths.md`).
+- The GPUI contender: 979 home paths → 0; −40.9 KiB after wasm-opt, −0.8 KiB brotli; the control without the setting 987.
+- `just observatory check` passed in full after the code review's fixes (the home-path check in `sizes --check`, `cold --check` 173.3 ms against the kept 170.5, `page --check` with the credit on the page and in the README).
+- Production: deploy `f19ebfdd`, `worker-check --behind-waf` PASS; the wasm served from seiza.io byte-identical to the build, no home path; the credit in the served `numbers` chunk.
