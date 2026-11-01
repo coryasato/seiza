@@ -52,9 +52,13 @@ size *args:
 # trips for about 2 s, a move every 8 ms), and with `sort` built the
 # scroll and flings again with a column sorted, and with `pin` built every
 # segment with the shape's columns pinned (or --pin <n>'s; --pin 0 the
-# control), reference + throttled, cold, median of 10. Per-frame work
-# from Chromium's trace, cross-checked by `workRecorder`; late frames;
-# frame intervals; visible cells. --runs, --shape, --profile, --pin, --label
+# control), and with `density` built every segment at the host's dense
+# default (or --density <row>,<text>[,<width>]'s; 30,14 the control),
+# reference + throttled, cold, median of 10. Per-frame work from
+# Chromium's trace, cross-checked by `workRecorder`; late frames and the
+# presented frames; frame intervals; visible cells; a throttled segment
+# that doesn't rest reported, not failed. --runs, --shape, --profile,
+# --pin, --density, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -115,7 +119,12 @@ sort *args:
 # with `pin`, in both, the screen either side of the run's edge under a
 # sideways scroll against nothing pinned, the edge line, the horizontal
 # thumb, a viewport narrowed past the half and widened, and with `select`
-# and `resize` a press and a band on the pinned columns). --browsers. Run `just tall-table build` first.
+# and `resize` a press and a band on the pinned columns; with `density`,
+# every run at the dense default, and in both its layout, rows, and ink
+# checked and the hook keeping the top row; on a build with `density`
+# alone, `?density=30,14` against the base build's saved first screen).
+# --browsers. Run `just tall-table build` first (with `density`, a base
+# build's smoke first, for its screens).
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 
@@ -169,6 +178,12 @@ soak seeds="1 2 3 4" cases="500":
 # color-mix(in oklab) and its bars from their formula (--check compares).
 paint-fixture *args:
     node {{component_dir}}/perf/paint-fixture.ts {{args}}
+
+# Writes fixtures/density.json's number_px from the bare host in Chromium:
+# at each case's text size, the narrow shape's integer column's width in the
+# layout probe (--check compares). Run `just tall-table build density` first.
+density-fixture *args:
+    node {{component_dir}}/perf/density-fixture.ts {{args}}
 
 # No milestone references outside the history files (check-terms), fmt,
 # clippy for the table, the bridge, and the host (wasm32 with no features

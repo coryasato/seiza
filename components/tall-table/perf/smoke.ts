@@ -61,7 +61,23 @@
 // again; with `select`, a press on a pinned cell and on a scrolled one
 // selecting each; with `resize`, the last pinned column's band dragged
 // wider, the edge moving with it. The other runs keep the host's default
-// pin. Chromium is granted
+// pin. Built with `density`, every run is at the host's default density
+// (18 px rows, 11 px text, 56 px floats), so each feature's checks above
+// (a press, a band, an arrow, the pin's edge) run at it; and it runs both
+// shapes twice more. At the default: the layout probe's row and float
+// widths are what was set; the rows' stripes and borders drawn at its row;
+// the text's ink inside its row and each cell's padding (so the cells'
+// lefts are the probe's); and, scrolled down, the hook's `set_density` to
+// 30 px rows and 14 px text (the floats keep their set width) and back,
+// keeping the top row. At `?density=30,14`
+// (the control), on a build with `density` alone: the first screen the same, pixel for pixel, as the
+// base build's, which a smoke run of the base build saves
+// (`perf/results/raw/smoke-base/`, gitignored), each beside the commit and
+// the source changes it was drawn from: a screen from another tree is
+// refused. With `density`, `resize`'s
+// checks take the host's set float widths as the columns' at open and the
+// least width at the text, and `pin`'s narrow the viewport first where the
+// columns all fit, for a sideways scroll. Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
 // WebKit on macOS writes the system pasteboard, so the run overwrites
@@ -71,13 +87,18 @@
 // DPR 2 (shared-web/perf/'s `open`).
 //
 // Usage: node components/tall-table/perf/smoke.ts [--browsers chromium,firefox,webkit]
-// Run `just tall-table build [features]` first.
+// Run `just tall-table build [features]` first (with `density`, a smoke run
+// of the base build first, in the same browsers, for its screens).
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwright';
-import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
+import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { DEFAULT_PINNED, FILLED_MARK, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -101,6 +122,20 @@ const select = builtFeatures().includes('select');
 const copy = builtFeatures().includes('copy');
 const sort = builtFeatures().includes('sort');
 const pin = builtFeatures().includes('pin');
+const density = builtFeatures().includes('density');
+/** The base build's first screens (`density`'s control compares them). */
+const BASE_SCREENS = join(perfDir, 'results/raw/smoke-base');
+const baseScreen = (browser: string, shape: Shape) => join(BASE_SCREENS, `${browser}-${shape}.png`);
+/** What a base screen was drawn from, written beside it: the commit and a
+ *  hash of the working tree's changes to what draws it (the Rust sources,
+ *  the manifests, the fonts), so a screen from another tree is refused. */
+const SOURCES = ['*.rs', '*Cargo.toml', 'Cargo.lock', 'shared-web/fonts'];
+function drawnFrom(): { commit: string; changes: string } {
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: repo });
+  return { commit: git('rev-parse', 'HEAD').toString().trim(), changes: createHash('sha256').update(git('diff', 'HEAD', '--binary', '--', ...SOURCES)).digest('hex').slice(0, 16) };
+}
+const fromHere = JSON.stringify(drawnFrom());
+type DensityRun = 'dense' | 'control';
 /** The sort runs: by clicks with the glyphs or the host's icons, or
  *  opened sorted (`OPEN_SORT`, the narrow shape's `H` descending). */
 type SortRun = 'glyphs' | 'icons' | 'opened';
@@ -292,6 +327,10 @@ async function dragBand(page: Page, layout: Layout, column: number, scrollX: num
   await page.mouse.up();
 }
 
+/** A column's set width at open: with `density`, the host's on every float
+ *  column; else none. */
+const setAtOpen = (kind: string) => (density && kind === 'float' ? DEFAULT_DENSITY.width : null);
+
 /** With `resize`: a float column dragged wider, another fitted by a
  *  double-click, and at the right end a column dragged narrower. */
 async function checkResize(page: Page, label: string, start: Layout): Promise<string> {
@@ -327,12 +366,13 @@ async function checkResize(page: Page, label: string, start: Layout): Promise<st
   const published = sets[0]!.widths;
   if (published.length !== start.columns.length) failures.push(`${label}: ${published.length} widths for ${start.columns.length} columns`);
   if (!near(published[wide] ?? NaN, after.width)) failures.push(`${label}: column ${wide}'s published width ${published[wide]}, drawn ${after.width}`);
-  if (published.some((width, index) => index !== wide && width !== null)) failures.push(`${label}: widths set for columns not dragged (${published.join(',')})`);
+  if (published.some((width, index) => index !== wide && width !== setAtOpen(start.columns[index]!.kind))) failures.push(`${label}: widths set for columns not dragged (${published.join(',')})`);
 
   // A double-click fits another float column, published once more.
   const fitBand = bandAt(widened, fit, 0);
   await page.mouse.dblclick(fitBand.x, fitBand.y);
-  // Its width was its kind's (null), so a fit sets one, whatever its size.
+  // Its width was its kind's (null), so a fit sets one, whatever its size;
+  // with `density`, the host's 56 px, under any float's fit.
   sets = await widthsSets(page, 2);
   if (sets.length !== 2) {
     failures.push(`${label}: a double-click on column ${fit}'s band published ${sets.length - 1} widths, not 1`);
@@ -358,7 +398,7 @@ async function checkResize(page: Page, label: string, start: Layout): Promise<st
   const clear = (laid.pinned ?? 0) > 0 ? pinEdge(laid) + 4 : 0;
   const narrow = edges.filter(({ edge }) => edge > clear && edge < laid.cellsWidth - 2).at(-1)!.index;
   const was = laid.columns[narrow]!.width;
-  const width = Math.min(Math.max(was + NARROW_PX, 40), 1200);
+  const width = Math.min(Math.max(was + NARROW_PX, density ? leastAt(DEFAULT_DENSITY.text) : 40), 1200);
   // A vertical wheel during the drag, over the body (the pointer moved
   // straight down: the width follows its x alone), scrolls, and clamps
   // nothing sideways.
@@ -824,8 +864,21 @@ async function checkSort(page: Page, label: string, layout: Layout, shape: strin
 async function checkPin(page: Page, label: string, start: Layout, shape: Shape): Promise<string> {
   const notes: string[] = [];
   const want = DEFAULT_PINNED[shape];
-  const layout = await pinnedAs(page, want).catch(async () => failed(`${label}: ${start.pinned} pinned at open (published ${JSON.stringify(await global(page, PINNED_GLOBAL))}), not the shape's ${want}`));
+  let layout = await pinnedAs(page, want).catch(async () => failed(`${label}: ${start.pinned} pinned at open (published ${JSON.stringify(await global(page, PINNED_GLOBAL))}), not the shape's ${want}`));
   if (!layout) return '';
+  // With `density`, where the columns all fit (the narrow shape at the
+  // host's default), narrower, for `PIN_ROOM_PX` of sideways scroll.
+  if (density && sidewaysRoom(layout) < PIN_ROOM_PX) {
+    const viewport = page.viewportSize()!;
+    const last = layout.columns.at(-1)!;
+    const width = Math.round(viewport.width - layout.cellsWidth + last.x + last.width - PIN_ROOM_PX);
+    const cells = layout.cellsWidth;
+    await page.setViewportSize({ width, height: viewport.height });
+    await page.waitForFunction((cells) => ((globalThis as { __tallTableLayout?: Layout }).__tallTableLayout?.cellsWidth ?? cells) < cells - 1, cells, { timeout: 10_000, polling: 10 });
+    layout = await pinnedAs(page, want).catch(async () => failed(`${label}: ${(await shown(page)).layout.pinned} pinned at ${width} px wide, not ${want}`));
+    if (!layout) return '';
+    notes.push(`at ${width} px wide for ${sidewaysRoom(layout).toFixed(0)} px of sideways room`);
+  }
   const edge = pinEdge(layout);
   // Whole CSS px inside each region, a band of rows below the header: the
   // pinned one up to the edge line (`edge - 1 .. edge`), the scrolled one
@@ -973,6 +1026,102 @@ async function checkPin(page: Page, label: string, start: Layout, shape: Shape):
   return `, ${notes.join('; ')}`;
 }
 
+/** The screen once two shots `SETTLE_MS` apart agree (Firefox's can show
+ *  the frame before the one the probe reports), at most `SETTLE_TRIES`. */
+async function settledScreen(page: Page): Promise<string> {
+  const viewport = page.viewportSize()!;
+  const clip = { x: 0, y: 0, width: viewport.width, height: viewport.height };
+  let last = await screenshot(page, clip);
+  for (let tries = 0; tries < SETTLE_TRIES; tries++) {
+    await page.waitForTimeout(SETTLE_MS);
+    const now = await screenshot(page, clip);
+    if (now === last) return now;
+    last = now;
+  }
+  return last;
+}
+const SETTLE_MS = 150;
+const SETTLE_TRIES = 8;
+
+/** `density`'s checks. At the default (`dense`): the probe's row and float
+ *  widths; the stripes and borders at the row; the text's ink inside its
+ *  row and its cell's padding; the hook to 30 px rows and 14 px text and
+ *  back keeping the top row. At `?density=30,14` (`control`): the first screen
+ *  as the base build's. */
+async function checkDensity(page: Page, label: string, layout: Layout, start: Shown, browser: string, shape: Shape, run: DensityRun): Promise<string> {
+  if (run === 'control') {
+    if (layout.rowHeight !== 30) failed(`${label}: rows ${layout.rowHeight} px at ?density=30,14`);
+    const file = baseScreen(browser, shape);
+    const again = `run \`just tall-table build && just tall-table smoke --browsers ${browser}\` first`;
+    if (!existsSync(file)) return failed(`${label}: no base screen at ${file}: ${again}`) ?? '';
+    const from = existsSync(`${file}.json`) ? readFileSync(`${file}.json`, 'utf8').trim() : null;
+    if (from !== fromHere) return failed(`${label}: the base screen was drawn from ${from ?? 'an unknown tree'}, not this one (${fromHere}): ${again}`) ?? '';
+    const off = await differingPixels(page, await settledScreen(page), readFileSync(file).toString('base64'), 0);
+    if (off) failed(`${label}: ${off} px differ from the base build's first screen`);
+    return `, the base's screen${off ? '' : ', pixel for pixel'}`;
+  }
+  const { row, text, width } = DEFAULT_DENSITY;
+  const pad = paddingAt(text);
+  if (layout.rowHeight !== row) failed(`${label}: rows ${layout.rowHeight} px, not ${row}`);
+  const floats = layout.columns.filter((column) => column.kind === 'float');
+  const unset = floats.filter((column) => column.width !== width);
+  if (unset.length) failed(`${label}: float columns ${unset.map((column) => `${column.name} ${column.width}`).join(', ')} px wide, not ${width}`);
+
+  // The rows: rows 1 to `ROWS_SAMPLED` (row 0's top is the header's
+  // border), each one's middle in the first column's padding against the
+  // next one's (the stripes alternate) and its last pixel (its border).
+  const x = layout.left + 2;
+  const mids: number[][] = [];
+  const borders: number[][] = [];
+  for (let at = 1; at <= ROWS_SAMPLED; at++) {
+    const top = layout.top + (at - start.top) * layout.rowHeight;
+    mids.push(await pixel(page, x, top + layout.rowHeight / 2));
+    borders.push(await pixel(page, x, top + layout.rowHeight - 1));
+  }
+  const off = (a: number[], b: number[]) => Math.max(...a.slice(0, 3).map((channel, index) => Math.abs(channel - b[index]!)));
+  const stripes = mids.every((mid, index) => index < 2 || off(mid, mids[index - 2]!) <= FILL_STEPS) && mids.slice(1).every((mid, index) => off(mid, mids[index]!) > 0);
+  if (!stripes) failed(`${label}: the rows' middles at ${row} px don't alternate (${mids.map((seen) => seen.slice(0, 3).join(',')).join(' ')})`);
+  const bordered = borders.every((border, index) => off(border, mids[index]!) > 0);
+  if (!bordered) failed(`${label}: no border at each ${row} px row's last pixel (${borders.map((seen) => seen.slice(0, 3).join(',')).join(' ')})`);
+
+  // The text: the same rows' ink, from the first column's padding to the
+  // last column wholly in view.
+  const last = layout.columns.findLast((column) => column.x + column.width <= layout.cellsWidth)!;
+  const clip = { x: layout.left + 1, y: layout.top + (1 - start.top) * layout.rowHeight, width: last.x + last.width - 1, height: ROWS_SAMPLED * layout.rowHeight };
+  const ink = await inkIn(page, clip);
+  const across = runsOf(ink.y, ink.scale, clip.y).filter(([from, to]) => Math.floor((from - clip.y) / row) !== Math.floor((to - clip.y - 1 / ink.scale) / row));
+  if (across.length) failed(`${label}: ink across a row's edge at y ${across.map(([from, to]) => `${from.toFixed(1)}–${to.toFixed(1)}`).join(', ')}`);
+  // With `pin`, the edge line is ink between two columns.
+  const edge = layout.left + pinEdge(layout);
+  const inside = (from: number, to: number) => (pin && (layout.pinned ?? 0) > 0 && from >= edge - INK_SLACK_PX && to <= edge + INK_SLACK_PX) || layout.columns.some((column) => from >= layout.left + column.x + pad - INK_SLACK_PX && to <= layout.left + column.x + column.width - pad + INK_SLACK_PX);
+  const outside = runsOf(ink.x, ink.scale, clip.x).filter(([from, to]) => !inside(from, to));
+  if (outside.length) failed(`${label}: ink outside the cells' ${pad} px padding at x ${outside.map(([from, to]) => `${from.toFixed(1)}–${to.toFixed(1)}`).join(', ')}`);
+  const inked = layout.columns.filter((column) => ink.x.some((mark, index) => mark && clip.x + index / ink.scale >= layout.left + column.x && clip.x + index / ink.scale < layout.left + column.x + column.width)).length;
+  if (inked < 2) failed(`${label}: ink in ${inked} columns`);
+
+  // The hook, scrolled down: to 30 px rows and 14 px text (the floats'
+  // set width kept) and back, the top row kept. From a rest: the wheel's
+  // queued events done.
+  await page.mouse.move(layout.left + 200, layout.top + 200);
+  await wheel(page, 40 * layout.rowHeight);
+  const rested = await restedWhere(page, `s.first >= ${start.first + 30}`);
+  if (!rested) return failed(`${label}: no rest after a wheel down`) ?? '';
+  const kept = async (at: number) =>
+    filledWhere(page, `Math.abs(s.top - ${rested.top}) < 1e-6`, 5_000).catch(async () => failed(`${label}: the top ${(await shown(page)).shown.top} at ${at} px rows, not ${rested.top} as before`));
+  const based = await densityThrough(page, 30, 14);
+  await kept(based.rowHeight);
+  const back = await densityThrough(page, row, text);
+  await kept(back.rowHeight);
+  return `, rows ${row} px, floats ${width} px, ink in ${inked} columns inside ${pad} px padding, top ${rested.top.toFixed(2)} kept at 30 and ${row} px rows`;
+}
+/** Rows `checkDensity` samples, from row 1. */
+const ROWS_SAMPLED = 6;
+/** The sideways room `checkPin` narrows the viewport for, where it has
+ *  less. */
+const PIN_ROOM_PX = 150;
+/** A glyph's ink may overhang its advance by this much. */
+const INK_SLACK_PX = 1.5;
+
 /** The drawn cells carry `style`'s paint, and (heat) a fill shows on screen
  *  in its color, sampled clear of the text at its cell's top-left. */
 async function checkPaint(page: Page, style: CellStyle, shape: string, layout: Layout, label: string): Promise<string> {
@@ -1032,7 +1181,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -1048,9 +1197,14 @@ try {
       runs.push({ ...quiet, shape: 'narrow', sorting: 'opened' });
     }
     if (pin) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, pinning: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}`;
+    // The control only where nothing else is built (`resize`'s hairlines,
+    // `pin`'s edge, `sort`'s arrows differ from the base at rest).
+    const controlled = builtFeatures().every((feature) => feature === 'density');
+    if (density) runs.push(...SHAPES.flatMap((shape) => (controlled ? (['dense', 'control'] as DensityRun[]) : (['dense'] as DensityRun[])).map((densities) => ({ ...quiet, shape, densities }))));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}`;
       const params: Record<string, string> = { shape };
+      if (densities === 'control') params.density = '30,14';
       if (sorting) params['probe-cells'] = '';
       if (sorting === 'icons') params['sort-icons'] = '';
       if (sorting === 'opened') params.sort = `${OPEN_SORT.column},${OPEN_SORT.direction === 'ascending' ? 'asc' : 'desc'}`;
@@ -1066,7 +1220,7 @@ try {
         if (copying === 'insecure') lanServer ??= await serveApp(undefined, { webDir: hostWebDir, port: PORT + 1, lan: true });
         const url = copying === 'insecure' ? lanServer!.url : server.url;
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : [firstDrawProbe] });
+        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : densities ? [firstDrawProbe, workRecorder] : [firstDrawProbe] });
         const { page } = session;
         // The clipboard's permissions, which a real Chrome grants a focused
         // page (the write); none to grant in an insecure context.
@@ -1075,6 +1229,20 @@ try {
         const filled = await waitMark(page, FILLED_MARK, 0, 60_000 + 2 * heldMs);
         const { shown: start, layout } = await shown(page);
         const api = await page.evaluate(() => (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? 'none');
+        // The base build's first screen, for `density`'s control: before
+        // the pointer moves.
+        if (!builtFeatures().length && params.shape === shape && Object.keys(params).length === 1) {
+          mkdirSync(BASE_SCREENS, { recursive: true });
+          writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
+          writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The density runs check their own, from the first screen.
+        if (densities) {
+          const checked = await checkDensity(page, label, layout, start, name, shape, densities);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${checked}`);
+          continue;
+        }
         // The resize run checks its own moves, from the first screen.
         if (resizing) {
           const resized = await checkResize(page, label, layout);

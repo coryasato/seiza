@@ -168,10 +168,12 @@ fn density_controls_fail() {
     }
 }
 
-/// The fixture's `number_px` is the test app's advance at each case's size
-/// (0.6 em), the provisional value until it's pinned from Chromium.
+/// The fixture's `number_px`, pinned from the bare host in Chromium
+/// (`just tall-table density-fixture`), is 0.6 em at each case's size, the
+/// test app's advance too: so the tests in a window lay out as the fixture
+/// does. A pin that moves off it fails here first.
 #[test]
-fn density_fixture_number_px_is_provisional() {
+fn density_fixture_number_px_is_the_test_apps() {
     let fixture: Value = serde_json::from_str(DENSITY).expect("density.json");
     for case in fixture["cases"].as_array().expect("cases") {
         let rem = px(case["rem"].as_f64().expect("rem") as f32);

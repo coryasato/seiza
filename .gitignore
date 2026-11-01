@@ -37,6 +37,7 @@ apps/*/contenders/*/*/web/public/duckdb/
 
 # Perf: raw Playwright traces (everything else under perf/results/ is committed)
 apps/*/perf/results/raw/
+components/*/perf/results/raw/
 playwright-report/
 test-results/
 blob-report/

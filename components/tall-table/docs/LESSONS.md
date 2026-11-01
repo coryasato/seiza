@@ -404,3 +404,15 @@ One entry per milestone part, written before starting the next one: what surpris
 - Twenty 4.8 px advances shaped at 8 px sum to a hair over 96, so `resize`'s fit, which adds the pixel's slack and rounds up, gave 108, not the 107 the arithmetic said. A test of a shaped width takes its expectation from the shaping, not from the advances multiplied out.
 - Putting a new text size in effect at once laid the columns out by the old font's advances, and render laid them out again by the new one: with `pin`, the run could move and move back between the two. The code review caught it; a new text now leaves the glyphs stale and lays out once, in render.
 - The text size has to be set on the state's root, not the element's, so it's resolved in the same render that reads the font; the tooltip under it keeps the theme's size only because gpui-kit's `Tooltip` sets `text_sm` itself.
+
+## M10: `density` (part C, 2026-11-01)
+
+**Results:** [`perf/results/2026-11-01-m10-c.md`](../perf/results/2026-11-01-m10-c.md) (the browsers' checks, `number_px` from Chromium, and one run of `perf.ts` at the dense default and the control).
+
+**Surprises:**
+- The spike's throttled timeout wasn't the fling. Playwright resolves a wheel before the page handles it, so when the last of the scroll's wheels resolved, the dense table still had seconds of them queued; the rest's test passed on a filled frame mid-scroll, Home went to the top, and the queued wheels took it back down. A rest has to be the view filled *and* quiet.
+- A one-millisecond `waitForFunction` can time out before it ever evaluates: a recheck written that way failed every rest. The recheck reads the probe directly.
+- At the dense default the narrow shape's 11 columns all fit in 1,440 px, so `pin`'s smoke check had no sideways scroll to test; and the host's dense default sets a width on every float, so `resize`'s check read them as widths set by the drag. Each feature's checks had assumed the base's layout without saying so.
+- Chromium's advance is exactly 0.6 em at every size tried, 6 to 24 px, so the provisional `number_px` stood; only the f32 layout's noise (185.00001525878906 px for 185) needed rounding off.
+- Waiting for quiet fixed the rests and broke the readings: the 300 ms spell sat inside every traced window, and the code review saw its idle rAFs diluting the late share (the dense narrow throttled scroll read 56% late, 74% once the window ended at the last frame). A wait added to a measured window is part of the measurement.
+- The wide shape's right-aligned floats didn't catch a padding 2 px too wide: their ink ends inside the check's 1.5 px slack. The narrow shape's left-aligned text did.

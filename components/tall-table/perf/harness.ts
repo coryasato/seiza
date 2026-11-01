@@ -80,6 +80,26 @@ export const PINNED_GLOBAL = '__tallTablePinned';
  *  wide's first. */
 export const DEFAULT_PINNED: Record<Shape, number> = { narrow: 2, wide: 1 };
 
+/** With `density` (`host/crate/src/host.rs`, `Density`): the host's
+ *  default `?density=`, the dense setting: 18 px rows, 11 px text, 56 px
+ *  floats. `?density=30,14` is the control, the base's numbers. */
+export const DEFAULT_DENSITY = { row: 18, text: 11, width: 56 } as const;
+
+/** With `density`: a length the base fixes for 14 px text, at a `px` text
+ *  size (the table's `Sizes::scaled`: scaled by the text over 14 px and
+ *  rounded to a whole px; at 14 px the base's own, unrounded). */
+export function scaledAt(length: number, textPx: number): number {
+  return textPx === 14 ? length : Math.round((length * textPx) / 14);
+}
+
+/** With `density`: the cells' padding a side at a `px` text size (8 px
+ *  scaled, `Sizes::pad`). */
+export const paddingAt = (textPx: number) => scaledAt(8, textPx);
+
+/** With `density`: a column's least width at a `px` text size unless it
+ *  sets its own (40 px scaled, `Sizes::least`). */
+export const leastAt = (textPx: number) => scaledAt(40, textPx);
+
 /** With `copy` (`host/crate/src/host.rs`): what became of the last copy
  *  (`CopyState`), replaced at each step; set as a copy starts (in the
  *  key's task), as its text is all in, and as the browser wrote it. */
@@ -133,6 +153,8 @@ type Global = {
   __tallTableClose?: () => void;
   /** With `pin` and `?perf`. */
   __tallTablePin?: (columns: number) => boolean;
+  /** With `density` and `?perf`. */
+  __tallTableDensity?: (row: number, text: number) => boolean;
 };
 
 /** The cells the last frame drew, with their paint (`custom-cells`, a
@@ -206,18 +228,54 @@ export async function shown(page: Page): Promise<{ shown: Shown; layout: Layout 
   return (await handle.jsonValue()) as { shown: Shown; layout: Layout };
 }
 
+/** In the page: the view if it satisfies `test` with every visible row
+ *  loaded, else `false`. Self-contained, so `filledWhere` waits on it and
+ *  `filledNow` reads it, one test of "filled". */
+function viewFilled(test: string): Shown | false {
+  const s = (globalThis as Global).__tallTable;
+  // eslint-disable-next-line no-new-func
+  return s && s.end > s.first && s.loaded === s.end - s.first && new Function('s', `return ${test}`)(s) ? s : false;
+}
+
 /** Waits until the view satisfies `test` with every visible row loaded. */
 export async function filledWhere(page: Page, test: string, timeout = 30_000): Promise<Shown> {
-  const handle = await page.waitForFunction(
-    (test) => {
-      const s = (globalThis as Global).__tallTable;
-      // eslint-disable-next-line no-new-func
-      return s && s.end > s.first && s.loaded === s.end - s.first && new Function('s', `return ${test}`)(s) ? s : false;
-    },
-    test,
-    { timeout, polling: 10 },
-  );
+  const handle = await page.waitForFunction(viewFilled, test, { timeout, polling: 10 });
   return (await handle.jsonValue()) as Shown;
+}
+
+/** The view now if it satisfies `test` with every visible row loaded. */
+export async function filledNow(page: Page, test: string): Promise<Shown | null> {
+  return (await page.evaluate(viewFilled, test)) || null;
+}
+
+/** The rAFs `shared-web/perf/`'s `workRecorder` has seen draw so far. */
+export const presentedSoFar = (page: Page) => page.evaluate(() => (globalThis as { __seizaWork?: unknown[] }).__seizaWork?.length ?? 0);
+
+/** A rest: the view satisfies `test` with every visible row loaded, and no
+ *  frame has been presented for `quietMs` (Playwright resolves a wheel
+ *  before the page handles it, so a slow table still scrolls through queued
+ *  wheels after the last one resolves). Waited for in slices of `sliceMs`
+ *  while the table presents frames (a slice with none ends it), `capMs` in
+ *  all; `null` if it didn't rest. Needs `workRecorder` installed. */
+export async function restedWhere(page: Page, test: string, { sliceMs = 10_000, capMs = 300_000, quietMs = 300 } = {}): Promise<Shown | null> {
+  const start = Date.now();
+  while (Date.now() - start < capMs) {
+    const before = await presentedSoFar(page);
+    const view = await filledWhere(page, test, sliceMs).catch(() => null);
+    const quiet =
+      view &&
+      (await page
+        .waitForFunction((quietMs) => performance.now() - ((globalThis as { __seizaWork?: { t: number }[] }).__seizaWork?.at(-1)?.t ?? 0) >= quietMs, quietMs, { timeout: sliceMs, polling: 20 })
+        .then(
+          () => true,
+          () => false,
+        ));
+    // Still where `test` wants it once quiet, or the input moved it on.
+    const still = quiet && (await filledNow(page, test));
+    if (still) return still;
+    if ((await presentedSoFar(page)) === before) return null;
+  }
+  return null;
 }
 
 /** With `pin`, the run's edge (*P*): the pinned columns' right edge, in
@@ -473,4 +531,72 @@ export async function pinThrough(page: Page, columns: number, inEffect = columns
   const sent = await page.evaluate((columns) => (globalThis as Global).__tallTablePin!(columns), columns);
   if (!sent) throw new Error(`the host's pin hook refused ${columns}`);
   return pinnedAs(page, inEffect);
+}
+
+/** With `density` and `?perf`: the table's `set_density` at a row height
+ *  and a text size in px, through the host's hook, then the layout once a
+ *  new one is reported with its row `inEffect` (by default the row
+ *  height), so a call that changes only the text waits for its widths. A
+ *  call that changes nothing reports no new layout, and times out. */
+export async function densityThrough(page: Page, row: number, text: number, inEffect = row, timeout = 10_000): Promise<Layout> {
+  const before = await page.evaluate(() => (globalThis as Global).__tallTableLayout);
+  const sent = await page.evaluate(({ row, text }) => (globalThis as Global).__tallTableDensity!(row, text), { row, text });
+  if (!sent) throw new Error(`the host's density hook refused ${row}, ${text}`);
+  const handle = await page.waitForFunction(
+    ({ row, before }) => {
+      const layout = (globalThis as Global).__tallTableLayout;
+      return layout && layout.rowHeight === row && JSON.stringify(layout) !== before && layout;
+    },
+    { row: inEffect, before: JSON.stringify(before ?? null) },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Layout;
+}
+
+/** Where the screen in `clip` (CSS px) has ink: each pixel compared with
+ *  its row's leftmost pixel (so `clip` starts on a cell's bare padding,
+ *  and a row's stripe, border, or tint is no ink), more than `within` off
+ *  in a color channel. `x` and `y` say, for each device pixel column and
+ *  row of the clip, whether it holds any; `scale` is device pixels a CSS
+ *  px. Read in the page, so the pixels never cross to Node. */
+export async function inkIn(page: Page, clip: { x: number; y: number; width: number; height: number }, within = 48): Promise<{ x: boolean[]; y: boolean[]; scale: number }> {
+  const png = await screenshot(page, clip);
+  return page.evaluate(
+    async ({ png, within, width }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${png}`;
+      await image.decode();
+      const canvas = new OffscreenCanvas(image.width, image.height);
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      const { data } = context.getImageData(0, 0, image.width, image.height);
+      const x = new Array<boolean>(image.width).fill(false);
+      const y = new Array<boolean>(image.height).fill(false);
+      for (let row = 0; row < image.height; row++) {
+        const base = row * image.width * 4;
+        for (let column = 1; column < image.width; column++) {
+          const at = base + column * 4;
+          if (Math.abs(data[at]! - data[base]!) > within || Math.abs(data[at + 1]! - data[base + 1]!) > within || Math.abs(data[at + 2]! - data[base + 2]!) > within) {
+            x[column] = true;
+            y[row] = true;
+          }
+        }
+      }
+      return { x, y, scale: image.width / width };
+    },
+    { png, within, width: clip.width },
+  );
+}
+
+/** The runs of `true` in `marks`, each `[from, to)`, divided by `scale`
+ *  (device pixels to CSS px) and offset by `at`. */
+export function runsOf(marks: boolean[], scale: number, at: number): [number, number][] {
+  const runs: [number, number][] = [];
+  let from = -1;
+  marks.forEach((mark, index) => {
+    if (mark && from < 0) from = index;
+    if (!mark && from >= 0) (runs.push([at + from / scale, at + index / scale]), (from = -1));
+  });
+  if (from >= 0) runs.push([at + from / scale, at + marks.length / scale]);
+  return runs;
 }

@@ -100,7 +100,10 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `__tallTableSourceRow(row)`, the source's own row at a row of the order
 /// read now; and `__tallTableDrained()`, the reads cancelled in flight so
 /// far. With `pin`: `__tallTablePin(columns)`, the table's `set_pinned`
-/// (`false`, and nothing sent, for anything but a whole count).
+/// (`false`, and nothing sent, for anything but a whole count). With
+/// `density`: `__tallTableDensity(row, text)`, the table's `set_density` at
+/// a row height and a text size in px (`false`, and nothing sent, for
+/// anything but two positive numbers).
 #[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
 const EXACT_HOOK: &str = "__tallTableExact";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
@@ -117,6 +120,8 @@ const SOURCE_ROW_HOOK: &str = "__tallTableSourceRow";
 const DRAINED_HOOK: &str = "__tallTableDrained";
 #[cfg(all(feature = "pin", target_family = "wasm"))]
 const PIN_HOOK: &str = "__tallTablePin";
+#[cfg(all(feature = "density", target_family = "wasm"))]
+const DENSITY_HOOK: &str = "__tallTableDensity";
 
 // gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
 // `assets`), for `?sort-icons`: bundled whichever the page draws, so the
@@ -324,7 +329,12 @@ impl Host {
             table.update(cx, |table, _| table.set_copy_options(options));
         }
         #[cfg(all(
-            any(feature = "copy", feature = "sort", feature = "pin"),
+            any(
+                feature = "copy",
+                feature = "sort",
+                feature = "pin",
+                feature = "density"
+            ),
             target_family = "wasm"
         ))]
         if probing {
@@ -490,19 +500,21 @@ impl Default for Density {
     }
 }
 
+/// A number of px the host's density takes: finite and positive.
+#[cfg(all(feature = "density", any(test, target_family = "wasm")))]
+fn px_ok(number: f32) -> bool {
+    number.is_finite() && number > 0.0
+}
+
 #[cfg(feature = "density")]
 impl Density {
     /// `<row>,<text>[,<width>]`, each a positive number of px: `None` for
     /// anything else.
     #[cfg(any(test, target_family = "wasm"))]
     fn parse(setting: &str) -> Option<Self> {
-        let mut numbers = setting.split(',').map(|number| {
-            number
-                .trim()
-                .parse::<f32>()
-                .ok()
-                .filter(|number| number.is_finite() && *number > 0.0)
-        });
+        let mut numbers = setting
+            .split(',')
+            .map(|number| number.trim().parse::<f32>().ok().filter(|n| px_ok(*n)));
         let (row, text) = (numbers.next()??, numbers.next()??);
         let width = match numbers.next() {
             Some(width) => Some(width?),
@@ -512,6 +524,17 @@ impl Density {
             .next()
             .is_none()
             .then_some(Self { row, text, width })
+    }
+
+    /// A row height and a text size, no width (the hook's): `None` unless
+    /// each is a positive number of px, as `parse` takes them.
+    #[cfg(target_family = "wasm")]
+    fn new(row: f32, text: f32) -> Option<Self> {
+        (px_ok(row) && px_ok(text)).then_some(Self {
+            row,
+            text,
+            width: None,
+        })
     }
 
     /// The table's.
@@ -543,7 +566,12 @@ impl Density {
 /// What the scripts' hooks read of the source (with `copy` or `sort`
 /// `MemoryRows::exact`, with `sort` `MemoryRows::source_row`).
 #[cfg(all(
-    any(feature = "copy", feature = "sort", feature = "pin"),
+    any(
+        feature = "copy",
+        feature = "sort",
+        feature = "pin",
+        feature = "density"
+    ),
     target_family = "wasm"
 ))]
 struct Source {
@@ -558,14 +586,21 @@ struct Source {
     drained: Box<dyn Fn() -> u64>,
 }
 
-/// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, or `pin`): with
+/// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, `pin`, or
+/// `density`): with
 /// `copy` or `sort` [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`],
 /// [`SELECT_HOOK`], and [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`],
-/// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`].
+/// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`], with
+/// `density` [`DENSITY_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
-    any(feature = "copy", feature = "sort", feature = "pin"),
+    any(
+        feature = "copy",
+        feature = "sort",
+        feature = "pin",
+        feature = "density"
+    ),
     target_family = "wasm"
 ))]
 fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
@@ -663,6 +698,24 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                 on_pin(Box::new(move |host, _, cx| {
                     host.table
                         .update(cx, |table, cx| table.set_pinned(columns as usize, cx));
+                }));
+                true
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "density")]
+    {
+        let on_density = enter.clone();
+        set(
+            DENSITY_HOOK,
+            Closure::<dyn Fn(f64, f64) -> bool>::new(move |row: f64, text: f64| {
+                let Some(density) = Density::new(row as f32, text as f32) else {
+                    return false;
+                };
+                on_density(Box::new(move |host, _, cx| {
+                    host.table
+                        .update(cx, |table, cx| table.set_density(density.density(), cx));
                 }));
                 true
             })

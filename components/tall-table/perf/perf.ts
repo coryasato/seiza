@@ -34,6 +34,12 @@
 // visible cells count the pinned columns and the scrolled ones right of
 // them.
 //
+// Built with `density`, every segment runs at the host's default density
+// (`?density=` unset: 18 px rows, 11 px text, 56 px floats), or
+// `--density <row>,<text>[,<width>]`'s (`--density 30,14` the control: the
+// feature built at the base's numbers, the kind widths kept), checked at
+// open against the layout probe's row.
+//
 // Built with `select`, a select-all (a press on the corner: every column)
 // stands under the scroll and both flings, so the tint draws every frame;
 // between segments it's cleared for Home (which would move only its active
@@ -44,14 +50,33 @@
 // `workRecorder` (each rAF that drew); late frames and intervals come from
 // `frameRecorder`'s rAFs (Chromium's compositor reporter doesn't see GPUI's
 // canvas frames), with what each frame showed (`__seizaFrameSample`):
-// placeholder frames and the visible cells (rows × columns on screen).
+// placeholder frames and the visible cells (rows × columns on screen). Beside
+// the late share, the presented frames: `workRecorder`'s rAFs that drew,
+// from the segment's start to the last one, a second and as a share of the
+// rAFs. The late share reads rAF intervals, which hold the display's rate
+// while GPUI draws on every other rAF; and not every rAF has something new
+// to draw, so a build's presented frames are read against the base's in the
+// same segment, never against a rate.
+//
+// A segment's rest (the view filled where its input took it, and no frame
+// presented for `QUIET_MS`: Playwright resolves a wheel before the page
+// handles it, so a throttled dense table is still scrolling through queued
+// wheels when the last one resolves; harness.ts's `restedWhere`) is waited
+// for as long as the table keeps presenting frames: a slice of
+// `REST_SLICE_MS` with neither ends it, as does `REST_CAP_MS` in all. Every
+// reading is over the segment's start to `TAIL_MS` after its last presented
+// frame, so the quiet spell adds no idle frames. A segment that doesn't rest
+// is reported as not reached (`reached: false`, its numbers over what it
+// drew): a failure of the reference run, never of the throttled one, where
+// a dense table's frames can outlast any fixed wait.
 //
 // The build is whichever `just tall-table build [features]` made last
 // (recorded as `build`); with `custom-cells`, `--cells text|heat|bars|color`
 // paints every float column that way (`text`, the control, paints nothing).
 //
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
-//          [--profile reference|throttled] [--cells <style>] [--pin <n>] [--label <name>]
+//          [--profile reference|throttled] [--cells <style>] [--pin <n>]
+//          [--density <row>,<text>[,<width>]] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -61,7 +86,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SORTED_COLUMN, bandAt, buildName, builtFeatures, cellAt, cornerAt, filledWhere, hostWebDir, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
+import { CELL_STYLES, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SORTED_COLUMN, bandAt, buildName, builtFeatures, cellAt, cornerAt, hostWebDir, restedWhere, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 const shapes = pick('shape', SHAPES);
@@ -78,7 +103,19 @@ if (PIN_OPTION !== undefined && !PIN) throw new Error('--pin needs the host buil
 if (PIN_OPTION !== undefined && !/^\d+$/.test(PIN_OPTION)) throw new Error(`--pin ${PIN_OPTION}: not a whole count`);
 /** The columns each shape pins (`pin`): `--pin`'s, or the host's default. */
 const pinned = (shape: Shape) => (PIN_OPTION === undefined ? DEFAULT_PINNED[shape] : Number(PIN_OPTION));
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}`);
+const DENSITY = features.includes('density');
+const DENSITY_OPTION = option('density');
+if (DENSITY_OPTION !== undefined && !DENSITY) throw new Error('--density needs the host built with density: `just tall-table build density`');
+if (DENSITY_OPTION !== undefined && !/^\d+(\.\d+)?,\d+(\.\d+)?(,\d+(\.\d+)?)?$/.test(DENSITY_OPTION)) throw new Error(`--density ${DENSITY_OPTION}: not <row>,<text>[,<width>] in px`);
+/** The row the layout reports at open (`density`): `--density`'s, at least
+ *  its text (the table's clamp, the text at least 6 px), or the host's
+ *  default. */
+const densityRow = (() => {
+  if (DENSITY_OPTION === undefined) return DEFAULT_DENSITY.row;
+  const [row, text] = DENSITY_OPTION.split(',').map(Number) as [number, number];
+  return Math.max(row, text, 6);
+})();
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -101,6 +138,12 @@ const SORTED: Record<Shape, Sort> = { narrow: { column: SORTED_COLUMN.narrow, di
 const MIN_DRAG_FRAMES = 10;
 /** Idle after a segment's view rests, inside its window. */
 const TAIL_MS = 300;
+/** A rest is waited for in slices this long while frames are presented,
+ *  `REST_CAP_MS` in all. */
+const REST_SLICE_MS = 10_000;
+const REST_CAP_MS = 300_000;
+/** A rest presents no frame for this long. */
+const QUIET_MS = 300;
 
 type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select';
 const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select'];
@@ -120,6 +163,9 @@ interface Reading {
   /** rAF intervals: p50, p95, max, and the late ones' share. */
   intervals: { p50Ms: number; p95Ms: number; maxMs: number };
   latePct: number;
+  /** `workRecorder`'s rAFs that drew, from the window's start to the last
+   *  one: a second, and as a share of `frameRecorder`'s rAFs. */
+  presented: { frames: number; perSecond: number; ofRafsPct: number };
   /** Frames showing any placeholder row. */
   placeholderPct: number;
   /** Visible cells per frame (rows × columns on screen): p50, max. Not
@@ -127,6 +173,8 @@ interface Reading {
    *  the columns on screen during it aren't known. */
   cells?: { p50: number; max: number };
   windowMs: number;
+  /** Whether the view rested where the input took it, filled. */
+  reached: boolean;
 }
 
 /** The drag-select's moves in each shape, as its first run laid them out
@@ -137,16 +185,25 @@ const selectDrags: Partial<Record<Shape, SelectDrag>> = {};
 
 const now = (page: Page) => page.evaluate(() => performance.now());
 
+/** A segment's rest (`restedWhere`, at the slices and quiet here). */
+const rest = (page: Page, test: string) => restedWhere(page, test, { sliceMs: REST_SLICE_MS, capMs: REST_CAP_MS, quietMs: QUIET_MS });
+
 /** Traces `act` on its own: from right after tracing starts (the origin
- *  mark) to the end of `act`, which returns once the view rests. `layout`
- *  counts the visible cells; `null` while it changes unreported (a resize
- *  drag), when they aren't counted. */
-async function traced(browser: Browser, page: Page, layout: Layout | null, act: () => Promise<void>): Promise<Reading> {
+ *  mark) to `TAIL_MS` after the last frame presented by the end of `act`,
+ *  which returns once the view rests (`false` if it didn't). Every reading
+ *  is over that window, so a rest's quiet spell adds no idle frames.
+ *  `layout` counts the visible cells; `null` while it changes unreported
+ *  (a resize drag), when they aren't counted. */
+async function traced(browser: Browser, page: Page, layout: Layout | null, act: () => Promise<boolean | void>): Promise<Reading> {
   await browser.startTracing(page, { categories: WORK_CATEGORIES });
   const from = await page.evaluate((name) => (performance.mark(name), performance.now()), ORIGIN_MARK);
-  await act();
-  await page.waitForTimeout(TAIL_MS);
-  const to = await now(page);
+  const reached = (await act()) !== false;
+  const acted = await now(page);
+  const drawn = await workBetween(page, from, acted);
+  const lastDrawn = drawn.at(-1)?.t ?? acted;
+  const to = lastDrawn + TAIL_MS;
+  const left = to - (await now(page));
+  if (left > 0) await page.waitForTimeout(left);
   const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
   const work = frameWork(trace, from, to);
   const perFrame = percentiles(work.frames.map((frame) => frame.ms));
@@ -157,6 +214,9 @@ async function traced(browser: Browser, page: Page, layout: Layout | null, act: 
   const seen = frames.filter((frame) => frame.end !== undefined && frame.first !== undefined);
   const placeholders = seen.filter((frame) => frame.loaded! < frame.end! - frame.first!).length;
   const cells = layout && percentiles(seen.map((frame) => (frame.end! - frame.first!) * visibleColumns(layout, frame.scrollX ?? 0)));
+  const drew = drawn.length;
+  // The presented frames to the last one: the tail draws nothing.
+  const rafs = frames.filter((frame) => frame.t <= lastDrawn).length;
   const round = (ms: number) => Number(ms.toFixed(2));
   return {
     frames: work.frames.length,
@@ -168,9 +228,11 @@ async function traced(browser: Browser, page: Page, layout: Layout | null, act: 
     recorder: { frames: recorded.n, p50Ms: round(recorded.p50), p95Ms: round(recorded.p95) },
     intervals: { p50Ms: round(stats.p50), p95Ms: round(stats.p95), maxMs: round(stats.max) },
     latePct: round(lateFrames(intervals).share * 100),
+    presented: { frames: drew, perSecond: round((drew * 1000) / Math.max(lastDrawn - from, 1)), ofRafsPct: round(rafs ? (drew / rafs) * 100 : 0) },
     placeholderPct: round(seen.length ? (placeholders / seen.length) * 100 : 0),
     ...(cells ? { cells: { p50: cells.p50, max: cells.max } } : {}),
     windowMs: round(to - from),
+    reached,
   };
 }
 
@@ -184,7 +246,7 @@ async function home(page: Page, layout: Layout, reselect = true): Promise<void> 
     await selected(page, null);
   }
   await page.keyboard.press('Home');
-  await filledWhere(page, 's.first === 0 && s.scrollX === 0');
+  if (!(await rest(page, 's.first === 0 && s.scrollX === 0'))) throw new Error("Home didn't rest at the top, filled");
   if (SELECT && reselect) await selectAll(page, layout);
 }
 
@@ -208,6 +270,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     const params: Record<string, string> = { shape };
     if (CELLS) params.cells = CELLS;
     if (PIN_OPTION !== undefined) params.pin = PIN_OPTION;
+    if (DENSITY_OPTION !== undefined) params.density = DENSITY_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -215,6 +278,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     const { shown: start, layout } = await shown(page);
     // The run in effect, at 1440 wide: every count here within the half.
     if (PIN && layout.pinned !== pinned(shape)) throw new Error(`${layout.pinned} columns pinned at open, not ${pinned(shape)}`);
+    if (DENSITY && layout.rowHeight !== densityRow) throw new Error(`rows ${layout.rowHeight} px at open, not ${densityRow}`);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
     if (SELECT) await selectAll(page, layout);
@@ -235,14 +299,14 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
           await page.waitForTimeout(SCROLL_EVERY_MS);
         }
         await Promise.all(sent);
-        await filledWhere(page, 'true');
+        return (await rest(page, 'true')) !== null;
       });
       await stood(`scroll${suffix}`);
       await home(page, layout);
 
       readings[`fling${suffix}`] = await traced(browser, page, layout, async () => {
         await fling(page, start.rows, { rowHeight: layout.rowHeight });
-        await filledWhere(page, 's.end === s.rows').catch(() => failures.push(`the fling${suffix} didn't rest at the last row, filled`));
+        return (await rest(page, 's.end === s.rows')) !== null;
       });
       await stood(`fling${suffix}`);
 
@@ -263,7 +327,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
           }
           if (moved < room) sent.push(wheel(page, 0, room - moved));
           await Promise.all(sent);
-          await filledWhere(page, `s.scrollX >= ${room - 1}`).catch(() => failures.push(`the sideways fling${suffix} didn't rest at the last column`));
+          return (await rest(page, `s.scrollX >= ${room - 1}`)) !== null;
         });
         await stood(`hfling${suffix}`);
         // For what follows: Home is vertical, so the sideways fling's
@@ -348,6 +412,11 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       await selected(page, { kind: 'cells', anchor: [1, 0], head: [1, 0] }).catch(() => failures.push("the drag-select didn't end on the cell it pressed"));
       if (readings.select.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the drag-select drew ${readings.select.recorder.frames} frames for ${moves} moves: did it press a cell?`);
     }
+    for (const [segment, reading] of Object.entries(readings)) {
+      if (reading.reached) continue;
+      if (profile.name === 'reference') failures.push(`the ${segment} didn't rest where its input took it, filled`);
+      else console.log(`  ${shape} ${profile.name} ${segment}: not reached (no rest, filled, while frames were presented)`);
+    }
     failures.push(...session.problems);
   } catch (error) {
     failures.push((error as Error).message.split('\n')[0]!);
@@ -386,17 +455,17 @@ try {
         const { readings, failures: found } = await run(server.url, shape, profile);
         failures.push(...found.map((failure) => `${shape} ${profile.name} run ${index + 1}: ${failure}`));
         runs.push(readings);
-        const line = Object.entries(readings).map(([segment, reading]) => `${segment} work p50 ${reading.workP50Ms} p95 ${reading.workP95Ms} ms, late ${reading.latePct}%${reading.cells ? `, cells ${reading.cells.p50}` : ''}`);
+        const line = Object.entries(readings).map(([segment, reading]) => `${segment}${reading.reached ? '' : ' (not reached)'} work p50 ${reading.workP50Ms} p95 ${reading.workP95Ms} ms, late ${reading.latePct}%, presented ${reading.presented.perSecond}/s (${reading.presented.ofRafsPct}% of rAFs)${reading.cells ? `, cells ${reading.cells.p50}` : ''}`);
         console.log(`${shape} ${profile.name} ${index + 1}/${RUNS}: ${line.join('; ')}`);
       }
       const summary: Partial<Record<Segment, Record<string, number>>> = {};
       for (const segment of SEGMENTS) {
         const readings = runs.flatMap((reading) => (reading[segment] ? [reading[segment]] : []));
-        if (readings.length) summary[segment] = summarize(readings);
+        if (readings.length) summary[segment] = { ...summarize(readings), notReached: readings.filter((reading) => !reading.reached).length };
       }
       (results[shape] ??= {})[profile.name] = { runs, summary };
       for (const [segment, numbers] of Object.entries(summary))
-        console.log(`  ${shape} ${profile.name} ${segment} (median of ${RUNS}): work p50 ${numbers.workP50Ms} p95 ${numbers.workP95Ms} ms (recorder ${numbers['recorder.p50Ms']}/${numbers['recorder.p95Ms']}), late ${numbers.latePct}%, intervals p95 ${numbers['intervals.p95Ms']} ms, placeholders ${numbers.placeholderPct}%${numbers['cells.p50'] === undefined ? '' : `, cells p50 ${numbers['cells.p50']} max ${numbers['cells.max']}`}, busy ${numbers.busyMs} ms`);
+        console.log(`  ${shape} ${profile.name} ${segment} (median of ${RUNS}): work p50 ${numbers.workP50Ms} p95 ${numbers.workP95Ms} ms (recorder ${numbers['recorder.p50Ms']}/${numbers['recorder.p95Ms']}), late ${numbers.latePct}%, presented ${numbers['presented.perSecond']}/s (${numbers['presented.ofRafsPct']}% of rAFs)${numbers.notReached ? `, not reached in ${numbers.notReached}` : ''}, intervals p95 ${numbers['intervals.p95Ms']} ms, placeholders ${numbers.placeholderPct}%${numbers['cells.p50'] === undefined ? '' : `, cells p50 ${numbers['cells.p50']} max ${numbers['cells.max']}`}, busy ${numbers.busyMs} ms`);
     }
   }
 } finally {
@@ -408,7 +477,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

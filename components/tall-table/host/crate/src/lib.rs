@@ -35,7 +35,7 @@
 //! `density`, `?density=<row>,<text>[,<width>]` (px) sets the row height,
 //! the text size, and every float column's width (by default 18,11,56, the
 //! dense setting; `?density=30,14` the base's numbers, the kind widths
-//! kept).
+//! kept), and with `?perf` the scripts get the table's `set_density`.
 
 mod host;
 pub mod rows;
