@@ -48,6 +48,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `copy(cx)`, `copying()`, `cancel_copy(cx)`, `set_copy_options(options)` (`copy`): below.
 - `sort()`, `set_sort(sort, cx)`, `set_sort_icons(icons, cx)` (`sort`): below.
 - `set_pinned(columns, cx)`, `pinned()`, `pinned_in_effect()` (`pin`): below.
+- `set_density(density, cx)`, `density()` (`density`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced); after it, nothing reads or cancels again (a second `close`, `set_rows`, which only moves the scrollbar).
 - `stats(now)`: pages loaded, in flight, draining, cache bytes, and, with `with_activity(ActivityOptions)`, rows/s and the share of frames with every visible row loaded.
@@ -274,6 +275,26 @@ TallTableEvent::Pinned(columns) => {
 - **The host's:** the count (a menu: "Pin first column"), moving a column into the run, and saying why fewer pin when `Pinned` reports it. `tall-table-bridge` publishes the run in effect on a global the host names, and the layout probe carries it (`pinned`: column `c`'s left edge is `left + x`, less `scroll_x` only when `c >= pinned`).
 - **Its cost:** the Features table. The second region and the edge line cost a few hundredths of a millisecond a frame; built with nothing pinned, nothing.
 
+**Density** (`density`, off by default): a row height and a text size a host sets together, the table's other lengths following them, and a column's width set without `resize`.
+
+```rust
+use seiza_tall_table::Density;
+
+// The wide sheet's dense stop: 18 px rows, 11 px text.
+state.update(cx, |table, cx| table.set_density(Density { row_height: px(18.), text_size: px(11.).into() }, cx));
+// A column's width without `resize` (clamped, never scaled by the text):
+let day = TallTableColumn::new("d001", ColumnKind::Float).width(px(56.));
+```
+
+- **Two numbers and a width, no presets:** `Density::default()` is the base's (30 px rows, `rems(0.875)` text), and a table built with the feature at the default lays out and draws as the base does. Compact, comfortable, or a dial's stops are the host's to name.
+- **What follows the row height:** the rows in view (`set_density` fits them at once, the top row kept, or while following the tail, as a resize keeps them), the header's height, the gutter's rows, the wheel's line, every hit test (hover, the tooltip, `select`'s presses and drag), the jump's tint, `select`'s tint and active cell, `sort`'s arrow box and `resize`'s bands (the header's height), and `custom-cells`' bar inset (a fifth of the row).
+- **What follows the text size,** by its scale over the default's in its own unit (a `px` text over 14 px, a `rems` text over 0.875 rem), rounded to whole px: the cells' padding (8 px a side at the default), each kind's width, the header name's and the gutter's estimates, a column's least width unless set (40 px at the default), and from the font at the size the digits' advance, an integer column's fit, a float's rounding, `sort`'s arrow room, `resize`'s fit, and the tooltip's test of a cut value. The header's text is the cells'.
+- **What follows neither:** a set width (`TallTableColumn::width`, the host's number), and the tooltip's text (the theme's size).
+- **The clamp,** where the font is read (the first frame, or a rem size that moved): the text at least 6 px, the row at least the text. `density()` returns what was set; the layout probe's `row_height` is what's drawn. Nothing clamps further: a row the height of its text clips the glyphs' descenders.
+- **A set width without `resize`:** clamped to the least (40 px, scaled with the text) and 1,200 px, no event. With `resize`, a width is clamped to the column's `min_width` and `max_width` as before; the least unless a column sets its own scales.
+- **The host's:** the numbers (a menu, a dial), widths kept across queries, and saying that a `px` density doesn't follow a page zoom (below, "Canvas tradeoffs"). `tall-table-bridge` needs nothing new: the layout probe carries the row in effect and each column's width.
+- **Its cost:** the Features table. The code costs nothing a frame; a denser setting costs the cells it puts on screen: ~14 µs a frame for each, and in the bare host the reference run holds the display's rate to ~460 cells (the base shows ~310), loses it scrolling down between ~660 and ~840, and scrolls sideways at the rate to 1,130.
+
 Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a screen, Home/End and Cmd+↑/↓ the ends. With `select` and a kind on, the arrows, page keys, and ends move the selection instead ("Selecting", above); with `copy`, Cmd+C and Ctrl+C copy it ("Copying"). No key sorts (`sort`). Shift+wheel scrolls sideways. The scrollbars are its own: a press on a track jumps there, and a drag loads only once the pointer rests (80 ms).
 
 ## Features
@@ -290,12 +311,16 @@ Keys, while it has focus: ↑/↓ a row, Page Up/Down and Space/Shift+Space a sc
 | `copy` | The selection to the clipboard as tab-separated exact values, by Cmd+C or a host's `copy`, rows not loaded read beside the cache, a cap in bytes; the bridge's write ("Copying", above). Turns on `select` | +8.8 KiB brotli over `select` (+33.3 KiB after wasm-opt; +13.1 brotli over the base, the bridge's writer and the bare host's hooks included). Built, nothing copied: within the spread in both profiles. A 58 MiB copy from a cold view: written 1.7 s after the key (2.8 s throttled), the wasm heap growing by at most its reads in flight and a piece. A scroll during it keeps its frame work, its turns running between frames: 1.2–1.3% late frames at the reference run (none alone); throttled, 43% late against 27% (narrow) | [`perf/results/2026-10-27-m7-d.md`](perf/results/2026-10-27-m7-d.md) |
 | `sort` | A click on a sortable header's arrow sorts by its column, the source reading pages in the order or refusing; `set_sort`, the host's icons, `Sorted` and `SortRefused` ("Sorting", above) | +19.8 KiB brotli (+82.9 KiB after wasm-opt, the bare host's in-memory sort, icons, and hooks included). Every column sortable: +0.15–0.24 ms a frame (2.5–5%) at the reference run, ~0.13–0.15 of it the arrows; throttled within the spread but for the flings (+0.6–0.8 ms). A sorted column no more than an unsorted. A click: the table's own work under 2 ms, the top filled ~40 ms later with reads answered at once (54–70 throttled), a source's read time added; three reads out at the click add 25–45 ms (the oldest's remainder) | [`perf/results/2026-10-29-m8-d.md`](perf/results/2026-10-29-m8-d.md) |
 | `pin` | The first *n* columns fixed at the left while the rest scroll sideways, at most half the view; `set_pinned`, `Pinned` ("Pinning columns", above) | +2.3 KiB brotli (+9.7 KiB after wasm-opt, the bridge's and the bare host's `?pin=` included). Pinned: +0.03–0.06 ms a frame (≤ 0.9%) in the wide shape at the reference run, at the base in the narrow; built with nothing pinned, the base; throttled within the spread | [`perf/results/2026-10-29-m9-d.md`](perf/results/2026-10-29-m9-d.md) |
+| `density` | A row height and a text size set together, the padding, widths, and glyph measures following them, and a column's width set without `resize`; `set_density` ("Density", above) | +3.1 KiB brotli (+6.1 KiB after wasm-opt, the bare host's `?density=` and hook included). Built at the base's numbers: within 0.05 ms a frame of the base at the reference run, within the spread throttled. Denser, ~14 µs a frame per visible cell: the reference run holds the display's rate to ~460 cells (the wide shape at 26 px rows, 13 px text, 96 px columns), drops frames scrolling down at ~660 and presents 30 a second from ~840 (1,128 at 18, 11, 56), while a sideways fling holds the rate to 1,128; throttled (4× CPU), frames a second fall with the work (the wide scroll 32 at the base's 308 cells, 12 at 1,128) | [`perf/results/2026-11-01-m10-d.md`](perf/results/2026-11-01-m10-d.md) |
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## Limits
 
 - **Read-only.** No editing or filtering.
+- **No header height of its own** (`density`): the header is a row tall at the row in effect, its text the cells'.
+- **No presets** (`density`): two numbers and a width; compact or comfortable is the host's to name.
+- **The cost grows with the cells** (`density`): a denser setting shows more cells, and each costs its frame work. In the bare host (an Apple M1, the reference run, the wide shape) the display's rate held to ~460 cells; a vertical scroll dropped frames at ~660 and drew every other one from ~840 (18 px rows and 11 px text at 56 px columns are 1,128). The table doesn't stop a host from asking for more than a machine keeps up with.
 - **Left only, a leading run** (`pin`): no column pins at the right, and only the first columns pin; a host moves a column into the run (`set_columns`). No gesture of the table's own pins one.
 - **At most half the view pins** (`pin`): the run in effect stops at the last leading column within half the cells' width, so a narrow window pins fewer than the host set (`Pinned` says how many).
 - **One sorted column** (`sort`): ascending or descending, never by several columns at once; no key sorts.
@@ -326,6 +351,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 - **Resizing is pointer-only** (`resize`): no key resizes a column, and a screen reader can't reach the bands, the accessibility gap above. *To close it:* keys of the table's own on the active cell's column (`select` gives a column focus), and the DOM mirror above exposing each header as a resizable column.
 - **The sort is silent and pointer-only** (`sort`): a screen reader isn't told which column is sorted or which way, and the arrow isn't a button the keys or a screen reader can reach. *Today:* a host's menu can sort (`set_sort`), and a host's own DOM can say the order ("Sorted by H, descending"). *To close it:* the DOM mirror above, each header carrying `aria-sort` and its arrow a button.
 - **Which columns hold isn't announced** (`pin`): a screen reader isn't told that the first columns stay while the rest scroll, the accessibility gap above. *To close it:* the DOM mirror above, the pinned headers marked as row headers of each row.
+- **A `px` density doesn't follow a page zoom** (`density`): on a DOM grid, the browser's zoom scales the text and the rows together; on the canvas, a `rems` text follows the window's rem size, but a `px` text and every row height (the base's 30 px among them) stay as set. *Today:* a host that sets a density in `rems` gets the text following; the rows don't. *To close it:* a row height in rems as well as px, or the host setting the density again at the zoom.
 - **Ctrl+F:** the browser's find can't see the cells. *To close it:* the DOM mirror above, or a find of the table's own that queries the source.
 
 ## Docs

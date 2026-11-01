@@ -416,3 +416,13 @@ One entry per milestone part, written before starting the next one: what surpris
 - Chromium's advance is exactly 0.6 em at every size tried, 6 to 24 px, so the provisional `number_px` stood; only the f32 layout's noise (185.00001525878906 px for 185) needed rounding off.
 - Waiting for quiet fixed the rests and broke the readings: the 300 ms spell sat inside every traced window, and the code review saw its idle rAFs diluting the late share (the dense narrow throttled scroll read 56% late, 74% once the window ended at the last frame). A wait added to a measured window is part of the measurement.
 - The wide shape's right-aligned floats didn't catch a padding 2 px too wide: their ink ends inside the check's 1.5 px slack. The narrow shape's left-aligned text did.
+
+## M10: `density` (part D, 2026-11-01)
+
+**Results:** [`perf/results/2026-11-01-m10-d.md`](../perf/results/2026-11-01-m10-d.md) (the bytes, the control against the base, and five settings of the wide shape).
+
+**Surprises:**
+- The sideways fling the spike saw fall behind at 1,128 cells keeps the display's rate there (58.7 frames a second, 99% of rAFs). The spike counted its frames over a window that ran past the last frame presented; counted to the last, it never fell behind. Only the vertical moves lose the rate.
+- At the same 1,128 cells a vertical scroll's frame costs a third more than a sideways fling's (20.96 against 15.64 ms). Cells on screen alone don't set the cost; what a move brings in does. The dial's curve is the vertical one.
+- The edge is sharp and noisy: at 663 cells one run of the fling presented 58.8 frames a second and another 43.6. Its median is a mix of runs that held and runs that didn't, decided by the p95 frame touching 16.7 ms, not the p50 (11.77).
+- Once the table falls behind, per-frame work stops being a cost per cell: a frame drawn every other rAF takes two steps of input, so 840 cells read 17.99 ms where the line through the settings that kept up says ~14.3.
