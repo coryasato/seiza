@@ -10,7 +10,7 @@
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 
-use super::{TallTableEvent, TallTableState, row_height};
+use super::{TallTableEvent, TallTableState};
 use crate::delegate::TallTableDelegate;
 use crate::selection::{Cell, Kind, Selectable, TallTableSelection};
 
@@ -390,7 +390,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             self.scroll_x,
         );
         let y = y.clamp(0.0, (f32::from(self.viewport().height) - 0.5).max(0.0));
-        let row = (self.scroll.top() + f64::from(y / f32::from(row_height()))).floor() as u64;
+        let row = (self.scroll.top() + f64::from(y / f32::from(self.sizes().row()))).floor() as u64;
         let column = self
             .columns
             .iter()
@@ -410,6 +410,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     fn target_at(&self, position: Point<Pixels>) -> Option<Target> {
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
         let y = f32::from(position.y - self.body.origin.y);
+        let row_h = f32::from(self.sizes().row());
         if x >= 0.0 {
             if y >= 0.0 {
                 // The hover's hit test.
@@ -418,15 +419,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
             let past = !self.columns.last().is_some_and(|column| {
                 self.place().content_x(x, self.scroll_x) < column.x + column.width
             });
-            if y < -f32::from(row_height()) || x >= self.cells_width() || past {
+            if y < -row_h || x >= self.cells_width() || past {
                 return None;
             }
             return self.cell_clamped(position).map(Target::Header);
         }
         if y < 0.0 {
-            return (y >= -f32::from(row_height())).then_some(Target::Corner);
+            return (y >= -row_h).then_some(Target::Corner);
         }
-        let row = (self.scroll.top() + f64::from(y / f32::from(row_height()))).floor();
+        let row = (self.scroll.top() + f64::from(y / row_h)).floor();
         if y >= f32::from(self.viewport().height) || row as u64 >= self.scroll.rows() {
             return None;
         }
@@ -852,7 +853,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let theme = cx.theme();
         let place = self.place();
         let edge = place.edge();
-        let row_h = f32::from(row_height());
+        let row_h = f32::from(self.sizes().row());
         let visible = self.scroll.visible();
         let (view_w, view_h) = (self.cells_width(), f32::from(self.viewport().height));
         let row_y = |row: u64| (self.scroll.offset_of(row) * f64::from(row_h)) as f32;

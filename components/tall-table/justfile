@@ -11,7 +11,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # `?shape=wide` for 500 float columns, `?delay=<ms>` to hold each page read.
 # `features` are the host's (`custom-cells`: `?cells=heat|bars|color`;
 # `live`: `?live=<updates/s>`; both: `?flash`; `follow`:
-# `?rows=<n>&append=<rows/s>&follow`; `pin`: `?pin=<n>`).
+# `?rows=<n>&append=<rows/s>&follow`; `pin`: `?pin=<n>`; `density`:
+# `?density=<row>,<text>[,<width>]`).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
 
@@ -129,9 +130,11 @@ smoke *args:
 # the cache, the turns, the cap, and the cancels; `sort`: the cycle and
 # the order fixture, the arrows, the refusals, what a sort does, and the
 # paging fixture's sort scenario; `pin`: the geometry fixture and the
-# mappings' property test, and the pin in a window), and all on
-# (`copy`'s with `live` among them, and `pin` with `resize`, `select`,
-# `sort`, and `custom-cells`); in each, the random test of the paging
+# mappings' property test, and the pin in a window; `density`: the density
+# fixture, the density in a window, and the host's `?density=`), and all
+# on (`copy`'s with `live` among them, `pin` with `resize`, `select`,
+# `sort`, and `custom-cells`, and `density` with `follow`, `resize`,
+# `sort`, and `select`, the fixtures pinned without it unchanged); in each, the random test of the paging
 # with that run's features (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
@@ -147,7 +150,8 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/copy
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/sort
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/pin
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/density
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density
 
 # The random test of the paging soaked: `cases` cases for each of `seeds`
 # (`SEED`: a different set of cases each), every feature on, in a release
@@ -158,7 +162,7 @@ soak seeds="1 2 3 4" cases="500":
     for seed in {{seeds}}; do \
         SEED=$seed PROPTEST_CASES={{cases}} \
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin state::random::random_paging || exit 1; \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density state::random::random_paging || exit 1; \
     done
 
 # Writes fixtures/paint.json's expected colors from Chromium's

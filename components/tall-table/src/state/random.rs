@@ -55,7 +55,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "resize",
     feature = "copy",
     feature = "sort",
-    feature = "pin"
+    feature = "pin",
+    feature = "density"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -373,6 +374,9 @@ enum Step {
     /// `set_pinned`: a count from none to past the columns.
     #[cfg(feature = "pin")]
     Pin(u8),
+    /// `set_density`: one of [`DENSITIES`] (`k % DENSITIES.len()`).
+    #[cfg(feature = "density")]
+    Density(u8),
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
     /// failed as broken (`how`); a cancelled one with its page or
@@ -1047,6 +1051,15 @@ impl Run {
                 let count = usize::from(count) % (self.columns + 3);
                 self.update(|table, cx| table.set_pinned(count, cx));
             }
+            #[cfg(feature = "density")]
+            Step::Density(pick) => {
+                let (row, text) = DENSITIES[usize::from(pick) % DENSITIES.len()];
+                let density = crate::Density {
+                    row_height: px(row),
+                    text_size: text,
+                };
+                self.update(|table, cx| table.set_density(density, cx));
+            }
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -1515,6 +1528,13 @@ fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), Stri
 /// prints the case with them, which recurs as a scenario.
 #[cfg(feature = "pin")]
 fn with_pins(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed, steps, Step::Pin);
+}
+
+/// Up to eight of `step`'s, each from a number at a place among `steps`,
+/// both from `seed`: never drawn ([`with_pins`]).
+#[cfg(any(feature = "pin", feature = "density"))]
+fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u8) -> Step) {
     // SplitMix64.
     let mut state = seed;
     let mut next = move || {
@@ -1525,9 +1545,28 @@ fn with_pins(seed: u64, steps: &mut Vec<Step>) {
         z ^ (z >> 31)
     };
     for _ in 0..next() % 9 {
-        let (at, count) = (next(), next());
-        steps.insert(at as usize % (steps.len() + 1), Step::Pin(count as u8));
+        let (at, pick) = (next(), next());
+        steps.insert(at as usize % (steps.len() + 1), step(pick as u8));
     }
+}
+
+/// `density`'s steps' row heights and text sizes: the default, the bare
+/// host's dense setting, shorter, taller, and the clamp's least.
+#[cfg(feature = "density")]
+const DENSITIES: [(f32, gpui_kit::AbsoluteLength); 5] = [
+    (30.0, gpui_kit::AbsoluteLength::Rems(gpui_kit::Rems(0.875))),
+    (18.0, gpui_kit::AbsoluteLength::Pixels(px(11.))),
+    (10.0, gpui_kit::AbsoluteLength::Pixels(px(8.))),
+    (48.0, gpui_kit::AbsoluteLength::Pixels(px(20.))),
+    (2.0, gpui_kit::AbsoluteLength::Pixels(px(3.))),
+];
+
+/// `density`'s steps, up to eight, placed as `pin`'s are ([`with_pins`]),
+/// from the scheduler seed by a stream of their own, so `pin`'s places
+/// stay what they were.
+#[cfg(feature = "density")]
+fn with_densities(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0xd1b5_4a32_d192_ed03, steps, Step::Density);
 }
 
 /// How many cases: `PROPTEST_CASES`, else 48 in the all-on run, 16 in the
@@ -1553,17 +1592,20 @@ fn run(control: Option<Control>) -> Result<(), String> {
     let mut runner = TestRunner::new(config);
     runner
         .run(&(any::<u64>(), case()), |(seed, case)| {
-            // A failure names its step in the case as run, `pin`'s steps
-            // among them, so it's printed with them.
-            #[cfg(feature = "pin")]
+            // A failure names its step in the case as run, `pin`'s and
+            // `density`'s steps among them, so it's printed with them.
+            #[cfg(any(feature = "pin", feature = "density"))]
             let case = {
                 let mut case = case;
+                #[cfg(feature = "pin")]
                 with_pins(seed, &mut case.steps);
+                #[cfg(feature = "density")]
+                with_densities(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
-                #[cfg(feature = "pin")]
-                let failure = format!("{failure}\nthe case as run, with pin's steps:\n{case}");
+                #[cfg(any(feature = "pin", feature = "density"))]
+                let failure = format!("{failure}\nthe case as run, with the placed steps:\n{case}");
                 TestCaseError::fail(failure)
             })
         })

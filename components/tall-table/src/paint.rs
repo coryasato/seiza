@@ -9,7 +9,7 @@
 use gpui_kit::component::Theme;
 use gpui_kit::{Bounds, Hsla, Pixels, Rgba, point, px, size};
 
-use crate::column::{CELL_PADDING, TallTableColumn};
+use crate::column::{Sizes, TallTableColumn};
 
 /// What a page answers for a cell ([`TallTablePage::paint`](crate::TallTablePage::paint)).
 /// Each field 0..=1 (clamped). `None`, NaN, or a field whose column has no
@@ -174,7 +174,9 @@ impl Domain {
     }
 }
 
-/// How far a bar sits from its row's top and bottom edges.
+/// How far a bar sits from its row's top and bottom edges (with
+/// `density`, a fifth of the row: `Sizes::inset`).
+#[cfg(not(feature = "density"))]
 pub(crate) const BAR_INSET: f32 = 6.0;
 
 /// A color in Oklab, its alpha premultiplied into `l`, `a`, `b` (CSS mixes
@@ -500,6 +502,7 @@ pub(crate) fn draw(
     top: f32,
     width: f32,
     height: f32,
+    sizes: Sizes,
 ) -> DrawnPaint {
     debug_assert!(
         paint.fill.is_none() || column.fill.is_some(),
@@ -521,20 +524,21 @@ pub(crate) fn draw(
         .map(|mixed| (mixed, mixed.to_rgba()));
     // Clear of the line under the row, which the row's background draws.
     let height = (height - 1.0).max(0.0);
-    let pad = CELL_PADDING / 2.0;
+    let (padding, inset) = (sizes.padding(), sizes.inset());
+    let pad = padding / 2.0;
     let bar = paint
         .bar
         .zip(column.bar)
         .and_then(|(end, (zero, color, below))| {
-            let (x, w, left_of_zero) = bar_span(zero, end, (width - CELL_PADDING).max(0.0))?;
+            let (x, w, left_of_zero) = bar_span(zero, end, (width - padding).max(0.0))?;
             #[cfg(test)]
             let below = below.filter(|_| frame.control != Control::BelowIgnored);
             // Left of its zero: `below`, if the column has one.
             let color = below.filter(|_| left_of_zero).unwrap_or(color);
             Some((
                 Bounds::new(
-                    point(px(left + pad + x), px(top + BAR_INSET)),
-                    size(px(w), px((height - 2.0 * BAR_INSET).max(0.0))),
+                    point(px(left + pad + x), px(top + inset)),
+                    size(px(w), px((height - 2.0 * inset).max(0.0))),
                 ),
                 color,
             ))

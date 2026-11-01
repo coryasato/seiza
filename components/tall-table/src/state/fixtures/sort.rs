@@ -20,7 +20,7 @@ use serde_json::Value;
 use super::super::sort::{Arrow, Control, DrawnArrow};
 use super::super::{TallTableEvent, TallTableState};
 use super::{direction_name, direction_of};
-use crate::column::{ColumnKind, TallTableColumn, layout_columns};
+use crate::column::{ColumnKind, Sizes, TallTableColumn, layout_columns};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 use crate::pages::RowState;
 use crate::sort::{Sort, SortDirection, SortIcons, SortRefused};
@@ -470,6 +470,7 @@ fn the_arrows_in_each_state(cx: &mut TestAppContext) {
         &[TallTableColumn::new("plain", ColumnKind::Float)],
         8.4,
         0.0,
+        Sizes::base(),
     );
     assert_eq!(plain, without[0].width);
 }
@@ -975,7 +976,11 @@ fn a_sortable_name_ends_at_the_gap(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, columns, false);
     let padding = sheet.read(|table| table.sort_state.header_padding.clone());
     let sortable = Some(gpui_kit::DefiniteLength::from(px(8.0 + 18.0)));
+    // `px_2`, or with `density` its 8 px, drawn as its layout counts them.
+    #[cfg(not(feature = "density"))]
     let plain = Some(gpui_kit::DefiniteLength::from(gpui_kit::rems(0.5)));
+    #[cfg(feature = "density")]
+    let plain = Some(gpui_kit::DefiniteLength::from(px(8.0)));
     assert_eq!(padding, [(0, sortable), (1, plain)]);
 }
 

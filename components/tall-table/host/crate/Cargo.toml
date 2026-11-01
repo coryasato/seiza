@@ -37,6 +37,10 @@ sort = ["seiza-tall-table/sort", "tall-table-bridge/sort"]
 # The first columns pinned: `?pin=<n>`, by default 2 in the narrow shape and
 # 1 in the wide; `?pin=0` builds the feature with nothing pinned.
 pin = ["seiza-tall-table/pin", "tall-table-bridge/pin"]
+# A row height, a text size, and every float column's width set:
+# `?density=<row>,<text>[,<width>]` (px), by default 18,11,56;
+# `?density=30,14` the base's numbers, the kind widths kept.
+density = ["seiza-tall-table/density", "tall-table-bridge/density"]
 
 [dependencies]
 gpui-kit.workspace = true

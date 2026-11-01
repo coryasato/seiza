@@ -10,7 +10,7 @@ use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::*;
 
 use super::{TallTableEvent, TallTableState, shown_text};
-use crate::column::{CELL_PADDING, digits_width};
+use crate::column::digits_width;
 use crate::delegate::{CellValue, TallTableDelegate, TallTablePage as _};
 use crate::pages::RowState;
 
@@ -47,7 +47,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     fn set_widths(&self) -> Vec<Option<Pixels>> {
         self.column_info
             .iter()
-            .map(|column| column.set_width())
+            .map(|column| column.set_width(self.sizes()))
             .collect()
     }
 
@@ -104,17 +104,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let Some(resizing) = self.resizing else {
             return;
         };
+        let sizes = self.sizes();
         let Some(info) = self.column_info.get_mut(resizing.column) else {
             return;
         };
         let start = resizing.width;
         let raw = start + f32::from(x) - resizing.press_x;
-        let outside = (start < info.min_width && raw < info.min_width)
+        let min_width = info.min_width.unwrap_or_else(|| sizes.least());
+        let outside = (start < min_width && raw < min_width)
             || (start > info.max_width && raw > info.max_width);
         let set = if f32::from(x) == resizing.press_x || outside {
             resizing.was
         } else {
-            let width = info.clamp_width(raw);
+            let width = info.clamp_width(raw, sizes);
             // Never narrower than at the press for it, so a column pinned
             // past the half (the view narrowed) only holds.
             #[cfg(feature = "pin")]
@@ -127,7 +129,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         info.width = set;
         // Laid out without `lay_out`'s generation bump: the release
         // reports the layout. The scroll holds (`content_width`).
-        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info);
+        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info, sizes);
         cx.notify();
     }
 
@@ -176,6 +178,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // No glyph of the cells' font is narrower than 2 px, so a text cut
         // to this many characters still reaches past `max_width`.
         let max_chars = (info.max_width / 2.0).max(1.0) as usize;
+        let (sizes, padding) = (self.sizes(), self.sizes().padding());
         // Cut before it's copied, then one line (`shape_line` asserts it),
         // `¶` for a break, as a cell shows it; a name too.
         let shaped = |value: CellValue<'_>| -> f32 {
@@ -186,13 +189,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 value => value,
             };
             let text = shown_text(laid_out, value);
-            (self.text_width(text.into(), window) + CELL_PADDING + 1.0).ceil()
+            (self.text_width(text.into(), window) + padding + 1.0).ceil()
         };
         let mut widest = shaped(CellValue::Text(laid_out.name.as_ref().into()));
         // A sortable header's arrow and its gap beside the name (`sort`).
         #[cfg(feature = "sort")]
         if info.sortable {
-            widest += super::sort::room(self.glyphs.arrow_px);
+            widest += super::sort::room(self.glyphs.arrow_px, sizes);
         }
         for row in self.scroll.visible() {
             let RowState::Loaded(page, index) = self.cache.row(row) else {
@@ -203,15 +206,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 // Rounded up to a whole pixel, so the budget it gives is
                 // never a hair short of the count.
                 let chars = value.to_string().chars().count() as f32;
-                digits_width(chars, self.glyphs.number_px).ceil()
+                digits_width(chars, self.glyphs.number_px, padding).ceil()
             } else {
                 shaped(value)
             };
             widest = widest.max(width);
         }
-        let width = info.clamp_width(widest);
+        let width = info.clamp_width(widest, sizes);
         // As drawn and reported: a host's width past the max is the max.
-        if info.set_width() == Some(px(width)) {
+        if info.set_width(sizes) == Some(px(width)) {
             return;
         }
         self.column_info[column].width = Some(width);

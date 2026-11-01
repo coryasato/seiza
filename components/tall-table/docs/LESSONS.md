@@ -393,3 +393,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - Scaling the widths with the text took two tries, both caught in review. Over 14 px, merely building the feature widened every column at any rem but 16, since the base's widths don't follow the rem but its text does. Over the default resolved at the rem, a `px` density laid out differently at each rem with its text the same. The scale has to be over the default in the text size's own unit.
 - `set_body` returns early when the body's bounds haven't moved, so routing a new row height through it worked only because the header follows the row: a coincidence the spec leaned on without seeing it.
 - `DataTable`'s `Size::Size(px)` sets only the row height: its padding falls to Medium's and its text to whatever the parent has. That's why it isn't the model to copy. Its named sizes tie a row to a padding and a text size, so a density outside them can't be stated in its terms.
+
+## M10: `density` (part B, 2026-11-01)
+
+**Results:** [`perf/results/2026-11-01-m10-b-size.json`](../perf/results/2026-11-01-m10-b-size.json) (the builds' sizes, for B3) and [`perf/results/2026-11-01-m10-b-against.json`](../perf/results/2026-11-01-m10-b-against.json) (the base against M10's parent, for B1); the cost's measurement is part D's.
+
+**Surprises:**
+- The base's cells' padding is `px_2`, which is 0.5 rem, while its layout counts a fixed 16 px for both sides (`CELL_PADDING`). At the web's 16 px rem they agree, so nothing had shown it. `density` draws its padding in px, the number its layout and its tooltip's cut test count, so at another rem the default draws 2 px narrower a side than the base. One `sort` test read the base's `0.5rem` from the header cell's style and failed in the all-on run.
+- The spec said every scaled length is rounded to whole px, and the base's own estimates aren't whole (7.5 px a character: a 1,000-row gutter is 61.5 px). Rounding at the default would have moved every column and fixture pinned without the feature. A scale of exactly 1 has to leave the base's numbers alone.
+- Twenty 4.8 px advances shaped at 8 px sum to a hair over 96, so `resize`'s fit, which adds the pixel's slack and rounds up, gave 108, not the 107 the arithmetic said. A test of a shaped width takes its expectation from the shaping, not from the advances multiplied out.
+- Putting a new text size in effect at once laid the columns out by the old font's advances, and render laid them out again by the new one: with `pin`, the run could move and move back between the two. The code review caught it; a new text now leaves the glyphs stale and lays out once, in render.
+- The text size has to be set on the state's root, not the element's, so it's resolved in the same render that reads the font; the tooltip under it keeps the theme's size only because gpui-kit's `Tooltip` sets `text_sm` itself.

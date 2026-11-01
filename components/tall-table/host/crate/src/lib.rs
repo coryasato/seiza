@@ -31,7 +31,11 @@
 //! `?sort-icons` draws gpui-kit's sort icons, which the host bundles, in
 //! place of the glyphs. With `pin`, `?pin=<n>` pins the first `n` columns
 //! (by default 2 in the narrow shape, its `spkid` and `full_name`, and 1 in
-//! the wide); `?pin=0` builds the feature with nothing pinned.
+//! the wide); `?pin=0` builds the feature with nothing pinned. With
+//! `density`, `?density=<row>,<text>[,<width>]` (px) sets the row height,
+//! the text size, and every float column's width (by default 18,11,56, the
+//! dense setting; `?density=30,14` the base's numbers, the kind widths
+//! kept).
 
 mod host;
 pub mod rows;

@@ -13,10 +13,8 @@ use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::*;
 
-#[cfg(test)]
-use super::row_height;
 use super::{Direction, TallTableEvent, TallTableState};
-use crate::column::{CELL_PADDING, LaidOutColumn};
+use crate::column::{LaidOutColumn, Sizes};
 use crate::delegate::TallTableDelegate;
 use crate::sort::{self as order, Sort, SortDirection, SortIcons, SortRefused};
 
@@ -24,7 +22,8 @@ use crate::sort::{self as order, Sort, SortDirection, SortIcons, SortRefused};
 /// descending, and a sortable column that isn't the sort.
 pub(super) const ARROWS: [char; 3] = ['↑', '↓', '↕'];
 
-/// The least an arrow's box is: an icon's size, the text's.
+/// The least an arrow's box is: an icon's size, the text's (with
+/// `density`, scaled with it).
 const ICON_PX: f32 = 14.0;
 
 /// The gap between a sortable header's name and its arrow's box.
@@ -40,14 +39,14 @@ const BAND_REACH: f32 = 5.0;
 
 /// The arrow's box: the widest of the glyphs' advances, at least the icon
 /// size, so neither a sort nor icons change a width.
-fn box_width(arrow_px: f32) -> f32 {
-    arrow_px.max(ICON_PX).ceil()
+fn box_width(arrow_px: f32, sizes: Sizes) -> f32 {
+    arrow_px.max(sizes.scaled(ICON_PX)).ceil()
 }
 
 /// What a sortable header's name gives up for its arrow: the gap and the
 /// box ([`crate::column::layout_columns`]'s `sort_room`).
-pub(super) fn room(arrow_px: f32) -> f32 {
-    GAP + box_width(arrow_px)
+pub(super) fn room(arrow_px: f32, sizes: Sizes) -> f32 {
+    GAP + box_width(arrow_px, sizes)
 }
 
 /// The table's sort, with the feature.
@@ -284,16 +283,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// it draws one: sortable, and wide enough for its padding, the gap,
     /// and the box.
     pub(super) fn arrow_room(&self, index: usize, column: &LaidOutColumn) -> Option<f32> {
-        let room = room(self.glyphs.arrow_px);
-        (self.column_info[index].sortable && column.width >= CELL_PADDING + room).then_some(room)
+        let sizes = self.sizes();
+        let room = room(self.glyphs.arrow_px, sizes);
+        (self.column_info[index].sortable && column.width >= sizes.padding() + room).then_some(room)
     }
 
     /// Column `index`'s arrow box (laid out as `column`), if it draws one:
     /// its left from the column's left edge, and its width.
     pub(super) fn arrow_box(&self, index: usize, column: &LaidOutColumn) -> Option<(f32, f32)> {
         self.arrow_room(index, column)?;
-        let box_px = box_width(self.glyphs.arrow_px);
-        Some((column.width - CELL_PADDING / 2.0 - box_px, box_px))
+        let sizes = self.sizes();
+        let box_px = box_width(self.glyphs.arrow_px, sizes);
+        Some((column.width - sizes.padding() / 2.0 - box_px, box_px))
     }
 
     /// The arrows over the header's cells, each a target of its own: under
@@ -331,7 +332,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         let theme = cx.theme();
         let full = theme.table_head_foreground;
-        let box_px = box_width(self.glyphs.arrow_px);
+        let sizes = self.sizes();
+        let box_px = box_width(self.glyphs.arrow_px, sizes);
         #[cfg(any(test, not(feature = "pin")))]
         let gutter = self.gutter_width();
         let mut arrows = Vec::with_capacity(visible.len());
@@ -373,9 +375,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 } else {
                                     place.edge()
                                 }),
-                        self.body.origin.y - row_height(),
+                        self.body.origin.y - sizes.row(),
                     ),
-                    size(px(width), row_height()),
+                    size(px(width), sizes.row()),
                 ),
             });
             let mark = div()
@@ -390,9 +392,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .text_color(color);
             let mark = match (glyph, icon) {
                 (Some(glyph), _) => mark.child(SharedString::from(glyph.to_string())),
-                (None, Some(path)) => {
-                    mark.child(svg().path(path.clone()).size(px(ICON_PX)).text_color(color))
-                }
+                (None, Some(path)) => mark.child(
+                    svg()
+                        .path(path.clone())
+                        .size(px(sizes.scaled(ICON_PX)))
+                        .text_color(color),
+                ),
                 (None, None) => mark,
             };
             arrows.push((

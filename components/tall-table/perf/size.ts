@@ -58,6 +58,8 @@ const FEATURES: Record<string, string | string[]> = {
   sort: ['seiza_tall_table4sort', 'seiza_tall_table5state4sort'],
   // Pinning: the geometry's module and the state's `pin` module.
   pin: ['seiza_tall_table3pin', 'seiza_tall_table5state3pin'],
+  // Density: the lengths' module and the state's `density` module.
+  density: ['seiza_tall_table7density', 'seiza_tall_table5state7density'],
 };
 
 /** A feature that turns on another is measured against it too, and the

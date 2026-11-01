@@ -1,9 +1,16 @@
 //! A table's columns: what the host says about each, and how the table lays
 //! them out.
 
+#[cfg(any(feature = "resize", feature = "density"))]
+use gpui_kit::Pixels;
 use gpui_kit::SharedString;
-#[cfg(feature = "resize")]
-use gpui_kit::{Pixels, px};
+#[cfg(any(feature = "resize", feature = "density"))]
+use gpui_kit::px;
+#[cfg(not(feature = "density"))]
+use gpui_kit::{Pixels as Px, rems};
+
+#[cfg(feature = "density")]
+pub(crate) use crate::density::Sizes;
 
 #[cfg(feature = "custom-cells")]
 use crate::paint::{Bar, Ramp};
@@ -25,12 +32,13 @@ pub struct TallTableColumn {
     /// `custom-cells`).
     #[cfg(all(feature = "live", feature = "custom-cells"))]
     pub(crate) flash: Option<(Ramp, std::time::Duration)>,
-    /// Its set width (`resize`): the host's, a drag's, or a fit's; `None`
-    /// for its kind's.
-    #[cfg(feature = "resize")]
+    /// Its set width (`resize`: the host's, a drag's, or a fit's; with
+    /// `density`, the host's); `None` for its kind's.
+    #[cfg(any(feature = "resize", feature = "density"))]
     pub(crate) width: Option<f32>,
+    /// `None` for the table's least (`Sizes::least`).
     #[cfg(feature = "resize")]
-    pub(crate) min_width: f32,
+    pub(crate) min_width: Option<f32>,
     #[cfg(feature = "resize")]
     pub(crate) max_width: f32,
     #[cfg(feature = "resize")]
@@ -42,10 +50,11 @@ pub struct TallTableColumn {
 
 /// A set width's least and most, unless a column sets its own (`resize`):
 /// at 40 a float still shows two characters (`docs/DECISIONS.md`,
-/// "Features").
-#[cfg(feature = "resize")]
+/// "Features"). With `density`, the least is scaled with the text
+/// (`Sizes::least`).
+#[cfg(any(feature = "resize", feature = "density"))]
 pub(crate) const MIN_WIDTH: f32 = 40.0;
-#[cfg(feature = "resize")]
+#[cfg(any(feature = "resize", feature = "density"))]
 pub(crate) const MAX_WIDTH: f32 = 1200.0;
 
 impl TallTableColumn {
@@ -61,10 +70,10 @@ impl TallTableColumn {
             text_ramp: None,
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             flash: None,
-            #[cfg(feature = "resize")]
+            #[cfg(any(feature = "resize", feature = "density"))]
             width: None,
             #[cfg(feature = "resize")]
-            min_width: MIN_WIDTH,
+            min_width: None,
             #[cfg(feature = "resize")]
             max_width: MAX_WIDTH,
             #[cfg(feature = "resize")]
@@ -85,8 +94,10 @@ impl TallTableColumn {
     /// from [`TallTableEvent::ColumnWidthsChanged`](crate::TallTableEvent)),
     /// clamped to its [`min_width`](Self::min_width) and
     /// [`max_width`](Self::max_width). The header's width is no longer a
-    /// minimum: a name wider than it is cut.
-    #[cfg(feature = "resize")]
+    /// minimum: a name wider than it is cut. With `density` and without
+    /// `resize`, clamped to 40 px (scaled with the text) and 1200 px, and
+    /// never scaled itself.
+    #[cfg(any(feature = "resize", feature = "density"))]
     pub fn width(self, width: Pixels) -> Self {
         Self {
             width: Some(f32::from(width)),
@@ -95,11 +106,12 @@ impl TallTableColumn {
     }
 
     /// The narrowest a set width, a drag, or a fit leaves it (`resize`):
-    /// 40 px unless set.
+    /// 40 px unless set (with `density`, scaled with the text; a width set
+    /// here isn't).
     #[cfg(feature = "resize")]
     pub fn min_width(self, width: Pixels) -> Self {
         Self {
-            min_width: f32::from(width),
+            min_width: Some(f32::from(width)),
             ..self
         }
     }
@@ -120,16 +132,24 @@ impl TallTableColumn {
         Self { resizable, ..self }
     }
 
-    /// `width` within its min and max (a max under the min gives the max).
-    #[cfg(feature = "resize")]
-    pub(crate) fn clamp_width(&self, width: f32) -> f32 {
-        width.max(self.min_width).min(self.max_width)
+    /// `width` within its min and max (a max under the min gives the max):
+    /// unless set (`resize`), `sizes`' least and 1200 px.
+    #[cfg(any(feature = "resize", feature = "density"))]
+    pub(crate) fn clamp_width(&self, width: f32, sizes: Sizes) -> f32 {
+        #[cfg(feature = "resize")]
+        let (least, most) = (
+            self.min_width.unwrap_or_else(|| sizes.least()),
+            self.max_width,
+        );
+        #[cfg(not(feature = "resize"))]
+        let (least, most) = (sizes.least(), MAX_WIDTH);
+        width.max(least).min(most)
     }
 
     /// Its set width as drawn: clamped, `None` for its kind's.
-    #[cfg(feature = "resize")]
-    pub(crate) fn set_width(&self) -> Option<Pixels> {
-        self.width.map(|width| px(self.clamp_width(width)))
+    #[cfg(any(feature = "resize", feature = "density"))]
+    pub(crate) fn set_width(&self, sizes: Sizes) -> Option<Pixels> {
+        self.width.map(|width| px(self.clamp_width(width, sizes)))
     }
 
     /// A page's [`CellPaint::fill`](crate::CellPaint::fill) goes through
@@ -249,39 +269,115 @@ pub(crate) struct LaidOutColumn {
 }
 
 /// A cell's horizontal padding (`px_2` on each side).
+#[cfg(not(feature = "density"))]
 pub(crate) const CELL_PADDING: f32 = 16.0;
 
-/// The width that holds `chars` characters at `number_px` each: a float's
-/// budget at it is `chars`.
-pub(crate) fn digits_width(chars: f32, number_px: f32) -> f32 {
-    chars * number_px + CELL_PADDING + 1.0
+/// The base's lengths, for its 30 px rows and 14 px text: a stand-in for
+/// `density`'s lengths in effect ([`crate::density::Sizes`]), with its
+/// methods, so each site is written once.
+#[cfg(not(feature = "density"))]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub(crate) struct Sizes;
+
+#[cfg(not(feature = "density"))]
+impl Sizes {
+    /// The base's.
+    #[inline(always)]
+    pub(crate) fn base() -> Self {
+        Self
+    }
+
+    /// The rows' and the header's height.
+    #[inline(always)]
+    pub(crate) fn row(self) -> Px {
+        crate::state::row_height()
+    }
+
+    /// The cells' text size at `rem_size`.
+    #[inline(always)]
+    pub(crate) fn text(self, rem_size: Px) -> Px {
+        rems(crate::state::TEXT_REMS).to_pixels(rem_size)
+    }
+
+    /// A horizontal length the base fixes for 14 px text: itself.
+    #[inline(always)]
+    pub(crate) fn scaled(self, length: f32) -> f32 {
+        length
+    }
+
+    /// The cells' padding, both sides.
+    #[inline(always)]
+    pub(crate) fn padding(self) -> f32 {
+        CELL_PADDING
+    }
+
+    /// A header name's or the gutter's estimated width.
+    #[inline(always)]
+    pub(crate) fn estimate(self, chars: f32) -> f32 {
+        chars * 7.5 + 24.0
+    }
+
+    /// A set width's least, unless a column sets its own (`resize`).
+    #[cfg(feature = "resize")]
+    #[inline(always)]
+    pub(crate) fn least(self) -> f32 {
+        MIN_WIDTH
+    }
+
+    /// A loading cell's bar's height.
+    #[inline(always)]
+    pub(crate) fn skeleton(self) -> f32 {
+        8.0
+    }
+
+    /// A set width as laid out: itself (`resize`).
+    #[cfg(feature = "resize")]
+    #[inline(always)]
+    pub(crate) fn set(self, width: f32) -> f32 {
+        width
+    }
+
+    /// How far a bar sits from its row's top and bottom (`custom-cells`).
+    #[cfg(feature = "custom-cells")]
+    #[inline(always)]
+    pub(crate) fn inset(self) -> f32 {
+        crate::paint::BAR_INSET
+    }
+}
+
+/// The width that holds `chars` characters at `number_px` each, with
+/// `padding` (both sides): a float's budget at it is `chars`.
+pub(crate) fn digits_width(chars: f32, number_px: f32, padding: f32) -> f32 {
+    chars * number_px + padding + 1.0
 }
 
 /// Width and cell kind. An integer column fits its widest value at
 /// `number_px` a character. The name's width is estimated at the UI font's
 /// average advance; a longer name is cut. With `sort`, a sortable column's
-/// name has `sort_room` more beside it, for its arrow. With `resize`, a
-/// set width replaces all that, clamped.
+/// name has `sort_room` more beside it, for its arrow. With `resize` (or
+/// `density`), a set width replaces all that, clamped. With `density`, the
+/// kinds' widths, the padding, and the name's estimate follow `sizes`.
 fn column_layout(
     column: &TallTableColumn,
     number_px: f32,
     #[cfg(feature = "sort")] sort_room: f32,
+    sizes: Sizes,
 ) -> (f32, CellKind) {
-    let digits = |chars: f32| digits_width(chars, number_px);
+    let digits = |chars: f32| digits_width(chars, number_px, sizes.padding());
     let (width, kind) = match column.kind {
-        ColumnKind::Boolean => (72.0, CellKind::Text),
-        ColumnKind::Date => (104.0, CellKind::Text),
+        ColumnKind::Boolean => (sizes.scaled(72.0), CellKind::Text),
+        ColumnKind::Date => (sizes.scaled(104.0), CellKind::Text),
         ColumnKind::Integer { max_chars } => (digits(f32::from(max_chars)), CellKind::Integer),
-        ColumnKind::Float => (120.0, CellKind::Float),
-        ColumnKind::Decimal => (120.0, CellKind::Decimal),
-        ColumnKind::Timestamp => (184.0, CellKind::Text),
-        ColumnKind::Text => (200.0, CellKind::Text),
+        ColumnKind::Float => (sizes.scaled(120.0), CellKind::Float),
+        ColumnKind::Decimal => (sizes.scaled(120.0), CellKind::Decimal),
+        ColumnKind::Timestamp => (sizes.scaled(184.0), CellKind::Text),
+        ColumnKind::Text => (sizes.scaled(200.0), CellKind::Text),
     };
-    #[cfg(feature = "resize")]
-    if let Some(set) = column.set_width() {
-        return (f32::from(set), kind);
+    #[cfg(any(feature = "resize", feature = "density"))]
+    if let Some(set) = column.set_width(sizes) {
+        return (sizes.set(f32::from(set)), kind);
     }
-    let name = column.name.chars().count() as f32 * 7.5 + 24.0;
+    let name = sizes.estimate(column.name.chars().count() as f32);
     #[cfg(feature = "sort")]
     let name = if column.sortable {
         name + sort_room
@@ -297,6 +393,7 @@ pub(crate) fn layout_columns(
     columns: &[TallTableColumn],
     number_px: f32,
     #[cfg(feature = "sort")] sort_room: f32,
+    sizes: Sizes,
 ) -> (Vec<LaidOutColumn>, f32) {
     let mut x = 0.0;
     let columns = columns
@@ -307,9 +404,12 @@ pub(crate) fn layout_columns(
                 number_px,
                 #[cfg(feature = "sort")]
                 sort_room,
+                sizes,
             );
             // A pixel short of the room, for rounding in the shaped width.
-            let budget = ((width - CELL_PADDING - 1.0) / number_px).floor().max(1.0) as usize;
+            let budget = ((width - sizes.padding() - 1.0) / number_px)
+                .floor()
+                .max(1.0) as usize;
             let laid_out = LaidOutColumn {
                 name: column.name.clone(),
                 x,
@@ -326,7 +426,7 @@ pub(crate) fn layout_columns(
 
 #[cfg(test)]
 mod tests {
-    use super::{ColumnKind, TallTableColumn, layout_columns};
+    use super::{ColumnKind, Sizes, TallTableColumn, layout_columns};
 
     /// A kind's width is at least its name's estimated width, as without
     /// `resize`: a long name widens a float column past its 120 px.
@@ -339,6 +439,7 @@ mod tests {
                 8.4,
                 #[cfg(feature = "sort")]
                 30.0,
+                Sizes::base(),
             )
             .0[0]
                 .width
@@ -352,7 +453,9 @@ mod tests {
     #[cfg(feature = "sort")]
     #[test]
     fn a_sortable_name_counts_its_arrow() {
-        let width = |column: TallTableColumn| layout_columns(&[column], 8.4, 18.0).0[0].width;
+        let width = |column: TallTableColumn| {
+            layout_columns(&[column], 8.4, 18.0, Sizes::base()).0[0].width
+        };
         let name = "a long column name";
         assert_eq!(width(TallTableColumn::new(name, ColumnKind::Float)), 159.0);
         let sortable = TallTableColumn::new(name, ColumnKind::Float).sortable(true);

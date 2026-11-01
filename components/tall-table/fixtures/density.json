@@ -1,0 +1,384 @@
+{
+  "about": "density: a row height, a text size, and the rem size -> the lengths in effect. See README.md.",
+  "columns": [
+    {
+      "name": "f",
+      "kind": "float"
+    },
+    {
+      "name": "nineteen characters",
+      "kind": "float"
+    },
+    {
+      "name": "id",
+      "kind": "integer",
+      "max_chars": 7
+    },
+    {
+      "name": "t",
+      "kind": "text"
+    },
+    {
+      "name": "b",
+      "kind": "boolean"
+    },
+    {
+      "name": "set",
+      "kind": "float",
+      "width": 56
+    },
+    {
+      "name": "tiny",
+      "kind": "float",
+      "width": 10
+    }
+  ],
+  "cases": [
+    {
+      "name": "default",
+      "why": "The default at the web's rem: the base's every length, unrounded at a scale of 1 (the long name's 166.5, the gutter's 91.5).",
+      "rem": 16,
+      "row_height": 30,
+      "text": {
+        "rems": 0.875
+      },
+      "number_px": 8.4,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 14.0,
+        "row_height": 30,
+        "header_height": 30,
+        "viewport_rows": 20.0,
+        "padding": 8.0,
+        "gutter": 91.5,
+        "bar_inset": 6,
+        "columns": [
+          {
+            "width": 120,
+            "budget": 12
+          },
+          {
+            "width": 166.5,
+            "budget": 17
+          },
+          {
+            "width": 75.8
+          },
+          {
+            "width": 200
+          },
+          {
+            "width": 72
+          },
+          {
+            "width": 56,
+            "budget": 4
+          },
+          {
+            "width": 40.0,
+            "budget": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "default-at-20",
+      "why": "The default at a 20 px rem: its text follows the rem (17.5 px), but the scale is 1, so every width but the integer's (the font's) is the base's, as without the feature.",
+      "rem": 20,
+      "row_height": 30,
+      "text": {
+        "rems": 0.875
+      },
+      "number_px": 10.5,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 17.5,
+        "row_height": 30,
+        "header_height": 30,
+        "viewport_rows": 20.0,
+        "padding": 8.0,
+        "gutter": 91.5,
+        "bar_inset": 6,
+        "columns": [
+          {
+            "width": 120,
+            "budget": 9
+          },
+          {
+            "width": 166.5,
+            "budget": 14
+          },
+          {
+            "width": 90.5
+          },
+          {
+            "width": 200
+          },
+          {
+            "width": 72
+          },
+          {
+            "width": 56,
+            "budget": 3
+          },
+          {
+            "width": 40.0,
+            "budget": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "px-11",
+      "why": "A dense setting (the bare host's): 11 px text scales the padding to 6 a side, a float to 94, the long name to 131 (rounded once on the total), the gutter to 72; the bar's inset is a fifth of the 18 px row, 4. A set width isn't scaled (56).",
+      "rem": 16,
+      "row_height": 18,
+      "text": {
+        "px": 11
+      },
+      "number_px": 6.6,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 11,
+        "row_height": 18,
+        "header_height": 18,
+        "viewport_rows": 33.3333,
+        "padding": 6,
+        "gutter": 72,
+        "bar_inset": 4,
+        "columns": [
+          {
+            "width": 94,
+            "budget": 12
+          },
+          {
+            "width": 131,
+            "budget": 17
+          },
+          {
+            "width": 59.2
+          },
+          {
+            "width": 157
+          },
+          {
+            "width": 57
+          },
+          {
+            "width": 56,
+            "budget": 6
+          },
+          {
+            "width": 31,
+            "budget": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "px-11-at-20",
+      "why": "The same `px` density at a 20 px rem lays out as at 16: its scale is over 14 px, not the default resolved at the rem.",
+      "rem": 20,
+      "row_height": 18,
+      "text": {
+        "px": 11
+      },
+      "number_px": 6.6,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 11,
+        "row_height": 18,
+        "header_height": 18,
+        "viewport_rows": 33.3333,
+        "padding": 6,
+        "gutter": 72,
+        "bar_inset": 4,
+        "columns": [
+          {
+            "width": 94,
+            "budget": 12
+          },
+          {
+            "width": 131,
+            "budget": 17
+          },
+          {
+            "width": 59.2
+          },
+          {
+            "width": 157
+          },
+          {
+            "width": 57
+          },
+          {
+            "width": 56,
+            "budget": 6
+          },
+          {
+            "width": 31,
+            "budget": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "rems-small-at-20",
+      "why": "A `rems` text under the default scales by its ratio to 0.875 rem whatever the rem: 0.6875 rem is 13.75 px at 20, a scale of 11/14, the padding 6 (over 14 px it'd be 8).",
+      "rem": 20,
+      "row_height": 18,
+      "text": {
+        "rems": 0.6875
+      },
+      "number_px": 8.25,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 13.75,
+        "row_height": 18,
+        "header_height": 18,
+        "viewport_rows": 33.3333,
+        "padding": 6,
+        "gutter": 72,
+        "bar_inset": 4,
+        "columns": [
+          {
+            "width": 94,
+            "budget": 9
+          },
+          {
+            "width": 131,
+            "budget": 14
+          },
+          {
+            "width": 70.75
+          },
+          {
+            "width": 157
+          },
+          {
+            "width": 57
+          },
+          {
+            "width": 56,
+            "budget": 5
+          },
+          {
+            "width": 31,
+            "budget": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "large-text",
+      "why": "A large text: the row (20) clamped up to the text (24); the least a set width is clamped to scaled (69), so the 10 px column still shows two characters.",
+      "rem": 16,
+      "row_height": 20,
+      "text": {
+        "px": 24
+      },
+      "number_px": 14.4,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 24,
+        "row_height": 24,
+        "header_height": 24,
+        "viewport_rows": 25.0,
+        "padding": 14,
+        "gutter": 157,
+        "bar_inset": 5,
+        "columns": [
+          {
+            "width": 206,
+            "budget": 12
+          },
+          {
+            "width": 285,
+            "budget": 17
+          },
+          {
+            "width": 129.8
+          },
+          {
+            "width": 343
+          },
+          {
+            "width": 123
+          },
+          {
+            "width": 69,
+            "budget": 2
+          },
+          {
+            "width": 69,
+            "budget": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "text-under-6",
+      "why": "A text under 6 px is 6, and the row under it 6: the scale is 6/14.",
+      "rem": 16,
+      "row_height": 4,
+      "text": {
+        "px": 3
+      },
+      "number_px": 3.6,
+      "view_height": 600,
+      "rows": 1567523,
+      "expect": {
+        "text_px": 6.0,
+        "row_height": 6.0,
+        "header_height": 6.0,
+        "viewport_rows": 100.0,
+        "padding": 3,
+        "gutter": 39,
+        "bar_inset": 1,
+        "columns": [
+          {
+            "width": 51,
+            "budget": 12
+          },
+          {
+            "width": 71,
+            "budget": 17
+          },
+          {
+            "width": 32.2
+          },
+          {
+            "width": 86
+          },
+          {
+            "width": 31
+          },
+          {
+            "width": 56,
+            "budget": 13
+          },
+          {
+            "width": 17,
+            "budget": 2
+          }
+        ]
+      }
+    }
+  ],
+  "controls": [
+    "row-unclamped",
+    "padding-fixed",
+    "width-scaled",
+    "inset-fixed",
+    "scale-over-default-at-rem",
+    "scale-over-14-for-rems",
+    "name-rounded-per-character",
+    "least-fixed"
+  ]
+}

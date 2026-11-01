@@ -11,6 +11,7 @@ What "the same" means for any other implementation of the table's base level (th
 | `selection.json` | `select`: presses, drags, wheels during a drag, keys, and `set_rows`, `set_columns`, `jump_to` → the selection, the top row, and the sideways scroll after each, under each kind on | `src/state/fixtures/select.rs` (`selection_scenarios`, `selection_controls_fail`), with the feature on | Hand, a step's `why` saying the rule it checks |
 | `sort.json` | `sort`: a column's kind → the cycle its arrow's clicks go through; a column's values (NULLs and ties among them) → the order a source answers, ascending and descending | `src/state/fixtures/sort.rs` (`sort_fixture_cycle`, `sort_cycle_controls_fail`), clicked through the element; `host/crate/src/rows.rs` (`sort_fixture_orders`, `sort_order_controls_fail`), the bare host's in-memory order; each with the feature on | Hand |
 | `pin.json` | `pin`: the cells' width, the columns' widths, the count, and a sideways scroll → the run in effect, its edge, the scroll's range, each drawn column's screen left, hit tests, and the scroll that brings a column into view | `src/state/fixtures/pin.rs` (`pin_fixture`, `pin_controls_fail`), against the geometry's own functions (`src/pin.rs`), with the feature on | Hand, each case's `why` saying what it pins |
+| `density.json` | `density`: a row height, a text size, and the rem size → the text and row in effect, the rows in a view, the header's height, the padding, the gutter, each column's width and a float's budget, and the bar's inset | `src/state/fixtures/density.rs` (`density_fixture`, `density_controls_fail`, `density_fixture_number_px_is_provisional`), against the table's own lengths and layout, with the feature on | Cases: hand, each case's `why` saying what it pins; `expect`: the spec's rules, applied apart from the table's code; `number_px`: provisional (0.6 em, the test app's) |
 
 `just observatory fixtures` runs the first three native tests, the same fixtures and controls against the observatory's TanStack contender (`apps/observatory/contenders/tall-table/tanstack/web/test/fixtures.test.ts`), and checks `cells.json` against what the GPUI contender draws.
 
@@ -137,3 +138,21 @@ Each of `cases` is a table's `cells_width` (CSS px, the cells area right of the 
 
 `pin_controls_fail` checks that each of `controls` fails it: `no-cap` (the count pinned whatever the view), `pinned-scroll` (the pinned columns scroll with the rest), `under-run` (a column wholly under the run still drawn), `into-view-at-gutter` (a column brought into view at the cells' left, under the run).
 
+
+## `density.json`
+
+What a DOM contender's lengths must match to draw the same cells at a density (`density`; the table's README): its CSS row height, font size, padding, and column widths, and the budgets a float rounds to. No contender builds a density yet: the observatory adds the level when both its sides build it, and until then its test names the file skipped.
+
+`columns` are laid out in every case: their `name`, `kind`, and (`integer`) `max_chars`, and a set `width` (`TallTableColumn::width`) where given. Each of `cases` is a `rem` size (px), a `row_height` (px), a `text` size (`{"px": n}` or `{"rems": n}`), a `view_height` (px, the viewport's), a row count (`rows`, for the gutter), and `number_px`, the widest advance of the characters a number is written with at the case's text size. `expect` holds:
+
+- `text_px`: the text in effect, the size resolved at the rem, at least 6. `row_height` and `header_height`: the row in effect, at least the text.
+- `viewport_rows`: `view_height / row_height`.
+- The scale: the text in effect over the default's in the text's own unit (a `px` text over 14 px, a `rems` text over 0.875 rem at the case's rem). At a scale of 1, every length below is the base's, unrounded; otherwise each is rounded to whole px.
+- `padding`: the cells' padding on each side, 8 × scale.
+- `gutter`: the row numbers' width, (7.5 × the characters of the row count written with commas + 24) × scale, rounded once on the total.
+- `bar_inset`: `custom-cells`' bar from the row's top and bottom, row / 5, rounded.
+- `columns`: each column's `width`, and a float's `budget`. A kind's width is its base width (boolean 72, float 120, text 200, …) × scale, at least the name's estimate (as the gutter's); an integer's is `max_chars × number_px + 2 × padding + 1`. A set width isn't scaled: it's clamped to 40 × scale and 1200. A float's budget is `max(1, floor((width − 2 × padding − 1) / number_px))`.
+
+`number_px` is provisional: 0.6 em at each case's size, IBM Plex Sans's digits' 600 units and the test app's advance, until it's pinned from the bare host in Chromium (`density_fixture_number_px_is_provisional` checks it's that until then).
+
+`density_controls_fail` checks that each of `controls` fails it: `row-unclamped` (a row shorter than its text kept), `padding-fixed` (8 px a side at any text), `width-scaled` (a set width scaled by the text), `inset-fixed` (the bar's 6 px at any row), `scale-over-default-at-rem` (a `px` text's scale over the default resolved at the rem), `scale-over-14-for-rems` (a `rems` text's over 14 px), `name-rounded-per-character` (the estimate's character width rounded before it's multiplied), `least-fixed` (a set width's least at 40 px at any text).

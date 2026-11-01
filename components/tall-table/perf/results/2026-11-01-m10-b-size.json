@@ -1,0 +1,218 @@
+{
+  "date": "2026-11-01",
+  "label": "m10-b-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13056,
+    "optKiB": 9640.5,
+    "brotliKiB": 2686.8
+  },
+  "homePaths": {
+    "host": 0,
+    "untrimmedControl": 987
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13068.4,
+      "optKiB": 9650.9,
+      "brotliKiB": 2690.6,
+      "moreOptKiB": 10.4,
+      "moreBrotliKiB": 3.8
+    },
+    "live": {
+      "rawKiB": 13071.9,
+      "optKiB": 9654.2,
+      "brotliKiB": 2691.1,
+      "moreOptKiB": 13.7,
+      "moreBrotliKiB": 4.3
+    },
+    "live,custom-cells": {
+      "rawKiB": 13098.8,
+      "optKiB": 9674.8,
+      "brotliKiB": 2700,
+      "moreOptKiB": 34.3,
+      "moreBrotliKiB": 13.2,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.6,
+          "moreBrotliKiB": 8.9
+        },
+        "custom-cells": {
+          "moreOptKiB": 23.9,
+          "moreBrotliKiB": 9.4
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13083.3,
+      "optKiB": 9664,
+      "brotliKiB": 2695.5,
+      "moreOptKiB": 23.5,
+      "moreBrotliKiB": 8.7,
+      "against": {
+        "live": {
+          "moreOptKiB": 9.8,
+          "moreBrotliKiB": 4.4
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13061.7,
+      "optKiB": 9645.2,
+      "brotliKiB": 2689.9,
+      "moreOptKiB": 4.7,
+      "moreBrotliKiB": 3.1
+    },
+    "select": {
+      "rawKiB": 13095.8,
+      "optKiB": 9663,
+      "brotliKiB": 2692.4,
+      "moreOptKiB": 22.5,
+      "moreBrotliKiB": 5.6
+    },
+    "copy": {
+      "rawKiB": 13138.1,
+      "optKiB": 9696.4,
+      "brotliKiB": 2703.8,
+      "moreOptKiB": 55.9,
+      "moreBrotliKiB": 17,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.4,
+          "moreBrotliKiB": 11.4
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13150.8,
+      "optKiB": 9724.6,
+      "brotliKiB": 2708.1,
+      "moreOptKiB": 84.1,
+      "moreBrotliKiB": 21.3
+    },
+    "pin": {
+      "rawKiB": 13068,
+      "optKiB": 9650.2,
+      "brotliKiB": 2689.5,
+      "moreOptKiB": 9.7,
+      "moreBrotliKiB": 2.7
+    },
+    "density": {
+      "rawKiB": 13059.5,
+      "optKiB": 9643.4,
+      "brotliKiB": 2687.9,
+      "moreOptKiB": 2.9,
+      "moreBrotliKiB": 1.1
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 27
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 23,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 10
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 206
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 15
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    },
+    "density": {
+      "markers": {
+        "seiza_tall_table7density": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state7density": {
+          "base": 0,
+          "feature": 4
+        }
+      }
+    }
+  },
+  "against": null,
+  "contender": {
+    "file": "tall_table_gpui_bg-DSR6ISp9.wasm",
+    "optKiB": 9702.8,
+    "brotliKiB": 2707.2,
+    "moreBrotliKiB": 20.4
+  },
+  "failures": []
+}

@@ -45,3 +45,7 @@ sort = []
 # (`TallTableState::set_pinned`, `TallTableEvent::Pinned`); fewer pin
 # while they'd take more than half the view.
 pin = []
+# A row height and a text size a host sets together, the table's other
+# lengths following them (`TallTableState::set_density`, `Density`), and a
+# column's width set without `resize` (`TallTableColumn::width`).
+density = []

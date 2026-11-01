@@ -247,10 +247,27 @@ impl Host {
         let count = shape.rows();
         #[cfg(feature = "follow")]
         let count = live.tail.rows.unwrap_or(shape.rows());
+        // The density (`?density=<row>,<text>[,<width>]`, by default the
+        // dense setting), the width set on every float column.
+        #[cfg(feature = "density")]
+        let (density, columns) = {
+            #[cfg(target_family = "wasm")]
+            let setting = seiza::url::param("density")
+                .and_then(|setting| Density::parse(&setting))
+                .unwrap_or_default();
+            #[cfg(not(target_family = "wasm"))]
+            let setting = Density::default();
+            (setting.density(), setting.columns(columns))
+        };
         let table = cx.new(|cx| {
-            Table::new(rows, columns, count, Paging::default(), cx)
+            #[cfg_attr(not(feature = "density"), expect(unused_mut))]
+            let mut table = Table::new(rows, columns, count, Paging::default(), cx)
                 .probe_frames(probing)
-                .probe_cells(probe_cells)
+                .probe_cells(probe_cells);
+            // Before the first frame, which lays the columns out by it.
+            #[cfg(feature = "density")]
+            table.set_density(density, cx);
+            table
         });
         let publish = Publish {
             filled_mark: Some(FILLED_MARK),
@@ -449,6 +466,78 @@ fn parse_sort(sort: &str, columns: usize) -> Option<seiza_tall_table::Sort> {
     };
     let column = column.parse().ok().filter(|column| *column < columns)?;
     Some(Sort::new(column, direction))
+}
+
+/// The host's density (`density`): a row height and a text size in px, and
+/// a width for every float column, or none (their kind's, scaled).
+#[cfg(feature = "density")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Density {
+    row: f32,
+    text: f32,
+    width: Option<f32>,
+}
+
+/// The dense setting: 18 px rows, 11 px text, 56 px floats.
+#[cfg(feature = "density")]
+impl Default for Density {
+    fn default() -> Self {
+        Self {
+            row: 18.0,
+            text: 11.0,
+            width: Some(56.0),
+        }
+    }
+}
+
+#[cfg(feature = "density")]
+impl Density {
+    /// `<row>,<text>[,<width>]`, each a positive number of px: `None` for
+    /// anything else.
+    #[cfg(any(test, target_family = "wasm"))]
+    fn parse(setting: &str) -> Option<Self> {
+        let mut numbers = setting.split(',').map(|number| {
+            number
+                .trim()
+                .parse::<f32>()
+                .ok()
+                .filter(|number| number.is_finite() && *number > 0.0)
+        });
+        let (row, text) = (numbers.next()??, numbers.next()??);
+        let width = match numbers.next() {
+            Some(width) => Some(width?),
+            None => None,
+        };
+        numbers
+            .next()
+            .is_none()
+            .then_some(Self { row, text, width })
+    }
+
+    /// The table's.
+    fn density(self) -> seiza_tall_table::Density {
+        seiza_tall_table::Density {
+            row_height: px(self.row),
+            text_size: px(self.text).into(),
+        }
+    }
+
+    /// `columns` with the width set on every float column.
+    fn columns(
+        self,
+        columns: Vec<seiza_tall_table::TallTableColumn>,
+    ) -> Vec<seiza_tall_table::TallTableColumn> {
+        let Some(width) = self.width else {
+            return columns;
+        };
+        columns
+            .into_iter()
+            .map(|column| match column.kind() {
+                seiza_tall_table::ColumnKind::Float => column.width(px(width)),
+                _ => column,
+            })
+            .collect()
+    }
 }
 
 /// What the scripts' hooks read of the source (with `copy` or `sort`
@@ -908,5 +997,45 @@ mod tests {
         // A long gap catches up on 100 ms, not on all of it.
         let rows = Feed::new(1000.0).batch(Duration::from_secs(600), 0..1_000_000);
         assert!((90..=100).contains(&rows.len()), "{} rows", rows.len());
+    }
+}
+
+#[cfg(all(test, feature = "density"))]
+mod density_tests {
+    use super::Density;
+
+    #[test]
+    fn the_density_param_parses() {
+        let parse = Density::parse;
+        assert_eq!(
+            parse("18,11,56"),
+            Some(Density {
+                row: 18.0,
+                text: 11.0,
+                width: Some(56.0)
+            })
+        );
+        assert_eq!(
+            parse("30,14"),
+            Some(Density {
+                row: 30.0,
+                text: 14.0,
+                width: None
+            })
+        );
+        assert_eq!(parse(" 24 , 12.5 "), parse("24,12.5"));
+        for bad in [
+            "",
+            "18",
+            "18,",
+            "18,x",
+            "0,11",
+            "18,11,-1",
+            "18,11,56,1",
+            "18,11,",
+        ] {
+            assert_eq!(parse(bad), None, "{bad:?}");
+        }
+        assert_eq!(Density::default(), parse("18,11,56").unwrap());
     }
 }

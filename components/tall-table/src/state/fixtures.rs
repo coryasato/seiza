@@ -53,6 +53,11 @@ mod pin;
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
 
+/// `density`: `fixtures/density.json` and its controls, and the density in
+/// a window.
+#[cfg(feature = "density")]
+mod density;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 

@@ -10,7 +10,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::activity::{Activity, ActivityStats};
-use crate::column::{CELL_PADDING, CellKind, LaidOutColumn, TallTableColumn, layout_columns};
+use crate::column::{CellKind, LaidOutColumn, Sizes, TallTableColumn, layout_columns};
 use crate::delegate::{CellValue, PageError, TallTableDelegate, TallTablePage as _};
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 use crate::flash::{self, Flashes};
@@ -142,11 +142,10 @@ impl Glyphs {
         }
     }
 
-    /// The cells' font ([`TEXT_REMS`] in the theme's family) as `window`
+    /// The cells' font (at `font_size`, in the theme's family) as `window`
     /// draws it.
-    fn read(window: &Window, cx: &App) -> Self {
+    fn read(font_size: Pixels, window: &Window, cx: &App) -> Self {
         let font = font(cx.theme().font_family.clone());
-        let font_size = rems(TEXT_REMS).to_pixels(window.rem_size());
         let text_system = window.text_system();
         let id = text_system.resolve_font(&font);
         let number_px = "0123456789.-+e"
@@ -171,15 +170,16 @@ impl Glyphs {
         }
     }
 
-    /// `columns` laid out by these glyphs (with `sort`, a sortable header's
-    /// arrow counted).
+    /// `columns` laid out by these glyphs at `sizes` (with `sort`, a
+    /// sortable header's arrow counted).
     #[inline(always)]
-    fn lay_out(&self, columns: &[TallTableColumn]) -> (Vec<LaidOutColumn>, f32) {
+    fn lay_out(&self, columns: &[TallTableColumn], sizes: Sizes) -> (Vec<LaidOutColumn>, f32) {
         layout_columns(
             columns,
             self.number_px,
             #[cfg(feature = "sort")]
-            sort::room(self.arrow_px),
+            sort::room(self.arrow_px, sizes),
+            sizes,
         )
     }
 }
@@ -259,8 +259,21 @@ fn answered<P>(load: &mut crate::PageLoad<P>) -> Option<Result<P, PageError>> {
     }
 }
 
-fn row_height() -> Pixels {
+/// The base's row height (with `density`, the default's).
+pub(crate) fn row_height() -> Pixels {
     ROW_SIZE.table_row_height()
+}
+
+/// `cell` with the cells' padding on each side: with `density`, scaled.
+#[inline(always)]
+fn padded(cell: Div, sizes: Sizes) -> Div {
+    #[cfg(feature = "density")]
+    return cell.px(px(sizes.pad()));
+    #[cfg(not(feature = "density"))]
+    {
+        let _ = sizes;
+        cell.px_2()
+    }
 }
 
 /// Where the columns are drawn without `pin`: every column scrolls. A
@@ -500,6 +513,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The columns pinned at the left (`pin`).
     #[cfg(feature = "pin")]
     pub(crate) pin_state: pin::PinState,
+    /// The host's row height and text size, and what's in effect (`density`).
+    #[cfg(feature = "density")]
+    pub(crate) density_state: density::DensityState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -520,7 +536,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx: &mut Context<Self>,
     ) -> Self {
         let glyphs = Glyphs::estimate();
-        let (laid_out, content_width) = glyphs.lay_out(&columns);
+        // The default's (`density`), set before the first frame.
+        let (laid_out, content_width) = glyphs.lay_out(&columns, Sizes::base());
         let mut table = Self {
             delegate,
             column_info: columns,
@@ -576,6 +593,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             sort_state: sort::SortState::default(),
             #[cfg(feature = "pin")]
             pin_state: pin::PinState::default(),
+            #[cfg(feature = "density")]
+            density_state: density::DensityState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -814,7 +833,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// them, so no layout leaves a stale run.
     #[cfg_attr(not(feature = "pin"), expect(unused_variables))]
     fn lay_out(&mut self, cx: &mut Context<Self>) {
-        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info);
+        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info, self.sizes());
         self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
         self.hover = None;
         self.layout_generation += 1;
@@ -883,7 +902,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     fn gutter_width(&self) -> f32 {
         let digits = format_count(self.scroll.rows()).len() as f32;
-        digits * 7.5 + 24.0
+        self.sizes().estimate(digits)
+    }
+
+    /// The lengths in effect: without `density`, the base's.
+    #[cfg(not(feature = "density"))]
+    #[inline(always)]
+    fn sizes(&self) -> Sizes {
+        Sizes
     }
 
     /// The part of the body rows are drawn in: the body minus the scrollbars.
@@ -918,7 +944,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         self.body = body;
-        let rows = f64::from(f32::from(self.viewport().height) / f32::from(row_height()));
+        self.fit_viewport(cx);
+    }
+
+    /// The viewport's rows, from its height and the row height: the top
+    /// row kept, or while following the bottom.
+    fn fit_viewport(&mut self, cx: &mut Context<Self>) {
+        let rows = f64::from(f32::from(self.viewport().height) / f32::from(self.sizes().row()));
         let before = (self.scroll.top(), self.scroll_x);
         #[cfg(feature = "follow")]
         let bottom = self.scroll.top() + self.scroll.viewport_rows();
@@ -952,7 +984,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // trackpad's sideways swipe, a little vertical in it) leaves
         // following as it is.
         #[cfg(feature = "follow")]
-        if rows != 0.0 && f64::from(x.abs()) <= (rows * f64::from(f32::from(row_height()))).abs() {
+        if rows != 0.0
+            && f64::from(x.abs()) <= (rows * f64::from(f32::from(self.sizes().row()))).abs()
+        {
             let reach = if rows > 0.0 { Reach::Down } else { Reach::Up };
             self.reader_moved(reach, self.scroll.top() + rows, cx);
         }
@@ -1250,14 +1284,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     fn on_scroll_wheel(&mut self, event: &ScrollWheelEvent, cx: &mut Context<Self>) {
-        let delta = event.delta.pixel_delta(row_height());
+        let row_h = self.sizes().row();
+        let delta = event.delta.pixel_delta(row_h);
         let (mut dx, mut dy) = (f32::from(delta.x), f32::from(delta.y));
         // A mouse wheel with Shift scrolls sideways.
         if event.modifiers.shift && dx == 0.0 {
             (dx, dy) = (dy, 0.0);
         }
         // GPUI's deltas move the content: negative y scrolls down.
-        self.scroll_by(f64::from(-dy) / f64::from(f32::from(row_height())), -dx, cx);
+        self.scroll_by(f64::from(-dy) / f64::from(f32::from(row_h)), -dx, cx);
     }
 
     fn page_rows(&self) -> f64 {
@@ -1398,7 +1433,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         {
             return None;
         }
-        let row = (self.scroll.top() + f64::from(y / f32::from(row_height()))).floor() as u64;
+        let row = (self.scroll.top() + f64::from(y / f32::from(self.sizes().row()))).floor() as u64;
         let x = self.place().content_x(x, self.scroll_x);
         let column = self
             .columns
@@ -1519,7 +1554,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let shown = cell_text(laid_out, value);
         // `shown` has no line breaks (`cell_text`).
         let cut = shown == exact
-            && self.text_width(shown.clone().into(), window) > laid_out.width - CELL_PADDING;
+            && self.text_width(shown.clone().into(), window)
+                > laid_out.width - self.sizes().padding();
         if shown == exact && !cut {
             return None;
         }
@@ -1582,7 +1618,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if !self.scroll.visible().contains(&hover.row) {
             return None;
         }
-        let row_h = row_height();
+        let row_h = self.sizes().row();
         #[cfg(feature = "pin")]
         let (left, width) = {
             let place = self.place();
@@ -1646,6 +1682,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     fn render_header(&mut self, cx: &App) -> Div {
         let theme = cx.theme();
+        let sizes = self.sizes();
         #[cfg(not(feature = "pin"))]
         let gutter = self.gutter_width();
         #[cfg(feature = "select")]
@@ -1675,19 +1712,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .is_some_and(|columns| columns.contains(&index)),
                 |cell| cell.bg(theme.table_active),
             );
-            let cell = cell
-                .absolute()
-                .top_0()
-                .h_full()
-                .left(px(place.layer_left(index, column.x, self.scroll_x)))
-                .w(px(column.width))
-                .px_2();
+            let cell = padded(
+                cell.absolute()
+                    .top_0()
+                    .h_full()
+                    .left(px(place.layer_left(index, column.x, self.scroll_x)))
+                    .w(px(column.width)),
+                sizes,
+            );
             // A sortable name ends at its arrow's gap (`sort`): after
-            // `px_2`, which sets both sides.
+            // the padding, which sets both sides.
             #[cfg(feature = "sort")]
             #[cfg_attr(not(test), expect(unused_mut))]
             let mut cell = cell.when_some(self.arrow_room(index, column), |cell, room| {
-                cell.pr(px(CELL_PADDING / 2.0 + room))
+                cell.pr(px(sizes.padding() / 2.0 + room))
             });
             // The padding the cell ends up with, for the tests.
             #[cfg(all(test, feature = "sort"))]
@@ -1695,7 +1733,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .borrow_mut()
                 .push((index, cell.style().padding.right));
             let cell = cell
-                .line_height(row_height())
+                .line_height(sizes.row())
                 .when(column.kind.numeric(), |cell| cell.text_right())
                 .truncate()
                 .child(column.name.clone());
@@ -1725,7 +1763,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let header = div()
             .relative()
             .flex_shrink_0()
-            .h(row_height())
+            .h(sizes.row())
             .bg(theme.tokens.table_head)
             .text_color(theme.table_head_foreground)
             .border_b_1()
@@ -1739,7 +1777,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     fn render_body(&mut self, cx: &mut Context<Self>) -> Div {
-        let row_h = row_height();
+        let sizes = self.sizes();
+        let row_h = sizes.row();
         let gutter = self.gutter_width();
         let visible = self.scroll.visible();
         #[cfg(any(feature = "pin", feature = "custom-cells"))]
@@ -1840,18 +1879,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     gutter_cell.when(selected, |cell| cell.bg(theme.table_active))
                 };
                 gutter_cells.push(
-                    gutter_cell
-                        .absolute()
-                        .left_0()
-                        .w(px(gutter))
-                        .top(top)
-                        .h(row_h)
-                        .px_2()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .text_color(theme.muted_foreground)
-                        .child(format_count(row + 1)),
+                    padded(
+                        gutter_cell
+                            .absolute()
+                            .left_0()
+                            .w(px(gutter))
+                            .top(top)
+                            .h(row_h),
+                        sizes,
+                    )
+                    .flex()
+                    .items_center()
+                    .justify_end()
+                    .text_color(theme.muted_foreground)
+                    .child(format_count(row + 1)),
                 );
                 // What the row draws around its cells' fills, for their
                 // text's contrast.
@@ -1905,6 +1946,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                             f32::from(top),
                                             column.width,
                                             f32::from(row_h),
+                                            sizes,
                                         )
                                     };
                                 if let Some((bounds, color)) = drawn.fill {
@@ -2025,7 +2067,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 .when(column.kind.numeric(), |cell| cell.justify_end())
                                 .child(
                                     div()
-                                        .h(px(8.))
+                                        .h(px(sizes.skeleton()))
                                         .w(relative(0.6))
                                         .rounded_sm()
                                         .bg(theme.skeleton),
@@ -2038,13 +2080,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         #[cfg(feature = "pin")]
                         let cells = &mut spanning;
                         cells.push(
-                            div()
-                                .absolute()
-                                .top(top)
-                                .h(row_h)
-                                .left_0()
-                                .right_0()
-                                .px_2()
+                            padded(div().absolute().top(top).h(row_h).left_0().right_0(), sizes)
                                 .flex()
                                 .items_center()
                                 .truncate()
@@ -2474,13 +2510,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ) -> Div {
         #[cfg(not(feature = "pin"))]
         let left = column.x - self.scroll_x;
-        div()
-            .absolute()
-            .top(top)
-            .h(height)
-            .left(px(left))
-            .w(px(column.width))
-            .px_2()
+        padded(
+            div()
+                .absolute()
+                .top(top)
+                .h(height)
+                .left(px(left))
+                .w(px(column.width)),
+            self.sizes(),
+        )
     }
 
     /// A cell holding a value. A plain block, not a flex container: GPUI
@@ -2557,11 +2595,14 @@ impl<D: TallTableDelegate> Focusable for TallTableState<D> {
 
 impl<D: TallTableDelegate> Render for TallTableState<D> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // The lengths in effect at the window's rem size (`density`).
+        #[cfg(feature = "density")]
+        self.density_at(window.rem_size(), cx);
         // Before anything is drawn, so the first frame is laid out by the
         // font itself. Read only when the font or the rem size changes.
-        let font_size = rems(TEXT_REMS).to_pixels(window.rem_size());
+        let font_size = self.sizes().text(window.rem_size());
         if self.glyphs.font_size != font_size || self.glyphs.font.family != cx.theme().font_family {
-            let glyphs = Glyphs::read(window, cx);
+            let glyphs = Glyphs::read(font_size, window, cx);
             if glyphs != self.glyphs {
                 self.glyphs = glyphs;
                 self.lay_out(cx);
@@ -2595,6 +2636,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             MouseButton::Left,
             cx.listener(|this, event: &MouseDownEvent, _, cx| this.press_select(event, cx)),
         );
+        // The cells' and the header's text (`density`); the tooltip sets
+        // its own.
+        #[cfg(feature = "density")]
+        let root = root.text_size(font_size);
         root.size_full()
             .flex()
             .flex_col()
@@ -2637,6 +2682,11 @@ pub(crate) mod sort;
 /// `pin`: the count, the run in effect, the regions, and the edge.
 #[cfg(feature = "pin")]
 pub(crate) mod pin;
+
+/// `density`: the host's row height and text size, and the lengths in
+/// effect.
+#[cfg(feature = "density")]
+pub(crate) mod density;
 
 #[cfg(test)]
 mod tests {

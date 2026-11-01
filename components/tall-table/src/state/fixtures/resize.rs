@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use super::super::{TallTableEvent, TallTableState, row_height, shown_text};
 use super::CELLS;
-use crate::column::{ColumnKind, TallTableColumn, digits_width, layout_columns};
+use crate::column::{ColumnKind, Sizes, TallTableColumn, digits_width, layout_columns};
 use crate::delegate::{CellValue, PageLoad, TallTableDelegate, TallTablePage};
 use crate::pages::RowState;
 
@@ -40,6 +40,7 @@ fn resize_mismatches(skew: isize, column: fn(f32) -> TallTableColumn) -> Vec<Str
             number_px,
             #[cfg(feature = "sort")]
             0.0,
+            Sizes::base(),
         );
         let mut column = columns.remove(0);
         column.budget = (column.budget as isize + skew).max(1) as usize;
@@ -97,6 +98,7 @@ fn resize_fixture_number_px_gives_the_budgets() {
             number_px,
             #[cfg(feature = "sort")]
             0.0,
+            Sizes::base(),
         );
         assert_eq!(
             laid_out[0].budget as u64,
@@ -136,6 +138,7 @@ fn a_kind_width_until_set() {
             8.4,
             #[cfg(feature = "sort")]
             0.0,
+            Sizes::base(),
         )
         .0[0]
             .width
@@ -413,7 +416,7 @@ fn a_drag_moves_the_edge_with_the_pointer(cx: &mut TestAppContext) {
     );
     assert_eq!(sheet.layouts.get(), layouts + 1, "the layout probe, once");
     let columns = sheet.read(|table| table.columns().to_vec());
-    assert_eq!(columns[0].set_width(), Some(px(170.)));
+    assert_eq!(columns[0].set_width(Sizes::base()), Some(px(170.)));
 }
 
 #[gpui_kit::test]
@@ -475,7 +478,11 @@ fn nothing_changed_emits_nothing(cx: &mut TestAppContext) {
     sheet.release(edge);
     assert!(sheet.widths.borrow().is_empty());
     let columns = sheet.read(|table| table.columns().to_vec());
-    assert!(columns.iter().all(|column| column.set_width().is_none()));
+    assert!(
+        columns
+            .iter()
+            .all(|column| column.set_width(Sizes::base()).is_none())
+    );
 }
 
 #[gpui_kit::test]
@@ -548,7 +555,7 @@ fn a_double_click_fits_the_drawn_rows(cx: &mut TestAppContext) {
     sheet.release(edge);
     let number_px = sheet.read(|table| table.glyphs.number_px);
     // "123.456789012345": 16 characters at the number advance.
-    let fitted = digits_width(16.0, number_px).ceil();
+    let fitted = digits_width(16.0, number_px, Sizes::base().padding()).ceil();
     assert_eq!(sheet.width(0), fitted);
     assert_eq!(*sheet.widths.borrow(), vec![vec![Some(px(fitted))]]);
     assert!(
@@ -753,5 +760,8 @@ fn a_name_with_a_line_break_fits(cx: &mut TestAppContext) {
     sheet.double_click(edge);
     // "0.3333333333333333": 18 characters, wider than "a¶b¶c".
     let number_px = sheet.read(|table| table.glyphs.number_px);
-    assert_eq!(sheet.width(0), digits_width(18.0, number_px).ceil());
+    assert_eq!(
+        sheet.width(0),
+        digits_width(18.0, number_px, Sizes::base().padding()).ceil()
+    );
 }

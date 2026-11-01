@@ -18,6 +18,8 @@ mod column;
 #[cfg(feature = "copy")]
 mod copy;
 mod delegate;
+#[cfg(feature = "density")]
+mod density;
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
 mod format;
@@ -40,6 +42,8 @@ pub use column::{ColumnKind, TallTableColumn};
 #[cfg(feature = "copy")]
 pub use copy::{CopyFailure, CopyId, CopyOptions, CopyProgress, TallTableCopy};
 pub use delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
+#[cfg(feature = "density")]
+pub use density::Density;
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
 #[cfg(feature = "custom-cells")]
