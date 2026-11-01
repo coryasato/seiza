@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M9 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, next, opening with its research), M11 (`reorder`), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M9 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, active: its research and spec done 2026-11-01), M11 (`reorder`), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -28,7 +28,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | — | Hardening: a random test of the paging, and its fixes | Done 2026-10-28 ([`docs/milestones.md`](docs/milestones.md)) |
 | M8 | `sort`: one column, ascending or descending | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
 | M9 | `pin`: columns fixed at the left | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
-| M10 | `density`: a row height, a set column width, and a text size | Planned |
+| M10 | `density`: a row height, a set column width, and a text size | Active: part A done 2026-11-01 |
 | M11 | `reorder`: drag a column to move it | Planned |
 | M12 | `context-menu`: right- and double-click events | Planned |
 | M13 | `group-headers`: header rows over column groups | Planned |
@@ -126,7 +126,7 @@ The observatory leads its comparison by scenarios, real uses (its [`docs/researc
 |---|---|---|---|---|---|
 | `follow` | Follow the tail: the view stays at the last rows read while `set_rows` grows the source, and lets go when the reader scrolls up; a way back to it | Live tail | `live` (a grown tail page kept and read again; M4's research) | No (`set_rows` exists) | — (the contender's own, on its scroller) |
 | `live` | A host says "these rows changed"; their pages are re-read (or patched) and redrawn, the scroll unmoved | Market watch | — | Yes: the changed pages are read again | — (the contender's own, through its cache) |
-| `density` | Three numbers a host sets: the row height, a column's width without `resize`'s drag, and the cells' text size (a shorter row with the same text clips its glyphs); the padding and paint fitting them; defaults unchanged. A setting on the base or a feature of its own, for its research (M10), as is how `resize`'s width model takes over a set width. Asked for 2026-10-30 | Wide sheet (its denser stops: today ~360 cells are on screen at 120 px × 30 px) | — | No | Row height and column widths in CSS (column sizing's `size`, no resizing) |
+| `density` | Three numbers a host sets: the row height, a column's width without `resize`'s drag, and the cells' text size (a shorter row with the same text clips its glyphs); the padding and paint fitting them; defaults unchanged. A feature of its own, the width shared with `resize`'s model (M10 part A; its spec under "Active milestone"). Asked for 2026-10-30 | Wide sheet (its denser stops: today ~310–340 cells are on screen at 120 px × 30 px) | — | No | Row height and column widths in CSS (column sizing's `size`, no resizing) |
 
 What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells), `density` (its denser stops), and `pin` (its key columns frozen), and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
 
@@ -158,7 +158,66 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None: M10 (`density`) is next, opening with its research. The observatory's wide sheet waits on it.
+### M10: `density`, a row height, a text size, and a set column width
+
+**What it adds** (behind the `density` feature, off by default): a row height and a text size a host sets together, the table's other lengths following them, and a column's width set without `resize`. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`density`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-01, M10 part A); the spike: [`perf/results/2026-11-01-m10-a-spike.md`](perf/results/2026-11-01-m10-a-spike.md).
+
+```rust
+// density.rs, behind `density`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Density {
+    /// The body's rows and the header: 30 px by default.
+    pub row_height: Pixels,
+    /// The cells' and the header's text: `rems(0.875)` by default.
+    pub text_size: AbsoluteLength,
+}
+impl Default for Density { /* 30 px, rems(0.875): the base's */ }
+
+// state.rs, behind `density`.
+impl<D: TallTableDelegate> TallTableState<D> {
+    /// Sets the row height and the text size; the font is read again at the
+    /// size and the columns laid out at the next frame. The top row stays
+    /// (while following, the tail), as on a resize.
+    pub fn set_density(&mut self, density: Density, cx: &mut Context<Self>);
+    /// What the host set (the layout probe's `row_height` is what's drawn).
+    pub fn density(&self) -> Density;
+}
+
+// column.rs: `TallTableColumn::width` behind `any(resize, density)`;
+// `min_width`, `max_width`, `resizable` stay `resize`'s.
+```
+
+The spec below is what part B builds; why each rule is so is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", and the root's research.
+
+- **The clamp:** where the font is read (render, where the rem size is known), the text size is at least 6 px and the row height at least the text size; the row in effect is what every site reads and what the layout probe reports. Nothing clamps further: a row the height of its text clips descenders.
+- **What follows the row height** (in effect): the viewport's rows (recomputed by `set_density` itself, through a step factored out of `set_body`, which returns early when the body's bounds haven't moved; the top row kept, or the tail while following, as a resize keeps them), a wheel's line delta, `follow`'s test of whether a move is more vertical than sideways (`scroll_by`), every y → row hit test (`hover_at`, `cell_at`, `select`'s `target_at` and `cell_clamped`), the header's height, the gutter's rows, the cells' line height, the jump's tint and edge, `select`'s tint and active cell, `sort`'s arrow box, `resize`'s bands, and `custom-cells`' bar inset (`round(row / 5)`: 6 at 30).
+- **What follows the text size,** rounded to whole px, by a scale that's the text size over the default's in its own unit (a `px` text over 14 px, a `rems` text over 0.875 rem), so `Density::default()` is a scale of 1 at any rem and a `px` density lays out the same at any rem: the cells' padding a side (`round(8 × scale)`), each kind's width, the header name's and gutter's estimates (`round((7.5 × characters + 24) × scale)`, rounded once on the total), a column's least width unless set (`round(40 × scale)`, so a float still shows two characters), and, read from the font at the size, `number_px`, an integer column's fit, a float's budget, `sort`'s arrow room, `resize`'s fit, and the tooltip's test of whether a cell is cut (`text_width` against the width less the scaled padding). The header's text follows the cells'. A set width and the tooltip's own text follow neither.
+- **A set width without `resize`:** `TallTableColumn::width` clamped to the scaled least (40 px at the default) and 1200 px, no event. With `resize`, unchanged, but for the least unless a column sets its own, which scales.
+- **The base unchanged:** each site reads through one stand-in whose methods return the base's constants without the feature (as `pin`'s `Place`); with the feature on at `Density::default()` every length is the base's, so every fixture pinned without it passes unchanged.
+- **What's the host's:** the numbers (the observatory's stops, Tycho's compact view and its menu), widths kept across queries, and saying that a `px` density doesn't follow a page zoom.
+- **The bare host** (part B, so `size` measures it; its scripts part C): `?density=<row>,<text>[,<width>]`, the width set on every float column; by default with the feature, 18,11,56 (the spike's dense setting); `?density=30,14` the control (the feature built at the base's numbers, the kind widths kept), splitting the code's cost from the drawing's. With `?perf`, `__tallTableDensity(row, text)` (the table's `set_density`, through GPUI's foreground executor).
+- **The bridge:** nothing new (the layout probe's `row_height` and the columns' widths are there); part C checks they report the row in effect and the set widths.
+- **Fixtures:** `fixtures/density.json`: cases of a row height, a text size, a view's height, and columns (kinds, or set widths) → the rows in view, the header's height, the padding, each column's width and budget, and the bar inset; `number_px` at each case's size pinned from the bare host in Chromium (provisional in part B, from the font natively; part C pins them from Chromium and re-runs B2's fixture checks against them). Run natively against the table's own functions, with cases at a rem size other than 16 (the default laid out as the base, and a `px` density laid out as at 16) and at a large text (a set width at the least showing two characters), and negative controls (`row-unclamped`, `padding-fixed`, `width-scaled`, `inset-fixed`, `scale-over-default-at-rem`, `scale-over-14-for-rems`, `name-rounded-per-character`, `least-fixed`), each failing. A DOM contender's test names it skipped until the observatory builds a level with `density`. The fixtures pinned without `density` unchanged in the all-on run (`Density::default()`).
+- **The random test** gains a `density` step (a few row and text pairs, the default among them), placed from each case's scheduler seed; no invariant or control. It feeds the paging a new input (the viewport's rows), so **the soak runs** on part B's final build (`CLAUDE.md`, rule 5).
+- **The scripts** (part C): `perf.ts --density <row>,<text>[,<width>]` (the host's param) and, in every segment, the presented frames (the recorder's, a second) beside the late share, which reads rAF intervals and read 0% while GPUI drew on every other rAF (the spike); read against the base's in the same segment, since the base presents on only ~85% of rAFs while keeping up; the throttled segments' waits follow the frame time, or a segment not reached is reported as such, never a failure of the run.
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
+
+- **A. Research and spec** (no shipped code). *Done 2026-11-01:* the research in the root's `docs/research/tall-table-features.md`, "`density`"; six decisions in `docs/DECISIONS.md`, "Features"; the spike's note; a `docs/LESSONS.md` entry; the API above and the checks below.
+- **B. The density.** `Density` and `set_density`, the clamp, the stand-in and every site through it, the derived lengths, `width` out from behind `resize`; the host's `density` feature forwarding the table's, with `?density=`, so `size` measures it; `density` in `perf/size.ts`'s `FEATURES` and the justfile's `test` runs; the fixture (its `number_px` provisional until part C pins it); the random test's step; native tests; the soak. Checks B1–B3.
+- **C. The scripts and the browsers.** The host's `?perf` hook; `perf.ts`'s `--density` and presented frames, its waits; the smoke check's density runs; `density.json`'s `number_px` pinned from Chromium. Checks C1–C2.
+- **D. The measurement and the close.** The cost on the final build at the control and at a few dense settings (the cells against frame work and the presented frames, against the base's), then every remaining check and the close-out ("Closing a milestone", above).
+
+**Done when:**
+- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "`density`"; its decisions in `docs/DECISIONS.md`; the API and the checks here. *Evidence:* the research section (`DataTable`'s sizes and TanStack's column sizing read; a feature chosen over a base setting; two numbers set together and a width, no presets; what follows each; the clamp; the spike); `docs/DECISIONS.md`, "Features" (2026-11-01, M10 part A, six entries); [`perf/results/2026-11-01-m10-a-spike.md`](perf/results/2026-11-01-m10-a-spike.md).
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M10's parent>` (the base after wasm-opt within 0.1 KiB, no `density` symbols in it, and the `density` build's present; every other feature's build unchanged by `density`'s code, or its growth explained as `pin`'s was). `just tall-table test` passes with every feature off, each on (`density` among them), and all on, the fixtures pinned without `density` unchanged; `just tall-table lint` passes; `just tall-table soak` passes on the final build.
+- [ ] **B2. Density, natively:** `density.json` passes and each control fails. In a window: `set_density` keeps the top row and changes the rows in view (and so the pages wanted), also with the header's height held (bounds unchanged); while following, keeps the tail; with `follow`, a move's direction weighed at the row in effect (a mostly sideways move at a short row leaving following as it is); the header, the gutter, a cell's hit test, hover and the tooltip (in the theme's size) at a short row, the tooltip opening for a cut value and not for one shown whole at a small and a large text; the clamp (a row under the text drawn at the text, `density()` as set, the probe's `row_height` in effect; a text under 6 px at 6); `Density::default()` laying out every column, padding, and the bar inset as without the feature, at the web's rem and at another; a set width without `resize` clamped (its least scaled) and not scaled by the text, with `resize` dragged and fitted as before (the fit at the text's size); `sort`'s arrow and `select`'s tint at a short row.
+- [ ] **B3. The host builds it:** the bare host's `density` feature forwards the table's, `?density=` setting it at run time; `just tall-table size` reports the `density` build with its markers.
+- [ ] **C1. In the browsers:** `just tall-table smoke` with `density`, in both shapes, in Chromium, Firefox, and WebKit: at the dense default the layout probe's `row_height` and widths are what was set, the drawn rows' tops and the cells' lefts agree with it, the text inside its row; `?density=30,14` screens the same as the base; `__tallTableDensity` changing it at run time keeping the top row; with `select`, `resize`, `sort`, and `pin`, a press, a band, an arrow, and the pin's edge at the dense setting. `density.json`'s `number_px` pinned from Chromium and the native run passing with it.
+- [ ] **C2. The scripts measure it:** `perf.ts` on a `density` build at the dense default and at `--density 30,14`, every segment with its presented frames; the throttled segments reported (reached or not), not failing the run. Reference and throttled, cold, run once each (the medians are D1's).
+- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base; the scroll and flings at `--density 30,14` against the base's spread at the same place in the session (the code's cost), and in the wide shape at a few dense settings (the cells on screen against frame work and the presented frames against the base's: where between ~340 and ~1,130 cells the reference run loses the display's rate, the curve the observatory's dial reads), reference and throttled, median of 10. On the final build. In `perf/results/` and the README's Features table.
+- [ ] **D2. The README:** `density`'s use (`Density`, `set_density`, `density()`, `TallTableColumn::width` without `resize`), what follows each number and what doesn't (a set width, the tooltip), the clamp; its limits (no header height of its own; no presets; the cost grows with the cells, and where the reference run stops holding the display's rate, from D1); canvas tradeoffs: a `px` density doesn't follow a page zoom.
+- [ ] **D3. Waiting apps told:** the observatory's "Waiting on" row for `density` flipped to *Ready* (the date and tall-table M10); `density` joins Tycho's "Ready so far" list.
 
 ---
 
@@ -179,16 +238,6 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 ## Next milestones
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
-
-### M10: `density`, a row height, a set column width, and a text size (draft)
-
-Its spec until part A writes it is its row under "Asked for by the observatory's scenarios". What its research settles:
-
-- **Setting or feature:** a row height on the state (gpui-kit's `DataTable` takes a `Size` through `Sizable::with_size`: 26, 30, 32, or 40 px, or any), and `TallTableColumn::width` out from behind `resize`, against a Cargo feature of its own. A setting changes the base for every host (its bytes measured, its defaults unchanged); a feature keeps the base as it is.
-- **What follows the row height:** the scroll model's rows (`row_height()`'s callers: the viewport's rows, the wheel's pixel delta, `hover_at`, the probe's `row_height`), the cells' padding, `custom-cells`' bar inset, the gutter, the jump's edge, `select`'s tint, and the fixtures that assume 30 px (`paging.json`'s views, `selection.json`, `pin.json`).
-- **What follows the text size:** the glyph measurements (`Glyphs`, read once per font today: once per size), the widths by kind and an integer column's fit, a float's budget, the tooltip, `resize`'s fit, `cells.json`'s `number_px` and budgets, and the header. The observatory names its stops by the cells on screen, so the three numbers are set together; whether the table offers presets (as `DataTable`'s sizes) or the three alone is for the research.
-- **A set width without `resize`:** how `resize`'s min, max, and fit take over a width set this way, and `cells.json`'s budgets (a float's budget already follows its width).
-- **The cost:** the base's bytes with the setting, and frame work in the wide shape at a dense setting (more cells a frame, at a smaller text), the number the observatory's dial leans on.
 
 M11's (`reorder`) is written after its research, which opens it once M10 closes; until then its spec is its row under "Features".
 
@@ -221,4 +270,5 @@ Not planned; noted 2026-10-24 after the manual check of `custom-cells`. The host
 
 - **More late frames in a throttled wide fling with a feature built** (found in M4 part D with `follow`, again in M5 part D with `resize`): with `follow`, over 20 runs each, in both orders, ~8% late (median) against the base's ~3.5%, ranges overlapping (base 0.5–9.6%, `follow` 4.0–12.1%); with `resize`, 5.1% against 2.0% over 10 each (base 1.5–8.4, `resize` 1.0–12.0), its runs' p95 at ~30 ms in 7 of 10 against the base's 3 (the two modes ~15 and ~30 ms). With `select` (M6 part D), 4.1% against 2.75% (base 0.5–8.4, `select` 1.5–6.8), with no frame cost measured in any segment. With `pin` (M9 part D) it didn't show: 1.96% against the base's 2.99% (base 1.5–6.8, `pin` 0.5–4.5). Work per frame, busy time, and placeholders the same; not in the narrow fling or any reference segment. `follow`'s code on that path is a comparison per wheel and an early return per page landing, and `resize`'s the bands' ~0.1 ms a frame, which every reference segment shows without a late frame, so it's likely not either feature's code (the build's layout, say). Worth a trace comparison of the two builds' slow frames before an app adopts `follow` on a slow machine; not a blocker for the feature, whose frame work matches.
 - **Pages of the visible columns only** (two-dimensional paging): a page holds every column of its rows, so at the wide shape's 500 floats it's ~4 MB of Arrow and the 64 MiB cache holds ~16 pages. A page of the visible column range would cut the bytes read, sent, and decoded per frame of a sideways scroll, but it changes the delegate's unit and every paging decision, and a sideways scroll would then read pages too. Noted 2026-10-30 from the observatory's wide sheet, which keeps full-row pages (the same on both sides); worth research only if its data path measures the page's cost as the wide sheet's bottleneck.
+- **Cheaper cells for every density:** frame work grows about in a straight line with the cells on screen, and a dense wide sheet falls behind the display at the reference run (M10 part A's spike, [`perf/results/2026-11-01-m10-a-spike.md`](perf/results/2026-11-01-m10-a-spike.md)). Each cell is a `div` with its shaped line; the cells' text drawn by one element per layer (as `custom-cells`' quads are by one canvas) might cut the per-cell part for every host. Worth a spike once M10's part D has found where the rate is lost, and before an app needs more cells than that.
 - **Vertical cell borders** (`DataTable`'s `bordered`): the base draws row lines but no column lines. Nobody has asked; a wide sheet of heat cells may want them.

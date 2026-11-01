@@ -1,0 +1,82 @@
+{
+  "date": "2026-11-01",
+  "label": "spike-density-dense-t",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "protocol": {
+    "browser": "chromium headless=new",
+    "viewport": "1440x900",
+    "dpr": 2,
+    "runs": 1,
+    "cold": true,
+    "scroll": {
+      "px": 300,
+      "everyMs": 16,
+      "steps": 125
+    },
+    "flingMs": 3000,
+    "tailMs": 300,
+    "build": "dense-spike",
+    "cells": null
+  },
+  "results": {
+    "wide": {
+      "throttled": {
+        "runs": [
+          {
+            "scroll": {
+              "frames": 32,
+              "workP50Ms": 90.1,
+              "workP95Ms": 98.62,
+              "workMaxMs": 103.11,
+              "busyMs": 2818.63,
+              "outsideFramesMs": 51.99,
+              "recorder": {
+                "frames": 31,
+                "p50Ms": 88.42,
+                "p95Ms": 96.2
+              },
+              "intervals": {
+                "p50Ms": 83.33,
+                "p95Ms": 100,
+                "maxMs": 116.66
+              },
+              "latePct": 96.88,
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 1128,
+                "max": 1152
+              },
+              "windowMs": 2856.08
+            }
+          }
+        ],
+        "summary": {
+          "scroll": {
+            "frames": 32,
+            "workP50Ms": 90.1,
+            "workP95Ms": 98.62,
+            "workMaxMs": 103.11,
+            "busyMs": 2818.63,
+            "outsideFramesMs": 51.99,
+            "recorder.frames": 31,
+            "recorder.p50Ms": 88.42,
+            "recorder.p95Ms": 96.2,
+            "intervals.p50Ms": 83.33,
+            "intervals.p95Ms": 100,
+            "intervals.maxMs": 116.66,
+            "latePct": 96.88,
+            "placeholderPct": 0,
+            "cells.p50": 1128,
+            "cells.max": 1152,
+            "windowMs": 2856.08
+          }
+        }
+      }
+    }
+  },
+  "failures": [
+    "wide throttled run 1: page.waitForFunction: Timeout 30000ms exceeded."
+  ]
+}
