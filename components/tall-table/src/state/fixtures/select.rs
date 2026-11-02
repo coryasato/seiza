@@ -13,8 +13,8 @@ use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::{
     App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, KeyBinding,
     Modifiers, MouseButton, MouseDownEvent, ParentElement as _, Pixels, Point, Render, ScrollDelta,
-    ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, VisualTestContext, Window, actions,
-    div, point, px, size,
+    ScrollEvent, ScrollSource, Styled as _, TestAppContext, TouchPhase, VisualTestContext, Window,
+    actions, div, point, px, size,
 };
 use serde_json::Value;
 
@@ -306,11 +306,12 @@ impl<'a> Sheet<'a> {
 
     fn wheel(&mut self, at: Point<Pixels>, rows: f32) {
         self.pointer = at;
-        self.cx.simulate_event(ScrollWheelEvent {
+        self.cx.simulate_event(ScrollEvent {
             position: at,
             delta: ScrollDelta::Lines(point(0., -rows)),
             modifiers: Modifiers::default(),
             touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
         });
         self.draw();
     }

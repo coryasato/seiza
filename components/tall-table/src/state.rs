@@ -1283,7 +1283,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx.notify();
     }
 
-    fn on_scroll_wheel(&mut self, event: &ScrollWheelEvent, cx: &mut Context<Self>) {
+    fn on_scroll_wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
         let row_h = self.sizes().row();
         let delta = event.delta.pixel_delta(row_h);
         let (mut dx, mut dy) = (f32::from(delta.x), f32::from(delta.y));
@@ -2245,7 +2245,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .flex_1()
             .min_h_0()
             .overflow_hidden()
-            .on_scroll_wheel(cx.listener(|this, event, _, cx| this.on_scroll_wheel(event, cx)))
+            .on_scroll(cx.listener(|this, event, _, cx| this.on_scroll_wheel(event, cx)))
             .child(
                 // Measures the body, and follows a scrollbar drag anywhere in
                 // the window until the button comes up.
@@ -2327,7 +2327,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         #[cfg(feature = "select")]
                         {
                             let wheeling = entity.clone();
-                            window.on_mouse_event(move |event: &ScrollWheelEvent, phase, _, cx| {
+                            window.on_mouse_event(move |event: &ScrollEvent, phase, _, cx| {
                                 if phase == DispatchPhase::Capture
                                     && wheeling.read(cx).is_selecting()
                                 {

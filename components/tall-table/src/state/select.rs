@@ -521,7 +521,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// A wheel anywhere in the window during a drag: the body scrolls as
     /// the base's wheel scrolls it, and the head follows the cell now under
     /// the pointer.
-    pub(super) fn select_wheel(&mut self, event: &ScrollWheelEvent, cx: &mut Context<Self>) {
+    pub(super) fn select_wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
         self.on_scroll_wheel(event, cx);
         self.select_drag_to(event.position, cx);
     }

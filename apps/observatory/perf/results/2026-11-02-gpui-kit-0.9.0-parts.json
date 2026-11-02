@@ -1,0 +1,289 @@
+{
+  "date": "2026-11-02",
+  "label": "gpui-kit-0.9.0-parts",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "shipped": {
+    "file": "tall_table_gpui_bg-CnoTIvj2.wasm",
+    "rawKiB": 9900.1,
+    "brotliKiB": 2768.1
+  },
+  "page": {
+    "html": {
+      "brotliKiB": 11.1,
+      "placeholderFontKiB": 8.5,
+      "restKiB": 2.6,
+      "fontBinaryKiB": 8.5
+    },
+    "js": {
+      "file": "index-CYXNpE9x.js",
+      "brotliKiB": 22.1,
+      "glueKiB": 19.4,
+      "restKiB": 2.6
+    }
+  },
+  "namedCodeDeltaBytes": 7711,
+  "brotliAloneSumKiB": 2762,
+  "parts": [
+    {
+      "part": "framework",
+      "functions": 19849,
+      "rawKiB": 7098.6,
+      "brotliAloneKiB": 2050.6,
+      "brotliKiB": 2055.1,
+      "sharePct": 74.2
+    },
+    {
+      "part": "component",
+      "functions": 116,
+      "rawKiB": 14.5,
+      "brotliAloneKiB": 6.8,
+      "brotliKiB": 6.9,
+      "sharePct": 0.2
+    },
+    {
+      "part": "data layer",
+      "functions": 144,
+      "rawKiB": 30.7,
+      "brotliAloneKiB": 11.2,
+      "brotliKiB": 11.3,
+      "sharePct": 0.4
+    },
+    {
+      "part": "host",
+      "functions": 72,
+      "rawKiB": 14.8,
+      "brotliAloneKiB": 6.3,
+      "brotliKiB": 6.3,
+      "sharePct": 0.2
+    },
+    {
+      "part": "runtime",
+      "functions": 2868,
+      "rawKiB": 406,
+      "brotliAloneKiB": 123.6,
+      "brotliKiB": 123.9,
+      "sharePct": 4.5
+    },
+    {
+      "part": "static data",
+      "functions": null,
+      "rawKiB": 2213.7,
+      "brotliAloneKiB": 523.9,
+      "brotliKiB": 525,
+      "sharePct": 19
+    },
+    {
+      "part": "other sections",
+      "functions": null,
+      "rawKiB": 99,
+      "brotliAloneKiB": 39.6,
+      "brotliKiB": 39.7,
+      "sharePct": 1.4
+    }
+  ],
+  "topCrates": [
+    {
+      "crate": "gpui",
+      "part": "framework",
+      "rawKiB": 1045.6
+    },
+    {
+      "crate": "naga",
+      "part": "framework",
+      "rawKiB": 572.7
+    },
+    {
+      "crate": "wgpu",
+      "part": "framework",
+      "rawKiB": 280.7
+    },
+    {
+      "crate": "gpui_base",
+      "part": "framework",
+      "rawKiB": 278.4
+    },
+    {
+      "crate": "gpui_component",
+      "part": "framework",
+      "rawKiB": 266.2
+    },
+    {
+      "crate": "wgpu_core",
+      "part": "framework",
+      "rawKiB": 232.6
+    },
+    {
+      "crate": "read_fonts",
+      "part": "framework",
+      "rawKiB": 230.4
+    },
+    {
+      "crate": "skrifa",
+      "part": "framework",
+      "rawKiB": 223.4
+    },
+    {
+      "crate": "regex_automata",
+      "part": "framework",
+      "rawKiB": 218.9
+    },
+    {
+      "crate": "zune_jpeg",
+      "part": "framework",
+      "rawKiB": 216.8
+    },
+    {
+      "crate": "taffy",
+      "part": "framework",
+      "rawKiB": 200.8
+    },
+    {
+      "crate": "usvg",
+      "part": "framework",
+      "rawKiB": 195.3
+    },
+    {
+      "crate": "harfrust",
+      "part": "framework",
+      "rawKiB": 180
+    },
+    {
+      "crate": "tiny_skia",
+      "part": "framework",
+      "rawKiB": 170.5
+    },
+    {
+      "crate": "image_webp",
+      "part": "framework",
+      "rawKiB": 151.3
+    },
+    {
+      "crate": "image",
+      "part": "framework",
+      "rawKiB": 150.8
+    },
+    {
+      "crate": "gpui_web",
+      "part": "framework",
+      "rawKiB": 146.4
+    },
+    {
+      "crate": "core",
+      "part": "runtime",
+      "rawKiB": 144.3
+    },
+    {
+      "crate": "wgpu_hal",
+      "part": "framework",
+      "rawKiB": 140.4
+    },
+    {
+      "crate": "cosmic_text",
+      "part": "framework",
+      "rawKiB": 139.5
+    },
+    {
+      "crate": "(unnamed)",
+      "part": "runtime",
+      "rawKiB": 130.6
+    },
+    {
+      "crate": "ttf_parser",
+      "part": "framework",
+      "rawKiB": 123.4
+    },
+    {
+      "crate": "serde_json",
+      "part": "framework",
+      "rawKiB": 123.1
+    },
+    {
+      "crate": "exr",
+      "part": "framework",
+      "rawKiB": 111.5
+    },
+    {
+      "crate": "hashbrown",
+      "part": "framework",
+      "rawKiB": 106.9
+    },
+    {
+      "crate": "markdown",
+      "part": "framework",
+      "rawKiB": 104.2
+    },
+    {
+      "crate": "zeno",
+      "part": "framework",
+      "rawKiB": 94.4
+    },
+    {
+      "crate": "rustybuzz",
+      "part": "framework",
+      "rawKiB": 94.2
+    },
+    {
+      "crate": "regex_syntax",
+      "part": "framework",
+      "rawKiB": 93.2
+    },
+    {
+      "crate": "fontdb",
+      "part": "framework",
+      "rawKiB": 82.9
+    },
+    {
+      "crate": "html5ever",
+      "part": "framework",
+      "rawKiB": 79.1
+    },
+    {
+      "crate": "resvg",
+      "part": "framework",
+      "rawKiB": 77.6
+    },
+    {
+      "crate": "png",
+      "part": "framework",
+      "rawKiB": 75.1
+    },
+    {
+      "crate": "aho_corasick",
+      "part": "framework",
+      "rawKiB": 68.7
+    },
+    {
+      "crate": "gpui_wgpu",
+      "part": "framework",
+      "rawKiB": 62
+    },
+    {
+      "crate": "tiff",
+      "part": "framework",
+      "rawKiB": 55.3
+    },
+    {
+      "crate": "smallvec",
+      "part": "framework",
+      "rawKiB": 45.8
+    },
+    {
+      "crate": "lyon_tessellation",
+      "part": "framework",
+      "rawKiB": 40
+    },
+    {
+      "crate": "alloc",
+      "part": "runtime",
+      "rawKiB": 36.9
+    },
+    {
+      "crate": "swash",
+      "part": "framework",
+      "rawKiB": 31.1
+    }
+  ],
+  "failures": []
+}
