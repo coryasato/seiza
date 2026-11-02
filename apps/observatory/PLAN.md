@@ -22,7 +22,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M5 | The observatory page (parts 0, A, A1–A2, B, C, D1–D4) | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | The deploy | Done 2026-10-21 ([`docs/milestones.md`](docs/milestones.md)) |
 | M7 | `trim-paths`: no home paths in the shipped wasm; the asteroids credited; redeployed | Done 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)) |
-| M8 | The scenarios on the page: the design (a design session, no code) | Planned |
+| M8 | The scenarios on the page: the design (a design session, no code) | Active: designed 2026-11-02, in review |
 | M9 | Scenario: wide sheet | Planned; tall-table M10 (`density`) ready 2026-11-01 |
 | M10 | Scenario: market watch | Planned |
 | M11 | Scenario: live tail | Planned |
@@ -50,7 +50,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-None: M7, `trim-paths` and the asteroids' credit, closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Next, in order: M8 (the scenarios' design), then M9 (the wide sheet), the table's `density` ready (tall-table M10, "Waiting on"). The table's M10 and this app's M8 don't depend on each other. The scenarios were planned as milestones on 2026-10-30 ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios").
+M8, the scenarios' design ("Next milestones" below): one part, one session, its three checks met 2026-11-02 and in review. It closes once the design is agreed (its spec and evidence moved to `docs/milestones.md`, a `docs/LESSONS.md` entry); M9 (the wide sheet) follows.
 
 ---
 
@@ -76,9 +76,9 @@ How a visitor picks a scenario and a stop, and what the contender's window shows
 - **The description below the window** per scenario (what it models, the mechanisms behind its result), its data's credit, and "measured with …" (the versions its numbers came from; the base level's results predate the field, so theirs are read once from the lockfiles at their commits); and the phone.
 
 **Done when:**
-- [ ] A design canvas (an artifact): the chosen design in light and dark, desktop and phone, the picker and the dial interactive; the options compared, and why one won.
-- [ ] A decision under `docs/DECISIONS.md`, "Page"; the research's open question on presentation closed there.
-- [ ] What it asks of the contenders (the URL parameters a frame takes, any mark a scenario's readings need) listed for M9's part A.
+- [x] A design canvas (an artifact): the chosen design in light and dark, desktop and phone, the picker and the dial interactive; the options compared, and why one won. *Evidence:* https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK, 16 boards: the main board interactive (the sidebar's scenarios with each switch's load states and its collapsible list, the crumb's scenario menu, the dial, the toggle, Compare and its keeps-up chart, the explainers, the theme); every scenario drawn (market watch dark, live tail loading, the admin table's capabilities, the monitoring wall's eight tables, the overview); the crumb's menu open; five phone boards (the crumb's menu, the dial's menu, the panel, below the window); the description; the two options not chosen (a title-bar picker, tabs). Every number but Big file's is a sketch, and the canvas says so.
+- [x] A decision under `docs/DECISIONS.md`, "Page"; the research's open question on presentation closed there. *Evidence:* three bullets of 2026-11-02 (a route per scenario and the dial; a switch is a load; the numbers per scenario); the research's open questions on presentation and on naming the mechanisms marked decided.
+- [x] What it asks of the contenders (the URL parameters a frame takes, any mark a scenario's readings need) listed for M9's part A. *Evidence:* M9's part A, "M8's asks", below.
 
 ### M9: Scenario: wide sheet
 
@@ -94,6 +94,7 @@ Why `density`: the table's base at 500 columns (tall-table M1, [its results](../
   - **The slow device:** at 4× CPU a steady scroll already drops frames in both shapes at the base, so every stop may fail on both sides there. Either stops below the base for it, or "neither holds its rate at any stop" said plainly; decided here, before the long run.
   - **The TanStack side's counterparts:** two-axis virtualization (a column virtualizer beside the rows'), cell renderers matched to `paint.json` (its colors are Chromium's `color-mix(in oklab)`, which the DOM side uses itself), and pinned columns matched to `pin.json`. A spike of the one risky combination: sticky pinned columns beside a column virtualizer, inside the scroll model's translated content (the gutter is sticky there already).
   - **The scenario in the root protocol** (root `CLAUDE.md`, "Comparison protocol", and root `docs/DECISIONS.md`): its workload, a build per level, and the versions in every results file (recorded by `shared-web/perf/protocol.ts`, beside the machine label, so Tycho's results gain them too); and M8's asks of the contenders.
+  - **M8's asks** (`docs/DECISIONS.md`, "Page", 2026-11-02), settled with the protocol item above: (1) `contenders/scenarios.ts`, the one list of scenarios (id, label, level, data, stops with their ids and parameters, the default stop), read by the page, the contenders, and the perf scripts, as `paths.ts` is; the page's `ROUTES` and the sidebar's items come from it. (2) A frame's URL gains `?scenario=<id>` (two scenarios share each of two levels: Big file and the admin table the base, market watch and the monitoring wall `live`) and `?stop=<id>`, beside `?theme=` and `?measure`; a contender without them loads its default, so today's base level is unchanged. (3) No new mark for the wide sheet: its readings are today's. To check: Smooth counts a sideways scroll on both sides (a horizontal wheel and Shift+wheel are wheel events already; GPUI's Left and Right against `live.ts`'s scrolling keys). "Loading the app…" is the frame before `contender:usable`, and the cache list in the state's explainer is the frame's Resource Timing (a zero `transferSize`): no ask. The cells on screen beside the dial are computed by the page from the stop's parameters and the frame's size: no ask. (4) The cold numbers per stop: results files labelled `<scenario>-<stop>`, resolved by `web/cold.ts` per scenario and stop, the versions in each. (5) For later: Shown in needs each contender to publish, always (not only with `?measure`), the stamp of the oldest change in each presented frame, read by the page at 4 Hz; specced in market watch's part A.
   - **The suite's time** for the stops chosen, against the full protocol ("Every scenario milestone"). Ends with the checks below written.
 - **B: the data file and the GPUI contender at the level.** The file: its `prep` script and pinned source, `MANIFEST.json`'s entry (with its license and credit), and the hosting for several files (the Worker's edge cache keyed per file, not by one `DATA_SHA256`; `prep.ts`, `contenders/data.ts`, the deploy, `worker-check`); `cell-fixture` over it. The contender: a build at the level (`custom-cells`, `pin`, `density`) at a base of its own beside the base level's, staged and served by the Worker, its TTFP and wasm budgets; the stop from its URL, the file and its page SQL, the paint, the pin, the density; the fixtures natively; its wasm with the features recorded.
 - **C: the TanStack contender at the level,** a build of its own beside the base level's, with its first-paint JS budgets: `paint.json` and `pin.json` run in TS with their controls; `tanstack-parity` extended to the sideways scroll and the pinned edge.

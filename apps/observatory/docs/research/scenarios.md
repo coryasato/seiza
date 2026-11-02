@@ -110,7 +110,7 @@ The root `CLAUDE.md`'s "Comparison protocol" defines a comparison by its level (
 
 ## Open questions
 
-- **Saying "canvas or WebAssembly" on the page:** whether each scenario names the mechanisms behind its result now (A against B and C), or waits until a Glide contender can measure the split.
+- ~~**Saying "canvas or WebAssembly" on the page.**~~ Decided 2026-11-02: each scenario names its mechanisms now, cost per cell as the canvas's, and says the split isn't measured yet ([`../DECISIONS.md`](../DECISIONS.md), "Page").
 - **The stops per scenario:** how many, and what each holds, decided in its milestone's part A.
 - **The engine's feed:** where market watch's seeded generator lives (`engines/duckdb/`, behind a feature, or the observatory's own worker code), and DuckDB-Wasm's update rate in its worker, which likely caps its dial (the table keeps up past it from memory). A spike opens market watch's milestone. Live tail's replay inserts nothing ("Data").
-- **How the page presents scenarios:** a picker in the contender's window, a route per scenario (`/observatory/tall-table/<scenario>`), or both. Decided in the design milestone that comes before the first scenario.
+- ~~**How the page presents scenarios.**~~ Decided 2026-11-02: a route per scenario, listed in the sidebar, its stops on a dial in the window's title bar ([`../DECISIONS.md`](../DECISIONS.md), "Page").
