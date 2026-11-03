@@ -105,3 +105,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - The paths cost almost nothing on the wire. Taking 979 of them out removed 40.9 KiB after wasm-opt but only 0.8 KiB brotli, so the wasm budget could never have noticed them. Only a search of the bytes finds them.
 - An unstable Cargo setting didn't need a `-Z` flag on the pinned nightly: `cargo-features = ["trim-paths"]` in the root manifest was enough, and `"object"` covered every panic location on the first try.
 - The asteroids' source states no terms. The SBDB Query API's documentation gives none, and JPL's use policy covers only images and video. The credit follows that policy's line ("Courtesy NASA/JPL-Caltech"), and `MANIFEST.json` records the terms as found, not as a license.
+
+## M8: the scenarios on the page, designed (2026-11-02)
+
+**Results:** none measured: a design session. The design: https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK
+
+**Surprises:**
+- The design's biggest change wasn't about scenarios. Designing their picker showed the Overview was really the TallTable's page, so the observatory gained a page per component, and the base level lost the component's route.
+- The picker the plan had rejected came back in a place that works. A picker in the window's title bar can't be in the prerendered HTML; the same menu on the breadcrumb is, because each route's HTML already knows its scenario.
+- Four drawings of the wins (dots, a bar, chips, a small spectrum) all failed for one reason: each was a tally, and a tally can't say when to pick which side. A sentence could. Charts of the same finding didn't add to it either: the two lines never cross, so the "crossover" is a drop.
+- The site's sidebar fill is barely lighter than the sidebar, so an active item read as unmarked. Muting every other item's text made the active one stand out without touching the site's tokens.
+
