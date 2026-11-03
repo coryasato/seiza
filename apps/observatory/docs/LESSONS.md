@@ -150,3 +150,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - A SQL template's comment is still substituted. `prep-ghcn.sql`'s header named its placeholders, and the 365-line column list replaced the comment's mention too, breaking out of the comment.
 - An engine page's own `value` method shadows the table trait's. A wrapper calling `self.page.value(…)` got DuckDB's `Value` back, not the table's `CellValue`. It has to call the trait's method by name.
 - `cold.ts` dated its results by UTC, so an evening run wrote tomorrow's date. `shared-web/perf/`'s `localDate` already existed for this.
+
+## M9 part C: the TanStack contender at the wide level (2026-11-03)
+
+[Results](../perf/results/2026-11-03-m9-c.md).
+
+- The build's CSS minifier rewrites custom properties' values. `theme.css`'s `#ffffff` reached the page as `#fff`, so reading a theme color from a variable's text broke only in the release build. A page that needs a theme color as a number has to read it through a computed style.
+- Porting the table's lengths in f64 needed no f32 emulation. Every density, pin, and paint case and control matched the native results to the pixel, the rounded scales included.
+- The DOM side draws one more row than GPUI at every stop (396 against 384 cells at the 26 px stop, 4.2% over its label). Headless Chromium hides scrollbars, and GPUI always keeps a strip for its horizontal one. The 5% check still holds, but with little room, and part D's per-cell numbers need to count each side's own cells.
+- A two-way race on `waitMark` crashes the script when the loser times out with nothing catching it. A longer run makes it surface: `wide.ts` ran both sides, outlived the 60 s timeout, and died on an unhandled rejection after its checks had passed.
+- Node's type stripping rejects TypeScript parameter properties (`constructor(readonly lo: number)`). A module the node tests import has to spell its fields out.

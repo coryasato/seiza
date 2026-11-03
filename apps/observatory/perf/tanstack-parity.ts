@@ -36,10 +36,20 @@
 //   ring's color on both contenders; a press outside the table keeps the
 //   focus (and the keys); blurred, the border's color; a press on a cell or
 //   on the track focuses it again.
+// - The wide level (all three; the wide sheet at its default stop): the
+//   pinned edge's line where the GPUI contender's is (Chromium); a sideways
+//   wheel scrolls the scrolled columns by the scroll and holds the pinned
+//   ones and the row numbers to the pixel (the run's screenshot the same),
+//   the header's names over their columns; a scrolled cell under the run
+//   is covered by the pinned one (the hit test there finds it), right of
+//   the edge a scrolled one; Shift+wheel scrolls sideways as a horizontal
+//   wheel does; a vertical wheel holds the header and its pinned names to
+//   the pixel, the pinned cells at their place in the new rows. Control:
+//   the screenshot of a region that scrolls differs.
 //
 // Usage: node apps/observatory/perf/tanstack-parity.ts [--browsers chromium,firefox,webkit] [--firefox] [--label <name>]
-// Needs `just observatory data`; run `just observatory tanstack-build` and
-// `gpui-build` first.
+// Needs `just observatory data`; run `just observatory tanstack-build`,
+// `tanstack-build wide`, `gpui-build`, and `gpui-build wide` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -49,10 +59,14 @@ import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { ROW_HEIGHT } from '../contenders/tall-table/tanstack/web/src/layout.ts';
 import { PAGING } from '../contenders/tall-table/tanstack/web/src/data/paging.ts';
 import { TOOLTIP_DELAY, TOOLTIP_GRACE } from '../contenders/tall-table/tanstack/web/src/tooltip.ts';
+import { WIDE_SHEET } from '../contenders/scenarios.ts';
 import { MARKS, dataFile, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 const PORT = 4319;
 const GPUI_PORT = 4320;
+/** The wide level's builds. */
+const WIDE_PORT = 4351;
+const GPUI_WIDE_PORT = 4352;
 /** The row height (both contenders': `layout.ts` pins it to GPUI's), the
  *  tooltip's delay and grace, and the drag settle, from the contender. */
 const ROW = ROW_HEIGHT;
@@ -734,6 +748,173 @@ async function borderPixel(page: Page): Promise<number[]> {
     await context.close();
   } finally {
     await browser.close();
+  }
+}
+
+// --- the wide level: the sideways scroll and the pinned edge ---
+
+{
+  // Started inside the `try`, so a failure anywhere in the block closes them.
+  let wideTanstack: Awaited<ReturnType<typeof serveTanstack>> | null = null;
+  let wideGpui: Awaited<ReturnType<typeof serveGpui>> | null = null;
+  try {
+    wideTanstack = await serveTanstack(WIDE_PORT, undefined, 'wide');
+    wideGpui = await serveGpui(GPUI_WIDE_PORT, undefined, 'wide');
+    const query = `?scenario=${WIDE_SHEET.id}&stop=${WIDE_SHEET.defaultStop}`;
+    const wide: Record<string, unknown> = {};
+
+    /** The GPUI contender's run edge on screen: its layout probe's (`?cells`). */
+    let gpuiEdge: number | null = null;
+    {
+      const browser = await chromium.launch({ channel: 'chromium' });
+      try {
+        const context = await protocolContext(browser);
+        const page = await context.newPage();
+        await page.goto(`${wideGpui.url}${query}&cells`);
+        await waitMark(page, MARKS.filled, 0, 60_000);
+        const layout = (await (
+          await page.waitForFunction(() => (globalThis as { __contender?: { layout?: unknown } }).__contender?.layout ?? false, null, { timeout: 10_000 })
+        ).jsonValue()) as { left: number; pinned: number; columns: { x: number; width: number }[] };
+        const last = layout.columns[layout.pinned - 1]!;
+        // Its edge line's left: a pixel inside the run's right.
+        gpuiEdge = layout.left + last.x + last.width - 1;
+        await context.close();
+      } finally {
+        await browser.close();
+      }
+    }
+
+    for (const name of browsers) {
+      const browser = await launch(name);
+      try {
+        const context = await protocolContext(browser);
+        const page = await context.newPage();
+        const found = problems(page);
+        await page.goto(`${wideTanstack.url}${query}`);
+        await page.waitForFunction(() => document.querySelector('.row[data-row="0"] > .cell[data-column="3"]') && !document.querySelector('.row[data-row="0"] > .cell.pending'), null, { timeout: 60_000 });
+        await frames(page, 2);
+        /** What a sideways or vertical scroll must hold, and what it moves. */
+        const geometry = () =>
+          page.evaluate(() => {
+            const scroller = document.querySelector<HTMLElement>('.scroller')!;
+            const box = (element: Element | null) => {
+              const rect = element?.getBoundingClientRect();
+              return rect ? { left: rect.left, top: rect.top, right: rect.right } : null;
+            };
+            const head = document.querySelector('.head')!;
+            const rows = [...document.querySelectorAll<HTMLElement>('.content > .row')].filter((row) => {
+              const rect = row.getBoundingClientRect();
+              return rect.top >= head.getBoundingClientRect().bottom - 0.5;
+            });
+            rows.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+            const top = rows[0]!;
+            const edge = document.querySelector('.frame > .edge');
+            // A scrolled header name over its column: the header cell and the
+            // top row's cell of the first scrolled column drawn past the edge.
+            const edgeX = edge ? edge.getBoundingClientRect().right : 0;
+            const headCells = [...head.querySelectorAll<HTMLElement>(':scope > .cell:not(.pin)')];
+            const firstScrolled = headCells.find((cell) => cell.getBoundingClientRect().left >= edgeX - 0.5);
+            const column = firstScrolled ? headCells.indexOf(firstScrolled) : -1;
+            const rowCell = column >= 0 ? [...top.querySelectorAll(':scope > .cell:not(.pin)')][column] : null;
+            return {
+              scrollLeft: scroller.scrollLeft,
+              headTop: head.getBoundingClientRect().top,
+              headPins: [...head.querySelectorAll('.pin')].map(box),
+              topRow: Number(top.dataset.row),
+              rowPins: [...top.querySelectorAll('.pin')].map(box),
+              rowNumber: box(top.querySelector('.num')),
+              edge: box(edge),
+              scrolledName: firstScrolled ? { text: firstScrolled.textContent, left: firstScrolled.getBoundingClientRect().left, below: box(rowCell ?? null)?.left ?? null } : null,
+              // A day in view before and after the sideways wheel.
+              jan5: box([...head.querySelectorAll('.cell:not(.pin)')].find((cell) => cell.textContent === 'Jan 5') ?? null),
+            };
+          });
+        /** A screenshot of the run: the frame's left (row numbers and pinned
+         *  columns, header and body) up to its edge line. */
+        const runShot = async (right?: number) => {
+          const { edge, headTop } = await geometry();
+          const x = 17;
+          const width = (right ?? edge!.left) - x;
+          return (await page.screenshot({ clip: { x, y: headTop, width, height: 600 } })).toString('base64');
+        };
+        const before = await geometry();
+        // Without the run drawn, the rest of the block has nothing to hold: it's one failure, not a crash.
+        if (!check(before.edge !== null && before.headPins.length === WIDE_SHEET.pinned && before.rowPins.length === WIDE_SHEET.pinned, `${name} wide: ${before.headPins.length} pinned names, ${before.rowPins.length} pinned cells, edge ${JSON.stringify(before.edge)}`)) continue;
+        if (name === 'chromium' && gpuiEdge !== null && before.edge) check(near(before.edge.left, gpuiEdge, 0.5), `${name} wide: the edge line at ${before.edge.left}, the GPUI contender's at ${gpuiEdge}`);
+        const runBefore = await runShot();
+
+        // A sideways wheel, over the scrolled cells.
+        await page.mouse.move(1000, 500);
+        await page.mouse.wheel(300, 0);
+        await page.waitForFunction(() => document.querySelector<HTMLElement>('.scroller')!.scrollLeft > 0, null, { timeout: 5_000 }).catch(() => {});
+        await frames(page, 6);
+        const sideways = await geometry();
+        check(sideways.scrollLeft > 0, `${name} wide: a sideways wheel didn't scroll (scrollLeft ${sideways.scrollLeft})`);
+        check(JSON.stringify(sideways.headPins) === JSON.stringify(before.headPins) && JSON.stringify(sideways.rowPins) === JSON.stringify(before.rowPins), `${name} wide: the pinned cells moved sideways: ${JSON.stringify(before.rowPins)} → ${JSON.stringify(sideways.rowPins)}`);
+        check(JSON.stringify(sideways.rowNumber) === JSON.stringify(before.rowNumber) && JSON.stringify(sideways.edge) === JSON.stringify(before.edge), `${name} wide: the row numbers or the edge moved sideways`);
+        check(sideways.topRow === before.topRow, `${name} wide: a sideways wheel moved the rows (${before.topRow} → ${sideways.topRow})`);
+        check(sideways.jan5 !== null && before.jan5 !== null && near(sideways.jan5.left, before.jan5.left - sideways.scrollLeft, 0.5), `${name} wide: Jan 5 at ${sideways.jan5?.left}, not ${before.jan5?.left} − ${sideways.scrollLeft}`);
+        check(sideways.scrolledName !== null && sideways.scrolledName.below !== null && near(sideways.scrolledName.left, sideways.scrolledName.below, 0.5), `${name} wide: the header's ${sideways.scrolledName?.text} at ${sideways.scrolledName?.left}, its column at ${sideways.scrolledName?.below}`);
+        const runAfter = await runShot();
+        check(runAfter === runBefore, `${name} wide: the run's pixels changed under a sideways scroll`);
+        // Control: a region past the edge, which scrolls, differs.
+        const scrolledShot = async () => (await page.screenshot({ clip: { x: before.edge!.left + 2, y: before.headTop, width: 300, height: 600 } })).toString('base64');
+        const scrolledAfter = await scrolledShot();
+        // Under the run and right of it: what the hit test finds.
+        const hits = await page.evaluate(
+          ({ y, pinX, scrolledX }) => {
+            const at = (x: number) => {
+              const cell = document.elementFromPoint(x, y)?.closest<HTMLElement>('.cell');
+              return cell ? { pinned: cell.classList.contains('pin'), column: Number(cell.dataset.column) } : null;
+            };
+            return { under: at(pinX), right: at(scrolledX) };
+          },
+          { y: before.rowPins[0]!.top + 5, pinX: before.edge!.left - 10, scrolledX: before.edge!.left + 10 },
+        );
+        check(hits.under?.pinned === true && hits.under.column === WIDE_SHEET.pinned - 1, `${name} wide: left of the edge the hit test found ${JSON.stringify(hits.under)}, not the last pinned cell`);
+        check(hits.right?.pinned === false && hits.right.column >= WIDE_SHEET.pinned, `${name} wide: right of the edge the hit test found ${JSON.stringify(hits.right)}, not a scrolled cell`);
+
+        // Shift+wheel: sideways too, as the base's.
+        await page.keyboard.down('Shift');
+        await page.waitForTimeout(100);
+        await page.mouse.wheel(0, 40);
+        await page.keyboard.up('Shift');
+        await frames(page, 6);
+        const shifted = await geometry();
+        check(shifted.scrollLeft > sideways.scrollLeft && shifted.topRow === sideways.topRow, `${name} wide: Shift+wheel scrollLeft ${sideways.scrollLeft} → ${shifted.scrollLeft}, top row ${sideways.topRow} → ${shifted.topRow}`);
+        check((await runShot()) === runBefore, `${name} wide: the run's pixels changed under Shift+wheel`);
+        check((await scrolledShot()) !== scrolledAfter, `${name} wide control: the scrolled region's pixels didn't change under Shift+wheel`);
+
+        // A vertical wheel: the header and its pinned names held, new rows.
+        // From past the frame's rounded corner, whose antialiased edge blends
+        // the scrolled layer under its clip (8 px of it differed).
+        const headShot = async () => (await page.screenshot({ clip: { x: 24, y: before.headTop, width: before.edge!.left - 24, height: WIDE_SHEET.stops.find((stop) => stop.id === WIDE_SHEET.defaultStop)!.rowHeight } })).toString('base64');
+        const headBefore = await headShot();
+        await page.mouse.wheel(0, 600);
+        await frames(page, 6);
+        await page.waitForFunction(() => !document.querySelector('.content > .row > .cell.pending'), null, { timeout: 10_000 }).catch(() => {});
+        const down = await geometry();
+        check(down.topRow > shifted.topRow, `${name} wide: a vertical wheel left the top row at ${down.topRow}`);
+        check(down.headTop === before.headTop && JSON.stringify(down.headPins) === JSON.stringify(before.headPins), `${name} wide: the header moved under a vertical scroll: top ${before.headTop} → ${down.headTop}, pinned ${JSON.stringify(before.headPins)} → ${JSON.stringify(down.headPins)}`);
+        const headAfter = await headShot();
+        if (!check(headAfter === headBefore, `${name} wide: the header's run changed pixels under a vertical scroll`)) {
+          mkdirSync(join(perfDir, 'results', 'raw'), { recursive: true });
+          writeFileSync(join(perfDir, 'results', 'raw', `parity-wide-head-${name}.txt`), `${headBefore}\n${headAfter}\n`);
+        }
+        check(down.rowPins.every((pin, index) => near(pin!.left, before.rowPins[index]!.left, 0.01)), `${name} wide: the new top row's pinned cells at ${JSON.stringify(down.rowPins)}`);
+        const real = found.filter((problem) => !KNOWN_WARNINGS.some((warning) => warning.test(problem)));
+        for (const problem of real) check(false, `${name} wide: ${problem}`);
+        wide[name] = { before, sideways, shifted, down, hits };
+        console.log(`${name} wide: edge at ${before.edge?.left}${name === 'chromium' ? ` (GPUI ${gpuiEdge})` : ''}; sideways ${sideways.scrollLeft} px and Shift+wheel to ${shifted.scrollLeft}, the run's pixels held; a vertical wheel to row ${down.topRow}, the header held`);
+        await context.close();
+      } finally {
+        await browser.close();
+      }
+    }
+    output.wide = wide;
+  } finally {
+    await wideTanstack?.close();
+    await wideGpui?.close();
   }
 }
 

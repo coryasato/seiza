@@ -20,6 +20,7 @@
   --scrollbar-thumb-hover: #a3a3a3;
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
+  --chart-1: #93c5fd;
   --radius: 6px;
 }
 @media (prefers-color-scheme: dark) {
@@ -42,6 +43,7 @@
     --scrollbar-thumb-hover: #525252;
     --popover: #0a0a0a;
     --popover-foreground: #fafafa;
+    --chart-1: #93c5fd;
     --radius: 6px;
   }
 }
@@ -68,5 +70,6 @@
   --scrollbar-thumb-hover: #525252;
   --popover: #0a0a0a;
   --popover-foreground: #fafafa;
+  --chart-1: #93c5fd;
   --radius: 6px;
 }

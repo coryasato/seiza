@@ -19,8 +19,9 @@ const OUT: &str = concat!(
 
 /// The variables, each with the theme field it's read from. The tall
 /// table's (`components/tall-table/src/state.rs`, `tall_table.rs`), the
-/// tooltip's (gpui-kit's `Tooltip`: popover colors), and the page's body.
-fn colors(theme: &Theme) -> [(&'static str, Hsla); 18] {
+/// tooltip's (gpui-kit's `Tooltip`: popover colors), the page's body, and
+/// the wide sheet's heat ramp's far stop (`crate/src/scene.rs`).
+fn colors(theme: &Theme) -> [(&'static str, Hsla); 19] {
     [
         ("background", theme.background),
         ("foreground", theme.foreground),
@@ -40,6 +41,7 @@ fn colors(theme: &Theme) -> [(&'static str, Hsla); 18] {
         ("scrollbar-thumb-hover", theme.scrollbar_thumb_hover),
         ("popover", theme.popover),
         ("popover-foreground", theme.popover_foreground),
+        ("chart-1", theme.chart_1),
     ]
 }
 

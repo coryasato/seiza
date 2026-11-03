@@ -12,21 +12,27 @@
 // from Vite's build manifest (`dist/.vite/manifest.json`), the graph the
 // build itself resolved.
 //
-// Usage: node apps/observatory/perf/tanstack-sizes.ts [--check] [--label <name>] [--write-baseline]
-// --check fails if either JS figure is over perf/baseline.json's by more
-// than limits.tanstack's fractions (perf/budgets.json). --label writes
+// Usage: node apps/observatory/perf/tanstack-sizes.ts [--level wide] [--check] [--label <name>] [--write-baseline]
+// --level: a feature level's build (`dist-<level>/`, `contenders/scenarios.ts`),
+// against its own baseline (perf/baseline.json's `levels.<level>`). --check
+// fails if either JS figure is over perf/baseline.json's by more than
+// limits.tanstack's fractions (perf/budgets.json). --label writes
 // perf/results/<date>-<label>.json. --write-baseline records these sizes
 // in perf/baseline.json, keeping its other entries. Run `just observatory
-// tanstack-build` first.
+// tanstack-build [level]` first.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { ENGINE_CHUNK, budgetLimits, perfDir, tanstackWebDir } from './harness.ts';
+import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { ENGINE_CHUNK, budgetLimits, distDir, perfDir, tanstackWebDir } from './harness.ts';
 
-const dist = join(tanstackWebDir, 'dist');
-if (!existsSync(join(dist, 'index.html'))) throw new Error('no TanStack contender build: run `just observatory tanstack-build` first');
+const level = (option('level') ?? 'base') as Level;
+if (!Object.hasOwn(LEVEL_FEATURES, level)) throw new Error(`no level ${level} (${Object.keys(LEVEL_FEATURES).join(', ')})`);
+const build = level === 'base' ? '' : ` ${level}`;
+const dist = distDir(tanstackWebDir, level);
+if (!existsSync(join(dist, 'index.html'))) throw new Error(`no TanStack contender build: run \`just observatory tanstack-build${build}\` first`);
 
 const html = readFileSync(join(dist, 'index.html'), 'utf8');
 /** Vite's build manifest (`build.manifest` in the contender's config): each
@@ -40,7 +46,7 @@ interface Chunk {
   css?: string[];
 }
 const manifestPath = join(dist, '.vite/manifest.json');
-if (!existsSync(manifestPath)) throw new Error('the TanStack contender build has no .vite/manifest.json: run `just observatory tanstack-build`');
+if (!existsSync(manifestPath)) throw new Error(`the TanStack contender build has no .vite/manifest.json: run \`just observatory tanstack-build${build}\``);
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, Chunk>;
 const chunk = (key: string): Chunk => {
   const found = manifest[key];
@@ -92,7 +98,7 @@ const result = {
   chunks: { firstPaint: firstPaintSizes, dataLayer: dataLayerSizes, engine: engineSizes },
 };
 console.log(
-  `TanStack contender, brotli: first-paint JS ${result.firstPaintJsBrotliKiB} KiB (${Object.keys(firstPaintSizes).join(', ')}); ` +
+  `TanStack contender${build ? ` at the${build} level` : ''}, brotli: first-paint JS ${result.firstPaintJsBrotliKiB} KiB (${Object.keys(firstPaintSizes).join(', ')}); ` +
     `data layer ${result.dataLayerJsBrotliKiB} KiB (${Object.keys(dataLayerSizes).join(', ')}); engine chunk ${result.engineJsBrotliKiB} KiB; ` +
     `CSS ${result.cssBrotliKiB} KiB; HTML ${result.htmlBrotliKiB} KiB`,
 );
@@ -102,27 +108,31 @@ const label = option('label');
 if (label) {
   mkdirSync(join(perfDir, 'results'), { recursive: true });
   const out = join(perfDir, 'results', `${date}-${label}.json`);
-  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), ...result }, null, 2)}\n`);
+  writeFileSync(out, `${JSON.stringify({ date, label, level, ...machineInfo(), ...result }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }
 
 const baselinePath = join(perfDir, 'baseline.json');
+type Sizes = { date: string; machine: string; firstPaint: number; dataLayer: number };
 interface Baseline {
   /** Its own date and machine: the file's top-level ones are the GPUI
-   *  contender's cold run (`cold.ts`). */
-  tanstackJsBrotliKiB?: { date: string; machine: string; firstPaint: number; dataLayer: number };
+   *  contender's cold run (`cold.ts`). A level's under `levels`. */
+  tanstackJsBrotliKiB?: Sizes;
+  levels?: Record<string, { tanstackJsBrotliKiB?: Sizes; [key: string]: unknown }>;
   [key: string]: unknown;
 }
 const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
+/** The level's entry: the file itself for the base, `levels.<level>` else. */
+const entry = level === 'base' ? baseline : ((baseline.levels ??= {})[level] ??= {});
 if (flag('write-baseline')) {
-  baseline.tanstackJsBrotliKiB = { date, machine: machineInfo().machine, firstPaint: result.firstPaintJsBrotliKiB, dataLayer: result.dataLayerJsBrotliKiB };
+  entry.tanstackJsBrotliKiB = { date, machine: machineInfo().machine, firstPaint: result.firstPaintJsBrotliKiB, dataLayer: result.dataLayerJsBrotliKiB };
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(`wrote ${baselinePath}`);
 }
 if (flag('check')) {
   const { firstPaintJsOverBaseline, dataLayerJsOverBaseline } = budgetLimits(new URL('./budgets.json', import.meta.url))('tanstack', ['firstPaintJsOverBaseline', 'dataLayerJsOverBaseline']);
-  const base = baseline.tanstackJsBrotliKiB;
-  if (!base) throw new Error('perf/baseline.json has no tanstackJsBrotliKiB: run with --write-baseline');
+  const base = entry.tanstackJsBrotliKiB;
+  if (!base) throw new Error(`perf/baseline.json has no ${level === 'base' ? '' : `levels.${level}.`}tanstackJsBrotliKiB: run with --write-baseline`);
   const over: string[] = [];
   for (const [what, value, was, fraction] of [
     ['first-paint JS', result.firstPaintJsBrotliKiB, base.firstPaint, firstPaintJsOverBaseline],

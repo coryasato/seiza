@@ -11,10 +11,19 @@ import { tableFromArrays, tableToIPC } from 'apache-arrow';
 import { cellTooltip, shownRow } from '../src/cells.ts';
 import { ArrowPage, columnKind } from '../src/data/table.ts';
 import { gutterWidth, layOut } from '../src/layout.ts';
+import { sceneColumns, wideScene } from '../src/scene.ts';
+import { WIDE_SHEET } from '../../../../scenarios.ts';
 
+interface PinnedColumn {
+  name: string;
+  kind: string;
+  width: number;
+  budget: number;
+}
 const cells = JSON.parse(readFileSync(new URL('../../../../../../../components/tall-table/fixtures/cells.json', import.meta.url), 'utf8')) as {
-  columns: { name: string; kind: string; width: number; budget: number }[];
+  columns: PinnedColumn[];
   rounding: { column: string; value: string; exact: string; shown: string }[];
+  scenarios: Record<string, { source: { stop: string }; columns: PinnedColumn[] }>;
 };
 
 test('float columns at the pinned widths and budgets', () => {
@@ -79,4 +88,30 @@ test("the tooltip's text: a rounded float's exact text, text's line breaks, capp
   assert.equal([...long.text].length, 2001);
   assert.ok(long.text.endsWith('😀…'));
   assert.equal(cellTooltip(text, '😀'.repeat(2000))!.text, '😀'.repeat(2000));
+});
+
+test("the wide sheet's columns at the GPUI contender's widths and budgets, at its stop", () => {
+  const section = cells.scenarios[WIDE_SHEET.id];
+  assert.ok(section, 'cells.json has the wide sheet');
+  const stop = WIDE_SHEET.stops.find((candidate) => candidate.id === section.source.stop)!;
+  const scene = wideScene(WIDE_SHEET, stop, [-75.5, 51.1]);
+  // The file's key columns, then its days (the fixture's, in order).
+  const days = section.columns.filter((column) => column.name !== 'Latitude');
+  const specs = [
+    { name: 'Station', type: 'VARCHAR', kind: columnKind('VARCHAR') },
+    { name: 'Place', type: 'VARCHAR', kind: columnKind('VARCHAR') },
+    { name: 'Latitude', type: 'DOUBLE', kind: columnKind('DOUBLE') },
+    ...days.map((day) => ({ name: day.name, type: 'DOUBLE', kind: columnKind('DOUBLE') })),
+  ];
+  const laidOut = sceneColumns(specs, scene);
+  for (const pinned of section.columns) {
+    const column = laidOut.find((candidate) => candidate.name === pinned.name)!;
+    assert.deepEqual({ width: column.width, budget: column.budget }, { width: pinned.width, budget: pinned.budget }, pinned.name);
+  }
+  // The key columns at the stop's text: text by kind, scaled (200 × 11/14).
+  assert.deepEqual(laidOut.slice(0, 2).map((column) => column.width), [157, 157]);
+  // The gutter for the file's rows: "10,632" at the stop's text.
+  assert.equal(gutterWidth(10_632, scene.sizes), 54);
+  // Control: the days laid out by kind, not at the stop's width, fail.
+  assert.notEqual(sceneColumns(specs, { ...scene, heatFrom: specs.length }).at(-1)!.width, days.at(-1)!.width);
 });

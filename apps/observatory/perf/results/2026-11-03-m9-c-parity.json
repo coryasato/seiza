@@ -1,0 +1,1249 @@
+{
+  "date": "2026-11-03",
+  "label": "m9-c-parity",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "keys": {
+    "chromium": {
+      "viewportRows": 27.866666666666667,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    },
+    "firefox": {
+      "viewportRows": 27.866666666666667,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    },
+    "webkit": {
+      "viewportRows": 27.866666666666667,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.866666666666667,
+          "expected": 28.866666666666667
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.1333333333,
+          "expected": 1567495.1333333333
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    },
+    "gpui": {
+      "viewportRows": 27.33333396911621,
+      "seen": [
+        {
+          "key": "ArrowDown",
+          "top": 1,
+          "expected": 1
+        },
+        {
+          "key": "ArrowDown",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "ArrowDown",
+          "top": 3,
+          "expected": 3
+        },
+        {
+          "key": "ArrowUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "PageDown",
+          "top": 28.33333396911621,
+          "expected": 28.33333396911621
+        },
+        {
+          "key": "PageUp",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "Space",
+          "top": 28.33333396911621,
+          "expected": 28.33333396911621
+        },
+        {
+          "key": "Shift+Space",
+          "top": 2,
+          "expected": 2
+        },
+        {
+          "key": "End",
+          "top": 1567495.666666031,
+          "expected": 1567495.666666031
+        },
+        {
+          "key": "Home",
+          "top": 0,
+          "expected": 0
+        },
+        {
+          "key": "Meta+ArrowDown",
+          "top": 1567495.666666031,
+          "expected": 1567495.666666031
+        },
+        {
+          "key": "Meta+ArrowUp",
+          "top": 0,
+          "expected": 0
+        }
+      ]
+    }
+  },
+  "shiftWheel": {
+    "chromium": {
+      "deltaY": 20,
+      "shifted": {
+        "left": 20,
+        "maxLeft": 119,
+        "top": 0
+      },
+      "plain": {
+        "left": 0,
+        "maxLeft": 119,
+        "top": 1.3333333333333333
+      }
+    },
+    "firefox": {
+      "deltaY": 40,
+      "shifted": {
+        "left": 40,
+        "maxLeft": 119,
+        "top": 0
+      },
+      "plain": {
+        "left": 0,
+        "maxLeft": 119,
+        "top": 1.3333333333333333
+      }
+    },
+    "webkit": {
+      "deltaY": 40,
+      "shifted": {
+        "left": 40,
+        "maxLeft": 119,
+        "top": 0
+      },
+      "plain": {
+        "left": 0,
+        "maxLeft": 119,
+        "top": 1.3333333333333333
+      }
+    }
+  },
+  "trackPress": {
+    "chromium": {
+      "quick": {
+        "pressAt": 276.8,
+        "fractionOfTrack": 0.3,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 276.80001609405605,
+          "s": 4937277,
+          "v": 12950455.28786868,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "startAfterDown": -5.845000267028809,
+        "endAfterUp": -0.1549997329711914,
+        "loads": 7,
+        "rowsFraction": 0.2753959701367426
+      },
+      "held": {
+        "pressAt": 623.1999999999999,
+        "held": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.2000340955558,
+          "s": 11839104,
+          "v": 34074401.77276243,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "dragged": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.3797129058831,
+          "s": 11842684,
+          "v": 34074401.77276243,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": false
+        },
+        "grabbed": false,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.2000340955558,
+          "s": 11839104,
+          "v": 34074401.77276243,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "settleMs": 81.36499977111816,
+        "rowsFraction": 0.7246040949486506
+      }
+    },
+    "webkit": {
+      "quick": {
+        "pressAt": 276.8,
+        "fractionOfTrack": 0.3,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 275.9999936815928,
+          "s": 4921337,
+          "v": 12901668.827853208,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "startAfterDown": -13.460000000000036,
+        "endAfterUp": -0.2599999999999909,
+        "loads": 8,
+        "rowsFraction": 0.2743585089674751
+      },
+      "held": {
+        "pressAt": 623.1999999999999,
+        "held": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 622.9999783028281,
+          "s": 11835118,
+          "v": 34062202.09712745,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "dragged": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 623.0305437764285,
+          "s": 11835727,
+          "v": 34062202.09712745,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": false
+        },
+        "grabbed": false,
+        "after": {
+          "x": 1417,
+          "top": 17,
+          "track": 866,
+          "length": 24,
+          "thumbCenter": 622.9999783028281,
+          "s": 11835118,
+          "v": 34062202.09712745,
+          "range": 16776380,
+          "total": 47024854,
+          "consistent": true
+        },
+        "settleMs": 81.2199999999998,
+        "rowsFraction": 0.7243446645709406
+      }
+    }
+  },
+  "dragSettle": {
+    "drag": {
+      "moves": 11,
+      "loadsAtRest": 7,
+      "restLoadAfterMove": 81.15500068664551,
+      "loadsAtRelease": 1,
+      "startDrag": 2,
+      "endDrag": 2,
+      "rowsFraction": 0.21907497589496625
+    },
+    "chromium": {
+      "settleMs": 81.61999988555908,
+      "endAfterInput": {
+        "wheel": 0.09499931335449219,
+        "keydown": 0.11499977111816406
+      }
+    },
+    "firefox": {
+      "settleMs": 81.01999999999998,
+      "endAfterInput": {
+        "wheel": 0.05999999999994543,
+        "keydown": 0.05999999999994543
+      }
+    },
+    "webkit": {
+      "settleMs": 81.22000000000003,
+      "endAfterInput": {
+        "wheel": null,
+        "keydown": 0.1799999999998363
+      }
+    }
+  },
+  "tooltip": {
+    "chromium": {
+      "rested": {
+        "delay": 502.6949996948242,
+        "text": "3087 Beatrice Tinsley (1981 QJ1)",
+        "gap": 12.359375,
+        "centerOffset": -0.375,
+        "box": {
+          "x": 278,
+          "y": 572,
+          "width": 230.25,
+          "height": 32.640625,
+          "top": 572,
+          "right": 508.25,
+          "bottom": 604.640625,
+          "left": 278
+        }
+      },
+      "below": {
+        "gap": 12
+      },
+      "whileLoading": {
+        "pendingAtRest": true,
+        "shownAfterMove": 501.7849998474121
+      },
+      "timings": {
+        "switchMs": 0.6649999618530273,
+        "graceMs": 0.5450000762939453,
+        "graceAfterHideMs": 116.71000003814697,
+        "coldMs": 502.0349998474121
+      }
+    },
+    "firefox": {
+      "rested": {
+        "delay": 503.44000000000005,
+        "text": "3087 Beatrice Tinsley (1981 QJ1)",
+        "gap": 12.350006103515625,
+        "centerOffset": -0.40833282470703125,
+        "box": {
+          "x": 278,
+          "y": 572,
+          "width": 230.18333435058594,
+          "height": 32.649993896484375,
+          "top": 572,
+          "right": 508.18333435058594,
+          "bottom": 604.6499938964844,
+          "left": 278
+        }
+      },
+      "below": {
+        "gap": 12
+      },
+      "whileLoading": {
+        "pendingAtRest": false,
+        "shownAfterMove": 502.8799999999992
+      },
+      "timings": {
+        "switchMs": 1.6200000000001182,
+        "graceMs": 2.0399999999999636,
+        "graceAfterHideMs": 111.69999999999982,
+        "coldMs": 505.03999999999996
+      }
+    },
+    "webkit": {
+      "rested": {
+        "delay": 506.22,
+        "text": "3087 Beatrice Tinsley (1981 QJ1)",
+        "gap": 12.359375,
+        "centerOffset": -0.375,
+        "box": {
+          "x": 278,
+          "y": 572,
+          "width": 230.25,
+          "height": 32.640625,
+          "top": 572,
+          "right": 508.25,
+          "bottom": 604.640625,
+          "left": 278
+        }
+      },
+      "below": {
+        "gap": 12
+      },
+      "whileLoading": {
+        "pendingAtRest": false,
+        "shownAfterMove": 501.8800000000001
+      },
+      "timings": {
+        "switchMs": 1.9400000000000546,
+        "graceMs": 1.2000000000002728,
+        "graceAfterHideMs": 108.37999999999988,
+        "coldMs": 502.1600000000003
+      }
+    }
+  },
+  "focus": {
+    "colors": {
+      "ring": "#a3a3a3",
+      "border": "#e5e5e5"
+    },
+    "open": {
+      "focused": true,
+      "border": [
+        163,
+        163,
+        163
+      ]
+    },
+    "outside": {
+      "focused": true,
+      "border": [
+        163,
+        163,
+        163
+      ],
+      "moved": 1
+    },
+    "blurred": {
+      "focused": false,
+      "border": [
+        229,
+        229,
+        229
+      ]
+    },
+    "cell": {
+      "focused": true,
+      "border": [
+        163,
+        163,
+        163
+      ]
+    },
+    "track": {
+      "focused": true
+    },
+    "gpuiBorder": [
+      163,
+      163,
+      163
+    ]
+  },
+  "wide": {
+    "chromium": {
+      "before": {
+        "scrollLeft": 0,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Latitude",
+          "left": 385,
+          "below": 385
+        },
+        "jan5": {
+          "left": 751,
+          "top": 17,
+          "right": 819
+        }
+      },
+      "sideways": {
+        "scrollLeft": 300,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 451,
+          "below": 451
+        },
+        "jan5": {
+          "left": 451,
+          "top": 17,
+          "right": 519
+        }
+      },
+      "shifted": {
+        "scrollLeft": 320,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 431,
+          "below": 431
+        },
+        "jan5": {
+          "left": 431,
+          "top": 17,
+          "right": 499
+        }
+      },
+      "down": {
+        "scrollLeft": 320,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 30,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 431,
+          "below": 431
+        },
+        "jan5": {
+          "left": 431,
+          "top": 17,
+          "right": 499
+        }
+      },
+      "hits": {
+        "under": {
+          "pinned": true,
+          "column": 1
+        },
+        "right": {
+          "pinned": false,
+          "column": 6
+        }
+      }
+    },
+    "firefox": {
+      "before": {
+        "scrollLeft": 0,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Latitude",
+          "left": 385,
+          "below": 385
+        },
+        "jan5": {
+          "left": 751,
+          "top": 17,
+          "right": 819
+        }
+      },
+      "sideways": {
+        "scrollLeft": 300,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 451,
+          "below": 451
+        },
+        "jan5": {
+          "left": 451,
+          "top": 17,
+          "right": 519
+        }
+      },
+      "shifted": {
+        "scrollLeft": 340,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 411,
+          "below": 411
+        },
+        "jan5": {
+          "left": 411,
+          "top": 17,
+          "right": 479
+        }
+      },
+      "down": {
+        "scrollLeft": 340,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 30,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 411,
+          "below": 411
+        },
+        "jan5": {
+          "left": 411,
+          "top": 17,
+          "right": 479
+        }
+      },
+      "hits": {
+        "under": {
+          "pinned": true,
+          "column": 1
+        },
+        "right": {
+          "pinned": false,
+          "column": 6
+        }
+      }
+    },
+    "webkit": {
+      "before": {
+        "scrollLeft": 0,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Latitude",
+          "left": 385,
+          "below": 385
+        },
+        "jan5": {
+          "left": 751,
+          "top": 17,
+          "right": 819
+        }
+      },
+      "sideways": {
+        "scrollLeft": 300,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 451,
+          "below": 451
+        },
+        "jan5": {
+          "left": 451,
+          "top": 17,
+          "right": 519
+        }
+      },
+      "shifted": {
+        "scrollLeft": 340,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 0,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 411,
+          "below": 411
+        },
+        "jan5": {
+          "left": 411,
+          "top": 17,
+          "right": 479
+        }
+      },
+      "down": {
+        "scrollLeft": 340,
+        "headTop": 17,
+        "headPins": [
+          {
+            "left": 71,
+            "top": 17,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 17,
+            "right": 385
+          }
+        ],
+        "topRow": 30,
+        "rowPins": [
+          {
+            "left": 71,
+            "top": 37,
+            "right": 228
+          },
+          {
+            "left": 228,
+            "top": 37,
+            "right": 385
+          }
+        ],
+        "rowNumber": {
+          "left": 17,
+          "top": 37,
+          "right": 71
+        },
+        "edge": {
+          "left": 384,
+          "top": 17,
+          "right": 385
+        },
+        "scrolledName": {
+          "text": "Jan 5",
+          "left": 411,
+          "below": 411
+        },
+        "jan5": {
+          "left": 411,
+          "top": 17,
+          "right": 479
+        }
+      },
+      "hits": {
+        "under": {
+          "pinned": true,
+          "column": 1
+        },
+        "right": {
+          "pinned": false,
+          "column": 6
+        }
+      }
+    }
+  },
+  "failures": []
+}

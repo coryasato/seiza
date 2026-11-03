@@ -24,11 +24,11 @@
     "tanstack": {
       "firstPaintJsOverBaseline": {
         "value": 0.1,
-        "what": "`check`: the TanStack contender's first-paint JS (the entry and its static imports, brotli) over perf/baseline.json's, as a fraction"
+        "what": "`check`: the TanStack contender's first-paint JS (the entry and its static imports, brotli) over perf/baseline.json's, as a fraction, at each feature level (the base's at the top, each other level's under `levels`)"
       },
       "dataLayerJsOverBaseline": {
         "value": 0.1,
-        "what": "`check`: the TanStack contender's after-paint data layer with Arrow (brotli) over perf/baseline.json's, as a fraction"
+        "what": "`check`: the TanStack contender's after-paint data layer with Arrow (brotli) over perf/baseline.json's, as a fraction, at each feature level"
       }
     },
     "page": {
@@ -220,6 +220,30 @@
       ]
     },
     {
+      "id": "tanstack-wide-first-paint-js",
+      "label": "TanStack contender at the wide level: first-paint JS (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.firstPaintJsOverBaseline",
+        "baseline": "levels.wide.tanstackJsBrotliKiB.firstPaint"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes-wide.json",
+            "path": "firstPaintJsBrotliKiB"
+          },
+          {
+            "baseline": "levels.wide.tanstackJsBrotliKiB.firstPaint"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
       "id": "tanstack-data-layer-js",
       "label": "TanStack contender: data layer and Arrow, after first paint (brotli)",
       "unit": "KiB",
@@ -236,6 +260,30 @@
           },
           {
             "baseline": "tanstackJsBrotliKiB.dataLayer"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "tanstack-wide-data-layer-js",
+      "label": "TanStack contender at the wide level: data layer and Arrow, after first paint (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.dataLayerJsOverBaseline",
+        "baseline": "levels.wide.tanstackJsBrotliKiB.dataLayer"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes-wide.json",
+            "path": "dataLayerJsBrotliKiB"
+          },
+          {
+            "baseline": "levels.wide.tanstackJsBrotliKiB.dataLayer"
           }
         ]
       ],

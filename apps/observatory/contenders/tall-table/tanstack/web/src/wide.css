@@ -1,0 +1,29 @@
+/* The wide level's table (src/wide.ts): the tall table's boxes at the
+   scene's density (`--row`, `--pad`, `--skeleton-height`, and the font size,
+   set on the frame), the key columns pinned, heat cells. Imported only by
+   the wide level's build (`./level.css`, `vite.config.ts`). */
+
+.frame.wide { position: relative; }
+
+.wide .row { height: var(--row); }
+.wide .num, .wide .cell { padding: 0 var(--pad); line-height: var(--row); }
+/* Each clear of the line under its row (the header's, the rows'), as the
+   table's cells and fills are. */
+.wide .num, .wide .cell { height: calc(var(--row) - 1px); }
+.wide .failed { line-height: var(--row); }
+.wide .gap { flex: none; }
+
+/* The pinned key columns: sticky at their place over the scrolled cells,
+   opaque in their row's color. */
+.wide .pin { position: sticky; z-index: 1; background: var(--table); }
+.wide .row.odd > .pin { background: linear-gradient(var(--table-even), var(--table-even)), var(--table); }
+.wide .head > .pin { background: linear-gradient(var(--table-head), var(--table-head)), var(--table); }
+
+/* The run's edge (`EdgeLine`): over the header and the rows, above the
+   horizontal scrollbar. */
+.wide > .edge { position: absolute; top: 0; z-index: 3; width: 1px; background: var(--border); pointer-events: none; }
+
+/* Text over a fill whose contrast is the background's color (`FramePaint`). */
+.wide .cell.on-fill { color: var(--background); }
+
+.wide .cell.pending > .bar { height: var(--skeleton-height); }

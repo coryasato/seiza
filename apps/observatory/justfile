@@ -73,21 +73,23 @@ gpui-extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{gpui_web}}/public duckdb
 
 # The TanStack contender (contenders/tall-table/tanstack/): its Vite dev
-# server with COOP/COEP, at /observatory/, with the data file by range.
-tanstack-dev: tanstack-extensions
-    npm run dev --workspace @seiza/observatory-tall-table-tanstack
+# server with COOP/COEP, at /observatory/contenders/tall-table/tanstack/
+# (a level's under it: `wide`), with the data files by range.
+tanstack-dev level="base": tanstack-extensions
+    npm run dev --workspace @seiza/observatory-tall-table-tanstack {{ if level == "base" { "" } else { "-- --mode " + level } }}
 
-# The TanStack contender's release build, then asset sizes. DuckDB's
-# bundles and extensions land in dist/duckdb/, the same files as the GPUI
+# The TanStack contender's release build at a feature level (`base`,
+# `wide`) into web/dist/ or web/dist-<level>/, then asset sizes. DuckDB's
+# bundles and extensions land in its duckdb/, the same files as the GPUI
 # contender's (`engine-files` checks it). The build fails if Arrow or
 # DuckDB's JS reaches a first-paint chunk (contenders/engine.ts).
-tanstack-build: tanstack-extensions
-    npm run build --workspace @seiza/observatory-tall-table-tanstack
-    node {{root}}/shared-web/scripts/asset-sizes.ts {{tanstack_web}}/dist --compressed duckdb-eh --compressed duckdb-mvp
+tanstack-build level="base": tanstack-extensions
+    npm run build --workspace @seiza/observatory-tall-table-tanstack {{ if level == "base" { "" } else { "-- --mode " + level } }}
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{tanstack_web}}/dist{{ if level == "base" { "" } else { "-" + level } }} --compressed duckdb-eh --compressed duckdb-mvp
 
-# Serve the TanStack contender's release build (brotli), with the data file.
-tanstack-preview:
-    npm run preview --workspace @seiza/observatory-tall-table-tanstack
+# Serve the TanStack contender's release build at a level (brotli), with the data files.
+tanstack-preview level="base":
+    npm run preview --workspace @seiza/observatory-tall-table-tanstack {{ if level == "base" { "" } else { "-- --mode " + level } }}
 
 # The TanStack contender's theme (tanstack/web/src/theme.css): the colors
 # the tall table draws with, as CSS variables, light and dark, generated
@@ -130,9 +132,11 @@ tanstack-contract *args:
 # The TanStack contender's JS from its release build, brotli: the
 # first-paint JS (the entry and its static imports) and the data layer with
 # Arrow (after first paint), each against perf/baseline.json (--check), and
-# the engine's chunk, CSS, and HTML recorded. --label writes perf/results/;
-# --write-baseline records both in perf/baseline.json. Run `just
-# observatory tanstack-build` first.
+# the engine's chunk, CSS, and HTML recorded. --level wide: that build,
+# against its own baseline (perf/baseline.json's `levels`), label
+# tanstack-sizes-wide. --label writes perf/results/; --write-baseline
+# records both in perf/baseline.json. Run `just observatory tanstack-build`
+# (and `tanstack-build wide`) first.
 tanstack-sizes *args:
     node {{app_dir}}/perf/tanstack-sizes.ts {{args}}
 
@@ -177,9 +181,10 @@ gpui-parts *args:
 # tall table's input, tooltip, and focus. Then the page's build: its
 # first paint and first-paint JS against the baseline, and how it hosts
 # the contenders.
-check: lint gpui-build (gpui-build "wide") tanstack-build build && fixtures
+check: lint gpui-build (gpui-build "wide") tanstack-build (tanstack-build "wide") build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/tanstack-sizes.ts --check
+    node {{app_dir}}/perf/tanstack-sizes.ts --level wide --check
     node {{app_dir}}/perf/cold.ts --check
     node {{app_dir}}/perf/cold.ts --level wide --check
     node {{app_dir}}/perf/wide.ts
@@ -286,7 +291,7 @@ data *args:
 # changes only the Worker's code can't be told apart that way, so rerun
 # `worker-check` if that check fails). Needs `wrangler login`. Flags pass to
 # the check, e.g. `--resolve-via 1.1.1.1`, `--behind-waf`.
-deploy *args: gpui-build (gpui-build "wide") tanstack-build build
+deploy *args: gpui-build (gpui-build "wide") tanstack-build (tanstack-build "wide") build
     #!/usr/bin/env bash
     set -euo pipefail
     node {{app_dir}}/worker/scripts/stage.ts
@@ -307,13 +312,16 @@ deploy *args: gpui-build (gpui-build "wide") tanstack-build build
 worker-check *args:
     node {{app_dir}}/worker/scripts/check.ts {{args}}
 
-# The GPUI contender at the wide level, on its release build: at each of
+# Both contenders at the wide level, on their release builds: at each of
 # the wide sheet's stops the layout it asks for (rows, the days' width, the
 # key columns pinned), heat on every day with a value and nothing else, the
 # top rows as native DuckDB has them, and the cells on screen against the
-# stop's label; an unknown stop or scenario, and the wide sheet asked of the
-# base build, fail the load; the base still opens Big file. --label writes
-# perf/results/. Run `gpui-build` and `gpui-build wide` first.
+# stop's label; the TanStack side's layout GPUI's, column for column, and
+# its heat's pixels the ramp's; an unknown stop or scenario, and the wide
+# sheet asked of the base build, fail the load; the base still opens Big
+# file. --side gpui|tanstack (GPUI's layout is read either way), --label
+# writes perf/results/. Run `gpui-build`, `gpui-build wide`,
+# `tanstack-build`, and `tanstack-build wide` first.
 wide *args:
     node {{app_dir}}/perf/wide.ts {{args}}
 

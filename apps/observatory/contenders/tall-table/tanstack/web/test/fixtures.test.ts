@@ -261,16 +261,19 @@ describe('paging.json', () => {
 // --- cells ---
 
 /** The fixture's cells whose text `shown` (the column, the value) or
- *  `exact` (the value) doesn't give, at each column's budget plus `skew`. */
-function cellMismatches(skew: number, exact: (value: number) => string): string[] {
-  const cells = fixture('cells.json');
+ *  `exact` (the value) doesn't give, at each column's budget plus `skew`:
+ *  the top section's (its `rounding` too), or a scenario's (`scenarios`). */
+function cellMismatches(skew: number, exact: (value: number) => string, scenario?: string): string[] {
+  const top = fixture('cells.json');
+  const cells = scenario ? top.scenarios[scenario] : top;
+  assert.ok(cells, `cells.json has no scenario ${scenario}`);
   const budgets = new Map<string, number>();
   for (const column of cells.columns) {
     assert.equal(column.kind, 'float', "the fixture's columns are floats");
     budgets.set(column.name, Math.max(1, column.budget + skew));
   }
   const mismatches: string[] = [];
-  for (const cell of [...cells.cells, ...cells.rounding]) {
+  for (const cell of [...cells.cells, ...(cells.rounding ?? [])]) {
     const budget = budgets.get(cell.column);
     assert.ok(budget, "the cell's column is listed");
     const value = cell.value === null ? null : Number(cell.value);
@@ -298,15 +301,30 @@ describe('cells.json', () => {
   // `number_px` and `resize` pin a resized column's budgets: the level is
   // added only when both sides build resizing (root CLAUDE.md, "Comparison protocol").
   test('resize', { skip: 'the contender has no column resizing' }, () => {});
+
+  // Each scenario's file at its stop: the same text at the same budgets
+  // (the budgets themselves are the layout's, `view.test.ts`).
+  for (const scenario of Object.keys(fixture('cells.json').scenarios ?? {})) {
+    test(`the ${scenario} scenario's cells`, () => {
+      assert.ok(fixture('cells.json').scenarios[scenario].cells.length > 0);
+      assert.deepEqual(cellMismatches(0, exactText, scenario), []);
+    });
+    // No value in the file is long enough for a budget a character off to
+    // round it (the budgets are `view.test.ts`'s), but whole numbers are
+    // there, which JS's own text writes without the `.0`.
+    test(`the ${scenario} scenario's control fails`, () => {
+      assert.notDeepEqual(cellMismatches(0, String, scenario), [], `String's text passed ${scenario}'s cells`);
+    });
+  }
 });
 
 // --- sql ---
 
-/** A bridge that answers DuckDB's summary queries for a file of 1,567,523
+/** A bridge that answers DuckDB's summary queries for a file of `rows`
  *  rows and logs what it was sent. */
-function scriptBridge(sent: string[]): Bridge {
+function scriptBridge(sent: string[], rows = 1_567_523): Bridge {
   const describe = tableToIPC(tableFromArrays({ column_name: ['spkid'], column_type: ['BIGINT'] }), 'stream');
-  const metadata = tableToIPC(tableFromArrays({ num_rows: BigInt64Array.from([1_567_523n]), num_row_groups: BigInt64Array.from([52n]) }), 'stream');
+  const metadata = tableToIPC(tableFromArrays({ num_rows: BigInt64Array.from([BigInt(rows)]), num_row_groups: BigInt64Array.from([52n]) }), 'stream');
   return {
     registerFile: async (name) => ({ name, size: null, bytesRead: null }),
     query: async (sql) => {
@@ -317,18 +335,22 @@ function scriptBridge(sent: string[]): Bridge {
   };
 }
 
-/** The fixture's queries that `page` (a page's SQL) and the open don't send. */
-async function sqlMismatches(page: (file: string, start: number, end: number) => string): Promise<string[]> {
-  const sql = fixture('sql.json');
+/** The fixture's queries that `page` (a page's SQL) and the open don't
+ *  send: the top section's, or a scenario's (`scenarios`). */
+async function sqlMismatches(page: (file: string, start: number, end: number) => string, scenario?: string): Promise<string[]> {
+  const sql = scenario ? fixture('sql.json').scenarios[scenario] : fixture('sql.json');
+  assert.ok(sql, `sql.json has no scenario ${scenario}`);
   const mismatches: string[] = [];
   for (const { rows, sql: expected } of sql.pages) {
     const actual = page(sql.file, rows[0], rows[1]);
     if (actual !== expected) mismatches.push(`page ${rows}: ${actual}`);
   }
+  // The rows the scripted summary answers (any count: the open reads it back).
+  const rows = scenario ? 10_632 : 1_567_523;
   const sent: string[] = [];
-  const bridge = scriptBridge(sent);
-  const opened = await openParquet(bridge, new Queries(bridge), Promise.resolve(), sql.file, '/data/asteroids.parquet');
-  assert.equal(opened.rows, 1_567_523);
+  const bridge = scriptBridge(sent, rows);
+  const opened = await openParquet(bridge, new Queries(bridge), Promise.resolve(), sql.file, `/data/${sql.file}`);
+  assert.equal(opened.rows, rows);
   if (JSON.stringify(sent) !== JSON.stringify(sql.summary)) mismatches.push(`summary: ${JSON.stringify(sent)}`);
   return mismatches;
 }
@@ -344,6 +366,20 @@ describe('sql.json', () => {
       assert.notDeepEqual(await sqlMismatches(page), [], `control ${control.name} passed the SQL fixture`);
     }
   });
+
+  for (const scenario of Object.keys(fixture('sql.json').scenarios ?? {})) {
+    test(`the ${scenario} scenario's page and summary queries`, async () => {
+      assert.deepEqual(await sqlMismatches(pageSql, scenario), []);
+    });
+    test(`the ${scenario} scenario's controls fail`, async () => {
+      // Another file's name, and the controls' query shapes on this file's.
+      assert.notDeepEqual(await sqlMismatches((_file, start, end) => pageSql('asteroids.parquet', start, end), scenario), [], `another file's SQL passed ${scenario}'s`);
+      for (const control of fixture('sql.json').controls) {
+        const shaped = (file: string, start: number, end: number) => control.sql.replaceAll(fixture('sql.json').file, file).replaceAll(String(control.rows[0]), String(start)).replaceAll(String(control.rows[1]), String(end));
+        assert.notDeepEqual(await sqlMismatches(shaped, scenario), [], `control ${control.name} passed ${scenario}'s SQL`);
+      }
+    });
+  }
 });
 
 // --- the cache's bytes ---
@@ -387,8 +423,5 @@ test('selection.json', { skip: 'the contender has no selection' }, () => {});
 // when both sides build sorting.
 test('sort.json', { skip: 'the contender has no sort' }, () => {});
 
-// --- pin ---
-
-// `pin.json` pins where pinned columns put every cell: the level is added
-// only when both sides build pinning.
-test('pin.json', { skip: 'the contender has no pinned columns' }, () => {});
+// `pin.json`, `density.json`, and `paint.json`, the wide level's features:
+// `wide.test.ts`.

@@ -22,6 +22,14 @@ const BOX_MARGIN = 12;
  *  looked at again when the page lands). */
 export type TooltipLookup = (row: number, column: number) => string | null | undefined;
 
+/** How the view's cells are found (by default, a row's children after its
+ *  number, in column order): a cell's column, and the box to place a
+ *  tooltip beside. */
+export interface TooltipCells {
+  column(cell: HTMLElement): number;
+  rect(row: number, column: number): DOMRect | null;
+}
+
 interface Hover {
   row: number;
   column: number;
@@ -42,10 +50,12 @@ export class CellTooltip {
   private readonly text: HTMLDivElement;
   private readonly scroller: HTMLElement;
   private readonly lookup: TooltipLookup;
+  private readonly cells: TooltipCells | undefined;
 
-  constructor(scroller: HTMLElement, lookup: TooltipLookup) {
+  constructor(scroller: HTMLElement, lookup: TooltipLookup, cells?: TooltipCells) {
     this.scroller = scroller;
     this.lookup = lookup;
+    this.cells = cells;
     this.element = document.createElement('div');
     this.element.className = 'tooltip';
     this.element.setAttribute('role', 'tooltip');
@@ -80,10 +90,10 @@ export class CellTooltip {
     // hover. GPUI hears none.
     if (event.clientX === this.pointer.x && event.clientY === this.pointer.y) return;
     this.pointer = { x: event.clientX, y: event.clientY };
-    const cell = (event.target as Element).closest?.('.row > .cell');
+    const cell = (event.target as Element).closest?.<HTMLElement>('.row > .cell');
     const row = cell ? Number((cell.parentElement as HTMLElement).dataset.row) : NaN;
     // A row's first child is its number.
-    const column = cell ? Array.prototype.indexOf.call(cell.parentElement!.children, cell) - 1 : -1;
+    const column = !cell ? -1 : this.cells ? this.cells.column(cell) : Array.prototype.indexOf.call(cell.parentElement!.children, cell) - 1;
     const at = cell && Number.isFinite(row) && column >= 0 ? { row, column } : null;
     if (at && this.hover && this.hover.row === at.row && this.hover.column === at.column) return;
     if (!at && !this.hover) return;
@@ -134,10 +144,10 @@ export class CellTooltip {
     if (text === undefined) return;
     hover.decided = true;
     if (text === null) return;
-    const cell = this.scroller.querySelector(`.row[data-row="${hover.row}"]`)?.children[hover.column + 1];
-    if (!cell) return;
+    const rect = this.cells ? this.cells.rect(hover.row, hover.column) : (this.scroller.querySelector(`.row[data-row="${hover.row}"]`)?.children[hover.column + 1]?.getBoundingClientRect() ?? null);
+    if (!rect) return;
     hover.shown = true;
-    this.show(text, cell.getBoundingClientRect());
+    this.show(text, rect);
   }
 
   /** Shows `text` beside `cell` (gpui-base's `Positioner::side`, no

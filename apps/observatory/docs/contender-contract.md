@@ -70,7 +70,7 @@ The scripts record `state` with every frame through `shared-web/perf/`'s `frameR
 
 ## Element Timing on cells (DOM only)
 
-With `?measure`, each loaded cell carries `elementtiming="row:<row>"` (0-based), so the browser reports its first paint. Element Timing reports an element once, when it's first painted, so a row that loads gets new cells: its placeholder cells are keyed apart from its loaded ones, measured or not, and never turn real in place. A reader needs its own `PerformanceObserver` from the page's start (an init script): the entries' buffer holds 150, and one screen of cells is ~330.
+With `?measure`, each loaded cell carries `elementtiming="row:<row>"` (0-based), so the browser reports its first paint. Element Timing reports an element once, when it's first painted, so a row that loads gets new cells: its placeholder cells are keyed apart from its loaded ones, measured or not, and never turn real in place. A reader needs its own `PerformanceObserver` from the page's start (an init script): the entries' buffer holds 150, and one screen of cells is ~330. On the wide level, only the cells created with a row's page (as it lands, or as the row comes into view) carry it: a column a sideways scroll brings into an already drawn row is a new element too, but its paint is the scroll's, not the row's data, so it carries none, and a row that loaded long ago reports no new paint.
 
 ## Theme
 

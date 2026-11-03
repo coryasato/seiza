@@ -9,6 +9,7 @@ import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
+import { levelOutDir } from '../contenders/level.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
 import { SCENARIOS, type Level } from '../contenders/scenarios.ts';
 
@@ -50,10 +51,10 @@ export const MARKS = {
 export const serveGpui = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given, level);
 
 /** A contender's build directory at a level (`dist/`, `dist-<level>/`). */
-export const distDir = (webDir: string, level: Level = 'base'): string => `${webDir}/dist${level === 'base' ? '' : `-${level}`}`;
+export const distDir = (webDir: string, level: Level = 'base'): string => `${webDir}/${levelOutDir(level)}`;
 
 /** The TanStack contender's release build, as `serveGpui`. */
-export const serveTanstack = (port: number): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port);
+export const serveTanstack = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port, given, level);
 
 async function serveContender(side: Side, webDir: string, port: number, given?: string, level: Level = 'base'): Promise<AppServer> {
   const base = contenderBase('tall-table', side, level);

@@ -2,9 +2,9 @@
 // production serves them (contenders/paths.ts):
 //
 // - the page's build at /observatory/, each contender's at its base, and
-//   each feature level's build at its own (`gpui/wide/`);
+//   each feature level's build at its own (`gpui/wide/`, `tanstack/wide/`);
 // - the engine at /observatory/duckdb/, one copy: the GPUI build's, after
-//   checking the TanStack build's is the same files and bytes;
+//   checking every other build's is the same files and bytes;
 // - the data at /observatory/data/: every file data/MANIFEST.json names,
 //   each checked against its SHA-256 there;
 // - the UI font at /fonts/, shared by every build on the apex.
@@ -45,9 +45,12 @@ function stage(): void {
     gpui: join(appDir, 'contenders/tall-table/gpui/web/dist'),
     'gpui-wide': join(appDir, 'contenders/tall-table/gpui/web/dist-wide'),
     tanstack: join(appDir, 'contenders/tall-table/tanstack/web/dist'),
+    'tanstack-wide': join(appDir, 'contenders/tall-table/tanstack/web/dist-wide'),
   };
+  /** The recipe that builds each: `<side>-build [level]`, the page's `build`. */
+  const recipe = (name: string) => (name === 'page' ? 'build' : name.replace(/^(gpui|tanstack)(?:-(\w+))?$/, (_, side: string, level?: string) => `${side}-build${level ? ` ${level}` : ''}`));
   for (const [name, dir] of Object.entries(builds))
-    if (!existsSync(join(dir, 'index.html'))) throw new Error(`no ${name} build in ${relative(root, dir)}: run \`just observatory ${name === 'page' ? 'build' : name === 'gpui-wide' ? 'gpui-build wide' : `${name}-build`}\``);
+    if (!existsSync(join(dir, 'index.html'))) throw new Error(`no ${name} build in ${relative(root, dir)}: run \`just observatory ${recipe(name)}\``);
 
   // Every file data/MANIFEST.json names, each as it pins it.
   const data = Object.entries(dataFiles()).map(([name, pinned]) => {
@@ -63,7 +66,7 @@ function stage(): void {
   const engineFiles = (build: string) =>
     Object.fromEntries(walk(join(build, ENGINE_DIR)).map((file) => [relative(join(build, ENGINE_DIR), file), sha256(readFileSync(file))]));
   const gpuiEngine = engineFiles(builds.gpui);
-  for (const other of ['gpui-wide', 'tanstack'] as const)
+  for (const other of ['gpui-wide', 'tanstack', 'tanstack-wide'] as const)
     if (JSON.stringify(gpuiEngine) !== JSON.stringify(engineFiles(builds[other]))) throw new Error(`the GPUI build's ${ENGINE_DIR}/ and the ${other} build's differ: rebuild them (\`just observatory engine-files\` says how)`);
   // Its bundles directly in duckdb/ are served immutable (src/files.ts), so each name must carry its content hash.
   // A name passes only as `<DuckDB's own name>-<8-char hash><ext>`, so an
@@ -91,6 +94,7 @@ function stage(): void {
   place(builds.gpui, contenderBase('tall-table', 'gpui'), notServed);
   place(builds['gpui-wide'], contenderBase('tall-table', 'gpui', 'wide'), notServed);
   place(builds.tanstack, contenderBase('tall-table', 'tanstack'), notServed);
+  place(builds['tanstack-wide'], contenderBase('tall-table', 'tanstack', 'wide'), notServed);
   place(join(builds.gpui, ENGINE_DIR), ENGINE);
   mkdirSync(join(dist, DATA), { recursive: true });
   for (const { name, path } of data) copyFileSync(path, join(dist, DATA, name));

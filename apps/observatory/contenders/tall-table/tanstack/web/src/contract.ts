@@ -14,7 +14,7 @@ import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
 import type { TablePaging } from './data/paging.ts';
 import type { ArrowPage } from './data/table.ts';
 import { exactText, shownText } from './data/format.ts';
-import { ROW_HEIGHT, type LaidOutColumn } from './layout.ts';
+import type { LaidOutColumn } from './layout.ts';
 import type { ScaledScroller } from './scroll.ts';
 
 /** The table on screen, for the replay hooks. */
@@ -40,11 +40,26 @@ export class TableContract {
   private readonly gutter: number;
   private readonly key: LaidOutColumn | undefined;
   private readonly measuring: boolean;
+  /** The rows' height, px (the level's density). */
+  private readonly rowHeight: number;
+  /** Published with each state too, measured or not (the wide level's
+   *  `?cells`). */
+  private readonly probe: (() => void) | undefined;
   private publishing = 0;
   private published = '';
   private targets = '';
 
-  constructor(open: number, paging: TablePaging<ArrowPage>, model: ScaledScroller, scroller: HTMLElement, columns: LaidOutColumn[], gutter: number, measuring: boolean) {
+  constructor(
+    open: number,
+    paging: TablePaging<ArrowPage>,
+    model: ScaledScroller,
+    scroller: HTMLElement,
+    columns: LaidOutColumn[],
+    gutter: number,
+    measuring: boolean,
+    rowHeight: number,
+    probe?: () => void,
+  ) {
     this.open = open;
     this.paging = paging;
     this.model = model;
@@ -52,6 +67,8 @@ export class TableContract {
     this.key = columns[0];
     this.gutter = gutter;
     this.measuring = measuring;
+    this.rowHeight = rowHeight;
+    this.probe = probe;
     shown = this;
   }
 
@@ -83,7 +100,12 @@ export class TableContract {
     const filled = this.filledNow();
     if (filled && !this.filled) performance.mark(MARKS.filled);
     this.filled = filled;
-    if (this.measuring && !this.publishing) this.publishing = requestAnimationFrame(this.publish);
+    this.schedule();
+  }
+
+  /** Publishes in the next frame, once however often it's asked. */
+  private schedule(): void {
+    if ((this.measuring || this.probe) && !this.publishing) this.publishing = requestAnimationFrame(this.publish);
   }
 
   /** A move starts (the model's first subscriber, before the virtualizer's,
@@ -100,7 +122,7 @@ export class TableContract {
 
   /** The replay's fling: equal steps through the model, one per frame. */
   async fling(): Promise<void> {
-    const step = flingStep(this.paging.rows, ROW_HEIGHT);
+    const step = flingStep(this.paging.rows, this.rowHeight);
     for (let sent = 1; sent < FLING_FRAMES; sent++) {
       await nextFrame();
       this.model.step(step);
@@ -114,7 +136,7 @@ export class TableContract {
   jump(fraction: number): Promise<void> {
     const rows = this.paging.rows;
     const row = Math.min(Math.floor(Math.min(Math.max(fraction, 0), 1) * rows), Math.max(rows - 1, 0));
-    return this.untilFilled(() => this.model.jumpTo(row * ROW_HEIGHT));
+    return this.untilFilled(() => this.model.jumpTo(row * this.rowHeight));
   }
 
   /** Runs `move`, then resolves once the view it led to is filled: after
@@ -138,6 +160,8 @@ export class TableContract {
 
   private publish = (): void => {
     this.publishing = 0;
+    this.probe?.();
+    if (!this.measuring) return;
     const { first, end, loaded } = this.visible();
     const state: ContenderState = {
       rows: this.paging.rows,

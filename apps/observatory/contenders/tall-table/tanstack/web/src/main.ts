@@ -17,14 +17,33 @@ import { hydrateRoot } from 'react-dom/client';
 import { createBridge } from '@seiza/duckdb/bridge';
 import { MARKS, followPageTheme, publishContender } from '../../../../contract.ts';
 import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
+import { pickScenario } from '../../../../scenarios.ts';
 import { replay } from './contract.ts';
+import { wideScene, type WideScene } from './scene.ts';
 import { App, FIRST_SCREEN, type Load } from './view.ts';
 import './theme.css';
 import './view.css';
+import './level.css';
 
+// The scenario and stop the URL asks for, on this build's level
+// (`contenders/scenarios.ts`); one it doesn't have is a failure the frame
+// shows (`contender:failed`), and nothing opens.
+const picked = pickScenario(__LEVEL__, new URLSearchParams(location.search));
 /** The data file's SQL name, which the page SQL names: the same on both
  *  sides (root `CLAUDE.md`, "Comparison protocol"). */
-const FILE = 'asteroids.parquet';
+const FILE = picked instanceof Error ? '' : picked.scenario.data;
+/** What the wide level sets on the table at the stop (`scene.ts`); a
+ *  scenario the build can't set fails the load as an unknown one does, never
+ *  drawing the base's table in its place. */
+let scene: WideScene | undefined;
+let unset: Error | null = null;
+if (__LEVEL__ === 'wide' && !(picked instanceof Error)) {
+  const range = __RANGES__[picked.scenario.data];
+  if (picked.scenario.level === 'wide' && 'rowHeight' in picked.stop && range) scene = wideScene(picked.scenario, picked.stop, range);
+  else unset = new Error(`the wide level can't set ${picked.scenario.id} at ${picked.stop.id} (no heat range for ${picked.scenario.data}?)`);
+}
+/** Why this frame opens nothing, if it doesn't. */
+const failure = picked instanceof Error ? picked : unset;
 
 const firstPixels = markFirstPixels();
 
@@ -85,6 +104,11 @@ function startEngine(): Promise<Engine> {
  *  meanwhile; resolves with the open's number, or rejects, with the
  *  failure shown, if it couldn't. */
 async function openFile(): Promise<number> {
+  if (failure) {
+    show({ kind: 'waiting', status: `Couldn't load the scenario: ${failure.message}`, failed: true });
+    performance.mark(MARKS.failed);
+    throw failure;
+  }
   let ready: Engine;
   try {
     ready = await startEngine();
@@ -107,7 +131,7 @@ async function openFile(): Promise<number> {
     // page), isn't waited for any longer.
     firstPixels.disconnect();
     const id = ++opens;
-    show({ kind: 'open', id, rows: file.rows, columns: file.columns, paging });
+    show({ kind: 'open', id, rows: file.rows, columns: file.columns, paging, scene });
     return id;
   } catch (error) {
     show({ kind: 'waiting', status: `Couldn't open ${FILE}: ${message(error)}`, failed: true });
@@ -131,7 +155,10 @@ function openAfter(): Promise<number> {
   return next;
 }
 
-publishContender('tanstack', replay(openAfter));
+// A frame whose scenario or stop this build lacks opens nothing: its replay
+// fails at once rather than wait for a fill.
+const unknown = (): Promise<never> => Promise.reject(failure);
+publishContender('tanstack', failure ? { open: unknown, fling: unknown, jump: unknown } : replay(openAfter));
 
 /**
  * `contender:first-pixels` at the prerendered screen's paint: its line's

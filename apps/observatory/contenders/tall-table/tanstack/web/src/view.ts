@@ -16,9 +16,11 @@ import type { TablePaging } from './data/paging.ts';
 import { MARKS, measuring } from '../../../../contract.ts';
 import { cellTooltip, shownRow } from './cells.ts';
 import { TableContract } from './contract.ts';
-import { ROW_HEIGHT, formatCount, gutterWidth, layOut, type LaidOutColumn } from './layout.ts';
+import { BASE_SIZES, formatCount, gutterWidth, layOutAll, type LaidOutColumn } from './layout.ts';
+import { sceneColumns, type WideScene } from './scene.ts';
 import { SCROLL, ScaledScroller } from './scroll.ts';
 import { CellTooltip } from './tooltip.ts';
+import { EdgeLine, WideHead, WideRow, cellElement, cellRect, publishCells, sheetStyle, useFramePaint, useSheet } from './wide.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -26,7 +28,7 @@ const WINDOW_ROWS = 4096;
 
 export type Load =
   | { kind: 'waiting'; status: string; failed?: boolean; first?: boolean }
-  | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<ArrowPage> };
+  | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<ArrowPage>; scene?: WideScene };
 
 /** The first screen: the build prerenders it into the page's HTML
  *  (`vite.config.ts`), and the page hydrates it. */
@@ -37,6 +39,10 @@ export const FIRST_SCREEN: Load = { kind: 'waiting', status: 'Engine loading…'
  *  measured run. Read when a table mounts: the build renders the view in
  *  Node, where there's no `location`. */
 const probing = (): boolean => new URLSearchParams(location.search).has('probe');
+
+/** `?cells` (the wide level's): the layout and the cells on screen on
+ *  `__contender`, for `perf/wide.ts`. */
+const probingCells = (): boolean => new URLSearchParams(location.search).has('cells');
 
 interface AppProps {
   load: Load;
@@ -59,7 +65,7 @@ export function App({ load, hydrated }: AppProps): ReactNode {
     },
     load.kind === 'open'
       ? // Keyed by the paging: a new open is a new table, model, and virtualizer.
-        h(Table, { key: load.id, open: load.id, rows: load.rows, columns: load.columns, paging: load.paging })
+        h(Table, { key: load.id, open: load.id, rows: load.rows, columns: load.columns, paging: load.paging, scene: load.scene })
       : // Element Timing on the first screen's line (only the first: a later
         // status line, after a reopen, is a new element): its paint is
         // `contender:first-pixels`.
@@ -94,11 +100,17 @@ interface TableProps {
   rows: number;
   columns: Column[];
   paging: TablePaging<ArrowPage>;
+  /** The wide level's scene at its stop (`main.ts`). */
+  scene?: WideScene;
 }
 
-function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactNode {
-  const columns = useMemo(() => fileColumns.map(layOut), [fileColumns]);
-  const gutter = gutterWidth(rows);
+function Table({ open, rows, columns: fileColumns, paging, scene: given }: TableProps): ReactNode {
+  // The wide level's scene: on the base's build, never (its code is dropped).
+  const scene = __LEVEL__ === 'wide' ? given : undefined;
+  const sizes = scene?.sizes ?? BASE_SIZES;
+  const rowHeight = sizes.row;
+  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : layOutAll(fileColumns)), [fileColumns, scene]);
+  const gutter = gutterWidth(rows, sizes);
   const width = gutter + columns.reduce((sum, column) => sum + column.width, 0);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
@@ -108,14 +120,22 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
   const contractRef = useRef<TableContract | null>(null);
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   const measured = useMemo(measuring, []);
+  // The wide level's pin, its scrolled columns, and its paint (a build
+  // constant, so the hooks run the same every render).
+  const sheet = __LEVEL__ === 'wide' && scene ? useSheet(scrollerRef, columns, scene, gutter) : null;
+  const paint = __LEVEL__ === 'wide' && scene ? useFramePaint() : null;
+  const sheetRef = useRef(sheet);
+  sheetRef.current = sheet;
+  const paintRef = useRef(paint);
+  paintRef.current = paint;
 
   // Before the virtualizer's own layout effects: it subscribes to the model.
   useLayoutEffect(() => {
     const scroller = scrollerRef.current!;
     const model = new ScaledScroller(scroller, spacerRef.current!, contentRef.current!, {
       rows,
-      rowHeight: ROW_HEIGHT,
-      head: ROW_HEIGHT,
+      rowHeight,
+      head: rowHeight,
       ...SCROLL,
       rebaseRows: WINDOW_ROWS / 4,
       dragSettle: paging.dragSettleMs,
@@ -123,6 +143,16 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
     modelRef.current = model;
     // A scroll in thumb mode is a drag: it loads once it rests or lets go.
     model.onDrag = (dragging) => (dragging ? paging.startDrag() : paging.endDrag());
+    // On the wide level, a cell is found by its column's number (its row
+    // holds the pinned and the drawn scrolled ones), and a scrolled cell's
+    // tooltip sits beside its part right of the run.
+    const locate =
+      __LEVEL__ === 'wide' && scene
+        ? {
+            column: (cell: HTMLElement) => Number(cell.dataset.column ?? -1),
+            rect: (row: number, column: number) => (sheetRef.current ? cellRect(scroller, sheetRef.current, gutter, row, column) : null),
+          }
+        : undefined;
     tooltipRef.current = new CellTooltip(scroller, (row, column) => {
       const state = paging.row(row);
       if (state.kind !== 'loaded') return undefined;
@@ -132,20 +162,33 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
       if (tooltip.differs) return tooltip.text;
       // Cut: the text is wider than its cell's room, measured unrounded
       // (`scrollWidth` rounds, and missed text over by under a pixel).
-      const cell = scroller.querySelector(`.row[data-row="${row}"]`)?.children[column + 1];
+      const cell = __LEVEL__ === 'wide' && scene ? cellElement(scroller, row, column) : scroller.querySelector(`.row[data-row="${row}"]`)?.children[column + 1];
       return cell && isCut(cell) ? tooltip.text : null;
-    });
+    }, locate);
     if (probing()) (globalThis as { __tanstackProbe?: unknown }).__tanstackProbe = { paging, model };
-    const contract = new TableContract(open, paging, model, scroller, columns, gutter, measured);
+    // `?cells` on the wide level: the layout and the cells on screen, after each check.
+    const probe =
+      __LEVEL__ === 'wide' && scene && probingCells()
+        ? () => {
+            const shown = sheetRef.current;
+            const heat = paintRef.current?.heat;
+            if (!shown || !heat) return;
+            publishCells(scroller, columns, shown, gutter, scene, heat, (row) => {
+              const state = paging.row(row);
+              return state.kind === 'loaded' ? { page: state.page, index: state.index } : null;
+            });
+          }
+        : undefined;
+    const contract = new TableContract(open, paging, model, scroller, columns, gutter, measured, rowHeight, probe);
     contractRef.current = contract;
     // Subscribed before the virtualizer, whose render checks.
     model.subscribe(() => contract.moveStarted());
     // The first viewport is the open's: it loads the first pages.
-    paging.setViewportRows(model.viewport / ROW_HEIGHT);
-    const unsubscribe = model.subscribe((v) => paging.moveTopTo(v / ROW_HEIGHT));
+    paging.setViewportRows(model.viewport / rowHeight);
+    const unsubscribe = model.subscribe((v) => paging.moveTopTo(v / rowHeight));
     const resized = new ResizeObserver(() => {
       model.resize();
-      paging.setViewportRows(model.viewport / ROW_HEIGHT);
+      paging.setViewportRows(model.viewport / rowHeight);
     });
     resized.observe(scroller);
     scroller.focus({ preventScroll: true });
@@ -160,13 +203,13 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
       model.destroy();
       modelRef.current = null;
     };
-  }, [open, rows, paging, columns, gutter, measured]);
+  }, [open, rows, paging, columns, gutter, measured, rowHeight, scene]);
 
   // The contract after each commit, and after each move that rendered
   // nothing (the rows were drawn already). Subscribed after the
   // virtualizer, whose subscriber renders first.
   useLayoutEffect(() => contractRef.current?.check());
-  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, rows, paging, columns, gutter, measured]);
+  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, rows, paging, columns, gutter, measured, rowHeight, scene]);
   // The table gone (a new open replaced it): its reads and timers stop.
   useEffect(() => () => paging.close(), [paging]);
 
@@ -201,19 +244,19 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
   const virtualizer = useVirtualizer({
     count: Math.min(rows, WINDOW_ROWS),
     getScrollElement: () => scrollerRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: 4,
     observeElementOffset: (_instance, notify) =>
       modelRef.current?.subscribe((v, scrolling) => {
         const base = windowBase();
-        notify(v - base * ROW_HEIGHT, scrolling);
+        notify(v - base * rowHeight, scrolling);
         // Rows are placed against the content's base, and a moved window
         // shifts their indexes: either can change while TanStack's range
         // doesn't, and then it skips the render. Make it.
         const model = modelRef.current;
         if (model && (base !== rendered.current.window || model.base !== rendered.current.content)) flushSync(rerender);
       }),
-    scrollToFn: (offset) => modelRef.current?.jumpTo(offset + windowBase() * ROW_HEIGHT),
+    scrollToFn: (offset) => modelRef.current?.jumpTo(offset + windowBase() * rowHeight),
   });
 
   const model = modelRef.current;
@@ -226,10 +269,29 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
         .filter((row) => row < rows)
         .map((row) => {
           const state = paging.row(row);
+          if (__LEVEL__ === 'wide' && sheet && paint && scene)
+            return h(WideRow, {
+              key: row,
+              row,
+              top: (row - model.base) * rowHeight,
+              page: state.kind === 'loaded' ? state.page : null,
+              index: state.kind === 'loaded' ? state.index : 0,
+              failed: state.kind === 'failed' ? state.message : null,
+              columns,
+              pinned: sheet.pin.columns,
+              first: sheet.first,
+              last: sheet.last,
+              gap: sheet.gap,
+              gutter,
+              scene,
+              frame: paint.frame,
+              heat: paint.heat,
+              measured,
+            });
           return h(Row, {
             key: row,
             row,
-            top: (row - model.base) * ROW_HEIGHT,
+            top: (row - model.base) * rowHeight,
             page: state.kind === 'loaded' ? state.page : null,
             index: state.kind === 'loaded' ? state.index : 0,
             failed: state.kind === 'failed' ? state.message : null,
@@ -240,6 +302,18 @@ function Table({ open, rows, columns: fileColumns, paging }: TableProps): ReactN
         })
     : [];
 
+  if (__LEVEL__ === 'wide' && sheet && scene)
+    return h(
+      'div',
+      { className: 'frame wide', style: sheetStyle(sizes) },
+      h(
+        'div',
+        { ref: scrollerRef, className: 'scroller', tabIndex: 0 },
+        h(WideHead, { columns, sheet, gutter, width, sizes }),
+        h('div', { ref: spacerRef, className: 'spacer', style: { width } }, h('div', { ref: contentRef, className: 'content' }, shown)),
+      ),
+      h(EdgeLine, { sheet, gutter }),
+    );
   return h(
     'div',
     { className: 'frame' },

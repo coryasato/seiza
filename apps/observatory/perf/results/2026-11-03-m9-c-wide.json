@@ -1,0 +1,149 @@
+{
+  "date": "2026-11-03",
+  "label": "m9-c-wide",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "viewport": "1440x900",
+  "deviceScaleFactor": 2,
+  "scenario": "wide-sheet",
+  "results": {
+    "gpui": {
+      "rows-26": {
+        "stop": "rows-26",
+        "rowHeight": 26,
+        "dayWidth": 96,
+        "textSize": 13,
+        "pinned": 2,
+        "rows": 32,
+        "columns": 12,
+        "cells": 384,
+        "heatFills": 46
+      },
+      "rows-22": {
+        "stop": "rows-22",
+        "rowHeight": 22,
+        "dayWidth": 80,
+        "textSize": 12,
+        "pinned": 2,
+        "rows": 38,
+        "columns": 15,
+        "cells": 570,
+        "heatFills": 49
+      },
+      "rows-20": {
+        "stop": "rows-20",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 42,
+        "columns": 17,
+        "cells": 714,
+        "heatFills": 56
+      },
+      "rows-18": {
+        "stop": "rows-18",
+        "rowHeight": 18,
+        "dayWidth": 56,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 47,
+        "columns": 20,
+        "cells": 940,
+        "heatFills": 59
+      },
+      "default": {
+        "stop": "rows-20",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 42,
+        "columns": 17,
+        "cells": 714,
+        "heatFills": 56
+      },
+      "an unknown stop": "failed",
+      "an unknown scenario": "failed",
+      "the wide sheet on the base build": "failed",
+      "Big file on the base build, by default": "filled"
+    },
+    "tanstack": {
+      "rows-26": {
+        "stop": "rows-26",
+        "rowHeight": 26,
+        "dayWidth": 96,
+        "textSize": 13,
+        "pinned": 2,
+        "rows": 33,
+        "columns": 12,
+        "cells": 396,
+        "heatFills": 46
+      },
+      "rows-22": {
+        "stop": "rows-22",
+        "rowHeight": 22,
+        "dayWidth": 80,
+        "textSize": 12,
+        "pinned": 2,
+        "rows": 39,
+        "columns": 15,
+        "cells": 585,
+        "heatFills": 49
+      },
+      "rows-20": {
+        "stop": "rows-20",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 43,
+        "columns": 17,
+        "cells": 731,
+        "heatFills": 56
+      },
+      "rows-18": {
+        "stop": "rows-18",
+        "rowHeight": 18,
+        "dayWidth": 56,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 48,
+        "columns": 20,
+        "cells": 960,
+        "heatFills": 59
+      },
+      "default": {
+        "stop": "rows-20",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 43,
+        "columns": 17,
+        "cells": 731,
+        "heatFills": 56
+      },
+      "sideways": {
+        "probeFollowed": true,
+        "newColumns": 9,
+        "sidewaysPaints": 0,
+        "verticalPaints": 230
+      },
+      "an unknown stop": "failed",
+      "an unknown scenario": "failed",
+      "the wide sheet on the base build": "failed",
+      "Big file on the base build, by default": "filled"
+    }
+  },
+  "failures": []
+}

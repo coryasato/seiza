@@ -1,0 +1,2 @@
+/* The base level has no styles of its own beyond view.css: `./level.css`
+   resolves here on its build (`vite.config.ts`). */

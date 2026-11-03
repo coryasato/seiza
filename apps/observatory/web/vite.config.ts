@@ -4,19 +4,24 @@ import { siteVite } from '@seiza/site-ui/vite';
 import { prerender } from '@seiza/web/prerender';
 import { seizaViteConfig, serveDirs } from '@seiza/web/vite';
 import { observatoryData } from '../contenders/data.ts';
+import { levelOutDir } from '../contenders/level.ts';
+import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
 import { coldNumbers } from './cold.ts';
 import { contenderBase, ENGINE, ENGINE_DIR, OBSERVATORY } from '../contenders/paths.ts';
 import { ROUTES } from './src/components.ts';
 import type * as Prerender from './src/prerender.ts';
 import { SIDEBAR_SCRIPT } from './src/sidebar.ts';
 
-const contender = (side: 'gpui' | 'tanstack') => fileURLToPath(new URL(`../contenders/tall-table/${side}/web/dist/`, import.meta.url));
+const contender = (side: 'gpui' | 'tanstack', level: Level = 'base') => fileURLToPath(new URL(`../contenders/tall-table/${side}/web/${levelOutDir(level)}/`, import.meta.url));
+/** Every feature level's build, served under its contender's (`gpui/wide/`), ahead of the base's. */
+const levels = (Object.keys(LEVEL_FEATURES) as Level[]).filter((level) => level !== 'base');
 
 // The page at /observatory/ and /observatory/<component>/ (the observatory's
 // CLAUDE.md, rule 2), one HTML file per route, each prerendered. The dev and
 // preview servers also serve what its frames load, as the deploy will: the
-// contenders' release builds at their bases (`just observatory gpui-build`,
-// `tanstack-build` first), the engine at /observatory/duckdb/ (the GPUI
+// contenders' release builds at their bases, each level's under its
+// contender's (`just observatory gpui-build [level]`, `tanstack-build
+// [level]` first), the engine at /observatory/duckdb/ (the GPUI
 // build's copy: `engine-files` checks both are the same bytes), and the data.
 export default defineConfig(
   seizaViteConfig(
@@ -32,6 +37,7 @@ export default defineConfig(
         coldNumbers(),
         prerender<typeof Prerender>({ module: '/src/prerender.ts', render: ({ render }, page) => render(page), plugins: [coldNumbers()] }),
         serveDirs([
+          ...levels.flatMap((level) => (['gpui', 'tanstack'] as const).map((side) => ({ at: contenderBase('tall-table', side, level), dir: contender(side, level) }))),
           { at: contenderBase('tall-table', 'gpui'), dir: contender('gpui') },
           { at: contenderBase('tall-table', 'tanstack'), dir: contender('tanstack') },
           { at: ENGINE, dir: `${contender('gpui')}${ENGINE_DIR}` },
