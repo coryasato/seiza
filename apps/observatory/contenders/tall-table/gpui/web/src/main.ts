@@ -7,6 +7,7 @@ import init, { replayGeometry, replayJump, replayOpen, replayView, setTheme, sta
 import wasmUrl from '../pkg/tall_table_gpui_bg.wasm?url';
 import { MARKS, followPageTheme, markAt, nextFrame, nextMark, pageTheme, publishContender } from '../../../../contract.ts';
 import { DATA, ENGINE_DIR, OBSERVATORY, UI_FONT } from '../../../../paths.ts';
+import { pickScenario } from '../../../../scenarios.ts';
 import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
 
 /** Set by shared-web's placeholder (`PLACEHOLDER_PAINT_MARK`) and `seiza`'s
@@ -21,6 +22,18 @@ const FIRST_FRAME = 'gpui:first-frame';
 markAt(PLACEHOLDER_PAINTED, MARKS.firstPixels);
 markAt(FIRST_FRAME, MARKS.usable);
 
+// The scenario and stop the URL asks for, on this build's level; one it
+// doesn't have is a failure the window shows (`contender:failed`).
+const picked = pickScenario(__LEVEL__, new URLSearchParams(location.search));
+const file = picked instanceof Error ? '' : picked.scenario.data;
+/** What the level sets (`crate/src/scene.rs`, `Scene::new`): on the wide
+ *  sheet, the stop's lengths, the pin, the heat's first column and domain. */
+const level: number[] = [];
+if (!(picked instanceof Error) && picked.scenario.level === 'wide' && 'rowHeight' in picked.stop) {
+  const { stop, scenario } = picked;
+  const [lo, hi] = __RANGES__[scenario.data] ?? [Number.NaN, Number.NaN];
+  level.push(stop.rowHeight, stop.textSize, stop.columnWidth, scenario.pinned, scenario.heatFrom, lo, hi);
+}
 /** Frames to wait for the view to change after a replay's input: GPUI
  *  handles it on its next turn and draws it in the next frame. */
 const SETTLE_FRAMES = 3;
@@ -73,11 +86,19 @@ async function fling(): Promise<void> {
   await untilFilled(step);
 }
 
-publishContender('gpui', {
-  open: () => untilFilled(replayOpen),
-  fling,
-  jump: (fraction) => untilFilled(() => replayJump(fraction)),
-});
+// A frame whose scenario or stop this build lacks shows the failure and
+// opens nothing: its replay fails at once rather than wait for a fill.
+const unknown = (): Promise<never> => Promise.reject(picked instanceof Error ? picked : new Error('no scenario'));
+publishContender(
+  'gpui',
+  picked instanceof Error
+    ? { open: unknown, fling: unknown, jump: unknown }
+    : {
+        open: () => untilFilled(replayOpen),
+        fling,
+        jump: (fraction) => untilFilled(() => replayJump(fraction)),
+      },
+);
 
 // The page's theme, as the window opens and live after: until the wasm has
 // started, the root's `data-theme` (which `start` reads) is all there is.
@@ -86,11 +107,11 @@ followPageTheme((theme) => started && setTheme(theme));
 
 // The engine's extensions are served from /observatory/duckdb/ (`contenderBuild`).
 const bridge = createBridge({ extensionDir: ENGINE_DIR, extensionBase: OBSERVATORY });
-const dataUrl = `${DATA}asteroids.parquet`;
+
 void boot({
   init: () => init({ module_or_path: wasmUrl }),
   start: (font) => {
-    start(font, bridge, dataUrl, pageTheme() ?? '');
+    start(font, bridge, `${DATA}${file}`, file, Float64Array.from(level), picked instanceof Error ? picked.message : '', pageTheme() ?? '');
     started = true;
   },
   fontUrl: UI_FONT,

@@ -22,5 +22,18 @@
       "throttled": 437.4
     },
     "firstPaintJsBrotliKiB": 78.2
+  },
+  "levels": {
+    "wide": {
+      "date": "2026-11-02",
+      "machine": "local",
+      "cpu": "Apple M1",
+      "os": "Darwin 25.6.0 arm64",
+      "ttfpMs": {
+        "reference": 180.8,
+        "throttled": 3585.2
+      },
+      "wasmBrotliKiB": 2775
+    }
   }
 }

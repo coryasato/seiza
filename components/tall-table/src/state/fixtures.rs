@@ -677,52 +677,68 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
 // --- cells ---
 
 /// The fixture's cells whose text `shown` (the column, the value) or `exact`
-/// (the value) doesn't give, at each column's pinned budget plus `skew`.
+/// (the value) doesn't give, at each column's pinned budget plus `skew`:
+/// the top section's (with its `rounding`) and each scenario's
+/// (`scenarios`, its own columns at its stop's budgets).
 fn cell_mismatches(skew: isize, exact: fn(f64) -> String) -> Vec<String> {
     let fixture: Value = serde_json::from_str(CELLS).expect("cells.json");
-    let budgets: Vec<(String, usize)> = fixture["columns"]
-        .as_array()
-        .expect("columns")
-        .iter()
-        .map(|column| {
-            assert_eq!(column["kind"], "float", "the fixture's columns are floats");
-            let budget = column["budget"].as_u64().expect("budget") as isize + skew;
-            (
-                column["name"].as_str().expect("name").to_string(),
-                budget.max(1) as usize,
-            )
-        })
-        .collect();
+    let mut sections = vec![(
+        "cells",
+        &fixture,
+        fixture["rounding"].as_array().expect("rounding").as_slice(),
+    )];
+    if let Some(scenarios) = fixture["scenarios"].as_object() {
+        sections.extend(
+            scenarios
+                .iter()
+                .map(|(name, section)| (name.as_str(), section, &[][..])),
+        );
+    }
     let mut mismatches = Vec::new();
-    let drawn = fixture["cells"].as_array().expect("cells");
-    let rounding = fixture["rounding"].as_array().expect("rounding");
-    for cell in drawn.iter().chain(rounding) {
-        let name = cell["column"].as_str().expect("column");
-        let budget = budgets
+    for (section_name, section, rounding) in sections {
+        let budgets: Vec<(String, usize)> = section["columns"]
+            .as_array()
+            .expect("columns")
             .iter()
-            .find(|(column, _)| column == name)
-            .map(|(_, budget)| *budget)
-            .expect("the cell's column is listed");
-        let column = LaidOutColumn {
-            name: name.to_string().into(),
-            x: 0.0,
-            width: 0.0,
-            kind: CellKind::Float,
-            budget,
-        };
-        let (value, exact_text) = match cell["value"].as_str() {
-            Some(text) => {
-                let value: f64 = text.parse().expect("a value");
-                (CellValue::Float(value), exact(value))
+            .map(|column| {
+                assert_eq!(column["kind"], "float", "the fixture's columns are floats");
+                let budget = column["budget"].as_u64().expect("budget") as isize + skew;
+                (
+                    column["name"].as_str().expect("name").to_string(),
+                    budget.max(1) as usize,
+                )
+            })
+            .collect();
+        let drawn = section["cells"].as_array().expect("cells");
+        assert!(!drawn.is_empty(), "{section_name}: no cells");
+        for cell in drawn.iter().chain(rounding) {
+            let name = cell["column"].as_str().expect("column");
+            let budget = budgets
+                .iter()
+                .find(|(column, _)| column == name)
+                .map(|(_, budget)| *budget)
+                .expect("the cell's column is listed");
+            let column = LaidOutColumn {
+                name: name.to_string().into(),
+                x: 0.0,
+                width: 0.0,
+                kind: CellKind::Float,
+                budget,
+            };
+            let (value, exact_text) = match cell["value"].as_str() {
+                Some(text) => {
+                    let value: f64 = text.parse().expect("a value");
+                    (CellValue::Float(value), exact(value))
+                }
+                None => (CellValue::Null, CellValue::Null.to_string()),
+            };
+            let shown = shown_text(&column, value);
+            if exact_text != cell["exact"] || shown != cell["shown"] {
+                mismatches.push(format!(
+                    "{section_name}: {name} {}: exact {exact_text:?}, shown {shown:?}; the fixture's {} {}",
+                    cell["value"], cell["exact"], cell["shown"]
+                ));
             }
-            None => (CellValue::Null, CellValue::Null.to_string()),
-        };
-        let shown = shown_text(&column, value);
-        if exact_text != cell["exact"] || shown != cell["shown"] {
-            mismatches.push(format!(
-                "{name} {}: exact {exact_text:?}, shown {shown:?}; the fixture's {} {}",
-                cell["value"], cell["exact"], cell["shown"]
-            ));
         }
     }
     mismatches

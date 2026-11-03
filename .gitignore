@@ -10,6 +10,9 @@ apps/*/web/dist-placeholder/
 
 # wasm-bindgen / wasm-pack output
 pkg/
+# A contender's feature-level builds (`contenders/scenarios.ts`): pkg-<level>/, dist-<level>/
+apps/observatory/contenders/*/*/web/pkg-*/
+apps/observatory/contenders/*/*/web/dist-*/
 
 # Cloudflare
 .wrangler/

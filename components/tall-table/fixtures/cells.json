@@ -1,5 +1,5 @@
 {
-  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); and with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it). See README.md.",
+  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
   "source": {
     "file": "apps/observatory/data/asteroids.parquet",
     "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
@@ -2002,5 +2002,1338 @@
         "why": "widened: a value rounded at the kind's width shown whole"
       }
     ]
+  },
+  "scenarios": {
+    "wide-sheet": {
+      "source": {
+        "file": "apps/observatory/data/ghcn-2025-tmax.parquet",
+        "sha256": "d7ad70c34fcb3f7c2bcaf459b2d4ddc3a274b367c00b888d7847db67b4fd1da7",
+        "stop": "rows-20",
+        "contender": "tall-table-gpui at the wide level, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)"
+      },
+      "columns": [
+        {
+          "name": "Latitude",
+          "kind": "float",
+          "width": 94,
+          "budget": 12
+        },
+        {
+          "name": "Jan 1",
+          "kind": "float",
+          "width": 68,
+          "budget": 8
+        },
+        {
+          "name": "Jan 2",
+          "kind": "float",
+          "width": 68,
+          "budget": 8
+        },
+        {
+          "name": "Jan 15",
+          "kind": "float",
+          "width": 68,
+          "budget": 8
+        }
+      ],
+      "cells": [
+        {
+          "column": "Latitude",
+          "row": 0,
+          "value": "82.5",
+          "exact": "82.5",
+          "shown": "82.5"
+        },
+        {
+          "column": "Latitude",
+          "row": 1,
+          "value": "81.1608",
+          "exact": "81.1608",
+          "shown": "81.1608"
+        },
+        {
+          "column": "Latitude",
+          "row": 2,
+          "value": "79.9944",
+          "exact": "79.9944",
+          "shown": "79.9944"
+        },
+        {
+          "column": "Latitude",
+          "row": 3,
+          "value": "79.9892",
+          "exact": "79.9892",
+          "shown": "79.9892"
+        },
+        {
+          "column": "Latitude",
+          "row": 4,
+          "value": "78.923",
+          "exact": "78.923",
+          "shown": "78.923"
+        },
+        {
+          "column": "Latitude",
+          "row": 7,
+          "value": "76.77",
+          "exact": "76.77",
+          "shown": "76.77"
+        },
+        {
+          "column": "Latitude",
+          "row": 9,
+          "value": "76.5",
+          "exact": "76.5",
+          "shown": "76.5"
+        },
+        {
+          "column": "Latitude",
+          "row": 12,
+          "value": "76",
+          "exact": "76.0",
+          "shown": "76.0"
+        },
+        {
+          "column": "Latitude",
+          "row": 32,
+          "value": "71.0839",
+          "exact": "71.0839",
+          "shown": "71.0839"
+        },
+        {
+          "column": "Latitude",
+          "row": 37,
+          "value": "70.77",
+          "exact": "70.77",
+          "shown": "70.77"
+        },
+        {
+          "column": "Latitude",
+          "row": 44,
+          "value": "70.4831",
+          "exact": "70.4831",
+          "shown": "70.4831"
+        },
+        {
+          "column": "Latitude",
+          "row": 49,
+          "value": "70.2456",
+          "exact": "70.2456",
+          "shown": "70.2456"
+        },
+        {
+          "column": "Latitude",
+          "row": 77,
+          "value": "69.3",
+          "exact": "69.3",
+          "shown": "69.3"
+        },
+        {
+          "column": "Latitude",
+          "row": 87,
+          "value": "68.9967",
+          "exact": "68.9967",
+          "shown": "68.9967"
+        },
+        {
+          "column": "Latitude",
+          "row": 94,
+          "value": "68.7553",
+          "exact": "68.7553",
+          "shown": "68.7553"
+        },
+        {
+          "column": "Latitude",
+          "row": 103,
+          "value": "68.6025",
+          "exact": "68.6025",
+          "shown": "68.6025"
+        },
+        {
+          "column": "Latitude",
+          "row": 119,
+          "value": "68.1692",
+          "exact": "68.1692",
+          "shown": "68.1692"
+        },
+        {
+          "column": "Latitude",
+          "row": 121,
+          "value": "68.155",
+          "exact": "68.155",
+          "shown": "68.155"
+        },
+        {
+          "column": "Latitude",
+          "row": 366,
+          "value": "63.967",
+          "exact": "63.967",
+          "shown": "63.967"
+        },
+        {
+          "column": "Latitude",
+          "row": 508,
+          "value": "62.1478",
+          "exact": "62.1478",
+          "shown": "62.1478"
+        },
+        {
+          "column": "Latitude",
+          "row": 522,
+          "value": "62.033",
+          "exact": "62.033",
+          "shown": "62.033"
+        },
+        {
+          "column": "Latitude",
+          "row": 683,
+          "value": "60.3914",
+          "exact": "60.3914",
+          "shown": "60.3914"
+        },
+        {
+          "column": "Latitude",
+          "row": 701,
+          "value": "60.2581",
+          "exact": "60.2581",
+          "shown": "60.2581"
+        },
+        {
+          "column": "Latitude",
+          "row": 1064,
+          "value": "55.5714",
+          "exact": "55.5714",
+          "shown": "55.5714"
+        },
+        {
+          "column": "Latitude",
+          "row": 2127,
+          "value": "48.85",
+          "exact": "48.85",
+          "shown": "48.85"
+        },
+        {
+          "column": "Latitude",
+          "row": 3190,
+          "value": "45.8",
+          "exact": "45.8",
+          "shown": "45.8"
+        },
+        {
+          "column": "Latitude",
+          "row": 4253,
+          "value": "43.6008",
+          "exact": "43.6008",
+          "shown": "43.6008"
+        },
+        {
+          "column": "Latitude",
+          "row": 5316,
+          "value": "41.5092",
+          "exact": "41.5092",
+          "shown": "41.5092"
+        },
+        {
+          "column": "Latitude",
+          "row": 6380,
+          "value": "39.4833",
+          "exact": "39.4833",
+          "shown": "39.4833"
+        },
+        {
+          "column": "Latitude",
+          "row": 7443,
+          "value": "37.1681",
+          "exact": "37.1681",
+          "shown": "37.1681"
+        },
+        {
+          "column": "Latitude",
+          "row": 8506,
+          "value": "34.4142",
+          "exact": "34.4142",
+          "shown": "34.4142"
+        },
+        {
+          "column": "Latitude",
+          "row": 9569,
+          "value": "29.6197",
+          "exact": "29.6197",
+          "shown": "29.6197"
+        },
+        {
+          "column": "Latitude",
+          "row": 10028,
+          "value": "1.9",
+          "exact": "1.9",
+          "shown": "1.9"
+        },
+        {
+          "column": "Latitude",
+          "row": 10029,
+          "value": "1.0833",
+          "exact": "1.0833",
+          "shown": "1.0833"
+        },
+        {
+          "column": "Latitude",
+          "row": 10030,
+          "value": "0.404",
+          "exact": "0.404",
+          "shown": "0.404"
+        },
+        {
+          "column": "Latitude",
+          "row": 10031,
+          "value": "-5.683",
+          "exact": "-5.683",
+          "shown": "-5.683"
+        },
+        {
+          "column": "Latitude",
+          "row": 10032,
+          "value": "-7.733",
+          "exact": "-7.733",
+          "shown": "-7.733"
+        },
+        {
+          "column": "Latitude",
+          "row": 10034,
+          "value": "-10.0511",
+          "exact": "-10.0511",
+          "shown": "-10.0511"
+        },
+        {
+          "column": "Latitude",
+          "row": 10036,
+          "value": "-10.5844",
+          "exact": "-10.5844",
+          "shown": "-10.5844"
+        },
+        {
+          "column": "Latitude",
+          "row": 10037,
+          "value": "-11.0468",
+          "exact": "-11.0468",
+          "shown": "-11.0468"
+        },
+        {
+          "column": "Latitude",
+          "row": 10038,
+          "value": "-11.4022",
+          "exact": "-11.4022",
+          "shown": "-11.4022"
+        },
+        {
+          "column": "Latitude",
+          "row": 10076,
+          "value": "-16.403",
+          "exact": "-16.403",
+          "shown": "-16.403"
+        },
+        {
+          "column": "Latitude",
+          "row": 10108,
+          "value": "-20.6672",
+          "exact": "-20.6672",
+          "shown": "-20.6672"
+        },
+        {
+          "column": "Latitude",
+          "row": 10138,
+          "value": "-23.4372",
+          "exact": "-23.4372",
+          "shown": "-23.4372"
+        },
+        {
+          "column": "Latitude",
+          "row": 10149,
+          "value": "-24.3597",
+          "exact": "-24.3597",
+          "shown": "-24.3597"
+        },
+        {
+          "column": "Latitude",
+          "row": 10278,
+          "value": "-31.6508",
+          "exact": "-31.6508",
+          "shown": "-31.6508"
+        },
+        {
+          "column": "Latitude",
+          "row": 10368,
+          "value": "-33.83",
+          "exact": "-33.83",
+          "shown": "-33.83"
+        },
+        {
+          "column": "Latitude",
+          "row": 10630,
+          "value": "-78.45",
+          "exact": "-78.45",
+          "shown": "-78.45"
+        },
+        {
+          "column": "Latitude",
+          "row": 10631,
+          "value": "-80.37",
+          "exact": "-80.37",
+          "shown": "-80.37"
+        },
+        {
+          "column": "Jan 1",
+          "row": 0,
+          "value": "-27.8",
+          "exact": "-27.8",
+          "shown": "-27.8"
+        },
+        {
+          "column": "Jan 1",
+          "row": 1,
+          "value": "-28",
+          "exact": "-28.0",
+          "shown": "-28.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 2,
+          "value": "-27.9",
+          "exact": "-27.9",
+          "shown": "-27.9"
+        },
+        {
+          "column": "Jan 1",
+          "row": 3,
+          "value": "-26.9",
+          "exact": "-26.9",
+          "shown": "-26.9"
+        },
+        {
+          "column": "Jan 1",
+          "row": 4,
+          "value": "-9",
+          "exact": "-9.0",
+          "shown": "-9.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 7,
+          "value": null,
+          "exact": "NULL",
+          "shown": "NULL"
+        },
+        {
+          "column": "Jan 1",
+          "row": 9,
+          "value": "-8.9",
+          "exact": "-8.9",
+          "shown": "-8.9"
+        },
+        {
+          "column": "Jan 1",
+          "row": 12,
+          "value": "-15.5",
+          "exact": "-15.5",
+          "shown": "-15.5"
+        },
+        {
+          "column": "Jan 1",
+          "row": 32,
+          "value": "0.1",
+          "exact": "0.1",
+          "shown": "0.1"
+        },
+        {
+          "column": "Jan 1",
+          "row": 37,
+          "value": "-27.7",
+          "exact": "-27.7",
+          "shown": "-27.7"
+        },
+        {
+          "column": "Jan 1",
+          "row": 49,
+          "value": "0.2",
+          "exact": "0.2",
+          "shown": "0.2"
+        },
+        {
+          "column": "Jan 1",
+          "row": 77,
+          "value": "-0.1",
+          "exact": "-0.1",
+          "shown": "-0.1"
+        },
+        {
+          "column": "Jan 1",
+          "row": 87,
+          "value": "-9.8",
+          "exact": "-9.8",
+          "shown": "-9.8"
+        },
+        {
+          "column": "Jan 1",
+          "row": 94,
+          "value": "-10.4",
+          "exact": "-10.4",
+          "shown": "-10.4"
+        },
+        {
+          "column": "Jan 1",
+          "row": 103,
+          "value": "-12.2",
+          "exact": "-12.2",
+          "shown": "-12.2"
+        },
+        {
+          "column": "Jan 1",
+          "row": 119,
+          "value": "-6.5",
+          "exact": "-6.5",
+          "shown": "-6.5"
+        },
+        {
+          "column": "Jan 1",
+          "row": 121,
+          "value": "1.9",
+          "exact": "1.9",
+          "shown": "1.9"
+        },
+        {
+          "column": "Jan 1",
+          "row": 366,
+          "value": "-49.4",
+          "exact": "-49.4",
+          "shown": "-49.4"
+        },
+        {
+          "column": "Jan 1",
+          "row": 508,
+          "value": "0",
+          "exact": "0.0",
+          "shown": "0.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 522,
+          "value": "-51.6",
+          "exact": "-51.6",
+          "shown": "-51.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 701,
+          "value": "-1.1",
+          "exact": "-1.1",
+          "shown": "-1.1"
+        },
+        {
+          "column": "Jan 1",
+          "row": 1064,
+          "value": "8",
+          "exact": "8.0",
+          "shown": "8.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 2127,
+          "value": "-11.7",
+          "exact": "-11.7",
+          "shown": "-11.7"
+        },
+        {
+          "column": "Jan 1",
+          "row": 3190,
+          "value": "-7.4",
+          "exact": "-7.4",
+          "shown": "-7.4"
+        },
+        {
+          "column": "Jan 1",
+          "row": 4253,
+          "value": "-5.6",
+          "exact": "-5.6",
+          "shown": "-5.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 5316,
+          "value": "8.9",
+          "exact": "8.9",
+          "shown": "8.9"
+        },
+        {
+          "column": "Jan 1",
+          "row": 6380,
+          "value": "5",
+          "exact": "5.0",
+          "shown": "5.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 7443,
+          "value": "5.6",
+          "exact": "5.6",
+          "shown": "5.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 8506,
+          "value": "15.3",
+          "exact": "15.3",
+          "shown": "15.3"
+        },
+        {
+          "column": "Jan 1",
+          "row": 9569,
+          "value": "17.8",
+          "exact": "17.8",
+          "shown": "17.8"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10028,
+          "value": "31",
+          "exact": "31.0",
+          "shown": "31.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10029,
+          "value": "31.1",
+          "exact": "31.1",
+          "shown": "31.1"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10030,
+          "value": "22",
+          "exact": "22.0",
+          "shown": "22.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10031,
+          "value": "30",
+          "exact": "30.0",
+          "shown": "30.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10032,
+          "value": "31.6",
+          "exact": "31.6",
+          "shown": "31.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10034,
+          "value": "34.6",
+          "exact": "34.6",
+          "shown": "34.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10037,
+          "value": "34.1",
+          "exact": "34.1",
+          "shown": "34.1"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10038,
+          "value": "35.6",
+          "exact": "35.6",
+          "shown": "35.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10076,
+          "value": "42.7",
+          "exact": "42.7",
+          "shown": "42.7"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10108,
+          "value": "44",
+          "exact": "44.0",
+          "shown": "44.0"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10138,
+          "value": "40.4",
+          "exact": "40.4",
+          "shown": "40.4"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10278,
+          "value": "43.5",
+          "exact": "43.5",
+          "shown": "43.5"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10368,
+          "value": "28.7",
+          "exact": "28.7",
+          "shown": "28.7"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10630,
+          "value": "-26.6",
+          "exact": "-26.6",
+          "shown": "-26.6"
+        },
+        {
+          "column": "Jan 1",
+          "row": 10631,
+          "value": "-41.7",
+          "exact": "-41.7",
+          "shown": "-41.7"
+        },
+        {
+          "column": "Jan 2",
+          "row": 0,
+          "value": "-29.3",
+          "exact": "-29.3",
+          "shown": "-29.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 1,
+          "value": "-28.3",
+          "exact": "-28.3",
+          "shown": "-28.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 2,
+          "value": "-23.5",
+          "exact": "-23.5",
+          "shown": "-23.5"
+        },
+        {
+          "column": "Jan 2",
+          "row": 3,
+          "value": "-24.9",
+          "exact": "-24.9",
+          "shown": "-24.9"
+        },
+        {
+          "column": "Jan 2",
+          "row": 4,
+          "value": "-3",
+          "exact": "-3.0",
+          "shown": "-3.0"
+        },
+        {
+          "column": "Jan 2",
+          "row": 7,
+          "value": "-22.1",
+          "exact": "-22.1",
+          "shown": "-22.1"
+        },
+        {
+          "column": "Jan 2",
+          "row": 9,
+          "value": "-4",
+          "exact": "-4.0",
+          "shown": "-4.0"
+        },
+        {
+          "column": "Jan 2",
+          "row": 12,
+          "value": "-15.4",
+          "exact": "-15.4",
+          "shown": "-15.4"
+        },
+        {
+          "column": "Jan 2",
+          "row": 32,
+          "value": "-0.6",
+          "exact": "-0.6",
+          "shown": "-0.6"
+        },
+        {
+          "column": "Jan 2",
+          "row": 37,
+          "value": "-27.8",
+          "exact": "-27.8",
+          "shown": "-27.8"
+        },
+        {
+          "column": "Jan 2",
+          "row": 44,
+          "value": null,
+          "exact": "NULL",
+          "shown": "NULL"
+        },
+        {
+          "column": "Jan 2",
+          "row": 49,
+          "value": "0.1",
+          "exact": "0.1",
+          "shown": "0.1"
+        },
+        {
+          "column": "Jan 2",
+          "row": 77,
+          "value": "-0.1",
+          "exact": "-0.1",
+          "shown": "-0.1"
+        },
+        {
+          "column": "Jan 2",
+          "row": 87,
+          "value": "-17.7",
+          "exact": "-17.7",
+          "shown": "-17.7"
+        },
+        {
+          "column": "Jan 2",
+          "row": 94,
+          "value": "-18.7",
+          "exact": "-18.7",
+          "shown": "-18.7"
+        },
+        {
+          "column": "Jan 2",
+          "row": 103,
+          "value": "-16.6",
+          "exact": "-16.6",
+          "shown": "-16.6"
+        },
+        {
+          "column": "Jan 2",
+          "row": 119,
+          "value": "-18.3",
+          "exact": "-18.3",
+          "shown": "-18.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 121,
+          "value": "0",
+          "exact": "0.0",
+          "shown": "0.0"
+        },
+        {
+          "column": "Jan 2",
+          "row": 366,
+          "value": "-49",
+          "exact": "-49.0",
+          "shown": "-49.0"
+        },
+        {
+          "column": "Jan 2",
+          "row": 508,
+          "value": "0.3",
+          "exact": "0.3",
+          "shown": "0.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 522,
+          "value": "-51.6",
+          "exact": "-51.6",
+          "shown": "-51.6"
+        },
+        {
+          "column": "Jan 2",
+          "row": 683,
+          "value": "-3.8",
+          "exact": "-3.8",
+          "shown": "-3.8"
+        },
+        {
+          "column": "Jan 2",
+          "row": 1064,
+          "value": "7.3",
+          "exact": "7.3",
+          "shown": "7.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 2127,
+          "value": "-12.2",
+          "exact": "-12.2",
+          "shown": "-12.2"
+        },
+        {
+          "column": "Jan 2",
+          "row": 3190,
+          "value": "-1.8",
+          "exact": "-1.8",
+          "shown": "-1.8"
+        },
+        {
+          "column": "Jan 2",
+          "row": 4253,
+          "value": "3.3",
+          "exact": "3.3",
+          "shown": "3.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 5316,
+          "value": "5",
+          "exact": "5.0",
+          "shown": "5.0"
+        },
+        {
+          "column": "Jan 2",
+          "row": 6380,
+          "value": "12.2",
+          "exact": "12.2",
+          "shown": "12.2"
+        },
+        {
+          "column": "Jan 2",
+          "row": 8506,
+          "value": "20.3",
+          "exact": "20.3",
+          "shown": "20.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 9569,
+          "value": "16.1",
+          "exact": "16.1",
+          "shown": "16.1"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10028,
+          "value": "30.8",
+          "exact": "30.8",
+          "shown": "30.8"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10029,
+          "value": "32.2",
+          "exact": "32.2",
+          "shown": "32.2"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10030,
+          "value": "22.7",
+          "exact": "22.7",
+          "shown": "22.7"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10031,
+          "value": "31.4",
+          "exact": "31.4",
+          "shown": "31.4"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10032,
+          "value": "31.9",
+          "exact": "31.9",
+          "shown": "31.9"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10034,
+          "value": "31.2",
+          "exact": "31.2",
+          "shown": "31.2"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10037,
+          "value": "33.7",
+          "exact": "33.7",
+          "shown": "33.7"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10038,
+          "value": "35.3",
+          "exact": "35.3",
+          "shown": "35.3"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10076,
+          "value": "42.7",
+          "exact": "42.7",
+          "shown": "42.7"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10108,
+          "value": "42.1",
+          "exact": "42.1",
+          "shown": "42.1"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10138,
+          "value": "36.4",
+          "exact": "36.4",
+          "shown": "36.4"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10278,
+          "value": "41.8",
+          "exact": "41.8",
+          "shown": "41.8"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10368,
+          "value": "43",
+          "exact": "43.0",
+          "shown": "43.0"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10630,
+          "value": "-26.4",
+          "exact": "-26.4",
+          "shown": "-26.4"
+        },
+        {
+          "column": "Jan 2",
+          "row": 10631,
+          "value": "-41.7",
+          "exact": "-41.7",
+          "shown": "-41.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 0,
+          "value": "-29.2",
+          "exact": "-29.2",
+          "shown": "-29.2"
+        },
+        {
+          "column": "Jan 15",
+          "row": 1,
+          "value": "-27.7",
+          "exact": "-27.7",
+          "shown": "-27.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 2,
+          "value": "-27.9",
+          "exact": "-27.9",
+          "shown": "-27.9"
+        },
+        {
+          "column": "Jan 15",
+          "row": 3,
+          "value": "-29.8",
+          "exact": "-29.8",
+          "shown": "-29.8"
+        },
+        {
+          "column": "Jan 15",
+          "row": 4,
+          "value": "-8.5",
+          "exact": "-8.5",
+          "shown": "-8.5"
+        },
+        {
+          "column": "Jan 15",
+          "row": 7,
+          "value": "-26.9",
+          "exact": "-26.9",
+          "shown": "-26.9"
+        },
+        {
+          "column": "Jan 15",
+          "row": 9,
+          "value": "-4",
+          "exact": "-4.0",
+          "shown": "-4.0"
+        },
+        {
+          "column": "Jan 15",
+          "row": 12,
+          "value": "-27.1",
+          "exact": "-27.1",
+          "shown": "-27.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 32,
+          "value": "1.6",
+          "exact": "1.6",
+          "shown": "1.6"
+        },
+        {
+          "column": "Jan 15",
+          "row": 37,
+          "value": "-40.6",
+          "exact": "-40.6",
+          "shown": "-40.6"
+        },
+        {
+          "column": "Jan 15",
+          "row": 44,
+          "value": null,
+          "exact": "NULL",
+          "shown": "NULL"
+        },
+        {
+          "column": "Jan 15",
+          "row": 49,
+          "value": "6.4",
+          "exact": "6.4",
+          "shown": "6.4"
+        },
+        {
+          "column": "Jan 15",
+          "row": 77,
+          "value": "7.6",
+          "exact": "7.6",
+          "shown": "7.6"
+        },
+        {
+          "column": "Jan 15",
+          "row": 87,
+          "value": "0.1",
+          "exact": "0.1",
+          "shown": "0.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 94,
+          "value": "-0.1",
+          "exact": "-0.1",
+          "shown": "-0.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 103,
+          "value": "0",
+          "exact": "0.0",
+          "shown": "0.0"
+        },
+        {
+          "column": "Jan 15",
+          "row": 121,
+          "value": "8.8",
+          "exact": "8.8",
+          "shown": "8.8"
+        },
+        {
+          "column": "Jan 15",
+          "row": 366,
+          "value": "-31.2",
+          "exact": "-31.2",
+          "shown": "-31.2"
+        },
+        {
+          "column": "Jan 15",
+          "row": 508,
+          "value": "9.7",
+          "exact": "9.7",
+          "shown": "9.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 683,
+          "value": "3.3",
+          "exact": "3.3",
+          "shown": "3.3"
+        },
+        {
+          "column": "Jan 15",
+          "row": 701,
+          "value": "3.8",
+          "exact": "3.8",
+          "shown": "3.8"
+        },
+        {
+          "column": "Jan 15",
+          "row": 1064,
+          "value": "7.3",
+          "exact": "7.3",
+          "shown": "7.3"
+        },
+        {
+          "column": "Jan 15",
+          "row": 2127,
+          "value": "1.1",
+          "exact": "1.1",
+          "shown": "1.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 3190,
+          "value": "3.6",
+          "exact": "3.6",
+          "shown": "3.6"
+        },
+        {
+          "column": "Jan 15",
+          "row": 4253,
+          "value": "2.8",
+          "exact": "2.8",
+          "shown": "2.8"
+        },
+        {
+          "column": "Jan 15",
+          "row": 5316,
+          "value": "-2.1",
+          "exact": "-2.1",
+          "shown": "-2.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 6380,
+          "value": "10",
+          "exact": "10.0",
+          "shown": "10.0"
+        },
+        {
+          "column": "Jan 15",
+          "row": 7443,
+          "value": "5.6",
+          "exact": "5.6",
+          "shown": "5.6"
+        },
+        {
+          "column": "Jan 15",
+          "row": 8506,
+          "value": "18.1",
+          "exact": "18.1",
+          "shown": "18.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 9569,
+          "value": "12.2",
+          "exact": "12.2",
+          "shown": "12.2"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10028,
+          "value": "31.1",
+          "exact": "31.1",
+          "shown": "31.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10029,
+          "value": "36.1",
+          "exact": "36.1",
+          "shown": "36.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10030,
+          "value": "20.8",
+          "exact": "20.8",
+          "shown": "20.8"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10031,
+          "value": "32.2",
+          "exact": "32.2",
+          "shown": "32.2"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10032,
+          "value": "31.6",
+          "exact": "31.6",
+          "shown": "31.6"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10034,
+          "value": "31.7",
+          "exact": "31.7",
+          "shown": "31.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10037,
+          "value": "33.4",
+          "exact": "33.4",
+          "shown": "33.4"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10038,
+          "value": "34.3",
+          "exact": "34.3",
+          "shown": "34.3"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10076,
+          "value": "38.7",
+          "exact": "38.7",
+          "shown": "38.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10108,
+          "value": "42.7",
+          "exact": "42.7",
+          "shown": "42.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10138,
+          "value": "44.1",
+          "exact": "44.1",
+          "shown": "44.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10149,
+          "value": "43.7",
+          "exact": "43.7",
+          "shown": "43.7"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10278,
+          "value": "32.9",
+          "exact": "32.9",
+          "shown": "32.9"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10368,
+          "value": "25.1",
+          "exact": "25.1",
+          "shown": "25.1"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10630,
+          "value": "-27.4",
+          "exact": "-27.4",
+          "shown": "-27.4"
+        },
+        {
+          "column": "Jan 15",
+          "row": 10631,
+          "value": "-40.8",
+          "exact": "-40.8",
+          "shown": "-40.8"
+        }
+      ]
+    }
   }
 }

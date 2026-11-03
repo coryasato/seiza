@@ -444,30 +444,37 @@ mod tests {
         );
     }
 
-    /// The fixture's SQL that `page_sql` and `summary` don't write.
+    /// The fixture's SQL that `page_sql` and `summary` don't write: its own
+    /// file's, and each scenario's (`scenarios`, a file of its own).
     fn sql_mismatches(
         page_sql: impl Fn(&str, Range<u64>) -> String,
         summary: impl Fn(&str) -> Vec<String>,
     ) -> Vec<String> {
         let fixture: serde_json::Value = serde_json::from_str(SQL_FIXTURE).unwrap();
-        let file = fixture["file"].as_str().unwrap();
-        let mut mismatches = Vec::new();
-        for page in fixture["pages"].as_array().unwrap() {
-            let rows = page["rows"][0].as_u64().unwrap()..page["rows"][1].as_u64().unwrap();
-            let sql = page_sql(file, rows.clone());
-            if sql != page["sql"] {
-                mismatches.push(format!("page {rows:?}: {sql}"));
-            }
+        let mut sections = vec![&fixture];
+        if let Some(scenarios) = fixture["scenarios"].as_object() {
+            sections.extend(scenarios.values());
         }
-        let expected: Vec<&str> = fixture["summary"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|sql| sql.as_str().unwrap())
-            .collect();
-        let sent = summary(file);
-        if sent != expected {
-            mismatches.push(format!("summary: {sent:?}"));
+        let mut mismatches = Vec::new();
+        for section in sections {
+            let file = section["file"].as_str().unwrap();
+            for page in section["pages"].as_array().unwrap() {
+                let rows = page["rows"][0].as_u64().unwrap()..page["rows"][1].as_u64().unwrap();
+                let sql = page_sql(file, rows.clone());
+                if sql != page["sql"] {
+                    mismatches.push(format!("{file} page {rows:?}: {sql}"));
+                }
+            }
+            let expected: Vec<&str> = section["summary"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|sql| sql.as_str().unwrap())
+                .collect();
+            let sent = summary(file);
+            if sent != expected {
+                mismatches.push(format!("{file} summary: {sent:?}"));
+            }
         }
         mismatches
     }

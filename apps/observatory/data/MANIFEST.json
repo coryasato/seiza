@@ -12,5 +12,53 @@
     "notes": [
       "columns: spkid BIGINT, full_name VARCHAR, class VARCHAR, neo BOOLEAN, pha BOOLEAN, H DOUBLE, diameter DOUBLE, albedo DOUBLE, a DOUBLE, e DOUBLE, first_obs DATE"
     ]
+  },
+  "ghcn-2025-tmax.parquet": {
+    "rows": 10632,
+    "bytes": 6667056,
+    "sha256": "d7ad70c34fcb3f7c2bcaf459b2d4ddc3a274b367c00b888d7847db67b4fd1da7",
+    "source": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_year/2025.csv.gz, ghcnd-stations.txt, and ghcnd-countries.txt (GHCN-Daily 3.35-upd-2026103117)",
+    "credit": "NOAA National Centers for Environmental Information, GHCN-Daily: daily highs of 2025, cut from its data (not NOAA's unaltered data)",
+    "citation": "Menne, M.J., I. Durre, B. Korzeniewski, S. McNeill, K. Thomas, X. Yin, S. Anthony, R. Ray, R.S. Vose, B.E. Gleason, and T.G. Houston, 2012: Global Historical Climatology Network - Daily (GHCN-Daily), Version 3.35. NOAA National Climatic Data Center. doi:10.7289/V5D21VHZ, accessed 2026-11-02. Overview: Menne et al., 2012, J. Atmos. Oceanic Technol., 29, 897-910, doi:10.1175/JTECH-D-11-00103.1.",
+    "license": "CC0 1.0",
+    "terms": "CC0 1.0 for NOAA data disseminated through NODD (the AWS Open Data Registry's noaa-ghcn entry). NOAA asks for attribution, no implied endorsement, and that modified data not be called original or unaltered; NCEI's record (gov.noaa.ncdc:C00861) asks for its citation with the version and access date. Checked 2026-11-02.",
+    "fetched": "2026-11-02",
+    "sources": [
+      {
+        "file": "2025.csv.gz",
+        "url": "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_year/2025.csv.gz",
+        "bytes": 166428453,
+        "sha256": "7d1ad5c37d942cf26547020ae615d1eaccb54ecf173a82084332a8711587c179"
+      },
+      {
+        "file": "ghcnd-stations.txt",
+        "url": "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-stations.txt",
+        "bytes": 11441526,
+        "sha256": "437ee87f0343bcad408a492cf7a02163fb69255364c541b4006d5d76055d0dc3"
+      },
+      {
+        "file": "ghcnd-countries.txt",
+        "url": "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-countries.txt",
+        "bytes": 3659,
+        "sha256": "dfc325c0f89cc6f95e03ed5d4155a78b644ad28b044017c76fcb709df104df7f"
+      },
+      {
+        "file": "ghcnd-version.txt",
+        "url": "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-version.txt",
+        "bytes": 157,
+        "sha256": "282cda975be86f2c9ff496d2c649e2de8ecdf0357713fd5a3551a6d4dd2604a2"
+      }
+    ],
+    "version": "3.35-upd-2026103117",
+    "rowGroups": 6,
+    "range": [
+      -75.5,
+      51.1
+    ],
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 2048, sorted by latitude (north first), then station ID",
+    "notes": [
+      "TMAX with no QFLAG, stations with at least 300 such days; °C (the tenths over 10); NULL where a day has none",
+      "columns: Station VARCHAR, Place VARCHAR, Latitude DOUBLE, then \"Jan 1\" … \"Dec 31\" DOUBLE (368 in all)"
+    ]
   }
 }

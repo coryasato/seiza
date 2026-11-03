@@ -231,6 +231,10 @@ fn on_event(event: &TallTableEvent) {
             // out.
             if probing_cells() {
                 set_on_contender("columns", &tall_table_bridge::js::columns(&layout.columns));
+                // A level's: its row height and the pin in effect, which
+                // the level's smoke check reads (`perf/wide.ts`).
+                #[cfg(feature = "wide")]
+                set_on_contender("layout", &tall_table_bridge::js::layout(layout));
             }
             if measuring() {
                 SHOWN.with_borrow_mut(|shown| {

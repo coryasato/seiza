@@ -14,22 +14,31 @@
 // 3. Each drawn value must be DuckDB's (its exact text parses to the same
 //    double, or both are NULL), so the fixture pins the file's values.
 //
+// Then the same for each scenario on a feature level (`scenarios`: the wide
+// sheet's file on the `wide` build at its default stop, a few of its float
+// columns: the ones on screen at the sideways scroll's 0), each section its
+// own columns, budgets, and cells.
+//
 // The component's native test (`cargo test -p seiza-tall-table`) checks
 // the table still draws this text; the TanStack contender's tests check
 // its own against it.
 //
 // Usage: node apps/observatory/perf/cell-fixture.ts [--check]
 // --check: compare with the committed fixture instead of writing it. Needs
-// `just observatory data`; run `just observatory gpui-build` first.
+// `just observatory data`; run `just observatory gpui-build` and
+// `gpui-build wide` first.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser } from '@playwright/test';
 import { flag, hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
+import { SCENARIOS, type Level } from '../contenders/scenarios.ts';
 import { MARKS, dataFile, problems, serveGpui, nativeDuckDB } from './harness.ts';
 
 const PORT = 4313;
+/** A server each for the scenarios' levels' builds. */
+const SCENARIO_PORTS = [4348];
 const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtures/cells.json', import.meta.url));
 /** The fixture's synthetic values, which this script keeps as they are: no
  *  value in the data file is long enough for its column to round it, so
@@ -47,15 +56,6 @@ const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import
 
 const conn = await nativeDuckDB();
 const rowsOf = async (sql: string) => (await conn.runAndReadAll(sql)).getRows();
-const file = `read_parquet('${dataFile.replaceAll("'", "''")}', file_row_number = true)`;
-
-const count = Number((await rowsOf(`SELECT count(*) FROM ${file}`))[0]![0]);
-const described = await rowsOf(`DESCRIBE SELECT * FROM read_parquet('${dataFile.replaceAll("'", "''")}')`);
-// The fixture's values are f64 (`CellValue::Float`); a FLOAT column's
-// exact text is an f32's, which this script and the native test don't read.
-if (described.some((row) => row[1] === 'FLOAT')) throw new Error('the data file has a FLOAT column: the cell fixture holds DOUBLEs only');
-const floats = described.filter((row) => row[1] === 'DOUBLE').map((row) => String(row[0]));
-if (floats.length === 0) throw new Error('the data file has no float column');
 
 /**
  * A double's exact text as the table writes it (Rust's `{:?}`): the
@@ -79,55 +79,6 @@ function tableText(value: number): string {
   return `${sign}${whole}.${fraction || '0'}`;
 }
 
-/** The row whose value in `column` has the longest table text, and its length. */
-async function longestRow(column: string): Promise<[number, number]> {
-  const c = `"${column.replaceAll('"', '""')}"`;
-  let best: [number, number] = [-1, -1];
-  for (const [row, value] of await rowsOf(`SELECT file_row_number, ${c} FROM ${file} WHERE ${c} IS NOT NULL`)) {
-    const length = tableText(Number(value)).length;
-    if (length > best[1]) best = [Number(row), length];
-  }
-  return best;
-}
-
-/** Rows (file_row_number) whose values in `column` test the formatting. */
-async function rowsFor(column: string): Promise<number[]> {
-  const c = `"${column.replaceAll('"', '""')}"`;
-  const picks = [
-    `SELECT file_row_number FROM ${file} WHERE ${c} IS NOT NULL ORDER BY ${c}, file_row_number LIMIT 2`,
-    `SELECT file_row_number FROM ${file} WHERE ${c} IS NOT NULL ORDER BY ${c} DESC, file_row_number LIMIT 2`,
-    // DuckDB's text for a double isn't the table's; the longest by the
-    // table's text is `longestRow`'s.
-    `SELECT file_row_number FROM ${file} WHERE ${c} IS NOT NULL ORDER BY length(${c}::VARCHAR) DESC, file_row_number LIMIT 4`,
-    `SELECT file_row_number FROM ${file} WHERE ${c} <> 0 ORDER BY abs(${c}), file_row_number LIMIT 3`,
-    `SELECT file_row_number FROM ${file} WHERE ${c} = 0 ORDER BY file_row_number LIMIT 1`,
-    `SELECT file_row_number FROM ${file} WHERE ${c} = floor(${c}) AND ${c} <> 0 ORDER BY file_row_number LIMIT 1`,
-    `SELECT file_row_number FROM ${file} WHERE ${c} < 0 ORDER BY file_row_number LIMIT 2`,
-    `SELECT file_row_number FROM ${file} WHERE ${c} IS NULL ORDER BY file_row_number LIMIT 1`,
-    // Spread through the file: every tenth of it, the first value there.
-    `SELECT min(file_row_number) FROM ${file} WHERE ${c} IS NOT NULL GROUP BY file_row_number * 10 // ${count} ORDER BY 1`,
-  ];
-  const [longest, length] = await longestRow(column);
-  longestText.set(column, length);
-  const rows: number[] = [longest];
-  for (const sql of picks) rows.push(...(await rowsOf(sql)).map((row) => Number(row[0])));
-  return rows;
-}
-
-/** Each column's longest table text, over every value in the file. */
-const longestText = new Map<string, number>();
-const wanted = new Set<number>();
-for (const column of floats) for (const row of await rowsFor(column)) wanted.add(row);
-const targets = [...wanted].sort((a, b) => a - b);
-const quoted = floats.map((column) => `"${column.replaceAll('"', '""')}"`).join(', ');
-const values = new Map<number, (number | null)[]>();
-for (const row of await rowsOf(`SELECT file_row_number, ${quoted} FROM ${file} WHERE file_row_number IN (${targets.join(', ')})`)) {
-  values.set(Number(row[0]), row.slice(1).map((value) => (value === null ? null : Number(value))));
-}
-console.log(`native DuckDB: ${count} rows; float columns ${floats.join(', ')}; ${targets.length} rows picked; longest table text ${[...longestText].map(([column, length]) => `${column} ${length}`).join(', ')}`);
-
-// --- what the contender draws ---
-
 interface ColumnProbe {
   name: string;
   kind: string;
@@ -141,100 +92,204 @@ interface CellProbe {
   shown: string;
 }
 type Global = { __contender?: { columns?: ColumnProbe[]; cells?: CellProbe[]; replay: { jump(fraction: number): Promise<void> } } };
+interface FixtureCell {
+  column: string;
+  row: number;
+  value: string | null;
+  exact: string;
+  shown: string;
+}
 
-/** The contender's columns at `dpr`, and, with `rows`, the cells it drew
- *  for them. Wide enough to show every column. */
-async function drawn(browser: Browser, url: string, dpr: number, rows: number[]) {
-  const context = await browser.newContext({ viewport: { width: 2560, height: 900 }, deviceScaleFactor: dpr });
-  if (dpr !== 1) await context.addInitScript(hideDevicePixelContentBox);
-  const page = await context.newPage();
-  const found = problems(page);
-  await page.goto(`${url}?measure&cells`);
-  await waitMark(page, MARKS.filled, 0);
-  const columns = await page
-    .waitForFunction(() => (globalThis as Global).__contender?.columns ?? false, null, { timeout: 60_000 })
-    .then(async (handle) => (await handle.jsonValue()) as ColumnProbe[]);
-  const cells: CellProbe[] = [];
-  for (const row of rows) {
-    await page.evaluate((fraction) => (globalThis as Global).__contender!.replay.jump(fraction), (row + 0.5) / count);
-    // The jump resolves once the view is filled; its frame's cells hold the row.
-    const drawnRow = await page
-      .waitForFunction(
-        ({ row, columns }) => {
-          const cells = ((globalThis as Global).__contender?.cells ?? []).filter((cell) => cell.row === row);
-          return cells.length === columns ? cells : false;
-        },
-        { row, columns: columns.length },
-        { timeout: 30_000, polling: 20 },
-      )
-      .then(async (handle) => (await handle.jsonValue()) as CellProbe[]);
-    cells.push(...drawnRow);
+/** What one file's section holds, and what a run found wrong. */
+interface Sampled {
+  columns: { name: string; kind: string; width: number; budget: number }[];
+  cells: FixtureCell[];
+  rounded: number;
+}
+
+/**
+ * One file's section: native DuckDB picks rows of `path`'s float columns
+ * (all of them, or `only`), the contender at `level` (its URL's query
+ * `query`) draws them, and every drawn value must be DuckDB's.
+ * `budgetRule`: check the base's budget rule (`column.rs`) at `number_px`.
+ */
+async function sample(browser: Browser, spec: { path: string; level: Level; port: number; query: string; only?: string[]; budgetRule: boolean }, failures: string[]): Promise<Sampled> {
+  const file = `read_parquet('${spec.path.replaceAll("'", "''")}', file_row_number = true)`;
+  const count = Number((await rowsOf(`SELECT count(*) FROM ${file}`))[0]![0]);
+  const described = await rowsOf(`DESCRIBE SELECT * FROM read_parquet('${spec.path.replaceAll("'", "''")}')`);
+  // The fixture's values are f64 (`CellValue::Float`); a FLOAT column's
+  // exact text is an f32's, which this script and the native test don't read.
+  if (described.some((row) => row[1] === 'FLOAT')) throw new Error(`${spec.path} has a FLOAT column: the cell fixture holds DOUBLEs only`);
+  const floats = described.filter((row) => row[1] === 'DOUBLE' && (!spec.only || spec.only.includes(String(row[0])))).map((row) => String(row[0]));
+  if (floats.length === 0 || (spec.only && floats.length !== spec.only.length)) throw new Error(`${spec.path}: float columns ${floats.join(', ')}, wanted ${spec.only?.join(', ') ?? 'some'}`);
+
+  /** The row whose value in `column` has the longest table text, and its length. */
+  async function longestRow(column: string): Promise<[number, number]> {
+    const c = `"${column.replaceAll('"', '""')}"`;
+    let best: [number, number] = [-1, -1];
+    for (const [row, value] of await rowsOf(`SELECT file_row_number, ${c} FROM ${file} WHERE ${c} IS NOT NULL`)) {
+      const length = tableText(Number(value)).length;
+      if (length > best[1]) best = [Number(row), length];
+    }
+    return best;
   }
-  await context.close();
-  return { columns, cells, problems: found };
+
+  /** Rows (file_row_number) whose values in `column` test the formatting. */
+  async function rowsFor(column: string): Promise<number[]> {
+    const c = `"${column.replaceAll('"', '""')}"`;
+    const picks = [
+      `SELECT file_row_number FROM ${file} WHERE ${c} IS NOT NULL ORDER BY ${c}, file_row_number LIMIT 2`,
+      `SELECT file_row_number FROM ${file} WHERE ${c} IS NOT NULL ORDER BY ${c} DESC, file_row_number LIMIT 2`,
+      // DuckDB's text for a double isn't the table's; the longest by the
+      // table's text is `longestRow`'s.
+      `SELECT file_row_number FROM ${file} WHERE ${c} IS NOT NULL ORDER BY length(${c}::VARCHAR) DESC, file_row_number LIMIT 4`,
+      `SELECT file_row_number FROM ${file} WHERE ${c} <> 0 ORDER BY abs(${c}), file_row_number LIMIT 3`,
+      `SELECT file_row_number FROM ${file} WHERE ${c} = 0 ORDER BY file_row_number LIMIT 1`,
+      `SELECT file_row_number FROM ${file} WHERE ${c} = floor(${c}) AND ${c} <> 0 ORDER BY file_row_number LIMIT 1`,
+      `SELECT file_row_number FROM ${file} WHERE ${c} < 0 ORDER BY file_row_number LIMIT 2`,
+      `SELECT file_row_number FROM ${file} WHERE ${c} IS NULL ORDER BY file_row_number LIMIT 1`,
+      // Spread through the file: every tenth of it, the first value there.
+      `SELECT min(file_row_number) FROM ${file} WHERE ${c} IS NOT NULL GROUP BY file_row_number * 10 // ${count} ORDER BY 1`,
+    ];
+    const [longest, length] = await longestRow(column);
+    longestText.set(column, length);
+    const rows: number[] = [longest];
+    for (const sql of picks) rows.push(...(await rowsOf(sql)).map((row) => Number(row[0])));
+    return rows;
+  }
+
+  /** Each column's longest table text, over every value in the file. */
+  const longestText = new Map<string, number>();
+  const wanted = new Set<number>();
+  for (const column of floats) for (const row of await rowsFor(column)) wanted.add(row);
+  const targets = [...wanted].sort((a, b) => a - b);
+  const quoted = floats.map((column) => `"${column.replaceAll('"', '""')}"`).join(', ');
+  const values = new Map<number, (number | null)[]>();
+  for (const row of await rowsOf(`SELECT file_row_number, ${quoted} FROM ${file} WHERE file_row_number IN (${targets.join(', ')})`)) {
+    values.set(Number(row[0]), row.slice(1).map((value) => (value === null ? null : Number(value))));
+  }
+  console.log(`${spec.path.slice(spec.path.lastIndexOf('/') + 1)}: native DuckDB: ${count} rows; float columns ${floats.join(', ')}; ${targets.length} rows picked; longest table text ${[...longestText].map(([column, length]) => `${column} ${length}`).join(', ')}`);
+
+  // --- what the contender draws ---
+
+  /** The contender's columns at `dpr`, and, with `rows`, the cells it drew
+   *  for the picked columns. Wide enough to show every base column. */
+  async function drawn(url: string, dpr: number, rows: number[]) {
+    const context = await browser.newContext({ viewport: { width: 2560, height: 900 }, deviceScaleFactor: dpr });
+    if (dpr !== 1) await context.addInitScript(hideDevicePixelContentBox);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(`${url}?measure&cells${spec.query}`);
+    await waitMark(page, MARKS.filled, 0);
+    const columns = await page
+      .waitForFunction(() => (globalThis as Global).__contender?.columns ?? false, null, { timeout: 60_000 })
+      .then(async (handle) => (await handle.jsonValue()) as ColumnProbe[]);
+    const indices = floats.map((name) => columns.findIndex((column) => column.name === name));
+    const cells: CellProbe[] = [];
+    for (const row of rows) {
+      await page.evaluate((fraction) => (globalThis as Global).__contender!.replay.jump(fraction), (row + 0.5) / count);
+      // The jump resolves once the view is filled; its frame's cells hold the row.
+      const drawnRow = await page
+        .waitForFunction(
+          ({ row, indices }) => {
+            const cells = ((globalThis as Global).__contender?.cells ?? []).filter((cell) => cell.row === row && indices.includes(cell.column));
+            return cells.length === indices.length ? cells : false;
+          },
+          { row, indices },
+          { timeout: 30_000, polling: 20 },
+        )
+        .then(async (handle) => (await handle.jsonValue()) as CellProbe[]);
+      cells.push(...drawnRow);
+    }
+    await context.close();
+    return { columns, cells, problems: found };
+  }
+
+  const server = await serveGpui(spec.port, undefined, spec.level);
+  try {
+    const atTwo = await drawn(server.url, 2, targets);
+    const atOne = await drawn(server.url, 1, []);
+    failures.push(...atTwo.problems, ...atOne.problems);
+    const budgets = (columns: ColumnProbe[]) => JSON.stringify(columns.map(({ name, kind, budget }) => ({ name, kind, budget })));
+    if (budgets(atTwo.columns) !== budgets(atOne.columns)) failures.push(`${spec.level}: the budgets differ by DPR: ${budgets(atTwo.columns)} vs ${budgets(atOne.columns)}`);
+
+    const floatColumns = floats.map((name) => {
+      const index = atTwo.columns.findIndex((column) => column.name === name);
+      const column = atTwo.columns[index];
+      if (!column || column.kind !== 'float') throw new Error(`the contender lays ${name} out as ${column?.kind ?? 'nothing'}`);
+      return { index, ...column };
+    });
+    // The table's budget rule (`column.rs`): a pixel short of the room, at the widest number advance.
+    if (spec.budgetRule)
+      for (const column of floatColumns) {
+        const budget = Math.max(1, Math.floor((column.width - 16 - 1) / numberPx!));
+        if (budget !== column.budget) failures.push(`${column.name}: budget ${column.budget} at ${column.width} px, but number_px ${numberPx} gives ${budget}`);
+      }
+    const seen = new Set<string>();
+    const cells: FixtureCell[] = [];
+    for (const [position, column] of floatColumns.entries()) {
+      for (const cell of atTwo.cells.filter((cell) => cell.column === column.index).sort((a, b) => a.row - b.row)) {
+        const value = values.get(cell.row)?.[position];
+        if (value === undefined) {
+          failures.push(`row ${cell.row} wasn't picked`);
+          continue;
+        }
+        // The contender drew the file's value.
+        // Compared as text: NaN never equals itself, and Rust writes `inf`.
+        const same = cell.exact === (value === null ? 'NULL' : tableText(value));
+        if (!same) failures.push(`${column.name} row ${cell.row}: drawn ${cell.exact}, DuckDB ${value} (${value === null ? 'NULL' : tableText(value)})`);
+        const key = `${column.name} ${value === null ? 'null' : String(value)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        cells.push({ column: column.name, row: cell.row, value: value === null ? null : String(value), exact: cell.exact, shown: cell.shown });
+      }
+    }
+    const rounded = cells.filter((cell) => cell.shown !== cell.exact && cell.value !== null).length;
+    // Whether anything in the file rounds: its longest text against its budget.
+    for (const column of floatColumns) {
+      const longest = longestText.get(column.name) ?? 0;
+      if (longest > column.budget && rounded === 0) failures.push(`${column.name}: a value of ${longest} characters rounds at ${column.budget}, but no drawn cell did`);
+    }
+    console.log(`  budgets: ${floatColumns.map((column) => `${column.name} ${column.budget}`).join(', ')} (width ${floatColumns.map((column) => column.width).join('/')} px); ${cells.length} cells, ${rounded} rounded`);
+    return { columns: floatColumns.map(({ name, kind, width, budget }) => ({ name, kind, width, budget })), cells, rounded };
+  } finally {
+    await server.close();
+  }
 }
 
 const failures: string[] = [];
-const server = await serveGpui(PORT);
 const browser = await chromium.launch({ channel: 'chromium' });
 let fixture: unknown;
 try {
-  const atTwo = await drawn(browser, server.url, 2, targets);
-  const atOne = await drawn(browser, server.url, 1, []);
-  failures.push(...atTwo.problems, ...atOne.problems);
-  const budgets = (columns: ColumnProbe[]) => JSON.stringify(columns.map(({ name, kind, budget }) => ({ name, kind, budget })));
-  if (budgets(atTwo.columns) !== budgets(atOne.columns)) failures.push(`the budgets differ by DPR: ${budgets(atTwo.columns)} vs ${budgets(atOne.columns)}`);
-
-  const floatColumns = floats.map((name) => {
-    const index = atTwo.columns.findIndex((column) => column.name === name);
-    const column = atTwo.columns[index];
-    if (!column || column.kind !== 'float') throw new Error(`the contender lays ${name} out as ${column?.kind ?? 'nothing'}`);
-    return { index, ...column };
-  });
-  // The table's budget rule (`column.rs`): a pixel short of the room, at the widest number advance.
-  for (const column of floatColumns) {
-    const budget = Math.max(1, Math.floor((column.width - 16 - 1) / numberPx));
-    if (budget !== column.budget) failures.push(`${column.name}: budget ${column.budget} at ${column.width} px, but number_px ${numberPx} gives ${budget}`);
-  }
-  const seen = new Set<string>();
-  const cells: { column: string; row: number; value: string | null; exact: string; shown: string }[] = [];
-  for (const [position, column] of floatColumns.entries()) {
-    for (const cell of atTwo.cells.filter((cell) => cell.column === column.index).sort((a, b) => a.row - b.row)) {
-      const value = values.get(cell.row)?.[position];
-      if (value === undefined) {
-        failures.push(`row ${cell.row} wasn't picked`);
-        continue;
-      }
-      // The contender drew the file's value.
-      // Compared as text: NaN never equals itself, and Rust writes `inf`.
-      const same = cell.exact === (value === null ? 'NULL' : tableText(value));
-      if (!same) failures.push(`${column.name} row ${cell.row}: drawn ${cell.exact}, DuckDB ${value} (${value === null ? 'NULL' : tableText(value)})`);
-      const key = `${column.name} ${value === null ? 'null' : String(value)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      cells.push({ column: column.name, row: cell.row, value: value === null ? null : String(value), exact: cell.exact, shown: cell.shown });
-    }
+  const base = await sample(browser, { path: dataFile, level: 'base', port: PORT, query: '', budgetRule: true }, failures);
+  // Each scenario on a feature level, at its default stop: the float columns
+  // on screen at the sideways scroll's 0 (the first painted ones), so a jump
+  // draws them.
+  const scenarios: Record<string, unknown> = {};
+  for (const [index, scenario] of SCENARIOS.filter((scenario) => scenario.level !== 'base').entries()) {
+    const stop = scenario.stops.find((stop) => stop.id === scenario.defaultStop)!;
+    const only = scenario.level === 'wide' ? ['Latitude', 'Jan 1', 'Jan 2', 'Jan 15'] : undefined;
+    const path = fileURLToPath(new URL(`../data/${scenario.data}`, import.meta.url));
+    const section = await sample(browser, { path, level: scenario.level, port: SCENARIO_PORTS[index]!, query: `&scenario=${scenario.id}&stop=${stop.id}`, only, budgetRule: false }, failures);
+    scenarios[scenario.id] = {
+      source: { file: `apps/observatory/data/${scenario.data}`, sha256: manifest[scenario.data]!.sha256, stop: stop.id, contender: `tall-table-gpui at the ${scenario.level} level, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)` },
+      ...section,
+      rounded: undefined,
+    };
   }
   fixture = {
     about:
-      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); and with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it). See README.md.",
+      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
     source: { file: 'apps/observatory/data/asteroids.parquet', sha256: manifest['asteroids.parquet']!.sha256, contender: 'tall-table-gpui, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)' },
     number_px: numberPx,
-    columns: floatColumns.map(({ name, kind, width, budget }) => ({ name, kind, width, budget })),
-    cells,
+    columns: base.columns,
+    cells: base.cells,
     rounding,
     resize,
+    scenarios,
   };
-  const rounded = cells.filter((cell) => cell.shown !== cell.exact && cell.value !== null).length;
-  // Whether anything in the file rounds: its longest text against its budget.
-  for (const column of floatColumns) {
-    const longest = longestText.get(column.name) ?? 0;
-    if (longest > column.budget && rounded === 0) failures.push(`${column.name}: a value of ${longest} characters rounds at ${column.budget}, but no drawn cell did`);
-  }
-  console.log(`budgets: ${floatColumns.map((column) => `${column.name} ${column.budget}`).join(', ')} (width ${floatColumns.map((column) => column.width).join('/')} px); ${cells.length} cells, ${rounded} rounded`);
 } finally {
   await browser.close();
-  await server.close();
 }
 
 if (failures.length > 0) {

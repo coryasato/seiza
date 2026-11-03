@@ -21,9 +21,9 @@ preview_urls = false
 # which .assetsignore leaves out). The script runs first for everything and
 # reads the files through the binding; `html_handling = "none"`, because it
 # maps a route to its index.html itself (the assets' default redirects
-# index.html to its directory). DATA_SHA256 (the file's version, the edge
-# cache's key) is passed by the deploy from data/MANIFEST.json, never
-# committed here.
+# index.html to its directory). DATA_FILES (each data file's SHA-256, its
+# version and edge-cache key, as JSON) is passed by the deploy from
+# data/MANIFEST.json, never committed here.
 [assets]
 directory = "dist"
 binding = "ASSETS"

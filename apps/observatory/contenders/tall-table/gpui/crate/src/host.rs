@@ -6,8 +6,9 @@
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 use seiza_duckdb::EngineStatus;
-use seiza_duckdb::tall_table::{ParquetFile, QueryRows};
 use seiza_tall_table::{TallTable, TallTableState};
+
+use crate::scene::{self, Scene};
 
 /// The window's title.
 #[cfg_attr(
@@ -15,11 +16,8 @@ use seiza_tall_table::{TallTable, TallTableState};
     expect(dead_code, reason = "only the web build opens a window")
 )]
 pub const TITLE: &str = "Tall table: GPUI";
-/// The data file's SQL name, which the page SQL names: the same on both
-/// sides (root `CLAUDE.md`, "Comparison protocol").
-pub const FILE: &str = "asteroids.parquet";
 
-pub type Table = TallTableState<QueryRows<ParquetFile>>;
+pub type Table = TallTableState<scene::Rows>;
 
 #[cfg_attr(
     not(target_family = "wasm"),
@@ -49,13 +47,22 @@ pub struct Host {
         expect(dead_code, reason = "only the web build opens the file")
     )]
     data_url: String,
+    /// What it opens, or why there's nothing to open (a scenario or stop
+    /// this build doesn't have).
+    scene: Result<Scene, SharedString>,
     load: Load,
     _engine: Subscription,
 }
 
 impl Host {
-    /// Opens the file at `data_url` as soon as the engine is ready.
-    pub fn new(data_url: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    /// Opens `scene`'s file at `data_url` as soon as the engine is ready;
+    /// with no scene, shows why and opens nothing.
+    pub fn new(
+        data_url: String,
+        scene: Result<Scene, SharedString>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let engine = cx.observe_global_in::<EngineStatus>(window, |this, window, cx| {
             #[cfg(target_family = "wasm")]
             {
@@ -77,9 +84,18 @@ impl Host {
         });
         #[cfg(target_family = "wasm")]
         crate::contract::install(cx.weak_entity(), window.window_handle(), cx);
+        let load = match &scene {
+            Ok(_) => Load::Waiting,
+            Err(message) => {
+                #[cfg(target_family = "wasm")]
+                crate::contract::failed();
+                Load::Failed(message.clone())
+            }
+        };
         Self {
             data_url,
-            load: Load::Waiting,
+            scene,
+            load,
             _engine: engine,
         }
     }
@@ -90,6 +106,12 @@ impl Host {
     pub(crate) fn open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         use seiza_duckdb::{Engine, FileSource};
 
+        // No scene (a scenario or stop this build lacks): nothing to open,
+        // and the failure is marked again for whoever asked.
+        let Ok(scene) = self.scene.clone() else {
+            crate::contract::failed();
+            return;
+        };
         let engine = cx.global::<Engine>().clone();
         match &self.load {
             Load::Open(table) => table.update(cx, |table, cx| table.close(cx)),
@@ -112,7 +134,7 @@ impl Host {
                     let sent = sent.clone();
                     seiza_duckdb::tall_table::open_parquet(
                         &engine,
-                        FILE,
+                        &scene.file,
                         FileSource::Url(url),
                         &[],
                         move |id| sent.borrow_mut().push(id),
@@ -122,14 +144,10 @@ impl Host {
                 let _ = this.update_in(cx, |this, window, cx| {
                     this.load = match opened {
                         Ok((summary, _)) => {
-                            let columns = summary
-                                .columns
-                                .iter()
-                                .map(seiza_duckdb::sql::ColumnInfo::tall_table_column)
-                                .collect();
+                            let columns = scene::columns(&summary.columns, &scene);
                             let table = cx.new(|cx| {
-                                Table::new(
-                                    QueryRows::new(engine, ParquetFile::new(FILE)),
+                                let mut table = Table::new(
+                                    scene::rows(engine, &scene),
                                     columns,
                                     summary.rows,
                                     seiza_tall_table::Paging::default(),
@@ -139,7 +157,9 @@ impl Host {
                                 // row height from the probes. Measured runs
                                 // have them on anyway (`?measure`'s state).
                                 .probe_frames(true)
-                                .probe_cells(crate::contract::probing_cells())
+                                .probe_cells(crate::contract::probing_cells());
+                                scene::set_level(&mut table, &scene, cx);
+                                table
                             });
                             crate::contract::watch(&table, cx);
                             let focus = table.read(cx).focus_handle().clone();
@@ -178,13 +198,14 @@ impl Host {
     /// What's loading, or what failed, while there's no table.
     fn status(&self, cx: &App) -> (SharedString, Hsla) {
         let theme = cx.theme();
+        let file = self.scene.as_ref().map_or("the file", |scene| &scene.file);
         match (&self.load, cx.try_global::<EngineStatus>()) {
             (Load::Failed(message), _) => (
-                format!("Couldn't open {FILE}: {message}").into(),
+                format!("Couldn't open {file}: {message}").into(),
                 theme.danger,
             ),
             (Load::Opening { .. }, _) => {
-                (format!("Opening {FILE}…").into(), theme.muted_foreground)
+                (format!("Opening {file}…").into(), theme.muted_foreground)
             }
             (_, Some(EngineStatus::Failed(message) | EngineStatus::Stopped(message))) => (
                 format!("The engine didn't load: {message}").into(),

@@ -24,3 +24,18 @@ seiza.workspace = true
 tall-table-bridge.workspace = true
 wasm-bindgen.workspace = true
 js-sys.workspace = true
+
+# A feature level is a build of its own (`contenders/scenarios.ts`,
+# `LEVEL_FEATURES`): built alone (`-p`), at a base of its own. Off, the
+# build is the base level's and carries none of it.
+[features]
+# The wide sheet's level: heat on the days (`custom-cells`), the key
+# columns pinned (`pin`), and the stop's rows, text, and widths (`density`).
+wide = [
+    "seiza-tall-table/custom-cells",
+    "seiza-tall-table/pin",
+    "seiza-tall-table/density",
+    "tall-table-bridge/custom-cells",
+    "tall-table-bridge/pin",
+    "tall-table-bridge/density",
+]

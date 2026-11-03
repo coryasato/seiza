@@ -40,27 +40,32 @@ page *args:
 
 # The GPUI contender (contenders/tall-table/gpui/): build its wasm (debug)
 # and start its Vite dev server with COOP/COEP, at /observatory/. Serves the
-# data file (`just observatory data`) by range at /observatory/data/.
-gpui-dev: (gpui-wasm "debug") gpui-extensions
-    npm run dev --workspace @seiza/observatory-tall-table-gpui
+# data files (`just observatory data`) by range at /observatory/data/.
+# `level`: the feature level (contenders/scenarios.ts; `wide` at
+# /observatory/contenders/tall-table/gpui/wide/).
+gpui-dev level="base": (gpui-wasm "debug" level) gpui-extensions
+    npm run dev --workspace @seiza/observatory-tall-table-gpui -- --mode {{ if level == "base" { "development" } else { level } }}
 
-# The GPUI contender's release build: wasm (+ wasm-opt), Vite build, then
-# asset sizes. DuckDB's two wasm bundles are over Cloudflare's 25 MiB asset
-# limit, so the deploy uploads only their brotli and gzip copies.
-gpui-build: (gpui-wasm "release") gpui-extensions
-    npm run build --workspace @seiza/observatory-tall-table-gpui
-    node {{root}}/shared-web/scripts/asset-sizes.ts {{gpui_web}}/dist --compressed duckdb-eh --compressed duckdb-mvp
+# The GPUI contender's release build at a feature level (`base`, `wide`):
+# wasm (+ wasm-opt), Vite build into web/dist/ (the base) or
+# web/dist-<level>/, then asset sizes. DuckDB's two wasm bundles are over
+# Cloudflare's 25 MiB asset limit, so the deploy uploads only their brotli
+# and gzip copies.
+gpui-build level="base": (gpui-wasm "release" level) gpui-extensions
+    npm run build --workspace @seiza/observatory-tall-table-gpui {{ if level == "base" { "" } else { "-- --mode " + level } }}
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{gpui_web}}/dist{{ if level == "base" { "" } else { "-" + level } }} --compressed duckdb-eh --compressed duckdb-mvp
 
-# Serve the GPUI contender's release build (brotli, as production will), with the data file.
-gpui-preview:
-    npm run preview --workspace @seiza/observatory-tall-table-gpui
+# Serve the GPUI contender's release build at a level (brotli, as production will), with the data files.
+gpui-preview level="base":
+    npm run preview --workspace @seiza/observatory-tall-table-gpui {{ if level == "base" { "" } else { "-- --mode " + level } }}
 
 # Compile the GPUI contender alone (`-p`: Cargo unifies features across the
-# packages in one build) and generate its JS bindings into web/pkg/.
-gpui-wasm profile="debug":
-    cargo build -p tall-table-gpui --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }}
-    wasm-bindgen {{target_dir}}/{{profile}}/tall_table_gpui.wasm --out-dir {{gpui_web}}/pkg --target web
-    {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + gpui_web + "/pkg/tall_table_gpui_bg.wasm -o " + gpui_web + "/pkg/tall_table_gpui_bg.wasm" } else { "true" } }}
+# packages in one build), with the level's feature (none for the base), and
+# generate its JS bindings into web/pkg/ (the base) or web/pkg-<level>/.
+gpui-wasm profile="debug" level="base":
+    cargo build -p tall-table-gpui --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }} {{ if level == "base" { "" } else { "--features " + level } }}
+    wasm-bindgen {{target_dir}}/{{profile}}/tall_table_gpui.wasm --out-dir {{gpui_web}}/pkg{{ if level == "base" { "" } else { "-" + level } }} --target web
+    {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + gpui_web + "/pkg" + (if level == "base" { "" } else { "-" + level }) + "/tall_table_gpui_bg.wasm -o " + gpui_web + "/pkg" + (if level == "base" { "" } else { "-" + level }) + "/tall_table_gpui_bg.wasm" } else { "true" } }}
 
 # Download the DuckDB extensions the engine pins into the GPUI contender's
 # public/duckdb/ (served at /observatory/duckdb/), checking each SHA-256.
@@ -172,11 +177,14 @@ gpui-parts *args:
 # tall table's input, tooltip, and focus. Then the page's build: its
 # first paint and first-paint JS against the baseline, and how it hosts
 # the contenders.
-check: lint gpui-build tanstack-build build && fixtures
+check: lint gpui-build (gpui-build "wide") tanstack-build build && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     node {{app_dir}}/perf/tanstack-sizes.ts --check
     node {{app_dir}}/perf/cold.ts --check
+    node {{app_dir}}/perf/cold.ts --level wide --check
+    node {{app_dir}}/perf/wide.ts
     node {{app_dir}}/perf/placeholder.ts
+    node {{app_dir}}/perf/placeholder.ts --level wide
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
     node {{app_dir}}/perf/tanstack-view.ts --gpui
@@ -207,6 +215,7 @@ placeholder *args:
 # build's drawing.
 fixtures:
     cargo test -p seiza-tall-table fixtures
+    cargo test -p seiza-tall-table --features custom-cells,pin,density fixtures
     cargo test -p seiza-duckdb --all-features sql_fixture
     npm test --workspace @seiza/observatory-tall-table-tanstack
     node {{app_dir}}/perf/cell-fixture.ts --check
@@ -257,28 +266,32 @@ metric name *args:
 readout-cost *args:
     node {{app_dir}}/perf/readout-cost.ts {{args}}
 
-# Build the data file (data/asteroids.parquet, gitignored) from Tycho's
-# pinned asteroid sample (`just tycho data` first), and write
-# data/MANIFEST.json. Installs data/'s native DuckDB (its own lockfile).
-data:
+# Build the data files (gitignored) and write data/MANIFEST.json:
+# asteroids.parquet from Tycho's pinned asteroid sample (`just tycho data`
+# first), ghcn-2025-tmax.parquet from NOAA's GHCN-Daily, its sources kept in
+# data/raw/ghcn/ and checked against their pins (a missing one downloaded).
+# Installs data/'s native DuckDB (its own lockfile). Flags: --only
+# asteroids|ghcn; --repin (download GHCN's sources again and pin them: a
+# new file, so regenerate cells.json).
+data *args:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
-    node {{app_dir}}/data/prep.ts
+    node {{app_dir}}/data/prep.ts {{args}}
 
 # Deploy to Cloudflare (seiza.io, the Worker in worker/): build the page and
 # both contenders, stage them, the engine, the font, and the data into
 # worker/dist/ with a quality-11 .br beside each build file
 # (worker/scripts/stage.ts), `wrangler deploy` with the data file's SHA-256 as
-# DATA_SHA256 (the edge cache's key), then check production once the edge
+# DATA_FILES (each data file's SHA-256, its edge-cache key), then check production once the edge
 # serves the new routes' HTML (polled for a minute: `--wait`; a deploy that
 # changes only the Worker's code can't be told apart that way, so rerun
 # `worker-check` if that check fails). Needs `wrangler login`. Flags pass to
 # the check, e.g. `--resolve-via 1.1.1.1`, `--behind-waf`.
-deploy *args: gpui-build tanstack-build build
+deploy *args: gpui-build (gpui-build "wide") tanstack-build build
     #!/usr/bin/env bash
     set -euo pipefail
     node {{app_dir}}/worker/scripts/stage.ts
-    sha=$(node -e "console.log(JSON.parse(require('fs').readFileSync('{{app_dir}}/data/MANIFEST.json','utf8'))['asteroids.parquet'].sha256)")
-    cd {{app_dir}}/worker && WRANGLER_SEND_METRICS=false {{root}}/node_modules/.bin/wrangler deploy --var "DATA_SHA256:$sha"
+    files=$(node {{app_dir}}/worker/scripts/staged.ts --data-files)
+    cd {{app_dir}}/worker && WRANGLER_SEND_METRICS=false {{root}}/node_modules/.bin/wrangler deploy --var "DATA_FILES:$files"
     node {{app_dir}}/worker/scripts/check.ts --wait {{args}}
 
 # Production as the Worker serves it, against the staged worker/dist/: every
@@ -293,6 +306,16 @@ deploy *args: gpui-build tanstack-build build
 # server>, --behind-waf (a probe and a POST get the WAF's 403), --data-only.
 worker-check *args:
     node {{app_dir}}/worker/scripts/check.ts {{args}}
+
+# The GPUI contender at the wide level, on its release build: at each of
+# the wide sheet's stops the layout it asks for (rows, the days' width, the
+# key columns pinned), heat on every day with a value and nothing else, the
+# top rows as native DuckDB has them, and the cells on screen against the
+# stop's label; an unknown stop or scenario, and the wide sheet asked of the
+# base build, fail the load; the base still opens Big file. --label writes
+# perf/results/. Run `gpui-build` and `gpui-build wide` first.
+wide *args:
+    node {{app_dir}}/perf/wide.ts {{args}}
 
 # Request bursts on the page's release build: the most requests one visitor
 # sends in any 10 s (the zone's rate limit's window), counted at the server
@@ -347,6 +370,8 @@ lint:
     cargo run -q -p tall-table-gpui --example theme_css -- --check
     cargo clippy -p tall-table-gpui --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --all-targets -- -D warnings
+    cargo clippy -p tall-table-gpui --features wide --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-gpui --features wide --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
     node {{page_web}}/scripts/grays.ts

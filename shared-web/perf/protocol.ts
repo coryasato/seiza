@@ -104,12 +104,48 @@ export function percentiles(values: number[]): { n: number; p50: number; p95: nu
 }
 
 /**
- * What results record about the machine. A label, not the hostname: results
- * are committed to a public repo. Set SEIZA_MACHINE to tell machines apart
- * (e.g. "ci-m1"); the CPU model is recorded separately.
+ * What results record about the machine, and what the run was measured
+ * with (`versions`). A label, not the hostname: results are committed to a
+ * public repo. Set SEIZA_MACHINE to tell machines apart (e.g. "ci-m1"); the
+ * CPU model is recorded separately.
  */
-export function machineInfo(): { machine: string; cpu: string; os: string } {
-  return { machine: process.env.SEIZA_MACHINE ?? 'local', cpu: cpus()[0]?.model ?? 'unknown', os: `${type()} ${release()} ${arch()}` };
+export function machineInfo(): { machine: string; cpu: string; os: string; versions: Record<string, string> } {
+  return { machine: process.env.SEIZA_MACHINE ?? 'local', cpu: cpus()[0]?.model ?? 'unknown', os: `${type()} ${release()} ${arch()}`, versions: versions() };
+}
+
+/**
+ * The stacks a result was measured with, as the workspace locks them (root
+ * `CLAUDE.md`, "Comparison protocol"): a bump of any re-measures what it
+ * touches or labels the old numbers with these. The crates from
+ * `Cargo.lock`, the packages from `package-lock.json` (one copy each, the
+ * workspace's), and the Chromium Playwright drives.
+ */
+export const VERSIONED = {
+  crates: ['gpui-kit'],
+  packages: ['react', '@tanstack/react-virtual', 'apache-arrow', '@duckdb/duckdb-wasm'],
+} as const;
+
+let cachedVersions: Record<string, string> | undefined;
+
+/** {@link VERSIONED}'s versions, and `chromium`; read once a process. */
+export function versions(): Record<string, string> {
+  if (cachedVersions) return cachedVersions;
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  const found: Record<string, string> = {};
+  const lock = readFileSync(`${root}Cargo.lock`, 'utf8');
+  for (const crate of VERSIONED.crates) {
+    const version = new RegExp(`\\[\\[package\\]\\]\\nname = "${crate}"\\nversion = "([^"]+)"`).exec(lock)?.[1];
+    if (version) found[crate] = version;
+  }
+  const packages = (JSON.parse(readFileSync(`${root}package-lock.json`, 'utf8')) as { packages: Record<string, { version?: string }> }).packages;
+  for (const name of VERSIONED.packages) {
+    const version = packages[`node_modules/${name}`]?.version;
+    if (version) found[name] = version;
+  }
+  const browsers = (JSON.parse(readFileSync(`${root}node_modules/playwright-core/browsers.json`, 'utf8')) as { browsers: { name: string; browserVersion?: string }[] }).browsers;
+  const chromium = browsers.find((browser) => browser.name === 'chromium')?.browserVersion;
+  if (chromium) found.chromium = chromium;
+  return (cachedVersions = found);
 }
 
 /** Today's date on this machine, `YYYY-MM-DD`, for naming results: the

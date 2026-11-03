@@ -161,11 +161,12 @@ function lanIPv4(): string {
  * data server behind a counting proxy. With `lan`, it listens on this
  * machine's LAN address alone, not localhost, and `url` is there: `http`
  * off localhost, an insecure context (no `navigator.clipboard`, COOP and
- * COEP ignored). It fails on a machine with no LAN address.
+ * COEP ignored). It fails on a machine with no LAN address. `mode` is
+ * Vite's, for a config that builds more than one way.
  */
-export async function serveApp(given: string | undefined, options: { webDir: string; port: number; data?: DataServer; lan?: boolean }): Promise<AppServer> {
+export async function serveApp(given: string | undefined, options: { webDir: string; port: number; data?: DataServer; lan?: boolean; mode?: string }): Promise<AppServer> {
   if (given) return { url: given, proxy: null, close: async () => {} };
-  const { webDir, port, data, lan } = options;
+  const { webDir, port, data, lan, mode } = options;
   // Before starting anything: a machine without one fails here.
   const host = lan ? lanIPv4() : 'localhost';
   // Before starting anything: a dev server already there would otherwise
@@ -176,7 +177,7 @@ export async function serveApp(given: string | undefined, options: { webDir: str
   let proxy: CountingProxy | null = null;
   try {
     if (data) proxy = await startCountingProxy(data.proxyPort, data.port);
-    const server = await preview({ root: webDir, preview: { port, strictPort: true, ...(lan ? { host } : {}) }, logLevel: 'warn' });
+    const server = await preview({ root: webDir, ...(mode ? { mode } : {}), preview: { port, strictPort: true, ...(lan ? { host } : {}) }, logLevel: 'warn' });
     return {
       url: `http://${host}:${port}/`,
       proxy,

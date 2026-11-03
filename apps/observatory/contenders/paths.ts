@@ -7,6 +7,7 @@
  */
 
 import type { Side } from './contract.ts';
+import type { Level } from './scenarios.ts';
 
 /** The site's font path and the UI face there, `@seiza/web`'s. */
 export { FONTS, UI_FONT } from '../../../shared-web/src/font.ts';
@@ -22,5 +23,8 @@ export const ENGINE_DIR = 'duckdb';
 /** The data, served by range (`worker/src/index.ts`, `contenders/data.ts`). */
 export const DATA = '/observatory/data/';
 
-/** A contender's bare page: its build's base. */
-export const contenderBase = (component: string, side: Side): string => `${OBSERVATORY}contenders/${component}/${side}/`;
+/** A contender's bare page: its build's base. A feature level's build sits
+ *  under the base level's (`/observatory/contenders/tall-table/gpui/wide/`),
+ *  each a build of its own (`scenarios.ts`, `Level`). */
+export const contenderBase = (component: string, side: Side, level: Level = 'base'): string =>
+  `${OBSERVATORY}contenders/${component}/${side}/${level === 'base' ? '' : `${level}/`}`;

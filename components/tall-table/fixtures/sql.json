@@ -1,17 +1,26 @@
 {
-  "about": "The SQL a contender sends for the data file: each page's query, and the summary queries its open sends (no metadata keys, so two). See README.md.",
+  "about": "The SQL a contender sends for the data file: each page's query, and the summary queries its open sends (no metadata keys, so two); each scenario on a feature level the same for its own file (scenarios). See README.md.",
   "file": "asteroids.parquet",
   "pages": [
     {
-      "rows": [0, 1024],
+      "rows": [
+        0,
+        1024
+      ],
       "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 1024 ORDER BY file_row_number"
     },
     {
-      "rows": [1410048, 1411072],
+      "rows": [
+        1410048,
+        1411072
+      ],
       "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number >= 1410048 AND file_row_number < 1411072 ORDER BY file_row_number"
     },
     {
-      "rows": [1566720, 1567523],
+      "rows": [
+        1566720,
+        1567523
+      ],
       "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true) WHERE file_row_number >= 1566720 AND file_row_number < 1567523 ORDER BY file_row_number"
     }
   ],
@@ -19,15 +28,53 @@
     "DESCRIBE SELECT * FROM read_parquet('asteroids.parquet')",
     "SELECT num_rows, num_row_groups FROM parquet_file_metadata('asteroids.parquet')"
   ],
+  "scenarios": {
+    "wide-sheet": {
+      "file": "ghcn-2025-tmax.parquet",
+      "pages": [
+        {
+          "rows": [
+            0,
+            1024
+          ],
+          "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('ghcn-2025-tmax.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 1024 ORDER BY file_row_number"
+        },
+        {
+          "rows": [
+            4096,
+            5120
+          ],
+          "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('ghcn-2025-tmax.parquet', file_row_number = true) WHERE file_row_number >= 4096 AND file_row_number < 5120 ORDER BY file_row_number"
+        },
+        {
+          "rows": [
+            10240,
+            10632
+          ],
+          "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('ghcn-2025-tmax.parquet', file_row_number = true) WHERE file_row_number >= 10240 AND file_row_number < 10632 ORDER BY file_row_number"
+        }
+      ],
+      "summary": [
+        "DESCRIBE SELECT * FROM read_parquet('ghcn-2025-tmax.parquet')",
+        "SELECT num_rows, num_row_groups FROM parquet_file_metadata('ghcn-2025-tmax.parquet')"
+      ]
+    }
+  },
   "controls": [
     {
       "name": "LIMIT and OFFSET: the same rows, another query",
-      "rows": [0, 1024],
+      "rows": [
+        0,
+        1024
+      ],
       "sql": "SELECT * FROM read_parquet('asteroids.parquet') LIMIT 1024 OFFSET 0"
     },
     {
       "name": "the same query, spaced differently",
-      "rows": [0, 1024],
+      "rows": [
+        0,
+        1024
+      ],
       "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('asteroids.parquet', file_row_number = true)\nWHERE file_row_number >= 0 AND file_row_number < 1024 ORDER BY file_row_number"
     }
   ]

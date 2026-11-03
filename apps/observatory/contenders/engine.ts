@@ -37,9 +37,9 @@ const AFTER_PAINT = [/[\\/]node_modules[\\/]apache-arrow[\\/]/, /[\\/]node_modul
 /** The message the build fails with; the control looks for it. */
 export const FIRST_PAINT_ERROR = 'loads before first paint';
 
-export function contenderBuild(): Plugin[] {
+export function contenderBuild(outDir = 'dist'): Plugin[] {
   return [
-    serveDirs([{ at: ENGINE, dir: `public/${ENGINE_DIR}`, preview: `dist/${ENGINE_DIR}` }]),
+    serveDirs([{ at: ENGINE, dir: `public/${ENGINE_DIR}`, preview: `${outDir}/${ENGINE_DIR}` }]),
     serveFonts(),
     observatoryData(),
     {

@@ -140,3 +140,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The bare host's vertical fling shows placeholder rows in a third of its frames or more (its rows land a frame after they're asked for), which are cheap to draw. It can't be compared with a grid reading from memory. The gesture's steady scroll and fast fling had none.
 - A script's wait-for-rest that keeps a global between segments must key it by the segment. Keyed by a frame count alone, a segment drawing as many frames as the last ended at once, and 6 of 36 GPUI segments read 0, which the first write-up blamed on the host.
 - `position: sticky` inside translated, absolutely placed rows held the pinned edge and the header to the pixel through flings in all three engines. The contender's gutter had shown it for one column; it holds for three.
+
+## M9 part B: the wide sheet's file and the GPUI contender at the level (2026-11-02)
+
+[Results](../perf/results/2026-11-02-m9-b.md).
+
+- A pinned source can stop existing the same day. NOAA's 2025 file had changed within hours of part A1's download, and its bucket keeps no versions, so the pin can only check a copy kept locally, never fetch one. A source that is still being written needs its bytes kept beside the pin from the first download.
+- The spike's cell counts didn't carry over to the contender. The spike laid out narrower key columns and left Latitude out, so the same lengths drew ~15% fewer cells in the real build. Counts measured on a stand-in need checking on the build before they become labels.
+- A SQL template's comment is still substituted. `prep-ghcn.sql`'s header named its placeholders, and the 365-line column list replaced the comment's mention too, breaking out of the comment.
+- An engine page's own `value` method shadows the table trait's. A wrapper calling `self.page.value(…)` got DuckDB's `Value` back, not the table's `CellValue`. It has to call the trait's method by name.
+- `cold.ts` dated its results by UTC, so an evening run wrote tomorrow's date. `shared-web/perf/`'s `localDate` already existed for this.

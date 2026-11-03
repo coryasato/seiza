@@ -8,7 +8,8 @@
 //   alone (`-p`) must not enable `seiza`'s `panel`. Negative control: the
 //   same for the contender built together with Tycho, where Cargo unifies
 //   Tycho's `panel` into it, must.
-// - The shipped wasm (web/dist, from `just observatory gpui-build`) must not
+// - The shipped wasm (web/dist, from `just observatory gpui-build`, and each
+//   feature level's, web/dist-<level>/, from `gpui-build <level>`) must not
 //   hold the panel's global (`__seizaPerfOverlay`, which only the panel
 //   writes), nor a home-directory path (the builder's `$HOME`, `/Users/`,
 //   `/home/`: the root release profile's `trim-paths` remaps them).
@@ -29,7 +30,8 @@ import { join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { homePaths, untrimmedControl } from '../../../shared-web/perf/home-paths.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { gpuiWebDir, perfDir } from './harness.ts';
+import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { distDir, gpuiWebDir, perfDir } from './harness.ts';
 
 const repo = join(perfDir, '../../..');
 const PANEL_MARKER = '__seizaPerfOverlay';
@@ -38,25 +40,32 @@ const failures: string[] = [];
 const run = (command: string, args: string[]) => execFileSync(command, args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
 
 /** Whether Cargo enables `seiza`'s `panel` when building these packages. */
-const panelEnabled = (packages: string[]) =>
-  run('cargo', ['tree', '-e', 'features', '-i', 'seiza', '--target', 'wasm32-unknown-unknown', ...packages.flatMap((name) => ['-p', name])]).includes('seiza feature "panel"');
+const panelEnabled = (packages: string[], features: string[] = []) =>
+  run('cargo', ['tree', '-e', 'features', '-i', 'seiza', '--target', 'wasm32-unknown-unknown', ...packages.flatMap((name) => ['-p', name]), ...(features.length ? ['--features', features.join(',')] : [])]).includes('seiza feature "panel"');
+/** The feature levels the contender builds at (`contenders/scenarios.ts`). */
+const LEVELS = Object.keys(LEVEL_FEATURES) as Level[];
 
-const alone = panelEnabled(['tall-table-gpui']);
+const alone = panelEnabled(['tall-table-gpui']) || panelEnabled(['tall-table-gpui'], LEVELS.filter((level) => level !== 'base'));
 const unified = panelEnabled(['tall-table-gpui', 'tycho']);
 if (alone) failures.push('cargo enables seiza\'s panel for the contender built alone');
 if (!unified) failures.push('control: cargo should enable seiza\'s panel for the contender built with Tycho, and didn\'t');
 console.log(`cargo: panel built alone ${alone}, with Tycho ${unified} (control)`);
 
 const sizes = (bytes: Buffer) => ({ rawKiB: Number((bytes.length / 1024).toFixed(1)), brotliKiB: Number((brotli(bytes).length / 1024).toFixed(1)), panel: bytes.includes(PANEL_MARKER) });
-const assets = join(gpuiWebDir, 'dist/assets');
-const shippedName = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-]+\.wasm$/.test(name));
-if (!shippedName) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build\` first`);
-const shippedBytes = readFileSync(join(assets, shippedName));
-const home = homePaths('the shipped wasm', shippedBytes);
-const shipped = { ...sizes(shippedBytes), homePaths: home.total };
-if (shipped.panel) failures.push(`the shipped wasm holds ${PANEL_MARKER}: the panel linked`);
-if (home.failure) failures.push(home.failure);
-console.log(`shipped: ${shipped.rawKiB} KiB raw, ${shipped.brotliKiB} KiB brotli, panel ${shipped.panel}, ${shipped.homePaths} home paths`);
+/** Each level's shipped wasm: no panel, no home path. */
+const shippedLevels: Record<string, { file: string; features: readonly string[]; rawKiB: number; brotliKiB: number; panel: boolean; homePaths: number }> = {};
+for (const level of LEVELS) {
+  const assets = join(distDir(gpuiWebDir, level), 'assets');
+  const file = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-]+\.wasm$/.test(name));
+  if (!file) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build${level === 'base' ? '' : ` ${level}`}\` first`);
+  const bytes = readFileSync(join(assets, file));
+  const home = homePaths(`the shipped wasm (${level})`, bytes);
+  shippedLevels[level] = { file, features: LEVEL_FEATURES[level], ...sizes(bytes), homePaths: home.total };
+  if (shippedLevels[level].panel) failures.push(`the shipped wasm (${level}) holds ${PANEL_MARKER}: the panel linked`);
+  if (home.failure) failures.push(home.failure);
+  console.log(`shipped (${level}): ${shippedLevels[level].rawKiB} KiB raw, ${shippedLevels[level].brotliKiB} KiB brotli, panel ${shippedLevels[level].panel}, ${shippedLevels[level].homePaths} home paths`);
+}
+const { file: shippedName, ...shipped } = shippedLevels.base!;
 
 /** The release wasm with `features`, through wasm-bindgen and wasm-opt. */
 function build(features: string[]): Buffer {
@@ -89,7 +98,7 @@ if (label) {
   const date = new Date().toISOString().slice(0, 10);
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), cargo: { panelAlone: alone, panelWithTycho: unified }, shipped: { file: shippedName, ...shipped }, untrimmedHomePaths: untrimmed, variants, failures }, null, 2)}\n`);
+  writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), cargo: { panelAlone: alone, panelWithTycho: unified }, shipped: { file: shippedName, ...shipped }, levels: shippedLevels, untrimmedHomePaths: untrimmed, variants, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }
 if (failures.length) {

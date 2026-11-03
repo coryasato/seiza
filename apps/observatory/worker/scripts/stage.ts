@@ -1,10 +1,12 @@
 // Stages what the Worker serves into worker/dist/ (gitignored), at the paths
 // production serves them (contenders/paths.ts):
 //
-// - the page's build at /observatory/, each contender's at its base;
+// - the page's build at /observatory/, each contender's at its base, and
+//   each feature level's build at its own (`gpui/wide/`);
 // - the engine at /observatory/duckdb/, one copy: the GPUI build's, after
 //   checking the TanStack build's is the same files and bytes;
-// - the data at /observatory/data/, checked against data/MANIFEST.json;
+// - the data at /observatory/data/: every file data/MANIFEST.json names,
+//   each checked against its SHA-256 there;
 // - the UI font at /fonts/, shared by every build on the apex.
 //
 // Beside each build file a quality-11 `<file>.br` (shared-web's brotli,
@@ -26,7 +28,7 @@ import { walk } from '../../../../shared-web/scripts/walk.ts';
 import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { DATA, ENGINE, ENGINE_DIR, OBSERVATORY, UI_FONT, contenderBase } from '../../contenders/paths.ts';
 import { PRECOMPRESSED } from '../src/files.ts';
-import { ASSET_LIMIT, dist } from './staged.ts';
+import { ASSET_LIMIT, dataFiles, dist } from './staged.ts';
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const root = join(appDir, '../..');
@@ -41,23 +43,28 @@ function stage(): void {
   const builds = {
     page: join(appDir, 'web/dist'),
     gpui: join(appDir, 'contenders/tall-table/gpui/web/dist'),
+    'gpui-wide': join(appDir, 'contenders/tall-table/gpui/web/dist-wide'),
     tanstack: join(appDir, 'contenders/tall-table/tanstack/web/dist'),
   };
   for (const [name, dir] of Object.entries(builds))
-    if (!existsSync(join(dir, 'index.html'))) throw new Error(`no ${name} build in ${relative(root, dir)}: run \`just observatory ${name === 'page' ? 'build' : `${name}-build`}\``);
+    if (!existsSync(join(dir, 'index.html'))) throw new Error(`no ${name} build in ${relative(root, dir)}: run \`just observatory ${name === 'page' ? 'build' : name === 'gpui-wide' ? 'gpui-build wide' : `${name}-build`}\``);
 
-  const data = join(appDir, 'data/asteroids.parquet');
-  if (!existsSync(data)) throw new Error(`${data} is missing: build it with \`just observatory data\``);
-  const pinned = (JSON.parse(readFileSync(join(appDir, 'data/MANIFEST.json'), 'utf8')) as Record<string, { sha256: string }>)['asteroids.parquet'];
-  const dataSha = sha256(readFileSync(data));
-  if (dataSha !== pinned?.sha256) throw new Error(`asteroids.parquet: SHA-256 ${dataSha}, but data/MANIFEST.json says ${pinned?.sha256}`);
+  // Every file data/MANIFEST.json names, each as it pins it.
+  const data = Object.entries(dataFiles()).map(([name, pinned]) => {
+    const path = join(appDir, 'data', name);
+    if (!existsSync(path)) throw new Error(`${path} is missing: build it with \`just observatory data\``);
+    const found = sha256(readFileSync(path));
+    if (found !== pinned) throw new Error(`${name}: SHA-256 ${found}, but data/MANIFEST.json says ${pinned}`);
+    return { name, path };
+  });
 
   // The engine: both builds emit the same files (`engine-files` checks it
   // too); one copy is served.
   const engineFiles = (build: string) =>
     Object.fromEntries(walk(join(build, ENGINE_DIR)).map((file) => [relative(join(build, ENGINE_DIR), file), sha256(readFileSync(file))]));
   const gpuiEngine = engineFiles(builds.gpui);
-  if (JSON.stringify(gpuiEngine) !== JSON.stringify(engineFiles(builds.tanstack))) throw new Error(`the two contenders' ${ENGINE_DIR}/ differ: rebuild both (\`just observatory engine-files\` says how)`);
+  for (const other of ['gpui-wide', 'tanstack'] as const)
+    if (JSON.stringify(gpuiEngine) !== JSON.stringify(engineFiles(builds[other]))) throw new Error(`the GPUI build's ${ENGINE_DIR}/ and the ${other} build's differ: rebuild them (\`just observatory engine-files\` says how)`);
   // Its bundles directly in duckdb/ are served immutable (src/files.ts), so each name must carry its content hash.
   // A name passes only as `<DuckDB's own name>-<8-char hash><ext>`, so an
   // unhashed name ending in eight word characters (`-bindings.js`) can't.
@@ -82,10 +89,11 @@ function stage(): void {
   const notServed = (path: string) => path === '_headers' || path.startsWith('.vite/') || path.startsWith(`${ENGINE_DIR}/`);
   place(builds.page, OBSERVATORY, notServed);
   place(builds.gpui, contenderBase('tall-table', 'gpui'), notServed);
+  place(builds['gpui-wide'], contenderBase('tall-table', 'gpui', 'wide'), notServed);
   place(builds.tanstack, contenderBase('tall-table', 'tanstack'), notServed);
   place(join(builds.gpui, ENGINE_DIR), ENGINE);
   mkdirSync(join(dist, DATA), { recursive: true });
-  copyFileSync(data, join(dist, DATA, 'asteroids.parquet'));
+  for (const { name, path } of data) copyFileSync(path, join(dist, DATA, name));
   mkdirSync(join(dist, dirname(UI_FONT)), { recursive: true });
   copyFileSync(join(root, 'shared-web/fonts', UI_FONT.slice(UI_FONT.lastIndexOf('/') + 1)), join(dist, UI_FONT));
 

@@ -9,8 +9,10 @@
 // --controls: negative controls for the match. Each injects a small CSS error
 //   into the placeholder and must fail it.
 //
-// Usage: node apps/observatory/perf/placeholder.ts [--controls] [--label <name>]
-// --label writes perf/results/<date>-<label>.json. Run `just observatory gpui-build` first.
+// Usage: node apps/observatory/perf/placeholder.ts [--controls] [--label <name>] [--level base|wide]
+// --label writes perf/results/<date>-<label>.json. --level: a feature
+// level's build (web/dist-<level>/), whose first frame is the base's. Run
+// `just observatory gpui-build` (or `gpui-build <level>`) first.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,10 +21,13 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { PLACEHOLDER_CHARS } from '../../../shared-web/src/placeholder.ts';
 import { SCHEMES, compare, shoot, type HeldBack } from '../../../shared-web/perf/placeholder-shots.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { ENGINE_CHUNK, GPUI_WASM, gpuiWebDir, perfDir, serveGpui } from './harness.ts';
+import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { ENGINE_CHUNK, GPUI_WASM, distDir, gpuiWebDir, perfDir, serveGpui } from './harness.ts';
 
 const PORT = 4312;
 const label = option('label');
+const level = (option('level') ?? 'base') as Level;
+if (!(level in LEVEL_FEATURES)) throw new Error(`--level ${level}: not a level`);
 const date = new Date().toISOString().slice(0, 10);
 const rawDir = join(perfDir, 'results/raw/placeholder');
 /** The placeholder: the contender's wasm held back. The first frame: the
@@ -31,10 +36,10 @@ const HELD: HeldBack = { wasm: GPUI_WASM, afterPaint: ENGINE_CHUNK };
 const failures: string[] = [];
 const output: Record<string, unknown> = { date, label, ...machineInfo() };
 
-const html = readFileSync(join(gpuiWebDir, 'dist/index.html'));
+const html = readFileSync(join(distDir(gpuiWebDir, level), 'index.html'));
 output.sizes = { indexHtmlBytes: html.length, indexHtmlBrotliBytes: brotli(html).length };
 
-const server = await serveGpui(PORT);
+const server = await serveGpui(PORT, undefined, level);
 const browser = await chromium.launch({ channel: 'chromium' });
 try {
   mkdirSync(rawDir, { recursive: true });

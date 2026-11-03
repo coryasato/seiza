@@ -18,10 +18,11 @@
  *   So the file is put whole into the edge cache (`caches.default`), once
  *   per location, from the static asset, and every request is answered by
  *   `cache.match`, which serves ranges from a cached 200: `206` with
- *   `Content-Range`. The cache key carries the file's SHA-256
- *   (`DATA_SHA256`, set at deploy from data/MANIFEST.json), so ranges from
- *   two versions never mix. The response goes out `no-transform` with no
- *   Content-Encoding: re-encoding would break the byte ranges.
+ *   `Content-Range`. Each file's cache key carries its own SHA-256
+ *   (`DATA_FILES`, set at deploy from data/MANIFEST.json), so ranges from
+ *   two versions never mix, and a file the deploy didn't name is a 404.
+ *   The response goes out `no-transform` with no Content-Encoding:
+ *   re-encoding would break the byte ranges.
  */
 
 import { accepts } from '../../../../shared-web/src/encoding.ts';
@@ -29,8 +30,9 @@ import { BUILD_PREFIXES, CONTENT_TYPES, PRECOMPRESSED, cacheControl } from './fi
 
 interface Env {
   ASSETS: Fetcher;
-  /** data/MANIFEST.json's SHA-256 of asteroids.parquet, set by `just observatory deploy`. */
-  DATA_SHA256?: string;
+  /** The data files and their SHA-256s, as JSON (`{"<name>.parquet": "<sha256>"}`), from
+   *  data/MANIFEST.json, set by `just observatory deploy`. */
+  DATA_FILES?: string;
 }
 
 const ISOLATION = {
@@ -51,9 +53,31 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+/** `DATA_FILES` parsed, once an isolate (keyed by its text); `null` when
+ *  it's unset or isn't a JSON object of names to SHA-256s. */
+let parsed: { text: string; files: Record<string, string> | null } | undefined;
+function dataFiles(text: string | undefined): Record<string, string> | null {
+  if (!text) return null;
+  if (parsed?.text !== text) {
+    let files: Record<string, string> | null = null;
+    try {
+      const value: unknown = JSON.parse(text);
+      if (value && typeof value === 'object' && !Array.isArray(value) && Object.values(value).every((sha) => typeof sha === 'string' && /^[0-9a-f]{64}$/.test(sha)))
+        files = value as Record<string, string>;
+    } catch {
+      files = null;
+    }
+    parsed = { text, files };
+  }
+  return parsed.files;
+}
+
 async function serveData(request: Request, env: Env, url: URL): Promise<Response> {
-  const version = env.DATA_SHA256;
-  if (!version) return text(503, 'DATA_SHA256 is unset: deploy with `just observatory deploy`');
+  const versions = dataFiles(env.DATA_FILES);
+  if (!versions) return text(503, 'DATA_FILES is unset or not JSON of names to SHA-256s: deploy with `just observatory deploy`');
+  const name = url.pathname.slice('/observatory/data/'.length);
+  const version = Object.hasOwn(versions, name) ? versions[name] : undefined;
+  if (!version) return text(404, 'Not found');
 
   // The key: the path and the version, no query; a GET, whatever was asked.
   const key = new Request(`${url.origin}${url.pathname}?v=${version}`);

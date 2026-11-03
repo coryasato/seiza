@@ -14,11 +14,11 @@
     "gpui": {
       "ttfpOverBaseline": {
         "value": 0.1,
-        "what": "`check`: the GPUI contender's reference TTFP over perf/baseline.json's, as a fraction"
+        "what": "`check`: the GPUI contender's reference TTFP over perf/baseline.json's, as a fraction, at each feature level (the base's at the top, each other level's under `levels`)"
       },
       "wasmOverBaseline": {
         "value": 0.15,
-        "what": "`check`: the GPUI contender's wasm (brotli) over the baseline's, as a fraction"
+        "what": "`check`: the GPUI contender's wasm (brotli) over the baseline's, as a fraction, at each feature level"
       }
     },
     "tanstack": {
@@ -120,6 +120,74 @@
           },
           {
             "baseline": "wasmBrotliKiB"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-wide-ttfp",
+      "label": "GPUI contender at the wide level: time to first paint",
+      "unit": "ms",
+      "budget": {
+        "overBaseline": "gpui.ttfpOverBaseline",
+        "baseline": "levels.wide.ttfpMs.reference"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-wide.json",
+            "path": "ttfpMs.reference"
+          },
+          {
+            "baseline": "levels.wide.ttfpMs.reference"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-wide-ttfp-throttled",
+      "label": "GPUI contender at the wide level: time to first paint, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-wide.json",
+            "path": "ttfpMs.throttled"
+          },
+          {
+            "baseline": "levels.wide.ttfpMs.throttled"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-wide-wasm",
+      "label": "GPUI contender at the wide level: wasm (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "gpui.wasmOverBaseline",
+        "baseline": "levels.wide.wasmBrotliKiB"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-wide.json",
+            "path": "wasmBrotliKiB"
+          },
+          {
+            "baseline": "levels.wide.wasmBrotliKiB"
           }
         ]
       ],

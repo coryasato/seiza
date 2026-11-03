@@ -10,6 +10,7 @@ import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts'
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
+import { SCENARIOS, type Level } from '../contenders/scenarios.ts';
 
 /** A script's budgets, from perf/budgets.json (`limits('gpui', [...])`). */
 export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
@@ -18,7 +19,9 @@ export const perfDir = fileURLToPath(new URL('.', import.meta.url));
 export const gpuiWebDir = fileURLToPath(new URL('../contenders/tall-table/gpui/web', import.meta.url));
 export const tanstackWebDir = fileURLToPath(new URL('../contenders/tall-table/tanstack/web', import.meta.url));
 export const pageWebDir = fileURLToPath(new URL('../web', import.meta.url));
-export const dataFile = fileURLToPath(new URL('../data/asteroids.parquet', import.meta.url));
+/** A file in `data/`, by name. */
+export const dataPath = (name: string): string => fileURLToPath(new URL(`../data/${name}`, import.meta.url));
+export const dataFile = dataPath('asteroids.parquet');
 
 /** The GPUI contender's wasm (`tall_table_gpui_bg-<hash>.wasm`) and the
  *  engine's chunk, which loads after first paint, as request URLs. */
@@ -44,17 +47,25 @@ export const MARKS = {
  * (`contenderBase`). With `given` (a script's `--url`: production)
  * nothing starts.
  */
-export const serveGpui = (port: number, given?: string): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given);
+export const serveGpui = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given, level);
+
+/** A contender's build directory at a level (`dist/`, `dist-<level>/`). */
+export const distDir = (webDir: string, level: Level = 'base'): string => `${webDir}/dist${level === 'base' ? '' : `-${level}`}`;
 
 /** The TanStack contender's release build, as `serveGpui`. */
 export const serveTanstack = (port: number): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port);
 
-async function serveContender(side: Side, webDir: string, port: number, given?: string): Promise<AppServer> {
-  if (given) return { url: new URL(contenderBase('tall-table', side), given).href, proxy: null, close: async () => {} };
-  if (!existsSync(`${webDir}/dist/index.html`)) throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build: run \`just observatory ${side}-build\` first`);
-  if (!existsSync(dataFile)) throw new Error('no data file: run `just observatory data` first');
-  const server = await serveApp(undefined, { webDir, port });
-  return { ...server, url: new URL(contenderBase('tall-table', side), server.url).href };
+async function serveContender(side: Side, webDir: string, port: number, given?: string, level: Level = 'base'): Promise<AppServer> {
+  const base = contenderBase('tall-table', side, level);
+  if (given) return { url: new URL(base, given).href, proxy: null, close: async () => {} };
+  if (!existsSync(`${distDir(webDir, level)}/index.html`))
+    throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build at the ${level} level: run \`just observatory ${side}-build${level === 'base' ? '' : ` ${level}`}\` first`);
+  // The level's own data files, which its scenarios read.
+  for (const file of new Set(SCENARIOS.filter((scenario) => scenario.level === level).map((scenario) => scenario.data)))
+    if (!existsSync(dataPath(file))) throw new Error(`no data file ${file}: run \`just observatory data\` first`);
+  // The build's Vite config takes its level from the mode (its outDir and base).
+  const server = await serveApp(undefined, { webDir, port, ...(level === 'base' ? {} : { mode: level }) });
+  return { ...server, url: new URL(base, server.url).href };
 }
 
 /**

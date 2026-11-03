@@ -17,8 +17,11 @@
 //   font) starts before it;
 // - the canvas is at DPR 2, and the page logged no errors or warnings.
 //
-// Usage: node apps/observatory/perf/cold.ts [--runs 10] [--label <name>]
+// Usage: node apps/observatory/perf/cold.ts [--runs 10] [--label <name>] [--level base|wide]
 //                                           [--reference-only] [--check] [--write-baseline] [--url <origin>]
+// --level: the feature level's build (`contenders/scenarios.ts`), at its own
+// base, with its own baseline (perf/baseline.json's `levels.<level>`) and
+// results label (gpui-cold-<level>); the base by default.
 // --url: production (e.g. https://seiza.io), recorded only, never against a
 // budget (root CLAUDE.md, "Measurement protocol"); label gpui-cold-production.
 // --check (reference only, nothing written): fails if reference TTFP is over
@@ -31,21 +34,25 @@ import { join } from 'node:path';
 import { chromium, type Request } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { firstDrawProbe, waitMark, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
-import { FAST_4G, PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { FAST_4G, PROFILES, flag, machineInfo, localDate, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { contenderBase, UI_FONT } from '../contenders/paths.ts';
-import { MARKS, budgetLimits, gpuiWebDir, lastMark, perfDir, problems, protocolContext, serveGpui } from './harness.ts';
+import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { MARKS, budgetLimits, distDir, gpuiWebDir, lastMark, perfDir, problems, protocolContext, serveGpui } from './harness.ts';
 
 const { ttfpOverBaseline, wasmOverBaseline } = budgetLimits(new URL('./budgets.json', import.meta.url))('gpui', ['ttfpOverBaseline', 'wasmOverBaseline']);
 const runs = Number(option('runs') ?? 10);
 const given = option('url');
-const label = option('label') ?? (given ? 'gpui-cold-production' : 'gpui-cold');
+const level = (option('level') ?? 'base') as Level;
+if (!(level in LEVEL_FEATURES)) throw new Error(`--level ${level}: not a level (${Object.keys(LEVEL_FEATURES).join(', ')})`);
+const levelSuffix = level === 'base' ? '' : `-${level}`;
+const label = option('label') ?? (given ? `gpui-cold${levelSuffix}-production` : `gpui-cold${levelSuffix}`);
 const check = flag('check');
 if (given && (check || flag('write-baseline'))) throw new Error('--url records production; budgets and the baseline are the local build\'s');
 const baselinePath = join(perfDir, 'baseline.json');
 const PORT = 4311;
 /** What first paint may wait on, by path: the page, its entry, its wasm,
  *  and the font (`/fonts/`, outside its base). */
-const BASE = contenderBase('tall-table', 'gpui');
+const BASE = contenderBase('tall-table', 'gpui', level);
 const FIRST_PAINT = [new RegExp(`^${BASE}$`), new RegExp(`^${BASE}assets/index-[\\w-]+\\.js$`), new RegExp(`^${BASE}assets/tall_table_gpui_bg-[\\w-]+\\.wasm$`), new RegExp(`^${UI_FONT.replaceAll('.', '\\.')}$`)];
 
 interface Run {
@@ -139,13 +146,13 @@ async function measure(url: string, profile: Profile): Promise<Run> {
 const GPUI_WASM_PATH = FIRST_PAINT[2]!;
 
 function wasmBrotliKiB(): number {
-  const assets = join(gpuiWebDir, 'dist/assets');
+  const assets = join(distDir(gpuiWebDir, level), 'assets');
   const wasm = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-]+\.wasm$/.test(name));
-  if (!wasm) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build\` first`);
+  if (!wasm) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build${levelSuffix ? ` ${level}` : ''}\` first`);
   return brotli(readFileSync(join(assets, wasm))).length / 1024;
 }
 
-interface Baseline {
+interface LevelBaseline {
   date: string;
   machine: string;
   cpu: string;
@@ -153,11 +160,15 @@ interface Baseline {
   ttfpMs: { reference: number; throttled: number };
   wasmBrotliKiB: number;
 }
+/** The base level's at the top (as before levels), each other level's under `levels`. */
+interface Baseline extends LevelBaseline {
+  levels?: Partial<Record<Level, LevelBaseline>>;
+}
 
 const round = (value: number | null) => (value === null ? null : Number(value.toFixed(1)));
 const medianOf = (values: (number | null)[]) => (values.every((value) => value !== null) && values.length ? round(median(values as number[])) : null);
 
-const server = await serveGpui(PORT, given);
+const server = await serveGpui(PORT, given, level);
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
 const results: Record<string, { runs: Run[]; ttfpMs: number; placeholderPaintMs: number | null; engineReadyMs: number | null; wasmReadyMs: number | null }> = {};
 try {
@@ -185,8 +196,8 @@ try {
 
 // The local build's: production's bytes are `worker-check`'s (each file on the wire is the staged .br).
 const wasmKiB = given ? null : round(wasmBrotliKiB())!;
-const date = new Date().toISOString().slice(0, 10);
-const { machine, cpu, os } = machineInfo();
+const date = localDate();
+const { machine, cpu, os, versions } = machineInfo();
 const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async (browser) => {
   const version = browser.version();
   await browser.close();
@@ -201,6 +212,9 @@ const summary = {
   os,
   browser: `Chromium ${browserVersion} (headless=new)`,
   contender: 'gpui',
+  level,
+  features: LEVEL_FEATURES[level],
+  versions,
   url: given ?? 'local',
   protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },
   wasmBrotliKiB: wasmKiB,
@@ -228,15 +242,18 @@ if (flag('write-baseline')) {
   if (!reference || !throttled) throw new Error('--write-baseline needs both profiles');
   // Kept: the other entries (the TanStack contender's JS, `tanstack-sizes.ts`,
   // dated on their own); the top-level date and machine are this run's.
-  const kept = existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, 'utf8')) as object) : {};
-  const baseline: Baseline = { ...kept, date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB! };
+  const kept = existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline) : undefined;
+  const entry: LevelBaseline = { date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB! };
+  const baseline = level === 'base' ? { ...kept, ...entry } : { ...kept!, levels: { ...kept?.levels, [level]: entry } };
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(`wrote ${baselinePath}`);
 }
 
 const failures = [...summary.failures];
 if (check) {
-  const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
+  const all = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
+  const baseline = level === 'base' ? all : all.levels?.[level];
+  if (!baseline) throw new Error(`perf/baseline.json has no ${level} level: record one with \`--level ${level} --write-baseline\``);
   const reference = results.reference!.ttfpMs;
   const ttfpLimit = baseline.ttfpMs.reference * (1 + ttfpOverBaseline);
   const wasmLimit = baseline.wasmBrotliKiB * (1 + wasmOverBaseline);

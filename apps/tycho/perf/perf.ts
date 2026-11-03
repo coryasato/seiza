@@ -393,7 +393,7 @@ const localUrl = local?.url ?? '';
 url ??= localUrl;
 
 const profiles = check || flag('reference-only') ? PROFILES.slice(0, 1) : PROFILES;
-const { machine, cpu, os } = machineInfo();
+const { machine, cpu, os, versions } = machineInfo();
 const browserVersion = await chromium.launch({ channel: 'chromium' }).then(async (browser) => {
   const version = browser.version();
   await browser.close();
@@ -472,6 +472,7 @@ const summary = {
   machine,
   cpu,
   os,
+  versions,
   browser: `Chromium ${browserVersion} (headless=new)`,
   tools: toolVersions(),
   url,
