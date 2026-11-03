@@ -1,0 +1,830 @@
+{
+  "date": "2026-11-02",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "chromium",
+  "side": "tanstack",
+  "profile": "reference",
+  "runs": 3,
+  "segments": {
+    "down": {
+      "yDistance": -37500,
+      "speed": 18750
+    },
+    "fast": {
+      "yDistance": -120000,
+      "speed": 60000
+    },
+    "sideways": {
+      "xDistance": -12000,
+      "speed": 6000
+    }
+  },
+  "results": {
+    "30,14,120": {
+      "down": [
+        {
+          "drewSharePct": 100,
+          "drewPerSecond": 59.98,
+          "drewP50Ms": 5.46,
+          "drewP95Ms": 6.51,
+          "cells": 319,
+          "compositor": {
+            "wholePerSecond": 59.98,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 33.37,
+          "windowMs": 1984
+        },
+        {
+          "drewSharePct": 99.17,
+          "drewPerSecond": 59.47,
+          "drewP50Ms": 5.49,
+          "drewP95Ms": 6.37,
+          "cells": 319,
+          "compositor": {
+            "wholePerSecond": 59.47,
+            "partialPerSecond": 0.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 33.32,
+          "windowMs": 1984.07
+        },
+        {
+          "drewSharePct": 100,
+          "drewPerSecond": 60.14,
+          "drewP50Ms": 5.31,
+          "drewP95Ms": 6.68,
+          "cells": 319,
+          "compositor": {
+            "wholePerSecond": 60.14,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 33.09,
+          "windowMs": 1995.39
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 9.81,
+          "drewP95Ms": 11.1,
+          "cells": 319,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 30.92,
+          "windowMs": 2000.18
+        },
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.74,
+          "drewP50Ms": 9.93,
+          "drewP95Ms": 12.04,
+          "cells": 319,
+          "compositor": {
+            "wholePerSecond": 29.74,
+            "partialPerSecond": 30.23,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 33.82,
+          "windowMs": 2017.71
+        },
+        {
+          "drewSharePct": 51.24,
+          "drewPerSecond": 30.48,
+          "drewP50Ms": 9.8,
+          "drewP95Ms": 12.19,
+          "cells": 319,
+          "compositor": {
+            "wholePerSecond": 30.48,
+            "partialPerSecond": 29.48,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 31.77,
+          "windowMs": 2001.39
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 97.5,
+          "drewPerSecond": 58.49,
+          "drewP50Ms": 5.85,
+          "drewP95Ms": 7.38,
+          "cells": 308,
+          "compositor": {
+            "wholePerSecond": 60,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 33.59,
+          "windowMs": 1983.23
+        },
+        {
+          "drewSharePct": 98.33,
+          "drewPerSecond": 59,
+          "drewP50Ms": 5.67,
+          "drewP95Ms": 7.21,
+          "cells": 308,
+          "compositor": {
+            "wholePerSecond": 59.5,
+            "partialPerSecond": 0.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 33.03,
+          "windowMs": 1983.2
+        },
+        {
+          "drewSharePct": 98.33,
+          "drewPerSecond": 59.01,
+          "drewP50Ms": 5.31,
+          "drewP95Ms": 6.81,
+          "cells": 308,
+          "compositor": {
+            "wholePerSecond": 59.51,
+            "partialPerSecond": 0.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 31.16,
+          "windowMs": 1982.74
+        }
+      ]
+    },
+    "26,13,96": {
+      "down": [
+        {
+          "drewSharePct": 100,
+          "drewPerSecond": 59.99,
+          "drewP50Ms": 6.01,
+          "drewP95Ms": 6.79,
+          "cells": 429,
+          "compositor": {
+            "wholePerSecond": 59.99,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 35.76,
+          "windowMs": 1983.81
+        },
+        {
+          "drewSharePct": 100,
+          "drewPerSecond": 59.99,
+          "drewP50Ms": 6.07,
+          "drewP95Ms": 6.86,
+          "cells": 429,
+          "compositor": {
+            "wholePerSecond": 59.99,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 35.99,
+          "windowMs": 1983.67
+        },
+        {
+          "drewSharePct": 99.17,
+          "drewPerSecond": 59.5,
+          "drewP50Ms": 6.34,
+          "drewP95Ms": 7.36,
+          "cells": 429,
+          "compositor": {
+            "wholePerSecond": 59.5,
+            "partialPerSecond": 0.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 38.17,
+          "windowMs": 1983.04
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 11.15,
+          "drewP95Ms": 12.45,
+          "cells": 429,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 35.72,
+          "windowMs": 2000.25
+        },
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 11.09,
+          "drewP95Ms": 13.22,
+          "cells": 429,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 35.67,
+          "windowMs": 2000.28
+        },
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 29.99,
+          "drewP50Ms": 11.47,
+          "drewP95Ms": 12.93,
+          "cells": 429,
+          "compositor": {
+            "wholePerSecond": 29.99,
+            "partialPerSecond": 29.99,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 37.08,
+          "windowMs": 2000.64
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 100,
+          "drewPerSecond": 60.03,
+          "drewP50Ms": 6.33,
+          "drewP95Ms": 7.41,
+          "cells": 462,
+          "compositor": {
+            "wholePerSecond": 60.03,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 37.82,
+          "windowMs": 1999.12
+        },
+        {
+          "drewSharePct": 94.21,
+          "drewPerSecond": 56.49,
+          "drewP50Ms": 6.57,
+          "drewP95Ms": 10.08,
+          "cells": 462,
+          "compositor": {
+            "wholePerSecond": 56.49,
+            "partialPerSecond": 3.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 39.69,
+          "windowMs": 2000.31
+        },
+        {
+          "drewSharePct": 100,
+          "drewPerSecond": 60,
+          "drewP50Ms": 6.66,
+          "drewP95Ms": 8.12,
+          "cells": 462,
+          "compositor": {
+            "wholePerSecond": 60,
+            "partialPerSecond": 0,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 39.36,
+          "windowMs": 2000.07
+        }
+      ]
+    },
+    "22,12,80": {
+      "down": [
+        {
+          "drewSharePct": 64.17,
+          "drewPerSecond": 38.3,
+          "drewP50Ms": 10.46,
+          "drewP95Ms": 12.18,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 38.3,
+            "partialPerSecond": 21.67,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 35.84,
+          "windowMs": 1984.22
+        },
+        {
+          "drewSharePct": 70.83,
+          "drewPerSecond": 42.35,
+          "drewP50Ms": 8.43,
+          "drewP95Ms": 11.71,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 42.35,
+            "partialPerSecond": 17.64,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 38.18,
+          "windowMs": 1983.66
+        },
+        {
+          "drewSharePct": 73.33,
+          "drewPerSecond": 43.86,
+          "drewP50Ms": 7.48,
+          "drewP95Ms": 11.83,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 43.86,
+            "partialPerSecond": 16.13,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 38.06,
+          "windowMs": 1983.78
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 14.26,
+          "drewP95Ms": 16.85,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 30.5,
+            "partialPerSecond": 29,
+            "droppedPerSecond": 0.5
+          },
+          "busyPct": 43.18,
+          "windowMs": 2000.14
+        },
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 14.64,
+          "drewP95Ms": 17.07,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 45.58,
+          "windowMs": 1999.78
+        },
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.75,
+          "drewP50Ms": 14.12,
+          "drewP95Ms": 15.89,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 29.75,
+            "partialPerSecond": 30.25,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 43.82,
+          "windowMs": 1983.29
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 95.87,
+          "drewPerSecond": 57.63,
+          "drewP50Ms": 7.68,
+          "drewP95Ms": 10.29,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 57.63,
+            "partialPerSecond": 2.51,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 45.64,
+          "windowMs": 1995.36
+        },
+        {
+          "drewSharePct": 93.33,
+          "drewPerSecond": 55.97,
+          "drewP50Ms": 7.64,
+          "drewP95Ms": 11.41,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 55.97,
+            "partialPerSecond": 4.03,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 44.32,
+          "windowMs": 1983.36
+        },
+        {
+          "drewSharePct": 96.67,
+          "drewPerSecond": 57.99,
+          "drewP50Ms": 7.39,
+          "drewP95Ms": 9.94,
+          "cells": 624,
+          "compositor": {
+            "wholePerSecond": 57.99,
+            "partialPerSecond": 2.02,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 42.44,
+          "windowMs": 1982.98
+        }
+      ]
+    },
+    "20,11,68": {
+      "down": [
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 29.99,
+          "drewP50Ms": 12.57,
+          "drewP95Ms": 14.69,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 29.99,
+            "partialPerSecond": 29.99,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 38.71,
+          "windowMs": 2000.36
+        },
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.74,
+          "drewP50Ms": 12.42,
+          "drewP95Ms": 15.25,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 29.74,
+            "partialPerSecond": 30.25,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 38.86,
+          "windowMs": 1983.65
+        },
+        {
+          "drewSharePct": 87.6,
+          "drewPerSecond": 52.5,
+          "drewP50Ms": 8.1,
+          "drewP95Ms": 13.11,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 52.5,
+            "partialPerSecond": 7.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 47.48,
+          "windowMs": 1999.81
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 51.24,
+          "drewPerSecond": 30.52,
+          "drewP50Ms": 17.64,
+          "drewP95Ms": 19.51,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 30.52,
+            "partialPerSecond": 29.52,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 55.33,
+          "windowMs": 1998.89
+        },
+        {
+          "drewSharePct": 52.07,
+          "drewPerSecond": 31,
+          "drewP50Ms": 16.48,
+          "drewP95Ms": 19.03,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 31,
+            "partialPerSecond": 29,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 53.86,
+          "windowMs": 1999.88
+        },
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.75,
+          "drewP50Ms": 17.43,
+          "drewP95Ms": 23.59,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 29.75,
+            "partialPerSecond": 30.24,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 54.21,
+          "windowMs": 2016.99
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 95,
+          "drewPerSecond": 56.98,
+          "drewP50Ms": 8.65,
+          "drewP95Ms": 11.26,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 56.98,
+            "partialPerSecond": 3.03,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 48.6,
+          "windowMs": 1983.01
+        },
+        {
+          "drewSharePct": 96.67,
+          "drewPerSecond": 57.95,
+          "drewP50Ms": 8.36,
+          "drewP95Ms": 9.72,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 57.95,
+            "partialPerSecond": 2.02,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 47.66,
+          "windowMs": 1984.34
+        },
+        {
+          "drewSharePct": 95,
+          "drewPerSecond": 56.96,
+          "drewP50Ms": 8.37,
+          "drewP95Ms": 11.2,
+          "cells": 817,
+          "compositor": {
+            "wholePerSecond": 56.96,
+            "partialPerSecond": 3.02,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 47.44,
+          "windowMs": 1983.81
+        }
+      ]
+    },
+    "18,11,56": {
+      "down": [
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.73,
+          "drewP50Ms": 14.52,
+          "drewP95Ms": 17.79,
+          "cells": 1056,
+          "compositor": {
+            "wholePerSecond": 29.73,
+            "partialPerSecond": 30.23,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 43.75,
+          "windowMs": 1984.46
+        },
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.74,
+          "drewP50Ms": 14.21,
+          "drewP95Ms": 16.54,
+          "cells": 1056,
+          "compositor": {
+            "wholePerSecond": 29.74,
+            "partialPerSecond": 30.25,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 43.62,
+          "windowMs": 1983.58
+        },
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 14.38,
+          "drewP95Ms": 16.89,
+          "cells": 1056,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 43.55,
+          "windowMs": 2000.26
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 49.59,
+          "drewPerSecond": 29.5,
+          "drewP50Ms": 20.29,
+          "drewP95Ms": 22.63,
+          "cells": 1056,
+          "compositor": {
+            "wholePerSecond": 29.5,
+            "partialPerSecond": 30.49,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 63.57,
+          "windowMs": 2000.33
+        },
+        {
+          "drewSharePct": 49.59,
+          "drewPerSecond": 29.49,
+          "drewP50Ms": 19.7,
+          "drewP95Ms": 22.22,
+          "cells": 1056,
+          "compositor": {
+            "wholePerSecond": 29.49,
+            "partialPerSecond": 30.49,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 61.87,
+          "windowMs": 2000.55
+        },
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 19.68,
+          "drewP95Ms": 22.53,
+          "cells": 1056,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 59.63,
+          "windowMs": 2000.12
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 51.24,
+          "drewPerSecond": 30.5,
+          "drewP50Ms": 12.13,
+          "drewP95Ms": 13.79,
+          "cells": 1104,
+          "compositor": {
+            "wholePerSecond": 30.5,
+            "partialPerSecond": 29.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 36.98,
+          "windowMs": 2000.31
+        },
+        {
+          "drewSharePct": 53.33,
+          "drewPerSecond": 31.75,
+          "drewP50Ms": 11.85,
+          "drewP95Ms": 13.92,
+          "cells": 1104,
+          "compositor": {
+            "wholePerSecond": 31.75,
+            "partialPerSecond": 28.22,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 36.83,
+          "windowMs": 1984.55
+        },
+        {
+          "drewSharePct": 52.89,
+          "drewPerSecond": 31.5,
+          "drewP50Ms": 11.87,
+          "drewP95Ms": 13.88,
+          "cells": 1104,
+          "compositor": {
+            "wholePerSecond": 31.5,
+            "partialPerSecond": 28.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 37.27,
+          "windowMs": 1999.98
+        }
+      ]
+    },
+    "16,10,44": {
+      "down": [
+        {
+          "drewSharePct": 40.83,
+          "drewPerSecond": 24.19,
+          "drewP50Ms": 20.9,
+          "drewP95Ms": 26.47,
+          "cells": 1512,
+          "compositor": {
+            "wholePerSecond": 24.19,
+            "partialPerSecond": 35.78,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 52.63,
+          "windowMs": 1984.6
+        },
+        {
+          "drewSharePct": 34.43,
+          "drewPerSecond": 20.3,
+          "drewP50Ms": 24.11,
+          "drewP95Ms": 28.21,
+          "cells": 1512,
+          "compositor": {
+            "wholePerSecond": 20.3,
+            "partialPerSecond": 39.61,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 49.64,
+          "windowMs": 2019.48
+        },
+        {
+          "drewSharePct": 34.17,
+          "drewPerSecond": 20.15,
+          "drewP50Ms": 25.24,
+          "drewP95Ms": 30.38,
+          "cells": 1512,
+          "compositor": {
+            "wholePerSecond": 20.15,
+            "partialPerSecond": 39.79,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 51.84,
+          "windowMs": 1985.21
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 47.93,
+          "drewPerSecond": 28.5,
+          "drewP50Ms": 24.3,
+          "drewP95Ms": 27.41,
+          "cells": 1512,
+          "compositor": {
+            "wholePerSecond": 28.5,
+            "partialPerSecond": 31.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 71.34,
+          "windowMs": 2000.07
+        },
+        {
+          "drewSharePct": 48.78,
+          "drewPerSecond": 29.13,
+          "drewP50Ms": 24.15,
+          "drewP95Ms": 27.03,
+          "cells": 1512,
+          "compositor": {
+            "wholePerSecond": 29.13,
+            "partialPerSecond": 30.61,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 73.66,
+          "windowMs": 2025.17
+        },
+        {
+          "drewSharePct": 48.76,
+          "drewPerSecond": 28.99,
+          "drewP50Ms": 24.39,
+          "drewP95Ms": 28.06,
+          "cells": 1512,
+          "compositor": {
+            "wholePerSecond": 28.99,
+            "partialPerSecond": 30.49,
+            "droppedPerSecond": 0.5
+          },
+          "busyPct": 73.84,
+          "windowMs": 2000.59
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 51.24,
+          "drewPerSecond": 30.5,
+          "drewP50Ms": 14.98,
+          "drewP95Ms": 19.06,
+          "cells": 1566,
+          "compositor": {
+            "wholePerSecond": 30.5,
+            "partialPerSecond": 29.5,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 46.91,
+          "windowMs": 2000.23
+        },
+        {
+          "drewSharePct": 50.41,
+          "drewPerSecond": 30,
+          "drewP50Ms": 14.58,
+          "drewP95Ms": 17,
+          "cells": 1566,
+          "compositor": {
+            "wholePerSecond": 30,
+            "partialPerSecond": 30,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 43.49,
+          "windowMs": 2000.3
+        },
+        {
+          "drewSharePct": 50,
+          "drewPerSecond": 29.82,
+          "drewP50Ms": 14.7,
+          "drewP95Ms": 17.27,
+          "cells": 1566,
+          "compositor": {
+            "wholePerSecond": 29.82,
+            "partialPerSecond": 30.32,
+            "droppedPerSecond": 0
+          },
+          "busyPct": 44.19,
+          "windowMs": 2012.06
+        }
+      ]
+    }
+  }
+}

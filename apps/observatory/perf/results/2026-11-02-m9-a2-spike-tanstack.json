@@ -1,0 +1,1141 @@
+{
+  "date": "2026-11-02",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "chromium",
+  "profile": "reference",
+  "runs": 3,
+  "pin": 2,
+  "cells": "heat",
+  "results": {
+    "30,14,120": {
+      "scroll": [
+        {
+          "drawn": {
+            "frames": 66,
+            "perSecond": 29.54,
+            "p50Ms": 7.13,
+            "p95Ms": 8.39
+          },
+          "busyPct": 25.28,
+          "frames": 135,
+          "framesPerSecond": 60.42,
+          "workP50Ms": 0.88,
+          "workP95Ms": 8.1,
+          "workMaxMs": 27.29,
+          "overFramePct": 0.74,
+          "busyMs": 564.85,
+          "latePct": 0,
+          "cellsP50": 308,
+          "uncoveredPct": 0,
+          "windowMs": 2234.43
+        },
+        {
+          "drawn": {
+            "frames": 66,
+            "perSecond": 29.78,
+            "p50Ms": 7.04,
+            "p95Ms": 7.78
+          },
+          "busyPct": 23.96,
+          "frames": 133,
+          "framesPerSecond": 60.01,
+          "workP50Ms": 0.63,
+          "workP95Ms": 7.58,
+          "workMaxMs": 8.09,
+          "overFramePct": 0,
+          "busyMs": 531.09,
+          "latePct": 0,
+          "cellsP50": 308,
+          "uncoveredPct": 0,
+          "windowMs": 2216.35
+        },
+        {
+          "drawn": {
+            "frames": 66,
+            "perSecond": 29.66,
+            "p50Ms": 7.03,
+            "p95Ms": 7.88
+          },
+          "busyPct": 23.86,
+          "frames": 134,
+          "framesPerSecond": 60.23,
+          "workP50Ms": 0.67,
+          "workP95Ms": 7.61,
+          "workMaxMs": 8.53,
+          "overFramePct": 0,
+          "busyMs": 530.94,
+          "latePct": 0,
+          "cellsP50": 308,
+          "uncoveredPct": 0,
+          "windowMs": 2224.93
+        }
+      ],
+      "fling": [
+        {
+          "drawn": {
+            "frames": 105,
+            "perSecond": 29.33,
+            "p50Ms": 9.39,
+            "p95Ms": 10.89
+          },
+          "busyPct": 33.64,
+          "frames": 212,
+          "framesPerSecond": 59.22,
+          "workP50Ms": 0.88,
+          "workP95Ms": 9.96,
+          "workMaxMs": 17.31,
+          "overFramePct": 0.47,
+          "busyMs": 1204.18,
+          "latePct": 0.94,
+          "cellsP50": 319,
+          "uncoveredPct": 0,
+          "windowMs": 3579.74
+        },
+        {
+          "drawn": {
+            "frames": 103,
+            "perSecond": 28.86,
+            "p50Ms": 9.37,
+            "p95Ms": 10.91
+          },
+          "busyPct": 32.68,
+          "frames": 210,
+          "framesPerSecond": 58.84,
+          "workP50Ms": 0.8,
+          "workP95Ms": 10.12,
+          "workMaxMs": 17.45,
+          "overFramePct": 0.48,
+          "busyMs": 1166.17,
+          "latePct": 1.91,
+          "cellsP50": 319,
+          "uncoveredPct": 0,
+          "windowMs": 3568.97
+        },
+        {
+          "drawn": {
+            "frames": 106,
+            "perSecond": 29.34,
+            "p50Ms": 9.25,
+            "p95Ms": 10.42
+          },
+          "busyPct": 32.77,
+          "frames": 211,
+          "framesPerSecond": 58.41,
+          "workP50Ms": 1.87,
+          "workP95Ms": 10.2,
+          "workMaxMs": 18.17,
+          "overFramePct": 0.47,
+          "busyMs": 1183.64,
+          "latePct": 2.37,
+          "cellsP50": 319,
+          "uncoveredPct": 0,
+          "windowMs": 3612.24
+        }
+      ],
+      "hfling": [
+        {
+          "drawn": {
+            "frames": 102,
+            "perSecond": 29.27,
+            "p50Ms": 6.65,
+            "p95Ms": 8.05
+          },
+          "busyPct": 22.52,
+          "frames": 209,
+          "framesPerSecond": 59.98,
+          "workP50Ms": 0.67,
+          "workP95Ms": 7.61,
+          "workMaxMs": 10.79,
+          "overFramePct": 0,
+          "busyMs": 784.55,
+          "latePct": 0.48,
+          "cellsP50": 308,
+          "uncoveredPct": 0,
+          "windowMs": 3484.41
+        },
+        {
+          "drawn": {
+            "frames": 102,
+            "perSecond": 29.36,
+            "p50Ms": 6.6,
+            "p95Ms": 7.24
+          },
+          "busyPct": 22,
+          "frames": 209,
+          "framesPerSecond": 60.17,
+          "workP50Ms": 0.72,
+          "workP95Ms": 7.04,
+          "workMaxMs": 9.23,
+          "overFramePct": 0,
+          "busyMs": 764.3,
+          "latePct": 0,
+          "cellsP50": 308,
+          "uncoveredPct": 0,
+          "windowMs": 3473.67
+        },
+        {
+          "drawn": {
+            "frames": 101,
+            "perSecond": 29.02,
+            "p50Ms": 6.64,
+            "p95Ms": 7.98
+          },
+          "busyPct": 22.7,
+          "frames": 209,
+          "framesPerSecond": 60.06,
+          "workP50Ms": 0.71,
+          "workP95Ms": 7.21,
+          "workMaxMs": 11.8,
+          "overFramePct": 0,
+          "busyMs": 790.05,
+          "latePct": 0.48,
+          "cellsP50": 308,
+          "uncoveredPct": 0,
+          "windowMs": 3479.93
+        }
+      ]
+    },
+    "26,13,96": {
+      "scroll": [
+        {
+          "drawn": {
+            "frames": 66,
+            "perSecond": 29.66,
+            "p50Ms": 8.29,
+            "p95Ms": 9.54
+          },
+          "busyPct": 28.63,
+          "frames": 134,
+          "framesPerSecond": 60.21,
+          "workP50Ms": 0.66,
+          "workP95Ms": 9.2,
+          "workMaxMs": 9.81,
+          "overFramePct": 0,
+          "busyMs": 637.17,
+          "latePct": 0,
+          "cellsP50": 429,
+          "uncoveredPct": 0,
+          "windowMs": 2225.51
+        },
+        {
+          "drawn": {
+            "frames": 66,
+            "perSecond": 29.62,
+            "p50Ms": 8.34,
+            "p95Ms": 9.15
+          },
+          "busyPct": 28.95,
+          "frames": 134,
+          "framesPerSecond": 60.13,
+          "workP50Ms": 0.66,
+          "workP95Ms": 8.84,
+          "workMaxMs": 9.65,
+          "overFramePct": 0,
+          "busyMs": 645.22,
+          "latePct": 0,
+          "cellsP50": 429,
+          "uncoveredPct": 0,
+          "windowMs": 2228.4
+        },
+        {
+          "drawn": {
+            "frames": 67,
+            "perSecond": 29.13,
+            "p50Ms": 8.36,
+            "p95Ms": 9.72
+          },
+          "busyPct": 29.11,
+          "frames": 138,
+          "framesPerSecond": 60,
+          "workP50Ms": 0.69,
+          "workP95Ms": 9.18,
+          "workMaxMs": 31.44,
+          "overFramePct": 0.72,
+          "busyMs": 669.43,
+          "latePct": 0,
+          "cellsP50": 429,
+          "uncoveredPct": 0,
+          "windowMs": 2300.03
+        }
+      ],
+      "fling": [
+        {
+          "drawn": {
+            "frames": 101,
+            "perSecond": 28.39,
+            "p50Ms": 10.73,
+            "p95Ms": 13.12
+          },
+          "busyPct": 37.07,
+          "frames": 204,
+          "framesPerSecond": 57.35,
+          "workP50Ms": 1.14,
+          "workP95Ms": 12.02,
+          "workMaxMs": 18.26,
+          "overFramePct": 0.98,
+          "busyMs": 1318.49,
+          "latePct": 4.41,
+          "cellsP50": 429,
+          "uncoveredPct": 0,
+          "windowMs": 3557.18
+        },
+        {
+          "drawn": {
+            "frames": 111,
+            "perSecond": 29.38,
+            "p50Ms": 10.67,
+            "p95Ms": 12.33
+          },
+          "busyPct": 37.31,
+          "frames": 217,
+          "framesPerSecond": 57.44,
+          "workP50Ms": 8.31,
+          "workP95Ms": 11.71,
+          "workMaxMs": 18.17,
+          "overFramePct": 0.46,
+          "busyMs": 1409.42,
+          "latePct": 4.15,
+          "cellsP50": 429,
+          "uncoveredPct": 0,
+          "windowMs": 3777.64
+        },
+        {
+          "drawn": {
+            "frames": 112,
+            "perSecond": 29.02,
+            "p50Ms": 10.96,
+            "p95Ms": 12.82
+          },
+          "busyPct": 37.74,
+          "frames": 220,
+          "framesPerSecond": 57,
+          "workP50Ms": 8.25,
+          "workP95Ms": 12.02,
+          "workMaxMs": 18.07,
+          "overFramePct": 0.45,
+          "busyMs": 1456.66,
+          "latePct": 5,
+          "cellsP50": 429,
+          "uncoveredPct": 0,
+          "windowMs": 3859.68
+        }
+      ],
+      "hfling": [
+        {
+          "drawn": {
+            "frames": 100,
+            "perSecond": 28.67,
+            "p50Ms": 7.65,
+            "p95Ms": 8.81
+          },
+          "busyPct": 25.35,
+          "frames": 208,
+          "framesPerSecond": 59.62,
+          "workP50Ms": 0.48,
+          "workP95Ms": 8.35,
+          "workMaxMs": 15.29,
+          "overFramePct": 0,
+          "busyMs": 884.3,
+          "latePct": 0.97,
+          "cellsP50": 462,
+          "uncoveredPct": 0,
+          "windowMs": 3488.57
+        },
+        {
+          "drawn": {
+            "frames": 109,
+            "perSecond": 28.47,
+            "p50Ms": 7.72,
+            "p95Ms": 11.04
+          },
+          "busyPct": 26.28,
+          "frames": 227,
+          "framesPerSecond": 59.3,
+          "workP50Ms": 0.75,
+          "workP95Ms": 8.86,
+          "workMaxMs": 14.47,
+          "overFramePct": 0,
+          "busyMs": 1005.91,
+          "latePct": 1.78,
+          "cellsP50": 462,
+          "uncoveredPct": 0,
+          "windowMs": 3828.17
+        },
+        {
+          "drawn": {
+            "frames": 108,
+            "perSecond": 28.7,
+            "p50Ms": 7.65,
+            "p95Ms": 9.93
+          },
+          "busyPct": 25.77,
+          "frames": 225,
+          "framesPerSecond": 59.79,
+          "workP50Ms": 0.55,
+          "workP95Ms": 8.62,
+          "workMaxMs": 12.11,
+          "overFramePct": 0,
+          "busyMs": 969.9,
+          "latePct": 0.45,
+          "cellsP50": 462,
+          "uncoveredPct": 0,
+          "windowMs": 3763.28
+        }
+      ]
+    },
+    "22,12,80": {
+      "scroll": [
+        {
+          "drawn": {
+            "frames": 68,
+            "perSecond": 29.28,
+            "p50Ms": 10.48,
+            "p95Ms": 11.63
+          },
+          "busyPct": 34.64,
+          "frames": 139,
+          "framesPerSecond": 59.86,
+          "workP50Ms": 0.94,
+          "workP95Ms": 11.29,
+          "workMaxMs": 14.22,
+          "overFramePct": 0,
+          "busyMs": 804.41,
+          "latePct": 0.72,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 2322.26
+        },
+        {
+          "drawn": {
+            "frames": 67,
+            "perSecond": 29.2,
+            "p50Ms": 10.09,
+            "p95Ms": 12.45
+          },
+          "busyPct": 33.66,
+          "frames": 137,
+          "framesPerSecond": 59.71,
+          "workP50Ms": 0.8,
+          "workP95Ms": 11.18,
+          "workMaxMs": 13.23,
+          "overFramePct": 0,
+          "busyMs": 772.48,
+          "latePct": 0,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 2294.61
+        },
+        {
+          "drawn": {
+            "frames": 68,
+            "perSecond": 29.4,
+            "p50Ms": 10.22,
+            "p95Ms": 11.72
+          },
+          "busyPct": 34.62,
+          "frames": 139,
+          "framesPerSecond": 60.1,
+          "workP50Ms": 0.88,
+          "workP95Ms": 10.97,
+          "workMaxMs": 30.32,
+          "overFramePct": 0.72,
+          "busyMs": 800.75,
+          "latePct": 0,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 2312.69
+        }
+      ],
+      "fling": [
+        {
+          "drawn": {
+            "frames": 110,
+            "perSecond": 28.57,
+            "p50Ms": 13.62,
+            "p95Ms": 15.56
+          },
+          "busyPct": 45.76,
+          "frames": 190,
+          "framesPerSecond": 49.34,
+          "workP50Ms": 12.73,
+          "workP95Ms": 15.14,
+          "workMaxMs": 17.59,
+          "overFramePct": 2.11,
+          "busyMs": 1762.28,
+          "latePct": 19.47,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 3850.74
+        },
+        {
+          "drawn": {
+            "frames": 106,
+            "perSecond": 27.58,
+            "p50Ms": 12.66,
+            "p95Ms": 14.75
+          },
+          "busyPct": 42.47,
+          "frames": 215,
+          "framesPerSecond": 55.93,
+          "workP50Ms": 0.92,
+          "workP95Ms": 14.19,
+          "workMaxMs": 19.7,
+          "overFramePct": 0.93,
+          "busyMs": 1632.41,
+          "latePct": 7.01,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 3843.83
+        },
+        {
+          "drawn": {
+            "frames": 109,
+            "perSecond": 28.5,
+            "p50Ms": 12.72,
+            "p95Ms": 15.12
+          },
+          "busyPct": 44.76,
+          "frames": 215,
+          "framesPerSecond": 56.21,
+          "workP50Ms": 10.19,
+          "workP95Ms": 14.34,
+          "workMaxMs": 20.65,
+          "overFramePct": 1.4,
+          "busyMs": 1712.13,
+          "latePct": 5.12,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 3825.11
+        }
+      ],
+      "hfling": [
+        {
+          "drawn": {
+            "frames": 107,
+            "perSecond": 28.19,
+            "p50Ms": 9.11,
+            "p95Ms": 10.79
+          },
+          "busyPct": 29.44,
+          "frames": 224,
+          "framesPerSecond": 59.02,
+          "workP50Ms": 0.56,
+          "workP95Ms": 9.99,
+          "workMaxMs": 15.16,
+          "overFramePct": 0,
+          "busyMs": 1117.4,
+          "latePct": 1.79,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 3795.43
+        },
+        {
+          "drawn": {
+            "frames": 109,
+            "perSecond": 28.63,
+            "p50Ms": 8.98,
+            "p95Ms": 11.12
+          },
+          "busyPct": 29.56,
+          "frames": 229,
+          "framesPerSecond": 60.14,
+          "workP50Ms": 0.58,
+          "workP95Ms": 9.77,
+          "workMaxMs": 13.75,
+          "overFramePct": 0,
+          "busyMs": 1125.44,
+          "latePct": 0,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 3807.6
+        },
+        {
+          "drawn": {
+            "frames": 106,
+            "perSecond": 28.3,
+            "p50Ms": 9.04,
+            "p95Ms": 11.32
+          },
+          "busyPct": 29.49,
+          "frames": 223,
+          "framesPerSecond": 59.53,
+          "workP50Ms": 0.77,
+          "workP95Ms": 9.97,
+          "workMaxMs": 13.77,
+          "overFramePct": 0,
+          "busyMs": 1104.56,
+          "latePct": 0.9,
+          "cellsP50": 624,
+          "uncoveredPct": 0,
+          "windowMs": 3746.07
+        }
+      ]
+    },
+    "20,11,68": {
+      "scroll": [
+        {
+          "drawn": {
+            "frames": 68,
+            "perSecond": 29.16,
+            "p50Ms": 11.8,
+            "p95Ms": 13.72
+          },
+          "busyPct": 39.19,
+          "frames": 138,
+          "framesPerSecond": 59.18,
+          "workP50Ms": 1.08,
+          "workP95Ms": 13.29,
+          "workMaxMs": 15.29,
+          "overFramePct": 0,
+          "busyMs": 913.89,
+          "latePct": 1.46,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 2331.91
+        },
+        {
+          "drawn": {
+            "frames": 68,
+            "perSecond": 29.07,
+            "p50Ms": 11.87,
+            "p95Ms": 16
+          },
+          "busyPct": 40.45,
+          "frames": 139,
+          "framesPerSecond": 59.41,
+          "workP50Ms": 0.98,
+          "workP95Ms": 13.4,
+          "workMaxMs": 33.07,
+          "overFramePct": 2.16,
+          "busyMs": 946.43,
+          "latePct": 0.72,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 2339.54
+        },
+        {
+          "drawn": {
+            "frames": 68,
+            "perSecond": 29.28,
+            "p50Ms": 11.69,
+            "p95Ms": 13.57
+          },
+          "busyPct": 39.5,
+          "frames": 139,
+          "framesPerSecond": 59.85,
+          "workP50Ms": 0.88,
+          "workP95Ms": 12.91,
+          "workMaxMs": 15.06,
+          "overFramePct": 0,
+          "busyMs": 917.49,
+          "latePct": 0.72,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 2322.56
+        }
+      ],
+      "fling": [
+        {
+          "drawn": {
+            "frames": 103,
+            "perSecond": 26.66,
+            "p50Ms": 15.34,
+            "p95Ms": 18.1
+          },
+          "busyPct": 48.49,
+          "frames": 188,
+          "framesPerSecond": 48.66,
+          "workP50Ms": 14.45,
+          "workP95Ms": 17.5,
+          "workMaxMs": 35.03,
+          "overFramePct": 10.11,
+          "busyMs": 1873.45,
+          "latePct": 21.81,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 3863.48
+        },
+        {
+          "drawn": {
+            "frames": 98,
+            "perSecond": 25.29,
+            "p50Ms": 15.18,
+            "p95Ms": 18.19
+          },
+          "busyPct": 46.58,
+          "frames": 203,
+          "framesPerSecond": 52.38,
+          "workP50Ms": 0.79,
+          "workP95Ms": 17.42,
+          "workMaxMs": 20.7,
+          "overFramePct": 8.87,
+          "busyMs": 1804.97,
+          "latePct": 13.86,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 3875.37
+        },
+        {
+          "drawn": {
+            "frames": 103,
+            "perSecond": 26.55,
+            "p50Ms": 15.11,
+            "p95Ms": 19.9
+          },
+          "busyPct": 48.83,
+          "frames": 214,
+          "framesPerSecond": 55.16,
+          "workP50Ms": 0.68,
+          "workP95Ms": 18.11,
+          "workMaxMs": 22.63,
+          "overFramePct": 9.81,
+          "busyMs": 1894.23,
+          "latePct": 8.45,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 3879.35
+        }
+      ],
+      "hfling": [
+        {
+          "drawn": {
+            "frames": 99,
+            "perSecond": 26.15,
+            "p50Ms": 10.33,
+            "p95Ms": 12.6
+          },
+          "busyPct": 31.17,
+          "frames": 213,
+          "framesPerSecond": 56.26,
+          "workP50Ms": 0.82,
+          "workP95Ms": 11.37,
+          "workMaxMs": 17.4,
+          "overFramePct": 0.94,
+          "busyMs": 1180.17,
+          "latePct": 7.08,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 3785.9
+        },
+        {
+          "drawn": {
+            "frames": 105,
+            "perSecond": 27.5,
+            "p50Ms": 10.42,
+            "p95Ms": 12.62
+          },
+          "busyPct": 32.78,
+          "frames": 225,
+          "framesPerSecond": 58.94,
+          "workP50Ms": 0.81,
+          "workP95Ms": 11.47,
+          "workMaxMs": 13.79,
+          "overFramePct": 0,
+          "busyMs": 1251.62,
+          "latePct": 2.24,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 3817.72
+        },
+        {
+          "drawn": {
+            "frames": 106,
+            "perSecond": 28.06,
+            "p50Ms": 9.94,
+            "p95Ms": 11.34
+          },
+          "busyPct": 31.5,
+          "frames": 224,
+          "framesPerSecond": 59.3,
+          "workP50Ms": 0.63,
+          "workP95Ms": 10.79,
+          "workMaxMs": 12.42,
+          "overFramePct": 0,
+          "busyMs": 1189.83,
+          "latePct": 0.89,
+          "cellsP50": 817,
+          "uncoveredPct": 0,
+          "windowMs": 3777.16
+        }
+      ]
+    },
+    "18,11,56": {
+      "scroll": [
+        {
+          "drawn": {
+            "frames": 66,
+            "perSecond": 29.09,
+            "p50Ms": 13.7,
+            "p95Ms": 18.4
+          },
+          "busyPct": 46.3,
+          "frames": 133,
+          "framesPerSecond": 58.62,
+          "workP50Ms": 1.16,
+          "workP95Ms": 17.42,
+          "workMaxMs": 35.27,
+          "overFramePct": 5.26,
+          "busyMs": 1050.44,
+          "latePct": 2.27,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 2268.9
+        },
+        {
+          "drawn": {
+            "frames": 68,
+            "perSecond": 29.09,
+            "p50Ms": 13.69,
+            "p95Ms": 16.18
+          },
+          "busyPct": 44.88,
+          "frames": 140,
+          "framesPerSecond": 59.9,
+          "workP50Ms": 0.88,
+          "workP95Ms": 14.85,
+          "workMaxMs": 21.34,
+          "overFramePct": 1.43,
+          "busyMs": 1049.05,
+          "latePct": 0,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 2337.35
+        },
+        {
+          "drawn": {
+            "frames": 56,
+            "perSecond": 24.07,
+            "p50Ms": 14.48,
+            "p95Ms": 20.71
+          },
+          "busyPct": 42.77,
+          "frames": 116,
+          "framesPerSecond": 49.85,
+          "workP50Ms": 0.94,
+          "workP95Ms": 19.32,
+          "workMaxMs": 31.83,
+          "overFramePct": 17.24,
+          "busyMs": 995.16,
+          "latePct": 20.87,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 2326.88
+        }
+      ],
+      "fling": [
+        {
+          "drawn": {
+            "frames": 76,
+            "perSecond": 19.75,
+            "p50Ms": 19.21,
+            "p95Ms": 22.34
+          },
+          "busyPct": 44.78,
+          "frames": 188,
+          "framesPerSecond": 48.86,
+          "workP50Ms": 0.65,
+          "workP95Ms": 20.39,
+          "workMaxMs": 27.18,
+          "overFramePct": 39.36,
+          "busyMs": 1722.87,
+          "latePct": 22.04,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 3847.47
+        },
+        {
+          "drawn": {
+            "frames": 83,
+            "perSecond": 21.31,
+            "p50Ms": 19.39,
+            "p95Ms": 22.78
+          },
+          "busyPct": 47.29,
+          "frames": 181,
+          "framesPerSecond": 46.47,
+          "workP50Ms": 0.76,
+          "workP95Ms": 21.04,
+          "workMaxMs": 26.85,
+          "overFramePct": 40.88,
+          "busyMs": 1842.1,
+          "latePct": 26.52,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 3895.31
+        },
+        {
+          "drawn": {
+            "frames": 77,
+            "perSecond": 19.8,
+            "p50Ms": 19.31,
+            "p95Ms": 21.94
+          },
+          "busyPct": 44.69,
+          "frames": 176,
+          "framesPerSecond": 45.25,
+          "workP50Ms": 0.75,
+          "workP95Ms": 20.99,
+          "workMaxMs": 29.45,
+          "overFramePct": 40.91,
+          "busyMs": 1737.89,
+          "latePct": 27.27,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 3889.19
+        }
+      ],
+      "hfling": [
+        {
+          "drawn": {
+            "frames": 102,
+            "perSecond": 27.28,
+            "p50Ms": 11.85,
+            "p95Ms": 13.34
+          },
+          "busyPct": 36.41,
+          "frames": 219,
+          "framesPerSecond": 58.57,
+          "workP50Ms": 0.58,
+          "workP95Ms": 12.97,
+          "workMaxMs": 19.78,
+          "overFramePct": 0.46,
+          "busyMs": 1361.43,
+          "latePct": 2.29,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 3739.41
+        },
+        {
+          "drawn": {
+            "frames": 103,
+            "perSecond": 27.44,
+            "p50Ms": 11.86,
+            "p95Ms": 13.63
+          },
+          "busyPct": 36.89,
+          "frames": 222,
+          "framesPerSecond": 59.14,
+          "workP50Ms": 0.65,
+          "workP95Ms": 13.31,
+          "workMaxMs": 19.17,
+          "overFramePct": 0.45,
+          "busyMs": 1384.79,
+          "latePct": 1.82,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 3753.52
+        },
+        {
+          "drawn": {
+            "frames": 101,
+            "perSecond": 26.7,
+            "p50Ms": 11.93,
+            "p95Ms": 13.85
+          },
+          "busyPct": 36,
+          "frames": 217,
+          "framesPerSecond": 57.36,
+          "workP50Ms": 0.77,
+          "workP95Ms": 13.24,
+          "workMaxMs": 17.3,
+          "overFramePct": 0.46,
+          "busyMs": 1361.78,
+          "latePct": 5.12,
+          "cellsP50": 1056,
+          "uncoveredPct": 0,
+          "windowMs": 3783.09
+        }
+      ]
+    },
+    "16,10,44": {
+      "scroll": [
+        {
+          "drawn": {
+            "frames": 57,
+            "perSecond": 23.71,
+            "p50Ms": 17.74,
+            "p95Ms": 24.39
+          },
+          "busyPct": 50.68,
+          "frames": 112,
+          "framesPerSecond": 46.59,
+          "workP50Ms": 11.28,
+          "workP95Ms": 23.87,
+          "workMaxMs": 38.16,
+          "overFramePct": 33.93,
+          "busyMs": 1218.32,
+          "latePct": 27.03,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 2404.05
+        },
+        {
+          "drawn": {
+            "frames": 53,
+            "perSecond": 22.83,
+            "p50Ms": 18.74,
+            "p95Ms": 25.48
+          },
+          "busyPct": 50.6,
+          "frames": 116,
+          "framesPerSecond": 49.96,
+          "workP50Ms": 0.78,
+          "workP95Ms": 24.01,
+          "workMaxMs": 34.3,
+          "overFramePct": 36.21,
+          "busyMs": 1174.83,
+          "latePct": 20.18,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 2321.77
+        },
+        {
+          "drawn": {
+            "frames": 53,
+            "perSecond": 22.83,
+            "p50Ms": 18.96,
+            "p95Ms": 27.88
+          },
+          "busyPct": 51.39,
+          "frames": 113,
+          "framesPerSecond": 48.68,
+          "workP50Ms": 0.84,
+          "workP95Ms": 25.3,
+          "workMaxMs": 37.25,
+          "overFramePct": 32.74,
+          "busyMs": 1193.1,
+          "latePct": 22.52,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 2321.43
+        }
+      ],
+      "fling": [
+        {
+          "drawn": {
+            "frames": 72,
+            "perSecond": 18.56,
+            "p50Ms": 24.19,
+            "p95Ms": 29.68
+          },
+          "busyPct": 51.71,
+          "frames": 168,
+          "framesPerSecond": 43.31,
+          "workP50Ms": 0.77,
+          "workP95Ms": 26.4,
+          "workMaxMs": 30.53,
+          "overFramePct": 39.88,
+          "busyMs": 2006.07,
+          "latePct": 37.13,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 3879.1
+        },
+        {
+          "drawn": {
+            "frames": 73,
+            "perSecond": 18.62,
+            "p50Ms": 23.66,
+            "p95Ms": 29.08
+          },
+          "busyPct": 51.84,
+          "frames": 166,
+          "framesPerSecond": 42.34,
+          "workP50Ms": 0.74,
+          "workP95Ms": 27.05,
+          "workMaxMs": 45.72,
+          "overFramePct": 41.57,
+          "busyMs": 2032.6,
+          "latePct": 35.54,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 3921.03
+        },
+        {
+          "drawn": {
+            "frames": 71,
+            "perSecond": 18.38,
+            "p50Ms": 23.64,
+            "p95Ms": 27.18
+          },
+          "busyPct": 51.11,
+          "frames": 164,
+          "framesPerSecond": 42.45,
+          "workP50Ms": 0.72,
+          "workP95Ms": 26.59,
+          "workMaxMs": 31.06,
+          "overFramePct": 40.85,
+          "busyMs": 1974.64,
+          "latePct": 39.88,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 3863.45
+        }
+      ],
+      "hfling": [
+        {
+          "drawn": {
+            "frames": 94,
+            "perSecond": 24.93,
+            "p50Ms": 14.8,
+            "p95Ms": 18.43
+          },
+          "busyPct": 41.73,
+          "frames": 191,
+          "framesPerSecond": 50.66,
+          "workP50Ms": 1.04,
+          "workP95Ms": 17.45,
+          "workMaxMs": 24.44,
+          "overFramePct": 7.33,
+          "busyMs": 1573.24,
+          "latePct": 18.42,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 3770.41
+        },
+        {
+          "drawn": {
+            "frames": 94,
+            "perSecond": 25.06,
+            "p50Ms": 14.68,
+            "p95Ms": 18.05
+          },
+          "busyPct": 41.6,
+          "frames": 208,
+          "framesPerSecond": 55.46,
+          "workP50Ms": 0.69,
+          "workP95Ms": 16.77,
+          "workMaxMs": 21.98,
+          "overFramePct": 5.29,
+          "busyMs": 1560.44,
+          "latePct": 8.74,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 3750.74
+        },
+        {
+          "drawn": {
+            "frames": 92,
+            "perSecond": 24.52,
+            "p50Ms": 14.72,
+            "p95Ms": 17.23
+          },
+          "busyPct": 40.52,
+          "frames": 202,
+          "framesPerSecond": 53.84,
+          "workP50Ms": 0.67,
+          "workP95Ms": 16.5,
+          "workMaxMs": 23.43,
+          "overFramePct": 4.46,
+          "busyMs": 1520.15,
+          "latePct": 10.95,
+          "cellsP50": 1512,
+          "uncoveredPct": 0,
+          "windowMs": 3751.53
+        }
+      ]
+    }
+  }
+}

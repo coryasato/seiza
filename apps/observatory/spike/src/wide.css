@@ -1,0 +1,60 @@
+/* The wide-grid spike: the tall table's boxes at a density (row height,
+   text size, column width set by the query), in the TanStack contender's
+   generated theme. */
+@import '../../contenders/tall-table/tanstack/web/src/theme.css';
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('../../../../shared-web/fonts/IBMPlexSans-Regular.ttf') format('truetype');
+  font-display: block;
+}
+
+:root {
+  /* A chart color for the heat ramp's far stop (the bare host's is gpui-kit's
+     chart_1; the spike sizes cost, not color). */
+  --chart-1: oklch(0.62 0.17 250);
+}
+
+html, body, #root { margin: 0; height: 100%; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-synthesis: none;
+}
+.page { box-sizing: border-box; height: 100%; padding: 16px; }
+.frame { box-sizing: border-box; height: 100%; overflow: hidden; background: var(--table); border: 1px solid var(--border); border-radius: var(--radius); }
+
+.scroller { height: 100%; overflow: auto; outline: none; contain: strict; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar); }
+
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(var(--table-head), var(--table-head)), var(--table);
+  color: var(--table-head-foreground);
+}
+.head > .pin, .head > .num { background: linear-gradient(var(--table-head), var(--table-head)), var(--table); }
+
+.spacer { position: relative; }
+.content { position: absolute; top: 0; left: 0; width: 100%; will-change: transform; }
+
+.row { position: absolute; top: 0; left: 0; display: flex; box-sizing: border-box; border-bottom: 1px solid var(--table-row-border); }
+.row.odd { background: var(--table-even); }
+
+.num, .cell { flex: none; box-sizing: border-box; padding: 0 var(--pad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.num { position: sticky; left: 0; z-index: 2; text-align: right; color: var(--muted-foreground); border-right: 1px solid var(--table-row-border); background: var(--table); }
+.row.odd > .num, .row.odd > .pin { background: linear-gradient(var(--table-even), var(--table-even)), var(--table); }
+/* The pinned key columns: sticky over the scrolled cells, opaque. */
+.pin { position: sticky; z-index: 1; background: var(--table); }
+.pin.last { border-right: 1px solid var(--border); }
+.cell.float { text-align: right; }
+.cell.null { color: var(--muted-foreground); }
+/* Heat: the bare host's ramp, the background to the chart color, mixed in
+   Oklab as the table mixes it; the text the light one past the middle. */
+.cell.heat { background: color-mix(in oklab, var(--chart-1) var(--t), var(--background)); }
+.cell.heat.deep { color: #fafafa; }
+.gap { flex: none; }

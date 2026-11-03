@@ -1,0 +1,96 @@
+{
+  "date": "2026-11-02",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "chromium",
+  "side": "gpui",
+  "profile": "throttled",
+  "runs": 1,
+  "segments": {
+    "down": {
+      "yDistance": -37500,
+      "speed": 18750
+    },
+    "fast": {
+      "yDistance": -120000,
+      "speed": 60000
+    },
+    "sideways": {
+      "xDistance": -12000,
+      "speed": 6000
+    }
+  },
+  "results": {
+    "30,14,120": {
+      "down": [
+        {
+          "drewSharePct": 53.28,
+          "drewPerSecond": 31.73,
+          "drewP50Ms": 28.22,
+          "drewP95Ms": 33.99,
+          "cells": null,
+          "busyPct": 91.81,
+          "windowMs": 2017.07
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 47.97,
+          "drewPerSecond": 28.43,
+          "drewP50Ms": 33.06,
+          "drewP95Ms": 35.03,
+          "cells": null,
+          "busyPct": 91.92,
+          "windowMs": 2039.76
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 66.67,
+          "drewPerSecond": 39.92,
+          "drewP50Ms": 23.49,
+          "drewP95Ms": 26.26,
+          "cells": null,
+          "busyPct": 92.88,
+          "windowMs": 2029.18
+        }
+      ]
+    },
+    "22,12,80": {
+      "down": [
+        {
+          "drewSharePct": 24,
+          "drewPerSecond": 14,
+          "drewP50Ms": 67.45,
+          "drewP95Ms": 78.38,
+          "cells": null,
+          "busyPct": 92.37,
+          "windowMs": 2071.26
+        }
+      ],
+      "fast": [
+        {
+          "drewSharePct": 24.6,
+          "drewPerSecond": 14.42,
+          "drewP50Ms": 66.61,
+          "drewP95Ms": 70.45,
+          "cells": null,
+          "busyPct": 91.89,
+          "windowMs": 2080.01
+        }
+      ],
+      "sideways": [
+        {
+          "drewSharePct": 33.87,
+          "drewPerSecond": 19.95,
+          "drewP50Ms": 47.95,
+          "drewP95Ms": 51.28,
+          "cells": null,
+          "busyPct": 93.51,
+          "windowMs": 2055.01
+        }
+      ]
+    }
+  }
+}

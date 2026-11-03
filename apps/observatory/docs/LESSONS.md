@@ -129,3 +129,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - DuckDB's writer makes no row group under 2,048 rows, whatever `ROW_GROUP_SIZE` says, so a 1,024-row page always decodes twice its rows.
 - The file is small enough (11 pages) for the 64 MiB cache to hold it all. The eviction the plan worried about never happens.
 - The probe's own server skewed the first numbers. Reading the whole file for each ranged request added ~30 ms to a page of the 22.8 MB asteroid file, so a local server for timing reads has to stream only the range.
+
+## M9 part A2: the wide sheet's spike and stops (2026-11-02)
+
+[Results](../perf/results/2026-11-02-m9-a2.md).
+
+- A bare Playwright `mouse.wheel` reaches a native scroller's compositor only every other frame in headless Chromium. The DOM grid rendered 29 frames a second at 42 cells as at 1,500, and its p50 per frame read the idle half (~0.7 ms). A rAF loop setting `scrollTop` rendered 59, and so did Chromium's gesture scroll. Every DOM wheel reading so far went through that path.
+- Per frame, the DOM's main thread is the cheaper side on a wide grid: ~5–6 µs a cell where it keeps up, against GPUI's ~16, because only rows that came into view render while GPUI redraws every cell. Even so, the DOM keeps up with fewer cells going down (~450 against ~830), and in a fast fling it renders on exactly half the frames from the base up. What limits it there is past the main thread.
+- Sideways, the two sides are level to ~830 cells: a sideways step brings in a few columns on both. The stops separate the sides only by the vertical scroll.
+- The bare host's vertical fling shows placeholder rows in a third of its frames or more (its rows land a frame after they're asked for), which are cheap to draw. It can't be compared with a grid reading from memory. The gesture's steady scroll and fast fling had none.
+- A script's wait-for-rest that keeps a global between segments must key it by the segment. Keyed by a frame count alone, a segment drawing as many frames as the last ended at once, and 6 of 36 GPUI segments read 0, which the first write-up blamed on the host.
+- `position: sticky` inside translated, absolutely placed rows held the pinned edge and the header to the pixel through flings in all three engines. The contender's gutter had shown it for one column; it holds for three.
