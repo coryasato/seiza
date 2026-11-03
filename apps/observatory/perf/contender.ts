@@ -10,19 +10,24 @@
 //   --runs <n>             runs per contender and profile (default 10)
 //   --profile reference|throttled   one profile (default: both)
 //   --label <name>         writes perf/results/<date>-<label>.json
+//   --scenario <id>        a scenario on its level's builds (`contenders/scenarios.ts`;
+//                          default: the base level's Big file), at
+//   --stop <id,…|all>      its stops (default: its default stop; `scroll`: all),
+//                          each written to <date>-<label>-<scenario>-<stop>.json
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { chromium, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test';
 
 /** A page or a frame in one: where a contender runs (the bare page, or
  *  the observatory page's frame). */
 export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
-import { frameRecorder, targetRect, waitMark, wheel } from '../../../shared-web/perf/harness.ts';
+import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { FLING_FRAMES, FRAME_MS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
-import { MARKS, dataFile, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
+import { BIG_FILE, SCENARIOS, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
+import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 export const SIDES: Side[] = ['gpui', 'tanstack'];
 /** Both contenders' rows (the TanStack contender's `layout.ts` pins GPUI's). */
@@ -144,7 +149,7 @@ export async function openSide(
   side: Side,
   url: string,
   profile: Profile,
-  { init = [], args = [], before }: { init?: (() => void)[]; args?: string[]; before?: (page: Page, browser: Browser) => Promise<void> } = {},
+  { init = [], args = [], before, picked }: { init?: (() => void)[]; args?: string[]; before?: (page: Page, browser: Browser) => Promise<void>; picked?: Picked | null } = {},
 ): Promise<Session> {
   const browser = await chromium.launch({ channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'], args });
   try {
@@ -153,12 +158,23 @@ export async function openSide(
     const found = problems(page);
     await throttle(context, page, profile);
     await before?.(page, browser);
-    await page.goto(`${url}?measure`);
+    await page.goto(`${url}?${measureQuery(picked)}`);
     return { side, profile, page, context, browser, problems: found, close: () => browser.close() };
   } catch (error) {
     await browser.close();
     throw error;
   }
+}
+
+/** A measured page's query: `measure`, and a scenario's `scenario` and
+ *  `stop` (the base level's Big file loads without them). */
+export function measureQuery(picked?: Picked | null): string {
+  const params = new URLSearchParams({ measure: '' });
+  if (picked && picked.scenario.level !== 'base') {
+    params.set(SCENARIO_PARAM, picked.scenario.id);
+    params.set(STOP_PARAM, picked.stop.id);
+  }
+  return params.toString().replace('measure=', 'measure');
 }
 
 export const now = (page: Scope): Promise<number> => page.evaluate(() => performance.now());
@@ -299,17 +315,98 @@ export async function trackPress(session: Session, fraction: number, mark: () =>
   throw new Error(`the scrollbar took no press at (${at.x}, ${at.y}) in 3 tries`);
 }
 
+// ---------------------------------------------------------------- the gesture scroll
+
+export type { Gesture };
+
+/**
+ * A scenario's scroll through each side's own path: Chromium's gesture
+ * (`shared-web/perf/`'s `gesture`) at the rest point, which reaches the DOM
+ * side's compositor every frame and GPUI's canvas as wheel events
+ * (`docs/DECISIONS.md`, "Measurement"). GPUI's is scaled by the device
+ * pixel ratio, as its wheel is, so both sides move as far in the same time.
+ */
+export async function gesture(session: Session, scroll: Gesture): Promise<void> {
+  await sendGesture(session.page, await restPoint(session.page), scroll, { scaleByDpr: session.side === 'gpui' });
+}
+
+/** The replay's jump to `fraction` of the rows; resolves once the view is filled. */
+export const jump = (page: Scope, fraction: number): Promise<void> => page.evaluate((fraction) => (globalThis as Global).__contender!.replay.jump(fraction), fraction);
+
+// ---------------------------------------------------------------- the data reads
+
+/** Counts the page's data reads in flight (`/observatory/data/`), from
+ *  now on: attach it in `openSide`'s `before`. */
+export function dataReads(page: Page): { inFlight(): number; total(): number } {
+  const pending = new Set<Request>();
+  let total = 0;
+  const isData = (request: Request) => new URL(request.url()).pathname.startsWith('/observatory/data/');
+  page.on('request', (request) => {
+    if (!isData(request)) return;
+    pending.add(request);
+    total++;
+  });
+  page.on('requestfinished', (request) => pending.delete(request));
+  page.on('requestfailed', (request) => pending.delete(request));
+  return { inFlight: () => pending.size, total: () => total };
+}
+
+/** Until no data read has been in flight, and the cache's bytes unchanged,
+ *  for `quietMs`; returns the bytes. Past `timeoutMs`, an error. */
+export async function quiet(page: Scope & Pick<Page, 'waitForTimeout'>, inFlight: () => number, quietMs = 1000, timeoutMs = 120_000): Promise<number> {
+  let bytes = -1;
+  let since = Date.now();
+  const deadline = since + timeoutMs;
+  for (;;) {
+    if (Date.now() > deadline) throw new Error(`not quiet within ${timeoutMs / 1000} s: ${inFlight()} data reads in flight`);
+    const current = (await state(page))?.cacheBytes ?? -1;
+    if (current !== bytes || inFlight() > 0) {
+      bytes = current;
+      since = Date.now();
+    } else if (Date.now() - since >= quietMs) return bytes;
+    await page.waitForTimeout(50);
+  }
+}
+
+/** The paging's page, rows (the component's `Paging::default()`). */
+export const PAGE_ROWS = 1024;
+
+/**
+ * Reads the whole file into the page cache (a scenario's file fits it:
+ * the wide sheet's 11 pages, where the 64 MiB cache holds ~21), so a
+ * scroll after it reads the table, not the engine: the replay's jump to
+ * each page, each landing filled and quiet, then back to the top, filled.
+ * Returns the cache's bytes, which every run of a scenario must match.
+ */
+export async function readWhole(session: Session, inFlight: () => number): Promise<number> {
+  const { page } = session;
+  const rows = (await state(page))?.rows;
+  if (!rows) throw new Error('no rows to read');
+  for (let first = 0; first < rows; first += PAGE_ROWS) {
+    await jump(page, first / rows);
+    await filledState(page, 'true', 60_000);
+    await quiet(page, inFlight, 300);
+  }
+  await jump(page, 0);
+  await filledState(page, 's.first === 0', 60_000);
+  return quiet(page, inFlight);
+}
+
 // ---------------------------------------------------------------- the file's facts
 
-/** `count(*)` and the last row's key (spkid, in file order), from data/'s
- *  native DuckDB: independent of the pages' engine. */
-export async function fileFacts(): Promise<{ count: number; lastKey: string }> {
+/** `count(*)` and the last row's key (its first column, as the contenders'
+ *  `lastCell`, in file order), from data/'s native DuckDB: independent of
+ *  the pages' engine. */
+export async function fileFacts(scenario: Scenario = BIG_FILE): Promise<{ count: number; lastKey: string; columns: number }> {
   const conn = await nativeDuckDB();
-  const file = `'${dataFile.replaceAll("'", "''")}'`;
+  const file = `read_parquet('${dataPath(scenario.data).replaceAll("'", "''")}', file_row_number = true)`;
   const value = async (sql: string) => String((await conn.runAndReadAll(sql)).getRows()[0]?.[0]);
-  const count = Number(await value(`SELECT count(*) FROM read_parquet(${file})`));
-  const lastKey = await value(`SELECT spkid FROM read_parquet(${file}, file_row_number = true) WHERE file_row_number = ${count - 1}`);
-  return { count, lastKey };
+  const count = Number(await value(`SELECT count(*) FROM ${file}`));
+  const key = await value(`SELECT column_name FROM (DESCRIBE SELECT * FROM ${file}) LIMIT 1`);
+  const lastKey = await value(`SELECT "${key.replaceAll('"', '""')}" FROM ${file} WHERE file_row_number = ${count - 1}`);
+  // The file's own columns (the scan's row number isn't one).
+  const columns = Number(await value(`SELECT count(*) - 1 FROM (DESCRIBE SELECT * FROM ${file})`));
+  return { count, lastKey, columns };
 }
 
 // ---------------------------------------------------------------- the runs
@@ -324,10 +421,18 @@ export interface RunContext {
   profile: Profile;
   url: string;
   run: number;
+  /** The scenario and stop under test (`--scenario`, `--stop`); null: the base level's Big file. */
+  picked: Picked | null;
 }
+
+/** The wide sheet's stop under test, or null on the base level. */
+export const wideStop = (picked: Picked | null): { scenario: WideScenario; stop: WideScenario['stops'][number] } | null =>
+  picked?.scenario.level === 'wide' ? (picked as { scenario: WideScenario; stop: WideScenario['stops'][number] }) : null;
+
 
 /** Each metric script's ports: the GPUI contender's server, then the TanStack's. */
 const PORTS: Record<string, [number, number]> = {
+  scroll: [4353, 4354],
   usable: [4322, 4323],
   data: [4324, 4325],
   response: [4326, 4327],
@@ -348,7 +453,8 @@ export async function runMetric<R extends RunResult>(
   metric: keyof typeof PORTS,
   measure: (context: RunContext) => Promise<R>,
   summarize: (runs: R[]) => Record<string, unknown>,
-  extra: Record<string, unknown> = {},
+  extra: Record<string, unknown> | ((picked: Picked | null) => Record<string, unknown>) = {},
+  { levels = ['base', 'wide'], allStops = false }: { levels?: Scenario['level'][]; allStops?: boolean } = {},
 ): Promise<void> {
   const sides = option('side') ? [option('side') as Side] : SIDES;
   if (!sides.every((side) => SIDES.includes(side))) throw new Error(`--side ${option('side')}: gpui or tanstack`);
@@ -356,50 +462,86 @@ export async function runMetric<R extends RunResult>(
   const profiles = option('profile') ? PROFILES.filter((profile) => profile.name === option('profile')) : PROFILES;
   if (!profiles.length) throw new Error(`--profile ${option('profile')}: reference or throttled`);
   const label = option('label');
+  const picks = pickStops(allStops);
+  const level = picks[0]?.scenario.level ?? 'base';
+  if (!levels.includes(level)) throw new Error(`metric ${metric} doesn't run on the ${level} level`);
   const [gpuiPort, tanstackPort] = PORTS[metric]!;
   const servers: Partial<Record<Side, AppServer>> = {};
-  const output: Record<string, unknown> = { date: new Date().toISOString().slice(0, 10), label, metric, ...machineInfo(), runs, ...extra, profiles: {} };
   const failures: string[] = [];
   try {
-    if (sides.includes('gpui')) servers.gpui = await serveGpui(gpuiPort);
-    if (sides.includes('tanstack')) servers.tanstack = await serveTanstack(tanstackPort);
-    for (const profile of profiles) {
-      const results: Partial<Record<Side, R[]>> = {};
-      for (let run = 0; run < runs; run++) {
-        const order = run % 2 ? [...sides].reverse() : sides;
-        for (const side of order) {
-          const where = `${metric} ${profile.name} ${side} run ${run + 1}/${runs}`;
-          let result: R;
-          try {
-            result = await measure({ side, profile, url: servers[side]!.url, run });
-          } catch (error) {
-            failures.push(`${where}: ${(error as Error).message.split('\n')[0]}`);
-            console.log(`${where}: FAILED: ${(error as Error).message.split('\n')[0]}`);
-            continue;
+    if (sides.includes('gpui')) servers.gpui = await serveGpui(gpuiPort, undefined, level);
+    if (sides.includes('tanstack')) servers.tanstack = await serveTanstack(tanstackPort, undefined, level);
+    for (const pick of picks) {
+      const picked = level === 'base' ? null : pick;
+      const name = picked ? ` ${resultLabel(picked)}` : '';
+      const output: Record<string, unknown> = {
+        date: new Date().toISOString().slice(0, 10),
+        label,
+        metric,
+        ...(picked ? { scenario: picked.scenario.id, stop: picked.stop } : {}),
+        ...machineInfo(),
+        runs,
+        ...(typeof extra === 'function' ? extra(picked) : extra),
+        profiles: {},
+      };
+      for (const profile of profiles) {
+        const results: Partial<Record<Side, R[]>> = {};
+        for (let run = 0; run < runs; run++) {
+          const order = run % 2 ? [...sides].reverse() : sides;
+          for (const side of order) {
+            const where = `${metric}${name} ${profile.name} ${side} run ${run + 1}/${runs}`;
+            let result: R;
+            try {
+              result = await measure({ side, profile, url: servers[side]!.url, run, picked });
+            } catch (error) {
+              failures.push(`${where}: ${(error as Error).message.split('\n')[0]}`);
+              console.log(`${where}: FAILED: ${(error as Error).message.split('\n')[0]}`);
+              continue;
+            }
+            (results[side] ??= []).push(result);
+            failures.push(...result.failures.map((failure) => `${where}: ${failure}`));
+            console.log(`${where}: ${brief(result)}`);
           }
-          (results[side] ??= []).push(result);
-          failures.push(...result.failures.map((failure) => `${where}: ${failure}`));
-          console.log(`${where}: ${brief(result)}`);
         }
+        (output.profiles as Record<string, unknown>)[profile.name] = Object.fromEntries(sides.map((side) => [side, { summary: summarize(results[side] ?? []), runs: results[side] ?? [] }]));
+        for (const side of sides) console.log(`\n${metric}${name} ${profile.name} ${side}: ${JSON.stringify(summarize(results[side] ?? []))}\n`);
       }
-      (output.profiles as Record<string, unknown>)[profile.name] = Object.fromEntries(sides.map((side) => [side, { summary: summarize(results[side] ?? []), runs: results[side] ?? [] }]));
-      for (const side of sides) console.log(`\n${metric} ${profile.name} ${side}: ${JSON.stringify(summarize(results[side] ?? []))}\n`);
+      output.failures = failures.filter((failure) => failure.startsWith(`${metric}${name} `));
+      if (label) {
+        const out = join(perfDir, 'results', `${output.date}-${label}${picked ? `-${resultLabel(picked)}` : ''}.json`);
+        mkdirSync(join(perfDir, 'results'), { recursive: true });
+        writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`);
+        console.log(`wrote ${out}`);
+      }
     }
   } finally {
     await Promise.all(Object.values(servers).map((server) => server.close()));
-  }
-  output.failures = failures;
-  if (label) {
-    const out = join(perfDir, 'results', `${output.date}-${label}.json`);
-    mkdirSync(join(perfDir, 'results'), { recursive: true });
-    writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`);
-    console.log(`wrote ${out}`);
   }
   if (failures.length) {
     console.error(`\nFAIL\n${failures.map((failure) => `  ${failure}`).join('\n')}`);
     process.exit(1);
   }
   console.log('\nPASS');
+}
+
+/** The scenario `--scenario` asks for: Big file without it. */
+export function flaggedScenario(): Scenario {
+  const id = option('scenario') ?? BIG_FILE.id;
+  const scenario = SCENARIOS.find((candidate) => candidate.id === id);
+  if (!scenario) throw new Error(`--scenario ${id}: one of ${SCENARIOS.map((candidate) => candidate.id).join(', ')}`);
+  return scenario;
+}
+
+/** The scenario and stops `--scenario` and `--stop` ask for: the base
+ *  level's Big file without them; a scenario's default stop, or with
+ *  `allStops` every stop, without `--stop`. */
+function pickStops(allStops: boolean): Picked[] {
+  const scenario = flaggedScenario();
+  const asked = option('stop') ?? (allStops ? 'all' : scenario.defaultStop);
+  const stops = asked === 'all' ? [...scenario.stops] : asked.split(',').map((stopId) => scenario.stops.find((stop) => stop.id === stopId) ?? stopId);
+  const unknown = stops.filter((stop) => typeof stop === 'string');
+  if (unknown.length) throw new Error(`--stop ${unknown.join(',')}: not a stop of ${scenario.id} (${scenario.stops.map((stop) => stop.id).join(', ')})`);
+  return stops.map((stop) => ({ scenario, stop }) as Picked);
 }
 
 /** A run's numbers on one line: its top-level numbers and booleans. */

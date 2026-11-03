@@ -31,7 +31,7 @@ import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
 import { open, waitMark, workBetween, workRecorder, frameRecorder, recordedBetween } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, localDate, machineInfo, median, option, percentiles } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { FRAME_MS, ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork } from '../../../shared-web/perf/trace.ts';
+import { FRAME_MS, ORIGIN_MARK, Trace, WORK_CATEGORIES, compositorFrames, frameWork } from '../../../shared-web/perf/trace.ts';
 
 const dir = import.meta.dirname;
 const SIDE = option('side') as 'tanstack' | 'gpui';
@@ -63,24 +63,9 @@ interface Reading {
 
 const round = (x: number) => Number(x.toFixed(2));
 
-/** Chromium's frame reporter per vsync (perf/readout-cost.ts's reading). */
+/** Chromium's frame reporter per vsync (`shared-web/perf/trace.ts`), a second. */
 function compositor(trace: Trace, a: number, b: number, ms: number): NonNullable<Reading['compositor']> {
-  const vsyncs = new Map<string, Set<string>>();
-  for (const e of trace.events) {
-    if (e.name !== 'PipelineReporter' || e.ph !== 'b' || e.pid !== trace.main.pid || e.ts < a || e.ts > b) continue;
-    const r = e.args?.frame_reporter as { state?: string; frame_source?: number; frame_sequence?: number } | undefined;
-    if (!r?.state) continue;
-    const k = `${r.frame_source}:${r.frame_sequence}`;
-    vsyncs.set(k, (vsyncs.get(k) ?? new Set()).add(r.state));
-  }
-  let whole = 0;
-  let partial = 0;
-  let dropped = 0;
-  for (const states of vsyncs.values()) {
-    if (states.has('STATE_PRESENTED_ALL')) whole++;
-    else if (states.has('STATE_PRESENTED_PARTIAL')) partial++;
-    else if (states.has('STATE_DROPPED')) dropped++;
-  }
+  const { whole, partial, dropped } = compositorFrames(trace, a, b);
   const perS = (n: number) => round((n * 1000) / ms);
   return { wholePerSecond: perS(whole), partialPerSecond: perS(partial), droppedPerSecond: perS(dropped) };
 }

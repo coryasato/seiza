@@ -82,6 +82,37 @@ export async function wheel(page: Page, deltaY: number, deltaX = 0): Promise<voi
   await page.mouse.wheel(deltaX * scale, deltaY * scale);
 }
 
+/** A gesture scroll's distance (CSS px, the gesture's sign: a negative `y`
+ *  scrolls down, a negative `x` right) and speed (CSS px a second). */
+export interface Gesture {
+  x?: number;
+  y?: number;
+  speed: number;
+}
+
+/**
+ * A scroll as a touchpad sends it, at `at` (CSS px): Chromium's synthetic
+ * gesture (`Input.synthesizeScrollGesture`, mouse-sourced: phased wheel
+ * events), which reaches a native scroller's compositor every frame, where
+ * a bare `mouse.wheel` reaches it every other frame in headless Chromium.
+ * Resolves once the gesture has been sent.
+ *
+ * Under DPR emulation its wheel events reach a page's own listeners (GPUI's)
+ * at 1/DPR of their distance, as a bare wheel's do (`wheel`), while a native
+ * scroller moves the whole of it. `scaleByDpr` multiplies the distance and
+ * the speed by the device scale (so the gesture lasts as long): pass it for
+ * a page that scrolls itself from wheel events, never for a native scroller.
+ */
+export async function gesture(page: Page, at: { x: number; y: number }, { x = 0, y = 0, speed }: Gesture, { scaleByDpr = false } = {}): Promise<void> {
+  const scale = scaleByDpr ? await deviceScale(page) : 1;
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send('Input.synthesizeScrollGesture', { x: at.x, y: at.y, xDistance: x * scale, yDistance: y * scale, speed: speed * scale, gestureSourceType: 'mouse' });
+  } finally {
+    await cdp.detach();
+  }
+}
+
 const scales = new WeakMap<Page, number>();
 async function deviceScale(page: Page): Promise<number> {
   let scale = scales.get(page);

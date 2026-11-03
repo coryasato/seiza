@@ -1,0 +1,1300 @@
+{
+  "date": "2026-11-03",
+  "label": "m9-d-cost",
+  "metric": "cost",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "busyMs": 2926.9,
+          "loadBusyMs": 196.8,
+          "useBusyMs": 2729.8,
+          "pageMemoryOpenMiB": 42.5,
+          "pageMemoryEndMiB": 73.3,
+          "workerMemoryEndMiB": 140.3,
+          "jsHeapEndMiB": 3.4,
+          "nodesEnd": 54,
+          "pageKiB": 2877.8,
+          "engineKiB": 5745,
+          "dataKiB": 5697.8
+        },
+        "runs": [
+          {
+            "loadBusyMs": 268.2960000000012,
+            "useBusyMs": 2973.7420000001057,
+            "busyMs": 3242.038000000107,
+            "open": {
+              "pageBytes": 44494725,
+              "workerBytes": 129702964,
+              "pageByType": {
+                "JavaScript": 23758725,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3476336,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76716789,
+              "workerBytes": 147153648,
+              "pageByType": {
+                "JavaScript": 55980789,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3585580,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 200.56500000000221,
+            "useBusyMs": 2728.7650000000767,
+            "busyMs": 2929.330000000079,
+            "open": {
+              "pageBytes": 65252157,
+              "workerBytes": 129703784,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23780157
+              },
+              "jsHeapBytes": 3457760,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76895129,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 56159129
+              },
+              "jsHeapBytes": 3585124,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 193.88900000000197,
+            "useBusyMs": 2706.6550000000852,
+            "busyMs": 2900.544000000087,
+            "open": {
+              "pageBytes": 44622011,
+              "workerBytes": 129703372,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 23886011
+              },
+              "jsHeapBytes": 3424460,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76773633,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "JavaScript": 56037633,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3584880,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 204.58400000000213,
+            "useBusyMs": 2741.3580000000843,
+            "busyMs": 2945.9420000000864,
+            "open": {
+              "pageBytes": 44586578,
+              "workerBytes": 129703364,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 23850578
+              },
+              "jsHeapBytes": 3476080,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 77172988,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "JavaScript": 56436988,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3585548,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 192.20000000000198,
+            "useBusyMs": 2730.8510000000706,
+            "busyMs": 2923.0510000000727,
+            "open": {
+              "pageBytes": 65304838,
+              "workerBytes": 129703784,
+              "pageByType": {
+                "JavaScript": 23832838,
+                "Canvas": 41472000
+              },
+              "jsHeapBytes": 3460260,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76905523,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "JavaScript": 56169523,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3584444,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 191.5160000000019,
+            "useBusyMs": 2735.818000000079,
+            "busyMs": 2927.334000000081,
+            "open": {
+              "pageBytes": 44657382,
+              "workerBytes": 129703784,
+              "pageByType": {
+                "JavaScript": 23921382,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3474316,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76914385,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 56178385
+              },
+              "jsHeapBytes": 3585328,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 190.74300000000207,
+            "useBusyMs": 2704.5740000000806,
+            "busyMs": 2895.3170000000828,
+            "open": {
+              "pageBytes": 44347899,
+              "workerBytes": 129703784,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 23611899
+              },
+              "jsHeapBytes": 3461452,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76696744,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "JavaScript": 55960744,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3585072,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 205.99200000000212,
+            "useBusyMs": 2720.4690000000687,
+            "busyMs": 2926.4610000000707,
+            "open": {
+              "pageBytes": 44416707,
+              "workerBytes": 129705472,
+              "pageByType": {
+                "JavaScript": 23680707,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3461840,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 75726949,
+              "workerBytes": 147153256,
+              "pageByType": {
+                "JavaScript": 54990949,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3593408,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 197.28400000000207,
+            "useBusyMs": 2714.644000000075,
+            "busyMs": 2911.9280000000767,
+            "open": {
+              "pageBytes": 65168966,
+              "workerBytes": 129703832,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23696966
+              },
+              "jsHeapBytes": 3476952,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 97635582,
+              "workerBytes": 147153264,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 56163582
+              },
+              "jsHeapBytes": 3585824,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 196.38500000000192,
+            "useBusyMs": 2736.7900000000855,
+            "busyMs": 2933.1750000000875,
+            "open": {
+              "pageBytes": 44266597,
+              "workerBytes": 129705432,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 23530597
+              },
+              "jsHeapBytes": 3460092,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76582675,
+              "workerBytes": 147153216,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 55846675
+              },
+              "jsHeapBytes": 3592732,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "busyMs": 2327,
+          "loadBusyMs": 95.8,
+          "useBusyMs": 2231.5,
+          "pageMemoryOpenMiB": 7.4,
+          "pageMemoryEndMiB": 37.5,
+          "workerMemoryEndMiB": 140.3,
+          "jsHeapEndMiB": 6.6,
+          "nodesEnd": 2064,
+          "pageKiB": 184.9,
+          "engineKiB": 5713.5,
+          "dataKiB": 5697.8
+        },
+        "runs": [
+          {
+            "loadBusyMs": 118.6369999999996,
+            "useBusyMs": 2234.306999999998,
+            "busyMs": 2352.9439999999977,
+            "open": {
+              "pageBytes": 7852651,
+              "workerBytes": 129702796,
+              "pageByType": {
+                "JavaScript": 7852651
+              },
+              "jsHeapBytes": 6741540,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39403553,
+              "workerBytes": 147152228,
+              "pageByType": {
+                "JavaScript": 39403553
+              },
+              "jsHeapBytes": 6922912,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 96.57899999999961,
+            "useBusyMs": 2230.2609999999427,
+            "busyMs": 2326.8399999999424,
+            "open": {
+              "pageBytes": 7907412,
+              "workerBytes": 129703620,
+              "pageByType": {
+                "JavaScript": 7907412
+              },
+              "jsHeapBytes": 6734116,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39368157,
+              "workerBytes": 147152228,
+              "pageByType": {
+                "JavaScript": 39368157
+              },
+              "jsHeapBytes": 6888248,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 97.69099999999972,
+            "useBusyMs": 2222.3840000007854,
+            "busyMs": 2320.075000000785,
+            "open": {
+              "pageBytes": 7276354,
+              "workerBytes": 129703668,
+              "pageByType": {
+                "JavaScript": 7276354
+              },
+              "jsHeapBytes": 6743784,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39362917,
+              "workerBytes": 147152276,
+              "pageByType": {
+                "JavaScript": 39362917
+              },
+              "jsHeapBytes": 6904940,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 95.62499999999964,
+            "useBusyMs": 2233.6219999999616,
+            "busyMs": 2329.246999999961,
+            "open": {
+              "pageBytes": 7425352,
+              "workerBytes": 129704444,
+              "pageByType": {
+                "JavaScript": 7425352
+              },
+              "jsHeapBytes": 6741948,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39368557,
+              "workerBytes": 147152228,
+              "pageByType": {
+                "JavaScript": 39368557
+              },
+              "jsHeapBytes": 6934272,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 95.36999999999962,
+            "useBusyMs": 2230.6779999999694,
+            "busyMs": 2326.047999999969,
+            "open": {
+              "pageBytes": 7753109,
+              "workerBytes": 129704492,
+              "pageByType": {
+                "JavaScript": 7753109
+              },
+              "jsHeapBytes": 6746728,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39367459,
+              "workerBytes": 147152276,
+              "pageByType": {
+                "JavaScript": 39367459
+              },
+              "jsHeapBytes": 6915560,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 96.06299999999979,
+            "useBusyMs": 2215.2969999999495,
+            "busyMs": 2311.359999999949,
+            "open": {
+              "pageBytes": 7820661,
+              "workerBytes": 129703692,
+              "pageByType": {
+                "JavaScript": 7820661
+              },
+              "jsHeapBytes": 6739076,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39369840,
+              "workerBytes": 147152300,
+              "pageByType": {
+                "JavaScript": 39369840
+              },
+              "jsHeapBytes": 6927448,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 96.63399999999966,
+            "useBusyMs": 2218.3689999999606,
+            "busyMs": 2315.00299999996,
+            "open": {
+              "pageBytes": 7815068,
+              "workerBytes": 129703624,
+              "pageByType": {
+                "JavaScript": 7815068
+              },
+              "jsHeapBytes": 6738904,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39043036,
+              "workerBytes": 147152276,
+              "pageByType": {
+                "JavaScript": 39043036
+              },
+              "jsHeapBytes": 6934348,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 95.00099999999968,
+            "useBusyMs": 2235.9519999999507,
+            "busyMs": 2330.9529999999504,
+            "open": {
+              "pageBytes": 6935331,
+              "workerBytes": 147138264,
+              "pageByType": {
+                "JavaScript": 6935331
+              },
+              "jsHeapBytes": 6736676,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39364280,
+              "workerBytes": 147152276,
+              "pageByType": {
+                "JavaScript": 39364280
+              },
+              "jsHeapBytes": 6890932,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 94.25799999999973,
+            "useBusyMs": 2235.1409999999646,
+            "busyMs": 2329.3989999999644,
+            "open": {
+              "pageBytes": 7821773,
+              "workerBytes": 129702996,
+              "pageByType": {
+                "JavaScript": 7821773
+              },
+              "jsHeapBytes": 6745240,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39381408,
+              "workerBytes": 147151604,
+              "pageByType": {
+                "JavaScript": 39381408
+              },
+              "jsHeapBytes": 6950272,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 94.71899999999965,
+            "useBusyMs": 2232.3779999999956,
+            "busyMs": 2327.096999999995,
+            "open": {
+              "pageBytes": 7695500,
+              "workerBytes": 129703668,
+              "pageByType": {
+                "JavaScript": 7695500
+              },
+              "jsHeapBytes": 6747668,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39384198,
+              "workerBytes": 147152276,
+              "pageByType": {
+                "JavaScript": 39384198
+              },
+              "jsHeapBytes": 6938148,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "busyMs": 4512.7,
+          "loadBusyMs": 959.1,
+          "useBusyMs": 3555.5,
+          "pageMemoryOpenMiB": 62.1,
+          "pageMemoryEndMiB": 73.4,
+          "workerMemoryEndMiB": 140.3,
+          "jsHeapEndMiB": 3.4,
+          "nodesEnd": 54,
+          "pageKiB": 2877.8,
+          "engineKiB": 5745,
+          "dataKiB": 5697.8
+        },
+        "runs": [
+          {
+            "loadBusyMs": 969.8619999999826,
+            "useBusyMs": 3575.0370000000607,
+            "busyMs": 4544.899000000043,
+            "open": {
+              "pageBytes": 65126004,
+              "workerBytes": 129717472,
+              "pageByType": {
+                "JavaScript": 23654004,
+                "Canvas": 41472000
+              },
+              "jsHeapBytes": 3485212,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76987108,
+              "workerBytes": 147161552,
+              "pageByType": {
+                "JavaScript": 56251108,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3545432,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 960.9909999999975,
+            "useBusyMs": 3584.8470000000593,
+            "busyMs": 4545.838000000057,
+            "open": {
+              "pageBytes": 65067746,
+              "workerBytes": 129717872,
+              "pageByType": {
+                "JavaScript": 23595746,
+                "Canvas": 41472000
+              },
+              "jsHeapBytes": 3416024,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76985135,
+              "workerBytes": 147162400,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 56249135
+              },
+              "jsHeapBytes": 3543416,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 909.1499999999858,
+            "useBusyMs": 3533.3810000000562,
+            "busyMs": 4442.531000000042,
+            "open": {
+              "pageBytes": 65078480,
+              "workerBytes": 129718832,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23606480
+              },
+              "jsHeapBytes": 3437604,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76288932,
+              "workerBytes": 147162480,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 55552932
+              },
+              "jsHeapBytes": 3543036,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 937.756999999991,
+            "useBusyMs": 3558.1350000000502,
+            "busyMs": 4495.892000000042,
+            "open": {
+              "pageBytes": 65078232,
+              "workerBytes": 129718264,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23606232
+              },
+              "jsHeapBytes": 3418456,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76851896,
+              "workerBytes": 147162344,
+              "pageByType": {
+                "JavaScript": 56115896,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3544908,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 964.4979999999894,
+            "useBusyMs": 3554.4230000000566,
+            "busyMs": 4518.921000000046,
+            "open": {
+              "pageBytes": 65127074,
+              "workerBytes": 129716300,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23655074
+              },
+              "jsHeapBytes": 3483860,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 77181824,
+              "workerBytes": 147162592,
+              "pageByType": {
+                "JavaScript": 56445824,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3543304,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 969.6859999999697,
+            "useBusyMs": 3536.8200000000547,
+            "busyMs": 4506.506000000025,
+            "open": {
+              "pageBytes": 65306583,
+              "workerBytes": 129718264,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23834583
+              },
+              "jsHeapBytes": 3484128,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76984591,
+              "workerBytes": 147162360,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 56248591
+              },
+              "jsHeapBytes": 3542928,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 957.2409999999559,
+            "useBusyMs": 3563.8740000000544,
+            "busyMs": 4521.115000000011,
+            "open": {
+              "pageBytes": 65107461,
+              "workerBytes": 129719232,
+              "pageByType": {
+                "JavaScript": 23635461,
+                "Canvas": 41472000
+              },
+              "jsHeapBytes": 3485180,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 77317171,
+              "workerBytes": 147162448,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 56581171
+              },
+              "jsHeapBytes": 3543280,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 933.3509999999794,
+            "useBusyMs": 3542.9190000000585,
+            "busyMs": 4476.270000000038,
+            "open": {
+              "pageBytes": 64515241,
+              "workerBytes": 147153936,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 23043241
+              },
+              "jsHeapBytes": 3472408,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76898167,
+              "workerBytes": 147162164,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 56162167
+              },
+              "jsHeapBytes": 3543820,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 916.2910000000024,
+            "useBusyMs": 3556.5700000000447,
+            "busyMs": 4472.861000000047,
+            "open": {
+              "pageBytes": 65072467,
+              "workerBytes": 129718068,
+              "pageByType": {
+                "JavaScript": 23600467,
+                "Canvas": 41472000
+              },
+              "jsHeapBytes": 3484548,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76856644,
+              "workerBytes": 147162116,
+              "pageByType": {
+                "JavaScript": 56120644,
+                "Canvas": 20736000
+              },
+              "jsHeapBytes": 3548700,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 988.876999999984,
+            "useBusyMs": 3554.2450000000563,
+            "busyMs": 4543.12200000004,
+            "open": {
+              "pageBytes": 65079172,
+              "workerBytes": 129720152,
+              "pageByType": {
+                "JavaScript": 23607172,
+                "Canvas": 41472000
+              },
+              "jsHeapBytes": 3482284,
+              "nodes": 54
+            },
+            "atEnd": {
+              "pageBytes": 76523845,
+              "workerBytes": 147162504,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 55787845
+              },
+              "jsHeapBytes": 3543348,
+              "nodes": 54
+            },
+            "bytes": {
+              "page": 2946903,
+              "engine": 5882882,
+              "data": 5834566
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "busyMs": 3876.4,
+          "loadBusyMs": 478.2,
+          "useBusyMs": 3394.7,
+          "pageMemoryOpenMiB": 7,
+          "pageMemoryEndMiB": 37.4,
+          "workerMemoryEndMiB": 140.3,
+          "jsHeapEndMiB": 6.4,
+          "nodesEnd": 2064,
+          "pageKiB": 184.9,
+          "engineKiB": 5713.5,
+          "dataKiB": 5697.8
+        },
+        "runs": [
+          {
+            "loadBusyMs": 448.4539999999542,
+            "useBusyMs": 3465.31500000002,
+            "busyMs": 3913.7689999999743,
+            "open": {
+              "pageBytes": 7794453,
+              "workerBytes": 147153392,
+              "pageByType": {
+                "JavaScript": 7794453
+              },
+              "jsHeapBytes": 6804948,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39302463,
+              "workerBytes": 147161556,
+              "pageByType": {
+                "JavaScript": 39302463
+              },
+              "jsHeapBytes": 6718052,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 459.5749999999571,
+            "useBusyMs": 3315.7530000000265,
+            "busyMs": 3775.3279999999836,
+            "open": {
+              "pageBytes": 7302869,
+              "workerBytes": 129719148,
+              "pageByType": {
+                "JavaScript": 7302869
+              },
+              "jsHeapBytes": 6739432,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39275188,
+              "workerBytes": 147161128,
+              "pageByType": {
+                "JavaScript": 39275188
+              },
+              "jsHeapBytes": 6747800,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 444.55599999996565,
+            "useBusyMs": 3406.4030000000225,
+            "busyMs": 3850.958999999988,
+            "open": {
+              "pageBytes": 7291219,
+              "workerBytes": 129719308,
+              "pageByType": {
+                "JavaScript": 7291219
+              },
+              "jsHeapBytes": 6737132,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39198789,
+              "workerBytes": 147161352,
+              "pageByType": {
+                "JavaScript": 39198789
+              },
+              "jsHeapBytes": 6719812,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 446.20599999996944,
+            "useBusyMs": 3384.9840000000236,
+            "busyMs": 3831.1899999999932,
+            "open": {
+              "pageBytes": 6862661,
+              "workerBytes": 129719148,
+              "pageByType": {
+                "JavaScript": 6862661
+              },
+              "jsHeapBytes": 6739684,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39184017,
+              "workerBytes": 147161128,
+              "pageByType": {
+                "JavaScript": 39184017
+              },
+              "jsHeapBytes": 6736688,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 476.10899999995684,
+            "useBusyMs": 3399.820000000016,
+            "busyMs": 3875.928999999973,
+            "open": {
+              "pageBytes": 7818813,
+              "workerBytes": 129719584,
+              "pageByType": {
+                "JavaScript": 7818813
+              },
+              "jsHeapBytes": 6736936,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39264735,
+              "workerBytes": 147161516,
+              "pageByType": {
+                "JavaScript": 39264735
+              },
+              "jsHeapBytes": 6745192,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 493.7739999999429,
+            "useBusyMs": 3469.7680000000223,
+            "busyMs": 3963.5419999999654,
+            "open": {
+              "pageBytes": 7538923,
+              "workerBytes": 129719892,
+              "pageByType": {
+                "JavaScript": 7538923
+              },
+              "jsHeapBytes": 6742308,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39197561,
+              "workerBytes": 147161492,
+              "pageByType": {
+                "JavaScript": 39197561
+              },
+              "jsHeapBytes": 6756144,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 499.58799999995426,
+            "useBusyMs": 3389.593000000024,
+            "busyMs": 3889.180999999978,
+            "open": {
+              "pageBytes": 7830130,
+              "workerBytes": 129717488,
+              "pageByType": {
+                "JavaScript": 7830130
+              },
+              "jsHeapBytes": 6734952,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39278632,
+              "workerBytes": 147161208,
+              "pageByType": {
+                "JavaScript": 39278632
+              },
+              "jsHeapBytes": 6767140,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 498.1099999999518,
+            "useBusyMs": 3378.812000000026,
+            "busyMs": 3876.9219999999777,
+            "open": {
+              "pageBytes": 6968845,
+              "workerBytes": 129717820,
+              "pageByType": {
+                "JavaScript": 6968845
+              },
+              "jsHeapBytes": 6736924,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39262349,
+              "workerBytes": 147161556,
+              "pageByType": {
+                "JavaScript": 39262349
+              },
+              "jsHeapBytes": 6744188,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 480.22799999995664,
+            "useBusyMs": 3505.075000000034,
+            "busyMs": 3985.302999999991,
+            "open": {
+              "pageBytes": 6466174,
+              "workerBytes": 129717108,
+              "pageByType": {
+                "JavaScript": 6466174
+              },
+              "jsHeapBytes": 6770856,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39377409,
+              "workerBytes": 147161604,
+              "pageByType": {
+                "JavaScript": 39377409
+              },
+              "jsHeapBytes": 6842960,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          },
+          {
+            "loadBusyMs": 490.4599999999526,
+            "useBusyMs": 3364.0150000000212,
+            "busyMs": 3854.474999999974,
+            "open": {
+              "pageBytes": 6688821,
+              "workerBytes": 147155084,
+              "pageByType": {
+                "JavaScript": 6688821
+              },
+              "jsHeapBytes": 6737796,
+              "nodes": 2105
+            },
+            "atEnd": {
+              "pageBytes": 39210011,
+              "workerBytes": 147161556,
+              "pageByType": {
+                "JavaScript": 39210011
+              },
+              "jsHeapBytes": 6754808,
+              "nodes": 2064
+            },
+            "bytes": {
+              "page": 189374,
+              "engine": 5850596,
+              "data": 5834566
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

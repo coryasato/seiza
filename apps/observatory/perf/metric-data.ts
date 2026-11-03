@@ -6,6 +6,7 @@
 //
 // Usage: node apps/observatory/perf/metric-data.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
+//          [--scenario <id> [--stop <id,…>]] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import { rowsPainted, timeToData, type TimeToData } from '../metrics/metrics.ts';
@@ -20,8 +21,8 @@ const PAINT_WAIT_MS = 2_000;
 
 await runMetric<Run>(
   'data',
-  async ({ side, profile, url }) => {
-    const session = await openSide(side, url, profile, { init: side === 'tanstack' ? [paintRecorder] : [] });
+  async ({ side, profile, url, picked }) => {
+    const session = await openSide(side, url, profile, { picked, init: side === 'tanstack' ? [paintRecorder] : [] });
     const { page } = session;
     try {
       const { open, filled, state } = await opened(session);

@@ -13,6 +13,14 @@
 // assumed: every run of a side must end with the same `state.cacheBytes` (the
 // Arrow IPC bytes its cache holds, the 64 MiB budget's unit), on both devices.
 //
+// On a scenario's level (the wide sheet's file is 11 pages, too few to
+// walk), the equal work is the file read whole (`readWhole`), every run's
+// cache bytes the same, and then a long sideways session: `SIDEWAYS_TRIPS`
+// gesture scrolls across every day and back at the sideways scroll's speed
+// (`metric-scroll.ts`'s), which reads nothing, so what grows is the view's
+// (GPUI's wasm memory grows to its peak and never shrinks; the DOM's frees
+// on a collection). Readings once open, once read, and at the end.
+//
 // Memory once open and at the end, each as measured and again after a
 // forced garbage collection (what the page holds, not what it hasn't yet
 // collected): `performance.measureUserAgentSpecificMemory`, the page's own
@@ -24,22 +32,22 @@
 //
 // Usage: node apps/observatory/perf/metric-memory.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
+//          [--scenario <id> [--stop <id,…>]] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import type { Page, Request } from '@playwright/test';
 import { memoryOf, type MemoryEntry } from '../metrics/metrics.ts';
-import { filledState, medianOf, opened, openSide, runMetric, state, type RunResult, type Session } from './contender.ts';
+import { SCROLLS } from '../metrics/metrics.ts';
+import { PAGE_ROWS, dataReads, fileFacts, filledState, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
 import { ENGINE_CHUNK } from './harness.ts';
 
-/** The paging's page (the component's `Paging::default()`). */
-const PAGE_ROWS = 1024;
 /** The walk: its length, and each step, in pages (a step within the even prefetch's reach). */
 const WALK_PAGES = 144;
 const STEP_PAGES = 4;
 /** No data read in flight, and the cache's bytes unchanged, this long. */
 const QUIET_MS = 1000;
-/** A landing that isn't quiet by then fails the run. */
-const QUIET_TIMEOUT_MS = 120_000;
+/** A scenario's sideways session: across every day and back, this many times. */
+const SIDEWAYS_TRIPS = 5;
 /** The page's memory types the budgets' rows account for: the canvas's
  *  backing store apart, the rest "JavaScript". Any other fails the run. */
 const KNOWN_TYPES = new Set(['JavaScript', 'Canvas']);
@@ -109,24 +117,10 @@ async function both(page: Page, session: Session): Promise<{ measured: Reading; 
   return { measured, afterGc: await reading(page, session) };
 }
 
-/** Until no data read has been in flight, and the cache's bytes unchanged, for `QUIET_MS`. */
-async function quiet(page: Page, inFlight: () => number): Promise<number> {
-  let bytes = -1;
-  let since = Date.now();
-  const deadline = since + QUIET_TIMEOUT_MS;
-  for (;;) {
-    if (Date.now() > deadline) throw new Error(`not quiet within ${QUIET_TIMEOUT_MS / 1000} s: ${inFlight()} data reads in flight`);
-    const now = (await state(page))?.cacheBytes ?? -1;
-    if (now !== bytes || inFlight() > 0) {
-      bytes = now;
-      since = Date.now();
-    } else if (Date.now() - since >= QUIET_MS) return bytes;
-    await page.waitForTimeout(50);
-  }
-}
-
 interface Run extends RunResult {
   open: { measured: Reading; afterGc: Reading };
+  /** A scenario's: once the file was read whole, before the sideways session. */
+  read?: { measured: Reading; afterGc: Reading };
   atEnd: { measured: Reading; afterGc: Reading };
   /** The cache's Arrow IPC bytes once open and at the end. */
   cacheBytesOpen: number;
@@ -140,28 +134,27 @@ interface Run extends RunResult {
 /** Each side's end-of-session cache bytes, from its first run: every later run, either device, must match. */
 const expected = new Map<string, number>();
 
+/** A scenario's file's columns (native DuckDB), for the days' width: read
+ *  once, and only on a scenario's level. */
+let columns: Promise<number> | undefined;
+const fileColumns = (): Promise<number> => (columns ??= fileFacts(flaggedScenario()).then((facts) => facts.columns));
+
 await runMetric<Run>(
   'memory',
-  async ({ side, profile, url }) => {
+  async ({ side, profile, url, picked }) => {
     const requests: Request[] = [];
-    const pending = new Set<Request>();
-    let dataReads = 0;
+    let reads: ReturnType<typeof dataReads> | undefined;
     const session = await openSide(side, url, profile, {
+      picked,
       init: [wasmRecorder],
       // Without it, the measurement waits for a garbage collection (up to 20 s).
       args: ['--enable-blink-features=ForceEagerMeasureMemory'],
       before: async (page) => {
-        page.on('request', (request) => {
-          if (kindOf(request.url()) !== 'data') return;
-          pending.add(request);
-          dataReads++;
-        });
+        reads = dataReads(page);
         page.on('requestfinished', (request) => {
-          pending.delete(request);
           // Not a download: a script the page made (the engine's worker, by blob URL).
           if (!request.url().startsWith('blob:')) requests.push(request);
         });
-        page.on('requestfailed', (request) => pending.delete(request));
       },
     });
     const { page } = session;
@@ -169,21 +162,34 @@ await runMetric<Run>(
       const failures = [...session.problems];
       if (!(await page.evaluate(() => crossOriginIsolated))) failures.push("the page isn't cross-origin isolated: no memory measurement");
       const { state: start } = await opened(session);
-      const cacheBytesOpen = await quiet(page, () => pending.size);
+      const inFlight = reads!.inFlight;
+      const cacheBytesOpen = await quiet(page, inFlight, QUIET_MS);
       const open = await both(page, session);
-      const lastPage = Math.ceil(start.rows / PAGE_ROWS) - 1;
-      if (lastPage < WALK_PAGES) throw new Error(`the file has ${lastPage + 1} pages, fewer than the walk's ${WALK_PAGES}`);
-      const fractions = [];
-      for (let walked = lastPage - WALK_PAGES; walked < lastPage; walked += STEP_PAGES) fractions.push((walked * PAGE_ROWS) / start.rows);
-      fractions.push(1);
-      for (const fraction of fractions) {
-        await page.evaluate((fraction) => (globalThis as { __contender?: { replay: { jump(fraction: number): Promise<void> } } }).__contender!.replay.jump(fraction), fraction);
-        await filledState(page, 'true', 60_000);
-        await quiet(page, () => pending.size);
+      const wide = wideStop(picked);
+      let read: Run['read'];
+      if (wide) {
+        await readWhole(session, inFlight);
+        read = await both(page, session);
+        const days = ((await fileColumns()) - wide.scenario.heatFrom) * wide.stop.columnWidth;
+        for (let trip = 0; trip < SIDEWAYS_TRIPS; trip++) {
+          await gesture(session, { x: -days, speed: SCROLLS.sideways.speed });
+          await gesture(session, { x: days, speed: SCROLLS.sideways.speed });
+        }
+      } else {
+        const lastPage = Math.ceil(start.rows / PAGE_ROWS) - 1;
+        if (lastPage < WALK_PAGES) throw new Error(`the file has ${lastPage + 1} pages, fewer than the walk's ${WALK_PAGES}`);
+        const fractions = [];
+        for (let walked = lastPage - WALK_PAGES; walked < lastPage; walked += STEP_PAGES) fractions.push((walked * PAGE_ROWS) / start.rows);
+        fractions.push(1);
+        for (const fraction of fractions) {
+          await jump(page, fraction);
+          await filledState(page, 'true', 60_000);
+          await quiet(page, inFlight, QUIET_MS);
+        }
       }
-      const cacheBytesEnd = await quiet(page, () => pending.size);
+      const cacheBytesEnd = await quiet(page, inFlight, QUIET_MS);
       const atEnd = await both(page, session);
-      for (const taken of [open.measured, open.afterGc, atEnd.measured, atEnd.afterGc])
+      for (const taken of [open.measured, open.afterGc, ...(read ? [read.measured, read.afterGc] : []), atEnd.measured, atEnd.afterGc])
         for (const type of Object.keys(taken.pageByType)) if (!KNOWN_TYPES.has(type)) failures.push(`page memory of an unaccounted type: ${type}`);
       const seen = expected.get(side);
       if (seen === undefined) expected.set(side, cacheBytesEnd);
@@ -200,7 +206,7 @@ await runMetric<Run>(
         const file = (files[fileOf(request.url())] ??= { kind, bytes: 0, encoding: (await request.response())?.headers()['content-encoding'] ?? null });
         file.bytes += size;
       }
-      return { open, atEnd, cacheBytesOpen, cacheBytesEnd, dataReads, files, bytes, failures };
+      return { open, ...(read ? { read } : {}), atEnd, cacheBytesOpen, cacheBytesEnd, dataReads: reads!.total(), files, bytes, failures };
     } finally {
       await session.close();
     }
@@ -220,6 +226,15 @@ await runMetric<Run>(
       dataReads: medianOf(runs, (run) => run.dataReads, 0),
       pageMiBOpen: mib((run) => run.open.measured.pageBytes),
       pageMiBOpenAfterGc: mib((run) => run.open.afterGc.pageBytes),
+      ...(runs[0]?.read
+        ? {
+            pageMiBRead: mib((run) => run.read?.measured.pageBytes),
+            pageMiBReadAfterGc: mib((run) => run.read?.afterGc.pageBytes),
+            pageMiBReadAfterGcByType: Object.fromEntries(types.map((type) => [type, mib((run) => run.read?.afterGc.pageByType[type])])),
+            wasmMiBRead: mib((run) => run.read?.measured.wasmBytes),
+            jsHeapMiBReadAfterGc: mib((run) => run.read?.afterGc.jsHeapBytes),
+          }
+        : {}),
       pageMiBEnd: mib((run) => run.atEnd.measured.pageBytes),
       pageMiBEndAfterGc: mib((run) => run.atEnd.afterGc.pageBytes),
       pageMiBEndAfterGcByType: Object.fromEntries(types.map((type) => [type, mib((run) => run.atEnd.afterGc.pageByType[type])])),
@@ -232,5 +247,5 @@ await runMetric<Run>(
       filesKiB: Object.fromEntries(files.map((file) => [file, { kind: runs.find((run) => run.files[file])!.files[file]!.kind, encoding: runs.find((run) => run.files[file])!.files[file]!.encoding, kib: medianOf(runs, (run) => (run.files[file]?.bytes ?? 0) / 1024) }])),
     };
   },
-  { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS },
+  (picked) => (picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
 );

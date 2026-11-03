@@ -11,6 +11,7 @@
 //
 // Usage: node apps/observatory/perf/metric-usable.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
+//          [--scenario <id> [--stop <id,…>]] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import { waitMark } from '../../../shared-web/perf/harness.ts';
@@ -32,8 +33,9 @@ interface Run extends RunResult, FirstUsable {
 
 await runMetric<Run>(
   'usable',
-  async ({ side, profile, url }) => {
+  async ({ side, profile, url, picked }) => {
     const session = await openSide(side, url, profile, {
+      picked,
       init: [originMark, inputRecorder],
       before: (page, browser) => browser.startTracing(page, { categories: PROBE_CATEGORIES }),
     });

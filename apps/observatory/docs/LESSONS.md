@@ -160,3 +160,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The DOM side draws one more row than GPUI at every stop (396 against 384 cells at the 26 px stop, 4.2% over its label). Headless Chromium hides scrollbars, and GPUI always keeps a strip for its horizontal one. The 5% check still holds, but with little room, and part D's per-cell numbers need to count each side's own cells.
 - A two-way race on `waitMark` crashes the script when the loser times out with nothing catching it. A longer run makes it surface: `wide.ts` ran both sides, outlived the 60 s timeout, and died on an unhandled rejection after its checks had passed.
 - Node's type stripping rejects TypeScript parameter properties (`constructor(readonly lo: number)`). A module the node tests import has to spell its fields out.
+
+## M9 part D: the wide sheet's numbers (2026-11-03)
+
+[Results](../perf/results/2026-11-03-m9-d.md).
+
+- The gesture scroll inherits the DPR emulation's halved wheel deltas on GPUI's side, and the native scroller doesn't: A2's spike flung GPUI half as far, at half the speed, as TanStack, and nothing in its readings showed it. A share of frames drawn says nothing about distance. Only the check added here, how far the view moved, caught it, after a cost fling stopped short of the last row.
+- With the gesture fixed, GPUI kept up at every stop, so the stops part A2 placed no longer bracket its edge. GPUI's frame redraws every cell whatever the speed, so doubling it cost nothing, and the contender draws ~15% fewer cells than the spike at the same lengths.
+- Traced, the native scroller moves a fast gesture ~3% past its distance; untraced, exactly. The tracing that measures the DOM side also changes how far it scrolls.
+- The long sideways session moved neither side's memory: across the days nothing is read, and both sides' views are a screen's worth. What the wide sheet's memory card shows is the file held, not the session.
+- GPUI's first usable sits ~3 ms nearer the probe's limit at the wide level than at the base, enough for 2 of 10 runs to miss it; and its key lost its `EventLatency` reading in 6 of 120 inputs, which the base never did.

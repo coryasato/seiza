@@ -12,7 +12,7 @@
  */
 
 import type { ContenderState, Side } from '../contenders/contract.ts';
-import { FRAME_MS, LATE_FACTOR, Trace, lateFrames, spans, type TraceEvent } from '../../../shared-web/perf/trace.ts';
+import { FRAME_MS, LATE_FACTOR, Trace, lateFrames, spans, type FrameWork, type TraceEvent } from '../../../shared-web/perf/trace.ts';
 
 // The trace and frame math every app's scripts share, re-exported so the
 // observatory reads every metric through this module.
@@ -346,6 +346,61 @@ export function underLoad(frames: readonly StateFrame[], inputs: readonly WheelI
     reachedEnd: !!final && final.end === final.rows && final.pending === 0,
   };
 }
+
+// ---------------------------------------------------------------- keeps up (a scenario's stops)
+
+/** A scenario's scrolls, on Chromium's gesture (`docs/DECISIONS.md`,
+ *  "Scenarios"), CSS px and px a second, a negative distance scrolling down
+ *  or right: down and sideways are steady, "keeps up" reads them; fast is
+ *  the fast fling. */
+export const SCROLLS = {
+  down: { y: -37_500, speed: 18_750 },
+  sideways: { x: -12_000, speed: 6_000 },
+  fast: { y: -120_000, speed: 60_000 },
+} as const;
+
+/** A side keeps up at a stop when at least this share of the display's
+ *  frames draw new cells, in each of the scenario's steady scrolls
+ *  (`docs/DECISIONS.md`, "Scenarios"). The chart's dashed line. */
+export const KEEPS_UP_SHARE = 0.9;
+
+/** A DOM frame drew new cells when its animate part (the scroll event, the
+ *  virtualizer's render) ran past this, ms; a frame the compositor moved
+ *  without new rows runs ~0.1 ms there. */
+export const DREW_ANIMATE_MS = 1;
+
+/** The frames that drew new cells: GPUI's presented frames (each one a
+ *  redraw); the DOM's main frames that rendered (`DREW_ANIMATE_MS`), their
+ *  start (page ms) and work (ms). */
+export const domDrawn = (work: FrameWork): { at: number; ms: number }[] => work.frames.filter((frame) => (frame.parts.animate ?? 0) > DREW_ANIMATE_MS).map(({ at, ms }) => ({ at, ms }));
+
+export interface DrewShare {
+  /** Frames that drew new cells. */
+  drew: number;
+  /** The display's frames from the first of them to the last. */
+  displayFrames: number;
+  /** `drew` over `displayFrames`, at most 1. */
+  share: number;
+  /** From the first to the last, ms. */
+  spanMs: number;
+}
+
+/**
+ * How many of the display's frames drew new cells during a scroll: `drawn`
+ * are those frames' start times (page ms, in order), counted from the first
+ * to the last at `refreshMs` (60 Hz in the headless runs). Null with fewer
+ * than two: a scroll that drew under two frames has no span to read.
+ */
+export function drewShare(drawn: readonly number[], refreshMs = FRAME_MS): DrewShare | null {
+  if (drawn.length < 2) return null;
+  const spanMs = drawn.at(-1)! - drawn[0]!;
+  const displayFrames = Math.round(spanMs / refreshMs) + 1;
+  return { drew: drawn.length, displayFrames, share: Math.min(1, drawn.length / displayFrames), spanMs: round(spanMs) };
+}
+
+/** Keeps up at a stop: both steady scrolls' shares (each a median of the
+ *  runs) at or over `KEEPS_UP_SHARE`; the slower sets it. */
+export const keepsUp = (down: number, sideways: number): boolean => Math.min(down, sideways) >= KEEPS_UP_SHARE;
 
 // ---------------------------------------------------------------- memory
 

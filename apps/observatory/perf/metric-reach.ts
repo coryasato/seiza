@@ -6,16 +6,17 @@
 //
 // Usage: node apps/observatory/perf/metric-reach.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
+//          [--scenario <id> [--stop <id,…>]] (contender.ts)
 // Needs `just observatory data`; run `just observatory gpui-build` and
 // `tanstack-build` first.
 
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { reach, type Reach } from '../metrics/metrics.ts';
-import { fileFacts, filledState, inputRecorder, keys, medianOf, now, opened, openSide, pressProbeKey, runMetric, type RunResult } from './contender.ts';
+import { fileFacts, filledState, flaggedScenario, inputRecorder, keys, medianOf, now, opened, openSide, pressProbeKey, runMetric, type RunResult } from './contender.ts';
 import { MARKS } from './harness.ts';
 
-const facts = await fileFacts();
-console.log(`native DuckDB: count(*) ${facts.count}, last spkid ${facts.lastKey}`);
+const facts = await fileFacts(flaggedScenario());
+console.log(`native DuckDB: count(*) ${facts.count}, the last row's key ${facts.lastKey}`);
 
 interface Run extends RunResult, Reach {
   rows: number;
@@ -26,8 +27,8 @@ interface Run extends RunResult, Reach {
 
 await runMetric<Run>(
   'reach',
-  async ({ side, profile, url }) => {
-    const session = await openSide(side, url, profile, { init: [inputRecorder] });
+  async ({ side, profile, url, picked }) => {
+    const session = await openSide(side, url, profile, { picked, init: [inputRecorder] });
     const { page } = session;
     try {
       const { state: start } = await opened(session);
@@ -40,7 +41,7 @@ await runMetric<Run>(
       const reading = reach(start, atEnd, facts.count, facts.lastKey);
       const failures = [...session.problems];
       if (!reading.countMatches) failures.push(`rows ${start.rows}, count(*) ${facts.count}`);
-      if (!reading.lastRowReached) failures.push(`End: rows ${atEnd.first}–${atEnd.end}, lastCell ${atEnd.lastCell}, the file's last spkid ${facts.lastKey}`);
+      if (!reading.lastRowReached) failures.push(`End: rows ${atEnd.first}–${atEnd.end}, lastCell ${atEnd.lastCell}, the file's last key ${facts.lastKey}`);
       return { ...reading, rows: start.rows, lastCell: atEnd.lastCell, endFilledMs: filled - endKey, failures };
     } finally {
       await session.close();

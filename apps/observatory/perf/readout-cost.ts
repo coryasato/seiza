@@ -52,7 +52,7 @@ import { recorderCost, targetRect, waitMark, wheel } from '../../../shared-web/p
 import { PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { startThrottlingProxy } from '../../../shared-web/perf/serve.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { FLING_FRAMES, ORIGIN_MARK, TRACE_CATEGORIES, Trace, underLoad, type Side, type TraceEvent, type UnderLoad } from '../metrics/metrics.ts';
+import { FLING_FRAMES, ORIGIN_MARK, TRACE_CATEGORIES, Trace, compositorFrames, underLoad, type Side, type TraceEvent, type UnderLoad } from '../metrics/metrics.ts';
 import { METER_KEY, type MeterMode } from '../web/src/meter.ts';
 import { SIDE_PARAM } from '../web/src/components.ts';
 import { SIDES, filledState, fling, frameRecorder, frames, inputRecorder, now, stateRecorder, stepsReceived, wheels, type Scope, type Session } from './contender.ts';
@@ -143,33 +143,6 @@ function covered(spans: [number, number][]): number {
     end = to;
   }
   return total / 1000;
-}
-
-/** Chromium's frame reporter (`PipelineReporter`) in the page's renderer,
- *  for the display frames (vsyncs) that began between two trace times. A
- *  vsync can have more than one reporter (the compositor's and the main
- *  thread's): it was presented if any presented (in part, if only in
- *  part), dropped if one dropped and none presented. The dropped share is
- *  of the vsyncs that presented or dropped (one with no update wanted is
- *  neither). */
-function compositorFrames(trace: Trace, from: number, to: number): { presented: number; partial: number; dropped: number; droppedShare: number } {
-  const vsyncs = new Map<string, Set<string>>();
-  for (const event of trace.events) {
-    if (event.name !== 'PipelineReporter' || event.ph !== 'b' || event.pid !== trace.main.pid || event.ts < from || event.ts > to) continue;
-    const reporter = event.args?.frame_reporter as { state?: string; frame_source?: number; frame_sequence?: number } | undefined;
-    if (!reporter?.state) continue;
-    const key = `${reporter.frame_source}:${reporter.frame_sequence}`;
-    vsyncs.set(key, (vsyncs.get(key) ?? new Set()).add(reporter.state));
-  }
-  let presented = 0;
-  let partial = 0;
-  let dropped = 0;
-  for (const states of vsyncs.values()) {
-    if (states.has('STATE_PRESENTED_ALL')) presented++;
-    else if (states.has('STATE_PRESENTED_PARTIAL')) (presented++, partial++);
-    else if (states.has('STATE_DROPPED')) dropped++;
-  }
-  return { presented, partial, dropped, droppedShare: presented + dropped ? dropped / (presented + dropped) : 0 };
 }
 
 /** The GPU process's main thread (`CrGpuMain`): its tasks' time between two
@@ -312,7 +285,8 @@ async function measure(variant: Variant, side: Side, profile: Profile, origins: 
     const during = recorded.filter((frame) => frame.t >= first && frame.t <= rested);
     const [traceFrom, traceTo] = [trace.toTrace(first), trace.toTrace(rested)];
     const flingMs = rested - first;
-    const compositor = compositorFrames(trace, traceFrom, traceTo);
+    // Presented counts a frame presented in part (`shared-web/perf/trace.ts`).
+    const { presented, partial, dropped, droppedShare } = compositorFrames(trace, traceFrom, traceTo);
     const gpuMs = gpuProcessMs(trace, threadNames(trace), traceFrom, traceTo);
     const own = variant === 'bare' ? null : topFrameMs(trace, await topFrameId(page), traceFrom, traceTo);
     if (process.env.READOUT_TRACE) writeFileSync(process.env.READOUT_TRACE, JSON.stringify({ top: variant === 'bare' ? null : await topFrameId(page), traceFrom, traceTo, events: trace.events }));
@@ -329,7 +303,10 @@ async function measure(variant: Variant, side: Side, profile: Profile, origins: 
       renderer: drawn,
       ...load,
       recorder: await recorderCost(scope, first, rested),
-      ...compositor,
+      presented,
+      partial,
+      dropped,
+      droppedShare,
       gpuMsPerFrame: during.length ? gpuMs / during.length : 0,
       gpuShare: flingMs > 0 ? gpuMs / flingMs : 0,
       pageRefreshes: own?.refreshes ?? null,

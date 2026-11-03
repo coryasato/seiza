@@ -135,6 +135,54 @@ export class Trace {
   }
 }
 
+// ---------------------------------------------------------------- the compositor's frames
+
+/** What the compositor did with the display frames (vsyncs) in a span. */
+export interface CompositorFrames {
+  /** Presented whole: every update the frame wanted. */
+  whole: number;
+  /** Presented in part: the compositor's own update (a scroll moved) without
+   *  the main thread's, which missed the frame. */
+  partial: number;
+  /** Presented at all: `whole` + `partial`. */
+  presented: number;
+  /** Dropped: an update wanted, nothing presented. */
+  dropped: number;
+  /** Of the vsyncs that presented or dropped (one with no update wanted is
+   *  neither). */
+  droppedShare: number;
+}
+
+/**
+ * Chromium's frame reporter (`PipelineReporter`, in the `benchmark`
+ * category) in the page's renderer, for the vsyncs that began between two
+ * trace times (µs). A vsync can have more than one reporter (the
+ * compositor's and the main thread's): presented whole if any presented
+ * whole, else in part if any did, else dropped if one dropped. It doesn't
+ * see a canvas drawn by WebGL or WebGPU (GPUI's frames read as no update
+ * wanted), so it reads only a DOM page.
+ */
+export function compositorFrames(trace: Trace, from: number, to: number): CompositorFrames {
+  const vsyncs = new Map<string, Set<string>>();
+  for (const event of trace.events) {
+    if (event.name !== 'PipelineReporter' || event.ph !== 'b' || event.pid !== trace.main.pid || event.ts < from || event.ts > to) continue;
+    const reporter = event.args?.frame_reporter as { state?: string; frame_source?: number; frame_sequence?: number } | undefined;
+    if (!reporter?.state) continue;
+    const key = `${reporter.frame_source}:${reporter.frame_sequence}`;
+    vsyncs.set(key, (vsyncs.get(key) ?? new Set()).add(reporter.state));
+  }
+  let whole = 0;
+  let partial = 0;
+  let dropped = 0;
+  for (const states of vsyncs.values()) {
+    if (states.has('STATE_PRESENTED_ALL')) whole++;
+    else if (states.has('STATE_PRESENTED_PARTIAL')) partial++;
+    else if (states.has('STATE_DROPPED')) dropped++;
+  }
+  const presented = whole + partial;
+  return { whole, partial, presented, dropped, droppedShare: presented + dropped ? dropped / (presented + dropped) : 0 };
+}
+
 // ---------------------------------------------------------------- per-frame work and CPU
 
 /** A main-thread event with the events nested in it (by time, same thread). */

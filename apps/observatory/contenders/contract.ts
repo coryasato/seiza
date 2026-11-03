@@ -21,7 +21,8 @@ export interface ContenderState {
   /** Visible rows with real data, and drawn as placeholders. */
   loaded: number;
   pending: number;
-  /** The key (spkid) of the last row, when it's visible. */
+  /** The last row's first cell (Big file's spkid; the wide sheet's
+   *  Station, a name, not unique), when it's visible. */
   lastCell: string | null;
   /** The page cache's Arrow IPC bytes. */
   cacheBytes: number;

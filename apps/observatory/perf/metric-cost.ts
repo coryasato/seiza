@@ -1,6 +1,8 @@
 // Cost, on either bare contender page, cold, over one session of use: the
 // load until the file's first rows are on screen, then the fling to the last
-// row (`metric-fling.ts`'s input), until it rests there. Main-thread CPU
+// row (`metric-fling.ts`'s input; on a scenario's level, the gesture scroll
+// to the last row at the fast scroll's speed, `metric-scroll.ts`'s), until
+// it rests there. Main-thread CPU
 // from Chromium's trace, started before the page loads (every task's busy
 // time, the load and the use apart: metrics/metrics.ts, `frameWork`);
 // memory once open and at the end (`performance.measureUserAgentSpecificMemory`,
@@ -11,11 +13,12 @@
 //
 // Usage: node apps/observatory/perf/metric-cost.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
+//          [--scenario <id> [--stop <id,…>]] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import type { Page, Request } from '@playwright/test';
-import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, memoryOf, type MemoryEntry } from '../metrics/metrics.ts';
-import { filledState, fling, inputRecorder, medianOf, now, opened, openSide, originMark, pressProbeKey, readyFling, runMetric, wheels, type RunResult, type Session } from './contender.ts';
+import { ORIGIN_MARK, SCROLLS, Trace, WORK_CATEGORIES, frameWork, memoryOf, type MemoryEntry } from '../metrics/metrics.ts';
+import { filledState, fling, gesture, inputRecorder, medianOf, now, opened, openSide, originMark, pressProbeKey, readyFling, runMetric, wheels, wideStop, type RunResult, type Session } from './contender.ts';
 import { ENGINE_CHUNK } from './harness.ts';
 
 type Kind = 'page' | 'engine' | 'data';
@@ -61,9 +64,10 @@ interface Run extends RunResult {
 
 await runMetric<Run>(
   'cost',
-  async ({ side, profile, url }) => {
+  async ({ side, profile, url, picked }) => {
     const requests: Request[] = [];
     const session = await openSide(side, url, profile, {
+      picked,
       init: [originMark, inputRecorder],
       // Without it, the measurement waits for a garbage collection (up to 20 s).
       args: ['--enable-blink-features=ForceEagerMeasureMemory'],
@@ -79,9 +83,14 @@ await runMetric<Run>(
       const { filled, state: start } = await opened(session);
       const open = await memory(page, session);
       await pressProbeKey(page);
-      // metric-fling.ts's fling.
-      await readyFling(session);
-      await fling(session, start.rows);
+      // metric-fling.ts's fling; a scenario's, on the gesture (which reads
+      // the device scale itself, so no warm-up wheel goes before it).
+      const wide = wideStop(picked);
+      if (wide) await gesture(session, { y: -start.rows * wide.stop.rowHeight, speed: SCROLLS.fast.speed });
+      else {
+        await readyFling(session);
+        await fling(session, start.rows);
+      }
       await filledState(page, 's.end === s.rows', 30_000).catch(() => failures.push("the view didn't rest at the last row, filled"));
       const until = await now(page);
       const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
@@ -90,7 +99,7 @@ await runMetric<Run>(
       const load = frameWork(trace, 0, filled);
       // The use is the fling's: from its first wheel event, so the memory
       // measurement and the probe key after the open count in neither.
-      const flung = (await wheels(page)).find((input) => input.at > filled)?.at;
+      const flung = (await wheels(page)).find((input) => input.at > filled && input.delta !== 0)?.at;
       if (flung === undefined) throw new Error('no wheel event reached the page');
       const use = frameWork(trace, flung, until);
       const bytes: Record<Kind, number> = { page: 0, engine: 0, data: 0 };

@@ -84,4 +84,6 @@ await runMetric<Run>(
     busyPct: medianOf(runs, (run) => run.busyShare * 100),
   }),
   { flingFrames: FLING_FRAMES },
+  // A scenario's fling is `metric-scroll.ts`'s fast scroll, on the gesture.
+  { levels: ['base'] },
 );

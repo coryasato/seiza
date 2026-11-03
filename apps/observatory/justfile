@@ -250,11 +250,15 @@ reach *args:
 # guarded), fling (behavior under load, per-frame work), reach (count(*)
 # and the last row), cost (main-thread CPU, memory, bytes over a session),
 # memory (at equal work: the same pages read on both devices; each file's
-# bytes on the wire).
+# bytes on the wire), and a scenario's scroll (keeps up: at each stop, the
+# file read whole, then the gesture scroll down, sideways, and fast).
 # Flags: --side gpui|tanstack (default both, alternated), --runs (10),
 # --profile reference|throttled (default both), --label (writes
-# perf/results/), and response's --inputs (6 per kind). Run gpui-build and
-# tanstack-build first; reach needs `just observatory data`.
+# perf/results/), --scenario <id> (on its level's builds; default the base's
+# Big file) and --stop <id,…|all> (default its default stop; scroll's, all:
+# each stop's file <label>-<scenario>-<stop>), and response's --inputs (6 per
+# kind). Run gpui-build and tanstack-build (at the scenario's level) first;
+# reach and memory need `just observatory data`.
 metric name *args:
     node {{app_dir}}/perf/metric-{{name}}.ts {{args}}
 

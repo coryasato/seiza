@@ -1,6 +1,7 @@
 // Input to visible response, on either bare contender page, cold: for a
 // key (Page Down / Page Up), a press on the scrollbar's track (both tables
-// jump to it), and a wheel event (300 CSS px), each through the side's own
+// jump to it), and a wheel event (300 CSS px; on a scenario's level, the
+// gesture scroll's 300 px, as its scrolls are), each through the side's own
 // input path, Chromium's `EventLatency` from the event's timestamp to the
 // presentation of the first frame it reached, guarded on every input by an
 // independent reading of that frame (GPUI's probe; the DOM's main-thread
@@ -11,15 +12,18 @@
 //
 // Usage: node apps/observatory/perf/metric-response.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--inputs 6] [--label <name>]
+//          [--scenario <id> [--stop <id,…>]] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import { option, percentiles } from '../../../shared-web/perf/protocol.ts';
 import { INPUT_MARK, LATENCY_CATEGORIES, ORIGIN_MARK, Trace, readInputs, type InputKind, type InputReading, type Settled } from '../metrics/metrics.ts';
-import { domProbe, filledState, gpuiProbe, inputRecorder, medianOf, opened, openSide, paintRecorder, paints, pressProbeKey, restPoint, runMetric, state, trackPress, wheelBy, type RunResult, type Session } from './contender.ts';
+import { domProbe, filledState, gesture, gpuiProbe, jump, inputRecorder, medianOf, opened, openSide, paintRecorder, paints, pressProbeKey, restPoint, runMetric, state, trackPress, wheelBy, type RunResult, type Session } from './contender.ts';
 
 const INPUTS = Number(option('inputs') ?? 6);
 const KINDS: InputKind[] = ['key', 'track', 'wheel'];
 const WHEEL_PX = 300;
+/** The gesture's 300 px, CSS px a second: two or three events. */
+const GESTURE_SPEED = 10_000;
 /** After an input has moved the view and filled it, this long at rest. */
 const SETTLE_MS = 250;
 
@@ -33,7 +37,7 @@ interface Run extends RunResult {
  * view has moved, every visible row is real, and it rested `SETTLE_MS`,
  * before the next input's setup. Returns where it rested.
  */
-async function send(session: Session, kind: InputKind, index: number): Promise<Settled> {
+async function send(session: Session, kind: InputKind, index: number, onGesture: boolean): Promise<Settled> {
   const { page } = session;
   const mark = (name: string) => page.evaluate((name) => void performance.mark(name), name);
   // Where the view was right before the input (after a press's setup).
@@ -53,7 +57,8 @@ async function send(session: Session, kind: InputKind, index: number): Promise<S
   } else {
     await page.mouse.move(rest.x, rest.y);
     await start();
-    await wheelBy(session, index % 2 ? -WHEEL_PX : WHEEL_PX);
+    if (onGesture) await gesture(session, { y: index % 2 ? WHEEL_PX : -WHEEL_PX, speed: GESTURE_SPEED });
+    else await wheelBy(session, index % 2 ? -WHEEL_PX : WHEEL_PX);
   }
   // Moved, then filled.
   await page.waitForFunction((before) => (globalThis as { __contender?: { state: { top: number } | null } }).__contender?.state?.top !== before, before, { timeout: 5_000, polling: 10 });
@@ -65,14 +70,14 @@ async function send(session: Session, kind: InputKind, index: number): Promise<S
 
 await runMetric<Run>(
   'response',
-  async ({ side, profile, url }) => {
-    const session = await openSide(side, url, profile, { init: [inputRecorder, ...(side === 'gpui' ? [gpuiProbe] : [domProbe, paintRecorder])] });
+  async ({ side, profile, url, picked }) => {
+    const session = await openSide(side, url, profile, { picked, init: [inputRecorder, ...(side === 'gpui' ? [gpuiProbe] : [domProbe, paintRecorder])] });
     const { page, browser } = session;
     try {
       await opened(session);
       await pressProbeKey(page);
       // The middle of the file: room both ways.
-      await page.evaluate(() => (globalThis as { __contender?: { replay: { jump(fraction: number): Promise<void> } } }).__contender!.replay.jump(0.5));
+      await jump(page, 0.5);
       await page.waitForTimeout(SETTLE_MS);
       const readings: InputReading[] = [];
       const failures = [...session.problems];
@@ -80,7 +85,7 @@ await runMetric<Run>(
         await browser.startTracing(page, { categories: LATENCY_CATEGORIES });
         await page.evaluate((name) => void performance.mark(name), ORIGIN_MARK);
         const settled: Settled[] = [];
-        for (let index = 0; index < INPUTS; index++) settled.push(await send(session, kind, index));
+        for (let index = 0; index < INPUTS; index++) settled.push(await send(session, kind, index, picked !== null));
         const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
         const read = readInputs(trace, side, kind, settled, side === 'tanstack' ? await paints(page) : []);
         readings.push(...read);
@@ -115,5 +120,5 @@ await runMetric<Run>(
         ];
       }),
     ),
-  { inputsPerKind: INPUTS, wheelPx: WHEEL_PX },
+  (picked) => ({ inputsPerKind: INPUTS, wheelPx: WHEEL_PX, ...(picked ? { wheel: 'gesture', gestureSpeed: GESTURE_SPEED } : { wheel: 'mouse.wheel' }) }),
 );
