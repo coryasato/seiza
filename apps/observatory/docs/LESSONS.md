@@ -116,3 +116,16 @@ One entry per milestone, written before starting the next one: what surprised us
 - Four drawings of the wins (dots, a bar, chips, a small spectrum) all failed for one reason: each was a tally, and a tally can't say when to pick which side. A sentence could. Charts of the same finding didn't add to it either: the two lines never cross, so the "crossover" is a drop.
 - The site's sidebar fill is barely lighter than the sidebar, so an active item read as unmarked. Muting every other item's text made the active one stand out without touching the site's tokens.
 
+
+## M9 part A1: the wide sheet's data (2026-11-02)
+
+**Results:** [`perf/results/2026-11-02-m9-a1.md`](../perf/results/2026-11-02-m9-a1.md)
+
+**Surprises:**
+- A 365-column file was expected to send a request per column chunk. DuckDB-Wasm's read-ahead spans the whole row group instead: 4 ranged GETs a page, fewer in a session than the asteroids'.
+- Wide pages are expensive because of the engine, not the bytes. A page costs DuckDB ~102 ms with no network at all, against ~9 ms for the asteroids' 11 columns; even 365 columns computed from 3 cost ~63. Each side's decode is ~1 ms, so on this file "Rows in" reads DuckDB.
+- `DOUBLE` against `SMALLINT` tenths cost only 6% more bytes under ZSTD. The cast the research planned for the page SQL isn't needed.
+- The research's ~40 k stations was every element's. Only ~10.6 k report a daily high on most days, 64% of them American, so the scroll's tropics (0–20°N) are 148 rows.
+- DuckDB's writer makes no row group under 2,048 rows, whatever `ROW_GROUP_SIZE` says, so a 1,024-row page always decodes twice its rows.
+- The file is small enough (11 pages) for the 64 MiB cache to hold it all. The eviction the plan worried about never happens.
+- The probe's own server skewed the first numbers. Reading the whole file for each ranged request added ~30 ms to a page of the 22.8 MB asteroid file, so a local server for timing reads has to stream only the range.

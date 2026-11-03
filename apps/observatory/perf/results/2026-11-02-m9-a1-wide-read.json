@@ -1,0 +1,1006 @@
+{
+  "date": "2026-11-02",
+  "label": "m9-a1-wide-read",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "chromium 153.0.8010.12",
+  "runs": 10,
+  "rows": 10632,
+  "derived": false,
+  "files": {
+    "ghcn-2025-tmax-double.parquet": {
+      "runs": [
+        {
+          "registerMs": 3.685000419616699,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 230.9350004196167,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 125.51999950408936,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 124.50999927520752,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 103.89999961853027,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 1.9700002670288086,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 221.24499988555908,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 127.99499988555908,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 117.85999965667725,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 106.13000011444092,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 1.9149999618530273,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 220.625,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 124.24499988555908,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 112.88500022888184,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 100.95500087738037,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.125,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 219.27000045776367,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 125.45499992370605,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 113.54999923706055,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 100.6899995803833,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.5699996948242188,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 225.30499935150146,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 123.5,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 114.11499977111816,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 101.36499977111816,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.0850000381469727,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 227.2799997329712,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 121.03999996185303,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 112.42500019073486,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 101.73500061035156,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.0900001525878906,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 223.0950002670288,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 124.34000015258789,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 113.01999950408936,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 100.97499942779541,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 3.064999580383301,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 229.35499954223633,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 126.64500045776367,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 114.77499961853027,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 101.84500026702881,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.875,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 227.97999954223633,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 125.34999942779541,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 115.63999938964844,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 103.26499938964844,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.6949996948242188,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 242.72500038146973,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 1635518
+            },
+            {
+              "start": 4096,
+              "ms": 129.20499992370605,
+              "arrowBytes": 3118056,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 114.97999954223633,
+              "arrowBytes": 3116776,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 102.05499935150146,
+          "againRequests": 0
+        }
+      ],
+      "summary": {
+        "registerMs": {
+          "median": 2.3,
+          "min": 1.9,
+          "max": 3.7
+        },
+        "pages": [
+          {
+            "start": 0,
+            "ms": {
+              "median": 226.3,
+              "min": 219.3,
+              "max": 242.7
+            },
+            "requests": 9,
+            "wireBytes": 1635518,
+            "arrowBytes": 3112408
+          },
+          {
+            "start": 4096,
+            "ms": {
+              "median": 125.4,
+              "min": 121,
+              "max": 129.2
+            },
+            "requests": 4,
+            "wireBytes": 1392640,
+            "arrowBytes": 3118056
+          },
+          {
+            "start": 9216,
+            "ms": {
+              "median": 114.4,
+              "min": 112.4,
+              "max": 124.5
+            },
+            "requests": 4,
+            "wireBytes": 1392640,
+            "arrowBytes": 3116776
+          }
+        ],
+        "againMs": {
+          "median": 101.8,
+          "min": 100.7,
+          "max": 106.1
+        }
+      }
+    },
+    "ghcn-2025-tmax-int16.parquet": {
+      "runs": [
+        {
+          "registerMs": 7.524999618530273,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 230.5250005722046,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 125.38999938964844,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 125.47000026702881,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 103.48000049591064,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.15000057220459,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 219.75500011444092,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 124.39500045776367,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 114.01999950408936,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 102.07999992370605,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.3450002670288086,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 226.49000072479248,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 127.625,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 114.86500072479248,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 105.67500019073486,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 3.065000534057617,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 251.01499938964844,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 161.96000003814697,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 128.04500007629395,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 110.38500022888184,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 5.1399993896484375,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 229.96000003814697,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 127.46999931335449,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 119.47000026702881,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 132.75,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 1.9800004959106445,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 221.45499992370605,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 130.0900001525879,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 117.94499969482422,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 106.02499961853027,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 3.8249998092651367,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 224.13999938964844,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 124.67000007629395,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 115.44999980926514,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 102.49000072479248,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.4049997329711914,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 226.57999992370605,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 132.42000007629395,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 121.93499946594238,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 108.46000003814697,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.1000003814697266,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 219.82499980926514,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 124.78500080108643,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 113.875,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 107.9399995803833,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.4499998092651367,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 219.7800006866455,
+              "arrowBytes": 871312,
+              "requests": 9,
+              "wireBytes": 1583634
+            },
+            {
+              "start": 4096,
+              "ms": 125.19999980926514,
+              "arrowBytes": 876960,
+              "requests": 4,
+              "wireBytes": 1392640
+            },
+            {
+              "start": 9216,
+              "ms": 114.31999969482422,
+              "arrowBytes": 875680,
+              "requests": 4,
+              "wireBytes": 1392640
+            }
+          ],
+          "againMs": 103.3100004196167,
+          "againRequests": 0
+        }
+      ],
+      "summary": {
+        "registerMs": {
+          "median": 2.4,
+          "min": 2,
+          "max": 7.5
+        },
+        "pages": [
+          {
+            "start": 0,
+            "ms": {
+              "median": 225.3,
+              "min": 219.8,
+              "max": 251
+            },
+            "requests": 9,
+            "wireBytes": 1583634,
+            "arrowBytes": 871312
+          },
+          {
+            "start": 4096,
+            "ms": {
+              "median": 126.4,
+              "min": 124.4,
+              "max": 162
+            },
+            "requests": 4,
+            "wireBytes": 1392640,
+            "arrowBytes": 876960
+          },
+          {
+            "start": 9216,
+            "ms": {
+              "median": 116.7,
+              "min": 113.9,
+              "max": 128
+            },
+            "requests": 4,
+            "wireBytes": 1392640,
+            "arrowBytes": 875680
+          }
+        ],
+        "againMs": {
+          "median": 105.8,
+          "min": 102.1,
+          "max": 132.8
+        }
+      }
+    },
+    "ghcn-2025-tmax-double-one-group.parquet": {
+      "runs": [
+        {
+          "registerMs": 7.565000534057617,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 153.5950002670288,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 60.864999771118164,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 70.0049991607666,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 52.76499938964844,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.0550003051757812,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 161.08500003814697,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 61.765000343322754,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 60.359999656677246,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 53.18499946594238,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.435000419616699,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 149.23999977111816,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 59.35000038146973,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 60.614999771118164,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 53.239999771118164,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.1949996948242188,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 146.24000072479248,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 58.46000003814697,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 60.49000072479248,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 52.609999656677246,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.1499996185302734,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 147.3499994277954,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 62.0649995803833,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 62.71000003814697,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 52.22999954223633,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.0900001525878906,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 154.14500045776367,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 61.304999351501465,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 60.89999961853027,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 52.53999996185303,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 3.390000343322754,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 162.98500061035156,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 65.57999992370605,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 64.71000003814697,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 53.734999656677246,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.869999885559082,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 151.5299997329712,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 58.355000495910645,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 61.10000038146973,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 53.010000228881836,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.9149999618530273,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 151.03999996185303,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 61.03999996185303,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 61.635000228881836,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 53.019999504089355,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.405000686645508,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 152.74499988555908,
+              "arrowBytes": 3112408,
+              "requests": 9,
+              "wireBytes": 5639016
+            },
+            {
+              "start": 4096,
+              "ms": 60.480000495910645,
+              "arrowBytes": 3118056,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 9216,
+              "ms": 60.32499980926514,
+              "arrowBytes": 3116776,
+              "requests": 0,
+              "wireBytes": 0
+            }
+          ],
+          "againMs": 53.864999771118164,
+          "againRequests": 0
+        }
+      ],
+      "summary": {
+        "registerMs": {
+          "median": 2.4,
+          "min": 2.1,
+          "max": 7.6
+        },
+        "pages": [
+          {
+            "start": 0,
+            "ms": {
+              "median": 152.1,
+              "min": 146.2,
+              "max": 163
+            },
+            "requests": 9,
+            "wireBytes": 5639016,
+            "arrowBytes": 3112408
+          },
+          {
+            "start": 4096,
+            "ms": {
+              "median": 61,
+              "min": 58.4,
+              "max": 65.6
+            },
+            "requests": 0,
+            "wireBytes": 0,
+            "arrowBytes": 3118056
+          },
+          {
+            "start": 9216,
+            "ms": {
+              "median": 61,
+              "min": 60.3,
+              "max": 70
+            },
+            "requests": 0,
+            "wireBytes": 0,
+            "arrowBytes": 3116776
+          }
+        ],
+        "againMs": {
+          "median": 53,
+          "min": 52.2,
+          "max": 53.9
+        }
+      }
+    }
+  }
+}

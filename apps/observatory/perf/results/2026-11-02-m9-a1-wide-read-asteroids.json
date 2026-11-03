@@ -1,0 +1,344 @@
+{
+  "date": "2026-11-02",
+  "label": "m9-a1-wide-read-asteroids",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "browser": "chromium 153.0.8010.12",
+  "runs": 10,
+  "rows": 1567523,
+  "derived": false,
+  "files": {
+    "asteroids.parquet": {
+      "runs": [
+        {
+          "registerMs": 3.3299999237060547,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 68.625,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.530000686645508,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.960000038146973,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 9.180000305175781,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.0399999618530273,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 75.22999954223633,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.789999961853027,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.15999984741211,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.9399995803833,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.2849998474121094,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 66.80499935150146,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 11.045000076293945,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.289999961853027,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.984999656677246,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 1.994999885559082,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 70.05999946594238,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.875,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.625,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.774999618530273,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.25,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 67.9350004196167,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.654999732971191,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.40000057220459,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.8100004196167,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.4250001907348633,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 67.00500011444092,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 11.269999504089355,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.199999809265137,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.9399995803833,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 5.755000114440918,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 67.42500019073486,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.50999927520752,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 16.914999961853027,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.914999961853027,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.0500001907348633,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 67.98500061035156,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.970000267028809,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.295000076293945,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 9.195000648498535,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 2.895000457763672,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 66.61999988555908,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.5649995803833,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 17.59000015258789,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.854999542236328,
+          "againRequests": 0
+        },
+        {
+          "registerMs": 3.010000228881836,
+          "pages": [
+            {
+              "start": 0,
+              "ms": 72.43000030517578,
+              "arrowBytes": 87728,
+              "requests": 8,
+              "wireBytes": 1453320
+            },
+            {
+              "start": 4096,
+              "ms": 10.920000076293945,
+              "arrowBytes": 90120,
+              "requests": 0,
+              "wireBytes": 0
+            },
+            {
+              "start": 1410048,
+              "ms": 16.824999809265137,
+              "arrowBytes": 78072,
+              "requests": 3,
+              "wireBytes": 344064
+            }
+          ],
+          "againMs": 8.869999885559082,
+          "againRequests": 0
+        }
+      ],
+      "summary": {
+        "registerMs": {
+          "median": 2.4,
+          "min": 2,
+          "max": 5.8
+        },
+        "pages": [
+          {
+            "start": 0,
+            "ms": {
+              "median": 68,
+              "min": 66.6,
+              "max": 75.2
+            },
+            "requests": 8,
+            "wireBytes": 1453320,
+            "arrowBytes": 87728
+          },
+          {
+            "start": 4096,
+            "ms": {
+              "median": 10.8,
+              "min": 10.5,
+              "max": 11.3
+            },
+            "requests": 0,
+            "wireBytes": 0,
+            "arrowBytes": 90120
+          },
+          {
+            "start": 1410048,
+            "ms": {
+              "median": 17.3,
+              "min": 16.8,
+              "max": 18
+            },
+            "requests": 3,
+            "wireBytes": 344064,
+            "arrowBytes": 78072
+          }
+        ],
+        "againMs": {
+          "median": 8.9,
+          "min": 8.8,
+          "max": 9.2
+        }
+      }
+    }
+  }
+}

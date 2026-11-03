@@ -7,8 +7,9 @@
 // Usage: node shared-web/scripts/check-terms.ts   (from anywhere in the repo)
 // Checks every tracked file of these kinds: *.rs, *.ts, *.sql, *.toml, *.py,
 // *.html, *.css, justfiles, CLAUDE.md, README.md, apps/<app>/perf/
-// budgets.json, and the reference docs in apps/<app>/docs/ (data.md, …). Skips docs/templates/ (their M<n> placeholders are on purpose)
-// and apps/<app>/docs/private/. PLAN.md, milestones.md, LESSONS.md,
+// budgets.json, and the reference docs in any docs/ directory, its
+// subdirectories included (data.md, research/<goal>.md, …). Skips
+// docs/templates/ (their M<n> placeholders are on purpose) and docs/private/. PLAN.md, milestones.md, LESSONS.md,
 // DECISIONS.md, and perf/results/ are never checked: they are history.
 // Exceptions: CPU names ("Apple M1") and SVG path data (d="M12 2v2").
 // Prints each hit as file:line: text and exits 1.
@@ -23,7 +24,7 @@ const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'ut
   .filter(Boolean);
 
 const CODE_EXTENSIONS = new Set(['.rs', '.ts', '.sql', '.toml', '.py', '.html', '.css']);
-/** An app's docs/ files that are history or planning; the rest are reference docs. */
+/** The docs/ files that are history or planning; the rest are reference docs. */
 const HISTORY_DOCS = new Set(['milestones.md', 'LESSONS.md', 'DECISIONS.md']);
 const SKIPPED = [/(^|\/)docs\/templates\//, /(^|\/)docs\/private\//, /(^|\/)node_modules\//];
 
@@ -32,7 +33,7 @@ function isChecked(file: string): boolean {
   const name = basename(file);
   if (name === 'CLAUDE.md' || name === 'README.md') return true;
   if (/^apps\/[^/]+\/perf\/budgets\.json$/.test(file)) return true;
-  if (/^apps\/[^/]+\/docs\/[^/]+\.md$/.test(file)) return !HISTORY_DOCS.has(name);
+  if (/(^|\/)docs\/.+\.md$/.test(file)) return !HISTORY_DOCS.has(name);
   if (name === 'justfile' || name.endsWith('.justfile')) return true;
   return CODE_EXTENSIONS.has(extname(name));
 }
