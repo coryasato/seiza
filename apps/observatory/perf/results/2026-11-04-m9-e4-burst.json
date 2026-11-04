@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-04",
+  "label": "m9-e4-burst",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "scenarios": {
+    "visit": {
+      "requests": 68,
+      "data": 33,
+      "peak10s": 68,
+      "peakData10s": 33
+    },
+    "reloads": {
+      "requests": 134,
+      "data": 45,
+      "peak10s": 134,
+      "peakData10s": 45
+    },
+    "wide": {
+      "requests": 172,
+      "data": 88,
+      "peak10s": 66,
+      "peakData10s": 33
+    },
+    "both": {
+      "requests": 54,
+      "data": 22,
+      "peak10s": 54,
+      "peakData10s": 22
+    },
+    "wide-reloads": {
+      "requests": 141,
+      "data": 54,
+      "peak10s": 141,
+      "peakData10s": 54
+    }
+  },
+  "peak10s": 141
+}

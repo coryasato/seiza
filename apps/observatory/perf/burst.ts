@@ -8,9 +8,16 @@
 // unthrottled), driving each side through the contenders' replay hooks
 // (`__contender.replay`, what the benchmark will play):
 //
-// - visit: the tall table's route; GPUI fills, flings top to bottom, jumps
+// - visit: Big file's route; GPUI fills, flings top to bottom, jumps
 //   to 90%; a flip to TanStack, the same; a flip back (warm), a fling.
-// - reloads: the route reloaded 5 times, 1 s apart.
+// - reloads: Big file's route reloaded 5 times, 1 s apart.
+// - wide: the wide sheet's route; GPUI fills at the default stop, flings,
+//   jumps to 90%, then the dial through every other stop (each a new frame),
+//   a fling at each; a flip to TanStack (at the stop GPUI ended on), the same
+//   from there: each side at every stop.
+// - both: Big file's route, GPUI filled and flung, then the wide sheet's
+//   (the sidebar's link), the same: both files read inside one window.
+// - wide-reloads: the wide sheet's route reloaded 5 times, 1 s apart.
 //
 // Every request counts, at the server: the page is served through a counting
 // proxy (shared-web/perf/serve.ts), since Playwright doesn't see the sync
@@ -20,7 +27,7 @@
 // production's: the safe side for a limit. A peak, not a timing, so one run
 // per scenario.
 //
-// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads]
+// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads]
 // Run gpui-build, tanstack-build, and build first. Writes
 // perf/results/<date>-<label>.json.
 
@@ -31,8 +38,8 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { startCountingProxy } from '../../../shared-web/perf/serve.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { BIG_FILE } from '../contenders/scenarios.ts';
-import { COMPONENTS, scenarioPath } from '../web/src/components.ts';
+import { BIG_FILE, type Level, WIDE_SHEET } from '../contenders/scenarios.ts';
+import { COMPONENTS, SCENARIO_LINK, scenarioPath } from '../web/src/components.ts';
 import { perfDir, protocolContext, servePage } from './harness.ts';
 
 const WINDOW_MS = 10_000;
@@ -40,8 +47,9 @@ const PORT = 4339;
 const PROXY_PORT = 4340;
 const label = option('label') ?? 'burst';
 const only = option('only')?.split(',');
-/** Big file's route. */
-const ROUTE = scenarioPath(COMPONENTS.find((component) => component.id === 'tall-table')!, BIG_FILE);
+const TALL_TABLE = COMPONENTS.find((component) => component.id === 'tall-table')!;
+const BIG_ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
+const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
 
 /** The most of `times` (ms) inside any `WINDOW_MS`. */
 function peak(times: number[]): number {
@@ -66,8 +74,8 @@ function markRecorder(): void {
 }
 
 /** Waits for `side`'s frame to fill, then plays the replay's fling and jump in it. */
-async function play(page: Page, side: 'gpui' | 'tanstack', steps: ('fling' | 'jump')[]): Promise<void> {
-  const base = contenderBase('tall-table', side);
+async function play(page: Page, side: 'gpui' | 'tanstack', steps: ('fling' | 'jump')[], level: Level = 'base'): Promise<void> {
+  const base = contenderBase('tall-table', side, level);
   await page.waitForFunction(
     ({ base, filled }) => (globalThis as unknown as { __relayed: { name: string; source: string }[] }).__relayed.some((mark) => mark.name === filled && new URL(mark.source).pathname === base),
     { base, filled: MARKS.filled },
@@ -85,30 +93,79 @@ async function play(page: Page, side: 'gpui' | 'tanstack', steps: ('fling' | 'ju
     );
 }
 
+/** Waits for the toggle (and the dial, where there is one) to come back, then forgets the marks so far. */
+async function settle(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled') && !document.querySelector('[data-dial] [role="group"]')?.hasAttribute('data-disabled'),
+    null,
+    { timeout: 60_000 },
+  );
+  // Cleared before the switch: a warm frame can fill before the click returns.
+  await page.evaluate(() => ((globalThis as unknown as { __relayed: unknown[] }).__relayed.length = 0));
+}
+
 async function flip(page: Page, to: 'GPUI' | 'TanStack'): Promise<void> {
-  await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
+  await settle(page);
   await page.getByRole('button', { name: to }).click();
 }
 
-const scenarios: Record<string, (page: Page) => Promise<void>> = {
-  visit: async (page) => {
-    await play(page, 'gpui', ['fling', 'jump']);
-    await flip(page, 'TanStack');
-    await play(page, 'tanstack', ['fling', 'jump']);
-    // Cleared before the flip: a warm frame can fill before the click returns.
-    await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 });
-    await page.evaluate(() => ((globalThis as unknown as { __relayed: unknown[] }).__relayed.length = 0));
-    await flip(page, 'GPUI');
-    await play(page, 'gpui', ['fling']);
-    await page.waitForTimeout(2_000);
+/**
+ * On the wide sheet's route: `side` filled at the stop it opens at (the
+ * default for the first side; a flip keeps the stop), flung and jumped, then
+ * flung at each other stop, each a new frame.
+ */
+async function dial(page: Page, side: 'gpui' | 'tanstack'): Promise<void> {
+  await play(page, side, ['fling', 'jump'], 'wide');
+  const shown = await page.locator('[data-dial] [data-stop][aria-pressed="true"]').getAttribute('data-stop');
+  if (!shown) throw new Error('no stop pressed on the dial');
+  for (const stop of WIDE_SHEET.stops.filter((stop) => stop.id !== shown)) {
+    await settle(page);
+    await page.locator(`[data-dial] [data-stop="${stop.id}"]`).click();
+    await play(page, side, ['fling'], 'wide');
+  }
+}
+
+async function reloads(page: Page): Promise<void> {
+  for (let reload = 0; reload < 5; reload++) {
+    await page.reload();
+    await page.waitForTimeout(1_000);
+  }
+  await page.waitForTimeout(2_000);
+}
+
+const scenarios: Record<string, { route: string; run: (page: Page) => Promise<void> }> = {
+  visit: {
+    route: BIG_ROUTE,
+    run: async (page) => {
+      await play(page, 'gpui', ['fling', 'jump']);
+      await flip(page, 'TanStack');
+      await play(page, 'tanstack', ['fling', 'jump']);
+      await flip(page, 'GPUI');
+      await play(page, 'gpui', ['fling']);
+      await page.waitForTimeout(2_000);
+    },
   },
-  reloads: async (page) => {
-    for (let reload = 0; reload < 5; reload++) {
-      await page.reload();
-      await page.waitForTimeout(1_000);
-    }
-    await page.waitForTimeout(2_000);
+  reloads: { route: BIG_ROUTE, run: reloads },
+  wide: {
+    route: WIDE_ROUTE,
+    run: async (page) => {
+      await dial(page, 'gpui');
+      await flip(page, 'TanStack');
+      await dial(page, 'tanstack');
+      await page.waitForTimeout(2_000);
+    },
   },
+  both: {
+    route: BIG_ROUTE,
+    run: async (page) => {
+      await play(page, 'gpui', ['fling']);
+      await page.locator(`a[data-sidebar="menu-sub-button"][${SCENARIO_LINK}][href="${WIDE_ROUTE}"]`).click();
+      await page.waitForURL((url) => url.pathname === WIDE_ROUTE);
+      await play(page, 'gpui', ['fling'], 'wide');
+      await page.waitForTimeout(2_000);
+    },
+  },
+  'wide-reloads': { route: WIDE_ROUTE, run: reloads },
 };
 
 const unknown = only?.filter((name) => !(name in scenarios)) ?? [];
@@ -118,14 +175,14 @@ const server = await servePage(PORT);
 const proxy = await startCountingProxy(PROXY_PORT, PORT, 'localhost');
 const results: Record<string, { requests: number; data: number; peak10s: number; peakData10s: number }> = {};
 try {
-  for (const [name, run] of Object.entries(scenarios)) {
+  for (const [name, { route, run }] of Object.entries(scenarios)) {
     if (only && !only.includes(name)) continue;
     proxy.log.length = 0;
     const browser = await chromium.launch({ channel: 'chromium' });
     try {
       const context = await protocolContext(browser, { init: [markRecorder] });
       const page = await context.newPage();
-      await page.goto(`http://localhost:${PROXY_PORT}${ROUTE}`);
+      await page.goto(`http://localhost:${PROXY_PORT}${route}`);
       await run(page);
     } finally {
       await browser.close();

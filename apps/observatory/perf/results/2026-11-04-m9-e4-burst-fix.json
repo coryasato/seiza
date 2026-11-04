@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-04",
+  "label": "m9-e4-burst-fix",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "scenarios": {
+    "wide": {
+      "requests": 172,
+      "data": 88,
+      "peak10s": 66,
+      "peakData10s": 33
+    },
+    "both": {
+      "requests": 59,
+      "data": 27,
+      "peak10s": 59,
+      "peakData10s": 27
+    }
+  },
+  "peak10s": 66
+}

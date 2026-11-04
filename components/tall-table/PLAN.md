@@ -141,7 +141,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `density` | Observatory: the wide sheet's denser stops | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `pin` | Observatory: the wide sheet's key columns frozen | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order

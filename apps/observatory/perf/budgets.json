@@ -1045,7 +1045,7 @@
     },
     {
       "id": "wide-sheet-rows-26-down-reference",
-      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1058,7 +1058,7 @@
           "path": "profiles.reference.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-down-throttled",
@@ -1075,11 +1075,11 @@
           "path": "profiles.throttled.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-sideways-reference",
-      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1092,7 +1092,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-sideways-throttled",
@@ -1109,11 +1109,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-fast-reference",
-      "label": "Wide sheet at ~380 cells: frames that drew new cells, the fast fling",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the fast fling, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1126,7 +1126,7 @@
           "path": "profiles.reference.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-fast-throttled",
@@ -1143,11 +1143,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-down-work-reference",
-      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1160,7 +1160,7 @@
           "path": "profiles.reference.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-down-work-throttled",
@@ -1177,11 +1177,11 @@
           "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-sideways-work-reference",
-      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1194,7 +1194,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-sideways-work-throttled",
@@ -1211,11 +1211,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-fast-work-reference",
-      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1228,7 +1228,7 @@
           "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-26-fast-work-throttled",
@@ -1245,11 +1245,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-down-reference",
-      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1262,7 +1262,7 @@
           "path": "profiles.reference.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-down-throttled",
@@ -1279,11 +1279,11 @@
           "path": "profiles.throttled.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-sideways-reference",
-      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1296,7 +1296,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-sideways-throttled",
@@ -1313,11 +1313,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-fast-reference",
-      "label": "Wide sheet at ~570 cells: frames that drew new cells, the fast fling",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the fast fling, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1330,7 +1330,7 @@
           "path": "profiles.reference.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-fast-throttled",
@@ -1347,11 +1347,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-down-work-reference",
-      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1364,7 +1364,7 @@
           "path": "profiles.reference.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-down-work-throttled",
@@ -1381,11 +1381,11 @@
           "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-sideways-work-reference",
-      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1398,7 +1398,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-sideways-work-throttled",
@@ -1415,11 +1415,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-fast-work-reference",
-      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1432,7 +1432,7 @@
           "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-22-fast-work-throttled",
@@ -1449,11 +1449,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-down-reference",
-      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1466,7 +1466,7 @@
           "path": "profiles.reference.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-down-throttled",
@@ -1483,11 +1483,11 @@
           "path": "profiles.throttled.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-sideways-reference",
-      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1500,7 +1500,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-sideways-throttled",
@@ -1517,11 +1517,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-fast-reference",
-      "label": "Wide sheet at ~710 cells: frames that drew new cells, the fast fling",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the fast fling, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1534,7 +1534,7 @@
           "path": "profiles.reference.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-fast-throttled",
@@ -1551,11 +1551,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-down-work-reference",
-      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1568,7 +1568,7 @@
           "path": "profiles.reference.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-down-work-throttled",
@@ -1585,11 +1585,11 @@
           "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-sideways-work-reference",
-      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1602,7 +1602,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-sideways-work-throttled",
@@ -1619,11 +1619,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-fast-work-reference",
-      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1636,7 +1636,7 @@
           "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-20-fast-work-throttled",
@@ -1653,11 +1653,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-down-reference",
-      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1670,7 +1670,7 @@
           "path": "profiles.reference.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-down-throttled",
@@ -1687,11 +1687,11 @@
           "path": "profiles.throttled.tanstack.summary.down.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-sideways-reference",
-      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1704,7 +1704,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-sideways-throttled",
@@ -1721,11 +1721,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-fast-reference",
-      "label": "Wide sheet at ~940 cells: frames that drew new cells, the fast fling",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the fast fling, reference",
       "unit": "%",
       "gate": "recorded",
       "local": [
@@ -1738,7 +1738,7 @@
           "path": "profiles.reference.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-fast-throttled",
@@ -1755,11 +1755,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-down-work-reference",
-      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1772,7 +1772,7 @@
           "path": "profiles.reference.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-down-work-throttled",
@@ -1789,11 +1789,11 @@
           "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-sideways-work-reference",
-      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1806,7 +1806,7 @@
           "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-sideways-work-throttled",
@@ -1823,11 +1823,11 @@
           "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-fast-work-reference",
-      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling, reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1840,7 +1840,7 @@
           "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-rows-18-fast-work-throttled",
@@ -1857,11 +1857,11 @@
           "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet-stops"]
     },
     {
       "id": "wide-sheet-usable-reference",
-      "label": "Wide sheet: time to first usable (~710 cells)",
+      "label": "Wide sheet: time to first usable (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1874,7 +1874,7 @@
           "path": "profiles.reference.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-usable-throttled",
@@ -1891,11 +1891,11 @@
           "path": "profiles.throttled.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-first-pixels-reference",
-      "label": "Wide sheet: first pixels (~710 cells)",
+      "label": "Wide sheet: first pixels (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1908,7 +1908,7 @@
           "path": "profiles.reference.tanstack.summary.firstPixelsMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-first-pixels-throttled",
@@ -1925,11 +1925,11 @@
           "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-data-reference",
-      "label": "Wide sheet: time to data (~710 cells)",
+      "label": "Wide sheet: time to data (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1942,7 +1942,7 @@
           "path": "profiles.reference.tanstack.summary.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-data-throttled",
@@ -1959,11 +1959,11 @@
           "path": "profiles.throttled.tanstack.summary.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-key-reference",
-      "label": "Wide sheet: key press → table moves (~710 cells)",
+      "label": "Wide sheet: key press → table moves (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -1976,7 +1976,7 @@
           "path": "profiles.reference.tanstack.summary.key.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-key-throttled",
@@ -1993,11 +1993,11 @@
           "path": "profiles.throttled.tanstack.summary.key.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-track-reference",
-      "label": "Wide sheet: scrollbar press → table moves (~710 cells)",
+      "label": "Wide sheet: scrollbar press → table moves (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -2010,7 +2010,7 @@
           "path": "profiles.reference.tanstack.summary.track.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-track-throttled",
@@ -2027,11 +2027,11 @@
           "path": "profiles.throttled.tanstack.summary.track.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-track-real-reference",
-      "label": "Wide sheet: scrollbar press → rows filled (~710 cells)",
+      "label": "Wide sheet: scrollbar press → rows filled (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -2044,7 +2044,7 @@
           "path": "profiles.reference.tanstack.summary.track.realMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-track-real-throttled",
@@ -2061,11 +2061,11 @@
           "path": "profiles.throttled.tanstack.summary.track.realMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-wheel-reference",
-      "label": "Wide sheet: wheel → table moves (~710 cells)",
+      "label": "Wide sheet: wheel → table moves (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -2078,7 +2078,7 @@
           "path": "profiles.reference.tanstack.summary.wheel.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-wheel-throttled",
@@ -2095,11 +2095,11 @@
           "path": "profiles.throttled.tanstack.summary.wheel.ms"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-wheel-real-reference",
-      "label": "Wide sheet: wheel → rows filled (~710 cells)",
+      "label": "Wide sheet: wheel → rows filled (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -2112,7 +2112,7 @@
           "path": "profiles.reference.tanstack.summary.wheel.realMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-wheel-real-throttled",
@@ -2129,11 +2129,11 @@
           "path": "profiles.throttled.tanstack.summary.wheel.realMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-reach-reference",
-      "label": "Wide sheet: End → the last row filled (~710 cells)",
+      "label": "Wide sheet: End → the last row filled (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -2146,7 +2146,7 @@
           "path": "profiles.reference.tanstack.summary.endFilledMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-reach-throttled",
@@ -2163,11 +2163,11 @@
           "path": "profiles.throttled.tanstack.summary.endFilledMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-cpu-reference",
-      "label": "Wide sheet: main-thread CPU, load and use (~710 cells)",
+      "label": "Wide sheet: main-thread CPU, load and use (~710 cells), reference",
       "unit": "ms",
       "gate": "recorded",
       "local": [
@@ -2180,7 +2180,7 @@
           "path": "profiles.reference.tanstack.summary.busyMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-cpu-throttled",
@@ -2197,11 +2197,11 @@
           "path": "profiles.throttled.tanstack.summary.busyMs"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-page-bytes-reference",
-      "label": "Wide sheet: page bytes (~710 cells)",
+      "label": "Wide sheet: page bytes (~710 cells), reference",
       "unit": "KiB",
       "gate": "recorded",
       "local": [
@@ -2214,11 +2214,11 @@
           "path": "profiles.reference.tanstack.summary.pageKiB"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-memory-open-reference",
-      "label": "Wide sheet: memory once open, after GC (~710 cells)",
+      "label": "Wide sheet: memory once open, after GC (~710 cells), reference",
       "unit": "MiB",
       "gate": "recorded",
       "local": [
@@ -2231,7 +2231,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-memory-open-throttled",
@@ -2248,11 +2248,11 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-memory-reference",
-      "label": "Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells)",
+      "label": "Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells), reference",
       "unit": "MiB",
       "gate": "recorded",
       "local": [
@@ -2265,7 +2265,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     },
     {
       "id": "wide-sheet-memory-throttled",
@@ -2282,7 +2282,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
         }
       ],
-      "show": []
+      "show": ["readme:wide-sheet"]
     }
   ]
 }

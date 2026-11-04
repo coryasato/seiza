@@ -20,7 +20,8 @@ export interface Metric {
   gate: string;
   local: Slot[];
   production?: Slot[];
-  show: ('readme' | 'plan')[];
+  /** `readme` the README's table; `readme:<name>` a table of its own, between `report:readme:<name>` markers. */
+  show: ('readme' | `readme:${string}` | 'plan')[];
   headline?: string;
 }
 

@@ -4,7 +4,9 @@
 //
 // Usage: node shared-web/scripts/report.ts [apps/<app> …] [--check]
 // With no app, every app with a perf/budgets.json. Fills, between markers:
-// - apps/<app>/README.md   <!-- report:readme:start --> … <!-- report:readme:end -->
+// - apps/<app>/README.md   <!-- report:readme:start --> … <!-- report:readme:end -->,
+//   and one table per named section a metric shows in (`show: ["readme:<name>"]`),
+//   between <!-- report:readme:<name>:start --> … <!-- report:readme:<name>:end -->
 // - apps/<app>/PLAN.md     <!-- report:plan:start --> … <!-- report:plan:end -->
 // - README.md (root)       <!-- report:headlines:start --> … <!-- report:headlines:end -->
 //   (one line per app with a budgets.json, whichever apps were named)
@@ -34,7 +36,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { format, Reporter, type Value } from './results.ts';
+import { format, type Metric, Reporter, type Value } from './results.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const check = process.argv.includes('--check');
@@ -47,10 +49,18 @@ function sourceLinks(values: Value[], linkPrefix: string): string {
   return [...new Set(values.map((v) => v.from))].map((from) => `[${basename(from, '.json')}](${linkPrefix}${from})`).join(', ');
 }
 
-function renderReadme(r: Reporter): string {
+/** The README's sections: `readme`, then each named one in the order budgets.json first shows it. */
+type Section = Metric['show'][number];
+
+function readmeSections(r: Reporter): Section[] {
+  const named = r.budgets.metrics.flatMap((m) => m.show.filter((s) => s.startsWith('readme:')));
+  return ['readme', ...new Set(named)];
+}
+
+function renderReadme(r: Reporter, section: Section): string {
   const rows: string[] = ['| Metric | Budget | Now |', '|---|---|---|'];
   const used: Value[] = [];
-  for (const metric of r.budgets.metrics.filter((m) => m.show.includes('readme'))) {
+  for (const metric of r.budgets.metrics.filter((m) => m.show.includes(section))) {
     const local = r.values(metric, 'local');
     if (local) used.push(...local);
     rows.push(`| ${metric.label} | ${r.budgetText(metric)} | ${local ? join3(local, metric.unit) : 'not measured'} |`);
@@ -92,15 +102,18 @@ function renderHeadline(r: Reporter): string {
   return `- **[${r.budgets.app}](${dir}/)**: ${parts.length ? parts.join(' · ') : 'not measured yet'}`;
 }
 
-/** Replaces what's between a marker pair; the markers must already be there. */
-function fill(path: string, marker: string, body: string, changed: string[]): void {
+/** Replaces what's between each marker pair, writing the file once; the markers must already be there. */
+function fill(path: string, sections: [marker: string, body: string][], changed: string[]): void {
   const text = readFileSync(path, 'utf8');
-  const start = `<!-- report:${marker}:start -->`;
-  const end = `<!-- report:${marker}:end -->`;
-  const i = text.indexOf(start);
-  const j = text.indexOf(end);
-  if (i < 0 || j < i) throw new Error(`${relative(root, path)}: no ${start} … ${end} markers`);
-  const next = `${text.slice(0, i + start.length)}\n${body}\n${text.slice(j)}`;
+  let next = text;
+  for (const [marker, body] of sections) {
+    const start = `<!-- report:${marker}:start -->`;
+    const end = `<!-- report:${marker}:end -->`;
+    const i = next.indexOf(start);
+    const j = next.indexOf(end);
+    if (i < 0 || j < i) throw new Error(`${relative(root, path)}: no ${start} … ${end} markers`);
+    next = `${next.slice(0, i + start.length)}\n${body}\n${next.slice(j)}`;
+  }
   if (next === text) return;
   changed.push(relative(root, path));
   if (!check) writeFileSync(path, next);
@@ -118,10 +131,10 @@ const reporters = new Map(allApps.map((dir) => [dir, new Reporter(dir)]));
 for (const dir of targets) {
   if (!reporters.has(dir)) reporters.set(dir, new Reporter(dir));
   const r = reporters.get(dir)!;
-  fill(join(dir, 'README.md'), 'readme', renderReadme(r), changed);
-  fill(join(dir, 'PLAN.md'), 'plan', renderPlan(r), changed);
+  fill(join(dir, 'README.md'), readmeSections(r).map((section) => [section, renderReadme(r, section)]), changed);
+  fill(join(dir, 'PLAN.md'), [['plan', renderPlan(r)]], changed);
 }
-fill(join(root, 'README.md'), 'headlines', [...reporters.values()].map(renderHeadline).join('\n'), changed);
+fill(join(root, 'README.md'), [['headlines', [...reporters.values()].map(renderHeadline).join('\n')]], changed);
 
 for (const r of reporters.values()) for (const warning of new Set(r.warnings)) console.warn(`warning: ${r.budgets.app}: ${warning}`);
 if (check) {
