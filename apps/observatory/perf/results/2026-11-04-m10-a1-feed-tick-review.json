@@ -1,0 +1,390 @@
+{
+  "date": "2026-11-04",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "settleMs": 1000,
+  "results": [
+    {
+      "summary": {
+        "profile": "reference",
+        "rate": 1000,
+        "fold": "objects",
+        "send": "tick",
+        "runs": 2,
+        "ticksPerSecond": 1000.5,
+        "deliveredShare": 1.001,
+        "batchesPerSecond": 1000.4,
+        "transportP50Ms": 0.278,
+        "transportP95Ms": 0.565,
+        "handlerP50Ms": 0,
+        "handlerP95Ms": 0.005,
+        "handlerUsPerTick": 2.203,
+        "handlerMsPerSecond": 2.205,
+        "genP50Ms": null,
+        "mainBusyMsPerSecond": 35.48,
+        "workerBusyMsPerSecond": 27.86,
+        "gcPerTenSeconds": 8,
+        "gcTotalMs": 8.08,
+        "gcLongestMs": 1.665,
+        "minorFreedMiBPerSecond": 0.55,
+        "digests": [
+          "593060a5"
+        ]
+      },
+      "runs": [
+        {
+          "ticksPerSecond": 1000,
+          "deliveredShare": 1,
+          "batchesPerSecond": 999.5,
+          "ticksPerBatch": {
+            "n": 9999,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 9998,
+            "p50": 0.029999732971191406,
+            "p95": 16.170000076293945,
+            "max": 20.670000076293945
+          },
+          "transportMs": {
+            "n": 9999,
+            "p50": 0.2750968933105469,
+            "p95": 0.5949211120605469,
+            "max": 2.0950489044189453
+          },
+          "handlerMs": {
+            "n": 9999,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.11999988555908203
+          },
+          "handlerUsPerTick": 2.188,
+          "handlerMsPerSecond": 2.19,
+          "genMs": null,
+          "mainBusyMsPerSecond": 35.97,
+          "workerBusyMsPerSecond": 27.91,
+          "gc": {
+            "minor": 8,
+            "major": 0,
+            "perTenSeconds": 8,
+            "totalMs": 9.14,
+            "longestMs": 2.21,
+            "minorFreedMiBPerSecond": 0.55
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": []
+        },
+        {
+          "ticksPerSecond": 1001,
+          "deliveredShare": 1.001,
+          "batchesPerSecond": 1001.3,
+          "ticksPerBatch": {
+            "n": 10017,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 10016,
+            "p50": 0.029999732971191406,
+            "p95": 16.199999809265137,
+            "max": 20.725000381469727
+          },
+          "transportMs": {
+            "n": 10017,
+            "p50": 0.2799415588378906,
+            "p95": 0.5349903106689453,
+            "max": 2.2350969314575195
+          },
+          "handlerMs": {
+            "n": 10017,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.08999919891357422
+          },
+          "handlerUsPerTick": 2.218,
+          "handlerMsPerSecond": 2.22,
+          "genMs": null,
+          "mainBusyMsPerSecond": 34.99,
+          "workerBusyMsPerSecond": 27.81,
+          "gc": {
+            "minor": 8,
+            "major": 0,
+            "perTenSeconds": 8,
+            "totalMs": 7.02,
+            "longestMs": 1.12,
+            "minorFreedMiBPerSecond": 0.55
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": []
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "reference",
+        "rate": 5000,
+        "fold": "objects",
+        "send": "tick",
+        "runs": 2,
+        "ticksPerSecond": 4999.5,
+        "deliveredShare": 1,
+        "batchesPerSecond": 4999.4,
+        "transportP50Ms": 0.835,
+        "transportP95Ms": 1.735,
+        "handlerP50Ms": 0,
+        "handlerP95Ms": 0.005,
+        "handlerUsPerTick": 1.417,
+        "handlerMsPerSecond": 7.085,
+        "genP50Ms": null,
+        "mainBusyMsPerSecond": 134.45,
+        "workerBusyMsPerSecond": 75.02,
+        "gcPerTenSeconds": 8.5,
+        "gcTotalMs": 26.86,
+        "gcLongestMs": 6.705,
+        "minorFreedMiBPerSecond": 2.105,
+        "digests": [
+          "593060a5"
+        ]
+      },
+      "runs": [
+        {
+          "ticksPerSecond": 5000,
+          "deliveredShare": 1,
+          "batchesPerSecond": 5000.2,
+          "ticksPerBatch": {
+            "n": 50023,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 50022,
+            "p50": 0.025000572204589844,
+            "p95": 0.04500007629394531,
+            "max": 20.395000457763672
+          },
+          "transportMs": {
+            "n": 50023,
+            "p50": 0.8449802398681641,
+            "p95": 1.7351465225219727,
+            "max": 2.925058364868164
+          },
+          "handlerMs": {
+            "n": 50023,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.1399993896484375
+          },
+          "handlerUsPerTick": 1.413,
+          "handlerMsPerSecond": 7.07,
+          "genMs": null,
+          "mainBusyMsPerSecond": 135.37,
+          "workerBusyMsPerSecond": 75.76,
+          "gc": {
+            "minor": 8,
+            "major": 0,
+            "perTenSeconds": 8,
+            "totalMs": 26.55,
+            "longestMs": 6.23,
+            "minorFreedMiBPerSecond": 2.04
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": []
+        },
+        {
+          "ticksPerSecond": 4999,
+          "deliveredShare": 1,
+          "batchesPerSecond": 4998.6,
+          "ticksPerBatch": {
+            "n": 50007,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 50006,
+            "p50": 0.025000572204589844,
+            "p95": 0.04500007629394531,
+            "max": 20.225000381469727
+          },
+          "transportMs": {
+            "n": 50007,
+            "p50": 0.8252630233764648,
+            "p95": 1.7350873947143555,
+            "max": 3.135321617126465
+          },
+          "handlerMs": {
+            "n": 50007,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.11499977111816406
+          },
+          "handlerUsPerTick": 1.421,
+          "handlerMsPerSecond": 7.1,
+          "genMs": null,
+          "mainBusyMsPerSecond": 133.53,
+          "workerBusyMsPerSecond": 74.28,
+          "gc": {
+            "minor": 9,
+            "major": 0,
+            "perTenSeconds": 9,
+            "totalMs": 27.17,
+            "longestMs": 7.18,
+            "minorFreedMiBPerSecond": 2.17
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": []
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "reference",
+        "rate": 20000,
+        "fold": "objects",
+        "send": "tick",
+        "runs": 2,
+        "ticksPerSecond": 19988,
+        "deliveredShare": 1,
+        "batchesPerSecond": 19988,
+        "transportP50Ms": 2.005,
+        "transportP95Ms": 4.12,
+        "handlerP50Ms": 0,
+        "handlerP95Ms": 0.005,
+        "handlerUsPerTick": 0.583,
+        "handlerMsPerSecond": 11.645,
+        "genP50Ms": null,
+        "mainBusyMsPerSecond": 289.06,
+        "workerBusyMsPerSecond": 133.35,
+        "gcPerTenSeconds": 13.5,
+        "gcTotalMs": 29.62,
+        "gcLongestMs": 4.115,
+        "minorFreedMiBPerSecond": 2.435,
+        "digests": [
+          "593060a5"
+        ]
+      },
+      "runs": [
+        {
+          "ticksPerSecond": 19995,
+          "deliveredShare": 1,
+          "batchesPerSecond": 19995.2,
+          "ticksPerBatch": {
+            "n": 200026,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 200025,
+            "p50": 0.015000343322753906,
+            "p95": 0.020000457763671875,
+            "max": 22.510000228881836
+          },
+          "transportMs": {
+            "n": 200026,
+            "p50": 1.9049510955810547,
+            "p95": 4.064999580383301,
+            "max": 5.889853477478027
+          },
+          "handlerMs": {
+            "n": 200026,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.08500003814697266
+          },
+          "handlerUsPerTick": 0.555,
+          "handlerMsPerSecond": 11.1,
+          "genMs": null,
+          "mainBusyMsPerSecond": 284.43,
+          "workerBusyMsPerSecond": 134.33,
+          "gc": {
+            "minor": 3,
+            "major": 10,
+            "perTenSeconds": 13,
+            "totalMs": 25.26,
+            "longestMs": 4.09,
+            "minorFreedMiBPerSecond": 1.29
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": []
+        },
+        {
+          "ticksPerSecond": 19981,
+          "deliveredShare": 0.999,
+          "batchesPerSecond": 19980.8,
+          "ticksPerBatch": {
+            "n": 199905,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 199904,
+            "p50": 0.015000343322753906,
+            "p95": 0.020000457763671875,
+            "max": 20.734999656677246
+          },
+          "transportMs": {
+            "n": 199905,
+            "p50": 2.1048927307128906,
+            "p95": 4.174981117248535,
+            "max": 7.56494140625
+          },
+          "handlerMs": {
+            "n": 199905,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.08500003814697266
+          },
+          "handlerUsPerTick": 0.61,
+          "handlerMsPerSecond": 12.19,
+          "genMs": null,
+          "mainBusyMsPerSecond": 293.69,
+          "workerBusyMsPerSecond": 132.37,
+          "gc": {
+            "minor": 6,
+            "major": 8,
+            "perTenSeconds": 14,
+            "totalMs": 33.98,
+            "longestMs": 4.14,
+            "minorFreedMiBPerSecond": 3.58
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": []
+        }
+      ]
+    }
+  ]
+}

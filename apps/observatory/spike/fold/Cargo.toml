@@ -1,0 +1,19 @@
+# The feed spike's Rust fold (throwaway; market watch's feed path): a batch folded into
+# plain buffers, built to raw wasm (no wasm-bindgen) and loaded by feed.ts.
+# A workspace of its own, outside the repo's.
+[package]
+name = "feed-fold-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[workspace]
+
+[profile.release]
+opt-level = 3
+lto = true
+panic = "abort"

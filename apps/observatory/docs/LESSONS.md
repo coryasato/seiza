@@ -212,3 +212,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - A scenario with a dial makes its README's numbers outgrow one table. The wide sheet's are per stop or once, and one table under Big file's would have read as one comparison. `report` now renders named sections, one table each with its own sources.
 - A summary written from one scroll's numbers can be wrong for another. The README's first draft said GPUI's work per frame was lower past the first stop. That held for the scroll down and the fast fling but not sideways on a fast device, which the README didn't show. A claim needs every number it covers on screen beside it.
 - The heaviest burst isn't the heaviest visit. Turning the wide sheet's dial through every stop on both sides sends the most requests in all, but each stop waits for its frame to fill, so its busiest 10 s holds fewer than five quick reloads of one route.
+
+## M10 part A1: the feed, its path, and the data (2026-11-04)
+
+**Results:** [`perf/results/2026-11-04-m10-a1.md`](../perf/results/2026-11-04-m10-a1.md)
+
+**Surprises:**
+- The research expected DuckDB's update rate to cap the dial. The dial was flat before the engine mattered: batched once a frame onto 50 rows, every visible row changes every frame from ~5k updates/s, so the UI's work stops growing there whatever path the feed takes. The tall table's own feed had already said so ("the rates saturate early"). Only folding every tick into each side's store makes the rate matter.
+- Folding the ticks is cheap on both sides, garbage included. An idiomatic JS store at 50k updates/s spends under 9 ms a second and collects 61 times in 10 s, each pause under 1 ms. Mechanism B shows up as a count, not yet as a cost; whether it costs frames is in the drawing, A2's spike.
+- On a page that draws nothing, CPU throttling made short tasks read faster: ~¼ of the reference's time at 4×, scaling with the rate. It isn't the clock, since a long busy loop slowed a true 4×. Read idle-page microbenchmarks as counts and ratios only, and give any timed page a busy-loop control under throttling.
+- Four of the spike's first 25 made-up tickers were real (JNPR, STRL, VRSK, UPLD). "Fictional" needs a check against the exchanges' listings, not a writer's guess.
+- The design's fonts limit its glyphs: IBM Plex Sans has `↑` and `↓` but no `▲` or `▼`, so a design that reaches for triangles can't be drawn on the GPUI side.

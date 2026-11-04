@@ -35,6 +35,8 @@ apps/*/data/drop/
 apps/*/data/bench/
 # The wide-grid spike's values, exported from the wide sheet's file (spike/wide-data.ts)
 apps/observatory/spike/public/wide/
+# The feed spike's Rust fold, built from spike/fold/ (feed-run.ts builds it)
+apps/observatory/spike/public/fold/
 
 # DuckDB extensions, downloaded and checked against pinned hashes (engines/duckdb/web/duckdb-extensions.json)
 apps/*/web/public/duckdb-ext/

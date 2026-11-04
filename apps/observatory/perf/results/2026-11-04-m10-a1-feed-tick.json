@@ -1,0 +1,402 @@
+{
+  "date": "2026-11-04",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "settleMs": 1000,
+  "results": [
+    {
+      "summary": {
+        "profile": "reference",
+        "rate": 1000,
+        "fold": "objects",
+        "send": "tick",
+        "runs": 2,
+        "ticksPerSecond": 1000,
+        "deliveredShare": 1,
+        "batchesPerSecond": 999.8,
+        "transportP50Ms": 0.535,
+        "transportP95Ms": 1.142,
+        "handlerP50Ms": 0,
+        "handlerP95Ms": 0.01,
+        "handlerUsPerTick": 2.368,
+        "handlerMsPerSecond": 2.37,
+        "genP50Ms": null,
+        "mainBusyMsPerSecond": 68.57,
+        "workerBusyMsPerSecond": 56.7,
+        "gcPerTenSeconds": 7.5,
+        "gcTotalMs": 6.57,
+        "gcLongestMs": 1.21,
+        "minorFreedMiBPerSecond": 0.56,
+        "digests": [
+          "593060a5"
+        ]
+      },
+      "runs": [
+        {
+          "ticksPerSecond": 1000,
+          "deliveredShare": 1,
+          "batchesPerSecond": 1000.1,
+          "ticksPerBatch": {
+            "n": 10004,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 10003,
+            "p50": 0.029999732971191406,
+            "p95": 16.09999942779541,
+            "max": 21.414999961853027
+          },
+          "transportMs": {
+            "n": 10004,
+            "p50": 0.5200881958007812,
+            "p95": 1.1549415588378906,
+            "max": 2.224912643432617
+          },
+          "handlerMs": {
+            "n": 10004,
+            "p50": 0,
+            "p95": 0.009999275207519531,
+            "max": 0.06999969482421875
+          },
+          "handlerUsPerTick": 2.375,
+          "handlerMsPerSecond": 2.38,
+          "genMs": null,
+          "mainBusyMsPerSecond": 68.81,
+          "workerBusyMsPerSecond": 55.67,
+          "gc": {
+            "minor": 7,
+            "major": 0,
+            "perTenSeconds": 7,
+            "totalMs": 6.12,
+            "longestMs": 1.21,
+            "minorFreedMiBPerSecond": 0.58
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": [
+            "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          ]
+        },
+        {
+          "ticksPerSecond": 1000,
+          "deliveredShare": 1,
+          "batchesPerSecond": 999.5,
+          "ticksPerBatch": {
+            "n": 9999,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 9998,
+            "p50": 0.029999732971191406,
+            "p95": 16.139999389648438,
+            "max": 20.93000030517578
+          },
+          "transportMs": {
+            "n": 9999,
+            "p50": 0.5498247146606445,
+            "p95": 1.1298151016235352,
+            "max": 2.2247467041015625
+          },
+          "handlerMs": {
+            "n": 9999,
+            "p50": 0,
+            "p95": 0.009999275207519531,
+            "max": 0.11999988555908203
+          },
+          "handlerUsPerTick": 2.361,
+          "handlerMsPerSecond": 2.36,
+          "genMs": null,
+          "mainBusyMsPerSecond": 68.33,
+          "workerBusyMsPerSecond": 57.73,
+          "gc": {
+            "minor": 8,
+            "major": 0,
+            "perTenSeconds": 8,
+            "totalMs": 7.02,
+            "longestMs": 1.21,
+            "minorFreedMiBPerSecond": 0.54
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": [
+            "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          ]
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "reference",
+        "rate": 5000,
+        "fold": "objects",
+        "send": "tick",
+        "runs": 2,
+        "ticksPerSecond": 5005,
+        "deliveredShare": 1.001,
+        "batchesPerSecond": 5004.9,
+        "transportP50Ms": 1.593,
+        "transportP95Ms": 3.263,
+        "handlerP50Ms": 0,
+        "handlerP95Ms": 0.005,
+        "handlerUsPerTick": 1.424,
+        "handlerMsPerSecond": 7.125,
+        "genP50Ms": null,
+        "mainBusyMsPerSecond": 250.895,
+        "workerBusyMsPerSecond": 140.475,
+        "gcPerTenSeconds": 10,
+        "gcTotalMs": 28.475,
+        "gcLongestMs": 7.565,
+        "minorFreedMiBPerSecond": 2.365,
+        "digests": [
+          "593060a5"
+        ]
+      },
+      "runs": [
+        {
+          "ticksPerSecond": 5008,
+          "deliveredShare": 1.002,
+          "batchesPerSecond": 5007.7,
+          "ticksPerBatch": {
+            "n": 50125,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 50124,
+            "p50": 0.024999618530273438,
+            "p95": 0.04500007629394531,
+            "max": 20.31999969482422
+          },
+          "transportMs": {
+            "n": 50125,
+            "p50": 1.550185203552246,
+            "p95": 3.180243492126465,
+            "max": 5.4102630615234375
+          },
+          "handlerMs": {
+            "n": 50125,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.16499996185302734
+          },
+          "handlerUsPerTick": 1.388,
+          "handlerMsPerSecond": 6.95,
+          "genMs": null,
+          "mainBusyMsPerSecond": 243.08,
+          "workerBusyMsPerSecond": 139.68,
+          "gc": {
+            "minor": 10,
+            "major": 0,
+            "perTenSeconds": 10,
+            "totalMs": 28.63,
+            "longestMs": 7.93,
+            "minorFreedMiBPerSecond": 2.36
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": [
+            "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          ]
+        },
+        {
+          "ticksPerSecond": 5002,
+          "deliveredShare": 1,
+          "batchesPerSecond": 5002.1,
+          "ticksPerBatch": {
+            "n": 50038,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 50037,
+            "p50": 0.025000572204589844,
+            "p95": 0.05000019073486328,
+            "max": 21.8100004196167
+          },
+          "transportMs": {
+            "n": 50038,
+            "p50": 1.6351957321166992,
+            "p95": 3.345078468322754,
+            "max": 13.415273666381836
+          },
+          "handlerMs": {
+            "n": 50038,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.14500045776367188
+          },
+          "handlerUsPerTick": 1.46,
+          "handlerMsPerSecond": 7.3,
+          "genMs": null,
+          "mainBusyMsPerSecond": 258.71,
+          "workerBusyMsPerSecond": 141.27,
+          "gc": {
+            "minor": 10,
+            "major": 0,
+            "perTenSeconds": 10,
+            "totalMs": 28.32,
+            "longestMs": 7.2,
+            "minorFreedMiBPerSecond": 2.37
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": [
+            "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          ]
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "reference",
+        "rate": 20000,
+        "fold": "objects",
+        "send": "tick",
+        "runs": 2,
+        "ticksPerSecond": 20007,
+        "deliveredShare": 1,
+        "batchesPerSecond": 20006.8,
+        "transportP50Ms": 3.5,
+        "transportP95Ms": 6.985,
+        "handlerP50Ms": 0,
+        "handlerP95Ms": 0.005,
+        "handlerUsPerTick": 0.564,
+        "handlerMsPerSecond": 11.275,
+        "genP50Ms": null,
+        "mainBusyMsPerSecond": 552.48,
+        "workerBusyMsPerSecond": 251.445,
+        "gcPerTenSeconds": 14,
+        "gcTotalMs": 29.18,
+        "gcLongestMs": 3.795,
+        "minorFreedMiBPerSecond": 2.315,
+        "digests": [
+          "593060a5"
+        ]
+      },
+      "runs": [
+        {
+          "ticksPerSecond": 19990,
+          "deliveredShare": 0.999,
+          "batchesPerSecond": 19989.5,
+          "ticksPerBatch": {
+            "n": 199953,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 199952,
+            "p50": 0.015000343322753906,
+            "p95": 0.020000457763671875,
+            "max": 18.630000114440918
+          },
+          "transportMs": {
+            "n": 199953,
+            "p50": 3.5300683975219727,
+            "p95": 7.019902229309082,
+            "max": 13.105029106140137
+          },
+          "handlerMs": {
+            "n": 199953,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.05999946594238281
+          },
+          "handlerUsPerTick": 0.582,
+          "handlerMsPerSecond": 11.64,
+          "genMs": null,
+          "mainBusyMsPerSecond": 557.41,
+          "workerBusyMsPerSecond": 252,
+          "gc": {
+            "minor": 3,
+            "major": 10,
+            "perTenSeconds": 13,
+            "totalMs": 26.91,
+            "longestMs": 3.7,
+            "minorFreedMiBPerSecond": 1.3
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": [
+            "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          ]
+        },
+        {
+          "ticksPerSecond": 20024,
+          "deliveredShare": 1.001,
+          "batchesPerSecond": 20024.1,
+          "ticksPerBatch": {
+            "n": 200330,
+            "p50": 1,
+            "p95": 1,
+            "max": 1
+          },
+          "batchGapMs": {
+            "n": 200329,
+            "p50": 0.015000343322753906,
+            "p95": 0.020000457763671875,
+            "max": 19.210000038146973
+          },
+          "transportMs": {
+            "n": 200330,
+            "p50": 3.4697656631469727,
+            "p95": 6.949736595153809,
+            "max": 12.334951400756836
+          },
+          "handlerMs": {
+            "n": 200330,
+            "p50": 0,
+            "p95": 0.005000114440917969,
+            "max": 0.07999992370605469
+          },
+          "handlerUsPerTick": 0.545,
+          "handlerMsPerSecond": 10.91,
+          "genMs": null,
+          "mainBusyMsPerSecond": 547.55,
+          "workerBusyMsPerSecond": 250.89,
+          "gc": {
+            "minor": 5,
+            "major": 10,
+            "perTenSeconds": 15,
+            "totalMs": 31.45,
+            "longestMs": 3.89,
+            "minorFreedMiBPerSecond": 3.33
+          },
+          "digest": {
+            "ticks": 2000,
+            "digest": "593060a5"
+          },
+          "problems": [
+            "Failed to load resource: the server responded with a status of 404 (Not Found)"
+          ]
+        }
+      ]
+    }
+  ]
+}
