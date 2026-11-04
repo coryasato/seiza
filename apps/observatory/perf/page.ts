@@ -80,10 +80,34 @@ import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
 import { BIG_FILE, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
-import { COMPONENTS, ROUTES, scenarioPath } from '../web/src/components.ts';
+import { COMPONENTS, millions, ROUTES, scenarioPath } from '../web/src/components.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
 import { resolveCold } from '../web/cold.ts';
-import { BARS, CARDS, PROFILES as DEVICE_PROFILES, cardOutcome, cardValues, downloadTotal, evenSentence, number, outcome, size, verdict, wins, winsSentence } from '../web/src/readouts.ts';
+import {
+  BARS,
+  CARDS,
+  PROFILES as DEVICE_PROFILES,
+  READY,
+  WIDE_CARDS,
+  WIDE_STOP_CARDS,
+  cardOutcome,
+  cardValues,
+  coldKey,
+  downloadTotal,
+  evenSentence,
+  keepsVerdict,
+  measuredWith,
+  number,
+  outcome,
+  size,
+  verdict,
+  wins,
+  winsOf,
+  winsSentence,
+  withUnit,
+  type Card,
+  type ScenarioCold,
+} from '../web/src/readouts.ts';
 import { METER_KEY } from '../web/src/meter.ts';
 import { SIDEBAR_KEY, SIDEBAR_SCRIM, SIDEBAR_SCRIPT, SIDEBAR_TOGGLE } from '../web/src/sidebar.ts';
 import { budgetLimits, pageWebDir, perfDir, problems, protocolContext, servePage } from './harness.ts';
@@ -786,7 +810,7 @@ async function meter(url: string): Promise<Record<string, unknown>> {
  */
 async function readouts(url: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
-  const { numbers: cold } = resolveCold();
+  const cold = resolveCold().numbers.scenarios[BIG_FILE.id]!;
   const html = readFileSync(join(dist, `${ROUTE.slice(OBSERVATORY.length)}index.html`), 'utf8');
   expect(html.includes('class="observatory-status"'), "the status bar's box isn't in the prerendered HTML");
   for (const attribute of ['data-status-ready', 'data-card', 'data-description']) expect(!html.includes(attribute), `${attribute} is in the prerendered HTML: it renders after first paint`);
@@ -917,7 +941,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
       const want = verdict(outcomes[0]!, outcomes[1]!, card.word, card.ratio);
       expect(panel[card.key]?.verdict === want, `${card.key}: the verdict "${panel[card.key]?.verdict}", the numbers say "${want}"`);
     }
-    const totals = (['gpui', 'tanstack'] as const).map((side) => downloadTotal(side, cold.parts)) as [number, number];
+    const totals = (['gpui', 'tanstack'] as const).map((side) => downloadTotal(side, cold.parts, BIG_FILE)) as [number, number];
     const download = verdict(outcome(totals, 'lower'), null, 'smaller', true);
     expect(panel.download?.verdict === download && JSON.stringify(panel.download.cold.reference!.map((value) => value.text)) === JSON.stringify(totals.map((total) => size(total).split(' ')[0])), `Download: ${JSON.stringify(panel.download)}, the numbers say ${download}, ${totals}`);
     const chart = await page.locator('[aria-label="From your input to the table moving"]').innerText();
@@ -963,6 +987,12 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     // The README's credit is typed: held to the same.
     expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids:** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
     console.log(`credit: ${credit} (the page's and the README's)`);
+    const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
+    const blocks = await page.locator('[data-description] h2').allTextContents();
+    const order = ['What you’re looking at', `Why ${millions(cold.rows)} rows`, 'Where each side wins', 'Where the canvas falls short', 'Other scenarios'];
+    expect(JSON.stringify(blocks) === JSON.stringify(order), `Big file's description's blocks: ${JSON.stringify(blocks)}`);
+    expect((await page.locator('[data-measured]').count()) === 0, "Big file's description says what it was measured with, though its results predate the versions");
     expect(found.length === 0, `page problems: ${found.join('; ')}`);
     await context.close();
 
@@ -987,6 +1017,190 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect(await small.getByText('one way at a time').isVisible(), "a phone's description doesn't say GPUI's touch limit");
     await phone.close();
     console.log("phone: Smooth and Memory in a 44 px bar, the rest in the overflow; hover opens nothing, a tap does; the overflow opens the panel; the touch limit in the description");
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/** A card's cold values as the panel shows them, per device, and its verdict. */
+async function panelCard(page: Page, key: string) {
+  return page.locator(`[data-card="${key}"]`).evaluate((card) => ({
+    verdict: card.querySelector('[data-verdict]')!.textContent,
+    note: card.querySelector('[data-card-note]')?.textContent ?? null,
+    cold: Object.fromEntries(
+      ['reference', 'throttled'].map((profile) => [profile, [...card.querySelectorAll<HTMLElement>(`[data-cold-${profile}]`)].map((value) => ({ text: value.firstChild!.textContent, best: value.textContent!.endsWith('best') }))]),
+    ),
+  }));
+}
+
+/** A card's shown values, "best", and verdict at a stop, against the numbers. */
+async function checkCard(page: Page, card: Card, values: ScenarioCold['values'], stop: string, what: string) {
+  const shown = await panelCard(page, card.key);
+  const outcomes = DEVICE_PROFILES.map((profile) => cardOutcome(card, values, profile, stop));
+  DEVICE_PROFILES.forEach((profile, index) => {
+    const want = cardValues(card, values, profile, stop).map(number);
+    const got = shown.cold[profile]!;
+    expect(JSON.stringify(got.map((value) => value.text)) === JSON.stringify(want), `${what} ${card.key} ${profile}: shows ${JSON.stringify(got)}, results say ${want}`);
+    const winner = outcomes[index]!.winner;
+    expect(JSON.stringify(got.map((value) => value.best)) === JSON.stringify([winner === 'gpui', winner === 'tanstack']), `${what} ${card.key} ${profile}: "best" on ${JSON.stringify(got)}, the winner ${winner}`);
+  });
+  const want = verdict(outcomes[0]!, outcomes[1]!, card.word, card.ratio);
+  expect(shown.verdict === want, `${what} ${card.key}: the verdict "${shown.verdict}", the numbers say "${want}"`);
+  return shown;
+}
+
+/**
+ * The wide sheet's numbers: the status bar's cold values at the window's
+ * stop, the panel's keeps-up verdict and charts, the stops under them
+ * picking the cards' stop without reloading the frame, the cards at it,
+ * the card for what no stop changes, and the description (its wins, the
+ * data's credit, license, and citation, the versions, the other
+ * scenarios), all from perf/results/.
+ */
+async function wideReadouts(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const cold = resolveCold().numbers.scenarios[WIDE_SHEET.id]!;
+  const { values } = cold;
+  const gpuiWide = contenderBase('tall-table', 'gpui', 'wide');
+  const stopOf = (id: string) => WIDE_SHEET.stops.find((candidate) => candidate.id === id)!;
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, gpuiWide);
+    await waitEnabled(page, 'the wide sheet');
+    await page.waitForSelector('[data-status-ready]');
+
+    // The status bar's cold values, at the window's stop for Smooth.
+    const atStop = async (stop: string) => {
+      const seen: Record<string, string> = {};
+      for (const card of WIDE_CARDS) {
+        await page.mouse.move(0, 0);
+        await page.waitForTimeout(300);
+        await page.locator(`[data-segment="${card.key}"]`).hover();
+        const text = (await popovers(page).textContent()) ?? '';
+        const at = card.perStop ? ` at ${stopOf(stop).label}` : '';
+        const [gpui, tanstack] = cardValues(card, values, 'reference', stop);
+        const want = [`Cold, GPUI${at}${withUnit(gpui, card.unit)}`, `Cold, TanStack${at}${withUnit(tanstack, card.unit)}`];
+        expect(want.every((line) => text.includes(line)), `${card.key}'s explainer at ${stop}: ${JSON.stringify(text)}, the numbers say ${JSON.stringify(want)}`);
+        seen[card.key] = want.join(', ');
+      }
+      await page.mouse.move(0, 0);
+      return seen;
+    };
+    out.statusBar = await atStop(WIDE_SHEET.defaultStop);
+    console.log(`wide sheet's status bar: the cold values ${JSON.stringify(out.statusBar)}`);
+
+    // The panel at the window's stop.
+    const heading = () => page.locator('[data-stop-heading] h3').textContent();
+    const pressed = () => page.locator('[data-pick][aria-pressed="true"]').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('data-pick')));
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-card="keeps"]').waitFor();
+    expect((await page.locator('[data-panel-header] h2').textContent()) === `How they compare: ${WIDE_SHEET.label}`, "the panel's title doesn't name the wide sheet");
+    const keeps = await page.locator('[data-card="keeps"] [data-verdict]').textContent();
+    expect(keeps === keepsVerdict(WIDE_SHEET, values), `the keeps-up verdict "${keeps}", the numbers say "${keepsVerdict(WIDE_SHEET, values)}"`);
+    for (const profile of DEVICE_PROFILES) {
+      const label = (await page.locator(`[data-keeps-chart="${profile}"] svg`).first().getAttribute('aria-label')) ?? '';
+      for (const side of [0, 1] as const) {
+        const shares = WIDE_SHEET.stops.map((stop) => number(values[coldKey('keeps', profile, stop.id)]![side])).join(', ');
+        expect(label.includes(`${side ? 'TanStack' : 'GPUI'} ${shares} %`), `the ${profile} chart's label: ${label}; the numbers say ${shares}`);
+      }
+    }
+    out.keeps = keeps;
+    console.log(`panel: ${keeps}; both charts' shares from perf/results/`);
+    const checkStop = async (stop: string, what: string) => {
+      expect((await heading()) === `At ${stopOf(stop).label}`, `${what}: the cards' heading "${await heading()}"`);
+      expect(JSON.stringify(await pressed()) === JSON.stringify([stop, stop]), `${what}: the charts' pressed stops ${JSON.stringify(await pressed())}`);
+      const cards: Record<string, unknown> = {};
+      for (const card of WIDE_STOP_CARDS) {
+        const shown = await checkCard(page, card, values, stop, what);
+        const note = card.perStop || stop === WIDE_SHEET.defaultStop ? null : `Measured once, at ${stopOf(WIDE_SHEET.defaultStop).label}, the default stop`;
+        expect(shown.note === note, `${what} ${card.key}'s note: ${JSON.stringify(shown.note)}`);
+        cards[card.key] = shown.verdict;
+      }
+      return cards;
+    };
+    out.atDefault = await checkStop(WIDE_SHEET.defaultStop, 'the window’s stop');
+    // What no stop changes: Ready in on both devices, and Download.
+    const once = await page.locator('[data-card="once"]').evaluate((card) => ({
+      verdict: card.querySelector('[data-verdict]')!.textContent,
+      reference: [...card.querySelectorAll('[data-cold-reference]')].map((value) => value.firstChild!.textContent),
+      throttled: [...card.querySelectorAll('[data-cold-throttled]')].map((value) => value.firstChild!.textContent),
+      download: [...card.querySelectorAll('[data-download]')].map((value) => value.firstChild!.textContent),
+    }));
+    const ready = DEVICE_PROFILES.map((profile) => cardOutcome(READY, values, profile));
+    const totals = (['gpui', 'tanstack'] as const).map((side) => downloadTotal(side, cold.parts, WIDE_SHEET)) as [number, number];
+    const onceVerdict = `Ready in: ${verdict(ready[0]!, ready[1]!, READY.word, READY.ratio)}. Download: ${verdict(outcome(totals, 'lower'), null, 'smaller', true)}.`;
+    expect(once.verdict === onceVerdict, `the card for every stop: "${once.verdict}", the numbers say "${onceVerdict}"`);
+    for (const profile of DEVICE_PROFILES) expect(JSON.stringify(once[profile]) === JSON.stringify(cardValues(READY, values, profile).map(number)), `Ready in ${profile}: ${JSON.stringify(once[profile])}`);
+    expect(JSON.stringify(once.download) === JSON.stringify(totals.map((total) => size(total).split(' ')[0])), `Download: ${JSON.stringify(once.download)}, the numbers say ${totals}`);
+    out.once = once.verdict;
+    console.log(`panel at ${WIDE_SHEET.defaultStop}: ${JSON.stringify(out.atDefault)}; ${once.verdict}`);
+
+    // A stop under the charts picks the cards' stop; the frame stays.
+    const frame = await page.locator('iframe').elementHandle();
+    const src = await frameSrc(page);
+    await page.locator('[data-keeps-chart="throttled"] [data-pick="rows-26"]').click();
+    out.atPicked = await checkStop('rows-26', 'a picked stop');
+    expect((await frame!.evaluate((element) => element.isConnected)) && (await frameSrc(page)) === src, 'picking a stop in the panel reloaded the frame');
+    expect(new URL(page.url()).search === '', `picking a stop in the panel wrote the URL: ${page.url()}`);
+    console.log(`panel: a stop under the charts shows the cards at rows-26 (${JSON.stringify(out.atPicked)}), memory noted as measured once; the frame and the URL unchanged`);
+
+    // The dial's stop, with the panel open and another stop picked in it:
+    // the cards follow the window's new stop, and so does the status bar.
+    await page.locator('[data-dial] [data-stop="rows-18"]').click();
+    await page.waitForFunction(() => document.querySelector('iframe')?.getAttribute('src')?.includes('stop=rows-18'), null, { timeout: 5_000 });
+    await waitEnabled(page, 'GPUI at rows-18');
+    await checkStop('rows-18', 'the dial at rows-18, the panel open');
+    expect((await page.locator('[data-stop-heading]').textContent())?.includes('this window’s stop') === true, "after the dial, the panel's cards aren't at the window's stop");
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+    await page.waitForSelector('[data-status-ready]');
+    out.statusBarAt18 = await atStop('rows-18');
+    console.log("dial: at rows-18, the panel open on rows-26, the cards move to rows-18; the status bar's Smooth is rows-18's");
+
+    // The description, from the same numbers.
+    await page.locator('[data-description]').waitFor();
+    const won = winsOf(WIDE_SHEET, cold);
+    const sentences = await page.locator('[data-wins] li').allTextContents();
+    const want = [...(['gpui', 'tanstack'] as const).filter((side) => won[side].length).map((side) => winsSentence(side, won[side])), ...(won.even.length ? [evenSentence(won.even)] : [])];
+    expect(JSON.stringify(sentences) === JSON.stringify(want), `the wide sheet's wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
+    const credit = await page.locator('[data-credit]').textContent();
+    expect(credit === `Data: ${cold.credit}. ${cold.license}.` && /cut from its data/.test(credit ?? ''), `the wide sheet's credit: ${JSON.stringify(credit)}`);
+    const citation = await page.locator('[data-citation]').textContent();
+    expect(!!cold.citation && citation === `Its citation: ${cold.citation}`, `the wide sheet's citation: ${JSON.stringify(citation)}`);
+    const measured = await page.locator('[data-measured]').textContent();
+    expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions) && cold.versions.every(([, list]) => list.length === 1), `"measured with": ${JSON.stringify(measured)}, the results say ${JSON.stringify(cold.versions)}`);
+    const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
+    out.wins = sentences;
+    out.measured = measured;
+    // The other scenarios carry the route's `?side=`, as the sidebar's and the crumb's links do.
+    await page.goto(`${url}?side=tanstack`);
+    await page.locator('[data-others] a').first().click();
+    await page.waitForURL((target) => target.pathname === ROUTE);
+    expect(new URL(page.url()).search === '?side=tanstack', `the description's link to Big file from ?side=tanstack: ${page.url()}`);
+    console.log(`description: ${sentences.join(' ')} ${credit} ${measured} Other scenarios: ${others.join(', ')}`);
+    const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
+    expect(teardown.length <= 1, `${teardown.length} aborted reads logged in 1 frame torn down`);
+    const rest = found.filter((problem) => !teardown.includes(problem));
+    expect(rest.length === 0, `page problems: ${rest.join('; ')}`);
+    await context.close();
+
+    // A phone: the overflow's Compare opens the panel, its five cards.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForSelector('[data-status-ready]');
+    await small.getByRole('button', { name: 'More numbers' }).tap();
+    await small.getByRole('menuitem', { name: 'Compare with cold runs' }).tap();
+    await small.locator('[data-card]').first().waitFor({ timeout: 5_000 }).catch(() => {});
+    expect((await small.locator('[data-card]').count()) === 5, `a phone's panel has ${await small.locator('[data-card]').count()} cards`);
+    await phone.close();
+    console.log("phone: the overflow's Compare opens the wide sheet's panel, its five cards");
   } finally {
     await browser.close();
   }
@@ -1325,6 +1539,7 @@ try {
     readOut = await readouts(url);
     readOut.meter = await meter(url);
     readOut.scenarios = await scenarios(new URL(WIDE_ROUTE, url).href);
+    readOut.wide = await wideReadouts(new URL(WIDE_ROUTE, url).href);
   }
   const shots = option('shots');
   if (shots) await screenshots(url, shots);

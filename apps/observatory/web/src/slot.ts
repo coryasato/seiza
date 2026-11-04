@@ -37,7 +37,7 @@ import rows from 'virtual:data-rows';
 import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
 import { FONTS } from '../../contenders/paths.ts';
 import { SCENARIO_PARAM, type DensityStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { hasCold, scenarioCopy, SIDE_PARAM, STOP_PARAM, type Component, type Contender } from './components.ts';
+import { hasCold, isDensity, scenarioCopy, SIDE_PARAM, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { cached, frameMark, isWarm, trackFrame, warmth } from './live.ts';
 import { loadMetrics } from './metrics.ts';
@@ -67,11 +67,8 @@ function firstStop(scenario: Scenario): Stop {
   return stopsOf(scenario).find((stop) => stop.id === named) ?? defaultStop(scenario);
 }
 
-const isDensity = (stop: Stop): stop is DensityStop => 'cells' in stop;
-
-/** A stop as the dial names it ("~710"), and what it sets. */
-const stopShort = (stop: Stop) => (isDensity(stop) ? `~${stop.cells}` : stop.label);
-const stopSets = (stop: Stop) => (isDensity(stop) ? `${stop.rowHeight} px rows · ${stop.columnWidth} px days · ${stop.textSize} px text` : '');
+/** What a stop sets, in its title and the dial's explainer. */
+export const stopSets = (stop: Stop): string => (isDensity(stop) ? `${stop.rowHeight} px rows · ${stop.columnWidth} px days · ${stop.textSize} px text` : '');
 
 /**
  * About how many cells a wide sheet's stop shows in a stage of `width` ×
@@ -262,13 +259,13 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
           })
         : null,
       painted && shown ? h(Suspense, { fallback: null }, h(Meter, { side: shown.side, panel })) : null,
-      panel ? h(Suspense, { fallback: null }, h(Panel, { id: PANEL_ID, contenders: component.contenders, onClose: closePanel })) : null,
+      panel ? h(Suspense, { fallback: null }, h(Panel, { id: PANEL_ID, contenders: component.contenders, scenario, stop, onClose: closePanel })) : null,
     ),
     h(
       'div',
       { 'data-status-bar': '', className: 'observatory-status' },
       painted && shown
-        ? h(Suspense, { fallback: null }, h(StatusBar, { shown, panel, togglePanel: () => (panel ? closePanel() : setPanel(true)), rows: fileRows, coldReady: hasCold(scenario) }))
+        ? h(Suspense, { fallback: null }, h(StatusBar, { shown, scenario, stop, panel, togglePanel: () => (panel ? closePanel() : setPanel(true)), rows: fileRows, coldReady: hasCold(scenario) }))
         : null,
     ),
   );

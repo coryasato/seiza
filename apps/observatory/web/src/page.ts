@@ -30,7 +30,7 @@ import {
 import { SiteShell } from '@seiza/site-ui/shell';
 import { OBSERVATORY } from '../../contenders/paths.ts';
 import type { Scenario } from '../../contenders/scenarios.ts';
-import { COMPONENTS, hasCold, routeAt, scenarioPath, SIDE_PARAM, type Component, type Route } from './components.ts';
+import { COMPONENTS, hasCold, routeAt, SCENARIO_LINK, scenarioPath, SIDE_PARAM, type Component, type Route } from './components.ts';
 import { Explainer } from './explainer.ts';
 import { bindSidebar, SIDEBAR_SCRIM, SIDEBAR_TOGGLE } from './sidebar.ts';
 import { afterFirstPaint } from './paint.ts';
@@ -38,8 +38,7 @@ import { ContenderSlot, seriesDot } from './slot.ts';
 
 /** The attribute holding the route the HTML was rendered for. */
 export const ROUTE_ATTRIBUTE = 'data-route';
-/** A link to a scenario from a scenario's route, which carries `?side=` (`carrySide`). */
-export const SCENARIO_LINK = 'data-scenario-link';
+export { SCENARIO_LINK } from './components.ts';
 
 const SIDEBAR_ID = 'observatory-sidebar';
 
@@ -290,7 +289,7 @@ function DescriptionSlot({ component, scenario }: { component: Component; scenar
   const [painted, setPainted] = useState(false);
   useEffect(() => afterFirstPaint(() => setPainted(true)), []);
   const shown = painted && hasCold(scenario);
-  return h('div', { 'data-numbers': '' }, shown ? h(Suspense, { fallback: null }, h(Description, { contenders: component.contenders })) : null);
+  return h('div', { 'data-numbers': '' }, shown ? h(Suspense, { fallback: null }, h(Description, { component, scenario })) : null);
 }
 
 function Comparison({ component, scenario }: { component: Component; scenario: Scenario }) {

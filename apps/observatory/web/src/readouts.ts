@@ -1,16 +1,20 @@
 /**
- * What the page's numbers show (`docs/DECISIONS.md`, "Page"): the window's
- * status bar segments and the panel's cards, each a metric of
- * `perf/budgets.json` with its reading in this tab; the input-to-response
- * chart, cold only; the Download card's parts, each a value in
- * `perf/results/`; and the words that compare them (each card's verdict,
- * the description's "where each side wins"). Pure: the build's plugin
- * (`../cold.ts`) and `perf/page.ts` read it too.
+ * What the page's numbers show (`docs/DECISIONS.md`, "Page"), per scenario:
+ * the window's status bar segments and the panel's cards, each a metric of
+ * `perf/budgets.json` with its reading in this tab; Big file's
+ * input-to-response chart, cold only; a scenario with stops' keeps-up
+ * charts and its cards at a stop; the Download card's parts, each a value
+ * in `perf/results/`; and the words that compare them (each card's
+ * verdict, the keeps-up verdict, the description's "where each side
+ * wins"). Pure: the build's plugin (`../cold.ts`) and `perf/page.ts` read
+ * it too.
  */
 
-import type { LiveReadings } from '../../metrics/metrics.ts';
+import { KEEPS_UP_SHARE, SCROLLS, type LiveReadings } from '../../metrics/metrics.ts';
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
+import { BIG_FILE, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { stopShort } from './components.ts';
 
 export type Profile = 'reference' | 'throttled';
 export const PROFILES: Profile[] = ['reference', 'throttled'];
@@ -19,10 +23,15 @@ export const PROFILES: Profile[] = ['reference', 'throttled'];
 export const DEVICES: Record<Profile, string> = { reference: 'Fast device', throttled: 'Slow device' };
 
 export interface Card {
-  /** The segment's and the card's key, and its explainer's. */
-  key: 'usable' | 'data' | 'smooth' | 'memory';
-  /** A `perf/budgets.json` metric, less its profile: `<metric>-<profile>`. */
+  /** The segment's and the card's key, and its explainer's: a status bar
+   *  card's one of `SEGMENTS`. */
+  key: string;
+  /** A `perf/budgets.json` metric, less its scenario's prefix and its
+   *  profile (`<metric>-<profile>`), and its stop's (`<stop>-<metric>-…`)
+   *  when `perStop`. */
   metric: string;
+  /** Measured at each of the scenario's stops. */
+  perStop?: boolean;
   /** The status bar's label, and the card's. */
   segment: string;
   label: string;
@@ -31,14 +40,18 @@ export interface Card {
   /** The cold value as shown: Smoothness is the frames on time, 100 less the
    *  late share. The verdict judges the metric as measured (`cardOutcome`). */
   shown: (cold: number) => number;
+  /** The value the verdict judges, lower is better: the metric as measured,
+   *  unless measured higher-is-better (a share of frames drawn). */
+  judged?: (cold: number) => number;
   /** The verdict's word for the winner ("TanStack 3.4× faster"). */
   word: string;
   /** Whether the verdict says how many times: not for a share. */
   ratio: boolean;
-  /** Its reading in this tab, as shown, or null where there's none yet. */
-  live: (readings: LiveReadings) => number | null;
+  /** Its reading in this tab, as shown, or null where there's none yet;
+   *  none for a card with no reading in this tab (its row left out). */
+  live?: (readings: LiveReadings) => number | null;
   /** Said in this tab before there's a reading: "—" in the status bar. */
-  waiting: string;
+  waiting?: string;
   /** Under the card's label, above the cold values (the fast device's caption). */
   caption?: string;
   /** The explainer: what the number means, then how it's measured. */
@@ -111,6 +124,86 @@ export const CARDS: Card[] = [
   },
 ];
 
+/** The status bar's segments, in order: every scenario's cards have these keys. */
+export const SEGMENTS = CARDS.map((card) => card.key);
+
+const card = (key: string): Card => CARDS.find((candidate) => candidate.key === key)!;
+const drawn = (cold: number) => 100 - cold;
+const { down, sideways, fast } = SCROLLS;
+const px = (value: number) => Math.abs(value).toLocaleString('en-US');
+
+/** The wide sheet's status bar: Big file's vocabulary, its cold numbers
+ *  the scenario's (Smooth at the window's stop, as "keeps up" reads it). */
+export const WIDE_CARDS: Card[] = [
+  { ...card('usable'), metric: 'usable' },
+  { ...card('data'), metric: 'data' },
+  {
+    ...card('smooth'),
+    metric: 'keeps',
+    perStop: true,
+    shown: (cold) => cold,
+    judged: drawn,
+    caption: undefined,
+    explain:
+      `The share of frames on time while you scroll: a frame is late when it takes longer than one and a half of your display’s frames. Counted on the page’s own thread. Cold: the share of the display’s frames that drew new cells in a steady scroll at this stop, down (${px(down.speed)} px/s) and sideways (${px(sideways.speed)} px/s), the slower of the two.`,
+  },
+  {
+    ...card('memory'),
+    metric: 'memory',
+    caption: 'After reading the file and a sideways session',
+    explain:
+      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: after both read the whole file, then scroll across every day and back five times, at the default stop; this tab’s is now, after your scrolling.',
+  },
+];
+
+/** The wide sheet's cards at a stop, under its keeps-up charts: the fast
+ *  fling, work per frame, and memory (measured once, at the default stop). */
+export const WIDE_STOP_CARDS: Card[] = [
+  {
+    key: 'fling',
+    metric: 'fast',
+    perStop: true,
+    segment: 'Smooth',
+    label: 'Smoothness',
+    unit: '%',
+    better: 'higher',
+    shown: (cold) => cold,
+    judged: drawn,
+    word: 'smoother',
+    ratio: false,
+    caption: 'A fast fling',
+    explain: `The share of the display’s frames that drew new cells in a fast fling down: ${px(fast.y)} px at ${px(fast.speed)} px/s, past what a steady scroll asks. Not part of “keeps up”: a fling this fast is a jump, not reading.`,
+  },
+  {
+    key: 'work',
+    metric: 'down-work',
+    perStop: true,
+    segment: 'Work',
+    label: 'Work per frame',
+    unit: 'ms',
+    better: 'lower',
+    shown: (cold) => cold,
+    word: 'less work',
+    ratio: true,
+    caption: 'Scrolling down, p95',
+    explain: `The main thread’s time in each frame that drew new cells, the 95th percentile, in the steady scroll down (${px(down.speed)} px/s): its layout, its drawing, and GPUI’s present. Past one display frame, frames are skipped.`,
+  },
+  { ...WIDE_CARDS.find((card) => card.key === 'memory')!, caption: 'After the sideways session' },
+];
+
+/** A scenario's status bar cards. */
+export const cardsOf = (scenario: Scenario): Card[] => numbersOf(scenario).cards;
+
+/** A scenario's metrics' prefix in `perf/budgets.json`: none for the base
+ *  level's, whose results are Big file's (`resultLabel`). */
+export const metricPrefix = (scenario: Scenario): string => (scenario.level === 'base' ? '' : `${scenario.id}-`);
+
+/** A cold value's key in a scenario's numbers: its metric less the
+ *  scenario's prefix, its stop's first when measured per stop. */
+export const coldKey = (metric: string, profile: Profile, stop?: string): string => (stop ? `${stop}-${metric}-${profile}` : `${metric}-${profile}`);
+const cardKey = (card: Card, profile: Profile, stop?: string) => coldKey(card.metric, profile, card.perStop ? stop : undefined);
+
+
 /** The chart's rows: input to visible response, cold. `native`: the rows a
  *  DOM side answers by the browser's own scrolling, which the CPU throttle
  *  doesn't slow (the chart's footnote). */
@@ -131,8 +224,26 @@ export const CHART_DEVICE: Profile = 'reference';
 /** The chart's fixed scale, ms: both devices on one. */
 export const CHART_MS = 50;
 
-/** Every budgets.json metric the page shows. */
-export const METRICS = [...CARDS, ...BARS].flatMap(({ metric }) => PROFILES.map((profile) => `${metric}-${profile}`));
+/** Every budgets.json metric a scenario's page shows, each with its key
+ *  in the scenario's numbers (`coldKey`). */
+export function metricsOf(scenario: Scenario): { id: string; key: string }[] {
+  const { once, perStop } = numbersOf(scenario);
+  const keys = [...once.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile))), ...scenario.stops.flatMap((stop) => perStop.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile, stop.id))))];
+  return keys.map((key) => ({ id: `${metricPrefix(scenario)}${key}`, key }));
+}
+
+/** The values a scenario's numbers derive from the measured ones: at each
+ *  stop, "keeps up"'s share, the slower of the steady scrolls (`keepsUp`). */
+export function derive(scenario: Scenario, values: ScenarioCold['values']): ScenarioCold['values'] {
+  if (!numbersOf(scenario).stopCards) return values;
+  const out = { ...values };
+  for (const stop of scenario.stops)
+    for (const profile of PROFILES) {
+      const [d, w] = [values[coldKey('down', profile, stop.id)]!, values[coldKey('sideways', profile, stop.id)]!];
+      out[coldKey('keeps', profile, stop.id)] = [Math.min(d[0], w[0]), Math.min(d[1], w[1])];
+    }
+  return out;
+}
 
 /** The Download card: each side's page as fetched, brotli, by file and
  *  part (`metric memory`'s wire bytes, `gpui-parts`' wasm by crate,
@@ -145,7 +256,7 @@ export interface Part {
   within?: boolean;
 }
 
-const wire = (side: Side, kind: string): Source => ({ glob: '*-memory.json', path: `profiles.reference.${side}.summary.bytesKiB.${kind}` });
+const wire = (side: Side, kind: string, glob = '*-memory.json'): Source => ({ glob, path: `profiles.reference.${side}.summary.bytesKiB.${kind}` });
 const crate = (index: number, part: string): Source => ({ glob: '*-gpui-parts.json', path: `parts.${index}.brotliKiB`, where: { [`parts.${index}.part`]: part } });
 
 export const PART_SOURCES: Record<string, Source> = {
@@ -184,19 +295,71 @@ export const PARTS: Record<Side, Part[]> = {
   ],
 };
 
-/** The cold numbers, resolved at build time (`virtual:cold-numbers`). */
-export interface ColdNumbers {
-  /** Each metric's GPUI and TanStack medians. */
+/** A scenario's page as fetched, by file alone, from its memory run at its
+ *  default stop (`metric memory` on its level's builds): Big file's files,
+ *  their parts within them left out, which only Big file's builds are split
+ *  into. */
+const filesOf = (scenario: Scenario): { parts: Record<Side, Part[]>; sources: Record<string, Source> } => {
+  const glob = `*-memory-${scenario.id}-${scenario.defaultStop}.json`;
+  const parts = Object.fromEntries((['gpui', 'tanstack'] as const).map((side) => [side, PARTS[side].filter((part) => !part.within)])) as Record<Side, Part[]>;
+  const sources = Object.fromEntries(Object.values(parts).flatMap((list) => list.map((part) => { const [side, kind] = part.id.split('.') as [Side, string]; return [part.id, wire(side, kind, glob)]; })));
+  return { parts, sources };
+};
+
+/** What a scenario's page shows of its numbers: its status bar cards, its
+ *  metrics measured once and at each stop (`metricsOf`), its Download
+ *  parts, and, for a scenario with stops, its cards at a stop under the
+ *  keeps-up charts (Big file's panel without them: its cards and chart). */
+interface ScenarioNumbers {
+  cards: Card[];
+  once: string[];
+  perStop: string[];
+  parts: Record<Side, Part[]>;
+  sources: Record<string, Source>;
+  stopCards?: Card[];
+}
+
+const NUMBERS: Record<string, ScenarioNumbers> = {
+  [BIG_FILE.id]: { cards: CARDS, once: [...CARDS, ...BARS].map(({ metric }) => metric), perStop: [], parts: PARTS, sources: PART_SOURCES },
+  [WIDE_SHEET.id]: { cards: WIDE_CARDS, once: ['usable', 'data', 'memory'], perStop: ['down', 'sideways', 'fast', 'down-work'], ...filesOf(WIDE_SHEET), stopCards: WIDE_STOP_CARDS },
+};
+
+/** A scenario's numbers' shape; a scenario without one fails the build (`cold.ts`). */
+export function numbersOf(scenario: Scenario): ScenarioNumbers {
+  const numbers = NUMBERS[scenario.id];
+  if (!numbers) throw new Error(`no numbers for scenario ${scenario.id} (readouts.ts)`);
+  return numbers;
+}
+
+/** A scenario's Download parts and where each is measured. */
+export const partSourcesOf = (scenario: Scenario): Record<string, Source> => numbersOf(scenario).sources;
+export const partsOf = (scenario: Scenario): Record<Side, Part[]> => numbersOf(scenario).parts;
+
+/** A scenario's cold numbers, resolved at build time. */
+export interface ScenarioCold {
+  /** Each metric's GPUI and TanStack medians, by `coldKey`, with the
+   *  values `derive` adds. */
   values: Record<string, [number, number]>;
   /** The Download card's parts, KiB. */
   parts: Record<string, number>;
   /** The data file's rows (`data/MANIFEST.json`). */
   rows: number;
-  /** The data file's credit (`data/MANIFEST.json`). */
+  /** The data file's credit, license, and citation (`data/MANIFEST.json`). */
   credit: string;
+  license: string | null;
+  citation: string | null;
   /** The metrics' results files' runs per median, and machine. */
   runs: number[];
   cpus: string[];
+  /** What the results were measured with (`machineInfo().versions`), each
+   *  package's versions across the files; empty unless every file records them. */
+  versions: [string, string[]][];
+}
+
+/** The cold numbers, resolved at build time (`virtual:cold-numbers`): each
+ *  scenario's with them (`hasCold`). */
+export interface ColdNumbers {
+  scenarios: Record<string, ScenarioCold>;
 }
 
 // ---------------------------------------------------------------- words
@@ -252,16 +415,21 @@ export function verdict(fast: Outcome, slow: Outcome | null, word: string, ratio
  * card's lower-is-better (Smoothness's late share, not the share on time
  * it shows: 2% against 6% late is no tie, though 98 against 94 is within 5%).
  */
-export const cardOutcome = (card: Card, values: ColdNumbers['values'], profile: Profile): Outcome => outcome(values[`${card.metric}-${profile}`]!, 'lower');
+export const cardOutcome = (card: Card, values: ScenarioCold['values'], profile: Profile, stop?: string): Outcome => {
+  const judged = card.judged ?? ((cold: number) => cold);
+  const [gpui, tanstack] = values[cardKey(card, profile, stop)]!;
+  return outcome([judged(gpui), judged(tanstack)], 'lower');
+};
 
-/** A card's cold values as shown, per device. */
-export const cardValues = (card: Card, values: ColdNumbers['values'], profile: Profile): [number, number] => {
-  const [gpui, tanstack] = values[`${card.metric}-${profile}`]!;
+/** A card's cold values as shown, per device (at `stop` for a card measured per stop). */
+export const cardValues = (card: Card, values: ScenarioCold['values'], profile: Profile, stop?: string): [number, number] => {
+  const [gpui, tanstack] = values[cardKey(card, profile, stop)]!;
   return [card.shown(gpui), card.shown(tanstack)];
 };
 
 /** Each side's Download total, KiB: its files, not the parts within them. */
-export const downloadTotal = (side: Side, parts: ColdNumbers['parts']): number => PARTS[side].filter((part) => !part.within).reduce((total, part) => total + parts[part.id]!, 0);
+export const downloadTotal = (side: Side, parts: ScenarioCold['parts'], scenario: Scenario): number =>
+  partsOf(scenario)[side].filter((part) => !part.within).reduce((total, part) => total + parts[part.id]!, 0);
 
 /** What each side wins and what's even, for the description below the window. */
 export interface Wins {
@@ -282,28 +450,32 @@ export const evenSentence = (even: string[]) => `Even: ${join(even)}.`;
  * input, by the fast device (`CHART_DEVICE`): the throttle doesn't slow the
  * rows the browser's own scrolling answers, and the panel shows both.
  */
-export function wins(cold: ColdNumbers): Wins {
+/** A comparison credited to its winner by both devices, as its verdict
+ *  reads; to "even" when neither device has one. */
+const creditor = (out: Wins) => (fast: Outcome, slow: Outcome | null, won: string, even: string) => {
+  if (!fast.winner && !slow?.winner) return void out.even.push(even);
+  if (slow && fast.winner && slow.winner && fast.winner !== slow.winner) {
+    out[fast.winner].push(`${won} on a fast device`);
+    out[slow.winner].push(`${won} on a slow device`);
+  } else if (!fast.winner) out[slow!.winner!].push(`${won} on a slow device`);
+  // As the verdict says "· even on a slow device".
+  else if (slow && !slow.winner) out[fast.winner].push(`${won} on a fast device`);
+  else out[fast.winner].push(won);
+};
+
+export function wins(cold: ScenarioCold): Wins {
   const out: Wins = { gpui: [], tanstack: [], even: [] };
-  const credit = (fast: Outcome, slow: Outcome | null, won: string, even: string) => {
-    if (!fast.winner && !slow?.winner) return void out.even.push(even);
-    if (slow && fast.winner && slow.winner && fast.winner !== slow.winner) {
-      out[fast.winner].push(`${won} on a fast device`);
-      out[slow.winner].push(`${won} on a slow device`);
-    } else if (!fast.winner) out[slow!.winner!].push(`${won} on a slow device`);
-    // As the verdict says "· even on a slow device".
-    else if (slow && !slow.winner) out[fast.winner].push(`${won} on a fast device`);
-    else out[fast.winner].push(won);
-  };
-  const download = outcome([downloadTotal('gpui', cold.parts), downloadTotal('tanstack', cold.parts)], 'lower');
+  const credit = creditor(out);
+  const download = outcome([downloadTotal('gpui', cold.parts, BIG_FILE), downloadTotal('tanstack', cold.parts, BIG_FILE)], 'lower');
   credit(download, null, 'downloads less', 'the download');
-  const said: Record<Card['key'], [string, string]> = {
+  const said: Record<string, [string, string]> = {
     usable: ['is ready sooner', 'ready'],
     data: ['puts rows on screen sooner after opening', 'rows on screen after opening'],
     smooth: ['stays smoother', 'smoothness'],
     memory: ['holds less memory', 'memory'],
   };
   for (const card of CARDS) {
-    const [won, even] = said[card.key];
+    const [won, even] = said[card.key]!;
     credit(cardOutcome(card, cold.values, 'reference'), cardOutcome(card, cold.values, 'throttled'), won, even);
   }
   // The chart: per side, the inputs after which it moves the table, or fills its rows, sooner.
@@ -323,10 +495,116 @@ export function wins(cold: ColdNumbers): Wins {
 }
 
 /** The chart's note on the wheel rows: which side moves first, which fills first. */
-export function wheelNote(values: ColdNumbers['values']): string {
+export function wheelNote(values: ScenarioCold['values']): string {
   const moves = outcome(values['wheel-reference']!, 'lower').winner;
   const fills = outcome(values['wheel-real-reference']!, 'lower').winner;
   const name = (side: Side | null) => (side ? LABELS[side] : 'Neither');
   if (moves && moves === fills) return `The wheel rows: ${name(moves)} moves first and fills the rows first.`;
   return `The wheel rows: ${moves ? `${name(moves)} moves first` : 'both move together'}; ${fills ? `${name(fills)} fills the rows first` : 'both fill the rows together'}.`;
+}
+
+// ---------------------------------------------------------------- a scenario's stops
+
+/** Whether a side keeps up at a stop: "keeps up"'s share at or over the
+ *  dashed line (`KEEPS_UP_SHARE`, `derive`'s `keeps`). */
+export const keepsUpAt = (values: ScenarioCold['values'], side: Side, profile: Profile, stop: string): boolean =>
+  values[coldKey('keeps', profile, stop)]![side === 'gpui' ? 0 : 1] >= KEEPS_UP_SHARE * 100;
+
+/** How far a side keeps up: the index of the last stop in the dial's
+ *  first run of stops it keeps up at, -1 at none. */
+export function reachOf(scenario: Scenario, values: ScenarioCold['values'], side: Side, profile: Profile): number {
+  let last = -1;
+  for (const [index, stop] of (scenario.stops as readonly Stop[]).entries()) {
+    if (!keepsUpAt(values, side, profile, stop.id)) break;
+    last = index;
+  }
+  return last;
+}
+
+/**
+ * The keeps-up verdict over both devices: "TanStack keeps up to ~380
+ * cells; GPUI keeps up at every stop, to ~940 · on a slow device, neither
+ * keeps up at any stop". The side that keeps up less is named first; the
+ * stops' unit is said once.
+ */
+export function keepsVerdict(scenario: Scenario, values: ScenarioCold['values']): string {
+  const stops = scenario.stops as readonly Stop[];
+  let unit = true;
+  const to = (index: number) => {
+    const stop = stops[index]!;
+    const text = unit ? stop.label : stopShort(stop);
+    unit = false;
+    return text;
+  };
+  const reach = (index: number) => (index < 0 ? 'keeps up at no stop' : index === stops.length - 1 ? `keeps up at every stop, to ${to(index)}` : `keeps up to ${to(index)}`);
+  const device = (profile: Profile) => {
+    const [gpui, tanstack] = SIDES.map((side) => reachOf(scenario, values, side, profile)) as [number, number];
+    if (gpui === tanstack) {
+      if (gpui < 0) return 'neither keeps up at any stop';
+      return `both ${reach(gpui).replace('keeps', 'keep')}`;
+    }
+    const [first, second] = gpui < tanstack ? (['gpui', 'tanstack'] as const) : (['tanstack', 'gpui'] as const);
+    const of = { gpui, tanstack };
+    return `${LABELS[first]} ${reach(of[first])}; ${LABELS[second]} ${reach(of[second])}`;
+  };
+  const fast = device('reference');
+  const slow = device('throttled');
+  return `${fast.charAt(0).toUpperCase()}${fast.slice(1)} · on a slow device, ${slow}`;
+}
+
+/** The keeps-up comparison on one device, for "where each side wins":
+ *  the side that keeps up at more stops. */
+const reachOutcome = (scenario: Scenario, values: ScenarioCold['values'], profile: Profile): Outcome => {
+  const [gpui, tanstack] = SIDES.map((side) => reachOf(scenario, values, side, profile));
+  return { winner: gpui === tanstack ? null : gpui! > tanstack! ? 'gpui' : 'tanstack', times: 1 };
+};
+
+/** The wide sheet's card for what no stop changes: Ready in, by device. */
+export const READY = WIDE_CARDS.find((card) => card.key === 'usable')!;
+
+/**
+ * Where each side wins in a scenario with stops, from the panel's numbers:
+ * how far each keeps up, the cards at the default stop (the dial's
+ * first), Ready in, and Download.
+ */
+export function stopWins(scenario: Scenario, cold: ScenarioCold): Wins {
+  const out: Wins = { gpui: [], tanstack: [], even: [] };
+  const credit = creditor(out);
+  const both = (card: Card, stop?: string): [Outcome, Outcome] => [cardOutcome(card, cold.values, 'reference', stop), cardOutcome(card, cold.values, 'throttled', stop)];
+  credit(reachOutcome(scenario, cold.values, 'reference'), reachOutcome(scenario, cold.values, 'throttled'), 'keeps up with more cells on screen', 'how far each keeps up');
+  const said: Record<string, [string, string]> = {
+    fling: ['stays smoother in a fast fling', 'a fast fling'],
+    work: ['spends less time on each frame', 'the time each frame takes'],
+    memory: ['holds less memory', 'memory'],
+  };
+  for (const card of numbersOf(scenario).stopCards ?? []) credit(...both(card, scenario.defaultStop), ...said[card.key]!);
+  credit(...both(READY), 'is ready sooner', 'ready');
+  const download = outcome([downloadTotal('gpui', cold.parts, scenario), downloadTotal('tanstack', cold.parts, scenario)], 'lower');
+  credit(download, null, 'downloads less', 'the download');
+  return out;
+}
+
+/** Where each side wins in a scenario. */
+export const winsOf = (scenario: Scenario, cold: ScenarioCold): Wins => (numbersOf(scenario).stopCards ? stopWins(scenario, cold) : wins(cold));
+
+// ---------------------------------------------------------------- measured with
+
+/** Each measured package as the page names it, in this order. */
+export const PACKAGES: [string, string][] = [
+  ['gpui-kit', 'gpui-kit'],
+  ['react', 'React'],
+  ['@tanstack/react-virtual', 'TanStack Virtual'],
+  ['apache-arrow', 'Apache Arrow'],
+  ['@duckdb/duckdb-wasm', 'DuckDB-Wasm'],
+  ['chromium', 'Chromium'],
+];
+
+/** "Measured with gpui-kit 0.9.0 · React 19.3.1 · …", or null where any
+ *  of the results predates the versions. */
+export function measuredWith(versions: ScenarioCold['versions']): string | null {
+  if (!versions.length) return null;
+  const of = new Map(versions);
+  return `Measured with ${PACKAGES.filter(([name]) => of.has(name))
+    .map(([name, label]) => `${label} ${of.get(name)!.join(' and ')}`)
+    .join(' · ')}.`;
 }

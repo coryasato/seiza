@@ -179,3 +179,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - The load's explainer can't say what M8 drew for the engine and the data. DuckDB's worker fetches its bundles and reads the file, and a worker's requests never reach the frame's Resource Timing, so "fetched or from your cache" is knowable only for the app and the font.
 - A switch made right after a fill tears down a frame mid-read, and the dying worker logs the aborted range request as a failure. The base level's flip never showed it because its first page arrives in one quick read; the wide sheet's 4-request pages leave reads in flight longer.
 - A check's "seen" list emptied between steps lost its own last entry, so the next load's first state read as a repeat of "Ready". A recorder that's drained needs its last value kept apart from what it hands out.
+
+## M9 part E2: the numbers per scenario (2026-11-04)
+
+[Results](../perf/results/2026-11-04-m9-e2.md).
+
+- M8's keeps-up chart ran from 50 to 100 %, drawn from sketch numbers. The measured slow device sits at 17–62 %, so its lines would have been clipped off the bottom of the chart. A chart's axis gets set from the results, not from the mock.
+- An SVG drawn in one fixed viewBox scales its text with the card: in a 530 px card the axis labels came out half again as large as the page's. Each point's x as a share of the width, at a fixed height, keeps the text at the page's size. But a polyline's points can't be percentages, so the lines are drawn as segments.
+- The status bar's Smooth shows two readings under one name: this tab's frames on time, and the cold runs' frames that drew new cells. The explainer has to name both, because the scenario's measure never was the base's.
+

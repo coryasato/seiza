@@ -31,7 +31,10 @@ preview:
 # reference + throttled, median of 10; nothing but its HTML, CSS, entry, and
 # font before first paint, the frame and the metrics module after it; the
 # toggle disabled until the shown contender fills, a flip destroying the
-# frame, ?side=, and the theme into both contenders live. --check: reference
+# frame, ?side=, and the theme into both contenders live; each scenario's
+# status bar, Compare panel, and description against perf/results/ (the
+# wide sheet's at two stops, its panel's stops picking its cards' stop).
+# --check: reference
 # only, against perf/baseline.json (perf/budgets.json's limits); --runs,
 # --label, --write-baseline, --reference-only. Run `just observatory
 # gpui-build`, `tanstack-build`, and `build` first.

@@ -1042,6 +1042,1247 @@
       "show": [
         "readme"
       ]
+    },
+    {
+      "id": "wide-sheet-rows-26-down-reference",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-down-throttled",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-sideways-reference",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-sideways-throttled",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-fast-reference",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the fast fling",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-fast-throttled",
+      "label": "Wide sheet at ~380 cells: frames that drew new cells, the fast fling, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-down-work-reference",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-down-work-throttled",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-sideways-work-reference",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-sideways-work-throttled",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-fast-work-reference",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-fast-work-throttled",
+      "label": "Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-down-reference",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-down-throttled",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-sideways-reference",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-sideways-throttled",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-fast-reference",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the fast fling",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-fast-throttled",
+      "label": "Wide sheet at ~570 cells: frames that drew new cells, the fast fling, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-down-work-reference",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-down-work-throttled",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-sideways-work-reference",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-sideways-work-throttled",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-fast-work-reference",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-fast-work-throttled",
+      "label": "Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-down-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-down-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-sideways-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-sideways-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-fast-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the fast fling",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-fast-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew new cells, the fast fling, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-down-work-reference",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-down-work-throttled",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-sideways-work-reference",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-sideways-work-throttled",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-fast-work-reference",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-fast-work-throttled",
+      "label": "Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-down-reference",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-down-throttled",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.down.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.down.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-sideways-reference",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-sideways-throttled",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.sideways.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-fast-reference",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the fast fling",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-fast-throttled",
+      "label": "Wide sheet at ~940 cells: frames that drew new cells, the fast fling, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.fast.drewPct"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.fast.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-down-work-reference",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-down-work-throttled",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.down.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.down.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-sideways-work-reference",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-sideways-work-throttled",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.sideways.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.sideways.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-fast-work-reference",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-fast-work-throttled",
+      "label": "Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.fast.workP95Ms"
+        },
+        {
+          "glob": "*-scroll-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.fast.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-usable-reference",
+      "label": "Wide sheet: time to first usable (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-usable-throttled",
+      "label": "Wide sheet: time to first usable (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-first-pixels-reference",
+      "label": "Wide sheet: first pixels (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-first-pixels-throttled",
+      "label": "Wide sheet: first pixels (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-data-reference",
+      "label": "Wide sheet: time to data (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-data-throttled",
+      "label": "Wide sheet: time to data (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-key-reference",
+      "label": "Wide sheet: key press → table moves (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.key.ms"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.key.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-key-throttled",
+      "label": "Wide sheet: key press → table moves (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.key.ms"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.key.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-track-reference",
+      "label": "Wide sheet: scrollbar press → table moves (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.track.ms"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.track.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-track-throttled",
+      "label": "Wide sheet: scrollbar press → table moves (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.track.ms"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.track.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-track-real-reference",
+      "label": "Wide sheet: scrollbar press → rows filled (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.track.realMs"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.track.realMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-track-real-throttled",
+      "label": "Wide sheet: scrollbar press → rows filled (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.track.realMs"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.track.realMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-wheel-reference",
+      "label": "Wide sheet: wheel → table moves (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.wheel.ms"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.wheel.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-wheel-throttled",
+      "label": "Wide sheet: wheel → table moves (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.wheel.ms"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.wheel.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-wheel-real-reference",
+      "label": "Wide sheet: wheel → rows filled (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.wheel.realMs"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.wheel.realMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-wheel-real-throttled",
+      "label": "Wide sheet: wheel → rows filled (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.wheel.realMs"
+        },
+        {
+          "glob": "*-response-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.wheel.realMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-reach-reference",
+      "label": "Wide sheet: End → the last row filled (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-reach-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.endFilledMs"
+        },
+        {
+          "glob": "*-reach-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.endFilledMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-reach-throttled",
+      "label": "Wide sheet: End → the last row filled (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-reach-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.endFilledMs"
+        },
+        {
+          "glob": "*-reach-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.endFilledMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-cpu-reference",
+      "label": "Wide sheet: main-thread CPU, load and use (~710 cells)",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.busyMs"
+        },
+        {
+          "glob": "*-cost-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.busyMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-cpu-throttled",
+      "label": "Wide sheet: main-thread CPU, load and use (~710 cells), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.busyMs"
+        },
+        {
+          "glob": "*-cost-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.busyMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-page-bytes-reference",
+      "label": "Wide sheet: page bytes (~710 cells)",
+      "unit": "KiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-cost-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.pageKiB"
+        },
+        {
+          "glob": "*-cost-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.pageKiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-memory-open-reference",
+      "label": "Wide sheet: memory once open, after GC (~710 cells)",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-memory-open-throttled",
+      "label": "Wide sheet: memory once open, after GC (~710 cells), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-memory-reference",
+      "label": "Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells)",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-memory-throttled",
+      "label": "Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": []
     }
   ]
 }

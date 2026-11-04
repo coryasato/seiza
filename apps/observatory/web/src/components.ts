@@ -15,7 +15,7 @@
 
 import type { Side } from '../../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../../contenders/paths.ts';
-import { BIG_FILE, SCENARIOS, type Level, type Scenario } from '../../contenders/scenarios.ts';
+import { BIG_FILE, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 
 export interface Contender {
   side: Side;
@@ -81,10 +81,24 @@ export const COMPONENTS: Component[] = [
   },
 ];
 
-/** Whether the page has a scenario's cold numbers (`cold.ts` resolves Big
- *  file's): without them its status bar has no cold rows, its Compare is
- *  off, and it has no description. */
-export const hasCold = (scenario: Scenario): boolean => scenario.id === BIG_FILE.id;
+/** The scenarios whose cold numbers the page shows: `cold.ts` resolves
+ *  each one's, and fails the build on a missing value. A scenario joins
+ *  once its numbers part has run. */
+const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id];
+
+/** Whether the page has a scenario's cold numbers: without them its status
+ *  bar has no cold rows, its Compare is off, and it has no description. */
+export const hasCold = (scenario: Scenario): boolean => COLD.includes(scenario.id);
+
+/** A link to a scenario from a scenario's route, which carries `?side=`
+ *  (`page.ts`'s `carrySide`). */
+export const SCENARIO_LINK = 'data-scenario-link';
+
+export const isDensity = (stop: Stop): stop is DensityStop => 'cells' in stop;
+
+/** A stop as the dial names it ("~710"): the keeps-up verdict and the
+ *  panel's stops name it so too. */
+export const stopShort = (stop: Stop): string => (isDensity(stop) ? `~${stop.cells}` : stop.label);
 
 /** A scenario's route: one level below its component's. */
 export const scenarioPath = (component: Component, scenario: Scenario) => `${component.path}${scenario.id}/`;
