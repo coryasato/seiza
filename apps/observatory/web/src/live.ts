@@ -52,6 +52,10 @@ interface Tracked {
   frame: HTMLIFrameElement;
   record: LiveRecord;
   warm: boolean;
+  /** Why it's warm: a frame came before it in this tab, or its files came
+   *  from the cache (`warmth`). */
+  second: boolean;
+  cached: boolean;
   /** The frame's own URLs (its window's), for the memory's attribution. */
   base: string;
   /** A scroll under way: no memory measurement then. */
@@ -83,6 +87,8 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string): 
     side,
     frame,
     record: { timeOrigin: 0, usable: null, open: null, filled: [], scrolls: [], memory: [] },
+    second: framesCreated > 0,
+    cached: false,
     warm: framesCreated++ > 0,
     base: new URL(base, location.href).href,
     scrolling: false,
@@ -116,7 +122,8 @@ export function frameMark(source: MessageEventSource | null, name: string, at: n
   else if (name === MARKS.open) record.open = at;
   else if (name === MARKS.filled) {
     if (!record.filled.length) {
-      tracked.warm ||= fromCache(source as Window);
+      tracked.cached = fromCache(source as Window);
+      tracked.warm ||= tracked.cached;
       measureMemory(tracked);
     }
     record.filled.push(at);
@@ -125,11 +132,12 @@ export function frameMark(source: MessageEventSource | null, name: string, at: n
 
 /** Any of the frame's files served from the HTTP cache. */
 function fromCache(window: Window): boolean {
-  return window.performance.getEntriesByType('resource').some((entry) => {
-    const resource = entry as PerformanceResourceTiming;
-    return resource.transferSize === 0 && resource.decodedBodySize > 0;
-  });
+  const { performance } = window;
+  return [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].some((entry) => cached(entry as PerformanceResourceTiming));
 }
+
+/** A file served from the HTTP cache, unrevalidated: nothing on the wire. */
+export const cached = (entry: PerformanceResourceTiming): boolean => entry.transferSize === 0 && entry.decodedBodySize > 0;
 
 /** Records each scroll's animation frames: from its first input until the
  *  input rests `SCROLL_REST_MS`. The page's rAF runs in the frame's own
@@ -272,3 +280,10 @@ export const useLive = (): Live => useSyncExternalStore(subscribeLive, liveSnaps
 /** Whether `side`'s last frame is warm: not the tab's first, or its files
  *  came from the cache (known once it filled). */
 export const isWarm = (side: Side): boolean => sides[side]?.warm ?? false;
+
+/** Why `side`'s last frame is warm: its files from the cache (its HTML's
+ *  navigation counted), a frame before it in this tab, or neither (cold). */
+export const warmth = (side: Side): 'cache' | 'second' | null => {
+  const tracked = sides[side];
+  return tracked?.cached ? 'cache' : tracked?.second ? 'second' : null;
+};

@@ -98,9 +98,12 @@ interface StatusProps {
   panel: boolean;
   togglePanel: () => void;
   rows: number;
+  /** Whether the page has this scenario's cold numbers: without them, no
+   *  cold rows in the explainers and no panel. */
+  coldReady: boolean;
 }
 
-export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
+export function StatusBar({ shown, panel, togglePanel, rows, coldReady }: StatusProps) {
   const side = shown.side;
   const meter = useMeter().mode !== 'off';
   const coldFast = (card: Card) => cardValues(card, cold.values, 'reference');
@@ -127,10 +130,14 @@ export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
         { className: 'mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-muted-foreground' },
         h('span', null, `This tab, ${LABELS[side]}`),
         h(LiveText, { text, className: 'text-right text-foreground' }),
-        h('span', null, `Cold, ${LABELS[side]}`),
-        h('span', { className: 'text-right text-foreground tabular-nums' }, withUnit(coldFast(card)[sideIndex(side)], card.unit)),
-        h('span', null, `Cold, ${LABELS[other(side)]}`),
-        h('span', { className: 'text-right text-foreground tabular-nums' }, withUnit(coldFast(card)[sideIndex(other(side))], card.unit)),
+        ...(coldReady
+          ? [
+              h('span', { key: 'own' }, `Cold, ${LABELS[side]}`),
+              h('span', { key: 'own-value', className: 'text-right text-foreground tabular-nums' }, withUnit(coldFast(card)[sideIndex(side)], card.unit)),
+              h('span', { key: 'other' }, `Cold, ${LABELS[other(side)]}`),
+              h('span', { key: 'other-value', className: 'text-right text-foreground tabular-nums' }, withUnit(coldFast(card)[sideIndex(other(side))], card.unit)),
+            ]
+          : []),
       ),
     );
   };
@@ -152,7 +159,7 @@ export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
       later(h(Fragment, null, h(Play, { 'aria-hidden': true }), 'Run benchmark'), 'The benchmark'),
       h(
         'button',
-        { type: 'button', 'data-compare': '', 'aria-expanded': panel, 'aria-controls': PANEL_ID, onClick: togglePanel, className: `${SEGMENT} max-md:hidden` },
+        { type: 'button', 'data-compare': '', 'aria-expanded': panel, 'aria-controls': PANEL_ID, onClick: togglePanel, disabled: !coldReady, title: coldReady ? undefined : 'This scenario’s cold numbers: coming soon', className: `${SEGMENT} max-md:hidden` },
         'Compare',
         h(panel ? ChevronDown : ChevronUp, { 'aria-hidden': true }),
       ),
@@ -174,7 +181,7 @@ export function StatusBar({ shown, panel, togglePanel, rows }: StatusProps) {
             h(LiveText, { text: textOf(side, card) }),
           ),
         ),
-        h(MenuButton, { onClick: () => (closeExplainer(), panel || togglePanel()) }, 'Compare with cold runs'),
+        h(MenuButton, { onClick: () => (closeExplainer(), panel || togglePanel()), disabled: !coldReady }, coldReady ? 'Compare with cold runs' : 'Compare: coming soon'),
         h(MenuButton, { onClick: () => (closeExplainer(), toggleMeter()) }, meter ? 'Hide the meter' : 'Show the meter'),
         h(MenuButton, { disabled: true }, 'Run benchmark: coming soon'),
       ),

@@ -170,3 +170,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - Traced, the native scroller moves a fast gesture ~3% past its distance; untraced, exactly. The tracing that measures the DOM side also changes how far it scrolls.
 - The long sideways session moved neither side's memory: across the days nothing is read, and both sides' views are a screen's worth. What the wide sheet's memory card shows is the file held, not the session.
 - GPUI's first usable sits ~3 ms nearer the probe's limit at the wide level than at the base, enough for 2 of 10 runs to miss it; and its key lost its `EventLatency` reading in 6 of 120 inputs, which the base never did.
+
+## M9 part E1: the routes, the dial, and a switch as a load (2026-11-03)
+
+[Results](../perf/results/2026-11-03-m9-e1.md).
+
+- A Base UI part costs more than the behavior it adds. The sidebar's collapsible list put 2.6 KiB brotli into the first-paint JS for what one `hidden` attribute and an `aria-expanded` do. A prerendered page's interactive parts need their bytes measured one by one before they're taken from a kit.
+- The load's explainer can't say what M8 drew for the engine and the data. DuckDB's worker fetches its bundles and reads the file, and a worker's requests never reach the frame's Resource Timing, so "fetched or from your cache" is knowable only for the app and the font.
+- A switch made right after a fill tears down a frame mid-read, and the dying worker logs the aborted range request as a failure. The base level's flip never showed it because its first page arrives in one quick read; the wide sheet's 4-request pages leave reads in flight longer.
+- A check's "seen" list emptied between steps lost its own last entry, so the next load's first state read as a repeat of "Ready". A recorder that's drained needs its last value kept apart from what it hands out.

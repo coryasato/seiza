@@ -30,6 +30,9 @@ export interface Stop {
 
 /** A wide sheet's stop: the table's density and the days' width, px. */
 export interface DensityStop extends Stop {
+  /** The cells the GPUI contender draws at the top at 1440 × 900, rounded:
+   *  the label's number (`~N cells`), the dial's short label. */
+  cells: number;
   rowHeight: number;
   textSize: number;
   columnWidth: number;
@@ -67,6 +70,9 @@ export const BIG_FILE: BaseScenario = {
   defaultStop: 'all',
 };
 
+/** A wide sheet's stop, its label from its count. */
+const densityStop = (id: string, cells: number, rowHeight: number, textSize: number, columnWidth: number): DensityStop => ({ id, label: `~${cells} cells`, cells, rowHeight, textSize, columnWidth });
+
 /**
  * The wide sheet's four stops (`docs/DECISIONS.md`, "Scenarios"): each
  * named by the cells the GPUI contender draws at the top at 1440 × 900
@@ -80,10 +86,10 @@ export const WIDE_SHEET: WideScenario = {
   level: 'wide',
   data: 'ghcn-2025-tmax.parquet',
   stops: [
-    { id: 'rows-26', label: '~380 cells', rowHeight: 26, textSize: 13, columnWidth: 96 },
-    { id: 'rows-22', label: '~570 cells', rowHeight: 22, textSize: 12, columnWidth: 80 },
-    { id: 'rows-20', label: '~710 cells', rowHeight: 20, textSize: 11, columnWidth: 68 },
-    { id: 'rows-18', label: '~940 cells', rowHeight: 18, textSize: 11, columnWidth: 56 },
+    densityStop('rows-26', 380, 26, 13, 96),
+    densityStop('rows-22', 570, 22, 12, 80),
+    densityStop('rows-20', 710, 20, 11, 68),
+    densityStop('rows-18', 940, 18, 11, 56),
   ],
   defaultStop: 'rows-20',
   pinned: 2,

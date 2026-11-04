@@ -31,6 +31,8 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { startCountingProxy } from '../../../shared-web/perf/serve.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
+import { BIG_FILE } from '../contenders/scenarios.ts';
+import { COMPONENTS, scenarioPath } from '../web/src/components.ts';
 import { perfDir, protocolContext, servePage } from './harness.ts';
 
 const WINDOW_MS = 10_000;
@@ -38,7 +40,8 @@ const PORT = 4339;
 const PROXY_PORT = 4340;
 const label = option('label') ?? 'burst';
 const only = option('only')?.split(',');
-const ROUTE = `${OBSERVATORY}tall-table/`;
+/** Big file's route. */
+const ROUTE = scenarioPath(COMPONENTS.find((component) => component.id === 'tall-table')!, BIG_FILE);
 
 /** The most of `times` (ms) inside any `WINDOW_MS`. */
 function peak(times: number[]): number {

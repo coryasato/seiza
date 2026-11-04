@@ -3,7 +3,7 @@
 // contender flung (metric-fling.ts's fling, the same profile and input
 // path) in four variants, cold, Chromium headless=new at the protocol's
 // 1440×900, DPR 2:
-// - open, pill, hidden: the page at /observatory/tall-table/?side=<side>,
+// - open, pill, hidden: Big file's route, /observatory/tall-table/big-file/?side=<side>,
 //   the meter stored open, a pill, or hidden (the status bar in all
 //   three), the contender in its frame;
 // - bare: the bare contender page.
@@ -51,7 +51,9 @@ import { chromium, type Frame, type Page } from '@playwright/test';
 import { recorderCost, targetRect, waitMark, wheel } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { startThrottlingProxy } from '../../../shared-web/perf/serve.ts';
-import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
+import { contenderBase } from '../contenders/paths.ts';
+import { BIG_FILE } from '../contenders/scenarios.ts';
+import { COMPONENTS, scenarioPath } from '../web/src/components.ts';
 import { FLING_FRAMES, ORIGIN_MARK, TRACE_CATEGORIES, Trace, compositorFrames, underLoad, type Side, type TraceEvent, type UnderLoad } from '../metrics/metrics.ts';
 import { METER_KEY, type MeterMode } from '../web/src/meter.ts';
 import { SIDE_PARAM } from '../web/src/components.ts';
@@ -64,7 +66,8 @@ const METER_MODES: Record<Exclude<Variant, 'bare'>, MeterMode> = { open: 'open',
 
 const PORT = 4337;
 const THROTTLED_PORT = 4338;
-const ROUTE = `${OBSERVATORY}tall-table/`;
+/** Big file's route. */
+const ROUTE = scenarioPath(COMPONENTS.find((component) => component.id === 'tall-table')!, BIG_FILE);
 /** The idle time after the view rests, as metric-fling.ts's. */
 const TAIL_MS = 500;
 /** The gates (`docs/DECISIONS.md`, "Page", what a visible readout may cost). */

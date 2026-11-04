@@ -24,7 +24,7 @@ site/ui/
     shell.ts        # SiteShell, bindShell
     vite.ts         # siteVite(): Tailwind, the head script, /fonts/ in dev and preview
     cn.ts
-    components/     # button, toggle-group, collapsible (on Base UI), sidebar (its parts), navbar, footer
+    components/     # button, toggle-group, collapsible (on Base UI), sidebar (its parts, the sub-list and the item action among them), navbar, footer
   README.md         # for a page that uses it
   CLAUDE.md         # this file
 ```

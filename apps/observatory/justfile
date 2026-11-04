@@ -8,8 +8,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 
 page_web := app_dir / "web"
 
-# The page's Vite dev server, with COOP/COEP, at /observatory/ and
-# /observatory/tall-table/. Its frames load the contenders' release builds
+# The page's Vite dev server, with COOP/COEP, at /observatory/, the
+# component's page, and each scenario's route. Its frames load the contenders' release builds
 # (`gpui-build`, `tanstack-build` first), with the engine, the font, and
 # the data file.
 dev:

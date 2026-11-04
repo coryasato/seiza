@@ -3,7 +3,8 @@
 // (1440×900, DPR 2). Its own budgets, and how it hosts the contenders.
 //
 // Measured, cold, median of --runs per profile (reference and throttled;
-// budgets on the reference run), at /observatory/tall-table/:
+// budgets on the reference run), at Big file's route,
+// /observatory/tall-table/big-file/:
 // - first paint: the paint timing entry (`first-paint`; the page is HTML
 //   and CSS, so the browser's own metric is the page's), and FCP beside it;
 // - first-paint JS: the entries and their static imports, brotli, from the
@@ -22,13 +23,24 @@
 // toggle changes the page's theme and each contender's without reloading
 // its frame (the GPUI canvas repaints: its brightness flips); the choice
 // survives a reload (one `localStorage` key); /observatory/ renders the
-// overview, and /observatory/tall-table/index.html hydrates as its route; a
+// overview, /observatory/tall-table/ the component's page (no frame, a
+// `?side=` ignored), and Big file's index.html hydrates as its route; a
 // theme change while the frame's HTML is held back still reaches the frame
 // (its load sends it again); with the data file missing, each contender
 // marks `contender:failed` and the toggle unlocks, its status saying so.
 //
+// The scenarios, checked once (`scenarios`): the wide sheet's frame at its
+// level and default stop; the dial disabled with the toggle until the frame
+// fills, a stop recreating the frame and writing `?stop=` (the default
+// omitted), `?stop=` and `?side=` picking the first frame, an unknown stop
+// the default; the state "Loading the app…" before "Ready"; the dial's and
+// the load's explainers; the crumb's menu (every scenario, the current one
+// checked, `?side=` carried to the one it opens, not `?stop=`); the
+// sidebar's list open on a scenario's route with its item filled, closed on
+// the Overview until its chevron opens it; a phone's dial menu.
+//
 // The dashboard, checked once: the site's bar and every box in it the same
-// on /observatory/ and the comparison, with the sidebar open or collapsed,
+// on every route, with the sidebar open or collapsed,
 // desktop and phone, at the window's width; a reload with the sidebar
 // stored collapsed paints the inset where it hydrates (the page's JS held
 // back until measured), and without the sidebar's head script (the
@@ -67,6 +79,8 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
+import { BIG_FILE, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
+import { COMPONENTS, ROUTES, scenarioPath } from '../web/src/components.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
 import { resolveCold } from '../web/cold.ts';
 import { BARS, CARDS, PROFILES as DEVICE_PROFILES, cardOutcome, cardValues, downloadTotal, evenSentence, number, outcome, size, verdict, wins, winsSentence } from '../web/src/readouts.ts';
@@ -80,7 +94,15 @@ const given = option('url');
 if (given && (check || flag('write-baseline'))) throw new Error('--url records production; budgets and the baseline are the local build\'s');
 const label = option('label') ?? (check ? null : given ? 'page-production' : 'page');
 const PORT = 4334;
-const ROUTE = `${OBSERVATORY}tall-table/`;
+const TALL_TABLE = COMPONENTS.find((component) => component.id === 'tall-table')!;
+/** The comparison measured and checked: Big file's route. */
+const ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
+const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
+/** Every route's HTML file, from the build's root. */
+const HTML_FILES = ROUTES.map((route) => route.html.slice(1));
+/** A frame's URL as the page makes it: its level's base, the scenario, the stop, the theme. */
+const frameUrl = (side: 'gpui' | 'tanstack', scenario: Scenario, stop: string, theme: string, level: Level = scenario.level) =>
+  `${contenderBase('tall-table', side, level)}?scenario=${scenario.id}&stop=${stop}&theme=${theme}`;
 const dist = join(pageWebDir, 'dist');
 
 const failures: string[] = [];
@@ -115,7 +137,7 @@ const visit = (key: string) => {
   firstPaintKeys.add(key);
   for (const imported of manifest[key]?.imports ?? []) visit(imported);
 };
-for (const html of ['index.html', 'tall-table/index.html']) {
+for (const html of HTML_FILES) {
   const loaded = [...readFileSync(join(dist, html), 'utf8').matchAll(/<(?:script[^>]*\ssrc|link[^>]*rel="modulepreload"[^>]*\shref)="([^"]+)"/g)].map((match) => match[1]!.slice(OBSERVATORY.length));
   if (!loaded.length) throw new Error(`${html} loads no script`);
   for (const file of loaded) {
@@ -127,7 +149,7 @@ for (const html of ['index.html', 'tall-table/index.html']) {
 // With --url, the first-paint set is still the local build's (its manifest),
 // so production must serve that build: the same scripts in each route's HTML.
 if (given)
-  for (const html of ['index.html', 'tall-table/index.html']) {
+  for (const html of HTML_FILES) {
     const scripts = (text: string) => [...text.matchAll(/<(?:script[^>]*\ssrc|link[^>]*rel="modulepreload"[^>]*\shref)="([^"]+)"/g)].map((match) => match[1]).join(' ');
     const served = await (await fetch(new URL(`${OBSERVATORY}${html}`, given))).text();
     if (scripts(served) !== scripts(readFileSync(join(dist, html), 'utf8'))) throw new Error(`production's ${html} loads other scripts than the local build's: deploy this build, or rebuild what's deployed`);
@@ -251,7 +273,7 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     await page.waitForSelector('iframe');
     const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
     const src = await frameSrc(page);
-    expect(src === `${gpui}?theme=${theme}`, `the first frame is GPUI's with the page's theme: ${src}`);
+    expect(src === frameUrl('gpui', BIG_FILE, 'all', theme), `the first frame is GPUI's with the page's theme: ${src}`);
     expect(await groupDisabled(page), 'the toggle is enabled before GPUI has filled');
     await waitFilled(page, gpui);
     await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 5_000 }).catch(() => fail("the toggle stays disabled after GPUI's filled mark"));
@@ -278,7 +300,7 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     await page.getByRole('button', { name: 'TanStack' }).click();
     await page.waitForFunction((tanstack) => new URL(document.querySelector('iframe')?.src ?? 'x:').pathname === tanstack, tanstack, { timeout: 5_000 });
     expect(!(await old!.evaluate((frame) => frame.isConnected)), 'the GPUI frame is still in the document after the flip');
-    expect((await frameSrc(page)) === `${tanstack}?theme=${flipped}`, `TanStack's frame URL: ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === frameUrl('tanstack', BIG_FILE, 'all', flipped), `TanStack's frame URL: ${await frameSrc(page)}`);
     expect(await groupDisabled(page), 'the toggle is enabled before TanStack has filled');
     expect(new URL(page.url()).searchParams.get('side') === 'tanstack', `the URL after the flip: ${page.url()}`);
     await waitFilled(page, tanstack);
@@ -299,7 +321,7 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     // The choice survives a reload; ?side= picks the first side.
     await page.reload();
     await page.waitForSelector('iframe');
-    expect((await frameSrc(page)) === `${tanstack}?theme=${theme}`, `after a reload (?side=tanstack, the stored theme): ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === frameUrl('tanstack', BIG_FILE, 'all', theme), `after a reload (?side=tanstack, the stored theme): ${await frameSrc(page)}`);
     console.log(`reload: ?side=tanstack loads TanStack first, theme ${theme} kept`);
     expect(found.length === 0, `page problems: ${found.join('; ')}`);
     out.relayed = (await relayed(page)).length;
@@ -307,9 +329,22 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     const overview = await context.newPage();
     const overviewProblems = problems(overview);
     await overview.goto(new URL(OBSERVATORY, url).href);
-    expect((await overview.locator(`a[href="${ROUTE}"]`).count()) >= 2, 'the overview lists the tall table (nav and card)');
+    expect((await overview.locator(`a[href="${TALL_TABLE.path}"]`).count()) >= 2, "the overview lists the tall table's page (nav and card)");
     expect((await overview.locator('iframe').count()) === 0, 'the overview has a frame');
     expect(overviewProblems.length === 0, `overview problems: ${overviewProblems.join('; ')}`);
+
+    // The component's page: its scenarios as cards, no frame, and a
+    // parameter ignored (an old `/observatory/tall-table/?side=` link).
+    const component = await context.newPage();
+    const componentProblems = problems(component);
+    await component.goto(new URL(`${TALL_TABLE.path}?side=tanstack`, url).href);
+    await hydrated(component);
+    const cards = await component.locator('main [aria-label="Scenarios"] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(cards) === JSON.stringify(TALL_TABLE.scenarios.map((scenario) => scenarioPath(TALL_TABLE, scenario))), `the component's page's cards: ${JSON.stringify(cards)}`);
+    await component.waitForTimeout(500);
+    expect((await component.locator('iframe').count()) === 0, "the component's page has a frame");
+    expect(componentProblems.length === 0, `${TALL_TABLE.path} problems: ${componentProblems.join('; ')}`);
+    console.log(`${TALL_TABLE.path}: the component's page, ${cards.length} scenario cards, no frame, ?side= ignored`);
 
     // The route the HTML was rendered for hydrates, whatever URL served it.
     const indexPage = await context.newPage();
@@ -317,7 +352,7 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
     await indexPage.goto(new URL(`${ROUTE}index.html`, url).href);
     await indexPage.waitForSelector('iframe', { timeout: 10_000 }).catch(() => fail(`${ROUTE}index.html hydrated without the comparison's frame`));
     expect(indexProblems.length === 0, `${ROUTE}index.html problems: ${indexProblems.join('; ')}`);
-    console.log(`${ROUTE}index.html: hydrated as the tall table's route`);
+    console.log(`${ROUTE}index.html: hydrated as Big file's route`);
     await context.close();
   } finally {
     await browser.close();
@@ -333,7 +368,7 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
       const page = await context.newPage();
       let release!: () => void;
       const released = new Promise<void>((resolve) => (release = resolve));
-      await page.route((target) => target.pathname === gpui, async (route) => {
+      await page.route((target) => target.pathname === gpui && target.searchParams.has('scenario'), async (route) => {
         await released;
         await route.continue();
       });
@@ -377,6 +412,11 @@ async function hosting(url: string): Promise<Record<string, unknown>> {
         await page.waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled'), null, { timeout: 5_000 }).catch(() => fail(`${label}: the toggle stays disabled after it failed`));
         const status = await page.locator('[aria-live="polite"]').textContent();
         expect(!!status?.includes("didn't load its data"), `${label}: the status after a failure: ${status}`);
+        // The load's explainer claims nothing past the app.
+        await page.getByRole('button', { name: 'About this load' }).click();
+        const rows = await page.locator('[data-load-rows] > span').allTextContents();
+        expect(rows.includes('not read') && !rows.includes('read a page at a time'), `${label}: the load's explainer after a failure: ${JSON.stringify(rows)}`);
+        await page.keyboard.press('Escape');
         console.log(`failure: ${label} marked contender:failed with the data file missing; the toggle enabled, the status says so`);
       }
       await context.close();
@@ -747,7 +787,7 @@ async function meter(url: string): Promise<Record<string, unknown>> {
 async function readouts(url: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   const { numbers: cold } = resolveCold();
-  const html = readFileSync(join(dist, 'tall-table/index.html'), 'utf8');
+  const html = readFileSync(join(dist, `${ROUTE.slice(OBSERVATORY.length)}index.html`), 'utf8');
   expect(html.includes('class="observatory-status"'), "the status bar's box isn't in the prerendered HTML");
   for (const attribute of ['data-status-ready', 'data-card', 'data-description']) expect(!html.includes(attribute), `${attribute} is in the prerendered HTML: it renders after first paint`);
 
@@ -834,7 +874,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect((await popovers(page).count()) === 1 && (await expanded(page, '[data-segment="usable"]')) === 'false' && (await expanded(page, '[data-segment="data"]')) === 'true', 'two explainers open at once');
     await page.locator('[data-segment="data"]').click();
     expect((await popovers(page).count()) === 0, "pressing a pinned explainer's trigger didn't close it");
-    const about = page.getByRole('button', { name: 'About switching sides' });
+    const about = page.getByRole('button', { name: 'About this load' });
     await about.focus();
     expect((await popovers(page).count()) === 0, 'focus alone opened an explainer');
     await page.keyboard.press('Enter');
@@ -953,6 +993,168 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
   return out;
 }
 
+/** Every text the title bar's live state has shown, in order, from page load. */
+function stateRecorder(): void {
+  const seen = ((globalThis as { __states?: string[] }).__states = [] as string[]);
+  // The last text noted, kept apart: the check empties `seen` between loads.
+  let last = '';
+  const note = () => {
+    const text = document.querySelector('[data-state]')?.textContent;
+    if (text && last !== text) seen.push((last = text));
+  };
+  new MutationObserver(note).observe(document, { subtree: true, childList: true, characterData: true });
+}
+
+const states = (page: Page) => page.evaluate(() => (globalThis as { __states?: string[] }).__states!.splice(0));
+const dialDisabled = (page: Page) => page.locator('[data-dial] [role="group"]').evaluate((group) => group.hasAttribute('data-disabled'));
+const pressedStop = (page: Page) => page.locator('[data-dial] [data-stop][aria-pressed="true"]').getAttribute('data-stop');
+const waitEnabled = (page: Page, what: string) =>
+  page
+    .waitForFunction(() => !document.querySelector('[aria-label="Contender"]')?.hasAttribute('data-disabled') && !document.querySelector('[data-dial] [role="group"]')?.hasAttribute('data-disabled'), null, { timeout: 60_000 })
+    .catch(() => fail(`${what}: the toggle or the dial stays disabled`));
+
+/**
+ * The wide sheet's route: its frame at the level and stop, the dial and a
+ * stop's load, the URL's parameters, the crumb's menu, the sidebar's list,
+ * the explainers, and a phone's dial.
+ */
+async function scenarios(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const gpuiWide = contenderBase('tall-table', 'gpui', 'wide');
+  const tanstackWide = contenderBase('tall-table', 'tanstack', 'wide');
+  const stop = (id: string) => WIDE_SHEET.stops.find((candidate) => candidate.id === id)!;
+  const browser = await chromium.launch({ channel: 'chromium' });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    await context.addInitScript(stateRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await page.waitForSelector('iframe');
+    const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
+    expect((await frameSrc(page)) === frameUrl('gpui', WIDE_SHEET, WIDE_SHEET.defaultStop, theme), `the wide sheet's first frame: ${await frameSrc(page)}`);
+    expect((await pressedStop(page)) === WIDE_SHEET.defaultStop, `the dial's pressed stop at load: ${await pressedStop(page)}`);
+    const labels = await page.locator('[data-dial] [data-stop]').evaluateAll((buttons) => buttons.map((button) => [button.textContent, button.getAttribute('title')]));
+    expect(
+      JSON.stringify(labels) === JSON.stringify(WIDE_SHEET.stops.map((s) => [`~${s.cells}`, `${s.rowHeight} px rows · ${s.columnWidth} px days · ${s.textSize} px text`])),
+      `the dial's stops and titles: ${JSON.stringify(labels)}`,
+    );
+    expect((await groupDisabled(page)) && (await dialDisabled(page)), 'the toggle or the dial is enabled before the frame filled');
+    await waitFilled(page, gpuiWide);
+    await waitEnabled(page, 'GPUI at the default stop');
+    const seen = await states(page);
+    expect(seen[0] === 'Loading the app…' && seen.at(-1) === 'Ready · cold load', `the state's texts through the first load: ${JSON.stringify(seen)}`);
+    out.firstLoad = seen;
+    console.log(`wide sheet: GPUI's wide build at ${WIDE_SHEET.defaultStop}, the dial at it; the toggle and the dial disabled until it filled; the state ${seen.join(' → ')}`);
+
+    // The explainers: the dial's stops and this window's count, the load's parts.
+    await page.getByRole('button', { name: 'About the stops' }).click();
+    const dialText = (await popovers(page).textContent()) ?? '';
+    expect(WIDE_SHEET.stops.every((s) => dialText.includes(s.label)) && /this window shows about \d+ at this stop/.test(dialText), `the dial's explainer: ${dialText}`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'About this load' }).click();
+    const loadRows = await page.locator('[data-load-rows] > span').allTextContents();
+    expect(loadRows.length >= 8 && loadRows[0] === 'GPUI’s app at this level' && ['fetched', 'from your cache', 'partly from your cache'].includes(loadRows[1]!) && loadRows.includes('read a page at a time'), `the load's explainer: ${JSON.stringify(loadRows)}`);
+    await page.keyboard.press('Escape');
+    out.loadRows = loadRows;
+    console.log(`explainers: the dial's (${WIDE_SHEET.stops.length} stops, this window's count); the load's ${JSON.stringify(loadRows)}`);
+
+    // A stop: the frame destroyed and made again at it, the URL written, disabled until it fills.
+    const old = await page.locator('iframe').elementHandle();
+    await page.locator('[data-dial] [data-stop="rows-18"]').click();
+    await page.waitForFunction((src) => document.querySelector('iframe')?.getAttribute('src')?.includes(src), 'stop=rows-18', { timeout: 5_000 });
+    expect(!(await old!.evaluate((frame) => frame.isConnected)), "the stop didn't destroy the frame");
+    expect((await frameSrc(page)) === frameUrl('gpui', WIDE_SHEET, 'rows-18', theme), `the frame after the stop: ${await frameSrc(page)}`);
+    expect(new URL(page.url()).search === '?stop=rows-18', `the URL after the stop: ${page.url()}`);
+    expect((await groupDisabled(page)) && (await dialDisabled(page)), 'the toggle or the dial is enabled before the new stop filled');
+    await waitFilled(page, gpuiWide);
+    await waitEnabled(page, 'GPUI at rows-18');
+    const again = await states(page);
+    expect(again[0] === 'Loading the app…' && /^Ready · /.test(again.at(-1) ?? ''), `the state's texts through a stop's load: ${JSON.stringify(again)}`);
+    // The default again: the parameter gone.
+    await page.locator(`[data-dial] [data-stop="${WIDE_SHEET.defaultStop}"]`).click();
+    expect(new URL(page.url()).search === '', `the URL back at the default stop: ${page.url()}`);
+    await waitEnabled(page, 'GPUI back at the default');
+    // A flip keeps the stop, and writes `?side=`.
+    await page.locator('[data-dial] [data-stop="rows-26"]').click();
+    await waitEnabled(page, 'GPUI at rows-26');
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await page.waitForFunction((base) => new URL(document.querySelector('iframe')?.src ?? 'x:').pathname === base, tanstackWide, { timeout: 5_000 });
+    expect((await frameSrc(page)) === frameUrl('tanstack', WIDE_SHEET, 'rows-26', theme), `TanStack's frame after the flip: ${await frameSrc(page)}`);
+    expect(new URL(page.url()).search === '?stop=rows-26&side=tanstack', `the URL after the flip: ${page.url()}`);
+    await waitFilled(page, tanstackWide);
+    await waitEnabled(page, 'TanStack at rows-26');
+    console.log(`dial: a stop recreates the frame (?stop=rows-18), disabled until it fills; the default omitted; a flip keeps the stop (${new URL(page.url()).search})`);
+
+    // The parameters on a load; an unknown stop is the default.
+    await page.reload();
+    await page.waitForSelector('iframe');
+    expect((await frameSrc(page)) === frameUrl('tanstack', WIDE_SHEET, 'rows-26', theme) && (await pressedStop(page)) === 'rows-26', `a reload at ?stop=rows-26&side=tanstack: ${await frameSrc(page)}`);
+    await page.goto(`${url}?stop=nope`);
+    await page.waitForSelector('iframe');
+    expect((await frameSrc(page)) === frameUrl('gpui', WIDE_SHEET, WIDE_SHEET.defaultStop, theme), `an unknown stop: ${await frameSrc(page)}`);
+    await waitFilled(page, gpuiWide);
+    console.log('URL: ?stop= and ?side= pick the first frame; an unknown stop loads the default');
+
+    // The crumb's menu: every scenario, this one checked; `?side=` carried, not `?stop=`.
+    await page.goto(`${url}?side=tanstack&stop=rows-26`);
+    await hydrated(page);
+    await page.locator('[data-crumb-menu]').click();
+    const items = await page.getByRole('menuitemradio').evaluateAll((links) => links.map((link) => [link.getAttribute('href'), link.getAttribute('aria-checked')]));
+    expect(
+      JSON.stringify(items) === JSON.stringify(TALL_TABLE.scenarios.map((scenario) => [scenarioPath(TALL_TABLE, scenario), String(scenario === WIDE_SHEET)])),
+      `the crumb's menu: ${JSON.stringify(items)}`,
+    );
+    await page.getByRole('menuitemradio', { name: new RegExp(BIG_FILE.label) }).click();
+    await page.waitForURL((target) => target.pathname === ROUTE);
+    expect(new URL(page.url()).search === '?side=tanstack', `the crumb's link to Big file from ?side=tanstack&stop=rows-26: ${page.url()}`);
+    await page.waitForSelector('iframe');
+    expect((await frameSrc(page)) === frameUrl('tanstack', BIG_FILE, 'all', theme), `Big file's frame from the crumb: ${await frameSrc(page)}`);
+    console.log(`crumb: ${items.length} scenarios, the wide sheet checked; Big file opened with ?side=tanstack, no stop`);
+
+    // The sidebar's list: open with this route filled; on the Overview closed until its chevron opens it.
+    const list = `#observatory-sidebar-${TALL_TABLE.id}`;
+    const current = await page.locator('.observatory-sidebar [aria-current="page"]').allTextContents();
+    expect((await page.locator(list).isVisible()) && JSON.stringify(current) === JSON.stringify([BIG_FILE.label]), `on Big file the sidebar's list is ${(await page.locator(list).isVisible()) ? 'open' : 'closed'}, filled: ${JSON.stringify(current)}`);
+    await page.goto(new URL(OBSERVATORY, url).href);
+    await hydrated(page);
+    const chevron = page.getByRole('button', { name: `${TALL_TABLE.label}’s scenarios` });
+    expect(!(await page.locator(list).isVisible()) && (await chevron.getAttribute('aria-expanded')) === 'false', "on the Overview the sidebar's list is open");
+    await chevron.click();
+    expect((await page.locator(list).isVisible()) && (await chevron.getAttribute('aria-expanded')) === 'true', "the chevron didn't open the list");
+    console.log("sidebar: the list open on a scenario's route with its item filled; on the Overview closed, the chevron opens it");
+    // A switch destroys a frame whose engine may be mid-read: its worker logs
+    // the aborted range request. At most one per frame torn down (9 above: stops, a flip, loads, and navigations).
+    const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
+    expect(teardown.length <= 9, `${teardown.length} aborted reads logged in 9 frames torn down`);
+    const rest = found.filter((problem) => !teardown.includes(problem));
+    expect(rest.length === 0, `page problems: ${rest.join('; ')}`);
+    out.abortedReadsLogged = teardown.length;
+    await context.close();
+
+    // A phone: the dial a menu showing the stop, the state cut to fit.
+    const phone = await layoutContext(browser, PHONE);
+    await phone.addInitScript(markRecorder);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await waitFilled(small, gpuiWide);
+    await waitEnabled(small, 'a phone');
+    const button = small.locator('[data-dial-menu]');
+    expect((await button.textContent()) === `~${stop(WIDE_SHEET.defaultStop).cells}` && !(await small.locator('[data-dial] [role="group"]').isVisible()), `a phone's dial: "${await button.textContent()}"`);
+    const cut = await small.locator('[data-state] + span').textContent();
+    expect(cut === 'Ready', `a phone's state reads "${cut}"`);
+    await button.tap();
+    await small.getByRole('menuitemradio', { name: /~380 cells/ }).tap();
+    await small.waitForFunction(() => document.querySelector('iframe')?.getAttribute('src')?.includes('stop=rows-26'), null, { timeout: 5_000 }).catch(() => fail("a phone's dial menu didn't pick the stop"));
+    await phone.close();
+    console.log(`phone: the dial a menu ("~${stop(WIDE_SHEET.defaultStop).cells}"), the state "Ready"; the menu picks a stop`);
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
 async function layout(url: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   const overviewUrl = new URL(OBSERVATORY, url).href;
@@ -961,7 +1163,9 @@ async function layout(url: string): Promise<Record<string, unknown>> {
     // The bar: the same boxes on both routes, open or collapsed, desktop and phone.
     for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]] as const) {
       const bars: string[][] = [];
-      for (const [target, sidebar] of [[overviewUrl, undefined], [url, undefined], [url, 'closed']] as const) {
+      const componentUrl = new URL(TALL_TABLE.path, url).href;
+      const wideUrl = new URL(WIDE_ROUTE, url).href;
+      for (const [target, sidebar] of [[overviewUrl, undefined], [componentUrl, undefined], [url, undefined], [wideUrl, undefined], [url, 'closed']] as const) {
         const context = await layoutContext(browser, viewport, { sidebar });
         const page = await context.newPage();
         await page.goto(target);
@@ -972,7 +1176,7 @@ async function layout(url: string): Promise<Record<string, unknown>> {
       const same = bars.every((boxes) => JSON.stringify(boxes) === JSON.stringify(bars[0]));
       expect(same, `${name}: the bar's boxes differ between the routes or the sidebar's states:\n${bars.map((boxes) => boxes.join(' | ')).join('\n')}`);
       expect(bars[0]![0]!.split(' ')[3] === String(viewport.width), `${name}: the bar isn't the window's width: ${bars[0]![0]}`);
-      console.log(`bar (${name}): ${bars[0]!.length} boxes, the same on /observatory/ and ${ROUTE}, open and collapsed; ${bars[0]![0]}`);
+      console.log(`bar (${name}): ${bars[0]!.length} boxes, the same on /observatory/, ${TALL_TABLE.path}, ${ROUTE}, and ${WIDE_ROUTE}, open and collapsed; ${bars[0]![0]}`);
     }
 
     // A reload in the collapsed state paints the inset where it hydrates;
@@ -1019,7 +1223,8 @@ async function layout(url: string): Promise<Record<string, unknown>> {
               ['the contender toggle', '[aria-label="Contender"] button'],
               ['the theme toggle', '[data-site-theme-toggle]'],
               ['the sidebar toggle', `[${toggle}]`],
-              ["the sidebar's items", '.observatory-sidebar a'],
+              ["the sidebar's items and its chevron", '.observatory-sidebar a, .observatory-sidebar button'],
+              ["the crumb's menu", '[data-crumb-menu]'],
               ["the status bar's segments and Compare", '[data-segment], [data-compare]'],
               ['the explainers', 'button[aria-label^="About"]'],
             ].map(([name, selector]) => [name, [...document.querySelectorAll(selector!)].map((element) => getComputedStyle(element).cursor)]),
@@ -1119,6 +1324,7 @@ try {
     laidOut = await layout(url);
     readOut = await readouts(url);
     readOut.meter = await meter(url);
+    readOut.scenarios = await scenarios(new URL(WIDE_ROUTE, url).href);
   }
   const shots = option('shots');
   if (shots) await screenshots(url, shots);

@@ -34,7 +34,7 @@
     "page": {
       "firstPaintOverBaseline": {
         "value": 0.2,
-        "what": "`check`: the page's reference first paint (paint timing's `first-paint`, at /observatory/tall-table/) over perf/baseline.json's, as a fraction"
+        "what": "`check`: the page's reference first paint (paint timing's `first-paint`, at Big file's route, /observatory/tall-table/big-file/) over perf/baseline.json's, as a fraction"
       },
       "firstPaintJsOverBaseline": {
         "value": 0.1,
@@ -293,7 +293,7 @@
     },
     {
       "id": "page-first-paint",
-      "label": "Page: first paint (paint timing), /observatory/tall-table/",
+      "label": "Page: first paint (paint timing), /observatory/tall-table/big-file/",
       "unit": "ms",
       "budget": {
         "overBaseline": "page.firstPaintOverBaseline",

@@ -9,23 +9,33 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { format, Reporter } from '../../../shared-web/scripts/results.ts';
+import { BIG_FILE, SCENARIOS } from '../contenders/scenarios.ts';
 import { METRICS, PART_SOURCES, type ColdNumbers } from './src/readouts.ts';
 
 const ID = 'virtual:cold-numbers';
 const RESOLVED = `\0${ID}`;
-/** The rows alone, for the window's prerendered title bar: the numbers
- *  themselves stay out of the first-paint JS. */
+/** Each data file's rows alone, for the window's prerendered title bar:
+ *  the numbers themselves stay out of the first-paint JS. */
 const ROWS_ID = 'virtual:data-rows';
 const ROWS_RESOLVED = `\0${ROWS_ID}`;
 const app = fileURLToPath(new URL('..', import.meta.url));
 const manifest = fileURLToPath(new URL('../data/MANIFEST.json', import.meta.url));
 
-/** The data file's rows and credit, from one read of data/MANIFEST.json. */
-function dataFile(): { rows: number; credit: string } {
-  const { rows, credit } = JSON.parse(readFileSync(manifest, 'utf8'))['asteroids.parquet'] ?? {};
-  if (typeof rows !== 'number') throw new Error('data/MANIFEST.json has no rows for asteroids.parquet');
-  if (typeof credit !== 'string' || !credit) throw new Error('data/MANIFEST.json has no credit for asteroids.parquet');
+/** data/MANIFEST.json, read once per call. */
+const readManifest = (): Record<string, { rows?: unknown; credit?: unknown }> => JSON.parse(readFileSync(manifest, 'utf8'));
+
+/** A data file's rows and credit, from the manifest. */
+function dataFile(name: string, files = readManifest()): { rows: number; credit: string } {
+  const { rows, credit } = files[name] ?? {};
+  if (typeof rows !== 'number') throw new Error(`data/MANIFEST.json has no rows for ${name}`);
+  if (typeof credit !== 'string' || !credit) throw new Error(`data/MANIFEST.json has no credit for ${name}`);
   return { rows, credit };
+}
+
+/** Every scenario's data file's rows, by name, from one read. */
+function dataRows(): Record<string, number> {
+  const files = readManifest();
+  return Object.fromEntries(SCENARIOS.map(({ data }) => [data, dataFile(data, files).rows]));
 }
 
 /** The cold numbers, and the files they came from: the page's module, and
@@ -51,7 +61,8 @@ export function resolveCold(): { numbers: ColdNumbers; sources: string[] } {
     parts[part] = Number(format(found.value));
     partFiles.add(found.from.replace(/^results\//, ''));
   }
-  const { rows, credit } = dataFile();
+  // The cold numbers are Big file's (`hasCold`).
+  const { rows, credit } = dataFile(BIG_FILE.data);
   const meta = [...files].map((name) => reporter.results.find((file) => file.name === name)!.json);
   const unique = <T>(list: T[]) => [...new Set(list)];
   const numbers: ColdNumbers = {
@@ -73,7 +84,7 @@ export function coldNumbers(): Plugin {
     load(id) {
       if (id === ROWS_RESOLVED) {
         this.addWatchFile(manifest);
-        return `export default ${dataFile().rows};`;
+        return `export default ${JSON.stringify(dataRows())};`;
       }
       if (id !== RESOLVED) return;
       const { numbers, sources } = resolveCold();

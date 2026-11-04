@@ -4,6 +4,7 @@ declare module 'virtual:cold-numbers' {
 }
 
 declare module 'virtual:data-rows' {
-  const rows: number;
+  /** Each data file's rows, by its name in `data/`. */
+  const rows: Record<string, number>;
   export default rows;
 }
