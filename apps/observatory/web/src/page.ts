@@ -13,7 +13,7 @@
  */
 
 import { Check, ChevronDown, ChevronRight, PanelLeft } from 'lucide-react';
-import { createElement as h, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { createElement as h, lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { buttonVariants } from '@seiza/site-ui/components/button';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import {
@@ -34,7 +34,7 @@ import { COMPONENTS, hasCold, routeAt, SCENARIO_LINK, scenarioPath, SIDE_PARAM, 
 import { Explainer } from './explainer.ts';
 import { bindSidebar, SIDEBAR_SCRIM, SIDEBAR_TOGGLE } from './sidebar.ts';
 import { afterFirstPaint } from './paint.ts';
-import { ContenderSlot, seriesDot } from './slot.ts';
+import { ContenderSlot } from './slot.ts';
 
 /** The attribute holding the route the HTML was rendered for. */
 export const ROUTE_ATTRIBUTE = 'data-route';
@@ -42,7 +42,16 @@ export { SCENARIO_LINK } from './components.ts';
 
 const SIDEBAR_ID = 'observatory-sidebar';
 
-export function Page({ path }: { path: string }) {
+/** The galleries' bodies (`gallery.ts`): the prerender passes the module's
+ *  own, the client `lazy` ones (`main.ts`), so the HTML is whole and the
+ *  code isn't first-paint JS. React keeps the HTML of a boundary still
+ *  loading, and hydrates it when its chunk arrives. */
+export interface Galleries {
+  OverviewBody: ComponentType<{ components: readonly Component[] }>;
+  ComponentBody: ComponentType<{ component: Component }>;
+}
+
+export function Page({ path, galleries }: { path: string; galleries: Galleries }) {
   const route = routeAt(path);
   useEffect(() => bindSidebar(), []);
   useEffect(() => (route.kind === 'scenario' ? carrySide() : undefined), [route]);
@@ -61,7 +70,7 @@ export function Page({ path }: { path: string }) {
         h(
           'div',
           { className: 'observatory-inset flex min-w-0 flex-1 flex-col bg-background' },
-          route.kind === 'scenario' ? h(Comparison, { component: route.component, scenario: route.scenario }) : route.kind === 'component' ? h(ComponentPage, { component: route.component }) : h(Overview),
+          route.kind === 'scenario' ? h(Comparison, { component: route.component, scenario: route.scenario }) : route.kind === 'component' ? h(ComponentPage, { component: route.component, galleries }) : h(Overview, { galleries }),
         ),
       ),
     ),
@@ -215,69 +224,14 @@ function ScenarioCrumb({ component, scenario }: { component: Component; scenario
   );
 }
 
-function Overview() {
-  return h(
-    'div',
-    { className: 'flex flex-1 flex-col' },
-    h(InsetHeader, null, title('Overview')),
-    h(
-      'main',
-      { className: 'flex flex-col gap-4 px-4 pt-5 pb-6 md:px-6' },
-      h(
-        'p',
-        { className: 'max-w-[80ch] text-muted-foreground' },
-        'Each component here, drawn by the GPU from WebAssembly, runs against a DOM equivalent on the same engine and data, one at a time, measured over a session of use: opening data, scrolling, flinging, jumping.',
-      ),
-      h(
-        'ul',
-        { className: 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' },
-        ...COMPONENTS.map((component) =>
-          h(
-            'li',
-            { key: component.id },
-            h(
-              'a',
-              { href: component.path, className: CARD },
-              h('span', { className: 'text-base' }, component.label),
-              h('span', { className: 'text-sm text-muted-foreground' }, component.summary),
-              h(
-                'span',
-                { className: 'mt-auto flex items-center gap-3 pt-2 text-sm' },
-                ...component.contenders.map((contender) => h('span', { key: contender.side, className: 'inline-flex items-center gap-1.5' }, seriesDot(contender.side), contender.label)),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
+function Overview({ galleries }: { galleries: Galleries }) {
+  return h('div', { className: 'flex flex-1 flex-col' }, h(InsetHeader, null, title('Overview')), h(Suspense, { fallback: null }, h(galleries.OverviewBody, { components: COMPONENTS })));
 }
 
-const CARD = 'flex h-full flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-xs transition-colors hover:bg-muted';
-
-/** The component's page: its name, its line, and its scenarios as cards. */
-function ComponentPage({ component }: { component: Component }) {
-  return h(
-    'div',
-    { className: 'flex flex-1 flex-col' },
-    h(InsetHeader, null, title(component.label)),
-    h(
-      'main',
-      { className: 'flex flex-col gap-4 px-4 pt-5 pb-6 md:px-6' },
-      h('header', { className: 'flex flex-col gap-1' }, h('h2', { className: 'text-xl' }, component.label), h('p', { className: 'max-w-[80ch] text-muted-foreground' }, component.summary)),
-      h(
-        'ul',
-        { 'aria-label': 'Scenarios', className: 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' },
-        ...component.scenarios.map((scenario) =>
-          h(
-            'li',
-            { key: scenario.id },
-            h('a', { href: scenarioPath(component, scenario), className: CARD }, h('span', { className: 'text-base' }, scenario.label), h('span', { className: 'text-sm text-muted-foreground' }, scenario.use)),
-          ),
-        ),
-      ),
-    ),
-  );
+/** The component's page: its scenarios as cards, how far each side keeps
+ *  up, and why each side wins (`gallery.ts`). */
+function ComponentPage({ component, galleries }: { component: Component; galleries: Galleries }) {
+  return h('div', { className: 'flex flex-1 flex-col' }, h(InsetHeader, null, title(component.label)), h(Suspense, { fallback: null }, h(galleries.ComponentBody, { component })));
 }
 
 /** The description below the window (`numbers.ts`, with the numbers it

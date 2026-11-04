@@ -8,3 +8,9 @@ declare module 'virtual:data-rows' {
   const rows: Record<string, number>;
   export default rows;
 }
+
+declare module 'virtual:gallery' {
+  /** The Overview's and the component's page's words (`cold.ts`). */
+  const gallery: import('./readouts.ts').Gallery;
+  export default gallery;
+}

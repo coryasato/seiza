@@ -13,6 +13,7 @@
  * that takes a parameter (`?side=`, `?stop=`).
  */
 
+import { createElement as h } from 'react';
 import type { Side } from '../../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../../contenders/paths.ts';
 import { BIG_FILE, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type Scenario, type Stop } from '../../contenders/scenarios.ts';
@@ -27,6 +28,13 @@ export interface Contender {
   url: (level: Level) => string;
 }
 
+/** Where the two stacks differ, by id: the mechanisms a scenario leans on
+ *  (`gallery.ts`'s `MECHANISMS`, their names and definitions). */
+export type MechanismId = 'cells' | 'gc' | 'decoding' | 'compositor' | 'platform';
+
+/** The component's page's section on the mechanisms. */
+export const WHY_ANCHOR = 'why';
+
 /** What the page says of a scenario, beside `scenarios.ts`'s facts. */
 export interface ScenarioCopy {
   /** The title bar's lead, from the data file's rows. */
@@ -34,6 +42,11 @@ export interface ScenarioCopy {
   /** The dial: what its stops set, and the explainer's line on them. None
    *  for a scenario with one stop. */
   dial?: { label: string; about: string };
+  /** The mechanisms it leans on (`MECHANISMS`). */
+  leans: readonly MechanismId[];
+  /** For a scenario without a dial: what its numbers are instead, for the
+   *  component's page's "How far each side keeps up". */
+  session?: string;
 }
 
 export interface Component {
@@ -41,20 +54,47 @@ export interface Component {
   label: string;
   /** The component's page: `/observatory/<id>/`. */
   path: string;
-  /** One line: what it is and what it runs against. */
-  summary: string;
+  /** One line: what it is (the component's page opens with it). */
+  line: string;
+  /** The Overview's card's line: what it is, through what. */
+  card: string;
+  /** What each of its uses runs against. */
+  against: string;
   contenders: [Contender, Contender];
   scenarios: readonly Scenario[];
 }
+
+/** Each side's series color as Tailwind classes, written out whole so
+ *  Tailwind's scan finds them. */
+const SERIES: Record<Side, Record<'bg' | 'text' | 'border', string>> = {
+  gpui: { bg: 'bg-series-gpui', text: 'text-series-gpui', border: 'border-series-gpui' },
+  tanstack: { bg: 'bg-series-tanstack', text: 'text-series-tanstack', border: 'border-series-tanstack' },
+};
+
+/** A side's series color as a Tailwind class: `bg-series-gpui`, … */
+export const seriesClass = (side: Side, kind: 'bg' | 'text' | 'border') => SERIES[side][kind];
+
+/** A series' dot: each side's color, beside its name (never instead). Here,
+ *  not in the window's module, so the galleries' chunk shares it without
+ *  splitting the window out of the first-paint chunk. */
+export const seriesDot = (side: Side) => h('span', { className: `size-2 shrink-0 rounded-full ${seriesClass(side, 'bg')}`, 'aria-hidden': true });
 
 /** A count as the page says it: "1.57 million". */
 export const millions = (count: number) => `${(count / 1e6).toFixed(2)} million`;
 
 const COPY: Record<string, ScenarioCopy> = {
-  'big-file': { lead: (rows) => `Scroll ${millions(rows)} asteroids. Flip the switch to compare.` },
+  'big-file': {
+    lead: (rows) => `Scroll ${millions(rows)} asteroids. Flip the switch to compare.`,
+    // The base level's numbers (the research's "Where the two stacks
+    // differ"): GPUI's throttled fling (cells, garbage), TanStack's first
+    // usable and memory (the platform), its scroll on the compositor.
+    leans: ['cells', 'gc', 'compositor', 'platform'],
+    session: 'one session of opening the file, a fling, and a jump, in its own Compare',
+  },
   'wide-sheet': {
     lead: (rows) => `${rows.toLocaleString('en-US')} weather stations × 365 days. Turn up the cells to find where each side stops keeping up.`,
     dial: { label: 'Cells on screen', about: 'Each stop sets the row height, the days’ width, and the text size: the same on both sides.' },
+    leans: ['cells', 'decoding'],
   },
 };
 
@@ -72,7 +112,9 @@ export const COMPONENTS: Component[] = [
     // As gpui-kit names its `DataTable` (docs/DECISIONS.md, "Page", the copy).
     label: 'TallTable',
     path: `${OBSERVATORY}tall-table/`,
-    summary: 'A GPUI table that reads its rows a page at a time, through DuckDB-Wasm, each use against React with TanStack Virtual.',
+    line: 'A GPUI table that reads its rows a page at a time.',
+    card: 'A table that reads its rows a page at a time, through DuckDB-Wasm.',
+    against: 'React with TanStack Virtual',
     contenders: [
       { side: 'gpui', label: 'GPUI', stack: 'the TallTable component, written in Rust and drawn by the GPU on a canvas, from WebAssembly', url: tallTable('gpui') },
       { side: 'tanstack', label: 'TanStack', stack: 'React and TanStack Virtual, in the page’s own HTML', url: tallTable('tanstack') },
@@ -89,6 +131,10 @@ const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id];
 /** Whether the page has a scenario's cold numbers: without them its status
  *  bar has no cold rows, its Compare is off, and it has no description. */
 export const hasCold = (scenario: Scenario): boolean => COLD.includes(scenario.id);
+
+/** A scenario's route's fragment that opens its Compare once the page has
+ *  painted (the component's page's rows link it); cleared when it does. */
+export const COMPARE_HASH = 'compare';
 
 /** A link to a scenario from a scenario's route, which carries `?side=`
  *  (`page.ts`'s `carrySide`). */

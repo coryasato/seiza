@@ -37,7 +37,7 @@ import rows from 'virtual:data-rows';
 import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
 import { FONTS } from '../../contenders/paths.ts';
 import { SCENARIO_PARAM, type DensityStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { hasCold, isDensity, scenarioCopy, SIDE_PARAM, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
+import { COMPARE_HASH, hasCold, seriesDot, isDensity, scenarioCopy, SIDE_PARAM, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { cached, frameMark, isWarm, trackFrame, warmth } from './live.ts';
 import { loadMetrics } from './metrics.ts';
@@ -97,8 +97,7 @@ function loadedFrom(frame: HTMLIFrameElement | null, prefix: string): From | nul
   return hits === entries.length ? 'from your cache' : hits ? 'partly from your cache' : 'fetched';
 }
 
-/** A series' dot: each side's color, beside its name (never instead). */
-export const seriesDot = (side: Side) => h('span', { className: `size-2 shrink-0 rounded-full ${side === 'gpui' ? 'bg-series-gpui' : 'bg-series-tanstack'}`, 'aria-hidden': true });
+export { seriesDot } from './components.ts';
 
 /** The shown contender: its app loading (before `contender:usable`), its
  *  engine starting, its data loading (`contender:open`), its first rows
@@ -144,6 +143,12 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
     afterFirstPaint(() => {
       setPainted(true);
       void loadMetrics();
+      // A link to this scenario's Compare (the component's page's rows):
+      // opened once, and the fragment cleared, so a reload shows the table.
+      if (location.hash === `#${COMPARE_HASH}` && hasCold(scenario)) {
+        setPanel(true);
+        history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+      }
     });
   }, [component, scenario]);
 

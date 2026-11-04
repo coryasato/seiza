@@ -39,6 +39,14 @@
 // sidebar's list open on a scenario's route with its item filled, closed on
 // the Overview until its chevron opens it; a phone's dial menu.
 //
+// The galleries, checked once (`galleries`): the Overview's thesis, its
+// card in the first screen, its rule from the cold numbers (its N
+// re-derived; with no numbers, none: the control), prerendered; the
+// component's page's verdicts, its keeps-up rows (re-derived, each opening
+// its Compare by `#compare`, cleared), its mechanisms and their
+// definitions; the galleries' code out of the first-paint JS; neither page
+// wider than a phone.
+//
 // The dashboard, checked once: the site's bar and every box in it the same
 // on every route, with the sidebar open or collapsed,
 // desktop and phone, at the window's width; a reload with the sidebar
@@ -80,9 +88,11 @@ import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
 import { BIG_FILE, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
-import { COMPONENTS, millions, ROUTES, scenarioPath } from '../web/src/components.ts';
+import { COMPARE_HASH, COMPONENTS, millions, ROUTES, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
+import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
+import { KEEPS_UP_SHARE } from '../metrics/metrics.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
-import { resolveCold } from '../web/cold.ts';
+import { resolveCold, resolveGallery } from '../web/cold.ts';
 import {
   BARS,
   CARDS,
@@ -95,6 +105,7 @@ import {
   coldKey,
   downloadTotal,
   evenSentence,
+  galleryOf,
   keepsVerdict,
   measuredWith,
   number,
@@ -1522,6 +1533,139 @@ async function screenshots(url: string, dir: string): Promise<void> {
   }
 }
 
+/**
+ * The galleries, checked once: the Overview's thesis, its component card
+ * in the first screen with a tile per scenario, its decision rule from the
+ * cold numbers (N re-derived here: the last stop where TanStack keeps up
+ * on the fast device), in the prerendered HTML too, and "More components
+ * coming" not a link; the rule waiting with no numbers (the control). The
+ * component's page: each card's verdict, the keeps-up rows (only the
+ * scenarios with a dial, each side's last stop re-derived, each row
+ * opening its Compare), the mechanisms each scenario leans on with their
+ * definitions, the wide sheet's "Why" linking them; a scenario's
+ * `#compare` opening its panel once and clearing the fragment; the
+ * galleries' code out of the first-paint JS, both pages hydrating with no
+ * errors, and neither wider than a phone.
+ */
+async function galleries(origin: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const cold = resolveCold();
+  const { gallery } = resolveGallery(cold);
+  const { values } = cold.numbers.scenarios[WIDE_SHEET.id]!;
+  const lastKept = (side: 0 | 1, profile: 'reference' | 'throttled') => {
+    let last = -1;
+    for (const [index, stop] of WIDE_SHEET.stops.entries()) {
+      if (values[coldKey('keeps', profile, stop.id)]![side] < KEEPS_UP_SHARE * 100) break;
+      last = index;
+    }
+    return last;
+  };
+  // The rule as its branches have it: the DOM's half where it keeps up at
+  // the smaller stops, GPUI's where GPUI keeps up further, else it waits.
+  const [g, n] = [lastKept(0, 'reference'), lastKept(1, 'reference')];
+  const clause = g <= n ? null : n < 0 ? `from ${stopShort(WIDE_SHEET.stops[0]!)} cells on screen` : `past ${stopShort(WIDE_SHEET.stops[n]!)} cells on screen`;
+  const rule = !clause ? 'Verdict after the scenarios run.' : `${n >= 0 ? 'Use the DOM for small tables.' : ''}Use GPUI ${clause}.`;
+
+  // The code: its own chunk, after first paint.
+  expect(Object.keys(manifest).some((key) => key.endsWith('src/gallery.ts')), 'the build has no gallery chunk');
+  expect(![...firstPaintKeys].some((key) => key.endsWith('src/gallery.ts')), "the galleries' code is in the first-paint JS");
+  // The control: no numbers, no rule.
+  const none = galleryOf(COMPONENTS, { scenarios: {} }).rules[TALL_TABLE.id]!;
+  expect(!none.dom && none.gpui.length === 0, 'the rule says something with no cold numbers');
+  expect(readFileSync(join(dist, 'index.html'), 'utf8').includes(clause ?? 'Verdict after the scenarios run.'), "the Overview's prerendered HTML lacks the rule");
+
+  const browser = await chromium.launch({ channel: 'chromium' });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    const page = await context.newPage();
+    const found = problems(page);
+    const chunk = page.waitForRequest((request) => /\/assets\/gallery-[^/]+\.js$/.test(request.url()), { timeout: 10_000 }).catch(() => null);
+    await page.goto(new URL(OBSERVATORY, origin).href);
+    await hydrated(page);
+    expect((await chunk) !== null, "the Overview didn't load the galleries' chunk");
+    expect((await page.locator('main h2').first().textContent()) === 'Is a UI drawn by the GPU worth it?', "the Overview's thesis");
+    const shown = await page.locator('[data-rule]').textContent();
+    expect(shown === rule, `the Overview's rule "${shown}", the numbers say "${rule}"`);
+    const card = await box(page, `[data-component-card="${TALL_TABLE.id}"]`);
+    expect(card.y + card.height <= DESKTOP.height, `the TallTable card ends at ${card.y + card.height} px, past the first screen`);
+    const tiles = await page.locator(`[data-component-card="${TALL_TABLE.id}"] [data-tile]`).evaluateAll((tiles) => tiles.map((tile) => tile.getAttribute('data-tile')));
+    expect(JSON.stringify(tiles) === JSON.stringify(TALL_TABLE.scenarios.map((scenario) => scenario.id)), `the mosaic's tiles: ${JSON.stringify(tiles)}`);
+    expect((await page.locator('[data-more]').count()) === 1 && (await page.locator('a [data-more], [data-more] a').count()) === 0, '"More components coming" is missing or a link');
+    out.overview = { rule: shown, cardBottom: card.y + card.height };
+    console.log(`overview: the rule "${shown}" (re-derived from the shares), the card in the first screen (ends at ${card.y + card.height} px), ${tiles.length} tiles`);
+
+    // The component's page.
+    await page.goto(new URL(TALL_TABLE.path, origin).href);
+    await hydrated(page);
+    await page.waitForTimeout(500);
+    const verdicts = await page.locator('[data-scenario-card]').evaluateAll((cards) => cards.map((card) => [card.getAttribute('data-scenario-card'), card.querySelector('[data-verdict]')?.textContent]));
+    const want = TALL_TABLE.scenarios.map((scenario) => [scenario.id, gallery.verdicts[scenario.id]?.text]);
+    expect(JSON.stringify(verdicts) === JSON.stringify(want), `the cards' verdicts ${JSON.stringify(verdicts)}, the numbers say ${JSON.stringify(want)}`);
+    const wide = gallery.verdicts[WIDE_SHEET.id]!.text;
+    expect(wide === keepsVerdict(WIDE_SHEET, values).split(' · ')[0], `the wide sheet's card "${wide}" isn't the panel's fast-device verdict`);
+    const rows = await page.locator('[data-reach-row]').evaluateAll((rows) =>
+      rows.map((row) => ({
+        id: row.getAttribute('data-reach-row'),
+        href: row.getAttribute('href'),
+        reach: [...row.querySelectorAll('[data-device]')].map((device) => [...device.querySelectorAll('[data-reach]')].map((bar) => bar.lastElementChild?.lastChild?.textContent)),
+      })),
+    );
+    const dialled = TALL_TABLE.scenarios.filter((scenario) => scenario.stops.length > 1);
+    expect(JSON.stringify(rows.map((row) => row.id)) === JSON.stringify(dialled.map((scenario) => scenario.id)), `the keeps-up rows: ${JSON.stringify(rows.map((row) => row.id))}`);
+    const label = (index: number) => (index < 0 ? 'none' : WIDE_SHEET.stops[index]!.label);
+    const reach = (['reference', 'throttled'] as const).map((profile) => [label(lastKept(0, profile)), label(lastKept(1, profile))]);
+    const row = rows.find((candidate) => candidate.id === WIDE_SHEET.id);
+    expect(JSON.stringify(row?.reach) === JSON.stringify(reach), `the wide sheet's reach ${JSON.stringify(row?.reach)}, the numbers say ${JSON.stringify(reach)}`);
+    expect(row?.href === `${scenarioPath(TALL_TABLE, WIDE_SHEET)}#${COMPARE_HASH}`, `the wide sheet's row links ${row?.href}`);
+    expect((await page.locator(`[data-session="${BIG_FILE.id}"]`).count()) === 1, "the keeps-up section doesn't say Big file has no dial");
+    const leans = await page.locator('[data-leans]').evaluateAll((rows) => rows.map((row) => [row.getAttribute('data-leans'), [...row.querySelectorAll('[data-lean]')].map((cell) => cell.getAttribute('data-lean'))]));
+    const leansWant = TALL_TABLE.scenarios.map((scenario) => [scenario.id, MECHANISMS.map((mechanism) => (scenarioCopy(scenario).leans.includes(mechanism.id) ? mechanism.favors : ''))]);
+    expect(JSON.stringify(leans) === JSON.stringify(leansWant), `the mechanisms' rows ${JSON.stringify(leans)}, want ${JSON.stringify(leansWant)}`);
+    const defined = await page.locator(`#${WHY_ANCHOR} [data-mechanism]`).evaluateAll((items) => items.map((item) => item.id));
+    expect(JSON.stringify(defined) === JSON.stringify(MECHANISMS.map(mechanismAnchor)), `the mechanisms' definitions: ${JSON.stringify(defined)}`);
+    out.component = { verdicts, reach: row?.reach, leans };
+    console.log(`${TALL_TABLE.path}: the verdicts ${JSON.stringify(verdicts.map(([, text]) => text))}; the wide sheet's reach ${JSON.stringify(row?.reach)} (re-derived), its row opening its Compare; the mechanisms per scenario and their ${defined.length} definitions`);
+
+    // A row's #compare opens the scenario's panel once, and clears.
+    await page.locator(`[data-reach-row="${WIDE_SHEET.id}"]`).click();
+    const opened = await page.locator('[data-panel-header] h2').waitFor({ timeout: 15_000 }).then(() => true, () => false);
+    expect(opened, "the wide sheet's #compare didn't open its panel");
+    if (opened) expect((await page.locator('[data-panel-header] h2').textContent()) === `How they compare: ${WIDE_SHEET.label}`, '#compare opened another panel');
+    expect((await page.evaluate(() => location.hash)) === '', `#compare stays in the URL: ${await page.evaluate(() => location.href)}`);
+    await page.reload();
+    await page.waitForSelector('iframe');
+    await page.waitForTimeout(1_000);
+    expect((await page.locator('[data-panel-header]').count()) === 0, 'the panel opens again on a reload');
+    // The description's "Why" links the mechanisms.
+    await page.locator('[data-description]').waitFor({ timeout: 10_000 });
+    const why = await page.locator('[data-description] a', { hasText: 'What each one means' }).getAttribute('href');
+    expect(why === `${TALL_TABLE.path}#${WHY_ANCHOR}`, `the wide sheet's "Why" links ${why}`);
+    console.log(`#compare: the wide sheet's panel opened, the fragment cleared, a reload shows the table; its "Why" links ${why}`);
+    expect(found.length === 0, `the galleries' problems: ${found.join('; ')}`);
+    await context.close();
+
+    // Neither page wider than a phone.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    const smallProblems = problems(small);
+    const wider: Record<string, number> = {};
+    for (const path of [OBSERVATORY, TALL_TABLE.path]) {
+      await small.goto(new URL(path, origin).href);
+      await hydrated(small);
+      await small.waitForTimeout(300);
+      wider[path] = await small.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      expect(wider[path] === 0, `${path} on a phone is ${wider[path]} px wider than it`);
+    }
+    expect(smallProblems.length === 0, `the galleries' problems on a phone: ${smallProblems.join('; ')}`);
+    out.phoneOverflow = wider;
+    console.log(`phone: the Overview and ${TALL_TABLE.path} no wider than the screen`);
+    await phone.close();
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
 // --- the runs ---
 
 const server = await servePage(PORT, given);
@@ -1540,6 +1684,7 @@ try {
     readOut.meter = await meter(url);
     readOut.scenarios = await scenarios(new URL(WIDE_ROUTE, url).href);
     readOut.wide = await wideReadouts(new URL(WIDE_ROUTE, url).href);
+    readOut.galleries = await galleries(server.url);
   }
   const shots = option('shots');
   if (shots) await screenshots(url, shots);

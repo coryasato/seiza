@@ -4,15 +4,19 @@
 // observatory report` resolves them for the README, the Download card's
 // parts by the same resolver, the versions they were measured with from
 // the same files, and each data file's rows, credit, license, and citation
-// from data/MANIFEST.json, so the page holds no typed copy. Node only.
+// from data/MANIFEST.json, so the page holds no typed copy; and what the
+// Overview and the component's page say of them (`virtual:gallery`: the
+// decision rule, each scenario's verdict, how far each side keeps up), read
+// only by the galleries' chunk (`src/gallery.ts`), after first paint, though
+// their HTML is prerendered. Node only.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { format, Reporter } from '../../../shared-web/scripts/results.ts';
 import { SCENARIOS, type Scenario } from '../contenders/scenarios.ts';
-import { hasCold } from './src/components.ts';
-import { derive, metricsOf, partSourcesOf, type ColdNumbers, type ScenarioCold } from './src/readouts.ts';
+import { COMPONENTS, hasCold } from './src/components.ts';
+import { derive, galleryOf, metricsOf, partSourcesOf, type ColdNumbers, type Gallery, type ScenarioCold } from './src/readouts.ts';
 
 const ID = 'virtual:cold-numbers';
 const RESOLVED = `\0${ID}`;
@@ -20,6 +24,10 @@ const RESOLVED = `\0${ID}`;
  *  the numbers themselves stay out of the first-paint JS. */
 const ROWS_ID = 'virtual:data-rows';
 const ROWS_RESOLVED = `\0${ROWS_ID}`;
+/** The galleries' words, from the cold numbers: their HTML prerendered,
+ *  their module in the galleries' chunk, never the first-paint JS's. */
+const GALLERY_ID = 'virtual:gallery';
+const GALLERY_RESOLVED = `\0${GALLERY_ID}`;
 const app = fileURLToPath(new URL('..', import.meta.url));
 const manifest = fileURLToPath(new URL('../data/MANIFEST.json', import.meta.url));
 
@@ -105,17 +113,39 @@ export function resolveCold(): { numbers: ColdNumbers; sources: string[] } {
   return { numbers, sources };
 }
 
+/** The galleries' words, from the same numbers (`resolveCold`'s, passed
+ *  in when already resolved): the page's module, and `perf/page.ts`'s
+ *  reference. */
+export function resolveGallery(cold = resolveCold()): { gallery: Gallery; sources: string[] } {
+  return { gallery: galleryOf(COMPONENTS, cold.numbers), sources: cold.sources };
+}
+
 export function coldNumbers(): Plugin {
+  /** The numbers, resolved once per build (both modules read them), again
+   *  after a source changes. */
+  let resolved: ReturnType<typeof resolveCold> | null = null;
+  const cold = () => (resolved ??= resolveCold());
   return {
     name: 'observatory:cold-numbers',
-    resolveId: (id) => (id === ID ? RESOLVED : id === ROWS_ID ? ROWS_RESOLVED : undefined),
+    buildStart() {
+      resolved = null;
+    },
+    watchChange() {
+      resolved = null;
+    },
+    resolveId: (id) => (id === ID ? RESOLVED : id === ROWS_ID ? ROWS_RESOLVED : id === GALLERY_ID ? GALLERY_RESOLVED : undefined),
     load(id) {
+      if (id === GALLERY_RESOLVED) {
+        const { gallery, sources } = resolveGallery(cold());
+        for (const file of sources) this.addWatchFile(file);
+        return `export default ${JSON.stringify(gallery)};`;
+      }
       if (id === ROWS_RESOLVED) {
         this.addWatchFile(manifest);
         return `export default ${JSON.stringify(dataRows())};`;
       }
       if (id !== RESOLVED) return;
-      const { numbers, sources } = resolveCold();
+      const { numbers, sources } = cold();
       // Dev reloads the numbers when their sources change.
       for (const file of sources) this.addWatchFile(file);
       return `export default ${JSON.stringify(numbers)};`;

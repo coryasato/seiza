@@ -23,7 +23,7 @@ import cold from 'virtual:cold-numbers';
 import type { Side } from '../../contenders/contract.ts';
 import type { Scenario, Stop } from '../../contenders/scenarios.ts';
 import { KEEPS_UP_SHARE } from '../../metrics/metrics.ts';
-import { millions, SCENARIO_LINK, scenarioPath, stopShort, type Component, type Contender } from './components.ts';
+import { millions, SCENARIO_LINK, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
 import { toggleMeter, useMeter } from './meter.ts';
@@ -666,7 +666,7 @@ const STORIES: Record<string, Story> = {
         'p',
         null,
         'Cost per cell: the DOM pays style, layout, and paint for each cell’s element, so its frames grow with the cells on screen, while the GPU draws them all as quads and glyphs. That’s the canvas’s doing rather than WebAssembly’s, and the two aren’t measured apart yet. WebAssembly’s part is decoding and formatting each visible cell. ',
-        h('a', { href: component.path, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
+        h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
         '.',
       ),
     },

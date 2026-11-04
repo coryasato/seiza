@@ -14,7 +14,7 @@ import { KEEPS_UP_SHARE, SCROLLS, type LiveReadings } from '../../metrics/metric
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
 import { BIG_FILE, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { stopShort } from './components.ts';
+import { isDensity, stopShort } from './components.ts';
 
 export type Profile = 'reference' | 'throttled';
 export const PROFILES: Profile[] = ['reference', 'throttled'];
@@ -521,6 +521,37 @@ export function reachOf(scenario: Scenario, values: ScenarioCold['values'], side
   return last;
 }
 
+/** Names a scenario's stops for one sentence: its unit ("~380 cells")
+ *  the first time, the number alone ("~940") after. */
+const stopNamer = (scenario: Scenario) => {
+  const stops = scenario.stops as readonly Stop[];
+  let unit = true;
+  return (index: number) => {
+    const stop = stops[index]!;
+    const text = unit ? stop.label : stopShort(stop);
+    unit = false;
+    return text;
+  };
+};
+
+/** How far each side keeps up on one device, in words: "TanStack keeps up
+ *  to ~380 cells; GPUI keeps up at every stop, to ~940", the side that
+ *  keeps up less named first. */
+function keepsOn(scenario: Scenario, values: ScenarioCold['values'], profile: Profile, to = stopNamer(scenario)): string {
+  const last = scenario.stops.length - 1;
+  const reach = (index: number) => (index < 0 ? 'keeps up at no stop' : index === last ? `keeps up at every stop, to ${to(index)}` : `keeps up to ${to(index)}`);
+  const [gpui, tanstack] = SIDES.map((side) => reachOf(scenario, values, side, profile)) as [number, number];
+  if (gpui === tanstack) {
+    if (gpui < 0) return 'neither keeps up at any stop';
+    return `both ${reach(gpui).replace('keeps', 'keep')}`;
+  }
+  const [first, second] = gpui < tanstack ? (['gpui', 'tanstack'] as const) : (['tanstack', 'gpui'] as const);
+  const of = { gpui, tanstack };
+  return `${LABELS[first]} ${reach(of[first])}; ${LABELS[second]} ${reach(of[second])}`;
+}
+
+const capital = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+
 /**
  * The keeps-up verdict over both devices: "TanStack keeps up to ~380
  * cells; GPUI keeps up at every stop, to ~940 · on a slow device, neither
@@ -528,28 +559,8 @@ export function reachOf(scenario: Scenario, values: ScenarioCold['values'], side
  * stops' unit is said once.
  */
 export function keepsVerdict(scenario: Scenario, values: ScenarioCold['values']): string {
-  const stops = scenario.stops as readonly Stop[];
-  let unit = true;
-  const to = (index: number) => {
-    const stop = stops[index]!;
-    const text = unit ? stop.label : stopShort(stop);
-    unit = false;
-    return text;
-  };
-  const reach = (index: number) => (index < 0 ? 'keeps up at no stop' : index === stops.length - 1 ? `keeps up at every stop, to ${to(index)}` : `keeps up to ${to(index)}`);
-  const device = (profile: Profile) => {
-    const [gpui, tanstack] = SIDES.map((side) => reachOf(scenario, values, side, profile)) as [number, number];
-    if (gpui === tanstack) {
-      if (gpui < 0) return 'neither keeps up at any stop';
-      return `both ${reach(gpui).replace('keeps', 'keep')}`;
-    }
-    const [first, second] = gpui < tanstack ? (['gpui', 'tanstack'] as const) : (['tanstack', 'gpui'] as const);
-    const of = { gpui, tanstack };
-    return `${LABELS[first]} ${reach(of[first])}; ${LABELS[second]} ${reach(of[second])}`;
-  };
-  const fast = device('reference');
-  const slow = device('throttled');
-  return `${fast.charAt(0).toUpperCase()}${fast.slice(1)} · on a slow device, ${slow}`;
+  const to = stopNamer(scenario);
+  return `${capital(keepsOn(scenario, values, 'reference', to))} · on a slow device, ${keepsOn(scenario, values, 'throttled', to)}`;
 }
 
 /** The keeps-up comparison on one device, for "where each side wins":
@@ -607,4 +618,117 @@ export function measuredWith(versions: ScenarioCold['versions']): string | null 
   return `Measured with ${PACKAGES.filter(([name]) => of.has(name))
     .map(([name, label]) => `${label} ${of.get(name)!.join(' and ')}`)
     .join(' · ')}.`;
+}
+
+// ---------------------------------------------------------------- the galleries
+
+/** The side a scenario's verdict leans to: one, both ("split": each wins
+ *  something the verdict names), or neither (null: even). */
+export type Lean = Side | 'split' | null;
+
+/** A scenario's card on its component's page: its verdict in a line. */
+export interface ScenarioVerdict {
+  text: string;
+  lean: Lean;
+}
+
+const leanOf = (winners: (Side | null)[]): Lean => {
+  const sides = new Set(winners.filter((side) => side !== null));
+  return sides.size === 2 ? 'split' : sides.size === 1 ? [...sides][0]! : null;
+};
+
+/** A scenario without stops' verdict: Ready in and Smoothness, each by the
+ *  fast device, or the slow one where the fast is even ("TanStack ready
+ *  3.4× sooner; GPUI smoother on a slow device"). */
+const HEADLINE: { key: string; says: (o: Outcome) => string }[] = [
+  { key: 'usable', says: (o) => `ready ${times(o.times)} sooner` },
+  { key: 'smooth', says: () => 'smoother' },
+];
+
+/**
+ * A scenario's verdict for its card: with stops, how far each side keeps
+ * up on the fast device (as the panel's verdict opens); without, what each
+ * side wins of Ready in and Smoothness.
+ */
+export function scenarioVerdict(scenario: Scenario, cold: ScenarioCold): ScenarioVerdict {
+  if (numbersOf(scenario).stopCards) {
+    const [gpui, tanstack] = SIDES.map((side) => reachOf(scenario, cold.values, side, 'reference')) as [number, number];
+    return { text: capital(keepsOn(scenario, cold.values, 'reference')), lean: gpui === tanstack ? null : gpui > tanstack ? 'gpui' : 'tanstack' };
+  }
+  const said: string[] = [];
+  const winners: (Side | null)[] = [];
+  for (const { key, says } of HEADLINE) {
+    const shown = card(key);
+    const [fast, slow] = [cardOutcome(shown, cold.values, 'reference'), cardOutcome(shown, cold.values, 'throttled')];
+    const won = fast.winner ? fast : slow.winner ? slow : null;
+    winners.push(won?.winner ?? null);
+    if (won) said.push(`${LABELS[won.winner!]} ${says(won)}${won === fast ? '' : ' on a slow device'}`);
+  }
+  return { text: said.length ? said.join('; ') : 'Even', lean: leanOf(winners) };
+}
+
+/** How far each side keeps up at a scenario with stops, per device: each
+ *  side's last stop index (`reachOf`), GPUI's then TanStack's. */
+export type Reach = Record<Profile, [number, number]>;
+
+export const reachesOf = (scenario: Scenario, cold: ScenarioCold): Reach =>
+  Object.fromEntries(PROFILES.map((profile) => [profile, SIDES.map((side) => reachOf(scenario, cold.values, side, profile))])) as Reach;
+
+/** A component's decision rule (`docs/DECISIONS.md`, "Page"): each half
+ *  said only where its numbers back it. */
+export interface Rule {
+  /** "Use the DOM for small tables.": the DOM keeps up at a scenario's
+   *  smaller stops, where GPUI keeps up further. */
+  dom: boolean;
+  /** "Use GPUI past ~380 cells on screen.": a clause per scenario with a
+   *  density dial where GPUI keeps up further than the DOM. */
+  gpui: string[];
+}
+
+/**
+ * A component's rule from its scenarios' numbers, on the fast device: past
+ * the last stop where the DOM keeps up ("past ~380 cells on screen"), or
+ * from the first where it keeps up at none, wherever GPUI keeps up
+ * further. Neither half until a scenario with a density dial has numbers.
+ */
+export function ruleOf(scenarios: readonly Scenario[], numbers: ColdNumbers): Rule {
+  const rule: Rule = { dom: false, gpui: [] };
+  for (const scenario of scenarios) {
+    const cold = numbers.scenarios[scenario.id];
+    const stops = scenario.stops as readonly Stop[];
+    if (!cold || stops.length < 2 || !numbersOf(scenario).stopCards || !stops.every(isDensity)) continue;
+    const [gpui, tanstack] = reachesOf(scenario, cold).reference;
+    if (gpui <= tanstack) continue;
+    if (tanstack >= 0) rule.dom = true;
+    rule.gpui.push(tanstack < 0 ? `from ${stopShort(stops[0]!)} cells on screen` : `past ${stopShort(stops[tanstack]!)} cells on screen`);
+  }
+  return rule;
+}
+
+/** What the Overview and the component's page say of the scenarios,
+ *  resolved at build time (`virtual:gallery`), so their first screen is in
+ *  the prerendered HTML with none of this module's code. */
+export interface Gallery {
+  /** Each component's rule, by its id. */
+  rules: Record<string, Rule>;
+  /** Each scenario's with numbers. */
+  verdicts: Record<string, ScenarioVerdict>;
+  /** Each scenario with stops' reach. */
+  reach: Record<string, Reach>;
+  /** "Keeps up"'s line, a percentage. */
+  share: number;
+}
+
+export function galleryOf(components: readonly { id: string; scenarios: readonly Scenario[] }[], numbers: ColdNumbers): Gallery {
+  const gallery: Gallery = { rules: {}, verdicts: {}, reach: {}, share: KEEPS_UP_SHARE * 100 };
+  for (const component of components) {
+    gallery.rules[component.id] = ruleOf(component.scenarios, numbers);
+    for (const scenario of component.scenarios) {
+      const cold = numbers.scenarios[scenario.id];
+      if (!cold) continue;
+      gallery.verdicts[scenario.id] = scenarioVerdict(scenario, cold);
+      if (numbersOf(scenario).stopCards) gallery.reach[scenario.id] = reachesOf(scenario, cold);
+    }
+  }
+  return gallery;
 }

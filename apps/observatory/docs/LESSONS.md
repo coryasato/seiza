@@ -188,3 +188,11 @@ One entry per milestone, written before starting the next one: what surprised us
 - An SVG drawn in one fixed viewBox scales its text with the card: in a 530 px card the axis labels came out half again as large as the page's. Each point's x as a share of the width, at a fixed height, keeps the text at the page's size. But a polyline's points can't be percentages, so the lines are drawn as segments.
 - The status bar's Smooth shows two readings under one name: this tab's frames on time, and the cold runs' frames that drew new cells. The explainer has to name both, because the scenario's measure never was the base's.
 
+
+## M9 part E3: the Overview and the component's page (2026-11-04)
+
+[Results](../perf/results/2026-11-04-m9-e3.md).
+
+- Rolldown gives a module that both the entry and a dynamic chunk import a chunk of its own, rather than leaving it in the entry. When the gallery imported one helper from `slot.ts`, the window's 26.7 KiB moved into a second first-paint chunk, and the split cost bytes. Copying the helper kept `slot.ts` in the entry. `components.ts` still splits (3.7 KiB, shared with the gallery), which costs ~0.8 KiB over the bodies' own bytes.
+- A table's screen-reader text, `sr-only` and so absolutely positioned, made the component's page 296 px wider than a phone, though the table scrolled inside its own box. The text was positioned against an ancestor outside the scroller, so the scroller never clipped it. Making the scroller `relative` fixed it.
+- React's hydration keeps a Suspense boundary's server HTML while its `lazy` chunk loads. So a prerendered body can leave the first-paint JS with no shift and no fallback, as long as the prerender renders the same component directly.

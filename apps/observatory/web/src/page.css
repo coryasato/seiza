@@ -419,3 +419,58 @@
     background: oklch(0 0 0 / 40%);
   }
 }
+
+/* The galleries' drawings (`gallery.ts`): a scenario's frame drawn small,
+   its values as bars, the header lighter; the wide sheet's days as heat,
+   the frame's ramp from the background to gpui-kit's `chart-1` (Tailwind's
+   blue-300, oklch(0.809 0.105 251.813)), each cell's share in `--heat`. */
+.observatory-drawing {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  height: 100%;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.observatory-drawing > span {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  height: 9px;
+}
+
+.observatory-drawing i {
+  display: block;
+  flex: none;
+  height: 100%;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+}
+
+.observatory-drawing .observatory-head i {
+  opacity: 0.55;
+}
+
+.observatory-heat > span {
+  gap: 0;
+  height: 8px;
+}
+
+.observatory-heat > span > i:first-child {
+  margin-right: 4px;
+}
+
+.observatory-heat > span:not(.observatory-head) > i:not(:first-child) {
+  flex: 1 1 0;
+  border-radius: 0;
+  background: color-mix(in oklab, oklch(0.809 0.105 251.813) var(--heat), var(--background));
+}
+
+/* A verdict that splits: each side's half. */
+.observatory-split {
+  background: linear-gradient(90deg, var(--series-gpui) 50%, var(--series-tanstack) 50%);
+}
