@@ -7,7 +7,8 @@
  * under the run isn't drawn, as the table's `Pin::visible`); the key
  * columns sticky at their place inside the translated rows, opaque, the
  * run's edge a line over the frame; heat by `color-mix(in oklab)` through
- * the file's range, its text in the theme's color that contrasts with it.
+ * the scenario's diverging ramp, its text in the theme's color that
+ * contrasts with it.
  */
 
 import { createElement as h, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
@@ -31,7 +32,7 @@ const SIDEWAYS_IDLE_MS = 150;
  *  root's `data-theme` or the system's scheme changes. */
 export function useFramePaint(): { frame: FramePaint; heat: Oklab[] } {
   const resolve = () => {
-    const theme = documentTheme();
+    const theme = documentTheme([HEAT]);
     return { frame: new FramePaint(theme), heat: resolveRamp(HEAT, theme) };
   };
   const [paint, setPaint] = useState(resolve);
@@ -305,7 +306,8 @@ export function publishCells(scroller: HTMLElement, columns: readonly LaidOutCol
       cells.push({ row, column, exact, shown: cell.textContent ?? '', fill });
     }
   }
-  contender.layout = { rowHeight: scene.sizes.row, cellsWidth: sheet.cellsWidth, pinned: sheet.pin.columns, columns: columns.map(({ name, x, width, kind }) => ({ name, x, width, kind })) };
+  // `left` and `top` as the GPUI contender's: the cells' left edge (right of the row numbers) and the rows' top.
+  contender.layout = { left: left + gutter, top, rowHeight: scene.sizes.row, cellsWidth: sheet.cellsWidth, pinned: sheet.pin.columns, columns: columns.map(({ name, x, width, kind }) => ({ name, x, width, kind })) };
   contender.cells = cells;
 }
 

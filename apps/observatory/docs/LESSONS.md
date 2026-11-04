@@ -196,3 +196,11 @@ One entry per milestone, written before starting the next one: what surprised us
 - Rolldown gives a module that both the entry and a dynamic chunk import a chunk of its own, rather than leaving it in the entry. When the gallery imported one helper from `slot.ts`, the window's 26.7 KiB moved into a second first-paint chunk, and the split cost bytes. Copying the helper kept `slot.ts` in the entry. `components.ts` still splits (3.7 KiB, shared with the gallery), which costs ~0.8 KiB over the bodies' own bytes.
 - A table's screen-reader text, `sr-only` and so absolutely positioned, made the component's page 296 px wider than a phone, though the table scrolled inside its own box. The text was positioned against an ancestor outside the scroller, so the scroller never clipped it. Making the scroller `relative` fixed it.
 - React's hydration keeps a Suspense boundary's server HTML while its `lazy` chunk loads. So a prerendered body can leave the first-paint JS with no shift and no fallback, as long as the prerender renders the same component directly.
+
+## M9 part E3b: the canvas's heat (2026-11-04)
+
+[Results](../perf/results/2026-11-04-m9-e3b.md).
+
+- A CSS variable's form costs per use. Set as `light-dark(oklch(…), oklch(…))`, the three heat stops cost the TanStack side ~4 ms of style work a frame at ~940 cells, ~10 points of frames drawn in the scroll down, because every cell's `color-mix` resolves them again. The same colors as hex, switched by a media query and `data-theme` as `theme.css` switches its own, cost nothing measurable. The spot check caught it, the interleaved A/B confirmed it: a per-cell style is worth an A/B even when it "only picks a color".
+- Chromium serializes a computed `oklch()` color as `oklch(…)`, not `rgb(…)`. A theme probe that pulls the first three numbers out of a computed color reads lightness, chroma, and hue as red, green, and blue, and nothing fails loudly. Hex variables sidestep it; a probe that reads other forms has to parse each one.
+- The GPUI side's heat had never been checked by its pixels, only by its probe's colors. Its layout probe (`left + x`, `top + row × rowHeight` at rest) was enough to find each cell on the canvas, so the pixel check now covers both sides with the same code.

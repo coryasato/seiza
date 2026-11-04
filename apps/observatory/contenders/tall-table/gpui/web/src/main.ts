@@ -31,8 +31,8 @@ const file = picked instanceof Error ? '' : picked.scenario.data;
 const level: number[] = [];
 if (!(picked instanceof Error) && picked.scenario.level === 'wide' && 'rowHeight' in picked.stop) {
   const { stop, scenario } = picked;
-  const [lo, hi] = __RANGES__[scenario.data] ?? [Number.NaN, Number.NaN];
-  level.push(stop.rowHeight, stop.textSize, stop.columnWidth, scenario.pinned, scenario.heatFrom, lo, hi);
+  const { lo, mid, hi } = scenario.heat.domain;
+  level.push(stop.rowHeight, stop.textSize, stop.columnWidth, scenario.pinned, scenario.heatFrom, lo, mid, hi);
 }
 /** Frames to wait for the view to change after a replay's input: GPUI
  *  handles it on its next turn and draws it in the next frame. */

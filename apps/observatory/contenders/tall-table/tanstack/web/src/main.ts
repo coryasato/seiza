@@ -19,7 +19,7 @@ import { MARKS, followPageTheme, publishContender } from '../../../../contract.t
 import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
 import { pickScenario } from '../../../../scenarios.ts';
 import { replay } from './contract.ts';
-import { wideScene, type WideScene } from './scene.ts';
+import { heatCss, wideScene, type WideScene } from './scene.ts';
 import { App, FIRST_SCREEN, type Load } from './view.ts';
 import './theme.css';
 import './view.css';
@@ -38,9 +38,12 @@ const FILE = picked instanceof Error ? '' : picked.scenario.data;
 let scene: WideScene | undefined;
 let unset: Error | null = null;
 if (__LEVEL__ === 'wide' && !(picked instanceof Error)) {
-  const range = __RANGES__[picked.scenario.data];
-  if (picked.scenario.level === 'wide' && 'rowHeight' in picked.stop && range) scene = wideScene(picked.scenario, picked.stop, range);
-  else unset = new Error(`the wide level can't set ${picked.scenario.id} at ${picked.stop.id} (no heat range for ${picked.scenario.data}?)`);
+  if (picked.scenario.level === 'wide' && 'rowHeight' in picked.stop) {
+    scene = wideScene(picked.scenario, picked.stop);
+    const heat = document.createElement('style');
+    heat.textContent = heatCss(picked.scenario);
+    document.head.append(heat);
+  } else unset = new Error(`the wide level can't set ${picked.scenario.id} at ${picked.stop.id}`);
 }
 /** Why this frame opens nothing, if it doesn't. */
 const failure = picked instanceof Error ? picked : unset;

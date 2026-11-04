@@ -138,12 +138,13 @@ describe('paint.json', () => {
     assert.deepEqual([padOf(base), barInset(base)], [cell.padding, cell.bar_inset]);
   });
 
-  test("theme.css holds the stops and tokens the contender draws with", () => {
+  test("theme.css holds the tokens the contender draws with", () => {
     const paint = fixture('paint.json');
     const css = themeCss();
-    // The heat ramp's stops and the rows' tokens; the other ramps' stops
-    // (`signed`, `flash`, `active`'s) aren't drawn by the contender.
-    const drawn = ['background', 'foreground', 'chart-1', 'table', 'table-even', 'table-active'];
+    // The rows' tokens and the text over a fill; the fixture's ramps'
+    // stops aren't the contender's (its heat is the scenario's,
+    // `scenarios.ts`).
+    const drawn = ['background', 'foreground', 'table', 'table-even', 'table-active'];
     for (const theme of THEMES) {
       const colors = fixtureTheme(paint, theme);
       for (const token of drawn) {

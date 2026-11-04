@@ -13,7 +13,8 @@
 import { createElement as h, type ReactNode } from 'react';
 import gallery from 'virtual:gallery';
 import type { Side } from '../../contenders/contract.ts';
-import type { Scenario, Stop } from '../../contenders/scenarios.ts';
+import { oklchCss, type Heat, type Scenario, type Stop, type WideScenario } from '../../contenders/scenarios.ts';
+import { Domain, rampCss } from '../../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COMPARE_HASH, scenarioCopy, scenarioPath, seriesClass, seriesDot, stopShort, WHY_ANCHOR, type Component } from './components.ts';
 import { MECHANISMS, mechanismAnchor } from './mechanisms.ts';
 import type { Lean, Reach } from './readouts.ts';
@@ -33,28 +34,36 @@ const noise = (a: number, b: number) => {
  *  that flips across it. A drawing's, not the file's. */
 const high = (lat: number, day: number) => 30 - 0.55 * Math.abs(lat) + (3 + 0.22 * Math.abs(lat)) * Math.cos((2 * Math.PI * (day - 196)) / 365) * Math.sign(lat || 1);
 
-const HEAT_ROWS = [70, 62, 52, 44, 36, 24, 10, -8, -24, -40];
-const HEAT_DAYS = 20;
+/** The canvas's rows, the Arctic to the far south, and its days, one in 15. */
+const HEAT_ROWS = [70, 62, 52, 40, 22, 4, -12, -30, -45, -62];
+const HEAT_DAYS = 24;
+
+/** The drawing's ramp: the variables `page.css` sets per theme, mixed as
+ *  the TanStack contender mixes its heat (`paint.ts`). */
+const HEAT_DRAWN = ['heat-0', 'heat-1', 'heat-2'];
+
+/** The ramp's stops per theme, as variables `page.css` picks between. */
+const heatStops = (heat: Heat) =>
+  Object.fromEntries((['light', 'dark'] as const).flatMap((theme) => heat.stops[theme].map((stop, index) => [`--heat-${theme}-${index}`, oklchCss(stop)])));
 
 /** The wide sheet drawn small: the station pinned, then a day per cell as
- *  heat (the frame's ramp, the background to gpui-kit's `chart-1`). */
-const heatDrawing = () =>
-  h(
+ *  heat, through the scenario's ramp and domain (the contenders'). */
+const heatDrawing = ({ heat }: WideScenario) => {
+  const domain = new Domain(heat.domain.lo, heat.domain.hi, heat.domain.mid);
+  return h(
     'span',
-    { className: 'observatory-drawing observatory-heat' },
+    { className: 'observatory-drawing observatory-heat', style: heatStops(heat) },
     h('span', { className: 'observatory-head' }, h('i', { style: { width: '18%' } }), h('i', { style: { flex: 1 } })),
     ...HEAT_ROWS.map((lat) =>
       h(
         'span',
         { key: lat },
         h('i', { style: { width: '18%' } }),
-        ...Array.from({ length: HEAT_DAYS }, (_, day) => {
-          const at = Math.max(0, Math.min(1, (high(lat, (day * 365) / HEAT_DAYS) + 25) / 65));
-          return h('i', { key: day, style: { '--heat': `${Math.round(at * 100)}%` } as Record<string, string> });
-        }),
+        ...Array.from({ length: HEAT_DAYS }, (_, day) => h('i', { key: day, style: { background: rampCss(HEAT_DRAWN, domain.unit(high(lat, day * 15)))! } })),
       ),
     ),
   );
+};
 
 /** A table of text drawn small: a header, then rows of values as bars. */
 const rowsDrawing = () =>
@@ -71,7 +80,7 @@ const rowsDrawing = () =>
   );
 
 /** A scenario's frame, drawn small: its level's shape. */
-const drawing = (scenario: Scenario) => (scenario.level === 'wide' ? heatDrawing() : rowsDrawing());
+const drawing = (scenario: Scenario) => (scenario.level === 'wide' ? heatDrawing(scenario) : rowsDrawing());
 
 // ---------------------------------------------------------------- shared
 

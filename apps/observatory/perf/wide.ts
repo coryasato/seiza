@@ -10,9 +10,16 @@
 //   stop's label names (`~N cells`), within 5%;
 // - the TanStack contender's layout the GPUI contender's at each stop
 //   (every column's left and width, the rows, the run in effect, the
-//   cells' width), and its heat as drawn: the pixels of a sample of its
-//   heat cells, inside their padding, within two 8-bit steps of the ramp's
-//   color its probe reports;
+//   cells' width);
+// - the heat as drawn, on both sides, at each stop in the light theme and
+//   the dark: the pixels of a sample of the heat cells wholly in the view,
+//   inside their padding, within two 8-bit steps of the scenario's ramp
+//   (`scenarios.ts`'s `heat`: its stops mixed in Oklab, its domain) at the
+//   cell's value, computed here; the control, the earlier two-stop ramp
+//   (the theme's background to `chart-1` through the file's range), fails
+//   on most of them. The ramp's stops are inside sRGB (outside it, CSS
+//   gamut-maps an `oklch()` while the contenders clamp), and the GPUI
+//   contender's, constants in its `scene.rs`, equal `scenarios.ts`'s;
 // - without `?scenario` and `?stop`, the default stop;
 // - an id the build doesn't have fails the load (`contender:failed`, no
 //   `contender:filled`): an unknown stop, an unknown scenario, and the wide
@@ -25,13 +32,14 @@
 // data`; run `just observatory gpui-build`, `gpui-build wide`,
 // `tanstack-build`, and `tanstack-build wide` first.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import type { Side } from '../contenders/contract.ts';
-import { WIDE_SHEET, type DensityStop } from '../contenders/scenarios.ts';
+import { WIDE_SHEET, type DensityStop, type Oklch } from '../contenders/scenarios.ts';
+import { Domain, fromOklab, fromOklch, oklab, parseHex, rampAt, type Oklab, type Rgba } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS, dataPath, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
@@ -40,6 +48,8 @@ const only = option('side') as Side | undefined;
 const SIDES: Side[] = only ? [only] : ['gpui', 'tanstack'];
 
 interface Layout {
+  left: number;
+  top: number;
   rowHeight: number;
   cellsWidth: number;
   pinned: number;
@@ -52,7 +62,13 @@ interface Cell {
   shown: string;
   fill: number[] | null;
 }
-type Global = { __contender?: { layout?: Layout; cells?: Cell[] } };
+/** The GPUI contender's view (`__contender.probe`): its top row, fractional,
+ *  and its sideways scroll, CSS px. */
+interface ViewProbe {
+  top: number;
+  scrollX: number;
+}
+type Global = { __contender?: { layout?: Layout; cells?: Cell[]; probe?: ViewProbe } };
 
 const failures: string[] = [];
 const fail = (what: string) => failures.push(what);
@@ -65,9 +81,11 @@ const wideFile = dataPath(WIDE_SHEET.data).replaceAll("'", "''");
 const topStations = (await conn.runAndReadAll(`SELECT "Station" FROM read_parquet('${wideFile}') LIMIT 5`)).getRows().map((row) => String(row[0]));
 
 /** Opens `query` and waits for its end: filled, or failed. */
-async function open(browser: Browser, url: string, query: string) {
+async function open(browser: Browser, url: string, query: string, theme: Theme = 'light') {
   const context = await protocolContext(browser);
   const page = await context.newPage();
+  // The system's scheme, which both contenders follow outside the page's frame.
+  await page.emulateMedia({ colorScheme: theme });
   const found = problems(page);
   await page.goto(`${url}${query}`);
   // The mark that didn't come times out later: its rejection is the race's, not a failure.
@@ -86,23 +104,100 @@ const probed = (page: Page) =>
     }, null, { timeout: 10_000 })
     .then(async (handle) => (await handle.jsonValue()) as { layout: Layout; cells: Cell[] });
 
-/**
- * The TanStack side's heat as the browser drew it: for up to `count` heat
- * cells, the screenshot's pixel just inside the cell's top-left padding
- * (the text is right-aligned) against the fill its probe reports. A list of
- * mismatches.
- */
-async function drawnHeat(page: Page, cells: Cell[], count: number): Promise<{ checked: number; mismatches: string[] }> {
-  const sample = cells.filter((cell) => cell.fill).filter((_, index, all) => index % Math.max(1, Math.floor(all.length / count)) === 0).slice(0, count);
-  const boxes = await page.evaluate(
-    (wanted) =>
-      wanted.map(({ row, column }) => {
-        const cell = document.querySelector(`.row[data-row="${row}"] > .cell[data-column="${column}"]`);
-        const rect = cell?.getBoundingClientRect();
-        return rect ? [rect.left, rect.top] : null;
-      }),
-    sample.map(({ row, column }) => ({ row, column })),
+type Theme = 'light' | 'dark';
+
+/** A ramp to check the drawn heat against: its stops in Oklab, its domain. */
+interface HeatRamp {
+  stops: Oklab[];
+  domain: Domain;
+}
+
+const { lo, mid, hi } = WIDE_SHEET.heat.domain;
+/** The scenario's ramp, per theme. */
+const HEAT: Record<Theme, HeatRamp> = {
+  light: { stops: WIDE_SHEET.heat.stops.light.map((stop) => oklab(fromOklch(...stop))), domain: new Domain(lo, hi, mid) },
+  dark: { stops: WIDE_SHEET.heat.stops.dark.map((stop) => oklab(fromOklch(...stop))), domain: new Domain(lo, hi, mid) },
+};
+/** The control: the earlier ramp, the background to gpui-kit's `chart-1`
+ *  (`#93c5fd` in both themes) through the file's range (`MANIFEST.json`). */
+const fileRange = (() => {
+  const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import.meta.url), 'utf8')) as Record<string, { range?: [number, number] }>;
+  const range = manifest[WIDE_SHEET.data]?.range;
+  if (!range) throw new Error(`data/MANIFEST.json has no range for ${WIDE_SHEET.data}: run \`just observatory data\``);
+  return range;
+})();
+const TWO_STOP: Record<Theme, HeatRamp> = {
+  light: { stops: ['#ffffff', '#93c5fd'].map((hex) => oklab(parseHex(hex))), domain: new Domain(...fileRange) },
+  dark: { stops: ['#0a0a0a', '#93c5fd'].map((hex) => oklab(parseHex(hex))), domain: new Domain(...fileRange) },
+};
+const rgb8 = (color: Rgba): number[] => [color.r, color.g, color.b].map((channel) => Math.round(channel * 255));
+/** `ramp`'s color at a cell's value (its exact text), 8-bit RGB. */
+const heatAt = (ramp: HeatRamp, exact: string): number[] => rgb8(fromOklab(rampAt(ramp.stops, ramp.domain.unit(Number(exact)))!));
+
+/** Every stop inside sRGB: converted and back to Oklab, it's unchanged
+ *  (a clamped channel moves it). */
+function outOfGamut(): string[] {
+  return (['light', 'dark'] as const).flatMap((theme) =>
+    WIDE_SHEET.heat.stops[theme].flatMap((stop) => {
+      const [l, c, h] = stop;
+      const back = oklab(fromOklch(l, c, h));
+      const want = { a: c * Math.cos((h * Math.PI) / 180), b: c * Math.sin((h * Math.PI) / 180) };
+      return Math.abs(back.l - l) + Math.abs(back.a - want.a) + Math.abs(back.b - want.b) > 1e-3 ? [`scenarios.ts's ${theme} stop oklch(${stop.join(' ')}) is outside sRGB`] : [];
+    }),
   );
+}
+
+/** The GPUI contender's stops (`scene.rs`'s `LIGHT` and `DARK`) must be
+ *  `scenarios.ts`'s: a `Stop` captures nothing, so they're a copy. */
+function gpuiStops(): string[] {
+  const source = readFileSync(new URL('../contenders/tall-table/gpui/crate/src/scene.rs', import.meta.url), 'utf8');
+  return (['light', 'dark'] as const).flatMap((theme) => {
+    const found = new RegExp(`const ${theme.toUpperCase()}: \\[\\[f32; 3\\]; 3\\] = (\\[[^;]*\\]);`).exec(source);
+    if (!found) return [`scene.rs has no ${theme.toUpperCase()} stops`];
+    // rustfmt may break the array over lines, with trailing commas.
+    const stops = JSON.parse(found[1]!.replace(/,\s*\]/g, ']')) as Oklch[];
+    const wanted = WIDE_SHEET.heat.stops[theme];
+    return JSON.stringify(stops) === JSON.stringify(wanted) ? [] : [`scene.rs's ${theme} stops ${JSON.stringify(stops)}, scenarios.ts's ${JSON.stringify(wanted)}`];
+  });
+}
+
+/**
+ * The heat as the browser drew it: for up to `count` heat cells wholly in
+ * the view (right of the pinned run's edge if scrolled, left of the
+ * vertical scrollbar, above the horizontal one), the screenshot's pixel
+ * just inside the cell's top-left padding (the text is right-aligned)
+ * against `ramp`'s color at the cell's value, and against the control's.
+ * The TanStack side's boxes are its cells' elements'; the GPUI side's from
+ * its layout and its view (row `r` at `top + (r − probe.top) × rowHeight`,
+ * column `c` at `left + x`, less `scrollX` past the pinned run).
+ */
+async function drawnHeat(page: Page, side: Side, layout: Layout, cells: Cell[], count: number, theme: Theme): Promise<{ checked: number; mismatches: string[]; controlMismatches: number }> {
+  const filled = cells.filter((cell) => cell.fill);
+  const view = await page.evaluate(() => ({ height: innerHeight, probe: (globalThis as Global).__contender?.probe ?? null }));
+  if (side === 'gpui' && !view.probe) return { checked: 0, mismatches: ['no __contender.probe to place the cells by'], controlMismatches: 0 };
+  const boxes: (number[] | null)[] =
+    side === 'tanstack'
+      ? await page.evaluate(
+          (wanted) =>
+            wanted.map(({ row, column }) => {
+              const cell = document.querySelector(`.row[data-row="${row}"] > .cell[data-column="${column}"]`);
+              const rect = cell?.getBoundingClientRect();
+              return rect ? [rect.left, rect.top] : null;
+            }),
+          filled.map(({ row, column }) => ({ row, column })),
+        )
+      : filled.map(({ row, column }) => [layout.left + layout.columns[column]!.x - (column >= layout.pinned ? view.probe!.scrollX : 0), layout.top + (row - view.probe!.top) * layout.rowHeight]);
+  const pinnedEdge = layout.pinned > 0 ? layout.left + layout.columns[layout.pinned - 1]!.x + layout.columns[layout.pinned - 1]!.width : layout.left;
+  // Clear of the bottom: a horizontal scrollbar, and the TanStack frame's padding.
+  const bar = 40;
+  const inView = filled.flatMap((cell, index) => {
+    const box = boxes[index];
+    if (!box) return [];
+    const width = layout.columns[cell.column]!.width;
+    const whole = box[0]! >= (cell.column >= layout.pinned ? pinnedEdge : layout.left) && box[0]! + width <= layout.left + layout.cellsWidth && box[1]! >= layout.top && box[1]! + layout.rowHeight <= view.height - bar;
+    return whole ? [{ cell, box }] : [];
+  });
+  const sample = inView.filter((_, index, all) => index % Math.max(1, Math.floor(all.length / count)) === 0).slice(0, count);
   // The screenshot decoded in the page (device pixels), each box's pixel read there.
   const shot = await page.screenshot({ type: 'png' });
   const pixels = await page.evaluate(
@@ -116,18 +211,23 @@ async function drawnHeat(page: Page, cells: Cell[], count: number): Promise<{ ch
       const dpr = image.width / innerWidth;
       return at.map((box) => (box ? [...context.getImageData(Math.round((box[0]! + 2) * dpr), Math.round((box[1]! + 2) * dpr), 1, 1).data.slice(0, 3)] : null));
     },
-    { b64: shot.toString('base64'), at: boxes },
+    { b64: shot.toString('base64'), at: sample.map(({ box }) => box) },
   );
+  const near = (pixel: number[], want: number[]) => pixel.every((channel, i) => Math.abs(channel - want[i]!) <= 2);
   const mismatches: string[] = [];
-  sample.forEach((cell, index) => {
+  let controlMismatches = 0;
+  sample.forEach(({ cell }, index) => {
     const pixel = pixels[index];
     if (!pixel) return void mismatches.push(`row ${cell.row} column ${cell.column}: not drawn`);
-    if (pixel.some((channel, i) => Math.abs(channel - cell.fill![i]!) > 2)) mismatches.push(`row ${cell.row} column ${cell.column}: drawn ${pixel}, the ramp's ${cell.fill!.slice(0, 3)}`);
+    const want = heatAt(HEAT[theme], cell.exact);
+    if (!near(pixel, want)) mismatches.push(`row ${cell.row} column ${cell.column} (${cell.exact}): drawn ${pixel}, the ramp's ${want}`);
+    if (!near(pixel, heatAt(TWO_STOP[theme], cell.exact))) controlMismatches++;
   });
-  return { checked: sample.length, mismatches };
+  return { checked: sample.length, mismatches, controlMismatches };
 }
 
 const results: Record<string, Record<string, unknown>> = {};
+for (const problem of [...outOfGamut(), ...gpuiStops()]) fail(problem);
 /** The builds the run reads: GPUI's wide one always (the TanStack side's
  *  layout is compared with it), each base only for a side it checks. Each
  *  started inside the `try`, so one that's missing closes the others. */
@@ -151,11 +251,17 @@ try {
   for (const side of [...new Set<Side>(['gpui', ...SIDES])]) {
     const checked = SIDES.includes(side);
     const sideResults: Record<string, unknown> = {};
-    for (const stop of [...WIDE_SHEET.stops, null]) {
-      const name = `${side} ${stop?.id ?? 'default'}`;
+    // Each stop in both themes, then the default (no `?stop`); a side read
+    // only for its layouts, each stop once.
+    const runs: [DensityStop | null, Theme][] = checked
+      ? [...WIDE_SHEET.stops.flatMap((stop): [DensityStop, Theme][] => [[stop, 'light'], [stop, 'dark']]), [null, 'light']]
+      : WIDE_SHEET.stops.map((stop): [DensityStop, Theme] => [stop, 'light']);
+    for (const [stop, theme] of runs) {
+      const run = `${stop?.id ?? 'default'}${theme === 'dark' ? ' dark' : ''}`;
+      const name = `${side} ${run}`;
       const query = stop ? `?cells&scenario=${WIDE_SHEET.id}&stop=${stop.id}` : '?cells';
       const expected = stop ?? WIDE_SHEET.stops.find((candidate) => candidate.id === WIDE_SHEET.defaultStop)!;
-      const { context, page, found, end } = await open(browser, served(side, 'wide').url, query);
+      const { context, page, found, end } = await open(browser, served(side, 'wide').url, query, theme);
       try {
         if (end !== 'filled') {
           fail(`${name}: the load ended ${end}`);
@@ -163,7 +269,7 @@ try {
         }
         const { layout, cells } = await probed(page);
         // GPUI's layout is read for the TanStack side's comparison even when only it's checked.
-        if (side === 'gpui') gpuiLayouts.set(expected.id, layout);
+        if (side === 'gpui' && theme === 'light') gpuiLayouts.set(expected.id, layout);
         if (!checked) continue;
         const days = layout.columns.slice(WIDE_SHEET.heatFrom);
         const names = layout.columns.map((column) => column.name);
@@ -207,13 +313,13 @@ try {
         const onScreen = cells.length;
         const target = named(expected);
         if (Math.abs(onScreen - target) / target > 0.05) fail(`${name}: ${onScreen} cells on screen, its label says ~${target}`);
-        let heat = '';
-        if (side === 'tanstack') {
-          const drawn = await drawnHeat(page, cells, 40);
-          for (const mismatch of drawn.mismatches) fail(`${name}: heat ${mismatch}`);
-          heat = `; ${drawn.checked} heat cells' pixels against the ramp`;
-        }
-        sideResults[stop?.id ?? 'default'] = { stop: expected.id, rowHeight: layout.rowHeight, dayWidth: expected.columnWidth, textSize: expected.textSize, pinned: layout.pinned, rows, columns, cells: onScreen, heatFills: fills.size };
+        const drawn = await drawnHeat(page, side, layout, cells, 40, theme);
+        for (const mismatch of drawn.mismatches) fail(`${name}: heat ${mismatch}`);
+        if (drawn.checked < 20) fail(`${name}: only ${drawn.checked} heat cells sampled`);
+        // The control: the old two-stop ramp misses most of the same pixels.
+        if (drawn.controlMismatches < drawn.checked / 2) fail(`${name}: heat control: the two-stop ramp matched ${drawn.checked - drawn.controlMismatches} of ${drawn.checked} cells`);
+        const heat = `; ${drawn.checked} heat cells' pixels against the ramp, ${drawn.checked - drawn.mismatches.length} within 2 steps (the two-stop control: ${drawn.checked - drawn.controlMismatches})`;
+        sideResults[run] = { stop: expected.id, theme, rowHeight: layout.rowHeight, dayWidth: expected.columnWidth, textSize: expected.textSize, pinned: layout.pinned, rows, columns, cells: onScreen, heatFills: fills.size, heatChecked: drawn.checked, heatMatched: drawn.checked - drawn.mismatches.length, controlMatched: drawn.checked - drawn.controlMismatches };
         console.log(`${name}: ${layout.rowHeight} px rows, ${expected.columnWidth} px days, ${layout.pinned} pinned: ${rows} rows × ${columns} columns = ${onScreen} cells on screen (label ~${target}); ${fills.size} heat fills${heat}`);
         for (const problem of found) fail(`${name}: ${problem}`);
       } finally {

@@ -422,8 +422,9 @@
 
 /* The galleries' drawings (`gallery.ts`): a scenario's frame drawn small,
    its values as bars, the header lighter; the wide sheet's days as heat,
-   the frame's ramp from the background to gpui-kit's `chart-1` (Tailwind's
-   blue-300, oklch(0.809 0.105 251.813)), each cell's share in `--heat`. */
+   the contenders' ramp (each theme's stops set on the drawing from
+   `scenarios.ts`, `--heat-<theme>-<n>`; the theme's picked here), each
+   cell's mix of two of them its own background. */
 .observatory-drawing {
   display: flex;
   flex-direction: column;
@@ -464,10 +465,21 @@
   margin-right: 4px;
 }
 
+.observatory-heat {
+  --heat-0: var(--heat-light-0);
+  --heat-1: var(--heat-light-1);
+  --heat-2: var(--heat-light-2);
+}
+
+.dark .observatory-heat {
+  --heat-0: var(--heat-dark-0);
+  --heat-1: var(--heat-dark-1);
+  --heat-2: var(--heat-dark-2);
+}
+
 .observatory-heat > span:not(.observatory-head) > i:not(:first-child) {
   flex: 1 1 0;
   border-radius: 0;
-  background: color-mix(in oklab, oklch(0.809 0.105 251.813) var(--heat), var(--background));
 }
 
 /* A verdict that splits: each side's half. */

@@ -54,9 +54,27 @@ export type BaseScenario = ScenarioOf<'base', Stop>;
 export interface WideScenario extends ScenarioOf<'wide', DensityStop> {
   /** The first columns pinned (the key columns). */
   pinned: number;
-  /** The first column painted as heat; every column from it on is, each
-   *  through the file's whole range (`MANIFEST.json`'s `range`). */
+  /** The first column painted as heat; every column from it on is. */
   heatFrom: number;
+  heat: Heat;
+}
+
+/** A color in Oklch: lightness 0..1, chroma, hue in degrees. */
+export type Oklch = readonly [l: number, c: number, h: number];
+
+/** CSS's form of `color`: `oklch(0.6 0.13 262)`. */
+export const oklchCss = ([l, c, h]: Oklch): string => `oklch(${l} ${c} ${h})`;
+
+/**
+ * A diverging heat ramp: its three stops (cold, the middle, warm) per
+ * theme, mixed continuously in Oklab, and the values at its ends and its
+ * middle, clamped past them. Both contenders draw it (the GPUI side's
+ * stops are constants in its `scene.rs`, which `perf/wide.ts` checks
+ * against these), and so do the page's drawings.
+ */
+export interface Heat {
+  stops: Record<'light' | 'dark', readonly [cold: Oklch, mid: Oklch, warm: Oklch]>;
+  domain: { lo: number; mid: number; hi: number };
 }
 export type Scenario = BaseScenario | WideScenario;
 
@@ -77,7 +95,9 @@ const densityStop = (id: string, cells: number, rowHeight: number, textSize: num
  * The wide sheet's four stops (`docs/DECISIONS.md`, "Scenarios"): each
  * named by the cells the GPUI contender draws at the top at 1440 × 900
  * (`perf/wide.ts` counts them, and fails past 5% off the label), heat
- * throughout.
+ * throughout: a day's high from cold blue through a neutral middle to warm
+ * red, 12 °C at the middle (the design canvas's ramp and domain,
+ * `docs/DECISIONS.md`, "Scenarios").
  */
 export const WIDE_SHEET: WideScenario = {
   id: 'wide-sheet',
@@ -94,6 +114,13 @@ export const WIDE_SHEET: WideScenario = {
   defaultStop: 'rows-20',
   pinned: 2,
   heatFrom: 3,
+  heat: {
+    stops: {
+      light: [[0.6, 0.13, 262], [0.985, 0, 0], [0.64, 0.18, 32]],
+      dark: [[0.48, 0.12, 262], [0.2, 0, 0], [0.55, 0.17, 32]],
+    },
+    domain: { lo: -35, mid: 12, hi: 40 },
+  },
 };
 
 /** Every scenario, each level's first its default. */

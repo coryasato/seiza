@@ -658,7 +658,7 @@ const STORIES: Record<string, Story> = {
   },
   'wide-sheet': {
     shows: (numbers) =>
-      `A spreadsheet, a BI tool’s sheet, a notebook’s output: hundreds of columns, compact rows, and color telling each value’s story. Here a row is one of ${numbers.rows.toLocaleString('en-US')} weather stations, from the far north to the far south, and a column is a day of 2025, its high drawn as heat; the station and its place stay pinned as the days scroll by. Each stop of the dial packs more cells on screen, the same on both sides, read from one file by the same database engine.`,
+      `A spreadsheet, a BI tool’s sheet, a notebook’s output: hundreds of columns, compact rows, and color telling each value’s story. Here a row is one of ${numbers.rows.toLocaleString('en-US')} weather stations, from the far north to the far south, and a column is a day of 2025, its high drawn as heat. The seasons show as a warm band along each row; scrolling south, the band flips. The station and its place stay pinned as the days scroll by. Each stop of the dial packs more cells on screen, the same on both sides, read from one file by the same database engine.`,
     after: (_, component) => [
     {
       title: 'Why',

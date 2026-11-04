@@ -19,7 +19,7 @@ export interface Rgba {
 }
 
 /** A theme token, as `theme.css` names its variable without the `--`
- *  (`background`, `chart-1`). */
+ *  (`background`, `heat-cold`). */
 export type Token = string;
 
 /** `paint.json`'s negative controls; only the fixture test sets one. */
@@ -214,6 +214,12 @@ export class FramePaint {
   }
 }
 
+/** A color in Oklch (lightness, chroma, hue in degrees) in sRGB, clamped. */
+export function fromOklch(l: number, c: number, h: number, alpha = 1): Rgba {
+  const hue = (h * Math.PI) / 180;
+  return fromOklab({ l: l * alpha, a: c * Math.cos(hue) * alpha, b: c * Math.sin(hue) * alpha, alpha });
+}
+
 /** `rgb(r, g, b)` or `rgba(r, g, b, a)`, as a computed color is written. */
 function parseComputed(color: string): Rgba {
   const [r = 0, g = 0, b = 0, a = 1] = (color.match(/[\d.]+/g) ?? []).map(Number);
@@ -223,8 +229,9 @@ function parseComputed(color: string): Rgba {
 /** The theme's colors as the page has them now (`theme.css`'s variables on
  *  the root, light or dark by the media query or `data-theme`), each as the
  *  browser computes it: the build's minifier rewrites the variables' text
- *  (`#ffffff` as `#fff`). */
-export function documentTheme(): (token: Token) => Rgba {
+ *  (`#ffffff` as `#fff`). The paint's own tokens and `ramps`' stops are
+ *  resolved, all at once while the probe is in the page; any other throws. */
+export function documentTheme(ramps: readonly Ramp[] = []): (token: Token) => Rgba {
   const probe = document.createElement('span');
   probe.hidden = true;
   document.documentElement.append(probe);
@@ -239,7 +246,7 @@ export function documentTheme(): (token: Token) => Rgba {
     return color;
   };
   // Every token the paint reads, resolved now, while the probe is in the page.
-  for (const token of ['foreground', 'background', 'table', 'table-even', 'table-active', 'chart-1']) resolve(token);
+  for (const token of ['foreground', 'background', 'table', 'table-even', 'table-active', ...ramps.flat()]) resolve(token);
   probe.remove();
   return (token) => {
     const color = colors.get(token);

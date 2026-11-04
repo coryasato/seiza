@@ -94,7 +94,7 @@ test("the wide sheet's columns at the GPUI contender's widths and budgets, at it
   const section = cells.scenarios[WIDE_SHEET.id];
   assert.ok(section, 'cells.json has the wide sheet');
   const stop = WIDE_SHEET.stops.find((candidate) => candidate.id === section.source.stop)!;
-  const scene = wideScene(WIDE_SHEET, stop, [-75.5, 51.1]);
+  const scene = wideScene(WIDE_SHEET, stop);
   // The file's key columns, then its days (the fixture's, in order).
   const days = section.columns.filter((column) => column.name !== 'Latitude');
   const specs = [

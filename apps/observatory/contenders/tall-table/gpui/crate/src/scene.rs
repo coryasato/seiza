@@ -30,14 +30,14 @@ pub struct Wide {
     pub pinned: usize,
     /// The first column painted; every one from it on is.
     pub heat_from: usize,
-    /// The file's least and greatest value over the painted columns.
+    /// The heat's domain: the ramp's ends and its middle.
     pub domain: seiza_tall_table::Domain,
 }
 
 impl Scene {
     /// From the JS host's numbers: on the wide level `[row_height,
-    /// text_size, column_width, pinned, heat_from, lo, hi]`, on the base
-    /// none. Anything else is an error the host shows.
+    /// text_size, column_width, pinned, heat_from, lo, mid, hi]`, on the
+    /// base none. Anything else is an error the host shows.
     pub fn new(file: String, level: &[f64]) -> Result<Self, String> {
         #[cfg(feature = "wide")]
         {
@@ -48,15 +48,22 @@ impl Scene {
                 pinned,
                 heat_from,
                 lo,
+                mid,
                 hi,
             ] = level
             else {
                 return Err(format!(
-                    "the wide level takes 7 numbers, not {}",
+                    "the wide level takes 8 numbers, not {}",
                     level.len()
                 ));
             };
-            if !(row_height > 0.0 && text_size > 0.0 && column_width > 0.0 && lo < hi) {
+            if !(row_height > 0.0
+                && text_size > 0.0
+                && column_width > 0.0
+                && lo <= mid
+                && mid <= hi
+                && lo < hi)
+            {
                 return Err(format!(
                     "the wide level's numbers are out of range: {level:?}"
                 ));
@@ -69,7 +76,7 @@ impl Scene {
                     column_width: column_width as f32,
                     pinned: pinned as usize,
                     heat_from: heat_from as usize,
-                    domain: seiza_tall_table::Domain::new(lo, hi),
+                    domain: seiza_tall_table::Domain::new(lo, hi).mid(mid),
                 },
             })
         }
@@ -123,12 +130,7 @@ pub fn columns(
             let column = info.tall_table_column();
             #[cfg(feature = "wide")]
             if index >= scene.wide.heat_from {
-                return column
-                    .fill(seiza_tall_table::Ramp::new(&[
-                        |theme| theme.background,
-                        |theme| theme.chart_1,
-                    ]))
-                    .width(px(scene.wide.column_width));
+                return column.fill(heat::ramp()).width(px(scene.wide.column_width));
             }
             let _ = index;
             column
@@ -162,13 +164,15 @@ pub fn set_level(
 }
 
 /// Heat on the days: the engine's pages, each painted column's float
-/// mapped through the file's whole range (never a page's: colors would
-/// jump at page boundaries).
+/// mapped through the scenario's domain (one for every page: colors would
+/// jump at page boundaries otherwise), drawn through its diverging ramp.
 #[cfg(feature = "wide")]
 mod heat {
     use std::ops::Range;
+    use std::sync::OnceLock;
 
-    use gpui_kit::App;
+    use gpui_kit::component::Theme;
+    use gpui_kit::{App, Hsla, Rgba};
     use seiza_duckdb::arrow::Value;
     use seiza_duckdb::tall_table::{ParquetFile, QueryRows};
     use seiza_tall_table::{
@@ -176,6 +180,56 @@ mod heat {
     };
 
     type Inner = QueryRows<ParquetFile>;
+
+    /// The ramp's stops in Oklch, `[l, c, h]`: cold, the middle, warm, in
+    /// the light theme and the dark. `contenders/scenarios.ts`'s wide
+    /// sheet's `heat.stops`, which the TanStack side and the page draw; a
+    /// `Stop` captures nothing, so they're copied here and `perf/wide.ts`
+    /// fails if they differ.
+    const LIGHT: [[f32; 3]; 3] = [[0.6, 0.13, 262.0], [0.985, 0.0, 0.0], [0.64, 0.18, 32.0]];
+    const DARK: [[f32; 3]; 3] = [[0.48, 0.12, 262.0], [0.2, 0.0, 0.0], [0.55, 0.17, 32.0]];
+
+    /// Stop `index` in `theme`'s mode, converted once per theme: a column's
+    /// ramp resolves its stops each frame.
+    fn stop(theme: &Theme, index: usize) -> Hsla {
+        static STOPS: OnceLock<[[Hsla; 3]; 2]> = OnceLock::new();
+        let [light, dark] = STOPS.get_or_init(|| [LIGHT.map(oklch), DARK.map(oklch)]);
+        let stops = if theme.is_dark() { dark } else { light };
+        stops[index]
+    }
+
+    /// The days' fill: cold through the middle to warm, mixed in Oklab.
+    pub fn ramp() -> seiza_tall_table::Ramp {
+        seiza_tall_table::Ramp::new(&[
+            |theme| stop(theme, 0),
+            |theme| stop(theme, 1),
+            |theme| stop(theme, 2),
+        ])
+    }
+
+    /// An Oklch color in sRGB (each stop is inside its gamut), as CSS
+    /// converts `oklch()`: Björn Ottosson's matrices.
+    fn oklch([l, c, h]: [f32; 3]) -> Hsla {
+        let (a, b) = (c * h.to_radians().cos(), c * h.to_radians().sin());
+        let l_ = (l + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+        let m_ = (l - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+        let s_ = (l - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+        let encode = |linear: f32| {
+            let linear = linear.clamp(0.0, 1.0);
+            if linear <= 0.003_130_8 {
+                linear * 12.92
+            } else {
+                1.055 * linear.powf(1.0 / 2.4) - 0.055
+            }
+        };
+        Rgba {
+            r: encode(4.076_741_7 * l_ - 3.307_711_6 * m_ + 0.230_969_94 * s_),
+            g: encode(-1.268_438 * l_ + 2.609_757_4 * m_ - 0.341_319_38 * s_),
+            b: encode(-0.004_196_086_3 * l_ - 0.703_418_6 * m_ + 1.707_614_7 * s_),
+            a: 1.0,
+        }
+        .into()
+    }
 
     pub struct HeatRows {
         pub rows: Inner,

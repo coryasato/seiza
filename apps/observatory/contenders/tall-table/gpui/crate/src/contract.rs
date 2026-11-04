@@ -219,6 +219,12 @@ fn on_event(event: &TallTableEvent) {
             let filled = probe.rows == 0
                 || (probe.end > probe.first && probe.loaded == probe.end - probe.first);
             VIEW.set((VIEW.get().0.wrapping_add(1), filled));
+            // `__contender.probe`: where the view is (its top row, its
+            // sideways scroll), which places a drawn cell on the canvas
+            // with `layout` (`perf/wide.ts`'s pixels).
+            if probing_cells() {
+                set_on_contender("probe", &tall_table_bridge::js::probe(probe));
+            }
             if measuring() {
                 SHOWN.with_borrow_mut(|shown| shown.probe = Some(probe.clone()));
                 SHOWN.with_borrow(publish_state);
