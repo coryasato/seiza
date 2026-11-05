@@ -1,0 +1,119 @@
+diff --git a/components/tall-table/src/state.rs b/components/tall-table/src/state.rs
+index 17dc717..3fa1fab 100644
+--- a/components/tall-table/src/state.rs
++++ b/components/tall-table/src/state.rs
+@@ -9,6 +9,12 @@ use gpui_kit::component::{ActiveTheme as _, Size as KitSize};
+ use gpui_kit::prelude::FluentBuilder as _;
+ use gpui_kit::*;
+ 
++/// SPIKE (M11 part A): how the cells' text is drawn (unset: today's divs).
++const SPIKE: &str = match option_env!("SPIKE_TEXT") {
++    Some(s) => s,
++    None => "",
++};
++
+ use crate::activity::{Activity, ActivityStats};
+ use crate::column::{CellKind, LaidOutColumn, Sizes, TallTableColumn, layout_columns};
+ use crate::delegate::{CellValue, PageError, TallTableDelegate, TallTablePage as _};
+@@ -1804,6 +1810,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
+         #[cfg(feature = "pin")]
+         let (mut pinned_cells, mut spanning) = (Vec::new(), Vec::new());
+         let mut last_cell = None;
++        let mut spike_texts: Vec<(f32, Pixels, f32, bool, SharedString, Hsla)> = Vec::new();
+         let probe_frames = self.probe_frames;
+         let mut cell_probes = self.probe_cells.then(Vec::new);
+         // The jump's mark, unless the jump selected (`select`).
+@@ -2026,6 +2033,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
+                                     paint: drawn.probe(left),
+                                 });
+                             }
++                            // SPIKE (M11 part A): the cells' text drawn by one element.
++                            if !SPIKE.is_empty() {
++                                if SPIKE != "none" {
++                                    spike_texts.push((
++                                        left,
++                                        top,
++                                        column.width,
++                                        column.kind.numeric(),
++                                        SharedString::from(text),
++                                        color,
++                                    ));
++                                }
++                                continue;
++                            }
+                             let cell = self
+                                 .value_cell(
+                                     #[cfg(feature = "pin")]
+@@ -2207,6 +2228,72 @@ impl<D: TallTableDelegate> TallTableState<D> {
+         let cells_layer = cells_layer.children(self.render_selection(cx).1);
+         #[cfg(not(feature = "pin"))]
+         let cells_layer = cells_layer.children(cells);
++        #[cfg(not(feature = "pin"))]
++        let cells_layer = {
++            let font = self.glyphs.font.clone();
++            let font_size = self.glyphs.font_size;
++            cells_layer.child(
++                canvas(
++                    |_, _, _| {},
++                    move |bounds, _, window, cx| {
++                        let mut paint_all = |window: &mut Window| {
++                            for (left, top, width, right, text, color) in &spike_texts {
++                                let run = TextRun {
++                                    len: text.len(),
++                                    font: font.clone(),
++                                    color: *color,
++                                    background_color: None,
++                                    underline: None,
++                                    strikethrough: None,
++                                };
++                                let line = window.text_system().shape_line(
++                                    text.clone(),
++                                    font_size,
++                                    &[run],
++                                    None,
++                                );
++                                let x = if *right {
++                                    left + width - 8.0 - f32::from(line.width)
++                                } else {
++                                    left + 8.0
++                                };
++                                let origin = point(bounds.origin.x + px(x), bounds.origin.y + *top);
++                                let cell = Bounds::new(
++                                    point(bounds.origin.x + px(*left), bounds.origin.y + *top),
++                                    size(px(*width), row_h),
++                                );
++                                window.with_content_mask(Some(ContentMask { bounds: cell }), |window| {
++                                    if SPIKE == "lines" {
++                                        let _ = line.paint(origin, row_h, TextAlign::Left, None, window, cx);
++                                    } else {
++                                        let pad_top = (row_h - line.ascent - line.descent) / 2.;
++                                        let baseline = origin.y + pad_top + line.ascent;
++                                        for run in &line.runs {
++                                            for glyph in &run.glyphs {
++                                                let _ = window.paint_glyph(
++                                                    point(origin.x + glyph.position.x, baseline),
++                                                    run.font_id,
++                                                    glyph.id,
++                                                    font_size,
++                                                    *color,
++                                                );
++                                            }
++                                        }
++                                    }
++                                });
++                            }
++                        };
++                        if SPIKE == "glyphs" {
++                            window.paint_layer(bounds, |window| paint_all(window));
++                        } else {
++                            paint_all(window);
++                        }
++                    },
++                )
++                .absolute()
++                .size_full(),
++            )
++        };
+         // With `pin`, each region holds its columns' fills and bars, tint,
+         // and cells, clipped at the run's edge; a failed row's message spans
+         // both, and the edge's line is over them.

@@ -732,3 +732,62 @@ Three CSS numbers and the virtualizer's row size: `height` and `line-height` on 
 ### What the random test gains
 
 A `density` step (a row height and a text size from a few pairs, the default among them), placed from each case's scheduler seed rather than drawn, so the other features' controls keep their draws (as `pin`'s step is). A change of row height changes the viewport's rows, and so which pages are wanted, through `set_body`'s path: no new paging code and no new invariant, but the paging sees a new input, so the soak runs on the final build (the table's `CLAUDE.md`, rule 5).
+
+---
+
+## The flash's frames
+
+Researched 2026-11-04, from the observatory's market watch spike ([its results](../../apps/observatory/perf/results/2026-11-04-m10-a2.md)), a CPU profile of the bare host under its flashing feed, gpui-pre 0.3.11's frame (`window.rs`: `request_animation_frame`, `mark_view_dirty`, `paint_layer`, `reuse_paint`; `view.rs`: `cached`; `scene.rs`: `push_layer`, `insert_primitive`, `replay`; `bounds_tree.rs`; `text_system/line.rs`: `paint_line`; `text_system/line_wrapper.rs`: `truncate_line`), and the table's `render_body`. One spike, in the bare host: the cells' text drawn four ways ([`perf/results/2026-11-04-m11-a-spike.md`](../../components/tall-table/perf/results/2026-11-04-m11-a-spike.md), where its numbers are).
+
+### What asks for it
+
+The observatory's market watch: a screen where some cell always flashes. While a flash fades the table asks for every frame (`Window::request_animation_frame` in render, which notifies the table's view, and every ancestor with it), and every frame draws every visible cell: in the bare host at CPU 4× with every float flashing, ~17–22 ms a frame, the main thread saturated and 11–21% of frames late at 100 to 50k updates a second, where the same feed without the flash kept up. Its check: the bare host's narrow shape under `?live=<rate>&flash` at CPU 4× keeps up (late frames within the spread of the feed without the flash), and the reference run's work a frame falls.
+
+### Where a flash frame's time goes
+
+Not in the flash. Its quads are a few hundred fills, as `custom-cells`' are. The profile puts ~380 ms a second of the ~780 the frames take in paint, ~300 of it painting the cells' text, and ~400 more in building, laying out (taffy), and prepainting the ~300 cell `div`s. Two costs are the text's own:
+
+- **A `div` per cell.** Each is an absolutely placed element with a text child: taffy lays it out, prepaint shapes its line (from GPUI's line cache), and it's dropped and built again every frame.
+- **A layer per line.** Every shaped line paints inside a layer of its own (`paint_line`'s `window.paint_layer(line_bounds, …)`), and every layer is inserted into the scene's `BoundsTree` to find its draw order: a search of the tree for the highest order under its bounds, which takes a short cut only when the bounds meet the last leaf inserted, as a cell's never meets the cell before it. ~190 ms a second throttled went to those inserts. A primitive painted inside a layer takes the layer's order and isn't inserted at all (`Scene::insert_primitive`).
+
+So a frame where only flashes moved costs what any frame costs, and the frame is mostly the cells' text.
+
+### Three ways to cheaper flashing
+
+- **Fewer frames:** fade in steps on a shared clock (say 10 a second), so flashes ask for frames at the steps only. It changes the look (a stepped fade, which a DOM side would copy with `steps()`), and it doesn't help a feed that lands a batch most frames: the observatory's feed comes from a worker each frame, and its rows redraw anyway. Rejected.
+- **Cached rows:** each row's cells a cached child view (`Entity::cached`), re-rendered only when its row changed, the flashes and fills drawn outside it each frame. GPUI replays a cached view's paint, but the replay inserts every primitive and layer into the `BoundsTree` again (`Scene::replay`), so the per-line inserts stay; and it needs a pool of row entities, a key per row of everything its text depends on, and a stale cache is a wrong cell on screen. Not needed for the check; a later note if a host needs more.
+- **The cells' text from one element:** each region's loaded cells (with `pin`, the pinned region's and the scrolled one's) painted by one element: each cell's line shaped, cut, aligned, and clipped to its cell, and every glyph painted inside one layer over the region. No `div` per cell, no layout for them, and one layer insert a region instead of one a cell. It's the "cheaper cells for every density" the table's `PLAN.md` left open after `density`: frames that draw text get cheaper, scrolling among them.
+
+The spike drew the text each way in the bare host's non-`pin` path: throttled with every float flashing, today's 20.2 ms a frame and 31% late became 12.1 ms with each line painted from one canvas (no `div`s, a layer a line) and 11.0 ms and 0% late with every glyph in one layer; the floor, no cell text at all, is 5.8 ms. At the reference run the wide shape's scroll fell from 8.0 to 4.8 ms a frame and its sideways fling from 8.0 to 4.4; its vertical fling didn't move (p50 4.97 → 5.25 ms over 3 runs, its frames ~45% placeholder rows, which draw no text). So the third, glyphs in one layer.
+
+### On the base, not a feature
+
+It's how the base draws its text, not a capability a host turns on: the same text in the same places, cheaper. A feature would leave every host paying for the `div`s unless it knew to turn it on, and the observatory's base level would compare a GPUI side drawing its slowest way. The comparison's "same scope" rule is about capabilities both sides carry; how one side draws a cell is idiomatic to it. Its bytes are the base's and are recorded, as any change to the base's are.
+
+### What it must keep
+
+The cells as they're drawn today, pixel for pixel (the table's first screens compared with today's, in every browser, shape, paint style, at a density, and with `pin`):
+
+- **The text:** `shown_text` (unchanged, so `cells.json` holds), cut to the cell's width less its padding by GPUI's own `LineWrapper::truncate_line` with "…", at the end for a text or float column and in the middle for an integer or decimal one (today's `truncate` and `text_ellipsis_middle`), in the cells' font and size (with `density`, the size in effect).
+- **Its place:** left-aligned for text, right for the numeric kinds, at the padding in effect (`Sizes::padding`), the line centered in the row (the row height as line height: `(row − ascent − descent) / 2` above the ascent, as `paint_line` places it), clipped to the cell (a content mask, which inserts nothing).
+- **Its pixels:** today taffy places each cell's `div` and snaps its outer edges to whole device pixels in absolute window coordinates, midpoints toward zero (`taffy.rs`, post-layout absolute edge rounding; the padding keeps its pre-layout rounded value), and the text is placed from the snapped box. The element must snap each cell's box the same way from the same absolute position, or a fractional `scroll_x` or row top moves a glyph by a device pixel. The spike placed the text at the raw coordinates and its screens sat at `scroll_x` 0, so "the same places, by eye" couldn't show it; the build's screens include a fractional scroll.
+- **Its color:** the color each cell resolves today (`foreground`, NULL's `muted_foreground`, `custom-cells`' text ramp or contrast pick), per cell.
+- **Glyphs as `paint_line` paints them:** each at the line's origin plus its shaped position, at the baseline, `paint_emoji` for an emoji glyph, so a value's text looks as it does.
+- **Its layers:** under nothing it's under today. The fills, flashes, jump's highlight, and bars (`custom-cells`' canvas), then the selection's tint (`select`'s canvas), then the text, in each region.
+- **Everything else as it is:** the header, the gutter's numbers, a loading row's bars, a failed row's message, and the tooltip stay elements (a few dozen; the gutter's ~30 numbers could join later). Hit tests are the scroll model's (`hover_at`, `cell_at`), not the cells' `div`s, so nothing reads them; the probes report what they did.
+
+### Frame-work risk
+
+The spike measured the drawing, not all of the build's work: it drew no "…" and called no `truncate_line`, padded by a fixed 8 px, and had no emoji path. `truncate_line` adds a width test per cell and a second shaping for a cut one, so a shape with many cut cells (the wide shape at a density) pays more than the spike's 11.0 ms; the build's measurement reads it, and if it shows, the cut is kept per cell text and width between frames. What's left of a cell's cost is shaping (GPUI's line cache, by text and run) and the glyph sprites; the profile's next lever would be GPUI's own `BoundsTree` search, which is upstream's (a scene with many small layers searching a deep tree), worth an issue with the numbers.
+
+### Canvas gaps
+
+None new and none closed: the text was never the DOM's, so selection, find, and screen readers are where they were (the README's "Canvas tradeoffs").
+
+### What a DOM contender does
+
+Nothing: its cells are its own. The observatory's GPUI contender draws through the table, so its numbers move and its placeholder check (its first frame against its HTML shell) must still pass.
+
+### What the random test gains
+
+Nothing: the paging is unchanged, so no soak (the table's `CLAUDE.md`, rule 5).

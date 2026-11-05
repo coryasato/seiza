@@ -426,3 +426,13 @@ One entry per milestone part, written before starting the next one: what surpris
 - At the same 1,128 cells a vertical scroll's frame costs a third more than a sideways fling's (20.96 against 15.64 ms). Cells on screen alone don't set the cost; what a move brings in does. The dial's curve is the vertical one.
 - The edge is sharp and noisy: at 663 cells one run of the fling presented 58.8 frames a second and another 43.6. Its median is a mix of runs that held and runs that didn't, decided by the p95 frame touching 16.7 ms, not the p50 (11.77).
 - Once the table falls behind, per-frame work stops being a cost per cell: a frame drawn every other rAF takes two steps of input, so 840 cells read 17.99 ms where the line through the settings that kept up says ~14.3.
+
+## M11: the flash's frames (part A, 2026-11-04)
+
+**Results:** [`perf/results/2026-11-04-m11-a-spike.md`](../perf/results/2026-11-04-m11-a-spike.md) (a profile of a flashing frame, and the cells' text drawn four ways).
+
+**Surprises:**
+- The flash wasn't the cost. A flashing frame with no cell text drawn is 5.8 ms throttled; with the text, 20.2. The milestone asked how to make a flash-only frame cheap, and the answer is making every frame cheap.
+- A shaped line paints inside a layer of its own, and every layer is a search of the scene's `BoundsTree`, whose short cut only works when the new bounds meet the last ones inserted. A table's cells never meet the cell before them, so ~300 searches a frame took a fifth of the main thread throttled.
+- GPUI's view cache wouldn't have saved it: a cached view's replay inserts every primitive and layer into the tree again.
+- The release profile strips the name section (`strip = true`), so a profile of a release build reads `wasm-function[9392]`. A spike that profiles builds with `CARGO_PROFILE_RELEASE_STRIP=none` and `wasm-opt -O2 -g`, and compares its variants only with each other.
