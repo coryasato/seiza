@@ -144,6 +144,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `pin` | Observatory: the wide sheet's key columns frozen | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `format` | Observatory: market watch's prices, changes, and volumes (its M10 part B) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| The flash's frames (`live` with `custom-cells`) | Observatory: market watch, before its part B (its M10) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
@@ -156,12 +157,13 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 - **A feature can move up** when an app needs it sooner. The change goes here, with a decision, never in the app's PLAN.
 - **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`format` moves up (2026-11-04)** ahead of `reorder`: the observatory's market watch (its M10) waits on it from its part B, and `reorder`'s run has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
+- **The flash's frames first (2026-11-04),** then `format`: market watch's spike found a flash redraws the whole table every frame, which sinks the bare host on a slow device; the observatory measures market watch only on the improved component ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
 
 ## Active milestone
 
-None: M10 (`density`) closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Next: `format` (asked for 2026-11-04, ahead of `reorder`: "Order"), opening with its research; then `reorder`.
+None: M10 (`density`) closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Next: the flash's frames (a follow-up to `live` with `custom-cells`, asked for 2026-11-04: "Follow-ups to built features"), then `format` (asked the same day), each opening with its research; then `reorder` ("Order").
 
 ---
 
@@ -176,6 +178,10 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 - **Stepped ramps** (`Ramp::stepped`, the nearest stop, no mix): bucketed heat maps, as Grafana's thresholds are. Not needed for categories: a category mapped to its stop's place (k / (n − 1)) lands on the stop already.
 - **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
 - **Selection over paint:** settled in `select`'s research: a tint under the text, over the fill, bar, and flash ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-10-26); built in M6.
+
+### `live` with `custom-cells`: the flash's frames
+
+Asked for 2026-11-04 by the observatory's market watch ([its spike](../../apps/observatory/perf/results/2026-11-04-m10-a2.md)), ahead of `format` and `reorder` ("Order"): **a flash on screen costs a whole frame every frame.** While any flash fades, the table asks for every frame and draws every visible cell in it, so a screen where some cell always flashes (a market watch's prices) redraws the whole table at the display's rate: in the bare host at CPU 4×, ~17–22 ms a frame, the main thread saturated (994 ms a second) and 13–21% of frames late, where the same feed without the flash kept up (0% late). The DOM's flash (a cell's background animated by CSS, an animation per flashing cell) kept up there with three columns flashing up to 1k updates/s, and fell further behind than the table with as many flashing cells as the bare host's: the table's cost is a whole frame whatever flashes, the DOM's grows with what flashes. What its milestone settles, with its research first: making a frame in which only flashes moved cheap (the fade's quads redrawn without the cells' text and layout, or the rows that changed and the flashing cells alone), or fewer frames (a fade in steps, which `paint.json`'s sampled times would then pin); defaults and the fade's curve unchanged unless the research decides otherwise. **Its check:** the bare host's narrow shape under `?live=<rate>&flash` at CPU 4× keeps up (late frames within the spread of the feed without the flash), and the reference run's work a frame falls; measured per feature as every feature is.
 
 ---
 

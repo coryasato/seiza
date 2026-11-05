@@ -42,7 +42,7 @@ Each is a real use, built from a feature level of the table (both sides), a data
 - **Workload:** ~20 columns × ~50 rows, cells **updated in place** at 1k–50k updates/s, each change flashing or colored.
 - **Mechanisms:** A, B, C. The strongest test of what WebAssembly adds beyond the canvas (B).
 - **Measures:** update → pixel latency; the highest sustained update rate before frames go late; GC pauses in the trace (V8's GC events against late frames).
-- **Dial:** updates per second.
+- **Dial:** updates per second (stops 100, 500, 1k, 5k, decided 2026-11-04: from ~5k nearly every visible row changes every frame, so higher rates cost the same; [`../DECISIONS.md`](../DECISIONS.md), "Scenarios").
 - **Needs:** the table's `live` (changed rows re-read in place) and its flash with `custom-cells`, both built: reading from memory in the bare host they keep up at 1k–50k updates/s ([the table's README](../../../../components/tall-table/README.md), "Features"), so the dial's ceiling is likely the engine's update rate; a seeded feed over fictional instruments ("Data"); the TanStack side's port of `live`'s re-reads and its flash.
 
 ### 3. Live tail

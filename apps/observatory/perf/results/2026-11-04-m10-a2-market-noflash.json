@@ -1,0 +1,154 @@
+{
+  "date": "2026-11-04",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "settleMs": 1000,
+  "results": [
+    {
+      "summary": {
+        "profile": "throttled",
+        "rate": 5000,
+        "side": "tanstack",
+        "runs": 2,
+        "spinMs": 478.8,
+        "shownPct": 91.15,
+        "keepsUpPct": 98.75,
+        "shownPerSecond": 54.7,
+        "batchesPerSecond": 55.4,
+        "shownInP50Ms": 32.35,
+        "shownInP95Ms": 42.2,
+        "toCommitP50Ms": 16.77,
+        "toPresentP50Ms": 15.55,
+        "inFrameShare": 1,
+        "latePct": 0,
+        "workP50Ms": 7.58,
+        "workP95Ms": 9.15,
+        "busyMsPerSecond": 598.75,
+        "gcPerTenSeconds": 29.5,
+        "gcLongestMs": 6.01,
+        "keepsUpPctRuns": [
+          98.2,
+          99.3
+        ]
+      },
+      "runs": [
+        {
+          "spinMs": 477.78,
+          "shownPct": 90.8,
+          "keepsUpPct": 98.2,
+          "shownPerSecond": 54.5,
+          "batchesPerSecond": 55.5,
+          "shownInP50Ms": 31.91,
+          "shownInP95Ms": 42.28,
+          "shownInMatched": 553,
+          "toCommitP50Ms": 16.24,
+          "toPresentP50Ms": 15.58,
+          "inFrameShare": 1,
+          "latePct": 0,
+          "workP50Ms": 7.54,
+          "workP95Ms": 9.19,
+          "busyMsPerSecond": 589.95,
+          "gcPerTenSeconds": 30,
+          "gcLongestMs": 5.33
+        },
+        {
+          "spinMs": 479.82,
+          "shownPct": 91.5,
+          "keepsUpPct": 99.3,
+          "shownPerSecond": 54.9,
+          "batchesPerSecond": 55.3,
+          "shownInP50Ms": 32.78,
+          "shownInP95Ms": 42.11,
+          "shownInMatched": 550,
+          "toCommitP50Ms": 17.3,
+          "toPresentP50Ms": 15.51,
+          "inFrameShare": 1,
+          "latePct": 0,
+          "workP50Ms": 7.61,
+          "workP95Ms": 9.1,
+          "busyMsPerSecond": 607.55,
+          "gcPerTenSeconds": 29,
+          "gcLongestMs": 6.69
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "throttled",
+        "rate": 5000,
+        "side": "gpui",
+        "runs": 2,
+        "spinMs": 485.97,
+        "shownPct": 49.3,
+        "keepsUpPct": 100,
+        "shownPerSecond": 29.6,
+        "batchesPerSecond": 29.6,
+        "shownInP50Ms": 24.54,
+        "shownInP95Ms": 31.06,
+        "toCommitP50Ms": 23.46,
+        "toPresentP50Ms": 1.11,
+        "inFrameShare": 1,
+        "latePct": 0,
+        "workP50Ms": 1.01,
+        "workP95Ms": 21.95,
+        "busyMsPerSecond": 660.08,
+        "gcPerTenSeconds": 3.5,
+        "gcLongestMs": 1.52,
+        "keepsUpPctRuns": [
+          100,
+          100
+        ]
+      },
+      "runs": [
+        {
+          "spinMs": 491.99,
+          "shownPct": 48.8,
+          "keepsUpPct": 100,
+          "shownPerSecond": 29.3,
+          "batchesPerSecond": 29.3,
+          "shownInP50Ms": 24.52,
+          "shownInP95Ms": 34.94,
+          "shownInMatched": 293,
+          "toCommitP50Ms": 23.49,
+          "toPresentP50Ms": 1.1,
+          "inFrameShare": 1,
+          "latePct": 0,
+          "workP50Ms": 1.02,
+          "workP95Ms": 22.32,
+          "busyMsPerSecond": 662.1,
+          "gcPerTenSeconds": 3,
+          "gcLongestMs": 1.23
+        },
+        {
+          "spinMs": 479.95,
+          "shownPct": 49.8,
+          "keepsUpPct": 100,
+          "shownPerSecond": 29.9,
+          "batchesPerSecond": 29.9,
+          "shownInP50Ms": 24.55,
+          "shownInP95Ms": 27.18,
+          "shownInMatched": 299,
+          "toCommitP50Ms": 23.43,
+          "toPresentP50Ms": 1.12,
+          "inFrameShare": 1,
+          "latePct": 0,
+          "workP50Ms": 1,
+          "workP95Ms": 21.58,
+          "busyMsPerSecond": 658.06,
+          "gcPerTenSeconds": 4,
+          "gcLongestMs": 1.8
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+/* The market watch spike: the tall table's boxes (30 px rows, 14 px text, a
+   16 px margin as the bare host's), in the TanStack contender's generated
+   theme, with the design canvas's rise and fall colors. */
+@import '../../contenders/tall-table/tanstack/web/src/theme.css';
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('../../../../shared-web/fonts/IBMPlexSans-Regular.ttf') format('truetype');
+  font-display: block;
+}
+
+:root { --up: oklch(0.55 0.15 149); --down: oklch(0.45 0.17 27); }
+@media (prefers-color-scheme: dark) { :root { --up: oklch(0.82 0.17 149); --down: oklch(0.68 0.19 27); } }
+
+html, body, #root { margin: 0; height: 100%; }
+body { background: var(--background); color: var(--foreground); font: 14px 'IBM Plex Sans', system-ui, sans-serif; font-synthesis: none; }
+#root { box-sizing: border-box; padding: 16px; }
+.frame { box-sizing: border-box; height: 100%; overflow: auto; contain: strict; background: var(--table); border: 1px solid var(--border); border-radius: var(--radius); }
+.head { position: sticky; top: 0; z-index: 1; display: flex; height: 30px; background: var(--table-head); border-bottom: 1px solid var(--border); }
+.body { position: relative; }
+.row { position: absolute; left: 0; top: 0; display: flex; width: 100%; height: 30px; contain: layout paint; }
+.row.odd { background: var(--table-even); }
+.c { position: relative; box-sizing: border-box; display: flex; align-items: center; height: 30px; padding: 0 8px; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+.c.r { justify-content: flex-end; }
+.c.up { color: var(--up); }
+.c.down { color: var(--down); }
+.c .t { position: relative; }
+.fl-up { --flash-color: color-mix(in oklab, var(--up) 30%, transparent); }
+.fl-down { --flash-color: color-mix(in oklab, var(--down) 30%, transparent); }
+/* Two names, alternated, so a change restarts the fade. */
+@keyframes fade-a { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fade-b { from { opacity: 1; } to { opacity: 0; } }
+/* `bg` (the contender's): the cell's own background, one keyframes pair per
+   direction with the color in them. Not a per-cell custom property in one
+   pair (`var(--flash-color)` set by a class): that cost 1.6× the main
+   thread at the reference and fell behind throttled, likely because it no
+   longer runs on the compositor. */
+@keyframes bg-up-a { from { background-color: color-mix(in oklab, var(--up) 30%, transparent); } to { background-color: transparent; } }
+@keyframes bg-up-b { from { background-color: color-mix(in oklab, var(--up) 30%, transparent); } to { background-color: transparent; } }
+@keyframes bg-down-a { from { background-color: color-mix(in oklab, var(--down) 30%, transparent); } to { background-color: transparent; } }
+@keyframes bg-down-b { from { background-color: color-mix(in oklab, var(--down) 30%, transparent); } to { background-color: transparent; } }
+.c.bg-up-a { animation: bg-up-a var(--flash-ms) linear forwards; }
+.c.bg-up-b { animation: bg-up-b var(--flash-ms) linear forwards; }
+.c.bg-down-a { animation: bg-down-a var(--flash-ms) linear forwards; }
+.c.bg-down-b { animation: bg-down-b var(--flash-ms) linear forwards; }
+/* `waapi` and `css`: an overlay's opacity, animated on the compositor. */
+.fl { position: absolute; inset: 0; will-change: opacity; opacity: 0; background: var(--flash-color); }
+.fl.a { animation: fade-a var(--flash-ms) linear forwards; }
+.fl.b { animation: fade-b var(--flash-ms) linear forwards; }

@@ -223,3 +223,16 @@ One entry per milestone, written before starting the next one: what surprised us
 - On a page that draws nothing, CPU throttling made short tasks read faster: ~¼ of the reference's time at 4×, scaling with the rate. It isn't the clock, since a long busy loop slowed a true 4×. Read idle-page microbenchmarks as counts and ratios only, and give any timed page a busy-loop control under throttling.
 - Four of the spike's first 25 made-up tickers were real (JNPR, STRL, VRSK, UPLD). "Fictional" needs a check against the exchanges' listings, not a writer's guess.
 - The design's fonts limit its glyphs: IBM Plex Sans has `↑` and `↓` but no `▲` or `▼`, so a design that reaches for triangles can't be drawn on the GPUI side.
+
+## M10 part A2: the spike on both sides, the stops, and the measure (2026-11-04)
+
+**Results:** [`perf/results/2026-11-04-m10-a2.md`](../perf/results/2026-11-04-m10-a2.md)
+
+**Surprises:**
+- The scenario was planned as GPUI's strongest case, and the flash, not garbage collection, decided it. A fading flash makes the tall table redraw every visible cell every frame, so on the slow device GPUI fell behind at every rate, while TanStack kept up to 1k. The DOM pays an animation per flashing cell instead: with every numeric column flashing it fell further behind than GPUI. Collections were short and many on the DOM side, and never the reason a side fell behind.
+- The DOM's flash never ran in the first matrix. The default way drew no overlay, and an early return checked for one, so every "flashing" TanStack number was a no-flash number, and they looked plausible. It surfaced only because a review's unrelated fixes moved the numbers. A spike's workload needs a check that it runs (`document.getAnimations()`), not just a result that looks right.
+- Moving the DOM's flash onto the compositor kept up less on the slow device, not more. Of three idiomatic ways, the cell's own background animation kept up best; ~78 overlay animations at once cost more than they saved. A tidy-up of its CSS (one keyframes pair over a per-cell custom property) cost a fifth of its frames on the slow device. The DOM's flash is measured way by way.
+- The first "keeps up" measure read the feed's cadence: frames showing new data over the display's frames gave 86% and 59% to two sides that showed every batch. Counting batches shown in a frame of their own fixed it. A feed that shares the main thread (the bare host's own timer) starves instead of coalescing, so it can hide falling behind entirely.
+- The trace's frame presentation didn't follow the DOM side's commits with ~80 CSS animations running: a commit made a frame later read the same Shown in. A latency read from the trace needs a control that moves it, per side and per workload.
+- The design's dial was in the wrong range: from ~5k updates/s nearly every visible row of a 50-row blotter changes every frame, so 5k through 50k cost about the same.
+- The design's own colors failed two of its rules: the rise and fall had one lightness, and the light rise was under 4.5:1 on white.
