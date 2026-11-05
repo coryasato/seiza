@@ -164,7 +164,7 @@ function upperTie(abs: number, shortest: { digits: string; exponent: number }): 
 
 /** `value` (`decimal`, its exact magnitude) with `decimals` fraction
  *  digits, ties to even (Rust's `{:.N}`). */
-function fixed(value: number, { digits, scale }: ExactDecimal, decimals: number): string {
+export function fixed(value: number, { digits, scale }: ExactDecimal, decimals: number): string {
   const kept = decimals >= scale ? digits * 10n ** BigInt(decimals - scale) : roundHalfEven(digits, scale - decimals);
   const text = kept.toString().padStart(decimals + 1, '0');
   const cut = text.length - decimals;
@@ -190,13 +190,13 @@ function exponential(value: number, { digits, scale }: ExactDecimal, decimals: n
 }
 
 /** A finite double's magnitude exactly: `digits / 10^scale`. */
-interface ExactDecimal {
+export interface ExactDecimal {
   digits: bigint;
   scale: number;
 }
 
 /** A finite `abs ≥ 0` exactly. */
-function exactDecimal(abs: number): ExactDecimal {
+export function exactDecimal(abs: number): ExactDecimal {
   const view = new DataView(new ArrayBuffer(8));
   view.setFloat64(0, abs);
   const bits = view.getBigUint64(0);

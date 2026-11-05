@@ -7,8 +7,10 @@
  * - `paint.json` (`custom-cells`): the CSS each paint draws (`rampCss`'s
  *   `color-mix`, evaluated here as CSS Color 4 defines it, over the
  *   fixture's resolved stops, which `theme.css` must hold), the bars'
- *   boxes, and the text color over a fill (`FramePaint`). `flash` needs
- *   `live`, which the contender doesn't build.
+ *   boxes, and the text color over a fill (`FramePaint`); and `flash`
+ *   (`live` too, market watch's level): a change's place in the ramp and
+ *   its fade (`flash.ts`), found as the re-read lands through the paging
+ *   (`live.ts`), and the color it draws.
  * - `pin.json` (`pin`): the run in effect, its edge, the scroll's range,
  *   each drawn column's screen left, the hit tests, and the least move into
  *   view (`pin.ts`).
@@ -24,6 +26,11 @@ import { barInset, resolveSizes, type DensityControl } from '../src/density.ts';
 import { gutterWidth, layOutAll, padOf, type ColumnSpec, type Sizes } from '../src/layout.ts';
 import { FramePaint, barSpan, barToken, fromOklab, oklab, parseHex, rampAt, rampCss, resolveRamp, type PaintControl, type Rgba } from '../src/paint.ts';
 import { Pin, inEffect, type PinControl } from '../src/pin.ts';
+import { Flashes, change, noteFlashes, type FlashControl } from '../src/data/flash.ts';
+import type { CellValue } from '../src/data/format.ts';
+import { invalidateRows, trackChanges } from '../src/data/live.ts';
+import { PAGING, TablePaging, type Clock, type PageSource } from '../src/data/paging.ts';
+import { asLevel } from './level.ts';
 
 const fixtures = new URL('../../../../../../../components/tall-table/fixtures/', import.meta.url);
 const fixture = (name: string): any => JSON.parse(readFileSync(new URL(name, fixtures), 'utf8'));
@@ -167,9 +174,100 @@ describe('paint.json', () => {
       assert.notDeepEqual(paintMismatches(skew), [], `${JSON.stringify(skew)} passed the paint fixture`);
   });
 
-  // A change's flash needs `live`, which the contender doesn't build.
-  test('flash', { skip: 'the contender has no live rows' }, () => {});
+  // A change's flash: market watch's level (`live` and `custom-cells`).
+  test('flash', async () => {
+    assert.deepEqual(await flashMismatches(null), []);
+  });
+
+  // Arrow gives an INTEGER and a DATE as a `number` too: neither rises or
+  // falls, as the table's `Float` alone does.
+  test("flash: an integer's or a date's change is any other change", () => {
+    assert.equal(change(10, 11, false), 0.5);
+    assert.equal(change(11, 10, false), 0.5);
+    assert.equal(change(10, 10, false), null);
+    assert.equal(change(10, 11, true), 1);
+  });
+
+  test('flash: controls fail', async () => {
+    for (const control of ['fade-backwards', 'fall-as-rise'] satisfies FlashControl[])
+      assert.notDeepEqual(await flashMismatches(control), [], `control ${control} passed the flash fixture`);
+  });
 });
+
+// --- flash ---
+
+/** A fixture value as a cell's (a number a float, `"NaN"` a float NaN,
+ *  `{"text": …}` text, null NULL). */
+const flashValue = (value: unknown): CellValue => (value === 'NaN' ? Number.NaN : value !== null && typeof value === 'object' ? (value as { text: string }).text : (value as number | null));
+
+/** A page of one column, a case a row. */
+class OneColumn {
+  readonly byteLength = 8;
+  private readonly values: CellValue[];
+  constructor(values: CellValue[]) {
+    this.values = values;
+  }
+  value(row: number, column: number): CellValue | undefined {
+    return column === 0 ? this.values[row] : undefined;
+  }
+}
+
+/**
+ * `paint.json`'s `flash` cases the contender doesn't flash as pinned,
+ * under `control`, run as the native test runs them: every case's row read
+ * with its old value, then invalidated at once, the re-read landing (in
+ * hand, as the market's store answers) with the new values, each drawn
+ * `elapsed_ms` later; its color the ramp's CSS evaluated, its alpha the
+ * opacity's.
+ */
+async function flashMismatches(control: FlashControl): Promise<string[]> {
+  const paint = fixture('paint.json');
+  const { cases, ramp, duration_ms: duration } = paint.flash;
+  return asLevel('market', async () => {
+    let values: CellValue[] = cases.map((item: any) => flashValue(item.old));
+    let next = 0;
+    const source: PageSource<OneColumn> = {
+      load: () => {
+        const page = new OneColumn(values);
+        return { request: next++, result: Promise.resolve(page), ready: page };
+      },
+      cancel: () => {},
+    };
+    const clock: Clock = { setTimeout: () => 0, clearTimeout: () => {} };
+    const table = new TablePaging(cases.length, source, PAGING, clock);
+    const flashes = new Flashes(control);
+    const now = 1000;
+    trackChanges(table, true);
+    table.onLanded = (page, old, landed, rows) => noteFlashes(flashes, [{ index: 0, duration, float: true }], page * PAGING.pageRows, old, landed, rows.rows(), now);
+    table.setViewportRows(cases.length);
+    await new Promise((resolve) => setImmediate(resolve));
+    values = cases.map((item: any) => flashValue(item.new));
+    invalidateRows(table, [0, cases.length]);
+    // The invalidation's plan runs at the end of its task; the re-read lands in it.
+    await Promise.resolve();
+    assert.equal(next, 2, 'the page read, then read again');
+
+    const mismatches: string[] = [];
+    const steps = paint.tolerance.channel_steps;
+    const stops = (paint.ramps[ramp].stops as string[]).map(variable);
+    for (const [row, item] of (cases as any[]).entries()) {
+      const flash = flashes.at(row, 0, now + item.elapsed_ms);
+      const label = `${item.why ?? ''} (${JSON.stringify(item.old)} → ${JSON.stringify(item.new)} at ${item.elapsed_ms} ms)`;
+      if (flash === null || item.expect === null) {
+        if ((flash === null) !== (item.expect === null)) mismatches.push(`${label}: ${JSON.stringify(flash)}, the fixture's ${JSON.stringify(item.expect)}`);
+        continue;
+      }
+      if (flash.at !== item.expect.at || Math.abs(flash.opacity - item.expect.opacity) > 1e-9) mismatches.push(`${label}: at ${flash.at} opacity ${flash.opacity}, the fixture's ${item.expect.at} ${item.expect.opacity}`);
+      for (const theme of THEMES) {
+        const color = evaluateMix(rampCss(stops, flash.at)!, fixtureTheme(paint, theme));
+        const drawn = rgba8({ ...color, a: color.a * flash.opacity });
+        const expected = item.expect[theme] as number[];
+        if (drawn.some((channel, at) => Math.abs(channel - expected[at]!) > steps)) mismatches.push(`${label}, ${theme}: ${drawn}, the fixture's ${expected}`);
+      }
+    }
+    return mismatches;
+  });
+}
 
 // --- pin ---
 

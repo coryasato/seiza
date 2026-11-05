@@ -9,8 +9,14 @@
  * The view tells it where the rows are (`moveTopTo`, from the scroll
  * model's V) and when the scrollbar is held (`startDrag`, `endDrag`); it
  * reads rows back with `row` and hears `onChange` when a page lands.
+ *
+ * On market watch's level, `live` too (`live.ts`: `invalidateRows` and the
+ * rest), its branches here behind the build constant, as `pages.ts`'s are,
+ * reaching the paging's private members through a typed view of them
+ * (`live.ts`'s `PagingInside`).
  */
 
+import { dragRested, loadWantedLive, pageDoneLive, type RowSet } from './live.ts';
 import { PageCache, type Direction, type Rows, type RowState } from './pages.ts';
 
 /** The paging numbers: the component's `Paging::default()`, the controlled
@@ -45,7 +51,10 @@ export interface Page {
  *  request id and the answer, which rejects with an `AbortError` once
  *  cancelled (or resolves, if the page won the race). */
 export interface PageSource<P extends Page> {
-  load(rows: Rows): { request: number; result: Promise<P> };
+  /** With `live`, a source holding the rows in hand may answer in `ready`
+   *  too (its `result` resolving the same): a re-read then lands in the
+   *  call that sent it, as the table's `answered`. */
+  load(rows: Rows): { request: number; result: Promise<P>; ready?: P };
   cancel(request: number): void;
 }
 
@@ -79,6 +88,15 @@ export class TablePaging<P extends Page> {
   private closed = false;
   /** A page landed (or failed): the view redraws. */
   onChange: () => void = () => {};
+  /** `live`: no drag, or its pointer has rested since it last moved, so an
+   *  invalidation's reads can start now. */
+  declare private dragResting: boolean;
+  /** `live`: an invalidation's plan waits for the end of its task. */
+  declare private loadDeferred: boolean;
+  /** `live`: a re-read landed over `old`, its changed rows (kept while
+   *  `trackChanges` is on) to compare with `landed` (the flash), before
+   *  the cache swaps them. */
+  declare onLanded?: (page: number, old: P, landed: P, rows: RowSet) => void;
 
   constructor(rows: number, source: PageSource<P>, paging: Paging = PAGING, clock: Clock = pageClock) {
     this.rows = rows;
@@ -86,6 +104,10 @@ export class TablePaging<P extends Page> {
     this.source = source;
     this.clock = clock;
     this.cache = new PageCache(rows, paging.pageRows, paging.budgetBytes, paging.maxInFlight);
+    if (__LEVEL__ === 'market') {
+      this.dragResting = true;
+      this.loadDeferred = false;
+    }
   }
 
   top(): number {
@@ -160,6 +182,7 @@ export class TablePaging<P extends Page> {
 
   endDrag(): void {
     this.dragging = false;
+    if (__LEVEL__ === 'market') this.dragResting = true;
     if (this.dragSettle !== null) {
       this.clock.clearTimeout(this.dragSettle);
       this.dragSettle = null;
@@ -198,7 +221,9 @@ export class TablePaging<P extends Page> {
       // can't take a read back once it starts: load once the pointer rests,
       // or on release.
       if (this.dragSettle !== null) this.clock.clearTimeout(this.dragSettle);
-      this.dragSettle = this.clock.setTimeout(() => this.loadPages(), this.paging.dragSettleMs);
+      if (__LEVEL__ === 'market') this.dragResting = false;
+      // `live`: the settle is the drag resting (only it: never the scroll's).
+      this.dragSettle = this.clock.setTimeout(__LEVEL__ === 'market' ? () => dragRested(this) : () => this.loadPages(), this.paging.dragSettleMs);
     } else {
       this.loadPages();
     }
@@ -214,6 +239,7 @@ export class TablePaging<P extends Page> {
 
   /** Sends the reads the viewport needs and cancels the ones it doesn't. */
   private loadWanted(wanted: readonly number[]): void {
+    if (__LEVEL__ === 'market') return loadWantedLive(this, wanted);
     if (this.closed) return;
     const plan = this.cache.plan(wanted, this.cache.visiblePages(this.visible()));
     for (const request of plan.cancel) this.source.cancel(request);
@@ -228,6 +254,7 @@ export class TablePaging<P extends Page> {
   }
 
   private pageDone(page: number, request: number, answer: { data: P } | { error: unknown }): void {
+    if (__LEVEL__ === 'market') return pageDoneLive(this, page, request, answer);
     if (this.closed) return;
     const wanted = this.wanted();
     if ('data' in answer) {

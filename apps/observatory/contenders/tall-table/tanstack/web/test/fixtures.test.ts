@@ -16,8 +16,12 @@ import { describe, test } from 'node:test';
 import { tableFromArrays, tableToIPC } from 'apache-arrow';
 import type { Bridge } from '@seiza/duckdb/bridge';
 import { exactText, shownText } from '../src/data/format.ts';
+import { Advances, ColumnFormat, f32Text, type FormatControl, type NumberFormat, type NumberValue } from '../src/data/number.ts';
 import { PAGING, TablePaging, type Clock, type Page, type PageSource, type Paging } from '../src/data/paging.ts';
 import { ArrowPage, Queries, openParquet } from '../src/data/table.ts';
+import { invalidateRows, setLiveControl, type LiveControl } from '../src/data/live.ts';
+import { asLevel } from './level.ts';
+import type { Level } from '../../../../scenarios.ts';
 import { pageSql } from '../src/data/sql.ts';
 
 const fixtures = new URL('../../../../../../../components/tall-table/fixtures/', import.meta.url);
@@ -158,7 +162,7 @@ function normalized(log: string[]): string[] {
 
 /** One scenario under `paging`: the first step whose requests weren't the
  *  expected ones, or null. */
-async function runScenario(paging: Paging, scenario: any): Promise<string | null> {
+async function runScenario(paging: Paging, scenario: any, control: LiveControl = null): Promise<string | null> {
   const source = new ScriptSource(paging, scenario.rows);
   const clock = new ScriptClock();
   let table: TablePaging<Page> | null = null;
@@ -172,6 +176,7 @@ async function runScenario(paging: Paging, scenario: any): Promise<string | null
     switch (action) {
       case 'open':
         table = new TablePaging(scenario.rows, source, paging, clock);
+        if (control) setLiveControl(table, control);
         table.setViewportRows(scenario.viewport_rows);
         break;
       case 'scroll':
@@ -193,6 +198,10 @@ async function runScenario(paging: Paging, scenario: any): Promise<string | null
         break;
       case 'wait':
         clock.advance(argument);
+        break;
+      // `live`: rows changed in the source.
+      case 'invalidate':
+        invalidateRows(on(), argument);
         break;
       case 'answer':
       case 'fail': {
@@ -221,16 +230,23 @@ async function runScenario(paging: Paging, scenario: any): Promise<string | null
 
 describe('paging.json', () => {
   const paging = fixture('paging.json');
-  // The contender builds the table's base level: no scenario or control of
-  // a feature (`features`, a `live` control) applies to it yet, nor a
-  // scenario with a step it doesn't build (`rows`: its row count is fixed),
-  // nor a fault in the table's own code (a `cache` control).
-  const built = new Set(['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail']);
-  const scenarios = (paging.scenarios as any[]).filter(
-    (scenario) =>
-      !scenario.features?.length &&
-      (scenario.steps as any[]).every((step) => Object.keys(step).every((key) => key === 'expect' || key === 'why' || built.has(key))),
-  );
+  /** The table's features each level builds into the paging: the market
+   *  level's `live` (`live.ts`); every other level's none. */
+  const FEATURES: Partial<Record<Level, string[]>> = { market: ['live'] };
+  // A scenario runs at a level that builds its features and none it's
+  // skipped under (`without`), unless it has a step the contender doesn't
+  // build (`rows`: its row count is fixed). A fault in the table's own code
+  // (a `cache` control) isn't the contender's.
+  const steps = new Set(['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail', 'invalidate']);
+  const scenariosAt = (level: Level): any[] => {
+    const built = FEATURES[level] ?? [];
+    return (paging.scenarios as any[]).filter(
+      (scenario) =>
+        (scenario.features ?? []).every((feature: string) => built.includes(feature)) &&
+        !(scenario.without ?? []).some((feature: string) => built.includes(feature)) &&
+        (scenario.steps as any[]).every((step) => Object.keys(step).every((key) => key === 'expect' || key === 'why' || steps.has(key))),
+    );
+  };
   const controls = (paging.controls as any[]).filter((control) => control.paging);
 
   test('its paging is the contender’s, every field', () => {
@@ -238,24 +254,49 @@ describe('paging.json', () => {
     assert.deepEqual(pagingWith(PAGING, paging.paging), PAGING);
   });
 
-  test('every scenario', async () => {
-    const failures: string[] = [];
-    for (const scenario of scenarios) {
-      const failure = await runScenario(PAGING, scenario);
-      if (failure) failures.push(failure);
-    }
-    assert.deepEqual(failures, []);
+  for (const level of ['base', 'market'] satisfies Level[]) {
+    test(`every scenario, on the ${level} level`, () =>
+      asLevel(level, async () => {
+        const failures: string[] = [];
+        for (const scenario of scenariosAt(level)) {
+          const failure = await runScenario(PAGING, scenario);
+          if (failure) failures.push(failure);
+        }
+        assert.deepEqual(failures, []);
+      }));
+
+    test(`every control fails a scenario, on the ${level} level`, () =>
+      asLevel(level, async () => {
+        for (const control of controls) {
+          const changed = pagingWith(PAGING, control.paging);
+          assert.notDeepEqual(changed, PAGING, `control ${control.name} changes the paging`);
+          let failed = 0;
+          for (const scenario of scenariosAt(level)) if (await runScenario(changed, scenario)) failed++;
+          assert.ok(failed > 0, `control ${control.name} passed every scenario`);
+        }
+      }));
+  }
+
+  test('the market level runs every live scenario but those that grow or shrink the rows', () => {
+    const live = (paging.scenarios as any[]).filter((scenario) => scenario.features?.includes('live'));
+    const run = new Set(scenariosAt('market'));
+    const skipped = live.filter((scenario) => !run.has(scenario)).map((scenario) => scenario.name);
+    assert.ok(live.filter((scenario) => run.has(scenario)).length >= 7, 'the live scenarios run');
+    for (const name of skipped) assert.ok(live.find((scenario) => scenario.name === name).steps.some((step: object) => 'rows' in step), `${name} is skipped without a rows step`);
   });
 
-  test('every control fails a scenario', async () => {
-    for (const control of controls) {
-      const changed = pagingWith(PAGING, control.paging);
-      assert.notDeepEqual(changed, PAGING, `control ${control.name} changes the paging`);
-      let failed = 0;
-      for (const scenario of scenarios) if (await runScenario(changed, scenario)) failed++;
-      assert.ok(failed > 0, `control ${control.name} passed every scenario`);
-    }
-  });
+  // `live`'s controls: each a way to re-read wrongly. `drop-grown` drops a
+  // short last page that grows, which needs `rows`: not the contender's.
+  test('every live control fails a scenario, on the market level', () =>
+    asLevel('market', async () => {
+      const live = (paging.controls as any[]).filter((control) => control.live).map((control) => control.live as string);
+      assert.deepEqual(live.sort(), ['drop-grown', 'reread-unwanted', 'restart-stale']);
+      for (const control of ['reread-unwanted', 'restart-stale'] satisfies LiveControl[]) {
+        let failed = 0;
+        for (const scenario of scenariosAt('market')) if (await runScenario(PAGING, scenario, control)) failed++;
+        assert.ok(failed > 0, `control ${control} passed every scenario`);
+      }
+    }));
 });
 
 // --- cells ---
@@ -286,6 +327,54 @@ function cellMismatches(skew: number, exact: (value: number) => string, scenario
   return mismatches;
 }
 
+/**
+ * `cells.json`'s `format` cases the contender's format (`number.ts`) and
+ * its fallback (`shownText` at the budget rule) don't give, under
+ * `control`, as the native test reads them (`state/fixtures/format.rs`):
+ * the room the content box less a pixel, the fallback's budget the cells'.
+ */
+function formatMismatches(control: FormatControl): string[] {
+  const cells = fixture('cells.json');
+  const section = cells.format;
+  const advance = (ch: string): number => {
+    const px = section.advances[ch];
+    assert.equal(typeof px, 'number', `no advance for ${ch}`);
+    return px;
+  };
+  const advances = new Advances(advance);
+  const mismatches: string[] = [];
+  for (const item of section.cases) {
+    const spec = item.format;
+    const format: NumberFormat = { decimals: spec.decimals, sign: spec.sign, grouping: spec.grouping, suffix: spec.suffix };
+    const suffixPx = [...format.suffix].reduce((sum, ch) => Math.fround(sum + Math.fround(advance(ch))), 0);
+    const width = Math.fround(item.width);
+    const float = item.kind === 'float' || item.kind === 'float32';
+    const value: NumberValue =
+      item.value === null
+        ? null
+        : item.kind === 'float'
+          ? { kind: 'float', value: rustFloat(item.value) }
+          : item.kind === 'float32'
+            ? { kind: 'float32', value: Math.fround(rustFloat(item.value)) }
+            : { kind: 'text', value: item.value };
+    const exact = value === null ? 'NULL' : value.kind === 'float' ? exactText(value.value) : value.kind === 'float32' ? f32Text(value.value) : value.value;
+    // The page's decimals are asked only of a float column.
+    const decimals = float ? item.decimals : null;
+    const column = new ColumnFormat(format, float, suffixPx, control);
+    const room = Math.fround(Math.fround(width - 16) - 1);
+    const fitted = column.fit(advances, room, value, decimals);
+    const budget = Math.max(1, Math.floor((width - 17) / cells.number_px));
+    const shown = fitted ?? (value === null ? 'NULL' : value.kind === 'text' ? value.value : shownText('float', value.value, budget));
+    const got = [exact, shown, fitted === null, fitted === null ? null : column.rounded(fitted, value)];
+    const want = [item.exact, item.shown, item.fallback, item.rounded];
+    if (JSON.stringify(got) !== JSON.stringify(want)) mismatches.push(`${item.why}: ${JSON.stringify(got)}; the fixture's ${JSON.stringify(want)}`);
+  }
+  return mismatches;
+}
+
+/** A float as Rust's `parse` reads the fixture's text (`inf`, `NaN`). */
+const rustFloat = (text: string): number => (text === 'inf' ? Infinity : text === '-inf' ? -Infinity : Number(text));
+
 describe('cells.json', () => {
   test('every cell’s exact and shown text', () => {
     assert.deepEqual(cellMismatches(0, exactText), []);
@@ -302,9 +391,15 @@ describe('cells.json', () => {
   // added only when both sides build resizing (root CLAUDE.md, "Comparison protocol").
   test('resize', { skip: 'the contender has no column resizing' }, () => {});
 
-  // `format` pins a formatted column's text: run once the contender
-  // formats (market watch's level).
-  test('format', { skip: 'the contender has no format' }, () => {});
+  // `format` pins a formatted column's text (market watch's level, `number.ts`).
+  test('format', () => {
+    assert.deepEqual(formatMismatches(null), []);
+  });
+
+  test('format: controls fail', () => {
+    for (const control of ['plus-on-zero', 'sign-from-text', 'ties-up', 'group-by-four', 'fit-by-count', 'page-ignored'] satisfies FormatControl[])
+      assert.notDeepEqual(formatMismatches(control), [], `control ${control} passed the format fixture`);
+  });
 
   // Each scenario's file at its stop: the same text at the same budgets
   // (the budgets themselves are the layout's, `view.test.ts`).

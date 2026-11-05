@@ -4,7 +4,16 @@
  * table's `PageCache` (`components/tall-table/src/pages.rs`), decision for
  * decision: the paging fixture (`fixtures/paging.json`) pins what it asks
  * for. Pure bookkeeping; `paging.ts` sends the reads.
+ *
+ * On market watch's level, `live` too (`live.ts`): a loaded page can be
+ * stale, drawn while it's read again. Its branches here sit behind the
+ * build constant (`__LEVEL__ === 'market'`), so no other level's bundle
+ * carries them, and the operations only it has are `live.ts`'s functions,
+ * which reach the cache's private members through a typed view of them
+ * (`live.ts`'s `CacheInside`).
  */
+
+import { type Live, type LiveBooks, type RowSet, type Rereads, attachLive, cancelLive, landReread, liveRequests, newBooks, newRereads, planLive, reread, startReread } from './live.ts';
 
 /** Which way the viewport last moved. Prefetch reaches further that way. */
 export type Direction = 'still' | 'down' | 'up';
@@ -12,7 +21,12 @@ export type Direction = 'still' | 'down' | 'up';
 /** Rows `[start, end)`, 0-based. */
 export type Rows = readonly [start: number, end: number];
 
-type Slot<T, R> = { kind: 'loading'; request: R } | { kind: 'loaded'; page: T; bytes: number; used: number } | { kind: 'failed'; message: string };
+/** A slot; with `live`, a read's `stale` (invalidated during it) and
+ *  `changed` rows (the flash's), and a loaded page's re-reads. */
+export type Slot<T, R> =
+  | { kind: 'loading'; request: R; stale?: boolean; changed?: RowSet }
+  | { kind: 'loaded'; page: T; bytes: number; used: number; live?: Live<R> }
+  | { kind: 'failed'; message: string };
 
 /** What a row looks like to the view. */
 export type RowState<T> = { kind: 'loaded'; page: T; index: number } | { kind: 'pending' } | { kind: 'failed'; message: string };
@@ -42,12 +56,15 @@ export class PageCache<T, R> {
   private draining: R[] = [];
   private usedBytes = 0;
   private tick = 0;
+  /** `live`'s books (market watch's level). */
+  declare private live: LiveBooks;
 
   constructor(rows: number, pageRows: number, budgetBytes: number, maxInFlight: number) {
     this.rows = rows;
     this.pageRows = Math.max(1, pageRows);
     this.budgetBytes = budgetBytes;
     this.maxInFlight = Math.max(1, maxInFlight);
+    if (__LEVEL__ === 'market') this.live = newBooks();
   }
 
   pages(): number {
@@ -75,12 +92,13 @@ export class PageCache<T, R> {
   /** Reads for pages still wanted. */
   inFlight(): number {
     let count = 0;
-    for (const slot of this.slots.values()) if (slot.kind === 'loading') count++;
+    for (const slot of this.slots.values()) if (slot.kind === 'loading' || (__LEVEL__ === 'market' && slot.kind === 'loaded' && slot.live?.reading)) count++;
     return count;
   }
 
   /** Every read still wanted, to cancel when the table goes away. */
   requests(): R[] {
+    if (__LEVEL__ === 'market') return liveRequests(this);
     return [...this.slots.values()].flatMap((slot) => (slot.kind === 'loading' ? [slot.request] : []));
   }
 
@@ -152,6 +170,10 @@ export class PageCache<T, R> {
         this.slots.delete(page);
       } else if (slot.kind === 'failed' && !wanted.includes(page)) {
         this.slots.delete(page);
+      } else if (__LEVEL__ === 'market' && slot.kind === 'loaded') {
+        // A stale page nobody wants is dropped, its re-read cancelled.
+        const reading = planLive(this, page, slot, wanted);
+        if (reading !== null) cancel.push(reading);
       }
     }
     this.draining.push(...cancel);
@@ -166,22 +188,36 @@ export class PageCache<T, R> {
       return slot === undefined || slot.kind === 'loading';
     });
     const reach = visibleMissing ? shown : wanted.length;
+    // `live`: re-reads at most `maxInFlight − 1` at once, the visible
+    // pages' after the visible pages with nothing to show, then the rest
+    // as prefetch, in `wanted`'s order.
+    const rereads: Rereads | null = __LEVEL__ === 'market' ? newRereads(this) : null;
     wanted.forEach((page, index) => {
+      if (__LEVEL__ === 'market' && index === shown) inFlight += reread(this, wanted.slice(0, shown), rereads!, inFlight, fetch);
       const slot = this.slots.get(page);
       if (slot?.kind === 'loaded') {
         // Prefetch pages beyond reach are still marked used, so they aren't
         // evicted while the visible ones load.
         slot.used = tick;
+        if (__LEVEL__ === 'market' && index >= shown && index < reach) inFlight += reread(this, [page], rereads!, inFlight, fetch);
       } else if (index < reach && slot === undefined && inFlight < this.maxInFlight) {
         fetch.push(page);
         inFlight++;
       }
     });
+    if (__LEVEL__ === 'market') {
+      if (wanted.length === shown) inFlight += reread(this, wanted, rereads!, inFlight, fetch);
+      // The control: stale pages outside `wanted` kept and read again.
+      if (this.live.control === 'reread-unwanted')
+        reread(this, [...this.slots.keys()].filter((page) => !wanted.includes(page)), rereads!, inFlight, fetch);
+    }
     return { fetch, cancel };
   }
 
   /** `page`'s read was sent as `request`. */
   started(page: number, request: R): void {
+    // `live`: a loaded page's read is a re-read, drawn until it lands.
+    if (__LEVEL__ === 'market' && startReread(this, page, request)) return;
     this.slots.set(page, { kind: 'loading', request });
   }
 
@@ -193,9 +229,12 @@ export class PageCache<T, R> {
    */
   loaded(page: number, request: R, data: T, bytes: number, wanted: readonly number[]): boolean {
     this.finished(request);
+    // `live`: a re-read's page replaces the one drawn.
+    if (__LEVEL__ === 'market' && this.slots.get(page)?.kind === 'loaded') return landReread(this, page, request, data, bytes, wanted);
     const slot = this.slots.get(page);
     if (slot?.kind !== 'loading' || slot.request !== request) return false;
     this.slots.set(page, { kind: 'loaded', page: data, bytes, used: ++this.tick });
+    if (__LEVEL__ === 'market') attachLive(this, page, slot);
     this.usedBytes += bytes;
     this.evict(wanted);
     return true;
@@ -205,6 +244,8 @@ export class PageCache<T, R> {
    *  view; once they aren't, `plan` forgets it, so coming back retries. */
   failed(page: number, request: R, message: string): void {
     this.finished(request);
+    // `live`: a failed re-read keeps the old rows drawn, stale, until the next invalidation.
+    if (__LEVEL__ === 'market' && this.slots.get(page)?.kind === 'loaded') return cancelLive(this, page, request, true);
     const slot = this.slots.get(page);
     if (slot?.kind === 'loading' && slot.request === request) this.slots.set(page, { kind: 'failed', message });
   }
@@ -222,6 +263,8 @@ export class PageCache<T, R> {
       let oldest: { page: number; used: number; bytes: number } | null = null;
       for (const [page, slot] of this.slots) {
         if (slot.kind !== 'loaded' || wanted.includes(page)) continue;
+        // `live`: a page being read again stays until its read lands or `plan` cancels it.
+        if (__LEVEL__ === 'market' && slot.live?.reading) continue;
         if (!oldest || slot.used < oldest.used || (slot.used === oldest.used && page < oldest.page)) oldest = { page, used: slot.used, bytes: slot.bytes };
       }
       if (!oldest) return;

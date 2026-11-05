@@ -265,3 +265,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - One list can't say three things that land in different parts. `SCENARIOS` meant "what the page shows", "what a frame can load", and "what each side builds" at once; the market level reaches the GPUI side, the TanStack side, and the page in three parts, so the list had to split by side before a single side could build it.
 - Code behind `cfg` still moves the base's wasm: its panic locations hold line numbers, and a `cfg(feature = "market")` block above them shifts them. "Unchanged" can't be a hash; it's the same size, a handful of bytes that decode as line numbers, and the level's Cargo features.
 - The fold check came out nearly free: the store's state after N ticks doesn't depend on how the worker batched them, so `?ticks=2000` reproduces the fixture's 2,000 ticks through the real worker, the real fold, and the real drawing, and one tick short is its control.
+
+## M10 part C1: the TanStack contender's data layer, `format`, `live`, and the flash (2026-11-05)
+
+**Results:** none measured (the fixtures' evidence and the unchanged builds' hashes are in `PLAN.md`).
+
+**Surprises:**
+- A build constant drops a branch, not a method. The first cut put `live`'s landing in a method of `TablePaging`, guarded inside, and the base's bundle would have kept it whole; the market-only paths had to become functions in a module of their own, reached by an early return behind the constant, before the base's and the wide level's chunks came out byte-identical.
+- The ports passed their fixtures on the first run, which is what a port decision for decision should do, and also what a fixture that runs nothing does. A probe settled it: all 7 `live` scenarios the contender runs fail with the invalidations ignored, and each control fails its own cases.
+- The code review found the port's one real drift: the drag's rest was set wherever the paging loaded during a drag, and the scroll's settle loads during one too. The fixture's scenarios never let the scroll settle first, so they passed; the table sets it in the drag's settle alone. A decision ported has to be ported at the same place, not at a place that happens to see the same calls in the fixture.
