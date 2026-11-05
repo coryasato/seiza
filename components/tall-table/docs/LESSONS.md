@@ -447,3 +447,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - The narrow shape's columns at their kinds' widths cut nothing: neither cut was on any first screen. The reference screens narrow two columns with `resize` to put both on screen.
 - GPUI's middle cut of an 8-digit integer in a 4-character column leaves "2…", the front alone: a test that expected both ends was asking more of GPUI than the `div`s got.
 - A test that renders the state without the `TallTable` element draws its cells at the inherited 16 px, not `text_sm`: the element reads the text style as the `div`s did, so the test's shell sets the size `TallTable` sets.
+
+## M11: the flash's frames (part C, 2026-11-04)
+
+**Results:** [`perf/results/2026-11-04-m11-c.md`](../perf/results/2026-11-04-m11-c.md) (the flash's feed at three rates, the base against M11's parent, `custom-cells`, `pin`, and `density` re-read, the bytes).
+
+**Surprises:**
+- The cheaper text moved `density` most. At 1,128 cells the wide scroll presented ~30 frames a second on the earlier base and now holds the display's rate (58.7), ~3.8 µs a cell scrolling where it was ~14 (a fling's cells cost ~7–9): most of a cell's cost was its `div`, not its glyphs. The Limits line about ~460 cells was the old drawing's.
+- With the flash on, the main thread is still ~70% busier than without it, yet no frame is late at any rate. The extra time is the flash drawing every frame, not the feed: the flash lands fewer batches than the same feed without it (30 refreshed frames a second against 37), though twice the parent's 15. A frame that fits doesn't make a fading flash free.
+- The size script's `--against` gate failed by design: it guards a feature milestone's base, and this milestone's job was to change the base (+3.4 KiB after wasm-opt). A check written for one kind of milestone reads as a failure in another.
+- The close was planned at 4–5 hours of quiet machine and ran in about an hour by re-reading only the features that draw through the changed path. The first write-up borrowed the parent's throttled frames from M10 (another gpui-kit) and its reference flash from the spike (another optimization level); the code review caught both, and the same-session runs took 12 minutes. A borrowed baseline saves less than it costs in caveats.
+- The reference flash's latency spread stayed at 13–15% on a re-run, from one low run each time, while the medians agreed within 1%: a spread over the gate isn't always noise to re-run away; read the runs.
