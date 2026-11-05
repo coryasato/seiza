@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-05",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "args": {
+    "flash": "400",
+    "hold": "0",
+    "frameRecorder": "1",
+    "categories": "run",
+    "settleMs": 1000,
+    "windowMs": 11000,
+    "spinBefore": false
+  },
+  "commitToPresentationP50Ms": 19.5,
+  "animationFrameP50Ms": 15.4,
+  "secondly": [
+    {
+      "second": 0,
+      "commitToPresentationP50Ms": 19.4
+    },
+    {
+      "second": 1,
+      "commitToPresentationP50Ms": 19.3
+    },
+    {
+      "second": 2,
+      "commitToPresentationP50Ms": 19.5
+    },
+    {
+      "second": 3,
+      "commitToPresentationP50Ms": 19.4
+    },
+    {
+      "second": 4,
+      "commitToPresentationP50Ms": 19.2
+    },
+    {
+      "second": 5,
+      "commitToPresentationP50Ms": 19.5
+    },
+    {
+      "second": 6,
+      "commitToPresentationP50Ms": 19.2
+    },
+    {
+      "second": 7,
+      "commitToPresentationP50Ms": 19.5
+    },
+    {
+      "second": 8,
+      "commitToPresentationP50Ms": 19.7
+    },
+    {
+      "second": 9,
+      "commitToPresentationP50Ms": 20.1
+    },
+    {
+      "second": 10,
+      "commitToPresentationP50Ms": 19.5
+    }
+  ]
+}

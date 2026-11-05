@@ -236,3 +236,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The trace's frame presentation didn't follow the DOM side's commits with ~80 CSS animations running: a commit made a frame later read the same Shown in. A latency read from the trace needs a control that moves it, per side and per workload.
 - The design's dial was in the wrong range: from ~5k updates/s nearly every visible row of a 50-row blotter changes every frame, so 5k through 50k cost about the same.
 - The design's own colors failed two of its rules: the rise and fall had one lightness, and the light rise was under 4.5:1 on white.
+
+## M10 part B1: Shown in's method (2026-11-05)
+
+**Results:** [`perf/results/2026-11-05-m10-b1.md`](../perf/results/2026-11-05-m10-b1.md)
+
+**Surprises:**
+- A2's "failed" control wasn't the reading's fault. Every frame had its own prompt presentation; the page's frame scheduling differed between the runs compared. The control was sound in kind but compared two states. A latency's control has to share the state it controls for: within one page, or within one run's state.
+- The throttle's own control perturbed what it guarded. The busy loop timed right before the window (a ~120 ms task) put the DOM side a frame or so behind for the whole window: commit → presentation 19.5 ms before it, 31.4 after. A check that runs inside the measured page belongs after the window.
+- GPUI has run states too, though its draw presents in its own task: its mark → presentation settled at 1.1, ~12, or 28 ms per run at the reference, so one setting's Shown in read 14 to 41 ms over three runs. A canvas doesn't escape the browser's frame scheduling.
+- Element Timing looked like an independent check on the DOM side and wasn't. It reads the same presentation feedback as the trace, to the hundredth of a millisecond, and the elements made for it cost the DOM 11% more main thread. Two readings agreeing proves nothing when they share a source.

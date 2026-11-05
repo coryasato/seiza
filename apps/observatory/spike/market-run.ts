@@ -17,19 +17,33 @@
 // - Shown in: a batch's start (the worker's post; the host's feed tick) to
 //   the presentation of the first frame that showed it (the trace's
 //   `AnimationFrame::Presentation` for the frame holding the commit or
-//   mark), p50 and p95;
+//   mark), p50 and p95, over the batches with a tick to a row on screen
+//   (`shownInCounted`; the bare host's feed ticks only visible rows);
 // - late frames (rAF intervals over 1.5 frames), each main frame's work
 //   p50 / p95 and the main thread's busy time (the trace's), V8's
 //   collections on the main thread;
-// - the throttle's control: a fixed busy loop timed on the page before the
-//   window, which a 4× profile must slow ~4×.
-// `--hold` adds TanStack's `?hold=1` (every frame's batches committed a
-// frame later: Shown in's control). `--flash <ms>` and `--flash-all` (every
+// - the throttle's control: a fixed busy loop timed on the page after the
+//   window, which a 4× profile must slow ~4× (before it, a long task leaves
+//   the DOM's frame scheduling a frame or so behind for the whole window).
+// `--hold` adds each side's frame-late variant, Shown in's control: the
+// reading must move by what the variant moves the side's mark, keeps up
+// unchanged. TanStack's runs within one page (`?hold=alt`: each frame's
+// batches committed a frame later in odd seconds of the page clock, so held
+// and free batches share its frame scheduling): its control is
+// `heldShownInP50Ms` against `freeShownInP50Ms` (one frame, ~16.7 ms) and
+// `heldToCommitP50Ms` against `freeToCommitP50Ms`, the run's whole
+// `shownInP50Ms` a mix of both. The bare host's is runs of their own
+// (`?delay=17`: every re-read held, which moves its mark about two frames,
+// a held read making the next wait), read against the free runs in the
+// same mark → presentation state (`toPresentP50Ms`). `--measure` adds
+// TanStack's `?measure`: Element Timing, the rejected second reading
+// (`shownInEt*`), beside the trace's, from the same frames; kept so the
+// method's results note reproduces. `--flash <ms>` and `--flash-all` (every
 // numeric column flashing) set TanStack's flash to the bare host's workload
 // (1 s, every float column), with `--sides tanstack`.
 //
 // Usage: node apps/observatory/spike/market-run.ts [--sides tanstack,gpui] [--rates 1000,5000,20000,50000]
-//          [--profiles reference,throttled] [--runs 3] [--hold] [--flash <ms>|0] [--flash-all] [--mode waapi|css|bg] [--no-build] [--label m10-a2-market]
+//          [--profiles reference,throttled] [--runs 3] [--hold] [--measure] [--flash <ms>|0] [--flash-all] [--mode waapi|css|bg] [--no-build] [--label m10-a2-market]
 // GPUI: `just tall-table build live,custom-cells` first.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -48,6 +62,11 @@ const RATES = (option('rates') ?? '1000,5000,20000,50000').split(',').map(Number
 const PROFILE_NAMES = (option('profiles') ?? 'reference,throttled').split(',');
 const RUNS = Number(option('runs') ?? 3);
 const HOLD = flag('hold');
+const MEASURE = flag('measure');
+/** The bare host's frame-late variant: every read held this long, which
+ *  moves its refreshed mark about two frames, not one (a batch arriving
+ *  while a held re-read is out waits for it, then for its own). */
+const GPUI_HOLD_MS = 17;
 const LABEL = option('label') ?? 'm10-a2-market';
 const SETTLE_MS = 1000;
 const WINDOW_MS = 10_000;
@@ -55,6 +74,8 @@ const CATEGORIES = [...LATENCY_CATEGORIES, 'blink', 'v8'];
 const hostWebDir = join(dir, '../../../components/tall-table/host/web');
 
 const round = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
+/** A p50, or null with nothing to take it of (`percentiles` answers 0). */
+const p50OrNull = (values: number[]) => (values.length ? round(percentiles(values).p50) : null);
 
 /** GPUI's marks, logged with the generation their global holds (the bare
  *  host sets each global before its mark; its `perf/live.ts` reads them so). */
@@ -95,14 +116,15 @@ async function once(url: string, side: 'tanstack' | 'gpui', rate: number, profil
   const flashMs = option('flash');
   if ((flashMs && flashMs !== '0') || flag('flash-all')) if (SIDES.includes('gpui')) throw new Error('--flash <ms> and --flash-all set TanStack alone: the bare host always flashes every float column for 1 s');
   const params: Record<string, string> =
-    side === 'gpui' ? { shape: 'narrow', live: String(rate), ...(flashMs === '0' ? {} : { flash: '' }) } : { rate: String(rate), ...(hold ? { hold: '1' } : {}), ...(flashMs ? { flash: flashMs } : {}), ...(option('mode') ? { mode: option('mode')! } : {}), ...(flag('flash-all') ? { 'flash-all': '1' } : {}) };
+    side === 'gpui'
+      ? { shape: 'narrow', live: String(rate), ...(flashMs === '0' ? {} : { flash: '' }), ...(hold ? { delay: String(GPUI_HOLD_MS) } : {}) }
+      : { rate: String(rate), ...(hold ? { hold: 'alt' } : {}), ...(MEASURE ? { measure: '' } : {}), ...(flashMs ? { flash: flashMs } : {}), ...(option('mode') ? { mode: option('mode')! } : {}), ...(flag('flash-all') ? { 'flash-all': '1' } : {}) };
   const session = await open(chromium, side === 'gpui' ? url : `${url}market.html`, { profile, params, init: side === 'gpui' ? [frameRecorder, markLog] : [frameRecorder] });
   const { page } = session;
   try {
     if (side === 'gpui') await waitMark(page, 'tall-table:refreshed');
     else await page.waitForFunction(() => (globalThis as any).__market?.shown.length > 0, undefined, { timeout: 60_000 });
     await page.evaluate(() => document.fonts.ready);
-    const spinMs = await spin(page);
     const browser = session.context.browser()!;
     await browser.startTracing(page, { categories: CATEGORIES });
     await page.evaluate((name) => performance.mark(name), ORIGIN_MARK);
@@ -111,16 +133,30 @@ async function once(url: string, side: 'tanstack' | 'gpui', rate: number, profil
     await page.waitForTimeout(WINDOW_MS);
     const to = await page.evaluate(() => performance.now());
     const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
+    // After the window: a long task leaves the DOM's frame scheduling in
+    // another state (commit → presentation 19 ms before one, 31 after).
+    const spinMs = await spin(page);
 
     let batches: Batch[];
+    /** The batches with a tick to a row on screen: only these count in Shown in. */
+    let onScreen: (batch: Batch) => boolean = () => true;
     let shown: Batch[];
+    /** Element Timing's paints by the sequence drawn (TanStack with `?measure`). */
+    const painted = new Map<number, number>();
+    /** TanStack's batches held a frame (`?hold=alt`), each batch by its own frame. */
+    let held = new Set<number>();
     if (side === 'gpui') {
       const log: [string, number, number][] = await page.evaluate(() => (globalThis as any).__marketLog);
       batches = log.filter(([k]) => k === 'invalidated').map(([, id, at]) => ({ id, at }));
       shown = log.filter(([k]) => k === 'refreshed').map(([, id, at]) => ({ id, at }));
     } else {
-      const record: { batches: [number, number][]; shown: [number, number][] } = await page.evaluate(() => (globalThis as any).__market);
+      const record: { batches: [number, number][]; shown: [number, number][]; visible: [number, number][]; painted: [number, number][] } = await page.evaluate(() => (globalThis as any).__market);
+      // A batch with no tick to a row on screen shows nothing to time.
+      const seen = new Set(record.visible.filter(([, ticks]) => ticks > 0).map(([seq]) => seq));
       batches = record.batches.map(([id, at]) => ({ id, at }));
+      onScreen = (batch) => seen.has(batch.id);
+      held = new Set((record as unknown as { held: number[] }).held);
+      for (const [seq, at] of record.painted) painted.set(seq, Math.min(at, painted.get(seq) ?? Infinity));
       shown = record.shown.map(([id, at]) => ({ id, at }));
     }
     const inWindow = (b: Batch) => b.at >= from && b.at <= to;
@@ -128,10 +164,14 @@ async function once(url: string, side: 'tanstack' | 'gpui', rate: number, profil
     const batchesInWindow = batches.filter(inWindow);
     if (!batchesInWindow.length) throw new Error(`${side} ${rate}: no batch in the window`);
     const latencies: number[] = [];
+    const etLatencies: number[] = [];
+    /** With `?hold=alt`, each batch's Shown in and its commit by whether it was held. */
+    const split = { held: [] as number[], free: [] as number[], heldCommit: [] as number[], freeCommit: [] as number[] };
     const toCommit: number[] = [];
     const toPresent: number[] = [];
     let inFrame = 0;
-    for (const batch of batchesInWindow) {
+    const counted = batchesInWindow.filter(onScreen);
+    for (const batch of counted) {
       const first = shown.find((s) => s.id >= batch.id && s.at >= batch.at);
       if (!first || first.at > to) continue;
       const presented = trace.presentationOf(trace.toTrace(first.at));
@@ -140,12 +180,20 @@ async function once(url: string, side: 'tanstack' | 'gpui', rate: number, profil
       toCommit.push(first.at - batch.at);
       toPresent.push(trace.toPage(presented.at) - first.at);
       if (presented.inFrame) inFrame++;
+      if (side === 'tanstack' && hold) {
+        const kind = held.has(batch.id) ? 'held' : 'free';
+        split[kind].push(trace.toPage(presented.at) - batch.at);
+        split[`${kind}Commit`].push(first.at - batch.at);
+      }
+      const paint = painted.get(first.id);
+      if (paint !== undefined) etLatencies.push(paint - batch.at);
     }
     const work = frameWork(trace, from, to);
     const per = percentiles(work.frames.map((f) => f.ms));
     const intervals = frameIntervals(await recordedBetween(page, from, to));
     const gcs = trace.mainThread(trace.toTrace(from), trace.toTrace(to)).filter((e) => e.name === 'MinorGC' || e.name === 'MajorGC');
     const shownIn = percentiles(latencies);
+    const shownInEt = percentiles(etLatencies);
     if (session.problems.length) throw new Error(`${side} ${rate}: ${session.problems.join('; ')}`);
     return {
       spinMs: round(spinMs),
@@ -156,6 +204,13 @@ async function once(url: string, side: 'tanstack' | 'gpui', rate: number, profil
       shownInP50Ms: round(shownIn.p50),
       shownInP95Ms: round(shownIn.p95),
       shownInMatched: latencies.length,
+      shownInEtP50Ms: etLatencies.length ? round(shownInEt.p50) : null,
+      shownInEtP95Ms: etLatencies.length ? round(shownInEt.p95) : null,
+      shownInEtMatched: etLatencies.length,
+      shownInCounted: counted.length,
+      ...(side === 'tanstack' && hold
+        ? { heldShownInP50Ms: p50OrNull(split.held), freeShownInP50Ms: p50OrNull(split.free), heldToCommitP50Ms: p50OrNull(split.heldCommit), freeToCommitP50Ms: p50OrNull(split.freeCommit), heldCounted: split.held.length, freeCounted: split.free.length }
+        : {}),
       toCommitP50Ms: round(percentiles(toCommit).p50),
       toPresentP50Ms: round(percentiles(toPresent).p50),
       inFrameShare: round(inFrame / Math.max(1, latencies.length), 2),
@@ -187,10 +242,14 @@ try {
   for (const profile of PROFILE_NAMES)
     for (const rate of RATES)
       for (const side of SIDES)
-        for (const hold of side === 'tanstack' && HOLD ? [false, true] : [false]) {
+        // TanStack's control runs within one page (`?hold=alt`); GPUI's as runs of its own.
+        for (const hold of HOLD ? [false, true] : [false]) {
           const runs: Awaited<ReturnType<typeof once>>[] = [];
           for (let r = 0; r < RUNS; r++) runs.push(await once(servers[side]!.url, side, rate, profile, hold));
-          const pick = (f: (run: (typeof runs)[number]) => number) => round(median(runs.map(f)), 2);
+          const pick = (f: (run: (typeof runs)[number]) => number | null | undefined) => {
+            const values = runs.map(f).filter((v): v is number => typeof v === "number");
+            return values.length ? round(median(values), 2) : null;
+          };
           const keys = Object.keys(runs[0]!) as (keyof (typeof runs)[number])[];
           const summary = {
             profile, rate, side: hold ? `${side}-hold` : side, runs: runs.length,
