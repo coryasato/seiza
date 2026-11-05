@@ -2,6 +2,8 @@
 // its paths, its port, its marks and globals. Everything app-agnostic is
 // shared-web/perf/'s.
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -129,6 +131,32 @@ export function builtFeatures(): string[] {
   if (!existsSync(file)) return [];
   const { features } = JSON.parse(readFileSync(file, 'utf8')) as { features: string };
   return features.split(/[ ,]+/).filter(Boolean);
+}
+
+/** What draws the table: the Rust sources, the manifests, the fonts. */
+const SOURCES = ['*.rs', '*Cargo.toml', 'Cargo.lock', 'shared-web/fonts'];
+
+/** The tree a screen or build is drawn from: the commit, and a hash of its
+ *  changes to `SOURCES` (the diff against HEAD and each untracked source
+ *  file's path and bytes), so a screen from another tree is refused. */
+export function drawnFrom(): { commit: string; changes: string } {
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: repo });
+  const hash = createHash('sha256').update(git('diff', 'HEAD', '--binary', '--', ...SOURCES));
+  const untracked = git('ls-files', '--others', '--exclude-standard', '-z', '--', ...SOURCES).toString().split('\0').filter(Boolean).sort();
+  for (const file of untracked) hash.update(`\0${file}\0`).update(readFileSync(join(repo, file)));
+  return { commit: git('rev-parse', 'HEAD').toString().trim(), changes: hash.digest('hex').slice(0, 16) };
+}
+
+/** The hash of no changes: a clean tree's. */
+export const UNCHANGED = createHash('sha256').digest('hex').slice(0, 16);
+
+/** The tree the release build in `host/web/dist` was built from
+ *  (`dist/build.json`'s `tree`, written by `perf/build-info.ts`); `null`
+ *  for a build that wrote none. */
+export function builtFrom(): { commit: string; changes: string } | null {
+  const file = join(hostWebDir, 'dist/build.json');
+  if (!existsSync(file)) return null;
+  return (JSON.parse(readFileSync(file, 'utf8')) as { tree?: { commit: string; changes: string } }).tree ?? null;
 }
 
 /** The build's name in results: `base`, or its features. */

@@ -14,6 +14,7 @@
 //! scripts) goes out as [`TallTableEvent`]s.
 
 mod activity;
+mod cells_text;
 mod column;
 #[cfg(feature = "copy")]
 mod copy;

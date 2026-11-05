@@ -10,6 +10,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::activity::{Activity, ActivityStats};
+use crate::cells_text::{CellText, cells_text};
 use crate::column::{CellKind, LaidOutColumn, Sizes, TallTableColumn, layout_columns};
 use crate::delegate::{CellValue, PageError, TallTableDelegate, TallTablePage as _};
 #[cfg(all(feature = "live", feature = "custom-cells"))]
@@ -264,16 +265,23 @@ pub(crate) fn row_height() -> Pixels {
     ROW_SIZE.table_row_height()
 }
 
-/// `cell` with the cells' padding on each side: with `density`, scaled.
+/// The cells' padding on each side: with `density`, scaled; the base's
+/// `px_2` without. Every cell's, its text's (`cells_text`) among them.
 #[inline(always)]
-fn padded(cell: Div, sizes: Sizes) -> Div {
+fn cell_pad(sizes: Sizes) -> AbsoluteLength {
     #[cfg(feature = "density")]
-    return cell.px(px(sizes.pad()));
+    return px(sizes.pad()).into();
     #[cfg(not(feature = "density"))]
     {
         let _ = sizes;
-        cell.px_2()
+        rems(0.5).into()
     }
+}
+
+/// `cell` with the cells' padding on each side ([`cell_pad`]).
+#[inline(always)]
+fn padded(cell: Div, sizes: Sizes) -> Div {
+    cell.px(cell_pad(sizes))
 }
 
 /// Where the columns are drawn without `pin`: every column scrolls. A
@@ -448,6 +456,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     layout_generation: u64,
     published_layout: Option<(Bounds<Pixels>, u64, f32)>,
     published_probe: Option<TallTableProbe>,
+    /// What the cells' text element drew last (tests only).
+    #[cfg(test)]
+    pub(crate) drawn_text: crate::cells_text::DrawnTexts,
     published_scrollbar: Option<(Bounds<Pixels>, Bounds<Pixels>)>,
     probe_frames: bool,
     probe_cells: bool,
@@ -549,6 +560,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             layout_generation: 0,
             published_layout: None,
             published_probe: None,
+            #[cfg(test)]
+            drawn_text: Default::default(),
             published_scrollbar: None,
             probe_frames: false,
             probe_cells: false,
@@ -1781,7 +1794,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let row_h = sizes.row();
         let gutter = self.gutter_width();
         let visible = self.scroll.visible();
-        #[cfg(any(feature = "pin", feature = "custom-cells"))]
         let place = self.place();
         let columns: Vec<(usize, LaidOutColumn)> = self
             .visible_columns()
@@ -1799,10 +1811,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let mut row_backgrounds = Vec::new();
         let mut gutter_cells = Vec::new();
         let mut cells = Vec::new();
-        // The pinned columns' cells, and a failed row's message, which
-        // spans both regions (`pin`).
+        // The loaded cells' text, drawn by one element a region.
+        let mut texts = Vec::new();
+        // The pinned columns' cells and text, and a failed row's message,
+        // which spans both regions (`pin`).
         #[cfg(feature = "pin")]
-        let (mut pinned_cells, mut spanning) = (Vec::new(), Vec::new());
+        let (mut pinned_cells, mut pinned_texts, mut spanning) =
+            (Vec::new(), Vec::new(), Vec::new());
         let mut last_cell = None;
         let probe_frames = self.probe_frames;
         let mut cell_probes = self.probe_cells.then(Vec::new);
@@ -1908,7 +1923,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         for (position, (column_index, column)) in columns.iter().enumerate() {
                             // Its left edge in its region (with `pin`, the
                             // pinned columns' or the scrolled ones').
-                            #[cfg(any(feature = "pin", feature = "custom-cells"))]
                             let left = place.layer_left(*column_index, column.x, self.scroll_x);
                             // The pinned columns' cells and paint go in
                             // their region (`pin`).
@@ -2026,22 +2040,28 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     paint: drawn.probe(left),
                                 });
                             }
-                            let cell = self
-                                .value_cell(
-                                    #[cfg(feature = "pin")]
-                                    left,
-                                    column,
-                                    top,
-                                    row_h,
-                                )
-                                .text_color(color)
-                                .child(text);
+                            let cell = CellText {
+                                left,
+                                top: f32::from(top),
+                                width: column.width,
+                                right: column.kind.numeric(),
+                                middle: matches!(
+                                    column.kind,
+                                    CellKind::Integer | CellKind::Decimal
+                                ),
+                                text: text.into(),
+                                color,
+                                #[cfg(test)]
+                                row,
+                                #[cfg(test)]
+                                column: *column_index,
+                            };
                             #[cfg(feature = "pin")]
                             if pinned {
-                                pinned_cells.push(cell);
+                                pinned_texts.push(cell);
                                 continue;
                             }
-                            cells.push(cell);
+                            texts.push(cell);
                         }
                     }
                     RowState::Pending => {
@@ -2205,8 +2225,24 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // and bars, under the text.
         #[cfg(all(feature = "select", not(feature = "pin")))]
         let cells_layer = cells_layer.children(self.render_selection(cx).1);
+        let pad = cell_pad(sizes);
+        #[cfg(test)]
+        let drawn_text = self.drawn_text.clone();
+        #[cfg(test)]
+        drawn_text.borrow_mut().clear();
+        let text_canvas = |texts| {
+            cells_text(
+                texts,
+                row_h,
+                pad,
+                #[cfg(test)]
+                drawn_text.clone(),
+            )
+        };
+        // A loading row's bars, then the loaded cells' text, last: over the
+        // fills and the tint.
         #[cfg(not(feature = "pin"))]
-        let cells_layer = cells_layer.children(cells);
+        let cells_layer = cells_layer.children(cells).children(text_canvas(texts));
         // With `pin`, each region holds its columns' fills and bars, tint,
         // and cells, clipped at the run's edge; a failed row's message spans
         // both, and the edge's line is over them.
@@ -2226,12 +2262,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .map(IntoElement::into_any_element)
                     .into_iter()
                     .chain(pinned_selection.map(IntoElement::into_any_element))
-                    .chain(pinned_cells.into_iter().map(IntoElement::into_any_element)),
+                    .chain(pinned_cells.into_iter().map(IntoElement::into_any_element))
+                    .chain(text_canvas(pinned_texts).map(IntoElement::into_any_element)),
                 paint
                     .map(IntoElement::into_any_element)
                     .into_iter()
                     .chain(selection.map(IntoElement::into_any_element))
-                    .chain(cells.into_iter().map(IntoElement::into_any_element)),
+                    .chain(cells.into_iter().map(IntoElement::into_any_element))
+                    .chain(text_canvas(texts).map(IntoElement::into_any_element)),
             );
             cells_layer
                 .children(unclipped)
@@ -2521,37 +2559,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
         )
     }
 
-    /// A cell holding a value. A plain block, not a flex container: GPUI
-    /// cuts text only when its width is definite, and a flex item's isn't,
-    /// so a right-aligned value spilled out the cell's left side and lost its
-    /// front with no sign. The line height centers it.
-    fn value_cell(
-        &self,
-        #[cfg(feature = "pin")] left: f32,
-        column: &LaidOutColumn,
-        top: Pixels,
-        height: Pixels,
-    ) -> Div {
-        let cell = self
-            .cell(
-                #[cfg(feature = "pin")]
-                left,
-                column,
-                top,
-                height,
-            )
-            .line_height(height);
-        match column.kind {
-            CellKind::Text => cell.truncate(),
-            CellKind::Float => cell.text_right().truncate(),
-            CellKind::Integer | CellKind::Decimal => cell
-                .text_right()
-                .overflow_hidden()
-                .whitespace_nowrap()
-                .text_ellipsis_middle(),
-        }
-    }
-
     /// Reports the vertical scrollbar's track and thumb when they move
     /// ([`TallTableEvent::Scrollbar`]).
     fn report_scrollbar(&mut self, body: Bounds<Pixels>, cx: &mut Context<Self>) {
@@ -2653,6 +2660,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
 /// so it drives the state's own scroll, drag, and paging paths.
 #[cfg(test)]
 mod fixtures;
+
+/// The cells' text element, read back through what it drew.
+#[cfg(test)]
+mod cells_text_tests;
 
 /// The random test of the paging under every feature built: a child
 /// module, so it reads the cache's books and drives the state's own paths.

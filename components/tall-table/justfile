@@ -18,11 +18,12 @@ dev features="": (wasm "debug" features)
 
 # The bare host's release build: wasm (+ wasm-opt), Vite build, then asset
 # sizes (raw, gzip, brotli 11). `features` are the host's, written to
-# dist/build.json for the scripts (the base without any).
+# dist/build.json for the scripts (the base without any) with the tree it
+# was built from.
 build features="": (wasm "release" features)
     npm run build --workspace @seiza/tall-table-host
     node {{root}}/shared-web/scripts/asset-sizes.ts {{host_web}}/dist
-    printf '{"features":"%s"}\n' '{{features}}' > {{host_web}}/dist/build.json
+    node {{component_dir}}/perf/build-info.ts '{{features}}'
 
 # Serve the bare host's release build (brotli), as the scripts do.
 preview:
@@ -123,8 +124,11 @@ sort *args:
 # every run at the dense default, and in both its layout, rows, and ink
 # checked and the hook keeping the top row; on a build with `density`
 # alone, `?density=30,14` against the base build's saved first screen).
-# --browsers. Run `just tall-table build` first (with `density`, a base
-# build's smoke first, for its screens).
+# --browsers. `--screens save` runs only the reference screens and keeps
+# them under this tree's commit; `--screens <commit>` compares them with
+# that commit's, pixel for pixel (CLAUDE.md, "Commands"). Run `just
+# tall-table build` first (with `density`, a base build's smoke first, for
+# its screens).
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 

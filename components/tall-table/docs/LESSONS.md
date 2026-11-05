@@ -436,3 +436,14 @@ One entry per milestone part, written before starting the next one: what surpris
 - A shaped line paints inside a layer of its own, and every layer is a search of the scene's `BoundsTree`, whose short cut only works when the new bounds meet the last ones inserted. A table's cells never meet the cell before them, so ~300 searches a frame took a fifth of the main thread throttled.
 - GPUI's view cache wouldn't have saved it: a cached view's replay inserts every primitive and layer into the tree again.
 - The release profile strips the name section (`strip = true`), so a profile of a release build reads `wasm-function[9392]`. A spike that profiles builds with `CARGO_PROFILE_RELEASE_STRIP=none` and `wasm-opt -O2 -g`, and compares its variants only with each other.
+
+## M11: the flash's frames (part B, 2026-11-04)
+
+**Results:** [`perf/results/2026-11-04-m11-b-screens.md`](../perf/results/2026-11-04-m11-b-screens.md) (174 screens against M11's parent, and the control).
+
+**Surprises:**
+- GPUI's "post-layout absolute edge rounding" never moved a cell here: every length is rounded to device pixels before layout (`to_taffy`), and the region's origin sits on a device pixel, so rounding each cell's left, top, width, row, and padding on its own was the whole of it. The element matched the `div`s to the pixel at its first build, fractional scrolls included.
+- WebKit's wheel moves whole pixels, so a wheel can't put its row top or `scrollX` off the pixel; a 5 px thumb drag lands the top at a fraction of the rows (`scrollX` stays whole there).
+- The narrow shape's columns at their kinds' widths cut nothing: neither cut was on any first screen. The reference screens narrow two columns with `resize` to put both on screen.
+- GPUI's middle cut of an 8-digit integer in a 4-character column leaves "2…", the front alone: a test that expected both ends was asking more of GPUI than the `div`s got.
+- A test that renders the state without the `TallTable` element draws its cells at the inherited 16 px, not `text_sm`: the element reads the text style as the `div`s did, so the test's shell sets the size `TallTable` sets.

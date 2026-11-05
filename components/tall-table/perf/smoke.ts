@@ -86,19 +86,22 @@
 // looks is still a manual check. WebKit and Firefox at DPR 1, Chromium at
 // DPR 2 (shared-web/perf/'s `open`).
 //
-// Usage: node components/tall-table/perf/smoke.ts [--browsers chromium,firefox,webkit]
+// With `--screens save`, it runs only the reference screens
+// (`referenceScreens`) and keeps them under this tree's commit; with
+// `--screens <commit>`, it compares them with that commit's.
+//
+// Usage: node components/tall-table/perf/smoke.ts [--browsers chromium,firefox,webkit] [--screens save|<commit>]
 // Run `just tall-table build [features]` first (with `density`, a smoke run
 // of the base build first, in the same browsers, for its screens).
 
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwright';
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, builtFeatures, cellAt, copyReached, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -126,14 +129,7 @@ const density = builtFeatures().includes('density');
 /** The base build's first screens (`density`'s control compares them). */
 const BASE_SCREENS = join(perfDir, 'results/raw/smoke-base');
 const baseScreen = (browser: string, shape: Shape) => join(BASE_SCREENS, `${browser}-${shape}.png`);
-/** What a base screen was drawn from, written beside it: the commit and a
- *  hash of the working tree's changes to what draws it (the Rust sources,
- *  the manifests, the fonts), so a screen from another tree is refused. */
-const SOURCES = ['*.rs', '*Cargo.toml', 'Cargo.lock', 'shared-web/fonts'];
-function drawnFrom(): { commit: string; changes: string } {
-  const git = (...args: string[]) => execFileSync('git', args, { cwd: repo });
-  return { commit: git('rev-parse', 'HEAD').toString().trim(), changes: createHash('sha256').update(git('diff', 'HEAD', '--binary', '--', ...SOURCES)).digest('hex').slice(0, 16) };
-}
+/** What a base screen was drawn from, written beside it (`drawnFrom`). */
 const fromHere = JSON.stringify(drawnFrom());
 type DensityRun = 'dense' | 'control';
 /** The sort runs: by clicks with the glyphs or the host's icons, or
@@ -1168,12 +1164,203 @@ function darkestOnScreen(cells: Cell[], view: Shown, layout: Layout): Cell {
   const sum = (cell: Cell) => cell.fill![0]! + cell.fill![1]! + cell.fill![2]!;
   return (onScreen.length ? onScreen : cells).reduce((darkest, cell) => (sum(cell) < sum(darkest) ? cell : darkest));
 }
+/** The reference screens (`--screens`): each build's screens, saved beside
+ *  the commit they were drawn from, so a later tree's are compared with a
+ *  named commit's pixel for pixel. Per shape and paint style (each with
+ *  `custom-cells`; the host's default density and pin come with the
+ *  build): the first screen, before the pointer moves; one after a wheel
+ *  down and (where the columns have room) sideways to a fractional
+ *  `scrollX` and a row top off the device pixel; with `select`, a block
+ *  selected (the tint under the text); and with `resize`, in the narrow
+ *  shape, `spkid` and `full_name` narrowed (an integer cut in the middle,
+ *  a text at its end). */
+const SCREENS = join(perfDir, 'results/raw/smoke-screens');
+/** The wheel to the scrolled screen, CSS px: off any whole row and pixel. */
+const SCROLL_DOWN_PX = 1_207.3;
+const SCROLL_SIDEWAYS_PX = 1_234.3;
+/** The `resize` build's narrowed screen: each column's band dragged to
+ *  this width, CSS px (cut at the base's text and the dense default's). */
+const SCREEN_NARROWED: [number, number][] = [
+  [0, 60],
+  [1, 90],
+];
+/** Where a tree's screens go: the commit, with the hash of its source
+ *  changes when it has any (a named commit is a clean tree's). */
+function screensDir(features: string[], from: { commit: string; changes: string }): string {
+  const commit = from.commit.slice(0, 10);
+  return join(SCREENS, from.changes === UNCHANGED ? commit : `${commit}+${from.changes}`, buildName(features));
+}
+type ScreenView = { top: number; scrollX: number };
+
+async function referenceScreens(against: string | null): Promise<void> {
+  const features = builtFeatures();
+  const from = drawnFrom();
+  const clean = from.changes === UNCHANGED;
+  // The screens are the build's: refused unless it was built from this tree.
+  const built = builtFrom();
+  if (!built || built.commit !== from.commit || built.changes !== from.changes) {
+    failures.push(`the build in host/web/dist was built from ${built ? JSON.stringify(built) : 'an unknown tree'}, not this one (${JSON.stringify(from)}): run \`just tall-table build ${features.join(',')}\` first`);
+    return;
+  }
+  let reference: string | null = null;
+  if (against !== null) {
+    let commit: string;
+    try {
+      commit = execFileSync('git', ['rev-parse', '--verify', '--quiet', `${against}^{commit}`], { cwd: repo }).toString().trim();
+    } catch {
+      failures.push(`--screens ${against}: not a commit`);
+      return;
+    }
+    reference = screensDir(features, { commit, changes: UNCHANGED });
+  }
+  // Compared with its own commit's, this tree's go beside them.
+  const ownDir = screensDir(features, from);
+  const dir = ownDir === reference ? `${ownDir}-again` : ownDir;
+  if (reference && !existsSync(reference)) {
+    failures.push(`no screens of the ${buildName(features)} build at ${reference}: check out ${against}, build it, and run \`just tall-table smoke --screens save\``);
+    return;
+  }
+  mkdirSync(dir, { recursive: true });
+  const styles: (CellStyle | undefined)[] = painted.length ? ['text', ...painted] : [undefined];
+  let compared = 0;
+  for (const name of browsers) {
+    const engine = engines[name];
+    if (!engine) {
+      failures.push(`unknown browser ${name}`);
+      continue;
+    }
+    for (const shape of SHAPES) {
+      for (const cells of styles) {
+        const label = `${name} ${shape}${cells ? ` ${cells}` : ''}`;
+        const params: Record<string, string> = { shape };
+        if (cells) params.cells = cells;
+        let session: Awaited<ReturnType<typeof open>> | null = null;
+        try {
+          session = await open(engine, server.url, { params, init: [firstDrawProbe] });
+          const { page } = session;
+          await waitMark(page, FILLED_MARK, 0, 60_000);
+          const { shown: start, layout } = await shown(page);
+          const shots: [string, string, ScreenView][] = [['first', await settledScreen(page), { top: start.top, scrollX: start.scrollX }]];
+          await page.mouse.move(layout.left + 200, layout.top + 200);
+          // Inside the room, short of its end (where the scroll clamps).
+          const room = sidewaysRoom(layout) > 0;
+          await wheel(page, SCROLL_DOWN_PX, room ? Math.min(SCROLL_SIDEWAYS_PX, sidewaysRoom(layout) / 2 + 0.3) : 0);
+          let down = await filledWhere(page, `s.first >= ${start.first + 30}${room ? ' && s.scrollX > 0' : ''}`);
+          const scale = await page.evaluate(() => devicePixelRatio);
+          const off = (value: number) => Math.abs(value * scale - Math.round(value * scale)) > 1e-3;
+          if (!off(down.top * layout.rowHeight)) {
+            // WebKit's wheel moves whole pixels: the thumb dragged 5 px
+            // lands the top at a fraction of the rows.
+            const [x, y, width, height] = await page.evaluate(() => (globalThis as { __seizaTargets?: Record<string, number[]> }).__seizaTargets!['table-scroll-thumb']!);
+            await page.mouse.move(x! + width! / 2, y! + height! / 2);
+            await page.mouse.down();
+            await page.mouse.move(x! + width! / 2, y! + height! / 2 + 5, { steps: 5 });
+            await page.mouse.up();
+            down = await filledWhere(page, `s.first >= ${down.first + 100}`);
+          }
+          // Off the hover: a tooltip would show over a cut cell.
+          const corner = cornerAt(layout);
+          await page.mouse.move(corner.x, corner.y);
+          const scrolled = (await shown(page)).shown;
+          shots.push(['scrolled', await settledScreen(page), { top: scrolled.top, scrollX: scrolled.scrollX }]);
+          if (!off(scrolled.top * layout.rowHeight)) failures.push(`${label}: the scrolled screen's row top ${(scrolled.top * layout.rowHeight).toFixed(3)} px is on the device pixel`);
+          // WebKit's wheel moves whole pixels (said, not failed).
+          if (room && !off(scrolled.scrollX) && engine !== webkit) failures.push(`${label}: the scrolled screen's scrollX ${scrolled.scrollX} is on the device pixel`);
+          if (select && (!cells || cells === 'text')) {
+            // A block: a press, then a Shift+press three rows and columns on.
+            const at = (row: number, column: number) => cellAt(layout, scrolled, row, column);
+            const first = Math.ceil(down.top) + 1;
+            // The first scrolled column wholly right of the run's edge, and
+            // the two after it, all within the view.
+            const column = layout.columns.findIndex((laid, index) => screenLeft(layout, index, scrolled.scrollX) >= pinEdge(layout) && laid.x - scrolled.scrollX >= 0);
+            if (column < 0 || screenLeft(layout, column + 2, scrolled.scrollX) + layout.columns[column + 2]!.width > layout.cellsWidth) throw new Error(`no three scrolled columns in view to select at scrollX ${scrolled.scrollX}`);
+            const a = at(first, column);
+            const b = at(first + 3, column + 2);
+            await page.mouse.click(a.x, a.y);
+            await page.keyboard.down('Shift');
+            await page.mouse.click(b.x, b.y);
+            await page.keyboard.up('Shift');
+            await page.mouse.move(corner.x, corner.y);
+            // The block, not the first press's cell.
+            await selected(page, { kind: 'cells', anchor: [first, column], head: [first + 3, column + 2] });
+            shots.push(['selected', await settledScreen(page), { top: scrolled.top, scrollX: scrolled.scrollX }]);
+          }
+          if (resize && (!cells || cells === 'text') && shape === 'narrow') {
+            // Narrowed, from the scrolled view: an integer cut in the
+            // middle (`spkid`) and a text at its end (`full_name`).
+            for (const [column, to] of SCREEN_NARROWED) {
+              const { shown: view, layout: now } = await shown(page);
+              const band = bandAt(now, column, view.scrollX);
+              const width = now.columns[column]!.width;
+              const by = to - width;
+              await page.mouse.move(band.x, band.y);
+              await page.mouse.down();
+              await page.mouse.move(band.x + by, band.y, { steps: DRAG_MOVES });
+              await page.mouse.up();
+              await laidOutAt(page, column, width + by).catch(() => failed(`${label}: column ${column} not ${width + by} px after its band's drag`));
+            }
+            await page.mouse.move(corner.x, corner.y);
+            const narrowed = (await shown(page)).shown;
+            shots.push(['narrowed', await settledScreen(page), { top: narrowed.top, scrollX: narrowed.scrollX }]);
+          }
+          for (const [variant, png, view] of shots) {
+            const file = `${name}-${shape}${cells ? `-${cells}` : ''}-${variant}`;
+            writeFileSync(join(dir, `${file}.png`), Buffer.from(png, 'base64'));
+            writeFileSync(join(dir, `${file}.json`), JSON.stringify({ ...from, ...view }));
+            if (!reference) continue;
+            const was = join(reference, `${file}.png`);
+            if (!existsSync(was) || !existsSync(join(reference, `${file}.json`))) {
+              failures.push(`${label} ${variant}: no reference screen ${was} (or its .json)`);
+              continue;
+            }
+            const then = JSON.parse(readFileSync(join(reference, `${file}.json`), 'utf8')) as ScreenView;
+            if (then.top !== view.top || then.scrollX !== view.scrollX) failures.push(`${label} ${variant}: landed at top ${view.top}, scrollX ${view.scrollX}; the reference at ${then.top}, ${then.scrollX}`);
+            const differ = await differingPixels(page, png, readFileSync(was).toString('base64'), 0);
+            if (differ) failures.push(`${label} ${variant}: ${differ} px differ from ${against}'s (${join(dir, `${file}.png`)} against ${was})`);
+            compared++;
+            console.log(`${label} ${variant}: top ${view.top.toFixed(4)}, scrollX ${view.scrollX.toFixed(2)}${differ ? `, ${differ} px differ` : ', pixel for pixel'}`);
+          }
+          if (!reference) console.log(`${label}: ${shots.map(([variant, , view]) => `${variant} (top ${view.top.toFixed(4)}, scrollX ${view.scrollX.toFixed(2)})`).join(', ')} saved`);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+        } catch (error) {
+          failures.push(`${label}: ${(error as Error).message.split('\n')[0]}`);
+        } finally {
+          await session?.close();
+        }
+      }
+    }
+  }
+  console.log(reference ? `${compared} screens compared with ${against}'s; this tree's in ${dir}` : `saved in ${dir}${clean ? '' : ' (a tree with source changes: no commit names it)'}`);
+}
+
+const failures: string[] = [];
 const browsers = (option('browsers') ?? 'chromium,firefox,webkit').split(',');
 const server = await serveApp(undefined, { webDir: hostWebDir, port: PORT });
+// `--screens` needs its value: alone or before another flag, it's refused
+// rather than read as missing (the full run) or as a commit.
+const screensGiven = process.argv.includes('--screens');
+const screensOption = option('screens');
+if (screensGiven && (screensOption === undefined || screensOption.startsWith('--'))) {
+  console.error('FAIL\n  --screens takes `save` or a commit');
+  await server.close();
+  process.exit(1);
+}
+if (screensOption !== undefined) {
+  try {
+    await referenceScreens(screensOption === 'save' ? null : screensOption);
+  } finally {
+    await server.close();
+  }
+  if (failures.length) {
+    console.error(`FAIL\n  ${failures.join('\n  ')}`);
+    process.exit(1);
+  }
+  console.log('ok');
+  process.exit(0);
+}
 /** The build again at the LAN address, for the insecure-context run alone:
  *  started at its first run, so a machine without one fails only that. */
 let lanServer: Awaited<ReturnType<typeof serveApp>> | null = null;
-const failures: string[] = [];
 try {
   for (const name of browsers) {
     const engine = engines[name];
