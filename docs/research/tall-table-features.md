@@ -791,3 +791,73 @@ Nothing: its cells are its own. The observatory's GPUI contender draws through t
 ### What the random test gains
 
 Nothing: the paging is unchanged, so no soak (the table's `CLAUDE.md`, rule 5).
+
+## `format`
+
+Researched 2026-11-04, from the observatory's market watch board on the observatory's design canvas (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK, `Main.dc.html`'s `market` rows), its decisions (`apps/observatory/PLAN.md`, market watch's research and spike), the table's cell text (`src/state.rs`'s `cell_text`, `shown_text`, `decide_tooltip`; `src/format.rs`'s `fit_float`; `src/cells_text.rs`'s cut; `src/state/resize.rs`'s `fit_column`), the TanStack contender's `format.ts`, IBM Plex Sans's advances (`shared-web/fonts/IBMPlexSans-Regular.ttf`'s `hmtx`, read with fontTools), and Rust's `{:.N}` against V8's `Intl.NumberFormat` and `toFixed` (Node 26). No spike: the cost is a string a drawn cell, which `fit_float` already makes, and the build measures it.
+
+### What asks for it
+
+The observatory's market watch, whose canvas draws its numbers as a trading screen writes them and not as the table's automatic format does (decided with the user: "the text is the canvas's"). Its twelve columns, at set widths (Symbol 72, Name 150, Last 84, Change 76, Change % 84, Bid 80, Ask 80, Bid size 76, Ask size 76, Volume 96, High 80, Low 80):
+
+- **Last, Bid, Ask, High, Low:** fixed decimals, **picked per instrument**: `toFixed(px < 10 ? 3 : 2)`, `px` the instrument's reference price (the feed's prices are whole cents from 10 up and whole mills under it). So one column holds `84.21` and `9.420`, its trailing zero kept so the column's points line up.
+- **Change:** the same decimals, a `+` on a rise (`(ch > 0 ? '+' : '') + f2(ch)`), `-` on a fall, nothing on a zero: `+0.37`, `-0.05`, `0.00`.
+- **Change %:** two decimals always, the same sign, a `%` suffix: `+1.23%`. The value is already a percentage (`ch / px * 100`), so the suffix scales nothing.
+- **Volume:** a whole number grouped by thousands (`toLocaleString('en-US')`): `4,400,000`.
+- **Bid size, Ask size:** whole numbers, **not grouped** (`4400`), as drawn.
+
+Today the table draws every float in `fit_float`'s shortest text (`84.21`, `9.42`, `0.37`, `4400000.0` for a float volume), which isn't the canvas's.
+
+### What `DataTable` and TanStack do
+
+Neither formats: `DataTable`'s cells are the delegate's `render_td` elements, so a host formats as it likes; TanStack Table's `cell` renderer is the app's, which an app writes with `Intl.NumberFormat` or `toFixed`. The table draws its cells' text itself (one element a region), so a host can't hand it an element; the format is a setting the table applies to the value.
+
+### Where it lives
+
+On the column, beside `kind`: `TallTableColumn::format(NumberFormat)`, behind `format`. A format is a fact about a column (Change % is always two decimals and `%`), and the column is what a host already sets once. Two things a column can't say:
+
+- **The decimals per row.** The canvas's are per instrument. Three ways were weighed with the user: the page answers a cell's own (`TallTablePage::decimals(row, column) -> Option<u8>`, `None` for the column's, called as `paint` is: for a drawn cell of a formatted column, each frame, from what the page holds); one count per column (the canvas changed to 2, a sub-10 price's third decimal rounded away); or the count from each value's own size (no hook, but Change's `-0.05` on an 84.21 instrument would get three, and a price crossing 10 would change its width mid-feed). **Chosen: the page overrides** (decided with the user 2026-11-04). It's what trading screens do (a tick size per instrument), and it costs a host nothing unless it answers.
+- **A scale.** Change % is a percentage already; the suffix is text, not `Intl`'s `style: 'percent'` (which multiplies by 100). A value to scale is the source's to scale.
+
+**What a format is:** decimals (`Option<u8>`: `None` keeps the automatic format's digits), a sign (`Sign::Negative`, the default, a `-` only; `Sign::Always`, a `+` on a positive too), grouping (a `,` every three whole digits), and a suffix (any text). It applies to the numeric kinds only: a float's value is formatted; an integer's or decimal's text (the source writes them, `CellValue::Text`) gets its sign, grouping, and suffix (its decimals ignored: an integer has none, and a decimal's are its scale, exact). A text column ignores it. Without decimals, a float's text is its exact text (Rust's `{:?}`): grouping applies only to a plain one, never to an exponent (`1e16`, `1.5e-7` keep their form, with the sign and suffix), and a whole float keeps its `.0` (`4,400,000.0`; `decimals(0)` writes `4,400,000`). Separators are fixed (`,` and `.`), not a locale's: a locale is a later note if a host asks.
+
+### The text
+
+- **Rounding:** Rust's `{:.N}`, which rounds the double's exact binary value half to even (`1.125` at 2 is `1.12`; `0.005`, just above half, is `0.01`). The DOM side can't use `Intl.NumberFormat` as it is: V8 rounds the shortest decimal (`0.005` at `halfEven` is `0.00`), and `toFixed` rounds an exact tie up (`1.125` is `1.13`). `format.ts` already rounds the exact value in `BigInt`s for `fit_float`'s ties; its `fixed` does this too.
+- **The sign follows the raw value, not the rounded text,** as the canvas's does (`ch > 0 ? '+' : ''`, and `toFixed` keeps a minus): a Change % of 0.0026% is `+0.00%`, a change of -0.001 at 2 is `-0.00`. Only an exact zero, `-0.0` included, has no sign (Rust's `{:.2}` writes `-0.00` for `-0.0`, so the build drops it), nor does an integer's or decimal's text whose digits are all zero (`0`, a written `-0.00`). Chosen with the user (2026-11-04) over `Intl`'s `signDisplay: 'exceptZero'` (`0.00%`): the cell's color comes from the raw value too (a text ramp over ±1e-9), so a green cell never reads `0.00%`.
+- **Not a number:** `NaN` and `inf` show their exact text, unformatted; NULL stays `NULL`.
+- **The minus stays `-`** (U+002D), weighed against U+2212 `−` (asked 2026-11-04). The `+` is ASCII U+002B too, 8.4 px at 14 px as a digit is; `−` is 8.4 and `-` 5.586. What `−` would buy is small: the cells are right-aligned, so the digits and points line up whatever the sign; only the sign's own left edge sits 2.8 px further left for a rise than a fall. What it would cost: the canvas draws `-` (`toFixed`); the exact text, the copy, and every unformatted column (`fit_float`) write `-`, so a formatted column would differ from its neighbors and from its own fallback, and the tooltip's read-back would have to map it; and the placeholder shell's font holds printable ASCII and "…" only (root `CLAUDE.md`), so a placeholder copying a formatted cell couldn't draw it. Not worth it; a later note if a design draws `−`.
+
+### When it doesn't fit
+
+The table never holds its rows, so no width can come from the widest formatted value (only the loaded rows are known, and a width that moved with the scroll would jump). The column keeps its kind's or set width, and a formatted text too wide for it falls back. Three ways were weighed with the user: the automatic format; a cut in the middle, as integers are cut (`+1,2…67.89`, its magnitude lost); a spreadsheet's `###`. **Chosen: the automatic format** (decided with the user 2026-11-04): the cell shows what it shows today, `fit_float` at the column's budget (an integer's or decimal's plain text, cut in the middle as today), so a number's magnitude is never wrong. The sign, grouping, and suffix go with it for that cell.
+
+**"Fits" is a sum of advances, not a shaping.** The formatted text's width is the sum of its characters' advances in the cells' font at the size in effect, read once per font and size beside `number_px` (`Glyphs`: the digits, `+`, `-`, `.`, `,`, and each column's suffix shaped once), against the cell's content box less a pixel, the rule `cells.json`'s budget follows. A text that fits is drawn whole: the cells' text element doesn't cut it (its cut, by shaping against the content box, could otherwise disagree with the sum by a kerning pair or a rounding at another size); the build checks that the font's shaping of the characters a format writes is their advances' sum, so a fitted text never overflows its cell. A DOM side can't measure GPUI's shaping, so a fit by shaping couldn't be pinned for it; a sum over advances the fixture pins can. Plex Sans at 14 px: every digit and `+` 8.4, `-` 5.586, `.` and `,` 3.808, `%` 12.978. A count of characters at `number_px`, as `fit_float`'s budget is, would be wrong both ways: `%` is half again a digit, `,` under half.
+
+### The tooltip and the copy
+
+The tooltip opens for a value the format rounded, not one it only dressed: the shown number, its sign, grouping, and suffix taken off, read back as a float of the value's own width (an `f32` for `Float32`, whose widened value no `f64` text reads back as), is the value or not (`9.420` is 9.42, `+0.37` is 0.37; `84.206` at 2 isn't). A fallback opens it as the base's text does: when its text isn't the exact value (rounded) or is cut. The copy, the sort, and the tooltip's text stay the exact value.
+
+### `resize`'s fit
+
+A formatted column's double-click fit is its widest visible formatted text by the same sum of advances (the formatted text always, even for a cell that falls back at the current width: room for it is what the fit is for), plus the padding and the rule's pixel, rounded up (`digits_width`'s `+ 1`), so the widest cell fits right after.
+
+### The sign's glyph
+
+The observatory left an arrow in Change to this research (a rise and a fall shouldn't differ by hue alone). Plex Sans has `↑` and `↓` (U+2191, U+2193, 11.48 px at 14 px, wider than a digit, so not tabular) and no `▲` or `▼`, which GPUI can't draw (it draws only that face). **No arrow is needed for the text:** Change and Change % already say a rise or a fall in their `+` and `-`, which a reader who can't tell the colors apart reads; the colors without text are the flash on Last, Bid, and Ask, which the observatory's lighter rise and darker fall answer. The canvas draws none, and the format adds no sign glyph of its own; a `Sign` variant is a later note if a design draws one.
+
+### Frame-work risk
+
+A formatted cell makes one string a frame, as `fit_float` does for every float today, plus a sum of advances; a page's `decimals` is a call a drawn cell, as `paint` is. Measured in the build: the scroll and flings in the bare host with every float formatted, against the feature built with no format (the control) and the base.
+
+### Canvas gaps
+
+None new. The text is drawn, not the DOM's, as before; the tooltip still gives a rounded value's exact text.
+
+### What a DOM contender does
+
+The TanStack contender's `format.ts` gains the same format (its exact rounding, not `Intl`'s, above), and the fit by the fixture's advances. `cells.json` gains a `format` section: the advances, and cases of a format, a kind, a value, a page's decimals or none, a width → the exact and the shown text, each with a `why` (a tie, a value rounding to zero with each sign, grouping at 3, 4, and 7 digits, a negative grouped, a suffix, a fallback at a narrow width, an integer's and a decimal's text, NaN, inf, NULL), with negative controls.
+
+### What the random test gains
+
+Nothing: the paging is unchanged, so no soak (the table's `CLAUDE.md`, rule 5).

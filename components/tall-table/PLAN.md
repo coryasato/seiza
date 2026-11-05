@@ -30,7 +30,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M9 | `pin`: columns fixed at the left | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
 | M10 | `density`: a row height, a set column width, and a text size | Done 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | The flash's frames, cheap: the cells' text from one element | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
-| M12 | `format`: a number column's shown text set by its host | Planned |
+| M12 | `format`: a number column's shown text set by its host | Active: part A done 2026-11-04 (research and spec) |
 | M13 | `reorder`: drag a column to move it | Planned |
 | M14 | `context-menu`: right- and double-click events | Planned |
 | M15 | `group-headers`: header rows over column groups | Planned |
@@ -129,7 +129,7 @@ The observatory leads its comparison by scenarios, real uses (its [`docs/researc
 | `follow` | Follow the tail: the view stays at the last rows read while `set_rows` grows the source, and lets go when the reader scrolls up; a way back to it | Live tail | `live` (a grown tail page kept and read again; M4's research) | No (`set_rows` exists) | — (the contender's own, on its scroller) |
 | `live` | A host says "these rows changed"; their pages are re-read (or patched) and redrawn, the scroll unmoved | Market watch | — | Yes: the changed pages are read again | — (the contender's own, through its cache) |
 | `density` | Three numbers a host sets: the row height, a column's width without `resize`'s drag, and the cells' text size (a shorter row with the same text clips its glyphs); the padding and paint fitting them; defaults unchanged. A feature of its own, the width shared with `resize`'s model (M10 part A; its spec under "Active milestone"). Asked for 2026-10-30 | Wide sheet (its denser stops: today ~310–340 cells are on screen at 120 px × 30 px) | — | No | Row height and column widths in CSS (column sizing's `size`, no resizing) |
-| `format` | A number column's shown text set by its host: fixed decimals (`84.21`, `9.420`), a sign on a positive (`+0.37`), a suffix (`%`), thousands grouping (`4,400,000`); the value's exact text stays the tooltip's and the copy's. Defaults unchanged (today's exact text and `fit_float`). Asked for 2026-11-04 by market watch (tall-table M12; the observatory's M10, which follows its design canvas's text); a draft, its research to settle where the format lives (`TallTableColumn`, beside `kind`), how a fixed format meets the column's width budget (cut, or the width from the widest formatted value), and the cell fixture's new cases | Market watch | — | No | The contender's formatter (`format.ts`), pinned by `cells.json`'s new cases |
+| `format` | A number column's shown text set by its host: fixed decimals (`84.21`, `9.420`), a sign on a positive (`+0.37`), a suffix (`%`), thousands grouping (`4,400,000`); the value's exact text stays the tooltip's and the copy's. Defaults unchanged (today's exact text and `fit_float`). Asked for 2026-11-04 by market watch (tall-table M12; the observatory's M10, which follows its design canvas's text); its research done 2026-11-04 (M12 part A; its spec under "Active milestone") | Market watch | — | No | The contender's formatter (`format.ts`), pinned by `cells.json`'s new cases |
 
 What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells), `density` (its denser stops), and `pin` (its key columns frozen), and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes) and `format` (its prices, changes, and volumes as its design draws them); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
 
@@ -165,7 +165,60 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None. M12 (`format`) opens with its research ("Next milestones").
+### M12: `format`, a number column's shown text set by its host
+
+Opened 2026-11-04, asked for by the observatory's market watch (its M10 part B, "Waiting on"): its canvas draws `84.21`, `9.420`, `+0.37`, `+1.23%`, `4,400,000`, where the table draws `fit_float`'s shortest text. The research: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`format`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-04, M12 part A, three entries, two chosen with the user).
+
+```rust
+// format.rs, behind `format`.
+#[derive(Debug, Clone, PartialEq, Default)]
+#[non_exhaustive]
+pub struct NumberFormat { /* decimals, sign, grouping, suffix */ }
+impl NumberFormat {
+    pub fn new() -> Self;                                  // the automatic digits, `Sign::Negative`, no grouping, no suffix
+    pub fn decimals(self, decimals: u8) -> Self;           // fixed, trailing zeros kept; floats only
+    pub fn sign(self, sign: Sign) -> Self;
+    pub fn grouping(self, grouping: bool) -> Self;         // `,` every three whole digits
+    pub fn suffix(self, suffix: impl Into<SharedString>) -> Self; // text; nothing scaled
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Sign { #[default] Negative, Always }              // `Always`: `+` on a positive, nothing on a zero
+
+// column.rs, behind `format`.
+impl TallTableColumn { pub fn format(self, format: NumberFormat) -> Self; }
+
+// delegate.rs, behind `format`: a cell's own decimals, `None` for its column's.
+// Called for a drawn cell of a formatted float column, each frame, as `paint` is.
+trait TallTablePage { fn decimals(&self, row: usize, column: usize) -> Option<u8> { None } }
+```
+
+**The spec** (part B builds it; each rule's reason is in the research):
+
+- **The text:** a float (`Float`, `Float32` widened) at fixed decimals by Rust's `{:.N}` (the exact value, ties to even), or its exact text (`{:?}`, a whole float's `.0` kept) when `decimals` is `None`; then grouping on its whole digits, only for a plain text (an exponent keeps its form), the sign (`-` U+002D on a negative; with `Always`, `+` on a positive; the sign by the raw value, so a tiny rise is `+0.00%`; none on an exact zero, `-0.0` included), then the suffix. An integer's or decimal's text (`CellValue::Text`): grouping, sign, and suffix, its digits as written; a text whose digits are all zero takes no sign, a written minus dropped. `NaN`, `inf`, `-inf`, and NULL as today. A text column ignores the format.
+- **The page's decimals:** `TallTablePage::decimals(row, column)` overrides the column's count for that cell (`None` keeps it); called only for a drawn loaded cell of a formatted float column, and for the tooltip's and the fit's cells.
+- **The fit:** a formatted text is drawn if the sum of its characters' advances (the cells' font at the size in effect: each character's advance read once per font and size in `Glyphs`, beside `number_px`; each column's suffix shaped once at the size) is at most the content box less a pixel (the cell's width less the padding in effect, less 1), and is then drawn uncut (the element's cut skipped for it; a native test checks the font shapes the characters a format writes at their advances' sum). Otherwise the cell shows the automatic format: `fit_float` at the column's budget for a float, the plain text cut in the middle for an integer or decimal, as without the feature.
+- **The tooltip:** opens for a formatted cell whose number, its grouping, sign, and suffix taken off, reads back as another float than the value in its own width (an `f32` for `Float32`) (rounded), for a fallback whose text isn't exact, or a cut, as today; never for a cell only dressed (`9.420`, `+0.37`, `4,400,000`). Its text, the copy's, and the sort stay the exact value.
+- **`resize`'s fit:** a formatted column fits its widest visible loaded formatted text by the same advances (the formatted text even where a cell falls back now), plus the padding and the rule's pixel, rounded up (`digits_width`'s), so the widest fits after; the name's width as today.
+- **Off by default, the base unchanged:** every site through `#[cfg(feature = "format")]` or an inlined stand-in, so the base's bytes and `cells.json`'s cells hold; with the feature on and no column formatted, every cell as the base draws it.
+- **The bare host:** `format` builds every float column formatted (2 decimals, `Always`, grouping) and the narrow shape's integer `spkid` grouped, with the page answering 3 decimals for every fourth row, so the hook is used; `?format=off` builds the feature with no column formatted (the control, the code's cost apart from the drawing's).
+- **Fixtures:** `cells.json` gains `format`: `advances` (each character a format writes, CSS px at 14 px; provisional from the font natively in part B, pinned from the bare host in Chromium in part C, as `density.json`'s `number_px` was) and `cases` (a format, a kind, a value, a page's decimals or none, a width → the exact and the shown text and whether it falls back, each with a `why`: a tie at 2, `0.005` at 2, a value rounding to zero with each sign (`+0.00%`, `-0.00`), `-0.0`, an integer `0` and a decimal `-0.00` with `Always`, a `Float32` dressed (no tooltip), a float without decimals grouped (plain, an exponent, a whole `.0`), grouping at 3, 4, and 7 digits, a negative grouped, a suffix wider than a digit, a page's 3 over a column's 2, a fallback a character short, an integer's and a decimal's text, NaN, inf, NULL, the canvas's five texts). Negative controls: a `+` on an exact zero, the sign from the rounded text, ties rounded up, grouping by four, a fit by character count, the page's decimals ignored. The TanStack contender runs it through `format.ts` (the observatory's, in its M10 part B: this milestone pins the fixture and runs it natively).
+- **No paging change,** so no soak; the random test unchanged.
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
+
+- **A. Research and spec** (no shipped code). *Done 2026-11-04:* the research section, three decisions, a `docs/LESSONS.md` entry, the spec above, and the checks below.
+- **B. The format.** `NumberFormat`, `Sign`, `TallTableColumn::format`, `TallTablePage::decimals`, the text, the fit and the fallback, the tooltip's rule, `resize`'s fit; `cells.json`'s `format` section (advances provisional) and its native test and controls; the bare host's `format` feature and `?format=off`; `format` in `perf/size.ts`'s `FEATURES` and the justfile's `test` runs. Checks B1–B3.
+- **C. The browsers, the measurement, and the close.** The smoke check's format run, the advances pinned from Chromium, the cost (bytes; the scroll and flings formatted against `?format=off` and the base, reference, median of 10, throttled once), the README, the waiting app told, and the close-out ("Closing a milestone", above). Checks C1–C3.
+
+**Done when:**
+
+- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "`format`"; its decisions in `docs/DECISIONS.md`; the API, spec, and checks here. *Evidence (2026-11-04):* the research section (the canvas's twelve columns read, its decimals per instrument; where the format lives; the text, its rounding against V8's `Intl` and `toFixed`; the fallback; the fit by advances, Plex Sans's measured; the tooltip; the minus kept `-`; no sign glyph); `docs/DECISIONS.md`, "Features" (2026-11-04, M12 part A, three entries).
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M12's parent>`: the base's wasm after wasm-opt unchanged; `size` reports the `format` build with its markers, and no `format` symbol in the base.
+- [ ] **B2. Format, natively:** `cells.json`'s `format` cases pass and each control fails; the rest of `cells.json` unchanged. In a window: the drawn text of a formatted column (through the cells' text element's `DrawnText`) at the column's decimals and at a page's override; a fallback at a narrow set width; the tooltip open for a rounded and a fallen-back cell and closed for a dressed one; with `resize`, a fit of a formatted column; with `density`, the fit at a small and a large text; the feature on with no format drawing as the base. `just tall-table test` (every feature off, each on, all on) and `lint` pass.
+- [ ] **B3. The host builds it:** the bare host's `format` feature, the page's decimals answered, `?format=off`; the host's tests.
+- [ ] **C1. In the browsers:** `just tall-table smoke` with `format`, both shapes, in Chromium, Firefox, and WebKit: the drawn cells (`__tallTableCells`) the formatted text at both decimals, against the source's exact values; a narrowed column falling back; `?format=off` screens equal to the base's. `cells.json`'s `advances` pinned from Chromium, the native run passing with them.
+- [ ] **C2. Its cost, in the host:** the added wasm (brotli 11, after wasm-opt) against the base; the scroll and flings formatted against `?format=off` and the base, both shapes, reference, median of 10 (throttled once, recorded). In `perf/results/` and the README's Features table.
+- [ ] **C3. Told:** the README ("Format": the API, the text's rules, the page's decimals, the fallback, the tooltip, its limits: no locale, no scale, `-` not `−`); the observatory's "Waiting on" row for `format` flipped to *Ready* (the date and tall-table M12), and `format` joins Tycho's "Ready so far".
 
 ---
 
@@ -187,7 +240,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-M12's (`format`) is written after its research, which opens it once M11 closes, and M13's (`reorder`) after its own once M12 closes; until then each one's spec is its row under "Features".
+M13's (`reorder`) is written after its research, which opens it once M12 closes; until then its spec is its row under "Features".
 
 ---
 

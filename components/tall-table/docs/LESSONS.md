@@ -458,3 +458,12 @@ One entry per milestone part, written before starting the next one: what surpris
 - The size script's `--against` gate failed by design: it guards a feature milestone's base, and this milestone's job was to change the base (+3.4 KiB after wasm-opt). A check written for one kind of milestone reads as a failure in another.
 - The close was planned at 4–5 hours of quiet machine and ran in about an hour by re-reading only the features that draw through the changed path. The first write-up borrowed the parent's throttled frames from M10 (another gpui-kit) and its reference flash from the spike (another optimization level); the code review caught both, and the same-session runs took 12 minutes. A borrowed baseline saves less than it costs in caveats.
 - The reference flash's latency spread stayed at 13–15% on a re-run, from one low run each time, while the medians agreed within 1%: a spread over the gate isn't always noise to re-run away; read the runs.
+
+## M12: `format` (part A, 2026-11-04)
+
+No results note: the research measured nothing but the font's advances and two formatters' rounding, both in the research section.
+
+**Surprises:**
+- The canvas's decimals are per instrument, not per column (`toFixed(px < 10 ? 3 : 2)`), so one price column holds `9.420` and `84.21`. The ask read as a column's setting; reading the canvas's code, not its picture, found the page hook it needs.
+- `Intl.NumberFormat` can't be the DOM side's formatter even with `roundingMode: 'halfEven'`: V8 rounds the shortest decimal, so `0.005` at 2 is `0.00` where Rust's exact rounding writes `0.01`. And `toFixed` rounds an exact tie up (`1.125` → `1.13`, Rust `1.12`). The contender's `BigInt` rounding, written for `fit_float`, is the one that matches.
+- A count of characters, which `fit_float`'s budget is, can't say whether a formatted text fits: `%` is half again a digit's width and `,` under half.
