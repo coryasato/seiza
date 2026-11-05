@@ -25,11 +25,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { LEVELS, type Level } from '../contenders/scenarios.ts';
 import { ENGINE_CHUNK, budgetLimits, distDir, perfDir, tanstackWebDir } from './harness.ts';
 
 const level = (option('level') ?? 'base') as Level;
-if (!Object.hasOwn(LEVEL_FEATURES, level)) throw new Error(`no level ${level} (${Object.keys(LEVEL_FEATURES).join(', ')})`);
+if (!LEVELS.includes(level)) throw new Error(`no level ${level} built (${LEVELS.join(', ')})`);
 const build = level === 'base' ? '' : ` ${level}`;
 const dist = distDir(tanstackWebDir, level);
 if (!existsSync(join(dist, 'index.html'))) throw new Error(`no TanStack contender build: run \`just observatory tanstack-build${build}\` first`);

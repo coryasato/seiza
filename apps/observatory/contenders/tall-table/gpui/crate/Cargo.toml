@@ -14,6 +14,10 @@ gpui-kit.workspace = true
 seiza-duckdb = { workspace = true, features = ["tall-table"] }
 seiza-tall-table.workspace = true
 
+[dev-dependencies]
+# The feed fixture's JSON (`src/market.rs`).
+serde_json.workspace = true
+
 # The entry point and the contract are web-only; the view compiles natively for clippy.
 [target.'cfg(target_family = "wasm")'.dependencies]
 # Without the observation panel: the contender carries no chrome the DOM side
@@ -38,4 +42,16 @@ wide = [
     "tall-table-bridge/custom-cells",
     "tall-table-bridge/pin",
     "tall-table-bridge/density",
+]
+# Market watch's level: the changed cells' flash (`custom-cells` with
+# `live`), the rows re-read in place (`live`), and the canvas's text
+# (`format`), and its store (`src/market.rs`), which the feed fixture runs
+# natively. The host's scene for it comes with the level's build.
+market = [
+    "seiza-tall-table/custom-cells",
+    "seiza-tall-table/live",
+    "seiza-tall-table/format",
+    "tall-table-bridge/custom-cells",
+    "tall-table-bridge/live",
+    "tall-table-bridge/format",
 ]

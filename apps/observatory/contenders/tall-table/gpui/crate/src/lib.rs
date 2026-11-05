@@ -6,6 +6,9 @@
 #[cfg(target_family = "wasm")]
 mod contract;
 mod host;
+/// Market watch's store, folding the feed's batches.
+#[cfg(feature = "market")]
+pub mod market;
 mod scene;
 
 pub use host::Host;

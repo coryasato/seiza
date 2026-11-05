@@ -246,3 +246,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The throttle's own control perturbed what it guarded. The busy loop timed right before the window (a ~120 ms task) put the DOM side a frame or so behind for the whole window: commit → presentation 19.5 ms before it, 31.4 after. A check that runs inside the measured page belongs after the window.
 - GPUI has run states too, though its draw presents in its own task: its mark → presentation settled at 1.1, ~12, or 28 ms per run at the reference, so one setting's Shown in read 14 to 41 ms over three runs. A canvas doesn't escape the browser's frame scheduling.
 - Element Timing looked like an independent check on the DOM side and wasn't. It reads the same presentation feedback as the trace, to the hundredth of a millisecond, and the elements made for it cost the DOM 11% more main thread. Two readings agreeing proves nothing when they share a source.
+
+## M10 part B2: the feed, its fixture, the data, and the scenario (2026-11-05)
+
+**Results:** none measured (the fixture's evidence is in `PLAN.md`).
+
+**Surprises:**
+- Five of the 50 "fictional" symbols are listed on a US exchange today, three of them the canvas's, though A1 had already taken four real tickers out of the spike's first draft. A symbol made up for a demo has to be checked against the real directories, and at every build, since listings change daily; it costs two small fetches.
+- A dropped tick isn't always visible in a store's final state: a quote's fields are overwritten by the instrument's next tick, so a store skipping it ends the same. Only what accumulates (the volume) or a count of ticks folded shows it, so the fixture's control drops a trade and the stores count what they fold.
+- The data's SQL template substituted its variable inside a comment that named it, so the rows landed in the comment. A template's comments shouldn't spell its placeholders.
+- The feed's walk had drifted since A1: twice as likely up as down at the reference, so every price ended above it and the fall's color never showed. The spike's measurements and its digest check didn't care about direction, so nothing caught it until the code review. A seeded generator needs a check of what it means (a rise and a fall both seen), not only that it repeats.

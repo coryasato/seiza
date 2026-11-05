@@ -7300,6 +7300,7 @@ dependencies = [
  "seiza",
  "seiza-duckdb",
  "seiza-tall-table",
+ "serde_json",
  "tall-table-bridge",
  "wasm-bindgen",
 ]

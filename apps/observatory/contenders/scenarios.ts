@@ -13,13 +13,16 @@
 
 /** A build of each contender: the base, or the base with a set of features
  *  built the same on both sides. */
-export type Level = 'base' | 'wide';
+export type Level = 'base' | 'wide' | 'market';
 
 /** The features each level turns on (the GPUI contender's Cargo feature of
- *  the level's name turns on the table's). */
+ *  the level's name turns on the table's), every level's, built or not:
+ *  what a results file labels a build with. Which levels are built is
+ *  `LEVELS`'s, below; nothing else reads which levels exist from here. */
 export const LEVEL_FEATURES: Record<Level, readonly string[]> = {
   base: [],
   wide: ['custom-cells', 'pin', 'density'],
+  market: ['custom-cells', 'live', 'format'],
 };
 
 export interface Stop {
@@ -76,7 +79,31 @@ export interface Heat {
   stops: Record<'light' | 'dark', readonly [cold: Oklch, mid: Oklch, warm: Oklch]>;
   domain: { lo: number; mid: number; hi: number };
 }
-export type Scenario = BaseScenario | WideScenario;
+
+/** A market watch's stop: the feed's updates a second. */
+export interface RateStop extends Stop {
+  rate: number;
+}
+
+/** A theme's rise and fall: the text by a change's sign, and the flash. */
+export interface Signs {
+  up: Oklch;
+  down: Oklch;
+}
+
+export interface MarketScenario extends ScenarioOf<'market', RateStop> {
+  /** The feed's seed (`contenders/market/feed.ts`): the same ticks on both sides. */
+  seed: number;
+  /** A rise and a fall per theme: Change and Change % drawn by sign (a zero
+   *  in the foreground), the flash in the same two colors. */
+  signs: Record<'light' | 'dark', Signs>;
+  /** The table's flash on the columns named: a changed cell's color at
+   *  `mix` (of the rise or the fall over the cell), fading linearly to
+   *  nothing over `ms`. */
+  flash: { ms: number; mix: number; columns: readonly string[] };
+}
+
+export type Scenario = BaseScenario | WideScenario | MarketScenario;
 
 export const BIG_FILE: BaseScenario = {
   id: 'big-file',
@@ -123,8 +150,39 @@ export const WIDE_SHEET: WideScenario = {
   },
 };
 
-/** Every scenario, each level's first its default. */
+/** A market watch's stop, named and labelled by its rate as the dial says it. */
+const rateStop = (label: string, rate: number): RateStop => ({ id: label, label, rate });
+
+/**
+ * Market watch (`docs/DECISIONS.md`, "Scenarios"): 50 fictional
+ * instruments, their prices updated in place by one seeded feed, each
+ * change flashing. Its stops sit where the work still grows (from ~5k
+ * nearly every visible row changes every frame); the colors are the
+ * design canvas's, the rise lighter than the fall in both themes.
+ */
+export const MARKET_WATCH: MarketScenario = {
+  id: 'market-watch',
+  label: 'Market watch',
+  use: 'A trading screen: every price live, each change flashing',
+  level: 'market',
+  data: 'market-instruments.parquet',
+  stops: [rateStop('100', 100), rateStop('500', 500), rateStop('1k', 1000), rateStop('5k', 5000)],
+  defaultStop: '500',
+  seed: 0x5eed,
+  signs: {
+    light: { up: [0.55, 0.15, 149], down: [0.45, 0.17, 27] },
+    dark: { up: [0.82, 0.17, 149], down: [0.68, 0.19, 27] },
+  },
+  flash: { ms: 400, mix: 0.3, columns: ['Last', 'Bid', 'Ask'] },
+};
+
+/** Every scenario, each level's first its default. A scenario joins it
+ *  with its builds: the page's routes, `pickScenario`, and the scripts that
+ *  build or serve each level (`LEVELS`) read it. */
 export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET];
+
+/** The levels each contender builds: the base, and every scenario's. */
+export const LEVELS: readonly Level[] = ['base', ...new Set(SCENARIOS.map((scenario) => scenario.level).filter((level) => level !== 'base'))];
 
 export const SCENARIO_PARAM = 'scenario';
 export const STOP_PARAM = 'stop';

@@ -1,16 +1,20 @@
 /**
  * A contender build's feature level (`scenarios.ts`, `Level`), at build
  * time: both contenders' Vite configs take it from Vite's mode (`--mode
- * wide`, which the recipes and the perf harness's `preview` pass; any other
- * mode is the base), each level a build of its own at a base of its own,
- * into `dist/` or `dist-<level>/`.
+ * wide`, which the recipes and the perf harness's `preview` pass; Vite's own
+ * modes are the base), each level a build of its own at a base of its own,
+ * into `dist/` or `dist-<level>/`. A level no scenario is on yet (in
+ * `LEVEL_FEATURES`, not `LEVELS`) fails the build rather than build one
+ * whose every scenario fails to load.
  */
 
 import type { Plugin } from 'vite';
-import { LEVEL_FEATURES, type Level } from './scenarios.ts';
+import { LEVEL_FEATURES, LEVELS, type Level } from './scenarios.ts';
 
 export function levelOf(mode: string): Level {
-  return Object.hasOwn(LEVEL_FEATURES, mode) ? (mode as Level) : 'base';
+  if (LEVELS.includes(mode as Level)) return mode as Level;
+  if (Object.hasOwn(LEVEL_FEATURES, mode)) throw new Error(`--mode ${mode}: no scenario is on that level yet (\`scenarios.ts\`'s SCENARIOS), so its build would load none`);
+  return 'base';
 }
 
 /** The build's directory for `level`: `dist` or `dist-<level>`. */

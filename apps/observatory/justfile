@@ -220,11 +220,16 @@ placeholder *args:
 # (node --test), and the cell fixture against what the GPUI contender's
 # build draws: run
 # `just observatory gpui-build` first (`check` does), or it checks the last
-# build's drawing.
+# build's drawing. And market watch's feed fixture
+# (contenders/market/fixtures/feed.json): the feed regenerating it, then
+# each side's store against it with its controls (the GPUI contender's
+# natively, the TanStack contender's in its `npm test`).
 fixtures:
     cargo test -p seiza-tall-table fixtures
     cargo test -p seiza-tall-table --features custom-cells,pin,density fixtures
     cargo test -p seiza-duckdb --all-features sql_fixture
+    node {{app_dir}}/contenders/market/fixtures/write.ts --check
+    cargo test -p tall-table-gpui --features market market::
     npm test --workspace @seiza/observatory-tall-table-tanstack
     node {{app_dir}}/perf/cell-fixture.ts --check
 
@@ -281,9 +286,11 @@ readout-cost *args:
 # Build the data files (gitignored) and write data/MANIFEST.json:
 # asteroids.parquet from Tycho's pinned asteroid sample (`just tycho data`
 # first), ghcn-2025-tmax.parquet from NOAA's GHCN-Daily, its sources kept in
-# data/raw/ghcn/ and checked against their pins (a missing one downloaded).
-# Installs data/'s native DuckDB (its own lockfile). Flags: --only
-# asteroids|ghcn; --repin (download GHCN's sources again and pin them: a
+# data/raw/ghcn/ and checked against their pins (a missing one downloaded),
+# market-instruments.parquet from the feed's instruments
+# (contenders/market/feed.ts; it fails if a symbol is listed on a US
+# exchange, NASDAQ Trader's directories fetched). Installs data/'s native
+# DuckDB (its own lockfile). Flags: --only asteroids|ghcn|market; --repin (download GHCN's sources again and pin them: a
 # new file, so regenerate cells.json).
 data *args:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
@@ -389,6 +396,8 @@ lint:
     cargo clippy -p tall-table-gpui --all-targets -- -D warnings
     cargo clippy -p tall-table-gpui --features wide --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --features wide --all-targets -- -D warnings
+    cargo clippy -p tall-table-gpui --features market --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-gpui --features market --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
     node {{page_web}}/scripts/grays.ts

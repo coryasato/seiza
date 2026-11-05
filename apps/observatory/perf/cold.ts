@@ -36,14 +36,14 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { firstDrawProbe, waitMark, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { FAST_4G, PROFILES, flag, machineInfo, localDate, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { contenderBase, UI_FONT } from '../contenders/paths.ts';
-import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { LEVEL_FEATURES, LEVELS, type Level } from '../contenders/scenarios.ts';
 import { MARKS, budgetLimits, distDir, gpuiWebDir, lastMark, perfDir, problems, protocolContext, serveGpui } from './harness.ts';
 
 const { ttfpOverBaseline, wasmOverBaseline } = budgetLimits(new URL('./budgets.json', import.meta.url))('gpui', ['ttfpOverBaseline', 'wasmOverBaseline']);
 const runs = Number(option('runs') ?? 10);
 const given = option('url');
 const level = (option('level') ?? 'base') as Level;
-if (!(level in LEVEL_FEATURES)) throw new Error(`--level ${level}: not a level (${Object.keys(LEVEL_FEATURES).join(', ')})`);
+if (!LEVELS.includes(level)) throw new Error(`--level ${level}: not a level (${LEVELS.join(', ')})`);
 const levelSuffix = level === 'base' ? '' : `-${level}`;
 const label = option('label') ?? (given ? `gpui-cold${levelSuffix}-production` : `gpui-cold${levelSuffix}`);
 const check = flag('check');

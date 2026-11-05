@@ -5,7 +5,7 @@ import { prerender } from '@seiza/web/prerender';
 import { seizaViteConfig, serveDirs } from '@seiza/web/vite';
 import { observatoryData } from '../contenders/data.ts';
 import { levelOutDir } from '../contenders/level.ts';
-import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { LEVELS, type Level } from '../contenders/scenarios.ts';
 import { coldNumbers } from './cold.ts';
 import { contenderBase, ENGINE, ENGINE_DIR, OBSERVATORY } from '../contenders/paths.ts';
 import { ROUTES } from './src/components.ts';
@@ -14,7 +14,7 @@ import { SIDEBAR_SCRIPT } from './src/sidebar.ts';
 
 const contender = (side: 'gpui' | 'tanstack', level: Level = 'base') => fileURLToPath(new URL(`../contenders/tall-table/${side}/web/${levelOutDir(level)}/`, import.meta.url));
 /** Every feature level's build, served under its contender's (`gpui/wide/`), ahead of the base's. */
-const levels = (Object.keys(LEVEL_FEATURES) as Level[]).filter((level) => level !== 'base');
+const levels = LEVELS.filter((level) => level !== 'base');
 
 // The page at /observatory/ and /observatory/<component>/ (the observatory's
 // CLAUDE.md, rule 2), one HTML file per route, each prerendered. The dev and

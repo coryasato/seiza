@@ -30,7 +30,7 @@ import { join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { homePaths, untrimmedControl } from '../../../shared-web/perf/home-paths.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { LEVEL_FEATURES, type Level } from '../contenders/scenarios.ts';
+import { LEVEL_FEATURES, LEVELS } from '../contenders/scenarios.ts';
 import { distDir, gpuiWebDir, perfDir } from './harness.ts';
 
 const repo = join(perfDir, '../../..');
@@ -42,8 +42,6 @@ const run = (command: string, args: string[]) => execFileSync(command, args, { c
 /** Whether Cargo enables `seiza`'s `panel` when building these packages. */
 const panelEnabled = (packages: string[], features: string[] = []) =>
   run('cargo', ['tree', '-e', 'features', '-i', 'seiza', '--target', 'wasm32-unknown-unknown', ...packages.flatMap((name) => ['-p', name]), ...(features.length ? ['--features', features.join(',')] : [])]).includes('seiza feature "panel"');
-/** The feature levels the contender builds at (`contenders/scenarios.ts`). */
-const LEVELS = Object.keys(LEVEL_FEATURES) as Level[];
 
 const alone = panelEnabled(['tall-table-gpui']) || panelEnabled(['tall-table-gpui'], LEVELS.filter((level) => level !== 'base'));
 const unified = panelEnabled(['tall-table-gpui', 'tycho']);
