@@ -24,7 +24,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M7 | `trim-paths`: no home paths in the shipped wasm; the asteroids credited; redeployed | Done 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)) |
 | M8 | The scenarios on the page: the design (a design session, no code) | Done 2026-11-02 ([`docs/milestones.md`](docs/milestones.md)) |
 | M9 | Scenario: wide sheet (parts A1–E4) | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
-| M10 | Scenario: market watch (parts A1–F) | Active: A1–A2 done 2026-11-04; B waits on the table ("Waiting on") |
+| M10 | Scenario: market watch (parts A1–F) | Active: A1–A2 done 2026-11-04; the table's asks *Ready* ("Waiting on"), B next |
 | M11 | Scenario: live tail | Planned |
 | M12 | Scenario: admin table (the control) | Planned |
 | M13 | Scenario: monitoring wall | Planned |
@@ -44,7 +44,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | tall-table `live` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios"; [its README](../../components/tall-table/README.md), "Live rows" and "A flash") | Market watch, its flash included (`live` with `custom-cells`) (M10) | *Ready* (2026-10-25, tall-table M3) |
 | tall-table `follow` (same; [its README](../../components/tall-table/README.md), "Following the tail") | Live tail (M11) | *Ready* (2026-10-25, tall-table M4) |
 | tall-table's flash frames, cheap ([its README](../../components/tall-table/README.md), "How the cells' text is drawn": the cells' text drawn from one element, a change to the table's base, so the GPUI contender's every level) | Market watch's slow device: a fading flash redraws the whole table every frame, now within the frame at CPU 4× (M10 part B starts after it) | *Ready* (2026-11-04, tall-table M11) |
-| tall-table `format` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios") | Market watch's prices, changes, and volumes as the canvas draws them (M10 part B) | *Not ready* (asked 2026-11-04) |
+| tall-table `format` ([its PLAN](../../components/tall-table/PLAN.md), "Asked for by the observatory's scenarios"; [its README](../../components/tall-table/README.md), "Format") | Market watch's prices, changes, and volumes as the canvas draws them (M10 part B) | *Ready* (2026-11-05, tall-table M12; `cells.json`'s `format` section pinned, its advances from Chromium, for `format.ts`) |
 | tall-table `resize`, `select`, `copy` ([its PLAN](../../components/tall-table/PLAN.md), "Columns" and "Selection") | The wide sheet's later steps, a resize drag and a range copied (M14) | *Ready* (`resize` 2026-10-26, tall-table M5; `select` 2026-10-26, M6; `copy` 2026-10-27, M7) |
 
 ---

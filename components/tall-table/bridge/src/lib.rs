@@ -248,7 +248,9 @@ pub mod js {
     /// `{left, top, rowHeight, cellsWidth, columns}` (CSS px from the
     /// canvas's top-left), `columns` as [`columns`] writes them. With
     /// `pin`, also `pinned`: the columns pinned in effect, the first
-    /// `pinned` drawn at `left + x` whatever the sideways scroll.
+    /// `pinned` drawn at `left + x` whatever the sideways scroll. With
+    /// `format`, also `advances`: `{char: px}`, each character a format
+    /// writes and its advance at the text in effect.
     pub fn layout(layout: &TallTableLayout) -> JsValue {
         let object = Object::new();
         set(&object, "left", number(layout.left));
@@ -258,6 +260,14 @@ pub mod js {
         set(&object, "columns", columns(&layout.columns));
         #[cfg(feature = "pin")]
         set(&object, "pinned", number(layout.pinned as f64));
+        #[cfg(feature = "format")]
+        {
+            let advances = Object::new();
+            for (ch, px) in &layout.advances {
+                set(&advances, &ch.to_string(), number(*px));
+            }
+            set(&object, "advances", advances.into());
+        }
         object.into()
     }
 

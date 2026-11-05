@@ -2004,7 +2004,7 @@
     ]
   },
   "format": {
-    "about": "A number column's format (format): each character a format writes, its advance in CSS px at the cells' 14 px IBM Plex Sans (advances; provisional from the font natively, pinned from Chromium with the bare host), and cases: a format, a kind, a value, a page's decimals (null for the column's), a set width → the exact text, the shown text, whether it fell back to the automatic format, and whether the format rounded it (the tooltip; null for a fallback, judged as the base's text). See README.md.",
+    "about": "A number column's format (format): each character a format writes, its advance in CSS px at the cells' 14 px IBM Plex Sans (advances; pinned from Chromium with the bare host: just tall-table format-fixture), and cases: a format, a kind, a value, a page's decimals (null for the column's), a set width → the exact text, the shown text, whether it fell back to the automatic format, and whether the format rounded it (the tooltip; null for a fallback, judged as the base's text). See README.md.",
     "advances": {
       "0": 8.4,
       "1": 8.4,

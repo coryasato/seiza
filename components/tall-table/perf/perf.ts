@@ -45,6 +45,11 @@
 // between segments it's cleared for Home (which would move only its active
 // cell) and pressed again.
 //
+// Built with `format`, every float column formatted (2 decimals, 3 on
+// every fourth row, a `+` on a rise, grouped) and the narrow shape's
+// `spkid` grouped (the host's), or with `--format off` none (`?format=off`:
+// the control that splits the code's cost from the drawing's).
+//
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
 // `workRecorder` (each rAF that drew); late frames and intervals come from
@@ -76,7 +81,7 @@
 //
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
-//          [--density <row>,<text>[,<width>]] [--label <name>]
+//          [--density <row>,<text>[,<width>]] [--format off] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -115,7 +120,11 @@ const densityRow = (() => {
   const [row, text] = DENSITY_OPTION.split(',').map(Number) as [number, number];
   return Math.max(row, text, 6);
 })();
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}`);
+const FORMAT = features.includes('format');
+const FORMAT_OPTION = option('format');
+if (FORMAT_OPTION !== undefined && !FORMAT) throw new Error('--format needs the host built with format: `just tall-table build format`');
+if (FORMAT_OPTION !== undefined && FORMAT_OPTION !== 'off') throw new Error(`--format ${FORMAT_OPTION}: only \`off\` (the control)`);
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -271,6 +280,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (CELLS) params.cells = CELLS;
     if (PIN_OPTION !== undefined) params.pin = PIN_OPTION;
     if (DENSITY_OPTION !== undefined) params.density = DENSITY_OPTION;
+    if (FORMAT_OPTION !== undefined) params.format = FORMAT_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -477,7 +487,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

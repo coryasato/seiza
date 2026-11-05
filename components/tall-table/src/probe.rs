@@ -50,6 +50,10 @@ pub struct TallTableLayout {
     #[cfg(feature = "pin")]
     pub pinned: usize,
     pub columns: Vec<ColumnProbe>,
+    /// Each character a format writes and its advance in the cells' font
+    /// at the size in effect (`format`): what a formatted text's fit sums.
+    #[cfg(feature = "format")]
+    pub advances: Vec<(char, f32)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

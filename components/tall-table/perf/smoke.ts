@@ -77,7 +77,19 @@
 // refused. With `density`, `resize`'s
 // checks take the host's set float widths as the columns' at open and the
 // least width at the text, and `pin`'s narrow the viewport first where the
-// columns all fit, for a sideways scroll. Chromium is granted
+// columns all fit, for a sideways scroll. Built with `format`, its formatter is
+// first checked against `fixtures/cells.json`'s `format` cases (their text
+// and fit), then it runs both shapes twice more, the cells probed (at
+// `?density=30,14` with `density`: the advances are the base's 14 px). With
+// the host's formats: each drawn float cell (and the narrow shape's
+// `spkid`) is its formatted text if that text's advances (the host's,
+// GPUI's own on the web) fit the content box less a pixel, else the
+// automatic format, against the source's exact values, at the first screen
+// and after a wheel down, cells at 2 and 3 decimals among them; with
+// `resize`, a float column narrowed to 56 px, its cells checked again and
+// some falling back. At `?format=off` (the control): no cell formatted,
+// and on a build with `format` alone, the first screen the same, pixel for
+// pixel, as the base build's. Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
 // WebKit on macOS writes the system pasteboard, so the run overwrites
@@ -91,8 +103,9 @@
 // `--screens <commit>`, it compares them with that commit's.
 //
 // Usage: node components/tall-table/perf/smoke.ts [--browsers chromium,firefox,webkit] [--screens save|<commit>]
-// Run `just tall-table build [features]` first (with `density`, a smoke run
-// of the base build first, in the same browsers, for its screens).
+// Run `just tall-table build [features]` first (with `density` or `format`,
+// a smoke run of the base build first, in the same browsers, for its
+// screens).
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -101,7 +114,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -126,6 +139,13 @@ const copy = builtFeatures().includes('copy');
 const sort = builtFeatures().includes('sort');
 const pin = builtFeatures().includes('pin');
 const density = builtFeatures().includes('density');
+const format = builtFeatures().includes('format');
+/** The format runs: the host's formats, or `?format=off` (the control). */
+type FormatRun = 'on' | 'off';
+/** The width `checkFormat` narrows a float column to (`resize`): the
+ *  host's 2 decimals with a sign and two whole digits (`+15.12`, 45.8 px
+ *  at Chromium's advances) need 63. */
+const FORMAT_NARROW_PX = 56;
 /** The base build's first screens (`density`'s control compares them). */
 const BASE_SCREENS = join(perfDir, 'results/raw/smoke-base');
 const baseScreen = (browser: string, shape: Shape) => join(BASE_SCREENS, `${browser}-${shape}.png`);
@@ -1022,6 +1042,140 @@ async function checkPin(page: Page, label: string, start: Layout, shape: Shape):
   return `, ${notes.join('; ')}`;
 }
 
+/** What `checkFormat` read of a screen's formatted cells. */
+interface FormatSeen { dressed: Map<number | null, number>; fellBack: number; borderline: number }
+
+/** Whether `cell` is drawn as the base draws it (the automatic format): an
+ *  integer's exact text (or cut, with "…"); a float's exact text while it
+ *  fits its column's budget, else another float's text, plain or
+ *  scientific (`fit_float`), never with a `+` or `,` (or cut). */
+function automatic(column: Layout['columns'][number], cell: Cell): boolean {
+  if (column.kind !== 'float') return cell.shown === cell.exact || cell.shown.includes('…');
+  if (cell.exact.length <= column.budget) return cell.shown === cell.exact;
+  return cell.shown !== cell.exact && /^-?[0-9.]+(e-?[0-9]+)?…?$/.test(cell.shown);
+}
+
+/** The drawn cells in the host's formats (`hostFormat`): each whose
+ *  formatted text's advances fit its content box less a pixel is drawn as
+ *  that text, and any other is drawn as the base draws it (`automatic`).
+ *  A text within 0.01 px of the edge isn't judged: the table sums f32s.
+ *  `onlyColumn` keeps one column's cells. */
+function judgeFormat(label: string, cells: Cell[], layout: Layout, adv: Record<string, number>, onlyColumn?: number): FormatSeen {
+  const seen: FormatSeen = { dressed: new Map(), fellBack: 0, borderline: 0 };
+  const room = (width: number) => width - 2 * paddingAt(14) - 1;
+  for (const cell of cells) {
+    if (onlyColumn !== undefined && cell.column !== onlyColumn) continue;
+    const column = layout.columns[cell.column]!;
+    const want = hostFormat(column, cell.row, cell.exact);
+    if (!want) continue;
+    const over = advancesWidth(want.text, adv) - room(column.width);
+    if (Math.abs(over) < 0.01) {
+      seen.borderline++;
+      continue;
+    }
+    if (over < 0) {
+      if (cell.shown !== want.text) failed(`${label}: ${column.name} row ${cell.row} (${cell.exact}) drawn ${JSON.stringify(cell.shown)}, not ${JSON.stringify(want.text)}`);
+      else seen.dressed.set(want.decimals, (seen.dressed.get(want.decimals) ?? 0) + 1);
+    } else if (!automatic(column, cell)) {
+      failed(`${label}: ${column.name} row ${cell.row} (${cell.exact}) drawn ${JSON.stringify(cell.shown)} at ${column.width} px (budget ${column.budget}), where ${JSON.stringify(want.text)} needs ${(advancesWidth(want.text, adv) + 2 * paddingAt(14) + 1).toFixed(2)}: not the automatic format`);
+    } else seen.fellBack++;
+  }
+  return seen;
+}
+
+const describeSeen = (seen: FormatSeen) => [...[...seen.dressed].map(([decimals, count]) => `${count} at ${decimals ?? 'its digits'}`), ...(seen.fellBack ? [`${seen.fellBack} fallen back`] : []), ...(seen.borderline ? [`${seen.borderline} at the edge unjudged`] : [])].join(', ');
+
+/** The first screen against the base build's (`density`'s and `format`'s
+ *  controls), which a smoke run of the base build saves beside the tree it
+ *  was drawn from: a screen from another tree is refused. */
+async function againstBaseScreen(page: Page, label: string, browser: string, shape: Shape): Promise<string> {
+  const file = baseScreen(browser, shape);
+  const again = `run \`just tall-table build && just tall-table smoke --browsers ${browser}\` first`;
+  if (!existsSync(file)) return failed(`${label}: no base screen at ${file}: ${again}`) ?? '';
+  const from = existsSync(`${file}.json`) ? readFileSync(`${file}.json`, 'utf8').trim() : null;
+  if (from !== fromHere) return failed(`${label}: the base screen was drawn from ${from ?? 'an unknown tree'}, not this one (${fromHere}): ${again}`) ?? '';
+  const off = await differingPixels(page, await settledScreen(page), readFileSync(file).toString('base64'), 0);
+  if (off) failed(`${label}: ${off} px differ from the base build's first screen`);
+  return `, the base's screen${off ? '' : ', pixel for pixel'}`;
+}
+
+/** `format`'s checks. On (the host's formats): the drawn cells against the
+ *  source's exact values (`judgeFormat`), at the first screen and after a
+ *  wheel down, both decimals among them; with `resize`, a float column
+ *  narrowed to `FORMAT_NARROW_PX`, its cells judged again from a frame at
+ *  that width, some falling back. Off (`?format=off`): every float and
+ *  `spkid` cell drawn as the base draws it (`automatic`); on a build with
+ *  `format` alone, the first screen the same, pixel for pixel, as the base
+ *  build's. */
+async function checkFormat(page: Page, label: string, layout: Layout, start: Shown, browser: string, shape: Shape, run: FormatRun): Promise<string> {
+  if (run === 'off') {
+    const screen = builtFeatures().every((feature) => feature === 'format') ? await againstBaseScreen(page, label, browser, shape) : '';
+    const cells = (await drawnCells(page)).filter((cell) => hostFormat(layout.columns[cell.column]!, cell.row, cell.exact));
+    const dressed = cells.filter((cell) => !automatic(layout.columns[cell.column]!, cell));
+    if (dressed.length) failed(`${label}: ${dressed.length} cells not drawn as the base at ?format=off (${dressed.slice(0, 3).map((cell) => `${cell.exact} as ${cell.shown}`).join(', ')})`);
+    if (!cells.length) failed(`${label}: no float or spkid cell drawn`);
+    return `, ${cells.length} float and spkid cells as the base draws them${screen}`;
+  }
+  const adv = await advances(page);
+  const first = judgeFormat(label, await drawnCells(page), layout, adv);
+  await page.mouse.move(layout.left + 200, layout.top + 200);
+  await wheel(page, 40 * layout.rowHeight);
+  const down = await filledWhere(page, `s.first >= ${start.first + 30}`);
+  const after = judgeFormat(label, await drawnCells(page, { first: down.first }), layout, adv);
+  for (const decimals of shape === 'narrow' ? [2, 3, null] : [2, 3]) {
+    if (!first.dressed.get(decimals) && !after.dressed.get(decimals)) failed(`${label}: no cell drawn formatted at ${decimals ?? 'spkid\'s digits'}`);
+  }
+  let narrowed = '';
+  if (resize) {
+    // The first float column right of the pinned run, narrowed from the
+    // view's top.
+    const column = layout.columns.findIndex((column, index) => column.kind === 'float' && index >= (layout.pinned ?? 0));
+    const was = layout.columns[column]!.width;
+    await page.keyboard.press('Home');
+    await filledWhere(page, 's.first === 0 && s.scrollX === 0');
+    await dragBand(page, layout, column, 0, FORMAT_NARROW_PX - was, async () => {});
+    const laid = await laidOutAt(page, column, FORMAT_NARROW_PX).catch(() => null);
+    if (!laid) return failed(`${label}: column ${column} isn't ${FORMAT_NARROW_PX} px after a drag`) ?? '';
+    const seen = judgeFormat(label, await drawnCells(page, { column: { index: column, width: FORMAT_NARROW_PX } }), laid, adv, column);
+    if (!seen.fellBack) failed(`${label}: no cell of ${laid.columns[column]!.name} fell back at ${FORMAT_NARROW_PX} px`);
+    narrowed = `; ${laid.columns[column]!.name} ${was} → ${FORMAT_NARROW_PX} px: ${describeSeen(seen)}`;
+  }
+  return `, formatted ${describeSeen(first)}; down ${down.first}–${down.end}: ${describeSeen(after)}${narrowed}`;
+}
+
+/** `formatNumber` against `fixtures/cells.json`'s `format` cases, and the
+ *  fit by their advances: the smoke check's own formatter first proved on
+ *  the table's fixture. It skips only what it doesn't write by design: a
+ *  float without fixed decimals (JS and Rust write the shortest text
+ *  apart), NULL, NaN, and the infinities; a `null` for any other case
+ *  fails. */
+function checkFormatter(): string {
+  const fixture = JSON.parse(readFileSync(join(perfDir, '../fixtures/cells.json'), 'utf8')) as { format: { advances: Record<string, number>; cases: { format: NumberFormat; kind: string; value: string | null; decimals: number | null; width: number; shown: string; fallback: boolean; why: string }[] } };
+  const { advances: adv, cases } = fixture.format;
+  let checked = 0;
+  for (const test of cases) {
+    const decimals = test.decimals ?? test.format.decimals;
+    const text = formatNumber(test.kind, test.value, test.format, decimals);
+    if (text === null) {
+      const float = test.kind === 'float' || test.kind === 'float32';
+      const skipped = test.value === null || (float && (decimals === null || !Number.isFinite(Number(test.value))));
+      if (!skipped) failed(`the smoke check's formatter writes nothing for ${test.kind} ${test.value} (${test.why})`);
+      continue;
+    }
+    checked++;
+    let fits: boolean;
+    try {
+      fits = advancesWidth(text, adv) <= test.width - 2 * paddingAt(14) - 1;
+    } catch (error) {
+      failed(`cells.json's format advances: ${(error as Error).message}`);
+      continue;
+    }
+    if (fits === test.fallback) failed(`the smoke check's fit of ${JSON.stringify(text)} at ${test.width} px: ${fits ? 'fits' : 'falls back'}, the fixture's ${test.fallback ? 'falls back' : 'fits'} (${test.why})`);
+    if (!test.fallback && text !== test.shown) failed(`the smoke check's format of ${test.kind} ${test.value}: ${JSON.stringify(text)}, the fixture's ${JSON.stringify(test.shown)} (${test.why})`);
+  }
+  return `${checked} of ${cases.length} cases`;
+}
+
 /** The screen once two shots `SETTLE_MS` apart agree (Firefox's can show
  *  the frame before the one the probe reports), at most `SETTLE_TRIES`. */
 async function settledScreen(page: Page): Promise<string> {
@@ -1047,14 +1201,7 @@ const SETTLE_TRIES = 8;
 async function checkDensity(page: Page, label: string, layout: Layout, start: Shown, browser: string, shape: Shape, run: DensityRun): Promise<string> {
   if (run === 'control') {
     if (layout.rowHeight !== 30) failed(`${label}: rows ${layout.rowHeight} px at ?density=30,14`);
-    const file = baseScreen(browser, shape);
-    const again = `run \`just tall-table build && just tall-table smoke --browsers ${browser}\` first`;
-    if (!existsSync(file)) return failed(`${label}: no base screen at ${file}: ${again}`) ?? '';
-    const from = existsSync(`${file}.json`) ? readFileSync(`${file}.json`, 'utf8').trim() : null;
-    if (from !== fromHere) return failed(`${label}: the base screen was drawn from ${from ?? 'an unknown tree'}, not this one (${fromHere}): ${again}`) ?? '';
-    const off = await differingPixels(page, await settledScreen(page), readFileSync(file).toString('base64'), 0);
-    if (off) failed(`${label}: ${off} px differ from the base build's first screen`);
-    return `, the base's screen${off ? '' : ', pixel for pixel'}`;
+    return againstBaseScreen(page, label, browser, shape);
   }
   const { row, text, width } = DEFAULT_DENSITY;
   const pad = paddingAt(text);
@@ -1361,6 +1508,7 @@ if (screensOption !== undefined) {
 /** The build again at the LAN address, for the insecure-context run alone:
  *  started at its first run, so a machine without one fails only that. */
 let lanServer: Awaited<ReturnType<typeof serveApp>> | null = null;
+if (format) console.log(`format: the smoke check's formatter against cells.json, ${checkFormatter()}`);
 try {
   for (const name of browsers) {
     const engine = engines[name];
@@ -1368,7 +1516,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -1388,10 +1536,14 @@ try {
     // `pin`'s edge, `sort`'s arrows differ from the base at rest).
     const controlled = builtFeatures().every((feature) => feature === 'density');
     if (density) runs.push(...SHAPES.flatMap((shape) => (controlled ? (['dense', 'control'] as DensityRun[]) : (['dense'] as DensityRun[])).map((densities) => ({ ...quiet, shape, densities }))));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}`;
+    if (format) runs.push(...SHAPES.flatMap((shape) => (['on', 'off'] as FormatRun[]).map((formatting) => ({ ...quiet, shape, formatting }))));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
+      // The format runs: the cells probed, at the base's 14 px text (the
+      // advances' size) with `density`; `?format=off` for the control.
+      if (formatting) Object.assign(params, { 'probe-cells': '', ...(density ? { density: '30,14' } : {}), ...(formatting === 'off' ? { format: 'off' } : {}) });
       if (sorting) params['probe-cells'] = '';
       if (sorting === 'icons') params['sort-icons'] = '';
       if (sorting === 'opened') params.sort = `${OPEN_SORT.column},${OPEN_SORT.direction === 'ascending' ? 'asc' : 'desc'}`;
@@ -1422,6 +1574,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The format runs check their own, from the first screen.
+        if (formatting) {
+          const checked = await checkFormat(page, label, layout, start, name, shape, formatting);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${checked}`);
+          continue;
         }
         // The density runs check their own, from the first screen.
         if (densities) {

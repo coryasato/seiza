@@ -227,14 +227,15 @@ impl Host {
         // The drawn cells and their paint, for the smoke check
         // (`?probe-cells`), never in a perf run: building them costs every
         // frame. Only with the feature, so the base host is unchanged.
-        // With `sort` too, whose smoke check reads the drawn order.
+        // With `sort` too, whose smoke check reads the drawn order, and
+        // `format`, whose smoke check reads the drawn text.
         #[cfg(not(all(
-            any(feature = "custom-cells", feature = "sort"),
+            any(feature = "custom-cells", feature = "sort", feature = "format"),
             target_family = "wasm"
         )))]
         let probe_cells = false;
         #[cfg(all(
-            any(feature = "custom-cells", feature = "sort"),
+            any(feature = "custom-cells", feature = "sort", feature = "format"),
             target_family = "wasm"
         ))]
         let probe_cells = probing && seiza::url::has_param("probe-cells");

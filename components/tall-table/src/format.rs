@@ -231,6 +231,11 @@ mod number {
             }
         }
 
+        /// Each of [`FORMAT_CHARS`] and its advance, for the layout probe.
+        pub(crate) fn each(&self) -> impl Iterator<Item = (char, f32)> + '_ {
+            FORMAT_CHARS.into_iter().zip(self.chars)
+        }
+
         /// A digit's advance (`0`'s).
         #[cfg(test)]
         pub(crate) fn zero(&self) -> f32 {
@@ -622,8 +627,8 @@ mod tests {
             let chars: Vec<char> = number::FORMAT_CHARS.into_iter().chain(['%']).collect();
             let advances: Vec<f32> = chars.iter().map(|ch| width(&ch.to_string())).collect();
             if size == 14.0 {
-                // `cells.json`'s provisional advances (the smoke check pins
-                // them from Chromium).
+                // `cells.json`'s advances, pinned from Chromium (`just
+                // tall-table format-fixture`): the font's, natively too.
                 let digit = advances[0];
                 assert!((digit - 8.4).abs() < 1e-3 && (advances[11] - 5.586).abs() < 1e-3);
                 assert!((advances[12] - 3.808).abs() < 1e-3 && (advances[13] - 3.808).abs() < 1e-3);

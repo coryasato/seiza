@@ -55,11 +55,13 @@ size *args:
 # segment with the shape's columns pinned (or --pin <n>'s; --pin 0 the
 # control), and with `density` built every segment at the host's dense
 # default (or --density <row>,<text>[,<width>]'s; 30,14 the control),
+# and with `format` built every segment with the host's formats (or none:
+# --format off, the control),
 # reference + throttled, cold, median of 10. Per-frame work from
 # Chromium's trace, cross-checked by `workRecorder`; late frames and the
 # presented frames; frame intervals; visible cells; a throttled segment
 # that doesn't rest reported, not failed. --runs, --shape, --profile,
-# --pin, --density, --label
+# --pin, --density, --format, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -123,12 +125,17 @@ sort *args:
 # and `resize` a press and a band on the pinned columns; with `density`,
 # every run at the dense default, and in both its layout, rows, and ink
 # checked and the hook keeping the top row; on a build with `density`
-# alone, `?density=30,14` against the base build's saved first screen).
+# alone, `?density=30,14` against the base build's saved first screen;
+# with `format`, in both, the drawn cells in the host's formats against
+# the source's exact values by Chromium's advances, both decimals among
+# them, and with `resize` a float column narrowed, its cells falling back;
+# `?format=off` none formatted, and on a build with `format` alone its
+# first screen against the base build's saved one).
 # --browsers. `--screens save` runs only the reference screens and keeps
 # them under this tree's commit; `--screens <commit>` compares them with
 # that commit's, pixel for pixel (CLAUDE.md, "Commands"). Run `just
-# tall-table build` first (with `density`, a base build's smoke first, for
-# its screens).
+# tall-table build` first (with `density` or `format`, a base build's
+# smoke first, for its screens).
 smoke *args:
     node {{component_dir}}/perf/smoke.ts {{args}}
 
@@ -193,6 +200,13 @@ paint-fixture *args:
 # layout probe (--check compares). Run `just tall-table build density` first.
 density-fixture *args:
     node {{component_dir}}/perf/density-fixture.ts {{args}}
+
+# Writes fixtures/cells.json's format advances from the bare host in
+# Chromium: each character a format writes, its advance at the cells' 14 px
+# as GPUI reads it on the web (--check compares). Run `just tall-table build
+# format` first.
+format-fixture *args:
+    node {{component_dir}}/perf/format-fixture.ts {{args}}
 
 # No milestone references outside the history files (check-terms), fmt,
 # clippy for the table, the bridge, and the host (wasm32 with no features

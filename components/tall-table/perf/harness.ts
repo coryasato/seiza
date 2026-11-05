@@ -87,6 +87,119 @@ export const DEFAULT_PINNED: Record<Shape, number> = { narrow: 2, wide: 1 };
  *  floats. `?density=30,14` is the control, the base's numbers. */
 export const DEFAULT_DENSITY = { row: 18, text: 11, width: 56 } as const;
 
+/** With `format`: the table's advances at the text in effect, from the
+ *  layout probe (`Layout`'s `advances`). */
+export async function advances(page: Page): Promise<Record<string, number>> {
+  const { layout } = await shown(page);
+  if (!layout.advances) throw new Error('no advances in the layout probe: is the host built with format?');
+  return layout.advances;
+}
+
+/** A number format, as `fixtures/cells.json`'s `format` cases spell it. */
+export interface NumberFormat {
+  decimals: number | null;
+  sign: 'negative' | 'always';
+  grouping: boolean;
+  suffix: string;
+}
+
+/** The text `format` writes for a value of `kind` (`float`, `float32`,
+ *  `integer`, `decimal`) written `value` (a float's shortest text; an
+ *  integer's or decimal's as the source writes it), at `decimals` if a
+ *  float's are given, or `null` where the table writes none (NULL, NaN, an
+ *  infinity, a text that isn't a plain number; here also a float past 1e21
+ *  at fixed decimals, which `toFixed` won't write out, and a float without
+ *  decimals, whose shortest text JS and Rust write apart). The table's
+ *  rules (README, "Format"): a float at fixed decimals rounds its exact
+ *  binary value half to even (Rust's `{:.N}`; a `float32`'s value widened),
+ *  the sign is the raw value's and an exact zero's none (a written minus
+ *  dropped), the grouping a `,` every three whole digits, then the suffix. */
+export function formatNumber(kind: string, value: string | null, format: NumberFormat, decimals: number | null = format.decimals): string | null {
+  if (value === null) return null;
+  let negative: boolean;
+  let zero: boolean;
+  let whole: string;
+  let fraction: string | null;
+  if (kind === 'float' || kind === 'float32') {
+    let number = Number(value);
+    if (kind === 'float32') number = Math.fround(number);
+    if (value.trim() === '' || !Number.isFinite(number) || decimals === null || Math.abs(number) >= 1e21) return null;
+    [whole, fraction = null] = fixedHalfEven(Math.abs(number), decimals).split('.') as [string, string?];
+    negative = number < 0;
+    zero = number === 0;
+  } else if (kind === 'integer' || kind === 'decimal') {
+    const match = /^([-+]?)(\d+)(?:\.(\d+))?$/.exec(value);
+    if (!match) return null;
+    [, , whole, fraction] = match as unknown as [string, string, string, string | null];
+    fraction ??= null;
+    negative = match[1] === '-';
+    zero = /^0*$/.test(whole + (fraction ?? ''));
+  } else {
+    return null;
+  }
+  const sign = zero ? '' : negative ? '-' : format.sign === 'always' ? '+' : '';
+  return `${sign}${format.grouping ? grouped(whole) : whole}${fraction === null ? '' : `.${fraction}`}${format.suffix}`;
+}
+
+/** The host's formats (`host/crate/src/rows.rs`, `with_format`): every
+ *  float column at 2 decimals, a `+` on a rise, grouped, with the page
+ *  answering 3 on every fourth row of the source; the narrow shape's
+ *  `spkid` grouped. */
+export const HOST_FLOAT_FORMAT: NumberFormat = { decimals: 2, sign: 'always', grouping: true, suffix: '' };
+export const HOST_SPKID_FORMAT: NumberFormat = { decimals: null, sign: 'negative', grouping: true, suffix: '' };
+
+/** A drawn cell's text in the host's format (unsorted: the row is the
+ *  source's) and the decimals it's at, or `null` for a column the host
+ *  leaves alone or a value the format doesn't write. */
+export function hostFormat(column: Layout['columns'][number], row: number, exact: string): { text: string; decimals: number | null } | null {
+  if (column.kind === 'integer' && column.name === 'spkid') {
+    const text = formatNumber('integer', exact, HOST_SPKID_FORMAT);
+    return text === null ? null : { text, decimals: null };
+  }
+  if (column.kind !== 'float') return null;
+  const decimals = row % 4 === 0 ? 3 : 2;
+  const text = formatNumber('float', exact, HOST_FLOAT_FORMAT, decimals);
+  return text === null ? null : { text, decimals };
+}
+
+/** `digits` with a `,` every three from the right. */
+function grouped(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+$)/g, ',');
+}
+
+/** A non-negative `value` (under 1e21) at `decimals`, its exact binary value
+ *  rounded half to even, as Rust's `{:.N}`: `toFixed(100)` writes the exact
+ *  expansion of any value at least 2^-48 (a double's fraction digits), and
+ *  a tie below that can't reach the decimals kept. */
+function fixedHalfEven(value: number, decimals: number): string {
+  const [whole, fraction] = value.toFixed(100).split('.') as [string, string];
+  const kept = whole + fraction.slice(0, decimals);
+  const rest = fraction.slice(decimals);
+  const half = '5'.padEnd(rest.length, '0');
+  const up = rest > half || (rest === half && Number(kept.at(-1)) % 2 === 1);
+  let digits = kept;
+  if (up) {
+    // The kept digits plus one in the last place.
+    const chars = [...kept];
+    let at = chars.length - 1;
+    while (at >= 0 && chars[at] === '9') chars[at--] = '0';
+    if (at < 0) chars.unshift('1');
+    else chars[at] = String(Number(chars[at]) + 1);
+    digits = chars.join('');
+  }
+  const cut = digits.length - decimals;
+  return decimals ? `${digits.slice(0, cut)}.${digits.slice(cut)}` : digits;
+}
+
+/** `text`'s width at `advances` (`advances`'s), as the table's fit sums it. */
+export function advancesWidth(text: string, advances: Record<string, number>): number {
+  return [...text].reduce((sum, ch) => {
+    const advance = advances[ch];
+    if (advance === undefined) throw new Error(`no advance for ${JSON.stringify(ch)} (in ${JSON.stringify(text)})`);
+    return sum + advance;
+  }, 0);
+}
+
 /** With `density`: a length the base fixes for 14 px text, at a `px` text
  *  size (the table's `Sizes::scaled`: scaled by the text over 14 px and
  *  rounded to a whole px; at 14 px the base's own, unrounded). */
@@ -186,9 +299,25 @@ type Global = {
 };
 
 /** The cells the last frame drew, with their paint (`custom-cells`, a
- *  painted style). */
-export async function drawnCells(page: Page): Promise<Cell[]> {
-  const handle = await page.waitForFunction(() => (globalThis as Global).__tallTableCells ?? false, null, { timeout: 30_000, polling: 10 });
+ *  painted style), once they're drawn: with `first`, from a frame whose
+ *  rows start at or past it (after a scroll); with `column`, from a frame
+ *  laid out with that column at that width (after a resize). */
+export async function drawnCells(page: Page, where: { first?: number; column?: { index: number; width: number } } = {}): Promise<Cell[]> {
+  const handle = await page.waitForFunction(
+    ({ first, column }) => {
+      const g = globalThis as Global;
+      const cells = g.__tallTableCells;
+      if (!cells) return false;
+      if (first !== undefined && !(cells.length && Math.min(...cells.map((cell) => cell.row)) >= first)) return false;
+      // A frame drawn at the width: the table publishes its layout and its
+      // cells in the same render, so the cells beside a layout at it are
+      // that frame's or a later one's.
+      if (column && !(g.__tallTableLayout && Math.abs(g.__tallTableLayout.columns[column.index]!.width - column.width) < 0.01)) return false;
+      return cells;
+    },
+    where,
+    { timeout: 30_000, polling: 10 },
+  );
   return (await handle.jsonValue()) as Cell[];
 }
 

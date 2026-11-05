@@ -2374,6 +2374,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             arrow: self.arrow_box(_index, column),
                         })
                         .collect(),
+                    #[cfg(feature = "format")]
+                    advances: self.glyphs.advances.each().collect(),
                 }));
             }
         }

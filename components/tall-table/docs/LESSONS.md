@@ -476,3 +476,13 @@ No results note: part B builds and tests natively, and its one measurement is B1
 - The research's "the font shapes a format's characters at their advances' sum" was nearly true: IBM Plex Sans kerns `e-` 0.01 em wider (a negative exponent), and `.e`, `,e`, `e.`, `e,`, which no format writes. The rule's pixel, put there for `fit_float`'s rounding, absorbs it; the check had to be run with the web's own shaper (cosmic-text), since the test app gives every character 0.6 em.
 - The test app's 0.6 em advance reads as 8.400001 px, not 8.4, so a fit's `ceil` lands a pixel wider than the hand sum (144, not 143). Tests take expected widths from the table's own advances, not a typed 8.4.
 - A refactor that only moves code changes the base's bytes: `text_width`'s body moved into a shared function cost the base 168 bytes after wasm-opt (smaller), and a `let cut = …; if cut` in place of the base's `if …` another 8. Each was found by bisecting base builds in a worktree (a build each, two minutes); the base's own lines are now kept as they were, the feature's beside them.
+
+## M12: `format` (part C, 2026-11-05)
+
+Results: [`perf/results/2026-11-05-m12-c.md`](../perf/results/2026-11-05-m12-c.md).
+
+**Surprises:**
+- Formatting made the wide shape's frames cheaper, not dearer: 0.4–0.8 ms at the reference run, a quarter throttled, where the wide scroll stopped dropping frames. The base writes a float in as many characters as its column holds (12 at 120 px) and the format in 5 or 6. A frame's cost goes with the glyphs drawn, and the format's arithmetic a cell is cheaper than the glyphs it saves.
+- The advances part B estimated from the font natively were GPUI's on the web to every digit printed: the pin changed nothing. The step was still worth it: the fixture now rests on what Chromium draws, not on an estimate.
+- The first version had the host read the advances itself, a copy of the table's calls. It passed every browser and would have kept passing after the table's reading changed; the code review caught it. A probe should report the component's own numbers, not a host's copy of how it gets them.
+- A smoke check that judged its cells after a fixed wait passed everywhere and could still read a frame at the old width on a slow machine; waiting for the layout at the new width costs nothing, since the table publishes the layout and the cells in the same render.
