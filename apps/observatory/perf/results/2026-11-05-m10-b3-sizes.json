@@ -1,0 +1,75 @@
+{
+  "date": "2026-11-05",
+  "label": "m10-b3-sizes",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "cargo": {
+    "panelAlone": false,
+    "panelWithTycho": true
+  },
+  "shipped": {
+    "file": "tall_table_gpui_bg-CyAoqW1z.wasm",
+    "features": [],
+    "rawKiB": 9904.8,
+    "brotliKiB": 2770.2,
+    "panel": false,
+    "homePaths": 0
+  },
+  "levels": {
+    "base": {
+      "file": "tall_table_gpui_bg-CyAoqW1z.wasm",
+      "features": [],
+      "rawKiB": 9904.8,
+      "brotliKiB": 2770.2,
+      "panel": false,
+      "homePaths": 0
+    },
+    "wide": {
+      "file": "tall_table_gpui_bg-B1yExmTv.wasm",
+      "features": [
+        "custom-cells",
+        "pin",
+        "density"
+      ],
+      "rawKiB": 9922.6,
+      "brotliKiB": 2776.7,
+      "panel": false,
+      "homePaths": 0
+    },
+    "market": {
+      "file": "tall_table_gpui_bg-CXfjpBHn.wasm",
+      "features": [
+        "custom-cells",
+        "live",
+        "format"
+      ],
+      "rawKiB": 9961.2,
+      "brotliKiB": 2790.6,
+      "panel": false,
+      "homePaths": 0
+    }
+  },
+  "untrimmedHomePaths": 993,
+  "variants": {
+    "withPanel": {
+      "rawKiB": 9936.5,
+      "brotliKiB": 2781.4,
+      "panel": true
+    },
+    "withoutPanel": {
+      "rawKiB": 9904.8,
+      "brotliKiB": 2769.8,
+      "panel": false
+    }
+  },
+  "failures": []
+}

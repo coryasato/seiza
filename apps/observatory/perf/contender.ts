@@ -26,7 +26,7 @@ import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, typ
 import { PROFILES, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { FLING_FRAMES, FRAME_MS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
-import { BIG_FILE, SCENARIOS, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
+import { ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
 import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 export const SIDES: Side[] = ['gpui', 'tanstack'];
@@ -527,8 +527,12 @@ export async function runMetric<R extends RunResult>(
 /** The scenario `--scenario` asks for: Big file without it. */
 export function flaggedScenario(): Scenario {
   const id = option('scenario') ?? BIG_FILE.id;
-  const scenario = SCENARIOS.find((candidate) => candidate.id === id);
-  if (!scenario) throw new Error(`--scenario ${id}: one of ${SCENARIOS.map((candidate) => candidate.id).join(', ')}`);
+  const scenario = ALL_SCENARIOS.find((candidate) => candidate.id === id);
+  if (!scenario) throw new Error(`--scenario ${id}: one of ${ALL_SCENARIOS.map((candidate) => candidate.id).join(', ')}`);
+  // Every side run must build the scenario's level (`BUILT`).
+  const sides = option('side') ? [option('side') as Side] : (['gpui', 'tanstack'] as const);
+  const missing = sides.filter((side) => !BUILT[side].includes(scenario.level));
+  if (missing.length) throw new Error(`--scenario ${id}: the ${missing.join(' and ')} contender doesn't build the ${scenario.level} level yet (\`scenarios.ts\`'s BUILT); pass --side for one that does`);
   return scenario;
 }
 

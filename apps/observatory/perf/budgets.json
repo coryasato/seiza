@@ -196,6 +196,74 @@
       ]
     },
     {
+      "id": "gpui-market-ttfp",
+      "label": "GPUI contender at the market level: time to first paint",
+      "unit": "ms",
+      "budget": {
+        "overBaseline": "gpui.ttfpOverBaseline",
+        "baseline": "levels.market.ttfpMs.reference"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-market.json",
+            "path": "ttfpMs.reference"
+          },
+          {
+            "baseline": "levels.market.ttfpMs.reference"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-market-ttfp-throttled",
+      "label": "GPUI contender at the market level: time to first paint, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-market.json",
+            "path": "ttfpMs.throttled"
+          },
+          {
+            "baseline": "levels.market.ttfpMs.throttled"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-market-wasm",
+      "label": "GPUI contender at the market level: wasm (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "gpui.wasmOverBaseline",
+        "baseline": "levels.market.wasmBrotliKiB"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-market.json",
+            "path": "wasmBrotliKiB"
+          },
+          {
+            "baseline": "levels.market.wasmBrotliKiB"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
       "id": "tanstack-first-paint-js",
       "label": "TanStack contender: first-paint JS (brotli)",
       "unit": "KiB",

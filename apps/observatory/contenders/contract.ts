@@ -53,6 +53,10 @@ export const MARKS = {
   open: 'contender:open',
   /** Right after a frame in which every visible row holds real data. */
   filled: 'contender:filled',
+  /** `?measure`: right after each frame that first draws a re-read of the
+   *  feed's rows (market watch): Shown in's mark, its generation on
+   *  `globalThis.__contenderRefreshed`. */
+  refreshed: 'contender:refreshed',
   /** `?measure`: the view handled the probe key (any key) and drew it. */
   input: 'contender:input',
   /** The view shows a failure (the engine didn't load or stopped, the file

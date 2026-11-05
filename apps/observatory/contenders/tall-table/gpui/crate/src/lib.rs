@@ -5,6 +5,9 @@
 
 #[cfg(target_family = "wasm")]
 mod contract;
+/// Market watch's feed: its worker's batches into the store.
+#[cfg(all(target_family = "wasm", feature = "market"))]
+mod feed;
 mod host;
 /// Market watch's store, folding the feed's batches.
 #[cfg(feature = "market")]
@@ -45,7 +48,11 @@ pub fn start(
             seiza_tall_table::init(cx);
             seiza_duckdb::init(cx, bridge);
             let scene = if failure.is_empty() {
-                scene::Scene::new(file, &level).map_err(SharedString::from)
+                #[cfg(feature = "market")]
+                let scene = scene::Scene::market(file, &level, &feed::flash());
+                #[cfg(not(feature = "market"))]
+                let scene = scene::Scene::new(file, &level);
+                scene.map_err(SharedString::from)
             } else {
                 Err(failure.into())
             };

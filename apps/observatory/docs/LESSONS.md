@@ -256,3 +256,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - A dropped tick isn't always visible in a store's final state: a quote's fields are overwritten by the instrument's next tick, so a store skipping it ends the same. Only what accumulates (the volume) or a count of ticks folded shows it, so the fixture's control drops a trade and the stores count what they fold.
 - The data's SQL template substituted its variable inside a comment that named it, so the rows landed in the comment. A template's comments shouldn't spell its placeholders.
 - The feed's walk had drifted since A1: twice as likely up as down at the reference, so every price ended above it and the fall's color never showed. The spike's measurements and its digest check didn't care about direction, so nothing caught it until the code review. A seeded generator needs a check of what it means (a rise and a fall both seen), not only that it repeats.
+
+## M10 part B3: the GPUI contender at the market level (2026-11-05)
+
+**Results:** [`perf/results/2026-11-05-m10-b3.md`](../perf/results/2026-11-05-m10-b3.md).
+
+**Surprises:**
+- One list can't say three things that land in different parts. `SCENARIOS` meant "what the page shows", "what a frame can load", and "what each side builds" at once; the market level reaches the GPUI side, the TanStack side, and the page in three parts, so the list had to split by side before a single side could build it.
+- Code behind `cfg` still moves the base's wasm: its panic locations hold line numbers, and a `cfg(feature = "market")` block above them shifts them. "Unchanged" can't be a hash; it's the same size, a handful of bytes that decode as line numbers, and the level's Cargo features.
+- The fold check came out nearly free: the store's state after N ticks doesn't depend on how the worker batched them, so `?ticks=2000` reproduces the fixture's 2,000 ticks through the real worker, the real fold, and the real drawing, and one tick short is its control.

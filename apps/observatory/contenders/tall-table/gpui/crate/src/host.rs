@@ -124,6 +124,9 @@ impl Host {
             }
             Load::Waiting | Load::Failed(_) => {}
         }
+        // The feed's ticks would miss the new store: a reopen ends it.
+        #[cfg(feature = "market")]
+        crate::feed::stop();
         crate::contract::opening();
         let url = self.data_url.clone();
         let sent = Sent::default();
@@ -142,6 +145,15 @@ impl Host {
                     .await
                 };
                 let _ = this.update_in(cx, |this, window, cx| {
+                    // Market watch's file must be its instruments' columns.
+                    #[cfg(feature = "market")]
+                    let opened =
+                        opened
+                            .map_err(|error| error.to_string())
+                            .and_then(|(summary, rest)| {
+                                scene::market::check(&summary.columns, summary.rows, &scene.market)
+                                    .map(|()| (summary, rest))
+                            });
                     this.load = match opened {
                         Ok((summary, _)) => {
                             let columns = scene::columns(&summary.columns, &scene);
@@ -162,6 +174,8 @@ impl Host {
                                 table
                             });
                             crate::contract::watch(&table, cx);
+                            #[cfg(feature = "market")]
+                            crate::feed::watch(&table, cx);
                             let focus = table.read(cx).focus_handle().clone();
                             window.focus(&focus, cx);
                             Load::Open(table)
@@ -180,6 +194,58 @@ impl Host {
             }
         });
         self.load = Load::Opening { _task: task, sent };
+        cx.notify();
+    }
+
+    /// Folds a batch of the feed into the shown table's store, every tick
+    /// or none, and invalidates each row it ticked: the table re-reads them
+    /// from the store in this turn and draws them in the next frame. A
+    /// batch the store refuses fails the contender.
+    #[cfg(all(target_family = "wasm", feature = "market"))]
+    pub(crate) fn feed(&mut self, batch: &[u8], cx: &mut Context<Self>) {
+        let Load::Open(table) = &self.load else {
+            return;
+        };
+        let table = table.clone();
+        let store = table.read(cx).delegate().store().clone();
+        let (folded, ticked) = match store.fold(batch) {
+            Ok(folded) => folded,
+            Err(error) => {
+                self.fail_feed(format!("the store refused a batch: {error}").into(), cx);
+                return;
+            }
+        };
+        table.update(cx, |table, cx| {
+            let visible = table.visible_rows();
+            let (mut generation, mut seen) = (0, false);
+            let mut row = 0;
+            // Each run of ticked rows, one invalidation.
+            while row < ticked.len() {
+                if !ticked[row] {
+                    row += 1;
+                    continue;
+                }
+                let start = row;
+                while row < ticked.len() && ticked[row] {
+                    row += 1;
+                }
+                let rows = start as u64..row as u64;
+                seen |= rows.start < visible.end && visible.start < rows.end;
+                generation = table.invalidate_rows(rows, cx);
+            }
+            crate::feed::record(folded, generation, seen);
+        });
+    }
+
+    /// The feed can't go on: the table closes and the failure shows.
+    #[cfg(all(target_family = "wasm", feature = "market"))]
+    pub(crate) fn fail_feed(&mut self, message: SharedString, cx: &mut Context<Self>) {
+        crate::feed::stop();
+        if let Load::Open(table) = &self.load {
+            table.update(cx, |table, cx| table.close(cx));
+        }
+        self.load = Load::Failed(message);
+        crate::contract::failed();
         cx.notify();
     }
 

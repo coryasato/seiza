@@ -1,0 +1,113 @@
+{
+  "date": "2026-11-05",
+  "label": "m10-b3-market",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "fold": {
+    "2000-light": {
+      "cells": 600,
+      "wrong": 0,
+      "first": []
+    },
+    "2000-dark": {
+      "cells": 600,
+      "wrong": 0,
+      "first": []
+    },
+    "1999-light": {
+      "cells": 600,
+      "wrong": 6,
+      "first": [
+        "TDLW Bid: exact 62.63, the fold's 62.62",
+        "TDLW Bid: shown 62.63, the format's 62.62",
+        "TDLW Bid size: exact 5800, the fold's 5200",
+        "TDLW Bid size: shown 5,800, the format's 5,200",
+        "TDLW Ask size: exact 7200, the fold's 7900"
+      ]
+    },
+    "1999-dark": {
+      "cells": 600,
+      "wrong": 6,
+      "first": [
+        "TDLW Bid: exact 62.63, the fold's 62.62",
+        "TDLW Bid: shown 62.63, the format's 62.62",
+        "TDLW Bid size: exact 5800, the fold's 5200",
+        "TDLW Bid size: shown 5,800, the format's 5,200",
+        "TDLW Ask size: exact 7200, the fold's 7900"
+      ]
+    }
+  },
+  "flash": {
+    "flashing": 150,
+    "columns": [
+      "Last",
+      "Bid",
+      "Ask"
+    ],
+    "off": 0
+  },
+  "marks": {
+    "100": {
+      "refreshed": 155,
+      "sampled": 23,
+      "presented": 23,
+      "batches": 155,
+      "visible": 125,
+      "reached": 125,
+      "sendToMarkMs": {
+        "p50": 10.8,
+        "max": 20.5
+      },
+      "ticks": 298
+    },
+    "500": {
+      "refreshed": 155,
+      "sampled": 23,
+      "presented": 23,
+      "batches": 157,
+      "visible": 157,
+      "reached": 156,
+      "sendToMarkMs": {
+        "p50": 12,
+        "max": 22.2
+      },
+      "ticks": 1499
+    },
+    "1k": {
+      "refreshed": 155,
+      "sampled": 23,
+      "presented": 23,
+      "batches": 155,
+      "visible": 155,
+      "reached": 155,
+      "sendToMarkMs": {
+        "p50": 12.2,
+        "max": 22
+      },
+      "ticks": 2980
+    },
+    "5k": {
+      "refreshed": 153,
+      "sampled": 22,
+      "presented": 22,
+      "batches": 154,
+      "visible": 154,
+      "reached": 153,
+      "sendToMarkMs": {
+        "p50": 12.7,
+        "max": 22.4
+      },
+      "ticks": 14956
+    }
+  },
+  "failures": []
+}

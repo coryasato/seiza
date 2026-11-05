@@ -33,12 +33,21 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Browser } from '@playwright/test';
 import { flag, hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
-import { SCENARIOS, type Level } from '../contenders/scenarios.ts';
+import { ALL_SCENARIOS, type Level } from '../contenders/scenarios.ts';
 import { MARKS, dataFile, problems, serveGpui, nativeDuckDB } from './harness.ts';
 
 const PORT = 4313;
-/** A server each for the scenarios' levels' builds. */
-const SCENARIO_PORTS = [4348];
+/** What each scenario on a feature level samples, by its id: the port its
+ *  level's build is served on and the float columns picked (`undefined`:
+ *  every one), or `null` for one that isn't sampled. The wide sheet's are
+ *  the float columns on screen at the sideways scroll's 0 (the first
+ *  painted ones), so a jump draws them. Market watch isn't: its cells are
+ *  its formats', which `cells.json`'s `format` section pins, and the feed
+ *  moves them (`perf/market.ts` checks them against the feed's fold). */
+const SAMPLED: Record<string, { port: number; only?: string[] } | null> = {
+  'wide-sheet': { port: 4348, only: ['Latitude', 'Jan 1', 'Jan 2', 'Jan 15'] },
+  'market-watch': null,
+};
 const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtures/cells.json', import.meta.url));
 /** The fixture's synthetic values, which this script keeps as they are: no
  *  value in the data file is long enough for its column to round it, so
@@ -265,15 +274,15 @@ const browser = await chromium.launch({ channel: 'chromium' });
 let fixture: unknown;
 try {
   const base = await sample(browser, { path: dataFile, level: 'base', port: PORT, query: '', budgetRule: true }, failures);
-  // Each scenario on a feature level, at its default stop: the float columns
-  // on screen at the sideways scroll's 0 (the first painted ones), so a jump
-  // draws them.
+  // Each scenario on a feature level, at its default stop, as `SAMPLED` says.
   const scenarios: Record<string, unknown> = {};
-  for (const [index, scenario] of SCENARIOS.filter((scenario) => scenario.level !== 'base').entries()) {
+  for (const scenario of ALL_SCENARIOS.filter((scenario) => scenario.level !== 'base')) {
+    if (!Object.hasOwn(SAMPLED, scenario.id)) throw new Error(`${scenario.id}: not in SAMPLED (sampled or not)`);
+    const sampled = SAMPLED[scenario.id];
+    if (!sampled) continue;
     const stop = scenario.stops.find((stop) => stop.id === scenario.defaultStop)!;
-    const only = scenario.level === 'wide' ? ['Latitude', 'Jan 1', 'Jan 2', 'Jan 15'] : undefined;
     const path = fileURLToPath(new URL(`../data/${scenario.data}`, import.meta.url));
-    const section = await sample(browser, { path, level: scenario.level, port: SCENARIO_PORTS[index]!, query: `&scenario=${scenario.id}&stop=${stop.id}`, only, budgetRule: false }, failures);
+    const section = await sample(browser, { path, level: scenario.level, port: sampled.port, query: `&scenario=${scenario.id}&stop=${stop.id}`, only: sampled.only, budgetRule: false }, failures);
     scenarios[scenario.id] = {
       source: { file: `apps/observatory/data/${scenario.data}`, sha256: manifest[scenario.data]!.sha256, stop: stop.id, contender: `tall-table-gpui at the ${scenario.level} level, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)` },
       ...section,

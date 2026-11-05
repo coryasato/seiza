@@ -15,8 +15,10 @@ seiza-duckdb = { workspace = true, features = ["tall-table"] }
 seiza-tall-table.workspace = true
 
 [dev-dependencies]
-# The feed fixture's JSON (`src/market.rs`).
+# The feed fixture's JSON (`src/market.rs`), and GPUI's test app for the
+# market source's tests (`src/scene/market.rs`). Never in a build.
 serde_json.workspace = true
+gpui-kit = { workspace = true, features = ["test-support"] }
 
 # The entry point and the contract are web-only; the view compiles natively for clippy.
 [target.'cfg(target_family = "wasm")'.dependencies]

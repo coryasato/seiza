@@ -11,14 +11,16 @@
  * here touches the browser, so a Vite config imports it.
  */
 
+import type { Side } from './contract.ts';
+
 /** A build of each contender: the base, or the base with a set of features
  *  built the same on both sides. */
 export type Level = 'base' | 'wide' | 'market';
 
 /** The features each level turns on (the GPUI contender's Cargo feature of
  *  the level's name turns on the table's), every level's, built or not:
- *  what a results file labels a build with. Which levels are built is
- *  `LEVELS`'s, below; nothing else reads which levels exist from here. */
+ *  what a results file labels a build with. Which levels each side builds
+ *  is `BUILT`'s, below; nothing else reads which levels exist from here. */
 export const LEVEL_FEATURES: Record<Level, readonly string[]> = {
   base: [],
   wide: ['custom-cells', 'pin', 'density'],
@@ -176,13 +178,27 @@ export const MARKET_WATCH: MarketScenario = {
   flash: { ms: 400, mix: 0.3, columns: ['Last', 'Bid', 'Ask'] },
 };
 
-/** Every scenario, each level's first its default. A scenario joins it
- *  with its builds: the page's routes, `pickScenario`, and the scripts that
- *  build or serve each level (`LEVELS`) read it. */
+/** Every scenario, each level's first its default: what a frame can load
+ *  (`pickScenario`) and what the scripts measure, on whichever sides build
+ *  its level (`BUILT`). */
+export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH];
+
+/** The scenarios the page shows: a scenario joins once both sides build its
+ *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The
+ *  page's routes and cold numbers read it. */
 export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET];
 
-/** The levels each contender builds: the base, and every scenario's. */
-export const LEVELS: readonly Level[] = ['base', ...new Set(SCENARIOS.map((scenario) => scenario.level).filter((level) => level !== 'base'))];
+/** The levels each side builds, the base first: a level joins a side with
+ *  its build there. What builds, serves, sizes, and stages each side's
+ *  levels (the recipes, `sizes`, `cold`, `tanstack-sizes`, `placeholder`,
+ *  the page's servers, `stage.ts`) reads it, never `LEVEL_FEATURES`. */
+export const BUILT: Record<Side, readonly Level[]> = {
+  gpui: ['base', 'wide', 'market'],
+  tanstack: ['base', 'wide'],
+};
+
+/** `side`'s levels past the base. */
+export const featureLevels = (side: Side): readonly Level[] => BUILT[side].filter((level) => level !== 'base');
 
 export const SCENARIO_PARAM = 'scenario';
 export const STOP_PARAM = 'stop';
@@ -200,7 +216,7 @@ export interface Picked<S extends Scenario = Scenario> {
  * `contender:failed`).
  */
 export function pickScenario(level: Level, params: URLSearchParams): Picked | Error {
-  const ofLevel = SCENARIOS.filter((scenario) => scenario.level === level);
+  const ofLevel = ALL_SCENARIOS.filter((scenario) => scenario.level === level);
   const asked = params.get(SCENARIO_PARAM);
   const scenario = asked === null ? ofLevel[0] : ofLevel.find((candidate) => candidate.id === asked);
   if (!scenario) return new Error(`no scenario "${asked}" in this build (${ofLevel.map((s) => s.id).join(', ')})`);

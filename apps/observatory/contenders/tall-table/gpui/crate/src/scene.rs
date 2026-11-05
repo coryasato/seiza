@@ -8,6 +8,13 @@ use gpui_kit::*;
 #[cfg(any(target_family = "wasm", not(feature = "wide")))]
 use seiza_duckdb::tall_table::{ParquetFile, QueryRows};
 
+#[cfg(all(feature = "wide", feature = "market"))]
+compile_error!("a build is one level: `wide` and `market` can't both be on");
+
+/// Market watch's level: its store as the table's source, its formats and colors.
+#[cfg(feature = "market")]
+pub mod market;
+
 /// What the host opens and how it sets the table.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Scene {
@@ -16,6 +23,8 @@ pub struct Scene {
     pub file: String,
     #[cfg(feature = "wide")]
     pub wide: Wide,
+    #[cfg(feature = "market")]
+    pub market: market::Market,
 }
 
 /// The wide sheet's level at a stop.
@@ -37,7 +46,9 @@ pub struct Wide {
 impl Scene {
     /// From the JS host's numbers: on the wide level `[row_height,
     /// text_size, column_width, pinned, heat_from, lo, mid, hi]`, on the
-    /// base none. Anything else is an error the host shows.
+    /// base none (the market level's is [`Scene::market`]). Anything else
+    /// is an error the host shows.
+    #[cfg(not(feature = "market"))]
     pub fn new(file: String, level: &[f64]) -> Result<Self, String> {
         #[cfg(feature = "wide")]
         {
@@ -93,11 +104,26 @@ impl Scene {
     }
 }
 
-/// The table's source: the engine's rows, on the wide level painted.
-#[cfg(not(feature = "wide"))]
+#[cfg(feature = "market")]
+impl Scene {
+    /// The market level's scene: `level` as `market::Market::new` takes
+    /// it, and the columns that flash by name.
+    pub fn market(file: String, level: &[f64], flash: &[String]) -> Result<Self, String> {
+        Ok(Self {
+            file,
+            market: market::Market::new(level, flash)?,
+        })
+    }
+}
+
+/// The table's source: the engine's rows, on the wide level painted, on
+/// the market level the store's once the open's page is in.
+#[cfg(not(any(feature = "wide", feature = "market")))]
 pub type Rows = QueryRows<ParquetFile>;
 #[cfg(feature = "wide")]
 pub type Rows = heat::HeatRows;
+#[cfg(feature = "market")]
+pub type Rows = market::MarketRows<QueryRows<ParquetFile>>;
 
 /// The source over `engine` for `scene` (the engine exists only on the web).
 #[cfg(target_family = "wasm")]
@@ -109,7 +135,9 @@ pub fn rows(engine: seiza_duckdb::Engine, scene: &Scene) -> Rows {
         from: scene.wide.heat_from,
         domain: scene.wide.domain,
     };
-    #[cfg(not(feature = "wide"))]
+    #[cfg(feature = "market")]
+    return market::MarketRows::new(rows, &scene.market);
+    #[cfg(not(any(feature = "wide", feature = "market")))]
     rows
 }
 
@@ -123,6 +151,15 @@ pub fn columns(
     scene: &Scene,
 ) -> Vec<seiza_tall_table::TallTableColumn> {
     let _ = scene;
+    #[cfg(feature = "market")]
+    return market::columns(
+        summary
+            .iter()
+            .map(|info| info.tall_table_column())
+            .collect(),
+        &scene.market,
+    );
+    #[cfg(not(feature = "market"))]
     summary
         .iter()
         .enumerate()
@@ -163,6 +200,31 @@ pub fn set_level(
     let _ = (table, scene, cx);
 }
 
+/// An Oklch color in sRGB (each of a level's colors is inside its gamut),
+/// as CSS converts `oklch()`: Björn Ottosson's matrices.
+#[cfg(any(feature = "wide", feature = "market"))]
+pub(crate) fn oklch([l, c, h]: [f32; 3]) -> Hsla {
+    let (a, b) = (c * h.to_radians().cos(), c * h.to_radians().sin());
+    let l_ = (l + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+    let m_ = (l - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+    let s_ = (l - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+    let encode = |linear: f32| {
+        let linear = linear.clamp(0.0, 1.0);
+        if linear <= 0.003_130_8 {
+            linear * 12.92
+        } else {
+            1.055 * linear.powf(1.0 / 2.4) - 0.055
+        }
+    };
+    Rgba {
+        r: encode(4.076_741_7 * l_ - 3.307_711_6 * m_ + 0.230_969_94 * s_),
+        g: encode(-1.268_438 * l_ + 2.609_757_4 * m_ - 0.341_319_38 * s_),
+        b: encode(-0.004_196_086_3 * l_ - 0.703_418_6 * m_ + 1.707_614_7 * s_),
+        a: 1.0,
+    }
+    .into()
+}
+
 /// Heat on the days: the engine's pages, each painted column's float
 /// mapped through the scenario's domain (one for every page: colors would
 /// jump at page boundaries otherwise), drawn through its diverging ramp.
@@ -172,7 +234,7 @@ mod heat {
     use std::sync::OnceLock;
 
     use gpui_kit::component::Theme;
-    use gpui_kit::{App, Hsla, Rgba};
+    use gpui_kit::{App, Hsla};
     use seiza_duckdb::arrow::Value;
     use seiza_duckdb::tall_table::{ParquetFile, QueryRows};
     use seiza_tall_table::{
@@ -193,7 +255,7 @@ mod heat {
     /// ramp resolves its stops each frame.
     fn stop(theme: &Theme, index: usize) -> Hsla {
         static STOPS: OnceLock<[[Hsla; 3]; 2]> = OnceLock::new();
-        let [light, dark] = STOPS.get_or_init(|| [LIGHT.map(oklch), DARK.map(oklch)]);
+        let [light, dark] = STOPS.get_or_init(|| [LIGHT.map(super::oklch), DARK.map(super::oklch)]);
         let stops = if theme.is_dark() { dark } else { light };
         stops[index]
     }
@@ -205,30 +267,6 @@ mod heat {
             |theme| stop(theme, 1),
             |theme| stop(theme, 2),
         ])
-    }
-
-    /// An Oklch color in sRGB (each stop is inside its gamut), as CSS
-    /// converts `oklch()`: Björn Ottosson's matrices.
-    fn oklch([l, c, h]: [f32; 3]) -> Hsla {
-        let (a, b) = (c * h.to_radians().cos(), c * h.to_radians().sin());
-        let l_ = (l + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
-        let m_ = (l - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
-        let s_ = (l - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
-        let encode = |linear: f32| {
-            let linear = linear.clamp(0.0, 1.0);
-            if linear <= 0.003_130_8 {
-                linear * 12.92
-            } else {
-                1.055 * linear.powf(1.0 / 2.4) - 0.055
-            }
-        };
-        Rgba {
-            r: encode(4.076_741_7 * l_ - 3.307_711_6 * m_ + 0.230_969_94 * s_),
-            g: encode(-1.268_438 * l_ + 2.609_757_4 * m_ - 0.341_319_38 * s_),
-            b: encode(-0.004_196_086_3 * l_ - 0.703_418_6 * m_ + 1.707_614_7 * s_),
-            a: 1.0,
-        }
-        .into()
     }
 
     pub struct HeatRows {

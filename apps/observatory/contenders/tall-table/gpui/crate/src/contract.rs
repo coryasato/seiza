@@ -27,6 +27,14 @@ const FILLED_MARK: &str = "contender:filled";
 const INPUT_MARK: &str = "contender:input";
 /// The host shows a failure: no `contender:filled` is coming.
 const FAILED_MARK: &str = "contender:failed";
+/// With `?measure`, right after each frame that first draws a re-read
+/// (`live`): market watch's Shown in reads it (`docs/contender-contract.md`).
+#[cfg(feature = "market")]
+const REFRESHED_MARK: &str = "contender:refreshed";
+/// With `?measure`, the highest generation drawn, raised in the frame that
+/// draws it, before its mark (the bridge's).
+#[cfg(feature = "market")]
+const REFRESHED_GLOBAL: &str = "__contenderRefreshed";
 
 /// Whether the page was opened for measuring (`?measure`): only then are
 /// `__contender.state` and the targets published.
@@ -210,6 +218,12 @@ fn on_event(event: &TallTableEvent) {
     tall_table_bridge::Publish {
         filled_mark: Some(FILLED_MARK),
         scrollbar: measuring(),
+        // Measured runs only: a mark a frame, never cleared, would pile up
+        // in the timeline of a page that runs the feed for long.
+        #[cfg(feature = "market")]
+        refreshed_mark: measuring().then_some(REFRESHED_MARK),
+        #[cfg(feature = "market")]
+        refreshed: measuring().then_some(REFRESHED_GLOBAL),
         ..Default::default()
     }
     .event(event);
@@ -267,7 +281,7 @@ fn on_event(event: &TallTableEvent) {
 }
 
 /// Sets `__contender[key]`, once the JS host has defined it.
-fn set_on_contender(key: &str, value: &JsValue) {
+pub(crate) fn set_on_contender(key: &str, value: &JsValue) {
     let global = js_sys::global();
     if let Some(contender) = Reflect::get(&global, &JsValue::from_str("__contender"))
         .ok()
@@ -337,6 +351,16 @@ fn with_host(update: impl FnOnce(&mut Host, &mut Window, &mut Context<Host>) + '
             });
         })
         .detach();
+}
+
+/// Runs `update` on the host now, from a JS task outside GPUI's (a
+/// worker's message): GPUI's effects flush at its end, as an input's do.
+#[cfg(feature = "market")]
+pub fn with_host_now(update: impl FnOnce(&mut Host, &mut Context<Host>)) {
+    let Some((host, _, mut cx)) = HOST.with_borrow(Clone::clone) else {
+        return;
+    };
+    let _ = host.update(&mut cx, update);
 }
 
 /// The replay's `open()`: closes the file and opens it again.

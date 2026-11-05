@@ -15,7 +15,7 @@ import type * as View from './src/view.ts';
 // from Vite's mode: `--mode wide` is the wide sheet's build, into
 // `dist-wide/`; the base carries none of its code.
 export default defineConfig(({ mode }) => {
-  const level = levelOf(mode);
+  const level = levelOf('tanstack', mode);
   const outDir = levelOutDir(level);
   /** The first screen, rendered by the view itself into the page's HTML
    *  (in dev too), which `main.ts` hydrates: React's prerendered first

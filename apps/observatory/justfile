@@ -49,7 +49,7 @@ page *args:
 gpui-dev level="base": (gpui-wasm "debug" level) gpui-extensions
     npm run dev --workspace @seiza/observatory-tall-table-gpui -- --mode {{ if level == "base" { "development" } else { level } }}
 
-# The GPUI contender's release build at a feature level (`base`, `wide`):
+# The GPUI contender's release build at a feature level (`base`, `wide`, `market`):
 # wasm (+ wasm-opt), Vite build into web/dist/ (the base) or
 # web/dist-<level>/, then asset sizes. DuckDB's two wasm bundles are over
 # Cloudflare's 25 MiB asset limit, so the deploy uploads only their brotli
@@ -172,7 +172,22 @@ sizes *args:
 gpui-parts *args:
     node {{app_dir}}/perf/gpui-parts.ts {{args}}
 
-# Lint, the GPUI contender's release build, the size check, then its
+# Every contender build: each level each side builds
+# (contenders/scenarios.ts's `BUILT`: `gpui-build <level>`, `tanstack-build
+# <level>`), then the page's `build`.
+builds:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for side in gpui tanstack; do
+      # Read first: a failing substitution in a `for` list escapes `set -e`.
+      levels=$(node {{app_dir}}/contenders/built.ts $side)
+      for level in $levels; do
+        {{just_executable()}} --justfile {{root}}/justfile observatory $side-build $level
+      done
+    done
+    {{just_executable()}} --justfile {{root}}/justfile observatory build
+
+# Lint, every build (`builds`), the size check, then its
 # budgets and checks on the build: reference TTFP against perf/baseline.json
 # (perf/budgets.json's limits) and its wasm (brotli); the placeholder shell
 # against the first frame; the file opened, the last row equal to count(*),
@@ -184,15 +199,13 @@ gpui-parts *args:
 # tall table's input, tooltip, and focus. Then the page's build: its
 # first paint and first-paint JS against the baseline, and how it hosts
 # the contenders.
-check: lint gpui-build (gpui-build "wide") tanstack-build (tanstack-build "wide") build && fixtures
+check: lint builds && fixtures
     node {{app_dir}}/perf/sizes.ts --check
-    node {{app_dir}}/perf/tanstack-sizes.ts --check
-    node {{app_dir}}/perf/tanstack-sizes.ts --level wide --check
-    node {{app_dir}}/perf/cold.ts --check
-    node {{app_dir}}/perf/cold.ts --level wide --check
+    levels=$(node {{app_dir}}/contenders/built.ts tanstack) && for level in $levels; do node {{app_dir}}/perf/tanstack-sizes.ts --level $level --check || exit 1; done
+    levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/cold.ts --level $level --check || exit 1; done
     node {{app_dir}}/perf/wide.ts
-    node {{app_dir}}/perf/placeholder.ts
-    node {{app_dir}}/perf/placeholder.ts --level wide
+    node {{app_dir}}/perf/market.ts
+    levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/placeholder.ts --level $level || exit 1; done
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
     node {{app_dir}}/perf/tanstack-view.ts --gpui
@@ -305,7 +318,7 @@ data *args:
 # changes only the Worker's code can't be told apart that way, so rerun
 # `worker-check` if that check fails). Needs `wrangler login`. Flags pass to
 # the check, e.g. `--resolve-via 1.1.1.1`, `--behind-waf`.
-deploy *args: gpui-build (gpui-build "wide") tanstack-build (tanstack-build "wide") build
+deploy *args: builds
     #!/usr/bin/env bash
     set -euo pipefail
     node {{app_dir}}/worker/scripts/stage.ts
@@ -338,6 +351,18 @@ worker-check *args:
 # `tanstack-build`, and `tanstack-build wide` first.
 wide *args:
     node {{app_dir}}/perf/wide.ts {{args}}
+
+# The GPUI contender at the market level, on its release build: the feed's
+# fold of the fixture's 2,000 ticks drawn (every cell's exact and shown
+# text, the sign colors, no flash left; light and dark), its control one
+# tick short; the flash under the feed on Last, Bid, and Ask alone; Shown
+# in's marks at each stop (each refreshed mark right after a presented
+# frame, each visible batch drawn); an unknown stop or scenario, `?ticks`
+# that isn't a count, and market watch on the base build fail the load.
+# --label writes perf/results/. Run `gpui-build` and `gpui-build market`
+# first.
+market *args:
+    node {{app_dir}}/perf/market.ts {{args}}
 
 # Request bursts on the page's release build: the most requests one visitor
 # sends in any 10 s (the zone's rate limit's window), counted at the server

@@ -11,7 +11,7 @@ import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
 import { levelOutDir } from '../contenders/level.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { SCENARIOS, type Level } from '../contenders/scenarios.ts';
+import { ALL_SCENARIOS, type Level } from '../contenders/scenarios.ts';
 
 /** A script's budgets, from perf/budgets.json (`limits('gpui', [...])`). */
 export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
@@ -62,7 +62,7 @@ async function serveContender(side: Side, webDir: string, port: number, given?: 
   if (!existsSync(`${distDir(webDir, level)}/index.html`))
     throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build at the ${level} level: run \`just observatory ${side}-build${level === 'base' ? '' : ` ${level}`}\` first`);
   // The level's own data files, which its scenarios read.
-  for (const file of new Set(SCENARIOS.filter((scenario) => scenario.level === level).map((scenario) => scenario.data)))
+  for (const file of new Set(ALL_SCENARIOS.filter((scenario) => scenario.level === level).map((scenario) => scenario.data)))
     if (!existsSync(dataPath(file))) throw new Error(`no data file ${file}: run \`just observatory data\` first`);
   // The build's Vite config takes its level from the mode (its outDir and base).
   const server = await serveApp(undefined, { webDir, port, ...(level === 'base' ? {} : { mode: level }) });

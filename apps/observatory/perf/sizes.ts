@@ -30,7 +30,7 @@ import { join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { homePaths, untrimmedControl } from '../../../shared-web/perf/home-paths.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { LEVEL_FEATURES, LEVELS } from '../contenders/scenarios.ts';
+import { BUILT, LEVEL_FEATURES, featureLevels, type Level } from '../contenders/scenarios.ts';
 import { distDir, gpuiWebDir, perfDir } from './harness.ts';
 
 const repo = join(perfDir, '../../..');
@@ -43,16 +43,33 @@ const run = (command: string, args: string[]) => execFileSync(command, args, { c
 const panelEnabled = (packages: string[], features: string[] = []) =>
   run('cargo', ['tree', '-e', 'features', '-i', 'seiza', '--target', 'wasm32-unknown-unknown', ...packages.flatMap((name) => ['-p', name]), ...(features.length ? ['--features', features.join(',')] : [])]).includes('seiza feature "panel"');
 
-const alone = panelEnabled(['tall-table-gpui']) || panelEnabled(['tall-table-gpui'], LEVELS.filter((level) => level !== 'base'));
+const alone = panelEnabled(['tall-table-gpui']) || panelEnabled(['tall-table-gpui'], [...featureLevels('gpui')]);
 const unified = panelEnabled(['tall-table-gpui', 'tycho']);
 if (alone) failures.push('cargo enables seiza\'s panel for the contender built alone');
 if (!unified) failures.push('control: cargo should enable seiza\'s panel for the contender built with Tycho, and didn\'t');
 console.log(`cargo: panel built alone ${alone}, with Tycho ${unified} (control)`);
 
+/** The features Cargo turns on for `crate` in the contender built at
+ *  `level` (its feature of the level's name). */
+const featuresOf = (crate: string, level: Level) =>
+  [...run('cargo', ['tree', '-e', 'features', '-i', crate, '--target', 'wasm32-unknown-unknown', '-p', 'tall-table-gpui', ...(level === 'base' ? [] : ['--features', level])]).matchAll(new RegExp(`${crate} feature "([\\w-]+)"`, 'g'))]
+    .map(([, feature]) => feature!)
+    .filter((feature) => feature !== 'default')
+    .sort();
+// Each level carries its features and nothing else, the table's and the bridge's alike.
+for (const level of BUILT.gpui) {
+  const want = [...LEVEL_FEATURES[level]].sort();
+  for (const crate of ['seiza-tall-table', 'tall-table-bridge']) {
+    const found = [...new Set(featuresOf(crate, level))];
+    if (JSON.stringify(found) !== JSON.stringify(want)) failures.push(`the ${level} level turns on ${crate}'s ${found.join(', ') || 'none'}, not ${want.join(', ') || 'none'}`);
+    console.log(`${level}: ${crate} features ${found.join(', ') || 'none'}`);
+  }
+}
+
 const sizes = (bytes: Buffer) => ({ rawKiB: Number((bytes.length / 1024).toFixed(1)), brotliKiB: Number((brotli(bytes).length / 1024).toFixed(1)), panel: bytes.includes(PANEL_MARKER) });
 /** Each level's shipped wasm: no panel, no home path. */
 const shippedLevels: Record<string, { file: string; features: readonly string[]; rawKiB: number; brotliKiB: number; panel: boolean; homePaths: number }> = {};
-for (const level of LEVELS) {
+for (const level of BUILT.gpui) {
   const assets = join(distDir(gpuiWebDir, level), 'assets');
   const file = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-]+\.wasm$/.test(name));
   if (!file) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build${level === 'base' ? '' : ` ${level}`}\` first`);

@@ -40,6 +40,17 @@
         "firstPaint": 76.8,
         "dataLayer": 34.8
       }
+    },
+    "market": {
+      "date": "2026-11-05",
+      "machine": "local",
+      "cpu": "Apple M1",
+      "os": "Darwin 25.6.0 arm64",
+      "ttfpMs": {
+        "reference": 178,
+        "throttled": 3610.4
+      },
+      "wasmBrotliKiB": 2790.6
     }
   }
 }

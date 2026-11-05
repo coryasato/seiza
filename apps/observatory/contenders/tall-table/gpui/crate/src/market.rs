@@ -59,6 +59,8 @@ pub struct Batch {
 /// A batch the store refused, whole: nothing of it is folded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BatchError {
+    /// The store isn't open yet: its prices haven't come in.
+    NotOpen,
     /// Shorter than a header.
     NoHeader { len: usize },
     /// Its length isn't its header and its count's ticks.
@@ -74,6 +76,7 @@ pub enum BatchError {
 impl std::fmt::Display for BatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::NotOpen => f.write_str("a batch before the store opened"),
             Self::NoHeader { len } => write!(f, "a batch of {len} bytes has no header"),
             Self::Length { count, len } => write!(f, "a batch of {count} ticks is {len} bytes"),
             Self::Instrument {
@@ -95,6 +98,17 @@ fn f64_at(b: &[u8], o: usize) -> f64 {
     let mut bytes = [0; 8];
     bytes.copy_from_slice(&b[o..o + 8]);
     f64::from_le_bytes(bytes)
+}
+
+/// Which of `of` instruments a batch the store folded ticked.
+pub fn ticked(batch: &[u8], of: usize) -> Vec<bool> {
+    let mut ticked = vec![false; of];
+    for tick in batch[HEADER..].as_chunks::<TICK>().0 {
+        if let Some(instrument) = ticked.get_mut(usize::from(u16_at(tick, 0))) {
+            *instrument = true;
+        }
+    }
+    ticked
 }
 
 /// The instruments' quotes, in the feed's order.

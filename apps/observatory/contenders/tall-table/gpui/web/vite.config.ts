@@ -21,9 +21,9 @@ const firstFrame = `
 // `contenderBuild`), the data at /observatory/data/, the font at /fonts/.
 // The level (`contenders/level.ts`) from Vite's mode: `--mode wide`, whose
 // wasm `gpui-wasm` builds with the crate's feature of that name into
-// `pkg-wide/`.
+// `pkg-wide/` (`--mode market`: `pkg-market/`, and its host `src/market.ts`).
 export default defineConfig(({ mode }) => {
-  const level = levelOf(mode);
+  const level = levelOf('gpui', mode);
   const suffix = level === 'base' ? '' : `-${level}`;
   const outDir = levelOutDir(level);
   return seizaViteConfig(
@@ -36,8 +36,14 @@ export default defineConfig(({ mode }) => {
       base: contenderBase('tall-table', 'gpui', level),
       plugins: [contenderBuild(outDir), levelConstants(level)],
       build: { outDir },
-      // The level's wasm and its bindings (`pkg-<level>/`).
-      resolve: { alias: suffix ? [{ find: /^\.\.\/pkg\//, replacement: `../pkg${suffix}/` }] : [] },
+      // The level's wasm and its bindings (`pkg-<level>/`), and on the market
+      // level its host (`src/market.ts` for `src/level.ts`).
+      resolve: {
+        alias: [
+          ...(suffix ? [{ find: /^\.\.\/pkg\//, replacement: `../pkg${suffix}/` }] : []),
+          ...(level === 'market' ? [{ find: /^\.\/level\.ts$/, replacement: './market.ts' }] : []),
+        ],
+      },
     },
   );
 });

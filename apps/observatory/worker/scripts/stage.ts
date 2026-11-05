@@ -2,7 +2,8 @@
 // production serves them (contenders/paths.ts):
 //
 // - the page's build at /observatory/, each contender's at its base, and
-//   each feature level's build at its own (`gpui/wide/`, `tanstack/wide/`);
+//   each level a side builds (`scenarios.ts`'s `BUILT`) at its own
+//   (`gpui/wide/`, `tanstack/wide/`);
 // - the engine at /observatory/duckdb/, one copy: the GPUI build's, after
 //   checking every other build's is the same files and bytes;
 // - the data at /observatory/data/: every file data/MANIFEST.json names,
@@ -17,7 +18,7 @@
 // `.vite/` aren't staged: the Worker sets every header itself.
 //
 // Usage: node apps/observatory/worker/scripts/stage.ts   (`just observatory deploy` runs it,
-// after building all three). Other scripts read the result through `staged.ts`.
+// after building every build). Other scripts read the result through `staged.ts`.
 
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -26,7 +27,9 @@ import { fileURLToPath } from 'node:url';
 import { constants, gzipSync } from 'node:zlib';
 import { walk } from '../../../../shared-web/scripts/walk.ts';
 import { brotli } from '../../../../shared-web/src/brotli.ts';
+import { levelOutDir } from '../../contenders/level.ts';
 import { DATA, ENGINE, ENGINE_DIR, OBSERVATORY, UI_FONT, contenderBase } from '../../contenders/paths.ts';
+import { BUILT } from '../../contenders/scenarios.ts';
 import { PRECOMPRESSED } from '../src/files.ts';
 import { ASSET_LIMIT, dataFiles, dist } from './staged.ts';
 
@@ -40,17 +43,20 @@ const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex
 stage();
 
 function stage(): void {
-  const builds = {
-    page: join(appDir, 'web/dist'),
-    gpui: join(appDir, 'contenders/tall-table/gpui/web/dist'),
-    'gpui-wide': join(appDir, 'contenders/tall-table/gpui/web/dist-wide'),
-    tanstack: join(appDir, 'contenders/tall-table/tanstack/web/dist'),
-    'tanstack-wide': join(appDir, 'contenders/tall-table/tanstack/web/dist-wide'),
-  };
-  /** The recipe that builds each: `<side>-build [level]`, the page's `build`. */
-  const recipe = (name: string) => (name === 'page' ? 'build' : name.replace(/^(gpui|tanstack)(?:-(\w+))?$/, (_, side: string, level?: string) => `${side}-build${level ? ` ${level}` : ''}`));
-  for (const [name, dir] of Object.entries(builds))
-    if (!existsSync(join(dir, 'index.html'))) throw new Error(`no ${name} build in ${relative(root, dir)}: run \`just observatory ${recipe(name)}\``);
+  /** Every contender build: each level each side builds, the GPUI base first. */
+  const contenders = (['gpui', 'tanstack'] as const).flatMap((side) =>
+    BUILT[side].map((level) => ({
+      name: level === 'base' ? side : `${side}-${level}`,
+      dir: join(appDir, `contenders/tall-table/${side}/web/${levelOutDir(level)}`),
+      at: contenderBase('tall-table', side, level),
+      /** The recipe that builds it. */
+      recipe: `${side}-build${level === 'base' ? '' : ` ${level}`}`,
+    })),
+  );
+  const page = join(appDir, 'web/dist');
+  for (const { name, dir, recipe } of [{ name: 'page', dir: page, recipe: 'build' }, ...contenders])
+    if (!existsSync(join(dir, 'index.html'))) throw new Error(`no ${name} build in ${relative(root, dir)}: run \`just observatory ${recipe}\``);
+  const [gpui, ...others] = contenders;
 
   // Every file data/MANIFEST.json names, each as it pins it.
   const data = Object.entries(dataFiles()).map(([name, pinned]) => {
@@ -65,9 +71,9 @@ function stage(): void {
   // too); one copy is served.
   const engineFiles = (build: string) =>
     Object.fromEntries(walk(join(build, ENGINE_DIR)).map((file) => [relative(join(build, ENGINE_DIR), file), sha256(readFileSync(file))]));
-  const gpuiEngine = engineFiles(builds.gpui);
-  for (const other of ['gpui-wide', 'tanstack', 'tanstack-wide'] as const)
-    if (JSON.stringify(gpuiEngine) !== JSON.stringify(engineFiles(builds[other]))) throw new Error(`the GPUI build's ${ENGINE_DIR}/ and the ${other} build's differ: rebuild them (\`just observatory engine-files\` says how)`);
+  const gpuiEngine = engineFiles(gpui!.dir);
+  for (const other of others)
+    if (JSON.stringify(gpuiEngine) !== JSON.stringify(engineFiles(other.dir))) throw new Error(`the GPUI build's ${ENGINE_DIR}/ and the ${other.name} build's differ: rebuild them (\`just observatory engine-files\` says how)`);
   // Its bundles directly in duckdb/ are served immutable (src/files.ts), so each name must carry its content hash.
   // A name passes only as `<DuckDB's own name>-<8-char hash><ext>`, so an
   // unhashed name ending in eight word characters (`-bindings.js`) can't.
@@ -90,12 +96,9 @@ function stage(): void {
     }
   };
   const notServed = (path: string) => path === '_headers' || path.startsWith('.vite/') || path.startsWith(`${ENGINE_DIR}/`);
-  place(builds.page, OBSERVATORY, notServed);
-  place(builds.gpui, contenderBase('tall-table', 'gpui'), notServed);
-  place(builds['gpui-wide'], contenderBase('tall-table', 'gpui', 'wide'), notServed);
-  place(builds.tanstack, contenderBase('tall-table', 'tanstack'), notServed);
-  place(builds['tanstack-wide'], contenderBase('tall-table', 'tanstack', 'wide'), notServed);
-  place(join(builds.gpui, ENGINE_DIR), ENGINE);
+  place(page, OBSERVATORY, notServed);
+  for (const { dir, at } of contenders) place(dir, at, notServed);
+  place(join(gpui!.dir, ENGINE_DIR), ENGINE);
   mkdirSync(join(dist, DATA), { recursive: true });
   for (const { name, path } of data) copyFileSync(path, join(dist, DATA, name));
   mkdirSync(join(dist, dirname(UI_FONT)), { recursive: true });

@@ -3,17 +3,20 @@
  * time: both contenders' Vite configs take it from Vite's mode (`--mode
  * wide`, which the recipes and the perf harness's `preview` pass; Vite's own
  * modes are the base), each level a build of its own at a base of its own,
- * into `dist/` or `dist-<level>/`. A level no scenario is on yet (in
- * `LEVEL_FEATURES`, not `LEVELS`) fails the build rather than build one
- * whose every scenario fails to load.
+ * into `dist/` or `dist-<level>/`. A level the side doesn't build yet (in
+ * `LEVEL_FEATURES`, not its `BUILT`) fails the build rather than build one
+ * it has no code for.
  */
 
 import type { Plugin } from 'vite';
-import { LEVEL_FEATURES, LEVELS, type Level } from './scenarios.ts';
+import type { Side } from './contract.ts';
+import { BUILT, LEVEL_FEATURES, type Level } from './scenarios.ts';
 
-export function levelOf(mode: string): Level {
-  if (LEVELS.includes(mode as Level)) return mode as Level;
-  if (Object.hasOwn(LEVEL_FEATURES, mode)) throw new Error(`--mode ${mode}: no scenario is on that level yet (\`scenarios.ts\`'s SCENARIOS), so its build would load none`);
+/** `side`'s build level from Vite's `mode`: one of the levels it builds
+ *  (`BUILT`), or the base for Vite's own modes. */
+export function levelOf(side: Side, mode: string): Level {
+  if (BUILT[side].includes(mode as Level)) return mode as Level;
+  if (Object.hasOwn(LEVEL_FEATURES, mode)) throw new Error(`--mode ${mode}: the ${side} contender doesn't build that level yet (\`scenarios.ts\`'s BUILT)`);
   return 'base';
 }
 

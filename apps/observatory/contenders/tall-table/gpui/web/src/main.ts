@@ -9,6 +9,8 @@ import { MARKS, followPageTheme, markAt, nextFrame, nextMark, pageTheme, publish
 import { DATA, ENGINE_DIR, OBSERVATORY, UI_FONT } from '../../../../paths.ts';
 import { pickScenario } from '../../../../scenarios.ts';
 import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
+// The level's host: nothing on the base and the wide level (`market.ts` on the market's).
+import { levelHost } from './level.ts';
 
 /** Set by shared-web's placeholder (`PLACEHOLDER_PAINT_MARK`) and `seiza`'s
  *  bootstrap (`FIRST_FRAME_MARK`); not imported, since those modules are the
@@ -34,6 +36,9 @@ if (!(picked instanceof Error) && picked.scenario.level === 'wide' && 'rowHeight
   const { lo, mid, hi } = scenario.heat.domain;
   level.push(stop.rowHeight, stop.textSize, stop.columnWidth, scenario.pinned, scenario.heatFrom, lo, mid, hi);
 }
+const host = picked instanceof Error ? undefined : levelHost(picked);
+if (host) level.push(...host.numbers);
+const failure = picked instanceof Error ? picked.message : (host?.failure ?? '');
 /** Frames to wait for the view to change after a replay's input: GPUI
  *  handles it on its next turn and draws it in the next frame. */
 const SETTLE_FRAMES = 3;
@@ -111,7 +116,8 @@ const bridge = createBridge({ extensionDir: ENGINE_DIR, extensionBase: OBSERVATO
 void boot({
   init: () => init({ module_or_path: wasmUrl }),
   start: (font) => {
-    start(font, bridge, `${DATA}${file}`, file, Float64Array.from(level), picked instanceof Error ? picked.message : '', pageTheme() ?? '');
+    if (!failure) host?.beforeStart();
+    start(font, bridge, `${DATA}${file}`, file, Float64Array.from(level), failure, pageTheme() ?? '');
     started = true;
   },
   fontUrl: UI_FONT,
