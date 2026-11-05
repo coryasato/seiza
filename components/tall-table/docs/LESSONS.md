@@ -467,3 +467,12 @@ No results note: the research measured nothing but the font's advances and two f
 - The canvas's decimals are per instrument, not per column (`toFixed(px < 10 ? 3 : 2)`), so one price column holds `9.420` and `84.21`. The ask read as a column's setting; reading the canvas's code, not its picture, found the page hook it needs.
 - `Intl.NumberFormat` can't be the DOM side's formatter even with `roundingMode: 'halfEven'`: V8 rounds the shortest decimal, so `0.005` at 2 is `0.00` where Rust's exact rounding writes `0.01`. And `toFixed` rounds an exact tie up (`1.125` → `1.13`, Rust `1.12`). The contender's `BigInt` rounding, written for `fit_float`, is the one that matches.
 - A count of characters, which `fit_float`'s budget is, can't say whether a formatted text fits: `%` is half again a digit's width and `,` under half.
+
+## M12: `format` (part B, 2026-11-04)
+
+No results note: part B builds and tests natively, and its one measurement is B1's size run (`perf/results/2026-11-04-m12-b-size.json`); part C measures the cost.
+
+**Surprises:**
+- The research's "the font shapes a format's characters at their advances' sum" was nearly true: IBM Plex Sans kerns `e-` 0.01 em wider (a negative exponent), and `.e`, `,e`, `e.`, `e,`, which no format writes. The rule's pixel, put there for `fit_float`'s rounding, absorbs it; the check had to be run with the web's own shaper (cosmic-text), since the test app gives every character 0.6 em.
+- The test app's 0.6 em advance reads as 8.400001 px, not 8.4, so a fit's `ceil` lands a pixel wider than the hand sum (144, not 143). Tests take expected widths from the table's own advances, not a typed 8.4.
+- A refactor that only moves code changes the base's bytes: `text_width`'s body moved into a shared function cost the base 168 bytes after wasm-opt (smaller), and a `let cut = …; if cut` in place of the base's `if …` another 8. Each was found by bisecting base builds in a worktree (a build each, two minutes); the base's own lines are now kept as they were, the feature's beside them.

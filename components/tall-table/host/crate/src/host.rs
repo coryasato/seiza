@@ -264,6 +264,21 @@ impl Host {
             let setting = Density::default();
             (setting.density(), setting.columns(columns))
         };
+        // Every float column and the narrow shape's `spkid` formatted
+        // (`format`); `?format=off` builds the feature with none (the
+        // control).
+        #[cfg(feature = "format")]
+        let columns = {
+            #[cfg(target_family = "wasm")]
+            let off = seiza::url::param("format").as_deref() == Some("off");
+            #[cfg(not(target_family = "wasm"))]
+            let off = false;
+            if off {
+                columns
+            } else {
+                crate::rows::with_format(columns)
+            }
+        };
         let table = cx.new(|cx| {
             #[cfg_attr(not(feature = "density"), expect(unused_mut))]
             let mut table = Table::new(rows, columns, count, Paging::default(), cx)

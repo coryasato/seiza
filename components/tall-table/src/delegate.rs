@@ -79,6 +79,18 @@ pub trait TallTablePage: 'static {
         crate::CellPaint::default()
     }
 
+    /// The decimals of the float at `row` and `column` (`format`), over its
+    /// column's [`NumberFormat::decimals`](crate::NumberFormat::decimals);
+    /// `None` keeps the column's. Asked only of a formatted float column's
+    /// drawn loaded cells, each frame (and its tooltip's and `resize`'s
+    /// fit's cells): answer from what the page already holds (an
+    /// instrument's tick size). `None` by default.
+    #[cfg(feature = "format")]
+    fn decimals(&self, row: usize, column: usize) -> Option<u8> {
+        let _ = (row, column);
+        None
+    }
+
     /// The heap bytes it holds, counted against `Paging::budget_bytes`.
     fn heap_bytes(&self) -> usize;
 }

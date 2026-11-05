@@ -26,6 +26,9 @@ pub(crate) struct CellText {
     pub middle: bool,
     pub text: SharedString,
     pub color: Hsla,
+    /// Drawn uncut (`format`: a formatted text that fits by its advances).
+    #[cfg(feature = "format")]
+    pub whole: bool,
     #[cfg(test)]
     pub row: u64,
     #[cfg(test)]
@@ -147,22 +150,38 @@ fn paint(
                 std::slice::from_ref(&run),
                 None,
             );
+            // The cut, written once for both conditions below: a macro, so
+            // the base compiles its own `if` as it was (a `let` between them
+            // moved its wasm by bytes).
+            macro_rules! cut {
+                () => {{
+                    let from = if cell.middle {
+                        TruncateFrom::Middle
+                    } else {
+                        TruncateFrom::End
+                    };
+                    let (text, runs) = wrapper.truncate_line(
+                        cell.text.clone(),
+                        text_width,
+                        ELLIPSIS,
+                        std::slice::from_ref(&run),
+                        from,
+                    );
+                    line = window
+                        .text_system()
+                        .shape_line(text, font_size, &runs, None);
+                }};
+            }
+            #[cfg(not(feature = "format"))]
             if line.width > text_width {
-                let from = if cell.middle {
-                    TruncateFrom::Middle
-                } else {
-                    TruncateFrom::End
-                };
-                let (text, runs) = wrapper.truncate_line(
-                    cell.text.clone(),
-                    text_width,
-                    ELLIPSIS,
-                    std::slice::from_ref(&run),
-                    from,
-                );
-                line = window
-                    .text_system()
-                    .shape_line(text, font_size, &runs, None);
+                cut!();
+            }
+            // A formatted text that fits is drawn whole (`format`): its fit
+            // is its advances' sum, which the shaping matches within the
+            // rule's pixel.
+            #[cfg(feature = "format")]
+            if !cell.whole && line.width > text_width {
+                cut!();
             }
             let origin_x = if cell.right {
                 text_x + text_width - line.width

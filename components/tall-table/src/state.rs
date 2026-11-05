@@ -125,6 +125,12 @@ struct Glyphs {
     /// The widest of the sort arrows' advances (`sort`).
     #[cfg(feature = "sort")]
     arrow_px: f32,
+    /// Each character a format writes, its advance (`format`).
+    #[cfg(feature = "format")]
+    advances: format::Advances,
+    /// Each format's suffix the columns had when read, shaped (`format`).
+    #[cfg(feature = "format")]
+    suffixes: Vec<(SharedString, f32)>,
 }
 
 impl Glyphs {
@@ -140,12 +146,21 @@ impl Glyphs {
             number_px: Self::ESTIMATE,
             #[cfg(feature = "sort")]
             arrow_px: 0.0,
+            #[cfg(feature = "format")]
+            advances: format::Advances::new([Self::ESTIMATE; 15]),
+            #[cfg(feature = "format")]
+            suffixes: Vec::new(),
         }
     }
 
     /// The cells' font (at `font_size`, in the theme's family) as `window`
-    /// draws it.
-    fn read(font_size: Pixels, window: &Window, cx: &App) -> Self {
+    /// draws it; with `format`, each of `columns`' suffixes shaped.
+    fn read(
+        font_size: Pixels,
+        #[cfg(feature = "format")] columns: &[TallTableColumn],
+        window: &Window,
+        cx: &App,
+    ) -> Self {
         let font = font(cx.theme().font_family.clone());
         let text_system = window.text_system();
         let id = text_system.resolve_font(&font);
@@ -154,6 +169,32 @@ impl Glyphs {
             .filter_map(|ch| text_system.advance(id, font_size, ch).ok())
             .map(|advance| f32::from(advance.width))
             .fold(0.0, f32::max);
+        #[cfg(feature = "format")]
+        let advances = format::Advances::new(format::FORMAT_CHARS.map(|ch| {
+            text_system
+                .advance(id, font_size, ch)
+                .map_or(number_px, |advance| f32::from(advance.width))
+        }));
+        // Each suffix shaped after a digit, less the digit, so its kerning
+        // with the number's last digit is in its width: a fitted text is
+        // drawn uncut.
+        #[cfg(feature = "format")]
+        let mut suffixes: Vec<(SharedString, f32)> = Vec::new();
+        #[cfg(feature = "format")]
+        for column in columns {
+            let Some(format) = &column.format else {
+                continue;
+            };
+            if !suffixes.iter().any(|(known, _)| *known == format.suffix) {
+                let after = shaped_width(
+                    format!("0{}", format.suffix).into(),
+                    &font,
+                    font_size,
+                    window,
+                );
+                suffixes.push((format.suffix.clone(), after - advances.width("0")));
+            }
+        }
         Self {
             font,
             font_size,
@@ -168,21 +209,126 @@ impl Glyphs {
                 .filter_map(|ch| text_system.advance(id, font_size, ch).ok())
                 .map(|advance| f32::from(advance.width))
                 .fold(0.0, f32::max),
+            #[cfg(feature = "format")]
+            advances,
+            #[cfg(feature = "format")]
+            suffixes,
         }
+    }
+
+    /// Whether a suffix of `columns` wasn't shaped when these were read
+    /// (`format`): `set_columns` then leaves the glyphs to be read again.
+    #[cfg(feature = "format")]
+    fn lacks_suffix(&self, columns: &[TallTableColumn]) -> bool {
+        columns
+            .iter()
+            .filter_map(|column| Some(&column.format.as_ref()?.suffix))
+            .any(|suffix| !self.suffixes.iter().any(|(known, _)| known == suffix))
+    }
+
+    /// `suffix` as shaped when read; before then (or never read for it),
+    /// at the widest number advance a character.
+    #[cfg(feature = "format")]
+    fn suffix_px(&self, suffix: &SharedString) -> f32 {
+        self.suffixes
+            .iter()
+            .find(|(known, _)| known == suffix)
+            .map_or(
+                suffix.chars().count() as f32 * self.number_px,
+                |(_, width)| *width,
+            )
     }
 
     /// `columns` laid out by these glyphs at `sizes` (with `sort`, a
     /// sortable header's arrow counted).
     #[inline(always)]
     fn lay_out(&self, columns: &[TallTableColumn], sizes: Sizes) -> (Vec<LaidOutColumn>, f32) {
-        layout_columns(
+        #[cfg_attr(not(feature = "format"), expect(unused_mut))]
+        let mut laid_out = layout_columns(
             columns,
             self.number_px,
             #[cfg(feature = "sort")]
             sort::room(self.arrow_px, sizes),
             sizes,
+        );
+        // A numeric column's format, its suffix measured (`format`).
+        #[cfg(feature = "format")]
+        for (column, laid) in columns.iter().zip(laid_out.0.iter_mut()) {
+            laid.format = column
+                .format
+                .as_ref()
+                .filter(|_| laid.kind.numeric())
+                .map(|format| format::ColumnFormat {
+                    format: format.clone(),
+                    float: laid.kind == CellKind::Float,
+                    suffix_px: self.suffix_px(&format.suffix),
+                    #[cfg(test)]
+                    control: format::Control::None,
+                });
+        }
+        laid_out
+    }
+
+    /// A formatted column's loaded cell as it shows (`format`): its
+    /// formatted text, if it takes at most the content box less a pixel,
+    /// else `None` (the automatic format, [`shown_text`]).
+    #[cfg(feature = "format")]
+    #[inline(always)]
+    fn fit_format<P: crate::TallTablePage>(
+        &self,
+        column: &LaidOutColumn,
+        sizes: Sizes,
+        page: &P,
+        index: usize,
+        column_index: usize,
+        value: &CellValue<'_>,
+    ) -> Option<String> {
+        let format = column.format.as_ref()?;
+        let room = column.width - sizes.padding() - 1.0;
+        format.fit(
+            &self.advances,
+            room,
+            value,
+            page_decimals(column, page, index, column_index),
         )
     }
+}
+
+/// A formatted float column's cell's own decimals, from its page
+/// (`format`); `None` for any other column, and for the column's.
+#[cfg(feature = "format")]
+#[inline(always)]
+fn page_decimals<P: crate::TallTablePage>(
+    column: &LaidOutColumn,
+    page: &P,
+    index: usize,
+    column_index: usize,
+) -> Option<u8> {
+    (column.kind == CellKind::Float)
+        .then(|| page.decimals(index, column_index))
+        .flatten()
+}
+
+/// `text`'s width in `font` at `font_size`, shaped as GPUI draws it, for
+/// `Glyphs::read`, before the state's own (`text_width`) can (`format`).
+/// One line: `shape_line` asserts there's no `\n`. Apart from
+/// `text_width`, whose base code it would move by bytes.
+#[cfg(feature = "format")]
+fn shaped_width(text: SharedString, font: &Font, font_size: Pixels, window: &Window) -> f32 {
+    let run = TextRun {
+        len: text.len(),
+        font: font.clone(),
+        color: black(),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
+    f32::from(
+        window
+            .text_system()
+            .shape_line(text, font_size, &[run], None)
+            .width,
+    )
 }
 
 /// What a loaded cell shows. It differs from the value's exact text (the
@@ -792,6 +938,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(feature = "sort")]
         let sorted = self.sorted_name();
         self.column_info = columns;
+        // A suffix the glyphs didn't shape: read them again at the next
+        // render, which lays the columns out by it (`format`).
+        #[cfg(feature = "format")]
+        if self.glyphs.lacks_suffix(&self.column_info) {
+            self.glyphs.font_size = px(0.);
+        }
         #[cfg(feature = "resize")]
         {
             self.resizing = None;
@@ -1564,11 +1716,28 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return None;
         }
         let exact = value.to_string();
+        // A formatted text that fits opens it only where the format
+        // rounded the value (`format`): one only dressed (`9.420`, `+0.37`)
+        // opens none. A fallback is judged as the base's text is.
+        #[cfg(feature = "format")]
+        let rounded = match self
+            .glyphs
+            .fit_format(laid_out, self.sizes(), page, index, column, &value)
+            .zip(laid_out.format.as_ref())
+        {
+            Some((text, format)) if !format.rounded(&text, &value) => return None,
+            Some(_) => true,
+            None => false,
+        };
         let shown = cell_text(laid_out, value);
         // `shown` has no line breaks (`cell_text`).
         let cut = shown == exact
             && self.text_width(shown.clone().into(), window)
                 > laid_out.width - self.sizes().padding();
+        // A fitted text the format rounded opens it, whatever the
+        // automatic format's text would have (`format`).
+        #[cfg(feature = "format")]
+        let cut = cut || rounded;
         if shown == exact && !cut {
             return None;
         }
@@ -2029,6 +2198,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 }
                                 drawn
                             };
+                            // A formatted text that fits, drawn whole
+                            // (`format`), or the automatic format.
+                            #[cfg(feature = "format")]
+                            let (text, whole) = match self.glyphs.fit_format(
+                                column,
+                                sizes,
+                                page,
+                                index,
+                                *column_index,
+                                &value,
+                            ) {
+                                Some(text) => (text, true),
+                                None => (shown_text(column, value), false),
+                            };
+                            #[cfg(not(feature = "format"))]
                             let text = shown_text(column, value);
                             if let (Some(probes), Some(exact)) = (cell_probes.as_mut(), exact) {
                                 probes.push(CellProbe {
@@ -2051,6 +2235,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 ),
                                 text: text.into(),
                                 color,
+                                #[cfg(feature = "format")]
+                                whole,
                                 #[cfg(test)]
                                 row,
                                 #[cfg(test)]
@@ -2583,12 +2769,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 pub(crate) fn format_count(value: u64) -> String {
     let digits = value.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
+    format::push_grouped(&mut out, &digits, 3);
     out
 }
 
@@ -2609,7 +2790,13 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         // font itself. Read only when the font or the rem size changes.
         let font_size = self.sizes().text(window.rem_size());
         if self.glyphs.font_size != font_size || self.glyphs.font.family != cx.theme().font_family {
-            let glyphs = Glyphs::read(font_size, window, cx);
+            let glyphs = Glyphs::read(
+                font_size,
+                #[cfg(feature = "format")]
+                &self.column_info,
+                window,
+                cx,
+            );
             if glyphs != self.glyphs {
                 self.glyphs = glyphs;
                 self.lay_out(cx);
@@ -2720,6 +2907,8 @@ mod tests {
             width: 200.0,
             kind: CellKind::Text,
             budget: 21,
+            #[cfg(feature = "format")]
+            format: None,
         };
         let text = |value: &str| cell_text(&column, CellValue::Text(value.into()));
         assert_eq!(text("a\r\nb\nc\rd"), "a¶b¶c¶d");

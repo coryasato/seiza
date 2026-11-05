@@ -195,6 +195,34 @@ pub struct MemoryPage {
     /// Each column's range, for its paint.
     #[cfg(feature = "custom-cells")]
     paint: Option<(Cells, Shape)>,
+    /// Each row's source row is a multiple of 4 (`format`): it answers 3
+    /// decimals, as an instrument's tick size belongs to its row, sorted
+    /// or not.
+    #[cfg(feature = "format")]
+    threes: Vec<bool>,
+}
+
+/// `columns` formatted (`format`): every float column at 2 decimals, a `+`
+/// on a rise, grouped, and the narrow shape's integer `spkid` grouped. The
+/// page answers 3 decimals on every fourth row (`MemoryPage::decimals`).
+#[cfg(feature = "format")]
+pub fn with_format(columns: Vec<TallTableColumn>) -> Vec<TallTableColumn> {
+    use seiza_tall_table::{NumberFormat, Sign};
+    columns
+        .into_iter()
+        .map(|column| match column.kind() {
+            ColumnKind::Float => column.format(
+                NumberFormat::new()
+                    .decimals(2)
+                    .sign(Sign::Always)
+                    .grouping(true),
+            ),
+            ColumnKind::Integer { .. } if column.name().as_ref() == "spkid" => {
+                column.format(NumberFormat::new().grouping(true))
+            }
+            _ => column,
+        })
+        .collect()
 }
 
 /// How the float columns are painted (`?cells=`, `custom-cells`): each
@@ -301,6 +329,37 @@ impl MemoryPage {
         #[cfg(feature = "live")] versions: &Versions,
         #[cfg(feature = "sort")] order: Option<&[u32]>,
     ) -> Self {
+        #[cfg(all(feature = "format", feature = "sort"))]
+        let threes = rows
+            .clone()
+            .map(|position| at_position(order, position).is_multiple_of(4))
+            .collect();
+        #[cfg(all(feature = "format", not(feature = "sort")))]
+        let threes = rows.clone().map(|row| row.is_multiple_of(4)).collect();
+        #[cfg_attr(not(feature = "format"), expect(unused_mut))]
+        let mut page = Self::read(
+            shape,
+            rows,
+            #[cfg(feature = "live")]
+            versions,
+            #[cfg(feature = "sort")]
+            order,
+        );
+        #[cfg(feature = "format")]
+        {
+            page.threes = threes;
+        }
+        page
+    }
+
+    /// `shape`'s rows `rows` (positions of the order, with `sort`).
+    #[inline(always)]
+    fn read(
+        shape: Shape,
+        rows: Range<u64>,
+        #[cfg(feature = "live")] versions: &Versions,
+        #[cfg(feature = "sort")] order: Option<&[u32]>,
+    ) -> Self {
         // Sorted: the rows at the order's positions `rows`.
         #[cfg(feature = "sort")]
         if let Some(order) = order {
@@ -337,6 +396,8 @@ impl MemoryPage {
                 .collect(),
             #[cfg(feature = "custom-cells")]
             paint: None,
+            #[cfg(feature = "format")]
+            threes: Vec::new(),
         }
     }
 }
@@ -477,6 +538,13 @@ impl TallTablePage for MemoryPage {
         })
     }
 
+    /// 3 decimals on every fourth row of the source, so the hook is used
+    /// (`format`); the column's 2 elsewhere.
+    #[cfg(feature = "format")]
+    fn decimals(&self, row: usize, _: usize) -> Option<u8> {
+        self.threes.get(row).copied().unwrap_or(false).then_some(3)
+    }
+
     /// Each float value through its column's range, as the style says.
     #[cfg(feature = "custom-cells")]
     fn paint(&self, row: usize, column: usize) -> seiza_tall_table::CellPaint {
@@ -515,7 +583,19 @@ impl TallTablePage for MemoryPage {
                         + values.iter().map(String::capacity).sum::<usize>()
                 }
             })
-            .sum()
+            .sum::<usize>()
+            + self.decimals_bytes()
+    }
+}
+
+impl MemoryPage {
+    /// The bytes the rows' decimals take (`format`).
+    #[inline(always)]
+    fn decimals_bytes(&self) -> usize {
+        #[cfg(feature = "format")]
+        return self.threes.capacity();
+        #[cfg(not(feature = "format"))]
+        0
     }
 }
 
@@ -641,6 +721,8 @@ impl MemoryRows {
                 columns: vec![shape_column(shape, column, row..row + 1, |_| key)],
                 #[cfg(feature = "custom-cells")]
                 paint: None,
+                #[cfg(feature = "format")]
+                threes: Vec::new(),
             };
             match page.value(0, 0)? {
                 CellValue::Null => None,
@@ -971,6 +1053,66 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Every float column formatted (2 decimals, a `+`, grouped), the
+    /// narrow shape's `spkid` grouped, and every other column not; every
+    /// fourth row of the source answers 3 decimals, from wherever its page
+    /// starts.
+    #[cfg(feature = "format")]
+    #[test]
+    fn the_format_and_the_pages_decimals() {
+        use seiza_tall_table::{ColumnKind, NumberFormat, Sign};
+        let float = NumberFormat::new()
+            .decimals(2)
+            .sign(Sign::Always)
+            .grouping(true);
+        let grouped = NumberFormat::new().grouping(true);
+        for shape in [Shape::Narrow, Shape::Wide] {
+            let mut floats = 0;
+            for column in super::with_format(shape.columns()) {
+                let want = match column.kind() {
+                    ColumnKind::Float => {
+                        floats += 1;
+                        Some(&float)
+                    }
+                    _ if column.name().as_ref() == "spkid" => Some(&grouped),
+                    _ => None,
+                };
+                assert_eq!(column.number_format(), want, "{shape:?} {}", column.name());
+            }
+            assert!(floats > 0);
+            let page = fresh_page(shape, 1022..1030);
+            let decimals: Vec<_> = (0..8).map(|row| page.decimals(row, 0)).collect();
+            assert_eq!(
+                decimals,
+                [None, None, Some(3), None, None, None, Some(3), None],
+                "{shape:?}: rows 1024 and 1028"
+            );
+        }
+        let narrow = super::with_format(Shape::Narrow.columns());
+        assert!(
+            narrow
+                .iter()
+                .any(|column| column.name().as_ref() == "spkid" && column.number_format().is_some())
+        );
+    }
+
+    /// Sorted, a row keeps its decimals: they follow its source row, not
+    /// its place in the order.
+    #[cfg(all(feature = "format", feature = "sort"))]
+    #[test]
+    fn the_decimals_follow_the_source_row() {
+        let order = [1, 4, 0, 8, 3];
+        let page = MemoryPage::new(
+            Shape::Narrow,
+            0..5,
+            #[cfg(feature = "live")]
+            &Default::default(),
+            Some(&order),
+        );
+        let decimals: Vec<_> = (0..5).map(|row| page.decimals(row, 0)).collect();
+        assert_eq!(decimals, [None, Some(3), Some(3), Some(3), None]);
     }
 
     #[test]

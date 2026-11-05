@@ -1,5 +1,5 @@
 {
-  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
+  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
   "source": {
     "file": "apps/observatory/data/asteroids.parquet",
     "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
@@ -2000,6 +2000,590 @@
         "exact": "0.3333333333333333",
         "shown": "0.3333333333333333",
         "why": "widened: a value rounded at the kind's width shown whole"
+      }
+    ]
+  },
+  "format": {
+    "about": "A number column's format (format): each character a format writes, its advance in CSS px at the cells' 14 px IBM Plex Sans (advances; provisional from the font natively, pinned from Chromium with the bare host), and cases: a format, a kind, a value, a page's decimals (null for the column's), a set width → the exact text, the shown text, whether it fell back to the automatic format, and whether the format rounded it (the tooltip; null for a fallback, judged as the base's text). See README.md.",
+    "advances": {
+      "0": 8.4,
+      "1": 8.4,
+      "2": 8.4,
+      "3": 8.4,
+      "4": 8.4,
+      "5": 8.4,
+      "6": 8.4,
+      "7": 8.4,
+      "8": 8.4,
+      "9": 8.4,
+      "+": 8.4,
+      "-": 5.586,
+      ".": 3.808,
+      ",": 3.808,
+      "e": 7.686,
+      "%": 12.978
+    },
+    "cases": [
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1.125",
+        "decimals": null,
+        "width": 84,
+        "exact": "1.125",
+        "shown": "1.12",
+        "fallback": false,
+        "rounded": true,
+        "why": "an exact tie at 2 rounds to even (toFixed writes 1.13)"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "0.005",
+        "decimals": null,
+        "width": 84,
+        "exact": "0.005",
+        "shown": "0.01",
+        "fallback": false,
+        "rounded": true,
+        "why": "0.005 is just above half in binary: 0.01 (V8's Intl writes 0.00)"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": "%"
+        },
+        "kind": "float",
+        "value": "0.0026",
+        "decimals": null,
+        "width": 84,
+        "exact": "0.0026",
+        "shown": "+0.00%",
+        "fallback": false,
+        "rounded": true,
+        "why": "rounds to zero: the sign is the raw value's"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "-0.001",
+        "decimals": null,
+        "width": 84,
+        "exact": "-0.001",
+        "shown": "-0.00",
+        "fallback": false,
+        "rounded": true,
+        "why": "rounds to zero below: the minus kept"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "-0.0",
+        "decimals": null,
+        "width": 84,
+        "exact": "-0.0",
+        "shown": "0.00",
+        "fallback": false,
+        "rounded": false,
+        "why": "an exact zero, -0.0 too, takes no sign"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "0",
+        "decimals": null,
+        "width": 84,
+        "exact": "0.0",
+        "shown": "0.00",
+        "fallback": false,
+        "rounded": false,
+        "why": "an exact zero with Always: no +"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "integer",
+        "value": "0",
+        "decimals": null,
+        "width": 84,
+        "exact": "0",
+        "shown": "0",
+        "fallback": false,
+        "rounded": false,
+        "why": "an integer's 0 takes no sign"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "decimal",
+        "value": "-0.00",
+        "decimals": null,
+        "width": 84,
+        "exact": "-0.00",
+        "shown": "0.00",
+        "fallback": false,
+        "rounded": false,
+        "why": "a decimal whose digits are all zero: its written minus dropped"
+      },
+      {
+        "format": {
+          "decimals": 3,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float32",
+        "value": "9.42",
+        "decimals": null,
+        "width": 84,
+        "exact": "9.42",
+        "shown": "9.420",
+        "fallback": false,
+        "rounded": false,
+        "why": "a Float32 dressed: 9.420 reads back as the f32 9.42, so no tooltip"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "4400000",
+        "decimals": null,
+        "width": 120,
+        "exact": "4400000.0",
+        "shown": "4,400,000.0",
+        "fallback": false,
+        "rounded": false,
+        "why": "no decimals: the exact text grouped, a whole float's .0 kept"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1e16",
+        "decimals": null,
+        "width": 84,
+        "exact": "1e16",
+        "shown": "1e16",
+        "fallback": false,
+        "rounded": false,
+        "why": "no decimals: an exponent keeps its form, never grouped"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "always",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1.5e-7",
+        "decimals": null,
+        "width": 84,
+        "exact": "1.5e-7",
+        "shown": "+1.5e-7",
+        "fallback": false,
+        "rounded": false,
+        "why": "an exponent signed, not grouped"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1234.5678",
+        "decimals": null,
+        "width": 120,
+        "exact": "1234.5678",
+        "shown": "1,234.5678",
+        "fallback": false,
+        "rounded": false,
+        "why": "no decimals: a plain exact text grouped on its whole digits"
+      },
+      {
+        "format": {
+          "decimals": 0,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "123",
+        "decimals": null,
+        "width": 84,
+        "exact": "123.0",
+        "shown": "123",
+        "fallback": false,
+        "rounded": false,
+        "why": "grouping at 3 digits: none"
+      },
+      {
+        "format": {
+          "decimals": 0,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1234",
+        "decimals": null,
+        "width": 84,
+        "exact": "1234.0",
+        "shown": "1,234",
+        "fallback": false,
+        "rounded": false,
+        "why": "grouping at 4 digits"
+      },
+      {
+        "format": {
+          "decimals": 0,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1234567",
+        "decimals": null,
+        "width": 96,
+        "exact": "1234567.0",
+        "shown": "1,234,567",
+        "fallback": false,
+        "rounded": false,
+        "why": "grouping at 7 digits"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "-1234567.891",
+        "decimals": null,
+        "width": 130,
+        "exact": "-1234567.891",
+        "shown": "-1,234,567.89",
+        "fallback": false,
+        "rounded": true,
+        "why": "a negative grouped"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": "%"
+        },
+        "kind": "float",
+        "value": "1.23",
+        "decimals": null,
+        "width": 68,
+        "exact": "1.23",
+        "shown": "+1.23%",
+        "fallback": false,
+        "rounded": false,
+        "why": "a suffix wider than a digit (% 12.978 px): fits by advances, not by count"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "9.42",
+        "decimals": 3,
+        "width": 84,
+        "exact": "9.42",
+        "shown": "9.420",
+        "fallback": false,
+        "rounded": false,
+        "why": "the page's 3 over the column's 2"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1234.5678",
+        "decimals": null,
+        "width": 83,
+        "exact": "1234.5678",
+        "shown": "1234.57",
+        "fallback": true,
+        "rounded": null,
+        "why": "a pixel short (66.416 px of 66): the automatic format at the column's budget"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "1234.5678",
+        "decimals": null,
+        "width": 84,
+        "exact": "1234.5678",
+        "shown": "+1,234.57",
+        "fallback": false,
+        "rounded": true,
+        "why": "the same in 67 px: fits"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "integer",
+        "value": "123456789012",
+        "decimals": null,
+        "width": 100,
+        "exact": "123456789012",
+        "shown": "123456789012",
+        "fallback": true,
+        "rounded": null,
+        "why": "an integer too wide: its plain text (cut in the middle where it doesn't fit)"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "integer",
+        "value": "4400000",
+        "decimals": null,
+        "width": 96,
+        "exact": "4400000",
+        "shown": "4,400,000",
+        "fallback": false,
+        "rounded": false,
+        "why": "an integer's text grouped"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "always",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "decimal",
+        "value": "-1234.50",
+        "decimals": null,
+        "width": 120,
+        "exact": "-1234.50",
+        "shown": "-1,234.50",
+        "fallback": false,
+        "rounded": false,
+        "why": "a decimal's text grouped, its digits as written"
+      },
+      {
+        "format": {
+          "decimals": null,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "decimal",
+        "value": "12.30",
+        "decimals": null,
+        "width": 84,
+        "exact": "12.30",
+        "shown": "+12.30",
+        "fallback": false,
+        "rounded": false,
+        "why": "a decimal's text signed"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "NaN",
+        "decimals": null,
+        "width": 84,
+        "exact": "NaN",
+        "shown": "NaN",
+        "fallback": true,
+        "rounded": null,
+        "why": "NaN unformatted"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "inf",
+        "decimals": null,
+        "width": 84,
+        "exact": "inf",
+        "shown": "inf",
+        "fallback": true,
+        "rounded": null,
+        "why": "inf unformatted"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": null,
+        "decimals": null,
+        "width": 84,
+        "exact": "NULL",
+        "shown": "NULL",
+        "fallback": true,
+        "rounded": null,
+        "why": "NULL unformatted"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "84.21",
+        "decimals": null,
+        "width": 84,
+        "exact": "84.21",
+        "shown": "84.21",
+        "fallback": false,
+        "rounded": false,
+        "why": "the canvas's Last"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "negative",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "9.42",
+        "decimals": 3,
+        "width": 84,
+        "exact": "9.42",
+        "shown": "9.420",
+        "fallback": false,
+        "rounded": false,
+        "why": "the canvas's Last under 10: the page's 3"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "0.37",
+        "decimals": null,
+        "width": 76,
+        "exact": "0.37",
+        "shown": "+0.37",
+        "fallback": false,
+        "rounded": false,
+        "why": "the canvas's Change"
+      },
+      {
+        "format": {
+          "decimals": 2,
+          "sign": "always",
+          "grouping": false,
+          "suffix": "%"
+        },
+        "kind": "float",
+        "value": "1.23",
+        "decimals": null,
+        "width": 84,
+        "exact": "1.23",
+        "shown": "+1.23%",
+        "fallback": false,
+        "rounded": false,
+        "why": "the canvas's Change %"
+      },
+      {
+        "format": {
+          "decimals": 0,
+          "sign": "negative",
+          "grouping": true,
+          "suffix": ""
+        },
+        "kind": "float",
+        "value": "4400000",
+        "decimals": null,
+        "width": 96,
+        "exact": "4400000.0",
+        "shown": "4,400,000",
+        "fallback": false,
+        "rounded": false,
+        "why": "the canvas's Volume"
       }
     ]
   },

@@ -1,0 +1,251 @@
+{
+  "date": "2026-11-04",
+  "label": "m12-b-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13325.4,
+    "optKiB": 9841,
+    "brotliKiB": 2750.5
+  },
+  "homePaths": {
+    "host": 0,
+    "untrimmedControl": 993
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13337.4,
+      "optKiB": 9850.9,
+      "brotliKiB": 2754.3,
+      "moreOptKiB": 9.9,
+      "moreBrotliKiB": 3.8
+    },
+    "live": {
+      "rawKiB": 13341.3,
+      "optKiB": 9854.8,
+      "brotliKiB": 2754.1,
+      "moreOptKiB": 13.8,
+      "moreBrotliKiB": 3.6
+    },
+    "live,custom-cells": {
+      "rawKiB": 13367.4,
+      "optKiB": 9875.1,
+      "brotliKiB": 2761.5,
+      "moreOptKiB": 34.1,
+      "moreBrotliKiB": 11,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.3,
+          "moreBrotliKiB": 7.4
+        },
+        "custom-cells": {
+          "moreOptKiB": 24.2,
+          "moreBrotliKiB": 7.2
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13352.7,
+      "optKiB": 9864.8,
+      "brotliKiB": 2757.4,
+      "moreOptKiB": 23.8,
+      "moreBrotliKiB": 6.9,
+      "against": {
+        "live": {
+          "moreOptKiB": 10,
+          "moreBrotliKiB": 3.3
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13331.1,
+      "optKiB": 9845.8,
+      "brotliKiB": 2751.9,
+      "moreOptKiB": 4.8,
+      "moreBrotliKiB": 1.4
+    },
+    "select": {
+      "rawKiB": 13364.7,
+      "optKiB": 9863.5,
+      "brotliKiB": 2754.5,
+      "moreOptKiB": 22.5,
+      "moreBrotliKiB": 4
+    },
+    "copy": {
+      "rawKiB": 13407.3,
+      "optKiB": 9897.2,
+      "brotliKiB": 2766,
+      "moreOptKiB": 56.2,
+      "moreBrotliKiB": 15.5,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.7,
+          "moreBrotliKiB": 11.5
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13420.2,
+      "optKiB": 9925.5,
+      "brotliKiB": 2772.5,
+      "moreOptKiB": 84.5,
+      "moreBrotliKiB": 22
+    },
+    "pin": {
+      "rawKiB": 13337.5,
+      "optKiB": 9851,
+      "brotliKiB": 2753.4,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 2.9
+    },
+    "density": {
+      "rawKiB": 13332.7,
+      "optKiB": 9847,
+      "brotliKiB": 2752.7,
+      "moreOptKiB": 6,
+      "moreBrotliKiB": 2.2
+    },
+    "format": {
+      "rawKiB": 13335.2,
+      "optKiB": 9848.4,
+      "brotliKiB": 2754,
+      "moreOptKiB": 7.4,
+      "moreBrotliKiB": 3.5
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 30
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 23,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 10
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 206
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 15
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    },
+    "density": {
+      "markers": {
+        "seiza_tall_table7density": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state7density": {
+          "base": 0,
+          "feature": 4
+        }
+      }
+    },
+    "format": {
+      "base": 0,
+      "feature": 18
+    }
+  },
+  "against": {
+    "commit": "758955d",
+    "then": {
+      "rawKiB": 13325.4,
+      "optKiB": 9841,
+      "brotliKiB": 2749.2
+    },
+    "now": {
+      "rawKiB": 13325.4,
+      "optKiB": 9841,
+      "brotliKiB": 2750.5
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": 1.3
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-DEVTa5TJ.wasm",
+    "optKiB": 9904.8,
+    "brotliKiB": 2769.5,
+    "moreBrotliKiB": 19
+  },
+  "failures": []
+}

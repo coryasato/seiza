@@ -45,6 +45,8 @@ pub use copy::{CopyFailure, CopyId, CopyOptions, CopyProgress, TallTableCopy};
 pub use delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 #[cfg(feature = "density")]
 pub use density::Density;
+#[cfg(feature = "format")]
+pub use format::{NumberFormat, Sign};
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
 #[cfg(feature = "custom-cells")]

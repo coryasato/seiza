@@ -46,6 +46,9 @@ pub struct TallTableColumn {
     /// Whether its header has an arrow to sort by it (`sort`).
     #[cfg(feature = "sort")]
     pub(crate) sortable: bool,
+    /// How its numbers are written (`format`); `None` for the automatic.
+    #[cfg(feature = "format")]
+    pub(crate) format: Option<crate::NumberFormat>,
 }
 
 /// A set width's least and most, unless a column sets its own (`resize`):
@@ -80,6 +83,20 @@ impl TallTableColumn {
             resizable: true,
             #[cfg(feature = "sort")]
             sortable: false,
+            #[cfg(feature = "format")]
+            format: None,
+        }
+    }
+
+    /// How its numbers are written (`format`): a float's value, and an
+    /// integer's or decimal's text (its sign, grouping, and suffix). A
+    /// text too wide for its cell shows the automatic format; a column of
+    /// any other kind ignores it.
+    #[cfg(feature = "format")]
+    pub fn format(self, format: crate::NumberFormat) -> Self {
+        Self {
+            format: Some(format),
+            ..self
         }
     }
 
@@ -193,6 +210,13 @@ impl TallTableColumn {
         }
     }
 
+    /// How its numbers are written (`format`), as set: `None` for the
+    /// automatic format.
+    #[cfg(feature = "format")]
+    pub fn number_format(&self) -> Option<&crate::NumberFormat> {
+        self.format.as_ref()
+    }
+
     pub fn name(&self) -> &SharedString {
         &self.name
     }
@@ -266,6 +290,9 @@ pub(crate) struct LaidOutColumn {
     pub(crate) kind: CellKind,
     /// How many characters a float may take ([`crate::format::fit_float`]).
     pub(crate) budget: usize,
+    /// Its format, its suffix measured (`format`; a numeric column's only).
+    #[cfg(feature = "format")]
+    pub(crate) format: Option<crate::format::ColumnFormat>,
 }
 
 /// A cell's horizontal padding (`px_2` on each side).
@@ -416,6 +443,8 @@ pub(crate) fn layout_columns(
                 width,
                 kind,
                 budget,
+                #[cfg(feature = "format")]
+                format: None,
             };
             x += width;
             laid_out

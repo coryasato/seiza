@@ -58,6 +58,11 @@ mod flash;
 #[cfg(feature = "density")]
 mod density;
 
+/// `format`: `cells.json`'s `format` section and its controls, and
+/// formatted columns drawn in a window.
+#[cfg(feature = "format")]
+mod format;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 
@@ -724,6 +729,8 @@ fn cell_mismatches(skew: isize, exact: fn(f64) -> String) -> Vec<String> {
                 width: 0.0,
                 kind: CellKind::Float,
                 budget,
+                #[cfg(feature = "format")]
+                format: None,
             };
             let (value, exact_text) = match cell["value"].as_str() {
                 Some(text) => {

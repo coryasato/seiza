@@ -6707,6 +6707,7 @@ dependencies = [
 name = "seiza-tall-table"
 version = "0.1.0"
 dependencies = [
+ "cosmic-text",
  "futures",
  "gpui-kit",
  "serde_json",

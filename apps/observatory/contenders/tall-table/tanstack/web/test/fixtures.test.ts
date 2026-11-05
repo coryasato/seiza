@@ -302,6 +302,10 @@ describe('cells.json', () => {
   // added only when both sides build resizing (root CLAUDE.md, "Comparison protocol").
   test('resize', { skip: 'the contender has no column resizing' }, () => {});
 
+  // `format` pins a formatted column's text: run once the contender
+  // formats (market watch's level).
+  test('format', { skip: 'the contender has no format' }, () => {});
+
   // Each scenario's file at its stop: the same text at the same budgets
   // (the budgets themselves are the layout's, `view.test.ts`).
   for (const scenario of Object.keys(fixture('cells.json').scenarios ?? {})) {

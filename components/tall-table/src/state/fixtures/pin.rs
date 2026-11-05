@@ -38,6 +38,8 @@ fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
                 width: *width,
                 kind: CellKind::Float,
                 budget: 1,
+                #[cfg(feature = "format")]
+                format: None,
             };
             x += width;
             column

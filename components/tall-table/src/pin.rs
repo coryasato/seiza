@@ -206,6 +206,8 @@ mod tests {
                     width: *width,
                     kind: CellKind::Float,
                     budget: 1,
+                    #[cfg(feature = "format")]
+                    format: None,
                 };
                 x += width;
                 column

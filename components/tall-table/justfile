@@ -144,7 +144,10 @@ smoke *args:
 # the order fixture, the arrows, the refusals, what a sort does, and the
 # paging fixture's sort scenario; `pin`: the geometry fixture and the
 # mappings' property test, and the pin in a window; `density`: the density
-# fixture, the density in a window, and the host's `?density=`), and all
+# fixture, the density in a window, and the host's `?density=`; `format`:
+# `cells.json`'s `format` section and its controls, Plex Sans shaped, the
+# format in a window, the host's format and page decimals, and again with
+# `resize`, its fit), and all
 # on (`copy`'s with `live` among them, `pin` with `resize`, `select`,
 # `sort`, and `custom-cells`, and `density` with `follow`, `resize`,
 # `sort`, and `select`, the fixtures pinned without it unchanged); in each, the random test of the paging
@@ -164,7 +167,9 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/sort
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/pin
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/density
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/format
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/format,tall-table-host/resize
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format
 
 # The random test of the paging soaked: `cases` cases for each of `seeds`
 # (`SEED`: a different set of cases each), every feature on, in a release

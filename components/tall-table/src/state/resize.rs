@@ -170,7 +170,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// rows, clamped: a numeric column to its widest exact text at the
     /// number advance (so a float's budget holds every digit), any other to
     /// its widest shown text, shaped. Emits the widths if they changed.
-    fn fit_column(&mut self, column: usize, window: &Window, cx: &mut Context<Self>) {
+    pub(super) fn fit_column(&mut self, column: usize, window: &Window, cx: &mut Context<Self>) {
         let (Some(info), Some(laid_out)) = (self.column_info.get(column), self.columns.get(column))
         else {
             return;
@@ -202,6 +202,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 continue;
             };
             let value = page.value(index, column).unwrap_or(CellValue::Null);
+            // A formatted text by its advances, plus the rule's pixel, even
+            // where it falls back now: room for it is what the fit is for
+            // (`format`).
+            #[cfg(feature = "format")]
+            if let Some(format) = &laid_out.format
+                && let Some((_, text_px)) = format.measure(
+                    &self.glyphs.advances,
+                    &value,
+                    super::page_decimals(laid_out, page, index, column),
+                )
+            {
+                widest = widest.max((text_px + padding + 1.0).ceil());
+                continue;
+            }
             let width = if laid_out.kind.numeric() && value != CellValue::Null {
                 // Rounded up to a whole pixel, so the budget it gives is
                 // never a hair short of the count.
