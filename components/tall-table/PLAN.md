@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M10 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (`reorder`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M10 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames) and M12 (`format`), asked for by the observatory's market watch on 2026-11-04 and next, each opening with its research, then M13 (`reorder`), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -29,11 +29,13 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M8 | `sort`: one column, ascending or descending | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
 | M9 | `pin`: columns fixed at the left | Done 2026-10-29 ([`docs/milestones.md`](docs/milestones.md)) |
 | M10 | `density`: a row height, a set column width, and a text size | Done 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)) |
-| M11 | `reorder`: drag a column to move it | Planned |
-| M12 | `context-menu`: right- and double-click events | Planned |
-| M13 | `group-headers`: header rows over column groups | Planned |
+| M11 | The flash's frames: a frame where only flashes moved, cheap (`live` with `custom-cells`) | Planned |
+| M12 | `format`: a number column's shown text set by its host | Planned |
+| M13 | `reorder`: drag a column to move it | Planned |
+| M14 | `context-menu`: right- and double-click events | Planned |
+| M15 | `group-headers`: header rows over column groups | Planned |
 
-One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
+One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features" (M11's, its section under "Follow-ups to built features"); its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
 
 **Closing a milestone:** every "done when" check passes; a milestone that changed the paging has passed `just tall-table soak` on its final build (`CLAUDE.md`, rule 5); the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting", below) to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
@@ -127,7 +129,7 @@ The observatory leads its comparison by scenarios, real uses (its [`docs/researc
 | `follow` | Follow the tail: the view stays at the last rows read while `set_rows` grows the source, and lets go when the reader scrolls up; a way back to it | Live tail | `live` (a grown tail page kept and read again; M4's research) | No (`set_rows` exists) | — (the contender's own, on its scroller) |
 | `live` | A host says "these rows changed"; their pages are re-read (or patched) and redrawn, the scroll unmoved | Market watch | — | Yes: the changed pages are read again | — (the contender's own, through its cache) |
 | `density` | Three numbers a host sets: the row height, a column's width without `resize`'s drag, and the cells' text size (a shorter row with the same text clips its glyphs); the padding and paint fitting them; defaults unchanged. A feature of its own, the width shared with `resize`'s model (M10 part A; its spec under "Active milestone"). Asked for 2026-10-30 | Wide sheet (its denser stops: today ~310–340 cells are on screen at 120 px × 30 px) | — | No | Row height and column widths in CSS (column sizing's `size`, no resizing) |
-| `format` | A number column's shown text set by its host: fixed decimals (`84.21`, `9.420`), a sign on a positive (`+0.37`), a suffix (`%`), thousands grouping (`4,400,000`); the value's exact text stays the tooltip's and the copy's. Defaults unchanged (today's exact text and `fit_float`). Asked for 2026-11-04 by market watch (the observatory's M10, which follows its design canvas's text); a draft, its research to settle where the format lives (`TallTableColumn`, beside `kind`), how a fixed format meets the column's width budget (cut, or the width from the widest formatted value), and the cell fixture's new cases | Market watch | — | No | The contender's formatter (`format.ts`), pinned by `cells.json`'s new cases |
+| `format` | A number column's shown text set by its host: fixed decimals (`84.21`, `9.420`), a sign on a positive (`+0.37`), a suffix (`%`), thousands grouping (`4,400,000`); the value's exact text stays the tooltip's and the copy's. Defaults unchanged (today's exact text and `fit_float`). Asked for 2026-11-04 by market watch (tall-table M12; the observatory's M10, which follows its design canvas's text); a draft, its research to settle where the format lives (`TallTableColumn`, beside `kind`), how a fixed format meets the column's width budget (cut, or the width from the widest formatted value), and the cell fixture's new cases | Market watch | — | No | The contender's formatter (`format.ts`), pinned by `cells.json`'s new cases |
 
 What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells), `density` (its denser stops), and `pin` (its key columns frozen), and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes) and `format` (its prices, changes, and volumes as its design draws them); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
 
@@ -149,7 +151,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 
 ### Order
 
-Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.) Since 2026-10-30, `density` goes after `pin`, ahead of `reorder` (below).
+Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.) Since 2026-10-30, `density` goes after `pin`, ahead of `reorder`; since 2026-11-04, the flash's frames and then `format` go after `density`, ahead of `reorder` (below).
 
 - **The scenarios' features first,** in the observatory's scenario order: the wide sheet (`custom-cells`), market watch (`live`, and `custom-cells` for its flash), live tail (`follow`). Each is small, none breaks the paging, and Tycho uses them too (a growing CSV, a refreshed query).
 - **Then Tycho's core:** `resize` first because `reorder` and `group-headers` build on its width model (and it moves `pin`'s edge); `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"), and they're the wide sheet's later steps; `sort` is the hardest: paging by row-group range stops working, and its research settles how the delegate reads pages in a sorted order.
@@ -163,7 +165,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None: M10 (`density`) closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Next: the flash's frames (a follow-up to `live` with `custom-cells`, asked for 2026-11-04: "Follow-ups to built features"), then `format` (asked the same day), each opening with its research; then `reorder` ("Order").
+None: M10 (`density`) closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Next: M11, the flash's frames (a follow-up to `live` with `custom-cells`, asked for 2026-11-04: "Follow-ups to built features"), then M12, `format` (asked the same day), each opening with its research; then M13, `reorder` ("Order").
 
 ---
 
@@ -181,7 +183,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 ### `live` with `custom-cells`: the flash's frames
 
-Asked for 2026-11-04 by the observatory's market watch ([its spike](../../apps/observatory/perf/results/2026-11-04-m10-a2.md)), ahead of `format` and `reorder` ("Order"): **a flash on screen costs a whole frame every frame.** While any flash fades, the table asks for every frame and draws every visible cell in it, so a screen where some cell always flashes (a market watch's prices) redraws the whole table at the display's rate: in the bare host at CPU 4×, ~17–22 ms a frame, the main thread saturated (994 ms a second) and 13–21% of frames late, where the same feed without the flash kept up (0% late). The DOM's flash (a cell's background animated by CSS, an animation per flashing cell) kept up there with three columns flashing up to 1k updates/s, and fell further behind than the table with as many flashing cells as the bare host's: the table's cost is a whole frame whatever flashes, the DOM's grows with what flashes. What its milestone settles, with its research first: making a frame in which only flashes moved cheap (the fade's quads redrawn without the cells' text and layout, or the rows that changed and the flashing cells alone), or fewer frames (a fade in steps, which `paint.json`'s sampled times would then pin); defaults and the fade's curve unchanged unless the research decides otherwise. **Its check:** the bare host's narrow shape under `?live=<rate>&flash` at CPU 4× keeps up (late frames within the spread of the feed without the flash), and the reference run's work a frame falls; measured per feature as every feature is.
+M11. Asked for 2026-11-04 by the observatory's market watch ([its spike](../../apps/observatory/perf/results/2026-11-04-m10-a2.md)), ahead of `format` and `reorder` ("Order"): **a flash on screen costs a whole frame every frame.** While any flash fades, the table asks for every frame and draws every visible cell in it, so a screen where some cell always flashes (a market watch's prices) redraws the whole table at the display's rate: in the bare host at CPU 4×, ~17–22 ms a frame, the main thread saturated (994 ms a second) and 13–21% of frames late, where the same feed without the flash kept up (0% late). The DOM's flash (a cell's background animated by CSS, an animation per flashing cell) kept up there with three columns flashing up to 1k updates/s, and fell further behind than the table with as many flashing cells as the bare host's: the table's cost is a whole frame whatever flashes, the DOM's grows with what flashes. What its milestone settles, with its research first: making a frame in which only flashes moved cheap (the fade's quads redrawn without the cells' text and layout, or the rows that changed and the flashing cells alone), or fewer frames (a fade in steps, which `paint.json`'s sampled times would then pin); defaults and the fade's curve unchanged unless the research decides otherwise. **Its check:** the bare host's narrow shape under `?live=<rate>&flash` at CPU 4× keeps up (late frames within the spread of the feed without the flash), and the reference run's work a frame falls; measured per feature as every feature is.
 
 ---
 
@@ -189,7 +191,7 @@ Asked for 2026-11-04 by the observatory's market watch ([its spike](../../apps/o
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-M11's (`reorder`) is written after its research, which opens it once M10 closes; until then its spec is its row under "Features".
+M11's (the flash's frames) is written after its research, which opens it; until then its spec is its section under "Follow-ups to built features". M12's (`format`) and M13's (`reorder`) follow, each written after its research once the one before closes; until then each one's spec is its row under "Features".
 
 ---
 
