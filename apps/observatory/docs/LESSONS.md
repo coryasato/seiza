@@ -311,3 +311,12 @@ One entry per milestone, written before starting the next one: what surprised us
 **Surprises:**
 - `worker-check` failed the deploy on the first file smaller than its reads. Its closed ranges were written for the asteroids' file (a 64 KiB footer, a 1 MiB readahead), so on market watch's 4 KiB file it asked for ranges outside the file. It then called the Worker's correct 416 and clamped 206s failures. A check's fixed sizes are an assumption about the data, and they held only until a file broke them.
 - Market watch is the lightest scenario on the wire, though it's the one that never stops updating: the feed lives in the frame's worker, so after the open's one page it sends no requests. Its reloads peak below either other scenario's.
+
+## M11 part A1: live tail's data, the replay's path, and the measures (2026-11-06)
+
+**Results:** [`perf/results/2026-11-06-m11-a1.md`](../perf/results/2026-11-06-m11-a1.md)
+
+**Surprises:**
+- The row group that suited the wide sheet doubles this file. At 2,048 rows a group the log is 19.1 MB against 9.3 at 30,720, and a page reads 7× slower natively: zstd does badly on a small group of short strings, and the footer grows with every group. A row group size is a property of the data, not a house setting.
+- The fastest replay is the one that can't stay on ranges. At 100k rows/s the tail needs a page about every frame, so reads by range would make the request count grow with the dial's rate, against the zone's rate limit and the Worker's billed requests. The live tail reads its file whole before the feed starts, the first scenario that does.
+- 1995's log isn't all text: 8 lines aren't UTF-8 and DuckDB refuses to read the file as Latin-1, so prep lets the reader skip only lines with bad encoding and fails on any other skip.

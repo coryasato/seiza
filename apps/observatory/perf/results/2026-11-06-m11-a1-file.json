@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-06",
+  "machine": "local",
+  "hardware": { "cpu": "Apple M1", "os": "Darwin 26.6.2 arm64" },
+  "engine": "native DuckDB (@duckdb/node-api, data/package-lock.json)",
+  "source": {
+    "file": "NASA_access_log_Jul95.gz",
+    "url": "https://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz",
+    "bytes": 20676672,
+    "sha256": "199109ed0f273e095da6ccd5fc9dc4cd8bb58daa06d62135e62090fea9d27488",
+    "lines": 1891714
+  },
+  "prep": {
+    "script": "data/prep-nasa.sql (draft)",
+    "linesRead": 1891707,
+    "rejectedNotUtf8": 8,
+    "parsed": 1891703,
+    "rows": 1890983,
+    "nullBytes": 19607,
+    "first": "1995-07-01 00:00:01",
+    "last": "1995-07-28 13:32:25",
+    "spanSeconds": 2381544,
+    "maxRequestChars": 333,
+    "maxBytes": 6823936,
+    "columns": { "time": "TIMESTAMP", "request": "VARCHAR", "status": "USMALLINT", "bytes": "UINTEGER" }
+  },
+  "pageRead": "1,024 rows by the page SQL at 40 places, parquet_metadata_cache on, p50",
+  "rowGroups": [
+    { "rowsPerGroup": 2048, "groups": 924, "bytes": 19112290, "footerBytes": 379905, "pageReadP50Ms": 13.83 },
+    { "rowsPerGroup": 4096, "groups": 462, "bytes": 13148222, "footerBytes": 202239, "pageReadP50Ms": 7.8 },
+    { "rowsPerGroup": 10240, "groups": 185, "bytes": 11166023, "footerBytes": 82701, "pageReadP50Ms": 2.61 },
+    { "rowsPerGroup": 30720, "groups": 62, "bytes": 9719404, "footerBytes": 27191, "pageReadP50Ms": 2.0, "sha256": "9bb2d937e7f0c6281d8724128debd61de1dffec3a2ba4899c0b8abdeacae0ca2", "builds": 2 },
+    { "rowsPerGroup": 122880, "groups": 16, "bytes": 8709110, "footerBytes": 7334, "pageReadP50Ms": 2.76 }
+  ]
+}
