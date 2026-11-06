@@ -18,6 +18,10 @@
 // - both: Big file's route, GPUI filled and flung, then the wide sheet's
 //   (the sidebar's link), the same: both files read inside one window.
 // - wide-reloads: the wide sheet's route reloaded 5 times, 1 s apart.
+// - market: market watch's route; GPUI fills at the default stop and runs
+//   under the feed for 2 s, then the dial through every other stop, the same
+//   at each; a flip to TanStack, the same from there: each side at every stop.
+// - market-reloads: market watch's route reloaded 5 times, 1 s apart.
 //
 // Every request counts, at the server: the page is served through a counting
 // proxy (shared-web/perf/serve.ts), since Playwright doesn't see the sync
@@ -27,7 +31,7 @@
 // production's: the safe side for a limit. A peak, not a timing, so one run
 // per scenario.
 //
-// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads]
+// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,market,market-reloads]
 // Run gpui-build, tanstack-build, and build first. Writes
 // perf/results/<date>-<label>.json.
 
@@ -38,7 +42,7 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { startCountingProxy } from '../../../shared-web/perf/serve.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { BIG_FILE, type Level, WIDE_SHEET } from '../contenders/scenarios.ts';
+import { BIG_FILE, type Level, MARKET_WATCH, type Scenario, WIDE_SHEET } from '../contenders/scenarios.ts';
 import { COMPONENTS, SCENARIO_LINK, scenarioPath } from '../web/src/components.ts';
 import { perfDir, protocolContext, servePage } from './harness.ts';
 
@@ -50,6 +54,9 @@ const only = option('only')?.split(',');
 const TALL_TABLE = COMPONENTS.find((component) => component.id === 'tall-table')!;
 const BIG_ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
 const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
+const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
+/** How long a market watch frame runs under the feed at each stop. */
+const FEED_MS = 2_000;
 
 /** The most of `times` (ms) inside any `WINDOW_MS`. */
 function peak(times: number[]): number {
@@ -110,18 +117,25 @@ async function flip(page: Page, to: 'GPUI' | 'TanStack'): Promise<void> {
 }
 
 /**
- * On the wide sheet's route: `side` filled at the stop it opens at (the
- * default for the first side; a flip keeps the stop), flung and jumped, then
- * flung at each other stop, each a new frame.
+ * On a scenario's route with a dial: `side` filled at the stop it opens at
+ * (the default for the first side; a flip keeps the stop) and used there,
+ * then used at each other stop, each a new frame. The wide sheet's use is a
+ * fling and a jump, then a fling; market watch's, the feed running a while.
  */
-async function dial(page: Page, side: 'gpui' | 'tanstack'): Promise<void> {
-  await play(page, side, ['fling', 'jump'], 'wide');
+async function dial(page: Page, side: 'gpui' | 'tanstack', scenario: Scenario): Promise<void> {
+  const use = async (first: boolean): Promise<void> => {
+    if (scenario.level === 'market') {
+      await play(page, side, [], 'market');
+      await page.waitForTimeout(FEED_MS);
+    } else await play(page, side, first ? ['fling', 'jump'] : ['fling'], scenario.level);
+  };
+  await use(true);
   const shown = await page.locator('[data-dial] [data-stop][aria-pressed="true"]').getAttribute('data-stop');
   if (!shown) throw new Error('no stop pressed on the dial');
-  for (const stop of WIDE_SHEET.stops.filter((stop) => stop.id !== shown)) {
+  for (const stop of scenario.stops.filter((stop) => stop.id !== shown)) {
     await settle(page);
     await page.locator(`[data-dial] [data-stop="${stop.id}"]`).click();
-    await play(page, side, ['fling'], 'wide');
+    await use(false);
   }
 }
 
@@ -149,9 +163,9 @@ const scenarios: Record<string, { route: string; run: (page: Page) => Promise<vo
   wide: {
     route: WIDE_ROUTE,
     run: async (page) => {
-      await dial(page, 'gpui');
+      await dial(page, 'gpui', WIDE_SHEET);
       await flip(page, 'TanStack');
-      await dial(page, 'tanstack');
+      await dial(page, 'tanstack', WIDE_SHEET);
       await page.waitForTimeout(2_000);
     },
   },
@@ -166,6 +180,16 @@ const scenarios: Record<string, { route: string; run: (page: Page) => Promise<vo
     },
   },
   'wide-reloads': { route: WIDE_ROUTE, run: reloads },
+  market: {
+    route: MARKET_ROUTE,
+    run: async (page) => {
+      await dial(page, 'gpui', MARKET_WATCH);
+      await flip(page, 'TanStack');
+      await dial(page, 'tanstack', MARKET_WATCH);
+      await page.waitForTimeout(2_000);
+    },
+  },
+  'market-reloads': { route: MARKET_ROUTE, run: reloads },
 };
 
 const unknown = only?.filter((name) => !(name in scenarios)) ?? [];

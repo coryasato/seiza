@@ -197,14 +197,21 @@ for (const [data, pinned] of Object.entries(dataFiles())) {
     common(`${data} bytes=0-0`, r);
   }
   // The header, the footer DuckDB reads first, a 1 MiB read like its
-  // readahead, and spots across the file (fixed, so runs compare).
-  const closed: [number, number][] = [
-    [0, 3],
-    [size - 8, size - 1],
-    [size - 65536, size - 1],
-    [1 << 20, (2 << 20) - 1],
-    ...[0.1, 0.37, 0.5, 0.9].map((f): [number, number] => [Math.floor(size * f), Math.floor(size * f) + 4095]),
-  ];
+  // readahead, and spots across the file (fixed, so runs compare). Each is
+  // kept inside the file, and one starting past its end is dropped, so a
+  // file smaller than a read (market watch's, a few KiB) asks only for
+  // ranges that exist.
+  const closed = (
+    [
+      [0, 3],
+      [size - 8, size - 1],
+      [size - 65536, size - 1],
+      [1 << 20, (2 << 20) - 1],
+      ...[0.1, 0.37, 0.5, 0.9].map((f): [number, number] => [Math.floor(size * f), Math.floor(size * f) + 4095]),
+    ] as [number, number][]
+  )
+    .map(([start, end]): [number, number] => [Math.max(0, start), Math.min(size - 1, end)])
+    .filter(([start, end]) => start <= end);
   for (const [start, end] of closed) {
     const name = `${data} bytes=${start}-${end}`;
     const header = `bytes=${start}-${end}`;

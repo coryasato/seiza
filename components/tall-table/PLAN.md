@@ -139,14 +139,8 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 
 | Feature | Waiting | Their note |
 |---|---|---|
-| `custom-cells` | Observatory: the wide sheet (heat and bar cells), then market watch (a cell flashing on change) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `live` | Observatory: market watch | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `density` | Observatory: the wide sheet's denser stops | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `pin` | Observatory: the wide sheet's key columns frozen | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `format` | Observatory: market watch's prices, changes, and volumes (its M10 part B) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| The flash's frames (M11: the cells' text from one element, on the base, so every host's build) | Observatory: market watch, before its part B (its M10) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order

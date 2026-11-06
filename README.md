@@ -7,7 +7,7 @@ The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than th
 The repo holds four kinds of thing:
 
 - **Utility apps:** tools meant to be used, each on its own subdomain and named for an astronomer. They grow into real tools.
-- **The observatory:** one comparison page, at seiza.io/observatory. It runs each component's base level against a 1:1 DOM equivalent (first GPUI | TanStack: React + TanStack Virtual), one at a time, on the same engine and data, measures what each costs over a session of use, and shows where each side wins.
+- **The observatory:** one comparison page, at seiza.io/observatory. It runs each component against a 1:1 DOM equivalent (first GPUI | TanStack: React + TanStack Virtual), one at a time, on the same engine and data, in scenarios of real use (a big file, a wide sheet, a market watch), measures what each costs over a session of use, and shows where each side wins.
 - **Components:** generic UI libraries in the style of GPUI Kit's components (a table, later others). A minimal base, plus capabilities like sorting as features a build turns on.
 - **Engines:** the data layers both sides of a comparison share (DuckDB-Wasm today).
 
@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component's base level in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): both contenders, the window's numbers, the meter; next, scenarios of real use, the wide sheet first |
+| [**Observatory**](apps/observatory/) | The comparison page: a component in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): three scenarios (Big file, Wide sheet, Market watch), both contenders, the window's numbers, the meter; next, live tail |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -43,7 +43,7 @@ Budgets gate the local release build only. Production numbers are recorded next 
 - **UI:** `gpui-kit`, pinned to an exact version (0.9.0) for every app, targeting `wasm32-unknown-unknown`. The pinned `Cargo.lock` holds the whole gpui family.
 - **Shared foundation:** `shared/` (crate `seiza`): the wasm bootstrap (fonts → init → first frame → post-paint hook), the window root (first-frame mark, system theme), the observation panel, and the page clock and marks. Title bars and theme toggles are each app's. `shared-web/`: the JS bootstrap, the Vite config with COOP/COEP headers, the static placeholder shell, the UI font, and the perf harness every app's scripts share.
 - **JS host:** a thin Vite layer per app. Logic lives in Rust unless it must touch a JS-only API.
-- **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io, and serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker. The observatory's Worker holds seiza.io itself; today it serves the observatory's data file, by byte range through the edge cache, since Workers static assets don't answer ranges.
+- **Hosting:** Cloudflare Workers (static assets + R2), cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`) in dev and production. Each utility app has its own Worker on its own subdomain of seiza.io, and serves its build precompressed at brotli quality 11, because Cloudflare's own compression is much weaker. The observatory's Worker holds seiza.io itself; today it serves the observatory's data files, by byte range through the edge cache, since Workers static assets don't answer ranges.
 
 ## Layout
 

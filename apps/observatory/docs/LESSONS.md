@@ -303,3 +303,11 @@ One entry per milestone, written before starting the next one: what surprised us
 - This tab's Shown in doesn't rank the sides as the cold runs do. The tab reads to the frame that draws a batch: about 12 ms on GPUI and 9 ms on TanStack, steady over four loads each. The cold runs read to the frame's presentation, 13.8 against 15.0 at 500 and even. TanStack's commit sits about 5 ms before its presentation at that stop (part D's mark → presentation), and a page can't see that without a trace. The explainer says what this tab reads, and the cold values sit beside it.
 - The page's own rAF loop, recording every frame under the feed for Smooth, didn't move either side's Shown in (GPUI 12.0–12.8 ms with it, 11.6–12.9 without; TanStack 8.6–9.5 both ways). The table's `live` latency had read ~20 ms against ~7 with a recorder's loop on the page. That was the bare host's invalidate → refreshed frame; here the feed is in a worker and the frame is a child of the page.
 - The rate stops' label ("1k updates/s") was the only thing that changed the base and wide level's TanStack builds: every build carries the whole scenario list, which `pickScenario` reads.
+
+## M10 part F: market watch shipped (2026-11-06)
+
+**Results:** [`perf/results/2026-11-06-m10-f.md`](../perf/results/2026-11-06-m10-f.md).
+
+**Surprises:**
+- `worker-check` failed the deploy on the first file smaller than its reads. Its closed ranges were written for the asteroids' file (a 64 KiB footer, a 1 MiB readahead), so on market watch's 4 KiB file it asked for ranges outside the file. It then called the Worker's correct 416 and clamped 206s failures. A check's fixed sizes are an assumption about the data, and they held only until a file broke them.
+- Market watch is the lightest scenario on the wire, though it's the one that never stops updating: the feed lives in the frame's worker, so after the open's one page it sends no requests. Its reloads peak below either other scenario's.
