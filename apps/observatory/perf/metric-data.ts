@@ -50,4 +50,6 @@ await runMetric<Run>(
     openMs: medianOf(runs, (run) => run.openMs),
     filledMarkMs: medianOf(runs, (run) => run.filledMarkMs),
   }),
+  {},
+  { levels: ['base', 'wide', 'market'] },
 );

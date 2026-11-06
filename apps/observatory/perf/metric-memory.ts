@@ -21,6 +21,12 @@
 // (GPUI's wasm memory grows to its peak and never shrinks; the DOM's frees
 // on a collection). Readings once open, once read, and at the end.
 //
+// On market watch's level (50 rows, one page), the equal work is the feed's:
+// `?ticks=FEED_TICKS` at the stop's rate, every tick folded and its last
+// re-read drawn on both devices (`__contender.batches`, `?measure`'s), then
+// `FLASH_WAIT_MS` for the last flash to fade. The open's reading comes once
+// the table has filled, the feed (which starts there) just under way.
+//
 // Memory once open and at the end, each as measured and again after a
 // forced garbage collection (what the page holds, not what it hasn't yet
 // collected): `performance.measureUserAgentSpecificMemory`, the page's own
@@ -38,8 +44,9 @@
 import type { Page, Request } from '@playwright/test';
 import { memoryOf, type MemoryEntry } from '../metrics/metrics.ts';
 import { SCROLLS } from '../metrics/metrics.ts';
-import { PAGE_ROWS, dataReads, fileFacts, filledState, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
+import { PAGE_ROWS, dataReads, fedTicks, fileFacts, filledState, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
 import { ENGINE_CHUNK } from './harness.ts';
+import type { RateStop } from '../contenders/scenarios.ts';
 
 /** The walk: its length, and each step, in pages (a step within the even prefetch's reach). */
 const WALK_PAGES = 144;
@@ -48,6 +55,11 @@ const STEP_PAGES = 4;
 const QUIET_MS = 1000;
 /** A scenario's sideways session: across every day and back, this many times. */
 const SIDEWAYS_TRIPS = 5;
+/** Market watch's session: the ticks the feed sends, then ends (20 s at
+ *  the default stop's 500 a second). */
+const FEED_TICKS = 10_000;
+/** After the last tick is drawn: its flash fades (the scenario's 400 ms). */
+const FLASH_WAIT_MS = 1000;
 /** The page's memory types the budgets' rows account for: the canvas's
  *  backing store apart, the rest "JavaScript". Any other fails the run. */
 const KNOWN_TYPES = new Set(['JavaScript', 'Canvas']);
@@ -143,9 +155,11 @@ await runMetric<Run>(
   'memory',
   async ({ side, profile, url, picked }) => {
     const requests: Request[] = [];
+    const market = picked?.scenario.level === 'market';
     let reads: ReturnType<typeof dataReads> | undefined;
     const session = await openSide(side, url, profile, {
       picked,
+      params: market ? { ticks: String(FEED_TICKS) } : {},
       init: [wasmRecorder],
       // Without it, the measurement waits for a garbage collection (up to 20 s).
       args: ['--enable-blink-features=ForceEagerMeasureMemory'],
@@ -163,8 +177,12 @@ await runMetric<Run>(
       if (!(await page.evaluate(() => crossOriginIsolated))) failures.push("the page isn't cross-origin isolated: no memory measurement");
       const { state: start } = await opened(session);
       const inFlight = reads!.inFlight;
+      // Market watch's feed starts at the fill: its open reading at once,
+      // before the devices' different waits fold different counts of ticks
+      // (its one page is read by then).
+      const open = market ? await both(page, session) : null;
       const cacheBytesOpen = await quiet(page, inFlight, QUIET_MS);
-      const open = await both(page, session);
+      const openReading = open ?? (await both(page, session));
       const wide = wideStop(picked);
       let read: Run['read'];
       if (wide) {
@@ -175,6 +193,10 @@ await runMetric<Run>(
           await gesture(session, { x: -days, speed: SCROLLS.sideways.speed });
           await gesture(session, { x: days, speed: SCROLLS.sideways.speed });
         }
+      } else if (market) {
+        // The feed's time at the stop's rate, twice over, and a minute.
+        await fedTicks(page, FEED_TICKS, (2 * FEED_TICKS * 1000) / (picked!.stop as RateStop).rate + 60_000);
+        await page.waitForTimeout(FLASH_WAIT_MS);
       } else {
         const lastPage = Math.ceil(start.rows / PAGE_ROWS) - 1;
         if (lastPage < WALK_PAGES) throw new Error(`the file has ${lastPage + 1} pages, fewer than the walk's ${WALK_PAGES}`);
@@ -189,7 +211,7 @@ await runMetric<Run>(
       }
       const cacheBytesEnd = await quiet(page, inFlight, QUIET_MS);
       const atEnd = await both(page, session);
-      for (const taken of [open.measured, open.afterGc, ...(read ? [read.measured, read.afterGc] : []), atEnd.measured, atEnd.afterGc])
+      for (const taken of [openReading.measured, openReading.afterGc, ...(read ? [read.measured, read.afterGc] : []), atEnd.measured, atEnd.afterGc])
         for (const type of Object.keys(taken.pageByType)) if (!KNOWN_TYPES.has(type)) failures.push(`page memory of an unaccounted type: ${type}`);
       const seen = expected.get(side);
       if (seen === undefined) expected.set(side, cacheBytesEnd);
@@ -206,7 +228,7 @@ await runMetric<Run>(
         const file = (files[fileOf(request.url())] ??= { kind, bytes: 0, encoding: (await request.response())?.headers()['content-encoding'] ?? null });
         file.bytes += size;
       }
-      return { open, ...(read ? { read } : {}), atEnd, cacheBytesOpen, cacheBytesEnd, dataReads: reads!.total(), files, bytes, failures };
+      return { open: openReading, ...(read ? { read } : {}), atEnd, cacheBytesOpen, cacheBytesEnd, dataReads: reads!.total(), files, bytes, failures };
     } finally {
       await session.close();
     }
@@ -247,5 +269,6 @@ await runMetric<Run>(
       filesKiB: Object.fromEntries(files.map((file) => [file, { kind: runs.find((run) => run.files[file])!.files[file]!.kind, encoding: runs.find((run) => run.files[file])!.files[file]!.encoding, kib: medianOf(runs, (run) => (run.files[file]?.bytes ?? 0) / 1024) }])),
     };
   },
-  (picked) => (picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
+  (picked) => (picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
+  { levels: ['base', 'wide', 'market'] },
 );

@@ -25,7 +25,7 @@ export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
-import { FLING_FRAMES, FRAME_MS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
+import { FLING_FRAMES, FRAME_MS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
 import { ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
 import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
@@ -143,13 +143,14 @@ export interface Session {
  * `profile`: Chromium headless=new, 1440×900 at DPR 2 with the DPR shim,
  * the scrollbars a person sees (Playwright hides them), `init` scripts
  * before the page's own. `before` runs on the page before it navigates
- * (a trace that must see the load starts there).
+ * (a trace that must see the load starts there); `params` join the query
+ * (market watch's `ticks`).
  */
 export async function openSide(
   side: Side,
   url: string,
   profile: Profile,
-  { init = [], args = [], before, picked }: { init?: (() => void)[]; args?: string[]; before?: (page: Page, browser: Browser) => Promise<void>; picked?: Picked | null } = {},
+  { init = [], args = [], before, picked, params = {} }: { init?: (() => void)[]; args?: string[]; before?: (page: Page, browser: Browser) => Promise<void>; picked?: Picked | null; params?: Record<string, string> } = {},
 ): Promise<Session> {
   const browser = await chromium.launch({ channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'], args });
   try {
@@ -158,7 +159,8 @@ export async function openSide(
     const found = problems(page);
     await throttle(context, page, profile);
     await before?.(page, browser);
-    await page.goto(`${url}?${measureQuery(picked)}`);
+    const extra = new URLSearchParams(params).toString();
+    await page.goto(`${url}?${measureQuery(picked)}${extra ? `&${extra}` : ''}`);
     return { side, profile, page, context, browser, problems: found, close: () => browser.close() };
   } catch (error) {
     await browser.close();
@@ -392,6 +394,25 @@ export async function readWhole(session: Session, inFlight: () => number): Promi
   return quiet(page, inFlight);
 }
 
+// ---------------------------------------------------------------- a feed
+
+/** Until the feed has folded exactly `ticks` (`?ticks`, its limit) and the
+ *  re-read of its last batch is drawn (`__contenderRefreshed` reaching the
+ *  batch's generation; both with `?measure`). */
+export async function fedTicks(page: Scope, ticks: number, timeout: number): Promise<void> {
+  await page.waitForFunction(
+    (ticks) => {
+      const g = globalThis as { __contender?: { batches?: FeedBatch[] }; __contenderRefreshed?: number };
+      const batches = g.__contender?.batches ?? [];
+      const folded = batches.reduce((sum, [, count]) => sum + count, 0);
+      const last = batches.at(-1)?.[3] ?? 0;
+      return folded === ticks && (g.__contenderRefreshed ?? 0) >= last;
+    },
+    ticks,
+    { timeout, polling: 50 },
+  );
+}
+
 // ---------------------------------------------------------------- the file's facts
 
 /** `count(*)` and the last row's key (its first column, as the contenders'
@@ -440,6 +461,7 @@ const PORTS: Record<string, [number, number]> = {
   reach: [4330, 4331],
   cost: [4332, 4333],
   memory: [4335, 4336],
+  feed: [4366, 4367],
 };
 
 /**

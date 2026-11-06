@@ -402,6 +402,133 @@ export function drewShare(drawn: readonly number[], refreshMs = FRAME_MS): DrewS
  *  runs) at or over `KEEPS_UP_SHARE`; the slower sets it. */
 export const keepsUp = (down: number, sideways: number): boolean => Math.min(down, sideways) >= KEEPS_UP_SHARE;
 
+// ---------------------------------------------------------------- under a feed (market watch's stops)
+
+/** A batch as the store folded it (`__contender.batches`, the contract's
+ *  "State"): its sequence, ticks, the worker's send stamp (epoch ms), the
+ *  generation its rows' re-read carries (0: none), and whether a tick
+ *  reached a row on screen. */
+export type FeedBatch = readonly [seq: number, ticks: number, sent: number, generation: number, visible: number];
+
+/** A `contender:refreshed` mark (page ms) and the generation drawn then
+ *  (`__contenderRefreshed`, raised before the mark). */
+export type RefreshedFrame = readonly [at: number, generation: number];
+
+/** A visible batch and the frame that first drew it, page ms. */
+export interface BatchShown {
+  sent: number;
+  mark: number;
+}
+
+export interface FeedFrames {
+  /** The batches sent in the window. */
+  sent: number;
+  /** Those with a tick to a row on screen. */
+  visible: number;
+  /** Those paired with the first refreshed frame that drew them, in the window. */
+  shown: BatchShown[];
+  /** The distinct frames among them: the frames that showed a batch. */
+  frames: number;
+  /** The display's frames in the window. */
+  displayFrames: number;
+  /** "Keeps up" under a feed: `frames` over the lesser of `visible` and
+   *  `displayFrames`, at most 1 (`docs/DECISIONS.md`, "Measurement"): under
+   *  1, batches were coalesced and the view ran behind the feed. */
+  share: number;
+}
+
+/**
+ * The batches of a feed's window (`from`–`to`, page ms) and the frames that
+ * drew them: each visible batch's frame is the first refreshed mark at or
+ * after its send whose generation reaches the batch's (the contract's
+ * "Shown in, under a feed"). A batch with no tick on screen draws nothing
+ * and isn't counted; one whose frame falls past `to` isn't paired.
+ * `timeOrigin` turns the worker's epoch stamps into page ms.
+ */
+export function feedFrames(batches: readonly FeedBatch[], refreshed: readonly RefreshedFrame[], timeOrigin: number, from: number, to: number, refreshMs = FRAME_MS): FeedFrames {
+  const inWindow = batches.map(([, , sent, generation, seen]) => ({ sent: sent - timeOrigin, generation, seen })).filter(({ sent }) => sent >= from && sent <= to);
+  const visible = inWindow.filter(({ generation, seen }) => seen && generation > 0);
+  // Both lists are in time order and each one's generations only rise, so
+  // a batch's frame is never before the last batch's: one pass.
+  const shown: BatchShown[] = [];
+  let next = 0;
+  for (const batch of visible) {
+    while (next < refreshed.length && (refreshed[next]![0] < batch.sent || refreshed[next]![1] < batch.generation)) next++;
+    const frame = refreshed[next];
+    if (frame && frame[0] <= to) shown.push({ sent: batch.sent, mark: frame[0] });
+  }
+  const frames = new Set(shown.map(({ mark }) => mark)).size;
+  const displayFrames = (to - from) / refreshMs;
+  const most = Math.min(visible.length, displayFrames);
+  return { sent: inWindow.length, visible: visible.length, shown, frames, displayFrames: round(displayFrames), share: most > 0 ? Math.min(1, frames / most) : 0 };
+}
+
+export interface ShownIn {
+  /** Each paired batch's send → the presentation of its frame, ms. */
+  ms: number[];
+  /** Its send → its frame's mark, ms. */
+  toMark: number[];
+  /** Its frame's mark → that frame's presentation, ms: the run's frame
+   *  scheduling state (a run settles a frame or so from another). */
+  toPresent: number[];
+  /** Pairs whose frame has no presentation in the trace. */
+  unpresented: number;
+}
+
+/** Shown in (the contract's "Shown in, under a feed"): each batch's send
+ *  to the presentation of the animation frame holding its frame's mark
+ *  (`Trace.presentationOf`). */
+export function shownIn(trace: Trace, shown: readonly BatchShown[]): ShownIn {
+  const out: ShownIn = { ms: [], toMark: [], toPresent: [], unpresented: 0 };
+  for (const { sent, mark } of shown) {
+    const presented = trace.presentationOf(trace.toTrace(mark));
+    if (!presented) {
+      out.unpresented++;
+      continue;
+    }
+    const at = trace.toPage(presented.at);
+    out.ms.push(at - sent);
+    out.toMark.push(mark - sent);
+    out.toPresent.push(at - mark);
+  }
+  return out;
+}
+
+export interface Collections {
+  /** V8's collections on the main thread in the window (`MinorGC`, `MajorGC`). */
+  count: number;
+  minor: number;
+  major: number;
+  totalMs: number;
+  longestMs: number;
+  /** Those overlapping a late frame: a display interval (between two
+   *  animation frames) over `LATE_FACTOR` frames. */
+  inLateFrame: number;
+}
+
+/** Collection pauses (`docs/DECISIONS.md`, "Measurement"): V8's collections
+ *  on the main thread between `from` and `to` (page ms), and how many
+ *  overlap a late frame of `frameTimes` (the animation frames' times, page
+ *  ms, in order). */
+export function collections(trace: Trace, from: number, to: number, frameTimes: readonly number[], refreshMs = FRAME_MS): Collections {
+  const gcs = trace.mainThread(trace.toTrace(from), trace.toTrace(to)).filter((event) => event.name === 'MinorGC' || event.name === 'MajorGC');
+  const late: [number, number][] = [];
+  for (let index = 1; index < frameTimes.length; index++) if (frameTimes[index]! - frameTimes[index - 1]! > LATE_FACTOR * refreshMs) late.push([frameTimes[index - 1]!, frameTimes[index]!]);
+  const durations = gcs.map((event) => (event.dur ?? 0) / 1000);
+  const inLateFrame = gcs.filter((event) => {
+    const [start, end] = [trace.toPage(event.ts), trace.toPage(event.ts + (event.dur ?? 0))];
+    return late.some(([a, b]) => start < b && end > a);
+  }).length;
+  return {
+    count: gcs.length,
+    minor: gcs.filter((event) => event.name === 'MinorGC').length,
+    major: gcs.filter((event) => event.name === 'MajorGC').length,
+    totalMs: round(durations.reduce((sum, ms) => sum + ms, 0)),
+    longestMs: round(Math.max(0, ...durations)),
+    inLateFrame,
+  };
+}
+
 // ---------------------------------------------------------------- memory
 
 /** One entry of `performance.measureUserAgentSpecificMemory()`'s breakdown. */

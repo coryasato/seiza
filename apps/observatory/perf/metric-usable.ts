@@ -70,4 +70,6 @@ await runMetric<Run>(
     guarded: runs.some((run) => run.guarded !== null) ? `${runs.filter((run) => run.guarded).length}/${runs.length}` : null,
     firstPixelsMs: medianOf(runs, (run) => run.firstPixelsMs),
   }),
+  {},
+  { levels: ['base', 'wide', 'market'] },
 );
