@@ -2399,6 +2399,1160 @@
         }
       ],
       "show": ["readme:wide-sheet"]
+    },
+    {
+      "id": "market-watch-100-keeps-reference",
+      "label": "Market watch at 100 updates/s: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-late-reference",
+      "label": "Market watch at 100 updates/s: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-shown-reference",
+      "label": "Market watch at 100 updates/s: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-shown-min-reference",
+      "label": "Market watch at 100 updates/s: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-shown-max-reference",
+      "label": "Market watch at 100 updates/s: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collections-reference",
+      "label": "Market watch at 100 updates/s: collection pauses in 10 s, reference",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-work-reference",
+      "label": "Market watch at 100 updates/s: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-keeps-throttled",
+      "label": "Market watch at 100 updates/s: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-late-throttled",
+      "label": "Market watch at 100 updates/s: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-shown-throttled",
+      "label": "Market watch at 100 updates/s: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-shown-min-throttled",
+      "label": "Market watch at 100 updates/s: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-shown-max-throttled",
+      "label": "Market watch at 100 updates/s: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collections-throttled",
+      "label": "Market watch at 100 updates/s: collection pauses in 10 s, throttled",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-work-throttled",
+      "label": "Market watch at 100 updates/s: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-keeps-reference",
+      "label": "Market watch at 500 updates/s: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-late-reference",
+      "label": "Market watch at 500 updates/s: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-shown-reference",
+      "label": "Market watch at 500 updates/s: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-shown-min-reference",
+      "label": "Market watch at 500 updates/s: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-shown-max-reference",
+      "label": "Market watch at 500 updates/s: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collections-reference",
+      "label": "Market watch at 500 updates/s: collection pauses in 10 s, reference",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-work-reference",
+      "label": "Market watch at 500 updates/s: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-keeps-throttled",
+      "label": "Market watch at 500 updates/s: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-late-throttled",
+      "label": "Market watch at 500 updates/s: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-shown-throttled",
+      "label": "Market watch at 500 updates/s: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-shown-min-throttled",
+      "label": "Market watch at 500 updates/s: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-shown-max-throttled",
+      "label": "Market watch at 500 updates/s: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collections-throttled",
+      "label": "Market watch at 500 updates/s: collection pauses in 10 s, throttled",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-work-throttled",
+      "label": "Market watch at 500 updates/s: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-keeps-reference",
+      "label": "Market watch at 1k updates/s: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-late-reference",
+      "label": "Market watch at 1k updates/s: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-shown-reference",
+      "label": "Market watch at 1k updates/s: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-shown-min-reference",
+      "label": "Market watch at 1k updates/s: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-shown-max-reference",
+      "label": "Market watch at 1k updates/s: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collections-reference",
+      "label": "Market watch at 1k updates/s: collection pauses in 10 s, reference",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-work-reference",
+      "label": "Market watch at 1k updates/s: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-keeps-throttled",
+      "label": "Market watch at 1k updates/s: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-late-throttled",
+      "label": "Market watch at 1k updates/s: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-shown-throttled",
+      "label": "Market watch at 1k updates/s: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-shown-min-throttled",
+      "label": "Market watch at 1k updates/s: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-shown-max-throttled",
+      "label": "Market watch at 1k updates/s: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collections-throttled",
+      "label": "Market watch at 1k updates/s: collection pauses in 10 s, throttled",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-work-throttled",
+      "label": "Market watch at 1k updates/s: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-keeps-reference",
+      "label": "Market watch at 5k updates/s: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-late-reference",
+      "label": "Market watch at 5k updates/s: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-shown-reference",
+      "label": "Market watch at 5k updates/s: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-shown-min-reference",
+      "label": "Market watch at 5k updates/s: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-shown-max-reference",
+      "label": "Market watch at 5k updates/s: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collections-reference",
+      "label": "Market watch at 5k updates/s: collection pauses in 10 s, reference",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-work-reference",
+      "label": "Market watch at 5k updates/s: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-keeps-throttled",
+      "label": "Market watch at 5k updates/s: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-late-throttled",
+      "label": "Market watch at 5k updates/s: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-shown-throttled",
+      "label": "Market watch at 5k updates/s: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-shown-min-throttled",
+      "label": "Market watch at 5k updates/s: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-shown-max-throttled",
+      "label": "Market watch at 5k updates/s: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collections-throttled",
+      "label": "Market watch at 5k updates/s: collection pauses in 10 s, throttled",
+      "unit": "n",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-work-throttled",
+      "label": "Market watch at 5k updates/s: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-usable-reference",
+      "label": "Market watch: time to first usable (500 updates/s), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-first-pixels-reference",
+      "label": "Market watch: first pixels (500 updates/s), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-data-reference",
+      "label": "Market watch: time to data (500 updates/s), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-memory-open-reference",
+      "label": "Market watch: memory once open, after GC (500 updates/s), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-memory-reference",
+      "label": "Market watch: memory once the feed’s 10,000 ticks are drawn (JavaScript, after GC) (500 updates/s), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-usable-throttled",
+      "label": "Market watch: time to first usable (500 updates/s), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-first-pixels-throttled",
+      "label": "Market watch: first pixels (500 updates/s), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-data-throttled",
+      "label": "Market watch: time to data (500 updates/s), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-memory-open-throttled",
+      "label": "Market watch: memory once open, after GC (500 updates/s), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-memory-throttled",
+      "label": "Market watch: memory once the feed’s 10,000 ticks are drawn (JavaScript, after GC) (500 updates/s), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": []
     }
   ]
 }

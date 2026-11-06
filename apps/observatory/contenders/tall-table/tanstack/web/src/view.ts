@@ -276,9 +276,9 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       };
     }, [paging]);
     useLayoutEffect(() => {
-      if (!measured || !market) return;
+      if (!market || !(measured || market.readout)) return;
       const drawn = market.refreshed();
-      if (drawn === null) return;
+      if (drawn === null || !measured) return;
       (globalThis as { __contenderRefreshed?: number }).__contenderRefreshed = drawn;
       performance.mark(MARKS.refreshed);
     });

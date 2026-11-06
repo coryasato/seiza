@@ -152,8 +152,9 @@ export const WIDE_SHEET: WideScenario = {
   },
 };
 
-/** A market watch's stop, named and labelled by its rate as the dial says it. */
-const rateStop = (label: string, rate: number): RateStop => ({ id: label, label, rate });
+/** A market watch's stop, named by its rate as the dial says it ("1k"),
+ *  its label with the unit ("1k updates/s"). */
+const rateStop = (id: string, rate: number): RateStop => ({ id, label: `${id} updates/s`, rate });
 
 /**
  * Market watch (`docs/DECISIONS.md`, "Scenarios"): 50 fictional
@@ -186,7 +187,7 @@ export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_
 /** The scenarios the page shows: a scenario joins once both sides build its
  *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The
  *  page's routes and cold numbers read it. */
-export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET];
+export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH];
 
 /** The levels each side builds, the base first: a level joins a side with
  *  its build there. What builds, serves, sizes, and stages each side's

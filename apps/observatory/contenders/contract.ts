@@ -67,6 +67,19 @@ export const MARKS = {
 /** Whether the page was opened for measuring (`?measure`). */
 export const measuring = (): boolean => new URLSearchParams(location.search).has('measure');
 
+/** The observatory's page's parameter on a feed's frame (never a bare cold
+ *  run's): the frame keeps its last `SHOWN_RING` visible batches' Shown in
+ *  on `__contender.shownIn` for the page's readout (`docs/contender-contract.md`,
+ *  "The readout's ring"). */
+export const READOUT_PARAM = 'readout';
+export const readingOut = (): boolean => new URLSearchParams(location.search).has(READOUT_PARAM);
+
+/** The ring's samples: a `Float64Array` of `1 + 2 * SHOWN_RING`, its first
+ *  element the samples written so far, then (drawn at, ms) pairs, epoch ms:
+ *  sample `n` at `1 + 2 * (n % SHOWN_RING)`. The GPUI contender's `feed.rs`
+ *  holds the same layout. */
+export const SHOWN_RING = 512;
+
 /**
  * Publishes `globalThis.__contender` (`state` stays null until the side
  * publishes one, and without `?measure` for good), and relays every

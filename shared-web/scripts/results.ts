@@ -9,7 +9,7 @@ import { join, matchesGlob } from 'node:path';
 
 export type Json = Record<string, any>;
 export type Origin = 'local' | 'production';
-export type Source = string | { baseline: string } | { glob: string; path?: string; sum?: string[]; where?: Record<string, unknown> };
+export type Source = string | { baseline: string } | { glob: string; path?: string; sum?: string[]; of?: 'min' | 'max'; where?: Record<string, unknown> };
 export type Slot = Source | Source[];
 
 export interface Metric {
@@ -152,12 +152,18 @@ export class Reporter {
     }
     const paths = source.sum ?? (source.path ? [source.path] : []);
     const where = Object.entries(source.where ?? {});
+    // With `of`, the path is an array of numbers, read as its least or greatest.
+    const numeric = (value: unknown) => (source.of ? Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'number') : typeof value === 'number');
     const file = this.newest(
       source.glob,
-      (f) => matchesGlob(f.name, source.glob) && paths.every((p) => originAt(f, p) === origin) && paths.every((p) => typeof at(f.json, p) === 'number') && where.every(([p, v]) => at(f.json, p) === v),
+      (f) => matchesGlob(f.name, source.glob) && paths.every((p) => originAt(f, p) === origin) && paths.every((p) => numeric(at(f.json, p))) && where.every(([p, v]) => at(f.json, p) === v),
     );
     if (!file) return undefined;
-    const value = source.sum ? paths.reduce((total, p) => total + (at(file.json, p) as number), 0) : at(file.json, paths[0] ?? '');
+    const value = source.sum
+      ? paths.reduce((total, p) => total + (at(file.json, p) as number), 0)
+      : source.of
+        ? Math[source.of](...(at(file.json, paths[0] ?? '') as number[]))
+        : at(file.json, paths[0] ?? '');
     return { value, from: `results/${file.name}`, date: file.date };
   }
 

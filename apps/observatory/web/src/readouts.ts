@@ -13,8 +13,8 @@
 import { KEEPS_UP_SHARE, SCROLLS, type LiveReadings } from '../../metrics/metrics.ts';
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
-import { BIG_FILE, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { isDensity, stopShort } from './components.ts';
+import { BIG_FILE, MARKET_WATCH, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { isDensity, isRate, stopShort } from './components.ts';
 
 export type Profile = 'reference' | 'throttled';
 export const PROFILES: Profile[] = ['reference', 'throttled'];
@@ -35,7 +35,8 @@ export interface Card {
   /** The status bar's label, and the card's. */
   segment: string;
   label: string;
-  unit: 'ms' | '%' | 'MiB';
+  /** A count has none (''). */
+  unit: 'ms' | '%' | 'MiB' | '';
   better: 'lower' | 'higher';
   /** The cold value as shown: Smoothness is the frames on time, 100 less the
    *  late share. The verdict judges the metric as measured (`cardOutcome`). */
@@ -56,6 +57,10 @@ export interface Card {
   caption?: string;
   /** The explainer: what the number means, then how it's measured. */
   explain: string;
+  /** Its metric's fastest and slowest runs (`<metric>-min`, `<metric>-max`):
+   *  a side wins only where the two sides' runs don't overlap (Shown in's
+   *  rule, `docs/DECISIONS.md`, "Measurement"). */
+  apart?: boolean;
 }
 
 const on = (share: number) => Number((100 - share * 100).toFixed(1));
@@ -191,6 +196,72 @@ export const WIDE_STOP_CARDS: Card[] = [
   { ...WIDE_CARDS.find((card) => card.key === 'memory')!, caption: 'After the sideways session' },
 ];
 
+/** "Shown in"'s explainer: what it reads in this tab and cold. */
+const SHOWN_EXPLAIN =
+  'From the feed sending a price change to the first frame that draws it: in this tab, the middle of the last 5 seconds, from the frame’s own clock. The feed stamps each batch as it sends it, and the side notes the frame that first draws it. Cold: the middle run’s median, to the frame on screen, at this stop. A side is faster only where its runs and the other’s don’t overlap.';
+
+/** Market watch's status bar (the design canvas's): Ready in, Shown in,
+ *  Smooth, and Memory; Shown in and Smooth at the window's stop. */
+export const MARKET_CARDS: Card[] = [
+  { ...card('usable'), metric: 'usable' },
+  {
+    key: 'shown',
+    metric: 'shown',
+    perStop: true,
+    segment: 'Shown in',
+    label: 'Update shown in',
+    unit: 'ms',
+    better: 'lower',
+    shown: (cold) => cold,
+    word: 'faster',
+    ratio: true,
+    apart: true,
+    live: (readings) => readings.shownMs,
+    waiting: 'waiting for the feed',
+    caption: 'The middle of the batches',
+    explain: SHOWN_EXPLAIN,
+  },
+  {
+    ...card('smooth'),
+    metric: 'late',
+    perStop: true,
+    live: (readings) => (readings.scrolling ? on(readings.scrolling.lateShare) : null),
+    waiting: 'measuring',
+    caption: 'Under the feed',
+    explain:
+      'The share of frames on time while the feed runs and you scroll. A frame is late when it takes longer than one and a half of your display’s frames: 25 ms at 60 Hz, 12.5 ms at 120 Hz. Counted on the page’s own thread. Cold: 10 seconds of the feed at this stop.',
+  },
+  {
+    ...card('memory'),
+    metric: 'memory',
+    caption: 'After the feed’s 10,000 ticks',
+    explain:
+      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: once each side has drawn the feed’s first 10,000 ticks, at the default stop; this tab’s is now.',
+  },
+];
+
+/** Market watch's cards at a stop, under its keeps-up charts (the design
+ *  canvas's): Smoothness, Update shown in, and Collection pauses in 10 s. */
+export const MARKET_STOP_CARDS: Card[] = [
+  { ...MARKET_CARDS.find((card) => card.key === 'smooth')!, live: undefined },
+  { ...MARKET_CARDS.find((card) => card.key === 'shown')!, live: undefined },
+  {
+    key: 'collections',
+    metric: 'collections',
+    perStop: true,
+    segment: 'Collections',
+    label: 'Collection pauses in 10 s',
+    unit: '',
+    better: 'lower',
+    shown: (cold) => cold,
+    word: 'pauses less',
+    ratio: false,
+    caption: 'Under the feed',
+    explain:
+      'How often the page’s garbage collector ran in 10 seconds of the feed: JavaScript’s objects are collected, and each collection pauses the page’s thread; WebAssembly’s memory isn’t collected. Read from Chromium’s trace, cold; a page can’t read them.',
+  },
+];
+
 /** A scenario's status bar cards. */
 export const cardsOf = (scenario: Scenario): Card[] => numbersOf(scenario).cards;
 
@@ -201,7 +272,7 @@ export const metricPrefix = (scenario: Scenario): string => (scenario.level === 
 /** A cold value's key in a scenario's numbers: its metric less the
  *  scenario's prefix, its stop's first when measured per stop. */
 export const coldKey = (metric: string, profile: Profile, stop?: string): string => (stop ? `${stop}-${metric}-${profile}` : `${metric}-${profile}`);
-const cardKey = (card: Card, profile: Profile, stop?: string) => coldKey(card.metric, profile, card.perStop ? stop : undefined);
+const cardKey = (card: Card, profile: Profile, stop?: string, metric = card.metric) => coldKey(metric, profile, card.perStop ? stop : undefined);
 
 
 /** The chart's rows: input to visible response, cold. `native`: the rows a
@@ -235,7 +306,8 @@ export function metricsOf(scenario: Scenario): { id: string; key: string }[] {
 /** The values a scenario's numbers derive from the measured ones: at each
  *  stop, "keeps up"'s share, the slower of the steady scrolls (`keepsUp`). */
 export function derive(scenario: Scenario, values: ScenarioCold['values']): ScenarioCold['values'] {
-  if (!numbersOf(scenario).stopCards) return values;
+  // A feed's keeps up is measured as one share (`metric feed`).
+  if (!numbersOf(scenario).stopCards || scenario.level !== 'wide') return values;
   const out = { ...values };
   for (const stop of scenario.stops)
     for (const profile of PROFILES) {
@@ -312,16 +384,50 @@ const filesOf = (scenario: Scenario): { parts: Record<Side, Part[]>; sources: Re
  *  keeps-up charts (Big file's panel without them: its cards and chart). */
 interface ScenarioNumbers {
   cards: Card[];
+  /** The status bar's cards on a phone; the rest go in its overflow menu. */
+  phone: string[];
   once: string[];
   perStop: string[];
   parts: Record<Side, Part[]>;
   sources: Record<string, Source>;
   stopCards?: Card[];
+  /** A scenario with stops: what "keeps up" reads at a stop, in the panel's
+   *  explainer and its chart's label, and its win in "where each side wins". */
+  keeps?: { reads: string; explain: string; won: string };
 }
 
+/** The status bar's cards on a phone, by default. */
+const PHONE = ['smooth', 'memory'];
+
 const NUMBERS: Record<string, ScenarioNumbers> = {
-  [BIG_FILE.id]: { cards: CARDS, once: [...CARDS, ...BARS].map(({ metric }) => metric), perStop: [], parts: PARTS, sources: PART_SOURCES },
-  [WIDE_SHEET.id]: { cards: WIDE_CARDS, once: ['usable', 'data', 'memory'], perStop: ['down', 'sideways', 'fast', 'down-work'], ...filesOf(WIDE_SHEET), stopCards: WIDE_STOP_CARDS },
+  [BIG_FILE.id]: { cards: CARDS, phone: PHONE, once: [...CARDS, ...BARS].map(({ metric }) => metric), perStop: [], parts: PARTS, sources: PART_SOURCES },
+  [WIDE_SHEET.id]: {
+    cards: WIDE_CARDS,
+    phone: PHONE,
+    once: ['usable', 'data', 'memory'],
+    perStop: ['down', 'sideways', 'fast', 'down-work'],
+    ...filesOf(WIDE_SHEET),
+    stopCards: WIDE_STOP_CARDS,
+    keeps: {
+      reads: 'the share of the display’s frames that drew new cells',
+      explain: 'of the display’s frames draw new cells in a steady scroll down and in one sideways; the slower of the two is drawn. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in.',
+      won: 'keeps up with more cells on screen',
+    },
+  },
+  [MARKET_WATCH.id]: {
+    cards: MARKET_CARDS,
+    // The design canvas's phone: Shown in and Smooth.
+    phone: ['shown', 'smooth'],
+    once: ['usable', 'memory'],
+    perStop: ['keeps', 'late', 'shown', 'shown-min', 'shown-max', 'collections'],
+    ...filesOf(MARKET_WATCH),
+    stopCards: MARKET_STOP_CARDS,
+    keeps: {
+      reads: 'the share of the feed’s batches shown in a frame of their own',
+      explain: 'of the feed’s batches that change a row on screen are each shown in a frame of their own (over the display’s frames, where batches outnumber them), in 10 seconds of the feed. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in.',
+      won: 'keeps up with more updates a second',
+    },
+  },
 };
 
 /** A scenario's numbers' shape; a scenario without one fails the build (`cold.ts`). */
@@ -372,7 +478,7 @@ export const EVEN = 0.05;
 export const number = (value: number): string => (Math.abs(value) >= 100 ? String(Math.round(value)) : String(Number(value.toFixed(1))));
 
 /** A reading with its unit: "41.7 ms", "99.1 %". */
-export const withUnit = (value: number, unit: string): string => `${number(value)} ${unit}`;
+export const withUnit = (value: number, unit: string): string => (unit ? `${number(value)} ${unit}` : number(value));
 
 /** KiB as a page size: MiB from 1 MiB, one decimal; whole KiB below. */
 export const size = (kib: number): string => (kib >= 1024 ? `${(kib / 1024).toFixed(1)} MiB` : `${Math.round(kib)} KiB`);
@@ -418,7 +524,11 @@ export function verdict(fast: Outcome, slow: Outcome | null, word: string, ratio
 export const cardOutcome = (card: Card, values: ScenarioCold['values'], profile: Profile, stop?: string): Outcome => {
   const judged = card.judged ?? ((cold: number) => cold);
   const [gpui, tanstack] = values[cardKey(card, profile, stop)]!;
-  return outcome([judged(gpui), judged(tanstack)], 'lower');
+  const out = outcome([judged(gpui), judged(tanstack)], 'lower');
+  if (!card.apart || !out.winner) return out;
+  const [least, most] = [values[cardKey(card, profile, stop, `${card.metric}-min`)]!, values[cardKey(card, profile, stop, `${card.metric}-max`)]!];
+  // Each side's runs from its fastest to its slowest: overlapping, even.
+  return least[0]! <= most[1]! && least[1]! <= most[0]! ? { winner: null, times: 1 } : out;
 };
 
 /** A card's cold values as shown, per device (at `stop` for a card measured per stop). */
@@ -582,14 +692,21 @@ export function stopWins(scenario: Scenario, cold: ScenarioCold): Wins {
   const out: Wins = { gpui: [], tanstack: [], even: [] };
   const credit = creditor(out);
   const both = (card: Card, stop?: string): [Outcome, Outcome] => [cardOutcome(card, cold.values, 'reference', stop), cardOutcome(card, cold.values, 'throttled', stop)];
-  credit(reachOutcome(scenario, cold.values, 'reference'), reachOutcome(scenario, cold.values, 'throttled'), 'keeps up with more cells on screen', 'how far each keeps up');
+  const numbers = numbersOf(scenario);
+  credit(reachOutcome(scenario, cold.values, 'reference'), reachOutcome(scenario, cold.values, 'throttled'), numbers.keeps!.won, 'how far each keeps up');
   const said: Record<string, [string, string]> = {
     fling: ['stays smoother in a fast fling', 'a fast fling'],
     work: ['spends less time on each frame', 'the time each frame takes'],
     memory: ['holds less memory', 'memory'],
+    smooth: ['stays smoother under the feed', 'smoothness under the feed'],
+    shown: ['shows each update sooner', 'how soon an update shows'],
+    collections: ['pauses less for garbage collection', 'collection pauses'],
   };
-  for (const card of numbersOf(scenario).stopCards ?? []) credit(...both(card, scenario.defaultStop), ...said[card.key]!);
+  for (const card of numbers.stopCards ?? []) credit(...both(card, scenario.defaultStop), ...said[card.key]!);
   credit(...both(READY), 'is ready sooner', 'ready');
+  // A card the status bar has and the panel's cards don't: memory, measured once.
+  const memory = numbers.cards.find((card) => card.key === 'memory');
+  if (memory && !numbers.stopCards?.some((card) => card.key === 'memory')) credit(...both(memory), ...said.memory!);
   const download = outcome([downloadTotal('gpui', cold.parts, scenario), downloadTotal('tanstack', cold.parts, scenario)], 'lower');
   credit(download, null, 'downloads less', 'the download');
   return out;
@@ -652,8 +769,15 @@ const HEADLINE: { key: string; says: (o: Outcome) => string }[] = [
  */
 export function scenarioVerdict(scenario: Scenario, cold: ScenarioCold): ScenarioVerdict {
   if (numbersOf(scenario).stopCards) {
-    const [gpui, tanstack] = SIDES.map((side) => reachOf(scenario, cold.values, side, 'reference')) as [number, number];
-    return { text: capital(keepsOn(scenario, cold.values, 'reference')), lean: gpui === tanstack ? null : gpui > tanstack ? 'gpui' : 'tanstack' };
+    // The fast device, and the slow one too where the fast shows no edge.
+    const reach = reachesOf(scenario, cold);
+    const [gpui, tanstack] = reach.reference;
+    const to = stopNamer(scenario);
+    const fast = capital(keepsOn(scenario, cold.values, 'reference', to));
+    if (gpui !== tanstack) return { text: fast, lean: gpui > tanstack ? 'gpui' : 'tanstack' };
+    const [slowGpui, slowTanstack] = reach.throttled;
+    if (slowGpui === slowTanstack) return { text: fast, lean: null };
+    return { text: `${fast} · on a slow device, ${keepsOn(scenario, cold.values, 'throttled', to)}`, lean: slowGpui > slowTanstack ? 'gpui' : 'tanstack' };
   }
   const said: string[] = [];
   const winners: (Side | null)[] = [];
@@ -677,30 +801,42 @@ export const reachesOf = (scenario: Scenario, cold: ScenarioCold): Reach =>
 /** A component's decision rule (`docs/DECISIONS.md`, "Page"): each half
  *  said only where its numbers back it. */
 export interface Rule {
-  /** "Use the DOM for small tables.": the DOM keeps up at a scenario's
-   *  smaller stops, where GPUI keeps up further. */
+  /** "Use the DOM for small tables.": the DOM keeps up at a density
+   *  dial's smaller stops, where GPUI keeps up further. */
   dom: boolean;
   /** "Use GPUI past ~380 cells on screen.": a clause per scenario with a
-   *  density dial where GPUI keeps up further than the DOM. */
+   *  density or a rate dial where GPUI keeps up further than the DOM. */
   gpui: string[];
 }
 
+/** What a rule's clause counts a dial's stops in. */
+const DIAL_UNITS = { density: 'cells on screen', rate: 'updates a second' } as const;
+
 /**
- * A component's rule from its scenarios' numbers, on the fast device: past
- * the last stop where the DOM keeps up ("past ~380 cells on screen"), or
- * from the first where it keeps up at none, wherever GPUI keeps up
- * further. Neither half until a scenario with a density dial has numbers.
+ * A component's rule from its scenarios' numbers: past the last stop where
+ * the DOM keeps up ("past ~380 cells on screen"), or from the first where
+ * it keeps up at none, wherever GPUI keeps up further, on the fast device;
+ * where the fast device shows no edge, on the slow one, and the clause says
+ * so ("past 1k updates a second on a slow device"). Neither half until a
+ * scenario with a density or a rate dial has numbers.
  */
 export function ruleOf(scenarios: readonly Scenario[], numbers: ColdNumbers): Rule {
   const rule: Rule = { dom: false, gpui: [] };
   for (const scenario of scenarios) {
     const cold = numbers.scenarios[scenario.id];
     const stops = scenario.stops as readonly Stop[];
-    if (!cold || stops.length < 2 || !numbersOf(scenario).stopCards || !stops.every(isDensity)) continue;
-    const [gpui, tanstack] = reachesOf(scenario, cold).reference;
-    if (gpui <= tanstack) continue;
-    if (tanstack >= 0) rule.dom = true;
-    rule.gpui.push(tanstack < 0 ? `from ${stopShort(stops[0]!)} cells on screen` : `past ${stopShort(stops[tanstack]!)} cells on screen`);
+    const kind = stops.every(isDensity) ? 'density' : stops.every(isRate) ? 'rate' : null;
+    if (!cold || stops.length < 2 || !numbersOf(scenario).stopCards || !kind) continue;
+    const reach = reachesOf(scenario, cold);
+    // The slow device only where the fast one shows no edge: a fast device
+    // the DOM leads on says nothing for GPUI.
+    const [fastGpui, fastTanstack] = reach.reference;
+    const profile = fastGpui > fastTanstack ? 'reference' : fastGpui === fastTanstack && reach.throttled[0] > reach.throttled[1] ? 'throttled' : null;
+    if (!profile) continue;
+    const tanstack = reach[profile][1];
+    if (tanstack >= 0 && kind === 'density') rule.dom = true;
+    const device = profile === 'reference' ? '' : ' on a slow device';
+    rule.gpui.push(`${tanstack < 0 ? `from ${stopShort(stops[0]!)}` : `past ${stopShort(stops[tanstack]!)}`} ${DIAL_UNITS[kind]}${device}`);
   }
   return rule;
 }

@@ -19,6 +19,7 @@
 
 import { AT, COLUMNS, HEADER, INSTRUMENTS, TICK, decimalsOf } from '../../../../../market/feed.ts';
 import type { FeedStart } from '../../../../../market/worker.ts';
+import { SHOWN_RING } from '../../../../../contract.ts';
 import type { MarketScenario, RateStop } from '../../../../../scenarios.ts';
 import { BASE_SIZES, layOutAll, padOf, type LaidOutColumn } from '../layout.ts';
 import type { MarketCells, Tone } from '../market.ts';
@@ -188,9 +189,46 @@ export interface Market extends MarketCells {
   stop(): void;
 }
 
+/** The visible batches not yet drawn, at most: past it, the oldest is dropped. */
+const PENDING = 256;
+
+/**
+ * With `?readout`: each visible batch's send → the frame that first drew it,
+ * on `__contender.shownIn` for the observatory's page (`SHOWN_RING`'s
+ * layout). Preallocated: the readout adds no garbage to the feed's.
+ */
+class ShownRing {
+  readonly samples = new Float64Array(1 + 2 * SHOWN_RING);
+  private readonly sent = new Float64Array(PENDING);
+  private readonly generation = new Float64Array(PENDING);
+  private head = 0;
+  private tail = 0;
+
+  /** A visible batch folded: sent at `sent` (epoch ms), drawn once a frame draws `generation`. */
+  folded(sent: number, generation: number): void {
+    if (this.tail - this.head === PENDING) this.head++;
+    const slot = this.tail++ % PENDING;
+    this.sent[slot] = sent;
+    this.generation[slot] = generation;
+  }
+
+  /** A frame drew `generation` at `at` (epoch ms): every batch it shows is a sample. */
+  drawn(generation: number, at: number): void {
+    const samples = this.samples;
+    while (this.head < this.tail && this.generation[this.head % PENDING]! <= generation) {
+      const sent = this.sent[this.head++ % PENDING]!;
+      const count = samples[0]!;
+      const slot = 1 + 2 * (count % SHOWN_RING);
+      samples[slot] = at;
+      samples[slot + 1] = at - sent;
+      samples[0] = count + 1;
+    }
+  }
+}
+
 /** Market watch's table over `paging` (whose source is `source`), its
  *  `columns` laid out: the cells' text, signs, and flashes, and the feed. */
-export async function marketTable(scenario: MarketScenario, stop: RateStop, limit: number, paging: TablePaging<TablePage>, source: MarketSource, file: readonly Column[], measured: boolean): Promise<Market> {
+export async function marketTable(scenario: MarketScenario, stop: RateStop, limit: number, paging: TablePaging<TablePage>, source: MarketSource, file: readonly Column[], measured: boolean, readout: boolean): Promise<Market> {
   const { advances, of } = await measureAdvances();
   // Laid out once, here: the view draws these (`MarketCells.columns`).
   const columns = layOutAll(file);
@@ -230,6 +268,9 @@ export async function marketTable(scenario: MarketScenario, stop: RateStop, limi
   if (batches) (globalThis as { __contender?: { batches?: unknown } }).__contender!.batches = batches;
   /** The highest generation drawn (`__contenderRefreshed`, `?measure`). */
   let drawn = 0;
+  /** With `?readout`, this tab's Shown in (`__contender.shownIn`). */
+  const ring = readout ? new ShownRing() : null;
+  if (ring) (globalThis as { __contender?: { shownIn?: unknown } }).__contender!.shownIn = ring.samples;
 
   const stopFeed = () => {
     if (!worker) return;
@@ -259,9 +300,11 @@ export async function marketTable(scenario: MarketScenario, stop: RateStop, limi
       if (start < end && first < row) visible = 1;
     }
     batches?.push([batch.seq, batch.count, batch.sent, generation, visible]);
+    if (visible) ring?.folded(batch.sent, generation);
   };
 
   return {
+    readout,
     flashing,
     columns,
     text: (index, column, row, value) => fitted(index, column, row, value)?.text ?? shownText(column.kind, value, column.budget),
@@ -283,6 +326,7 @@ export async function marketTable(scenario: MarketScenario, stop: RateStop, limi
           raised = true;
         }
       }
+      if (raised) ring?.drawn(drawn, performance.timeOrigin + performance.now());
       return raised ? drawn : null;
     },
     startFeed: (failed) => {

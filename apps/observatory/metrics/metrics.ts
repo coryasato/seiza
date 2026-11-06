@@ -569,6 +569,10 @@ export const LIVE_REFRESH_MS = 250;
 /** A scroll ends once its input rests this long (the paging's own rest). */
 export const SCROLL_REST_MS = 250;
 
+/** A feed's Shown in in a tab: the middle of the samples this long back
+ *  from the latest. */
+export const SHOWN_WINDOW_MS = 5_000;
+
 /** What the observatory's page records of the shown contender, as it runs
  *  in the page's frame: epoch ms throughout, since the page and the frame
  *  have different time origins. */
@@ -585,6 +589,11 @@ export interface LiveRecord {
   /** The memory measurements' breakdowns and their times, oldest first:
    *  the last `METER_MEMORY_MS`' (the meter's graph), at least the latest. */
   memory: { at: number; breakdown: MemoryEntry[] }[];
+  /** Under a feed, each visible batch's send → the frame that first drew
+   *  it, ms, by that frame's time (the frame's ring, `SHOWN_RING`), oldest
+   *  first: the last `SHOWN_WINDOW_MS`' back from the page's latest
+   *  refresh, none once the feed has drawn nothing for that long. */
+  shown: { at: number; ms: number }[];
 }
 
 /** The page's live readouts, each a reading a page can take (no trace):
@@ -604,7 +613,18 @@ export interface LiveReadings {
    *  MiB: what the cold memory at equal work reads, so the canvas's backing
    *  store (`Canvas`) and the engine's workers are apart. */
   pageMiB: number | null;
+  /** Under a feed, the middle of the last `SHOWN_WINDOW_MS`' Shown in, to
+   *  the frame that drew each batch (not its presentation, which a page
+   *  can't read without a trace). */
+  shownMs: number | null;
 }
+
+/** The middle of `values` (an even count's two middle values averaged). */
+const middle = (values: number[]): number | null => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted.length % 2 ? sorted[(sorted.length - 1) / 2]! : (sorted[sorted.length / 2 - 1]! + sorted[sorted.length / 2]!) / 2;
+};
 
 export function liveReadings(record: LiveRecord, isPage: (url: string) => boolean): LiveReadings {
   const { open, usable } = record;
@@ -617,8 +637,17 @@ export function liveReadings(record: LiveRecord, isPage: (url: string) => boolea
     dataMs: open === null || filled === undefined ? null : round(filled - open),
     scrolling: intervals.length ? { frames: intervals.length, lateShare: lateFrames(intervals, refreshMs).share, refreshMs: round(refreshMs) } : null,
     pageMiB: latest ? pageMiB(latest.breakdown, isPage) : null,
+    shownMs: shownMs(record.shown),
   };
 }
+
+/** The middle of the samples in the last `SHOWN_WINDOW_MS` before the latest. */
+const shownMs = (shown: LiveRecord['shown']): number | null => {
+  const last = shown.at(-1);
+  if (!last) return null;
+  const ms = middle(shown.filter(({ at }) => at >= last.at - SHOWN_WINDOW_MS).map(({ ms }) => ms));
+  return ms === null ? null : round(ms);
+};
 
 /** The page's `JavaScript` memory, MiB (`LiveReadings.pageMiB`). */
 const pageMiB = (breakdown: readonly MemoryEntry[], isPage: (url: string) => boolean) => round((memoryOf(breakdown, isPage).pageByType.JavaScript ?? 0) / 2 ** 20);

@@ -16,7 +16,7 @@
 import { createElement as h } from 'react';
 import type { Side } from '../../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../../contenders/paths.ts';
-import { BIG_FILE, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { BIG_FILE, MARKET_WATCH, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 
 export interface Contender {
   side: Side;
@@ -47,6 +47,9 @@ export interface ScenarioCopy {
   /** For a scenario without a dial: what its numbers are instead, for the
    *  component's page's "How far each side keeps up". */
   session?: string;
+  /** Its data is made up (the design canvas's "Synthetic data" tag, in the
+   *  title bar and on its card). */
+  synthetic?: boolean;
 }
 
 export interface Component {
@@ -96,6 +99,13 @@ const COPY: Record<string, ScenarioCopy> = {
     dial: { label: 'Cells on screen', about: 'Each stop sets the row height, the days’ width, and the text size: the same on both sides.' },
     leans: ['cells', 'decoding'],
   },
+  'market-watch': {
+    lead: () => 'Fifty instruments, every price live. Turn up the updates.',
+    dial: { label: 'Updates per second', about: 'Each stop sets how many price changes the seeded feed sends per second: the same feed on both sides.' },
+    // The design canvas's: cost per cell, garbage under churn, decoding.
+    leans: ['cells', 'gc', 'decoding'],
+    synthetic: true,
+  },
 };
 
 export const scenarioCopy = (scenario: Scenario): ScenarioCopy => {
@@ -126,7 +136,7 @@ export const COMPONENTS: Component[] = [
 /** The scenarios whose cold numbers the page shows: `cold.ts` resolves
  *  each one's, and fails the build on a missing value. A scenario joins
  *  once its numbers part has run. */
-const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id];
+const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id];
 
 /** Whether the page has a scenario's cold numbers: without them its status
  *  bar has no cold rows, its Compare is off, and it has no description. */
@@ -141,10 +151,16 @@ export const COMPARE_HASH = 'compare';
 export const SCENARIO_LINK = 'data-scenario-link';
 
 export const isDensity = (stop: Stop): stop is DensityStop => 'cells' in stop;
+export const isRate = (stop: Stop): stop is RateStop => 'rate' in stop;
 
-/** A stop as the dial names it ("~710"): the keeps-up verdict and the
- *  panel's stops name it so too. */
-export const stopShort = (stop: Stop): string => (isDensity(stop) ? `~${stop.cells}` : stop.label);
+/** A stop as the dial names it ("~710", "1k"): the keeps-up verdict and
+ *  the panel's stops name it so too. */
+export const stopShort = (stop: Stop): string => (isDensity(stop) ? `~${stop.cells}` : isRate(stop) ? stop.id : stop.label);
+
+/** What a stop sets, in its title and the dial's explainer; `rows`, its
+ *  scenario's file's. */
+export const stopSets = (stop: Stop, rows: number): string =>
+  isDensity(stop) ? `${stop.rowHeight} px rows · ${stop.columnWidth} px days · ${stop.textSize} px text` : isRate(stop) ? `across ${rows} instruments, 10 of their 12 columns` : '';
 
 /** A scenario's route: one level below its component's. */
 export const scenarioPath = (component: Component, scenario: Scenario) => `${component.path}${scenario.id}/`;
@@ -166,6 +182,10 @@ export const ROUTES: Route[] = [
 ];
 
 export const routeAt = (path: string): Route => ROUTES.find((route) => route.path === path) ?? ROUTES[0]!;
+
+/** A frame's parameter asking it to keep what this tab's readouts read
+ *  beyond its marks (a feed's Shown in); the bare cold runs never send it. */
+export { READOUT_PARAM } from '../../contenders/contract.ts';
 
 /** The URL parameter naming the side that loads first (`?side=tanstack`);
  *  GPUI without it. */

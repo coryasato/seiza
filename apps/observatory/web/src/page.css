@@ -482,6 +482,26 @@
   border-radius: 0;
 }
 
+/* Market watch's flashing cells: its rise and fall per theme (set on the
+   drawing from `scenarios.ts`, `--up-<theme>`, `--down-<theme>`). */
+.observatory-market {
+  --up: var(--up-light);
+  --down: var(--down-light);
+}
+
+.dark .observatory-market {
+  --up: var(--up-dark);
+  --down: var(--down-dark);
+}
+
+.observatory-drawing i.observatory-up {
+  background: var(--up);
+}
+
+.observatory-drawing i.observatory-down {
+  background: var(--down);
+}
+
 /* A verdict that splits: each side's half. */
 .observatory-split {
   background: linear-gradient(90deg, var(--series-gpui) 50%, var(--series-tanstack) 50%);

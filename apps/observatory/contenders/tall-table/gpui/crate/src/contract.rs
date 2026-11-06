@@ -267,6 +267,9 @@ fn on_event(event: &TallTableEvent) {
                 });
             }
         }
+        // This tab's Shown in, with `?readout`: the batches the frame draws.
+        #[cfg(feature = "market")]
+        TallTableEvent::Refreshed { generation, .. } => crate::feed::shown_drawn(*generation),
         TallTableEvent::Scrollbar { track, .. } if measuring() => {
             SHOWN.with_borrow_mut(|shown| shown.track = Some(*track));
             SHOWN.with_borrow(publish_rows_target);

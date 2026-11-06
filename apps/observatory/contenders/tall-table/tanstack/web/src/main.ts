@@ -15,7 +15,7 @@ import { createElement as h } from 'react';
 import { flushSync } from 'react-dom';
 import { hydrateRoot } from 'react-dom/client';
 import { createBridge } from '@seiza/duckdb/bridge';
-import { MARKS, followPageTheme, measuring, publishContender } from '../../../../contract.ts';
+import { MARKS, followPageTheme, measuring, publishContender, readingOut } from '../../../../contract.ts';
 import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
 import { pickScenario, type MarketScenario, type RateStop } from '../../../../scenarios.ts';
 import { replay } from './contract.ts';
@@ -195,7 +195,7 @@ async function openMarket(data: DataLayer, file: Awaited<ReturnType<DataLayer['o
   const { scenario, stop, limit } = market!;
   let cells: Awaited<ReturnType<typeof layer.marketTable>>;
   try {
-    cells = await layer.marketTable(scenario, stop, limit, paging, source, file.columns, measuring());
+    cells = await layer.marketTable(scenario, stop, limit, paging, source, file.columns, measuring(), readingOut());
   } catch (error) {
     // Its reads, if any started, cancelled as a shown table's are.
     paging.close();

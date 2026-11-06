@@ -13,7 +13,7 @@
 import { createElement as h, type ReactNode } from 'react';
 import gallery from 'virtual:gallery';
 import type { Side } from '../../contenders/contract.ts';
-import { oklchCss, type Heat, type Scenario, type Stop, type WideScenario } from '../../contenders/scenarios.ts';
+import { oklchCss, type Heat, type MarketScenario, type Scenario, type Stop, type WideScenario } from '../../contenders/scenarios.ts';
 import { Domain, rampCss } from '../../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COMPARE_HASH, scenarioCopy, scenarioPath, seriesClass, seriesDot, stopShort, WHY_ANCHOR, type Component } from './components.ts';
 import { MECHANISMS, mechanismAnchor } from './mechanisms.ts';
@@ -79,8 +79,29 @@ const rowsDrawing = () =>
     ),
   );
 
+/** Market watch drawn small (the design canvas's): a header, then rows
+ *  whose price cells flash in the scenario's rise or fall, per theme. */
+const marketDrawing = ({ signs }: MarketScenario) =>
+  h(
+    'span',
+    {
+      className: 'observatory-drawing observatory-market',
+      style: Object.fromEntries((['light', 'dark'] as const).flatMap((theme) => [[`--up-${theme}`, oklchCss(signs[theme].up)], [`--down-${theme}`, oklchCss(signs[theme].down)]])),
+    },
+    ...Array.from({ length: 9 }, (_, row) =>
+      h(
+        'span',
+        { key: row, className: row ? undefined : 'observatory-head' },
+        ...[14, 26, 14, 12, 14].map((width, at) => {
+          const flash = row > 0 && at >= 2 && noise(row, at) > 0.62;
+          return h('i', { key: at, className: flash ? (noise(at, row) > 0.45 ? 'observatory-up' : 'observatory-down') : undefined, style: { width: `${width}%` } });
+        }),
+      ),
+    ),
+  );
+
 /** A scenario's frame, drawn small: its level's shape. */
-const drawing = (scenario: Scenario) => (scenario.level === 'wide' ? heatDrawing(scenario) : rowsDrawing());
+const drawing = (scenario: Scenario) => (scenario.level === 'wide' ? heatDrawing(scenario) : scenario.level === 'market' ? marketDrawing(scenario) : rowsDrawing());
 
 // ---------------------------------------------------------------- shared
 
@@ -215,7 +236,7 @@ function KeepsUp({ component }: { component: Component }) {
   const columns = 'md:grid md:grid-cols-[minmax(200px,1fr)_minmax(220px,1fr)_minmax(220px,1fr)] md:gap-4';
   return section(
     'How far each side keeps up',
-    `the highest stop where ${gallery.share} % of the display’s frames draw new cells · each row opens its scenario’s Compare`,
+    `the highest stop where each side keeps up, the ${gallery.share} % line in its Compare · each row opens its scenario’s Compare`,
     undefined,
     h(
       'div',
@@ -347,7 +368,12 @@ export function ComponentBody({ component }: { component: Component }) {
             h(
               'span',
               { className: 'flex flex-1 flex-col gap-1.5 px-3.5 pt-3 pb-3.5' },
-              h('span', { className: 'text-[15px]' }, scenario.label),
+              h(
+                'span',
+                { className: 'flex items-center justify-between gap-2 text-[15px]' },
+                h('span', null, scenario.label),
+                scenarioCopy(scenario).synthetic ? h('span', { 'data-synthetic': '', className: 'rounded-sm border px-1.5 text-[11px] leading-[18px] whitespace-nowrap text-muted-foreground' }, 'Synthetic data') : null,
+              ),
               h('span', { className: 'text-[13px] leading-snug text-muted-foreground' }, scenario.use),
               h(
                 'span',

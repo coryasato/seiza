@@ -37,7 +37,7 @@ import rows from 'virtual:data-rows';
 import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
 import { FONTS } from '../../contenders/paths.ts';
 import { SCENARIO_PARAM, type DensityStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { COMPARE_HASH, hasCold, seriesDot, isDensity, scenarioCopy, SIDE_PARAM, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
+import { COMPARE_HASH, hasCold, seriesDot, isDensity, READOUT_PARAM, scenarioCopy, SIDE_PARAM, stopSets, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { cached, frameMark, isWarm, trackFrame, warmth } from './live.ts';
 import { loadMetrics } from './metrics.ts';
@@ -67,8 +67,7 @@ function firstStop(scenario: Scenario): Stop {
   return stopsOf(scenario).find((stop) => stop.id === named) ?? defaultStop(scenario);
 }
 
-/** What a stop sets, in its title and the dial's explainer. */
-export const stopSets = (stop: Stop): string => (isDensity(stop) ? `${stop.rowHeight} px rows · ${stop.columnWidth} px days · ${stop.textSize} px text` : '');
+export { stopSets } from './components.ts';
 
 /**
  * About how many cells a wide sheet's stop shows in a stage of `width` ×
@@ -129,6 +128,8 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   /** Each frame's number: a flip or a stop makes a new one (React's key). */
   const [frame, setFrame] = useState(0);
   const [state, setState] = useState<FrameState>('app');
+  /** The shown frame marked a failure: after its first rows, a feed that stopped. */
+  const [stopped, setStopped] = useState(false);
   const [panel, setPanel] = useState(false);
   const ref = useRef<HTMLIFrameElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -162,7 +163,11 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
       if (event.data.name === MARKS.filled) setState('filled');
       else if (event.data.name === MARKS.usable) setState((state) => (state === 'app' ? 'engine' : state));
       else if (event.data.name === MARKS.open) setState((state) => (state === 'app' || state === 'engine' ? 'data' : state));
-      else if (event.data.name === MARKS.failed) setState((state) => (state === 'filled' ? state : 'failed'));
+      else if (event.data.name === MARKS.failed) {
+        // After the first rows the state stays filled; the feed's row says it stopped.
+        setStopped(true);
+        setState((state) => (state === 'filled' ? state : 'failed'));
+      }
     };
     window.addEventListener('message', listen);
     return () => window.removeEventListener('message', listen);
@@ -178,16 +183,19 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   const src = useMemo(() => {
     if (!base || !painted) return null;
     const params = new URLSearchParams({ [SCENARIO_PARAM]: scenario.id, [STOP_PARAM]: stop.id, theme: currentTheme() });
+    // A feed's frame keeps what this tab's Shown in reads (`live.ts`).
+    if (scenario.level === 'market') params.set(READOUT_PARAM, '');
     return `${base}?${params}`;
   }, [base, painted, frame, stop, scenario]);
   // This tab's readouts follow each frame from its creation (`live.ts`).
   useEffect(() => {
-    if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base);
+    if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base, scenario.level === 'market');
   }, [src]);
 
   /** A new frame, and the URL's parameters, the defaults omitted. */
   const reload = (params: Record<string, string | null>) => {
     setState('app');
+    setStopped(false);
     setFrame((frame) => frame + 1);
     const url = new URL(location.href);
     for (const [name, value] of Object.entries(params)) {
@@ -233,7 +241,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
         },
         ...component.contenders.map((contender) => h(ToggleGroupItem, { key: contender.side, value: contender.side, className: 'h-7 gap-2 px-3 text-[13px]' }, seriesDot(contender.side), contender.label)),
       ),
-      dial ? h(Dial, { scenario, dial, stop, pick, busy, stage }) : null,
+      dial ? h(Dial, { scenario, dial, stop, pick, busy, stage, rows: fileRows }) : null,
       dial ? h('span', { className: 'h-5 w-px shrink-0 bg-border max-md:hidden', 'aria-hidden': true }) : null,
       h(
         'span',
@@ -245,9 +253,10 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
           Explainer,
           { trigger: h(Info, { 'aria-hidden': true }), triggerProps: { 'aria-label': 'About this load', className: ICON_BUTTON }, width: 320 },
           'One side runs at a time, alone in this frame, so the two never share the processor. Each scenario is a build of its own, so another scenario loads its app; a flip or a stop reloads this frame, from your cache where it can.',
-          painted && shown ? h(LoadRows, { shown, scenario, state, frame: ref }) : null,
+          painted && shown ? h(LoadRows, { shown, scenario, state, stopped, frame: ref }) : null,
         ),
       ),
+      copy.synthetic ? h('span', { 'data-synthetic': '', className: 'shrink-0 rounded-sm border px-1.5 text-[11px] leading-[18px] whitespace-nowrap text-muted-foreground max-md:hidden' }, 'Synthetic data') : null,
       h('span', { className: 'ml-auto hidden min-w-0 truncate pr-2 text-[13px] text-muted-foreground md:block' }, copy.lead(fileRows)),
     ),
     h(
@@ -285,7 +294,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
  *  loads its bundles and reads the data, and a worker's requests aren't
  *  in the frame's timing: those rows say so rather than guess. A failed
  *  load claims nothing past the app. */
-function LoadRows({ shown, scenario, state, frame }: { shown: Contender; scenario: Scenario; state: FrameState; frame: RefObject<HTMLIFrameElement | null> }) {
+function LoadRows({ shown, scenario, state, stopped, frame }: { shown: Contender; scenario: Scenario; state: FrameState; stopped: boolean; frame: RefObject<HTMLIFrameElement | null> }) {
   const failed = state === 'failed';
   const step = { app: 0, engine: 1, data: 2, filled: 3, failed: 3 }[state];
   const at = (n: number, done: string) => (step < n ? 'next' : step === n ? 'loading…' : done);
@@ -294,6 +303,8 @@ function LoadRows({ shown, scenario, state, frame }: { shown: Contender; scenari
     [`${shown.label}’s app at this level`, at(0, read(shown.url(scenario.level)))],
     ['The engine (DuckDB-Wasm)', failed ? 'its frame says what failed' : at(1, 'in its own worker, not timed here')],
     [`The data (${scenario.data})`, failed ? 'not read' : at(2, 'read a page at a time')],
+    // Market watch's prices: the seeded feed, made in the frame once it fills.
+    ...(scenario.level === 'market' ? ([['The feed (seeded, generated here)', failed ? 'not started' : stopped ? 'stopped: its frame says why' : state === 'filled' ? 'in its own worker' : 'next']] as [string, string][]) : []),
     ['The font', at(0, read(FONTS))],
   ];
   const why = warmth(shown.side);
@@ -322,17 +333,21 @@ interface DialProps {
   pick: (stop: Stop) => void;
   busy: boolean;
   stage: RefObject<HTMLDivElement | null>;
+  /** The scenario's file's rows, for what each stop sets. */
+  rows: number;
 }
 
 /** The dial: its stops named by value, each one's parameters in its title
  *  and in the explainer, with this window's count; a phone's menu button. */
-function Dial({ scenario, dial, stop, pick, busy, stage }: DialProps) {
+function Dial({ scenario, dial, stop, pick, busy, stage, rows }: DialProps) {
   const stops = stopsOf(scenario);
+  const sets = (candidate: Stop) => stopSets(candidate, rows);
   const here = () => {
     const box = stage.current;
     return box && isDensity(stop) ? cellsHere(stop, box.clientWidth, box.clientHeight) : null;
   };
   const foot = () => {
+    if (!isDensity(stop)) return 'A stop reloads this frame, from your cache where it can; its numbers are its own.';
     const count = here();
     return `Cells counted at 1440 × 900, where the numbers were measured${count === null ? '' : `; this window shows about ${count} at this stop`}. A stop reloads this frame, from your cache where it can.`;
   };
@@ -353,7 +368,7 @@ function Dial({ scenario, dial, stop, pick, busy, stage }: DialProps) {
         'aria-label': dial.label,
         className: 'max-md:hidden',
       },
-      ...stops.map((candidate) => h(ToggleGroupItem, { key: candidate.id, value: candidate.id, title: stopSets(candidate), ...{ 'data-stop': candidate.id }, className: 'h-7 px-2.5 text-[13px] tabular-nums' }, stopShort(candidate))),
+      ...stops.map((candidate) => h(ToggleGroupItem, { key: candidate.id, value: candidate.id, title: sets(candidate), ...{ 'data-stop': candidate.id }, className: 'h-7 px-2.5 text-[13px] tabular-nums' }, stopShort(candidate))),
     ),
     h(
       Explainer,
@@ -362,7 +377,7 @@ function Dial({ scenario, dial, stop, pick, busy, stage }: DialProps) {
       h(
         'span',
         { className: 'mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground' },
-        ...stops.flatMap((candidate) => [h('span', { key: candidate.id, className: 'text-foreground tabular-nums' }, candidate.label), h('span', { key: `${candidate.id}:sets` }, stopSets(candidate))]),
+        ...stops.flatMap((candidate) => [h('span', { key: candidate.id, className: 'text-foreground tabular-nums' }, candidate.label), h('span', { key: `${candidate.id}:sets` }, sets(candidate))]),
       ),
       h('span', { className: 'mt-2 block text-muted-foreground' }, foot()),
     ),
@@ -394,7 +409,7 @@ function Dial({ scenario, dial, stop, pick, busy, stage }: DialProps) {
             className: 'flex min-h-11 w-full flex-col items-start justify-center rounded-md px-2.5 text-left hover:bg-accent aria-checked:bg-accent',
           },
           h('span', { className: 'text-sm tabular-nums' }, candidate.label),
-          h('span', { className: 'text-xs text-muted-foreground' }, stopSets(candidate)),
+          h('span', { className: 'text-xs text-muted-foreground' }, sets(candidate)),
         ),
       ),
       h('div', { role: 'none', className: 'px-2.5 pt-1 pb-1.5 text-xs text-muted-foreground' }, foot()),

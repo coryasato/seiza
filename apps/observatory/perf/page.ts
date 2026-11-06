@@ -87,8 +87,9 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
-import { BIG_FILE, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
-import { COMPARE_HASH, COMPONENTS, millions, ROUTES, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
+import { BIG_FILE, MARKET_WATCH, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
+import { COLUMNS as MARKET_COLUMNS, INSTRUMENTS } from '../contenders/market/feed.ts';
+import { COMPARE_HASH, COMPONENTS, isDensity, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
 import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
 import { KEEPS_UP_SHARE } from '../metrics/metrics.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
@@ -96,6 +97,8 @@ import { resolveCold, resolveGallery } from '../web/cold.ts';
 import {
   BARS,
   CARDS,
+  MARKET_CARDS,
+  MARKET_STOP_CARDS,
   PROFILES as DEVICE_PROFILES,
   READY,
   WIDE_CARDS,
@@ -133,6 +136,7 @@ const TALL_TABLE = COMPONENTS.find((component) => component.id === 'tall-table')
 /** The comparison measured and checked: Big file's route. */
 const ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
 const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
+const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
 /** Every route's HTML file, from the build's root. */
 const HTML_FILES = ROUTES.map((route) => route.html.slice(1));
 /** A frame's URL as the page makes it: its level's base, the scenario, the stop, the theme. */
@@ -999,7 +1003,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids (Big file):** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
     console.log(`credit: ${credit} (the page's and the README's)`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
     const blocks = await page.locator('[data-description] h2').allTextContents();
     const order = ['What you’re looking at', `Why ${millions(cold.rows)} rows`, 'Where each side wins', 'Where the canvas falls short', 'Other scenarios'];
     expect(JSON.stringify(blocks) === JSON.stringify(order), `Big file's description's blocks: ${JSON.stringify(blocks)}`);
@@ -1186,7 +1190,7 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions) && cold.versions.every(([, list]) => list.length === 1), `"measured with": ${JSON.stringify(measured)}, the results say ${JSON.stringify(cold.versions)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     out.measured = measured;
     // The other scenarios carry the route's `?side=`, as the sidebar's and the crumb's links do.
@@ -1212,6 +1216,180 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     expect((await small.locator('[data-card]').count()) === 5, `a phone's panel has ${await small.locator('[data-card]').count()} cards`);
     await phone.close();
     console.log("phone: the overflow's Compare opens the wide sheet's panel, its five cards");
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/**
+ * Market watch's route (the design canvas's market board): the frame at
+ * its level and default stop with `?readout`, the "Synthetic data" tag, the
+ * dial's rates; the status bar's Ready in, Shown in, Smooth, and Memory,
+ * their cold values at the window's stop, and this tab's Shown in and
+ * Smooth reading on both sides with no input (the feed's frames, the
+ * frame's ring); the bare page without `?readout` keeping no ring (the
+ * control); the panel's keeps-up verdict and charts, its cards at the
+ * window's stop and at one picked, the card for what no stop changes; the
+ * description; a phone's Shown in and Smooth.
+ */
+async function marketReadouts(url: string, origin: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const cold = resolveCold().numbers.scenarios[MARKET_WATCH.id]!;
+  const { values } = cold;
+  const stopOf = (id: string) => MARKET_WATCH.stops.find((candidate) => candidate.id === id)!;
+  const base = (side: 'gpui' | 'tanstack') => contenderBase('tall-table', side, 'market');
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, base('gpui'));
+    await waitEnabled(page, 'market watch');
+    await page.waitForSelector('[data-status-ready]');
+    const theme = await page.evaluate(() => document.documentElement.dataset.theme ?? 'light');
+    const src = await frameSrc(page);
+    expect(src === `${frameUrl('gpui', MARKET_WATCH, MARKET_WATCH.defaultStop, theme)}&${READOUT_PARAM}=`, `market watch's first frame: ${src}`);
+
+    // The title bar: the tag, the dial's rates and what each sets, the lead.
+    expect((await page.locator('[data-synthetic]').textContent()) === 'Synthetic data', "the title bar's \"Synthetic data\" tag");
+    const stops = await page.locator('[data-dial] [data-stop]').evaluateAll((buttons) => buttons.map((button) => [button.textContent, button.getAttribute('title')]));
+    const sets = MARKET_WATCH.stops.map((stop) => [stopShort(stop), stopSets(stop, cold.rows)]);
+    expect(!MARKET_WATCH.stops.some(isDensity) && JSON.stringify(stops) === JSON.stringify(sets), `the dial's stops ${JSON.stringify(stops)}, want ${JSON.stringify(sets)}`);
+    expect((await pressedStop(page)) === MARKET_WATCH.defaultStop, `the dial's pressed stop: ${await pressedStop(page)}`);
+    // The copy's counts, the canvas's words, against the data: "Fifty
+    // instruments" in the lead, "10 of their 12 columns" in each stop (all
+    // but Symbol and Name, which no tick changes).
+    expect(cold.rows === 50 && INSTRUMENTS.length === 50, `the lead says fifty instruments; the file has ${cold.rows}, the feed ${INSTRUMENTS.length}`);
+    const ticked = MARKET_COLUMNS.filter((column) => column !== 'Symbol' && column !== 'Name');
+    expect(MARKET_COLUMNS.length === 12 && ticked.length === 10, `the stops say 10 of 12 columns; the feed has ${ticked.length} of ${MARKET_COLUMNS.length}`);
+    const lead = scenarioCopy(MARKET_WATCH).lead(cold.rows);
+    expect((await page.getByText(lead).count()) === 1, `the lead "${lead}" isn't in the title bar`);
+    await page.getByRole('button', { name: 'About the stops' }).click();
+    const dialText = (await popovers(page).textContent()) ?? '';
+    expect(dialText.startsWith(scenarioCopy(MARKET_WATCH).dial!.about) && MARKET_WATCH.stops.every((stop) => dialText.includes(stop.label)) && !dialText.includes('Cells counted'), `the dial's explainer: ${dialText}`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'About this load' }).click();
+    const loadText = (await popovers(page).textContent()) ?? '';
+    expect(loadText.includes('The feed (seeded, generated here)in its own worker'), `the load's explainer lacks the feed: ${loadText}`);
+    await page.keyboard.press('Escape');
+    console.log(`market watch: GPUI's market build at ${MARKET_WATCH.defaultStop} with ?${READOUT_PARAM}, the tag, the dial ${JSON.stringify(stops.map(([label]) => label))}, the lead, the load's feed row`);
+
+    // The status bar: its segments, their cold values at the window's stop.
+    const segments = await page.locator('[data-segment]').evaluateAll((items) => items.map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(segments) === JSON.stringify(MARKET_CARDS.map((card) => card.key)), `the status bar's segments ${JSON.stringify(segments)}`);
+    const seen: Record<string, string> = {};
+    for (const card of MARKET_CARDS) {
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await page.locator(`[data-segment="${card.key}"]`).hover();
+      const text = (await popovers(page).textContent()) ?? '';
+      const at = card.perStop ? ` at ${stopOf(MARKET_WATCH.defaultStop).label}` : '';
+      const [gpui, tanstack] = cardValues(card, values, 'reference', MARKET_WATCH.defaultStop);
+      const want = [`Cold, GPUI${at}${withUnit(gpui, card.unit)}`, `Cold, TanStack${at}${withUnit(tanstack, card.unit)}`];
+      expect(want.every((line) => text.includes(line)), `${card.key}'s explainer: ${JSON.stringify(text)}, the numbers say ${JSON.stringify(want)}`);
+      seen[card.key] = want.join(', ');
+    }
+    await page.mouse.move(0, 0);
+    out.statusBar = seen;
+
+    // This tab's Shown in and Smooth, on both sides, with no input: the
+    // feed's frames and the frame's ring.
+    const liveOf = async (key: string) => (await page.locator(`[data-segment="${key}"] .tabular-nums`).first().textContent()) ?? '';
+    const reads = async (side: string) => {
+      const ok = await page
+        .waitForFunction(() => /^\d+(\.\d+)? ms$/.test(document.querySelector('[data-segment="shown"] .tabular-nums')?.textContent ?? '') && /^\d+(\.\d+)? %$/.test(document.querySelector('[data-segment="smooth"] .tabular-nums')?.textContent ?? ''), null, { timeout: 10_000 })
+        .then(() => true, () => false);
+      const [shownIn, smooth] = [await liveOf('shown'), await liveOf('smooth')];
+      expect(ok && Number.parseFloat(shownIn) > 0 && Number.parseFloat(shownIn) < 1_000, `${side}'s live Shown in "${shownIn}" and Smooth "${smooth}"`);
+      return { shownIn, smooth };
+    };
+    out.liveGpui = await reads('GPUI');
+    const ring = await page.frameLocator('iframe').locator('body').evaluate(() => {
+      const samples = (globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn;
+      return samples ? samples[0]! : null;
+    });
+    expect(ring !== null && ring > 10, `GPUI's ring holds ${ring} samples`);
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, base('tanstack'));
+    await waitEnabled(page, 'TanStack at market watch');
+    out.liveTanstack = await reads('TanStack');
+    console.log(`status bar: ${JSON.stringify(seen)}; this tab, no input: GPUI ${JSON.stringify(out.liveGpui)}, TanStack ${JSON.stringify(out.liveTanstack)}`);
+
+    // The control: a bare page (no ?readout), as the cold runs load it, keeps no ring.
+    const bare = await context.newPage();
+    for (const side of ['gpui', 'tanstack'] as const) {
+      await bare.goto(new URL(`${base(side)}?scenario=${MARKET_WATCH.id}&stop=${MARKET_WATCH.defaultStop}`, origin).href);
+      await bare.waitForFunction(() => performance.getEntriesByName('contender:filled').length > 0, null, { timeout: 60_000 });
+      await bare.waitForTimeout(1_000);
+      const kept = await bare.evaluate(() => (globalThis as { __contender?: { shownIn?: unknown } }).__contender?.shownIn !== undefined);
+      expect(!kept, `${side}'s bare page keeps a ring without ?${READOUT_PARAM}`);
+    }
+    await bare.close();
+    console.log(`control: neither bare page keeps a ring without ?${READOUT_PARAM}`);
+
+    // The panel at the window's stop, and at one picked.
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-card="keeps"]').waitFor();
+    expect((await page.locator('[data-panel-header] h2').textContent()) === `How they compare: ${MARKET_WATCH.label}`, "the panel's title doesn't name market watch");
+    const keeps = await page.locator('[data-card="keeps"] [data-verdict]').textContent();
+    expect(keeps === keepsVerdict(MARKET_WATCH, values), `the keeps-up verdict "${keeps}", the numbers say "${keepsVerdict(MARKET_WATCH, values)}"`);
+    for (const profile of DEVICE_PROFILES) {
+      const label = (await page.locator(`[data-keeps-chart="${profile}"] svg`).first().getAttribute('aria-label')) ?? '';
+      for (const side of [0, 1] as const) {
+        const shares = MARKET_WATCH.stops.map((stop) => number(values[coldKey('keeps', profile, stop.id)]![side])).join(', ');
+        expect(label.includes('batches shown in a frame of their own') && label.includes(`${side ? 'TanStack' : 'GPUI'} ${shares} %`), `the ${profile} chart's label: ${label}; the numbers say ${shares}`);
+      }
+    }
+    const checkStop = async (stop: string, what: string) => {
+      expect((await page.locator('[data-stop-heading] h3').textContent()) === `At ${stopOf(stop).label}`, `${what}: the cards' heading`);
+      const cards: Record<string, unknown> = {};
+      for (const card of MARKET_STOP_CARDS) cards[card.key] = (await checkCard(page, card, values, stop, what)).verdict;
+      expect((await page.locator('[data-card]').count()) === MARKET_STOP_CARDS.length + 2, `${what}: ${await page.locator('[data-card]').count()} cards`);
+      return cards;
+    };
+    out.keeps = keeps;
+    out.atDefault = await checkStop(MARKET_WATCH.defaultStop, 'the window’s stop');
+    await page.locator('[data-keeps-chart="throttled"] [data-pick="5k"]').click();
+    out.at5k = await checkStop('5k', 'a picked stop');
+    console.log(`panel: ${keeps}; at ${MARKET_WATCH.defaultStop} ${JSON.stringify(out.atDefault)}; at 5k ${JSON.stringify(out.at5k)}`);
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+
+    // The description.
+    await page.locator('[data-description]').waitFor();
+    const won = winsOf(MARKET_WATCH, cold);
+    const sentences = await page.locator('[data-wins] li').allTextContents();
+    const want = [...(['gpui', 'tanstack'] as const).filter((side) => won[side].length).map((side) => winsSentence(side, won[side])), ...(won.even.length ? [evenSentence(won.even)] : [])];
+    expect(JSON.stringify(sentences) === JSON.stringify(want), `market watch's wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
+    const credit = await page.locator('[data-credit]').textContent();
+    expect(credit === `Data: ${cold.credit}.${cold.license ? ` ${cold.license}.` : ''}`, `market watch's credit: ${JSON.stringify(credit)}`);
+    const description = (await page.locator('[data-description]').textContent()) ?? '';
+    expect(/made up/.test(description), "the description doesn't say the feed is made up");
+    const measured = await page.locator('[data-measured]').textContent();
+    expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
+    const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
+    out.wins = sentences;
+    console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
+    const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
+    const rest = found.filter((problem) => !teardown.includes(problem));
+    expect(teardown.length <= 1 && rest.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: Shown in and Smooth; Ready in and Memory in the overflow.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForSelector('[data-status-ready]');
+    const visible = await small.locator('[data-segment]').evaluateAll((items) => items.filter((item) => (item as HTMLElement).offsetParent !== null).map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(visible) === JSON.stringify(['shown', 'smooth']), `a phone's segments: ${JSON.stringify(visible)}`);
+    await small.getByRole('button', { name: 'More numbers' }).tap();
+    const more = (await popovers(small).textContent()) ?? '';
+    expect(more.includes('Ready in') && more.includes('Memory'), `a phone's overflow: ${more}`);
+    await phone.close();
+    console.log("phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow");
   } finally {
     await browser.close();
   }
@@ -1552,19 +1730,33 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
   const cold = resolveCold();
   const { gallery } = resolveGallery(cold);
   const { values } = cold.numbers.scenarios[WIDE_SHEET.id]!;
-  const lastKept = (side: 0 | 1, profile: 'reference' | 'throttled') => {
+  const keptIn = (scenario: Scenario) => (side: 0 | 1, profile: 'reference' | 'throttled') => {
+    const { values } = cold.numbers.scenarios[scenario.id]!;
     let last = -1;
-    for (const [index, stop] of WIDE_SHEET.stops.entries()) {
+    for (const [index, stop] of scenario.stops.entries()) {
       if (values[coldKey('keeps', profile, stop.id)]![side] < KEEPS_UP_SHARE * 100) break;
       last = index;
     }
     return last;
   };
+  const lastKept = keptIn(WIDE_SHEET);
   // The rule as its branches have it: the DOM's half where it keeps up at
-  // the smaller stops, GPUI's where GPUI keeps up further, else it waits.
-  const [g, n] = [lastKept(0, 'reference'), lastKept(1, 'reference')];
-  const clause = g <= n ? null : n < 0 ? `from ${stopShort(WIDE_SHEET.stops[0]!)} cells on screen` : `past ${stopShort(WIDE_SHEET.stops[n]!)} cells on screen`;
-  const rule = !clause ? 'Verdict after the scenarios run.' : `${n >= 0 ? 'Use the DOM for small tables.' : ''}Use GPUI ${clause}.`;
+  // a density dial's smaller stops; GPUI's, a clause per dial where GPUI
+  // keeps up further, on the fast device, else on the slow one, saying so.
+  let dom = false;
+  const clauses: string[] = [];
+  for (const [scenario, unit] of [[WIDE_SHEET, 'cells on screen'], [MARKET_WATCH, 'updates a second']] as const) {
+    const kept = keptIn(scenario);
+    const ahead = (profile: 'reference' | 'throttled') => kept(0, profile) > kept(1, profile);
+    const even = kept(0, 'reference') === kept(1, 'reference');
+    const profile = ahead('reference') ? 'reference' : even && ahead('throttled') ? 'throttled' : null;
+    if (!profile) continue;
+    const n = kept(1, profile);
+    if (n >= 0 && scenario === WIDE_SHEET) dom = true;
+    clauses.push(`${n < 0 ? `from ${stopShort(scenario.stops[0]!)}` : `past ${stopShort(scenario.stops[n]!)}`} ${unit}${profile === 'throttled' ? ' on a slow device' : ''}`);
+  }
+  const clause = clauses.length ? clauses.join(' or ') : null;
+  const rule = !clause ? 'Verdict after the scenarios run.' : `${dom ? 'Use the DOM for small tables.' : ''}Use GPUI ${clause}.`;
 
   // The code: its own chunk, after first paint.
   expect(Object.keys(manifest).some((key) => key.endsWith('src/gallery.ts')), 'the build has no gallery chunk');
@@ -1603,6 +1795,18 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     expect(JSON.stringify(verdicts) === JSON.stringify(want), `the cards' verdicts ${JSON.stringify(verdicts)}, the numbers say ${JSON.stringify(want)}`);
     const wide = gallery.verdicts[WIDE_SHEET.id]!.text;
     expect(wide === keepsVerdict(WIDE_SHEET, values).split(' · ')[0], `the wide sheet's card "${wide}" isn't the panel's fast-device verdict`);
+    // Market watch's fast device shows no edge, so its card says the slow one's too.
+    const market = gallery.verdicts[MARKET_WATCH.id]!;
+    const marketValues = cold.numbers.scenarios[MARKET_WATCH.id]!.values;
+    // The card's verdict: the fast device's reach, and the slow device's after it where the fast one's is even; its lean the device that decides.
+    const marketKeptAt = keptIn(MARKET_WATCH);
+    const [fastG, fastT, slowG, slowT] = [marketKeptAt(0, 'reference'), marketKeptAt(1, 'reference'), marketKeptAt(0, 'throttled'), marketKeptAt(1, 'throttled')];
+    const [g, t, both] = fastG !== fastT ? [fastG, fastT, false] : [slowG, slowT, slowG !== slowT];
+    const wantText = both ? keepsVerdict(MARKET_WATCH, marketValues) : keepsVerdict(MARKET_WATCH, marketValues).split(' · ')[0];
+    const wantLean = g === t ? null : g > t ? 'gpui' : 'tanstack';
+    expect(market.text === wantText && market.lean === wantLean, `market watch's card "${market.text}" (${market.lean}), the numbers say "${wantText}" (${wantLean})`);
+    const synthetic = await page.locator('[data-scenario-card] [data-synthetic]').evaluateAll((tags) => tags.map((tag) => tag.closest('[data-scenario-card]')!.getAttribute('data-scenario-card')));
+    expect(JSON.stringify(synthetic) === JSON.stringify([MARKET_WATCH.id]), `the "Synthetic data" tags: ${JSON.stringify(synthetic)}`);
     const rows = await page.locator('[data-reach-row]').evaluateAll((rows) =>
       rows.map((row) => ({
         id: row.getAttribute('data-reach-row'),
@@ -1623,7 +1827,12 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     expect(JSON.stringify(leans) === JSON.stringify(leansWant), `the mechanisms' rows ${JSON.stringify(leans)}, want ${JSON.stringify(leansWant)}`);
     const defined = await page.locator(`#${WHY_ANCHOR} [data-mechanism]`).evaluateAll((items) => items.map((item) => item.id));
     expect(JSON.stringify(defined) === JSON.stringify(MECHANISMS.map(mechanismAnchor)), `the mechanisms' definitions: ${JSON.stringify(defined)}`);
-    out.component = { verdicts, reach: row?.reach, leans };
+    const marketKept = keptIn(MARKET_WATCH);
+    const marketLabel = (index: number) => (index < 0 ? 'none' : MARKET_WATCH.stops[index]!.label);
+    const marketReach = (['reference', 'throttled'] as const).map((profile) => [marketLabel(marketKept(0, profile)), marketLabel(marketKept(1, profile))]);
+    const marketRow = rows.find((candidate) => candidate.id === MARKET_WATCH.id);
+    expect(JSON.stringify(marketRow?.reach) === JSON.stringify(marketReach), `market watch's reach ${JSON.stringify(marketRow?.reach)}, the numbers say ${JSON.stringify(marketReach)}`);
+    out.component = { verdicts, reach: row?.reach, marketReach: marketRow?.reach, leans };
     console.log(`${TALL_TABLE.path}: the verdicts ${JSON.stringify(verdicts.map(([, text]) => text))}; the wide sheet's reach ${JSON.stringify(row?.reach)} (re-derived), its row opening its Compare; the mechanisms per scenario and their ${defined.length} definitions`);
 
     // A row's #compare opens the scenario's panel once, and clears.
@@ -1684,6 +1893,7 @@ try {
     readOut.meter = await meter(url);
     readOut.scenarios = await scenarios(new URL(WIDE_ROUTE, url).href);
     readOut.wide = await wideReadouts(new URL(WIDE_ROUTE, url).href);
+    readOut.market = await marketReadouts(new URL(MARKET_ROUTE, url).href, server.url);
     readOut.galleries = await galleries(server.url);
   }
   const shots = option('shots');

@@ -293,3 +293,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The frame-scheduling states that made B1's three runs read 14–41 ms were far steadier over 10 cold runs: TanStack sat in one state in every setting, within 0.4 ms, and GPUI in one at the reference. The state follows the stop, not the run: TanStack's commit sits a frame from its presentation at 100 updates/s (18.2 ms) and 5 ms from it at 500, so its slowest Shown in comes at the lightest feed. Only GPUI's slow-device runs switched, and only they make the overlap rule matter.
 - GPUI's cost hardly depends on the rate (busy 277 → 288 ms/s and 4 collections in 10 s from 100 to 5k), so at the reference TanStack is the cheaper side below 5k (162 against 279 ms/s at 500). The feed's case for the canvas is the slow device and the collections, not the reference's main-thread time.
 - The contender's GPUI side has no late frames on a slow device, where the spike's bare host had 11–21%, and about half its busy time. Two changes came between them, the table's cheap flash frames and the feed moved off the main thread into a worker, and nothing here separates them.
+
+## M10 part E: market watch on the page (2026-11-06)
+
+**Results:** [`perf/results/2026-11-06-m10-e.md`](../perf/results/2026-11-06-m10-e.md).
+
+**Surprises:**
+- The decided rule had nothing to say about market watch: it reads the fast device, where both sides keep up to 5k updates/s. The edge is only on the slow device, so the rule now falls back to it and says so ("past 1k updates a second on a slow device"), and so does the scenario card's verdict.
+- This tab's Shown in doesn't rank the sides as the cold runs do. The tab reads to the frame that draws a batch: about 12 ms on GPUI and 9 ms on TanStack, steady over four loads each. The cold runs read to the frame's presentation, 13.8 against 15.0 at 500 and even. TanStack's commit sits about 5 ms before its presentation at that stop (part D's mark → presentation), and a page can't see that without a trace. The explainer says what this tab reads, and the cold values sit beside it.
+- The page's own rAF loop, recording every frame under the feed for Smooth, didn't move either side's Shown in (GPUI 12.0–12.8 ms with it, 11.6–12.9 without; TanStack 8.6–9.5 both ways). The table's `live` latency had read ~20 ms against ~7 with a recorder's loop on the page. That was the bare host's invalidate → refreshed frame; here the feed is in a worker and the frame is a child of the page.
+- The rate stops' label ("1k updates/s") was the only thing that changed the base and wide level's TanStack builds: every build carries the whole scenario list, which `pickScenario` reads.

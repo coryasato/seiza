@@ -50,6 +50,9 @@ export interface MarketCells {
   /** The highest re-read generation drawn, raised by the re-reads landed
    *  since the last call over the visible rows; null if none raised it. */
   refreshed(): number | null;
+  /** The frame keeps this tab's Shown in (`?readout`): `refreshed` runs at
+   *  every commit then, measured or not. */
+  readout: boolean;
 }
 
 /** `rgb(r g b / alpha)`, the channels unrounded. */

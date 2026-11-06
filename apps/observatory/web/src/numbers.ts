@@ -124,6 +124,7 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
   const side = shown.side;
   const meter = useMeter().mode !== 'off';
   const cards = cardsOf(scenario);
+  const phone = numbersOf(scenario).phone;
   const coldFast = (card: Card) => cardValues(card, coldOf(scenario).values, 'reference', stop.id);
   const at = (card: Card) => (card.perStop ? ` at ${stop.label}` : '');
   const segment = (card: Card) => {
@@ -132,7 +133,7 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
       Explainer,
       {
         key: card.key,
-        className: `h-full ${card.key === 'usable' || card.key === 'data' ? 'max-md:hidden' : ''}`,
+        className: `h-full ${phone.includes(card.key) ? '' : 'max-md:hidden'}`,
         placement: 'above-end',
         trigger: h(
           Fragment,
@@ -192,7 +193,7 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
           trigger: h(Ellipsis, { 'aria-hidden': true }),
           triggerProps: { 'aria-label': 'More numbers', className: `${SEGMENT} min-w-11 justify-center` },
         },
-        ...cards.filter((card) => card.key === 'usable' || card.key === 'data').map((card) =>
+        ...cards.filter((card) => !phone.includes(card.key)).map((card) =>
           h(
             'div',
             { key: card.key, role: 'none', className: 'flex justify-between gap-3 p-2.5' },
@@ -484,6 +485,7 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
   const at = stops.find((candidate) => candidate.id === (picked ?? stop.id)) ?? stop;
   const byDefault = stops.find((candidate) => candidate.id === scenario.defaultStop)!;
   const line = `${number(KEEPS_UP_SHARE * 100)} %`;
+  const keeps = numbersOf(scenario).keeps!;
   return h(
     Fragment,
     null,
@@ -492,7 +494,7 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
       { 'data-card': 'keeps', 'aria-label': 'Where each side keeps up', className: CARD },
       h(CardHead, {
         label: 'Where each side keeps up',
-        explain: `A side keeps up at a stop when at least ${line} of the display’s frames draw new cells in a steady scroll down and in one sideways; the slower of the two is drawn. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in. Cold, the middle of ${runsOf(scenario)} runs.`,
+        explain: `A side keeps up at a stop when at least ${line} ${keeps.explain} Cold, the middle of ${runsOf(scenario)} runs.`,
         note: 'higher is better',
       }),
       h('span', { 'data-verdict': '', className: 'text-sm leading-snug' }, keepsVerdict(scenario, numbers.values)),
@@ -508,7 +510,7 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
       'div',
       { 'data-stop-heading': '', className: 'flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-0.5' },
       h('h3', { className: 'text-sm' }, `At ${at.label}`),
-      h('span', { className: 'text-xs text-muted-foreground' }, stopSets(at)),
+      h('span', { className: 'text-xs text-muted-foreground' }, stopSets(at, numbers.rows)),
       at.id === stop.id ? h('span', { className: 'text-xs text-muted-foreground' }, 'this window’s stop') : null,
     ),
     h(
@@ -533,7 +535,7 @@ function KeepsChart({ scenario, values, profile, picked, pick }: { scenario: Sce
   const x = (index: number) => `${(((index + 0.5) / stops.length) * 100).toFixed(2)}%`;
   const y = (share: number) => TOP + ((100 - share) / 100) * (BOTTOM - TOP);
   const shares = (side: Side) => stops.map((stop) => values[coldKey('keeps', profile, stop.id)]![sideIndex(side)]!);
-  const label = `${DEVICES[profile]}, the share of the display’s frames that drew new cells at ${stops.map((stop) => stop.label).join(', ')}: ${(['gpui', 'tanstack'] as const).map((side) => `${LABELS[side]} ${shares(side).map(number).join(', ')} %`).join('; ')}`;
+  const label = `${DEVICES[profile]}, ${numbersOf(scenario).keeps!.reads} at ${stops.map((stop) => stop.label).join(', ')}: ${(['gpui', 'tanstack'] as const).map((side) => `${LABELS[side]} ${shares(side).map(number).join(', ')} %`).join('; ')}`;
   const selected = stops.findIndex((stop) => stop.id === picked);
   // Each side's line as segments: a polyline's points can't be a share of the width.
   const segments = (side: Side, className: string) =>
@@ -671,6 +673,22 @@ const STORIES: Record<string, Story> = {
       ),
     },
   ],
+  },
+  'market-watch': {
+    shows: (numbers) =>
+      `A trading screen: ${numbers.rows} fictional instruments, every price changed in place, each change flashing. One seeded feed, the same on both sides, runs in a worker of each side’s own and sends every tick as the same bytes; each side folds every tick into its own store, none dropped, and draws once a frame. Each stop of the dial sends more updates a second. The instruments come from one small file, opened by the same database engine; their names, their prices, and the feed are made up.`,
+    after: (_, component) => [
+      {
+        title: 'Why',
+        body: h(
+          'p',
+          null,
+          'Garbage under churn: each tick makes new objects on the DOM side, and the page pauses to collect them, more often the faster the feed; GPUI’s store is Rust’s plain buffers, which make none. That’s WebAssembly’s doing rather than the canvas’s. Cost per cell: the DOM renders only the rows a tick moved, while the GPU draws the whole screen each frame, so at the lower stops the DOM does less. ',
+          h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
+          '.',
+        ),
+      },
+    ],
   },
 };
 

@@ -8,8 +8,13 @@
  * last frame's readings after a flip; a side loaded after another in this
  * tab, or from the browser's cache, is warm.
  *
+ * Under a feed (market watch), the frames from the first rows painted
+ * on, whatever the visitor does, and the frame's Shown in samples, read
+ * from its ring (`__contender.shownIn`, kept with `?readout`) at each
+ * refresh, never sent per frame.
+ *
  * Passive: listeners on the frame's window, never on its elements; a rAF
- * loop only while a scroll is under way; one memory measurement at a time,
+ * loop only while a scroll is under way or a feed runs; one memory measurement at a time,
  * every few seconds once the frame filled, never during a scroll, only
  * while the page is visible. A refresh with nothing new costs a version
  * check, and a hidden page skips it. The meter's graphs (`meter.ts`) are
@@ -60,6 +65,16 @@ interface Tracked {
   base: string;
   /** A scroll under way: no memory measurement then. */
   scrolling: boolean;
+  /** Its scenario runs a feed: its frames are recorded from its first rows on. */
+  feed: boolean;
+  /** Starts recording the feed's frames (set once the window is listened on). */
+  startFeed: () => void;
+  /** The feed's frames recorded, and as of the last refresh: the record's
+   *  version moves once a refresh, not once a frame. */
+  feedFrames: number;
+  feedFramesRead: number;
+  /** The frame's ring as last read, and the samples read from it. */
+  ring: { samples: Float64Array; read: number } | null;
   detach: () => void;
   /** Bumped by every change to `record`; `read` is the readings at one. */
   version: number;
@@ -80,18 +95,24 @@ let metrics: Awaited<ReturnType<typeof loadMetrics>> | null = null;
 
 const epoch = (pageMs: number) => performance.timeOrigin + pageMs;
 
-/** A new frame for `side`, as the slot creates it: its readings start over. */
-export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string): void {
+/** A new frame for `side`, as the slot creates it: its readings start over.
+ *  `feed`: its scenario runs a feed. */
+export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, feed = false): void {
   shown?.detach();
   const tracked: Tracked = {
     side,
     frame,
-    record: { timeOrigin: 0, usable: null, open: null, filled: [], scrolls: [], memory: [] },
+    record: { timeOrigin: 0, usable: null, open: null, filled: [], scrolls: [], memory: [], shown: [] },
     second: framesCreated > 0,
     cached: false,
     warm: framesCreated++ > 0,
     base: new URL(base, location.href).href,
     scrolling: false,
+    feed,
+    startFeed: () => {},
+    feedFrames: 0,
+    feedFramesRead: 0,
+    ring: null,
     detach: () => {},
     version: 0,
     read: null,
@@ -104,6 +125,8 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string): 
     if (!window || shown !== tracked) return;
     tracked.record.timeOrigin ||= window.performance.timeOrigin;
     tracked.detach = listenForScrolls(tracked, window);
+    // A frame that filled before its `load`: its feed's frames start now.
+    if (tracked.feed && tracked.record.filled.length) tracked.startFeed();
   };
   frame.addEventListener('load', attach, { once: true });
   // A scroll's recording ends on the module's rest time: load it with the
@@ -125,6 +148,7 @@ export function frameMark(source: MessageEventSource | null, name: string, at: n
       tracked.cached = fromCache(source as Window);
       tracked.warm ||= tracked.cached;
       measureMemory(tracked);
+      if (tracked.feed) tracked.startFeed();
     }
     record.filled.push(at);
   }
@@ -145,6 +169,32 @@ export const cached = (entry: PerformanceResourceTiming): boolean => entry.trans
 function listenForScrolls(tracked: Tracked, window: Window): () => void {
   let last = 0;
   let scroll: number[] | null = null;
+  // Under a feed, every frame from the first rows on, in runs: the page
+  // having been hidden starts a new one (no frames ran then, so the gap
+  // isn't a late frame), while a stall in a visible page stays one; the
+  // runs kept to about the meter's window.
+  let feed: number[] | null = null;
+  let hidden = false;
+  const visibility = () => void (document.hidden && (hidden = true));
+  if (tracked.feed) document.addEventListener('visibilitychange', visibility);
+  const feedTick = (now: number) => {
+    if (!feed || shown !== tracked) return;
+    const at = epoch(now);
+    const { scrolls } = tracked.record;
+    if (hidden && feed.length) scrolls.push((feed = []));
+    hidden = document.hidden;
+    feed.push(at);
+    if (feed.length > 2 * FEED_FRAMES) feed.splice(0, feed.length - FEED_FRAMES);
+    while (scrolls.length > 1 && scrolls[0]!.at(-1)! < at - 2 * FEED_FRAMES * FEED_FRAME_MS) scrolls.shift();
+    tracked.feedFrames++;
+    tracked.scrolling = !!metrics && performance.now() - last <= metrics.SCROLL_REST_MS;
+    requestAnimationFrame(feedTick);
+  };
+  tracked.startFeed = () => {
+    if (feed) return;
+    tracked.record.scrolls.push((feed = []));
+    requestAnimationFrame(feedTick);
+  };
   const tick = (now: number) => {
     if (!scroll || shown !== tracked) return;
     scroll.push(epoch(now));
@@ -157,6 +207,8 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
     if (event.type === 'keydown' && !SCROLL_KEYS.has((event as KeyboardEvent).key)) return;
     if (event.type === 'pointermove' && !(event as PointerEvent).buttons) return;
     last = performance.now();
+    // The feed's loop records every frame already, a scroll's among them.
+    if (feed) return void (tracked.scrolling = true);
     if (scroll) return;
     scroll = [];
     tracked.scrolling = true;
@@ -168,9 +220,46 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
   for (const type of types) window.addEventListener(type, input, options);
   return () => {
     scroll = null;
+    feed = null;
+    document.removeEventListener('visibilitychange', visibility);
     tracked.scrolling = false;
     for (const type of types) window.removeEventListener(type, input, options);
   };
+}
+
+/** A feed's frames kept: about the meter's 10 s at 60 Hz. */
+const FEED_FRAMES = 600;
+const FEED_FRAME_MS = 1000 / 60;
+/** The frame's new Shown in samples, from its ring (`SHOWN_RING`'s
+ *  layout, its size the array's own): those written since the last read,
+ *  only the last `SHOWN_WINDOW_MS`' back from now kept, so a feed that
+ *  stopped reads as none. A new ring (a reopen) is read from its start. */
+function readRing(tracked: Tracked): void {
+  const { shown } = tracked.record;
+  const from = epoch(performance.now()) - metrics!.SHOWN_WINDOW_MS;
+  const stale = shown.findIndex(({ at }) => at >= from);
+  const drop = stale < 0 ? shown.length : stale;
+  if (drop) {
+    shown.splice(0, drop);
+    tracked.version++;
+  }
+  const held = (tracked.frame.contentWindow as (Window & { __contender?: { shownIn?: unknown } }) | null)?.__contender?.shownIn;
+  // The frame's realm's array: not this window's `Float64Array`.
+  if (Object.prototype.toString.call(held) !== '[object Float64Array]') return;
+  const samples = held as Float64Array;
+  const size = (samples.length - 1) / 2;
+  if (!Number.isInteger(size) || size < 1) return;
+  if (tracked.ring?.samples !== samples) tracked.ring = { samples, read: 0 };
+  const ring = tracked.ring!;
+  const written = samples[0]!;
+  if (written < ring.read) ring.read = 0;
+  if (written === ring.read) return;
+  for (let n = Math.max(ring.read, written - size); n < written; n++) {
+    const slot = 1 + 2 * (n % size);
+    if (samples[slot]! >= from) shown.push({ at: samples[slot]!, ms: samples[slot + 1]! });
+  }
+  ring.read = written;
+  tracked.version++;
 }
 
 /** The frame's memory, one measurement at a time while it's shown and the
@@ -206,6 +295,13 @@ function measureMemory(tracked: Tracked): void {
  *  published only when they did. */
 function refresh(): void {
   if (!metrics || document.visibilityState !== 'visible') return;
+  if (shown?.feed) {
+    readRing(shown);
+    if (shown.feedFrames !== shown.feedFramesRead) {
+      shown.feedFramesRead = shown.feedFrames;
+      shown.version++;
+    }
+  }
   if (meterListeners.size) refreshMeter();
   if (!listeners.size) return;
   let changed = false;
