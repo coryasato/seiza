@@ -284,3 +284,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - The cell probe went stale: published after each commit, as the wide level's is, it showed every price still flashing 700 ms after the feed stopped, because a CSS animation fades with no commit. The DOM's flash is the one cell state that changes without React, so the probe reads the DOM when it's read. Read live, it raced the other way: it took the values from the paging, which a re-read can land in before the frame draws it, so a cell drawn at 0 was read at −0.01. A probe of what's on screen has to read the value from what drew it (`data-exact`), not from the model.
 - One page holds every instrument (1,024 rows to a page, 50 rows), so the base's rule of memoizing a row by its page would have rendered every visible row at each re-read. The store's own identities (a new object only for a quote a tick moved) were the memo key that fit, and the GPUI side, which redraws every frame anyway, has no counterpart.
 - The two sides' cells came out the same on the first run, all 600, though the DOM measures the format's advances in the browser and the table uses its own: no market value sits near its column's edge, so this fixture can't tell the two measurements apart.
+
+## M10 part D: market watch's numbers (2026-11-06)
+
+**Results:** [`perf/results/2026-11-06-m10-d2.md`](../perf/results/2026-11-06-m10-d2.md) (part D1 built the scripts and published nothing).
+
+**Surprises:**
+- The frame-scheduling states that made B1's three runs read 14–41 ms were far steadier over 10 cold runs: TanStack sat in one state in every setting, within 0.4 ms, and GPUI in one at the reference. The state follows the stop, not the run: TanStack's commit sits a frame from its presentation at 100 updates/s (18.2 ms) and 5 ms from it at 500, so its slowest Shown in comes at the lightest feed. Only GPUI's slow-device runs switched, and only they make the overlap rule matter.
+- GPUI's cost hardly depends on the rate (busy 277 → 288 ms/s and 4 collections in 10 s from 100 to 5k), so at the reference TanStack is the cheaper side below 5k (162 against 279 ms/s at 500). The feed's case for the canvas is the slow device and the collections, not the reference's main-thread time.
+- The contender's GPUI side has no late frames on a slow device, where the spike's bare host had 11–21%, and about half its busy time. Two changes came between them, the table's cheap flash frames and the feed moved off the main thread into a worker, and nothing here separates them.
