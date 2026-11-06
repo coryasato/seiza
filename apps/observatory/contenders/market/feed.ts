@@ -48,6 +48,12 @@ export const AT = {
   ask: 32,
 } as const;
 
+/** The table's columns, as the instruments' file has them
+ *  (`data/prep-market.sql`, which writes it): each contender's open checks
+ *  the file against them (the GPUI side's `scene/market.rs` keeps its own
+ *  copy, checked at the same open). */
+export const COLUMNS = ['Symbol', 'Name', 'Last', 'Change', 'Change %', 'Bid', 'Ask', 'Bid size', 'Ask size', 'Volume', 'High', 'Low'] as const;
+
 export interface Instrument {
   symbol: string;
   name: string;

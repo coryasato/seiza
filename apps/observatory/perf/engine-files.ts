@@ -4,7 +4,8 @@
 // Checks:
 // - Byte-identical: each build's duckdb/ (DuckDB-Wasm's worker scripts and
 //   wasm, put there by `contenderBuild`; the pinned extensions) holds the
-//   same files, each with the same SHA-256.
+//   same files, each with the same SHA-256: both bases, and every level
+//   each side builds (`scenarios.ts`'s `BUILT`) against the GPUI base's.
 // - Served from /observatory/duckdb/: each build in Chromium opens the data
 //   file (the GPUI contender to its first filled frame; the TanStack one to
 //   its first row, the count from data/MANIFEST.json and row 0's H from the
@@ -22,8 +23,8 @@
 //
 // Usage: node apps/observatory/perf/engine-files.ts [--controls] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just observatory
-// gpui-build` and `just observatory tanstack-build` first; needs `just
-// observatory data`.
+// gpui-build` and `just observatory tanstack-build` first (and each
+// level's: `just observatory builds`); needs `just observatory data`.
 
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -35,7 +36,8 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { walk } from '../../../shared-web/scripts/walk.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { FIRST_PAINT_ERROR } from '../contenders/engine.ts';
-import { MARKS, gpuiWebDir, perfDir, problems, protocolContext, serveGpui, serveTanstack, tanstackWebDir } from './harness.ts';
+import { featureLevels } from '../contenders/scenarios.ts';
+import { MARKS, distDir, gpuiWebDir, perfDir, problems, protocolContext, serveGpui, serveTanstack, tanstackWebDir } from './harness.ts';
 
 const PORT = 4315;
 const GPUI_PORT = 4316;
@@ -87,6 +89,19 @@ for (const kind of [/^duckdb-browser-eh\.worker-.+\.js$/, /^duckdb-browser-mvp\.
 }
 output.engineFiles = Object.fromEntries([...gpuiEngine].sort(([a], [b]) => a.localeCompare(b)));
 console.log(`duckdb/: ${gpuiEngine.size} files, ${engineDiff.length ? 'DIFFERENT' : 'byte-identical in both builds'}`);
+// Each feature level's build: the same engine as the bases'.
+const levels: Record<string, number> = {};
+for (const [side, dir] of [['gpui', gpuiWebDir], ['tanstack', tanstackWebDir]] as const) {
+  for (const level of featureLevels(side)) {
+    const engine = join(distDir(dir, level), 'duckdb');
+    if (!check(existsSync(engine), `no ${side} build at the ${level} level: run \`just observatory ${side}-build ${level}\``)) continue;
+    const diff = differences(gpuiEngine, tree(engine));
+    levels[`${side}-${level}`] = diff.length;
+    check(diff.length === 0, `the ${side} ${level} build's duckdb/ differs from the GPUI base's: ${diff.join('; ')}`);
+  }
+}
+output.levelEngines = levels;
+console.log(`duckdb/ at each feature level: ${Object.entries(levels).map(([build, diff]) => `${build} ${diff ? 'DIFFERENT' : 'the same'}`).join(', ')}`);
 
 // --- the engine's JS chunk: shared or not (recorded) ---
 

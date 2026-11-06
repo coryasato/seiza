@@ -13,7 +13,8 @@ import type * as View from './src/view.ts';
 // bundles and extensions, `contenderBuild`), the data at
 // /observatory/data/, the font at /fonts/. The level (`contenders/level.ts`)
 // from Vite's mode: `--mode wide` is the wide sheet's build, into
-// `dist-wide/`; the base carries none of its code.
+// `dist-wide/`, `--mode market` market watch's, into `dist-market/`; the
+// base carries none of their code.
 export default defineConfig(({ mode }) => {
   const level = levelOf('tanstack', mode);
   const outDir = levelOutDir(level);
@@ -33,8 +34,8 @@ export default defineConfig(({ mode }) => {
       plugins: [firstScreen, contenderBuild(outDir), levelConstants(level)],
       // The chunks' import graph, which `perf/tanstack-sizes.ts` sizes the JS budgets from.
       build: { outDir, manifest: true },
-      // The level's own styles: `wide.css` on the wide level, nothing on the base.
-      resolve: { alias: [{ find: /^\.\/level\.css$/, replacement: level === 'wide' ? './wide.css' : './base.css' }] },
+      // The level's own styles: `wide.css` or `market.css` on their levels, nothing on the base.
+      resolve: { alias: [{ find: /^\.\/level\.css$/, replacement: level === 'base' ? './base.css' : `./${level}.css` }] },
     },
   );
 });

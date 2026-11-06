@@ -1,0 +1,37 @@
+/* Market watch's table (src/market.ts): Change and Change % in the rise's
+   or the fall's color by sign, and the flash on the scenario's columns, the
+   cell's own background by keyframes (the DOM's flash, docs/DECISIONS.md,
+   "Scenarios"): from the rise's, the fall's, or their middle's color at the
+   scenario's mix to nothing, linearly over its ms. Each flash has two
+   animations of the same keyframes, `a` and `b`: a new change flips the
+   cell's, so its fade starts over. The colors and ms are `marketCss`'s
+   variables. Imported only by the market level's build (`./level.css`,
+   `vite.config.ts`). */
+
+.cell.up { color: var(--up); }
+.cell.down { color: var(--down); }
+
+.cell.f-up-a { animation: flash-up-a var(--flash-ms) linear; }
+.cell.f-up-b { animation: flash-up-b var(--flash-ms) linear; }
+.cell.f-down-a { animation: flash-down-a var(--flash-ms) linear; }
+.cell.f-down-b { animation: flash-down-b var(--flash-ms) linear; }
+.cell.f-mid-a { animation: flash-mid-a var(--flash-ms) linear; }
+.cell.f-mid-b { animation: flash-mid-b var(--flash-ms) linear; }
+
+@keyframes flash-up-a { from { background-color: var(--flash-up); } to { background-color: transparent; } }
+@keyframes flash-up-b { from { background-color: var(--flash-up); } to { background-color: transparent; } }
+@keyframes flash-down-a { from { background-color: var(--flash-down); } to { background-color: transparent; } }
+@keyframes flash-down-b { from { background-color: var(--flash-down); } to { background-color: transparent; } }
+@keyframes flash-mid-a { from { background-color: var(--flash-mid); } to { background-color: transparent; } }
+@keyframes flash-mid-b { from { background-color: var(--flash-mid); } to { background-color: transparent; } }
+
+/* Under reduced motion a flash holds its color until it ends (the table's
+   `opacity`), then goes. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes flash-up-a { from, to { background-color: var(--flash-up); } }
+  @keyframes flash-up-b { from, to { background-color: var(--flash-up); } }
+  @keyframes flash-down-a { from, to { background-color: var(--flash-down); } }
+  @keyframes flash-down-b { from, to { background-color: var(--flash-down); } }
+  @keyframes flash-mid-a { from, to { background-color: var(--flash-mid); } }
+  @keyframes flash-mid-b { from, to { background-color: var(--flash-mid); } }
+}

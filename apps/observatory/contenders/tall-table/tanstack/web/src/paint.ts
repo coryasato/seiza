@@ -221,7 +221,7 @@ export function fromOklch(l: number, c: number, h: number, alpha = 1): Rgba {
 }
 
 /** `rgb(r, g, b)` or `rgba(r, g, b, a)`, as a computed color is written. */
-function parseComputed(color: string): Rgba {
+export function parseComputed(color: string): Rgba {
   const [r = 0, g = 0, b = 0, a = 1] = (color.match(/[\d.]+/g) ?? []).map(Number);
   return { r: r / 255, g: g / 255, b: b / 255, a };
 }

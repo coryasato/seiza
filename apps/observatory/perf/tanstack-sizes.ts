@@ -8,7 +8,9 @@
 //   The engine's own chunk (`@seiza/duckdb`'s, which the bridge imports;
 //   each contender loads its own copy) is recorded beside them, not
 //   budgeted (`engine-files` records whether it's shared).
-// The CSS and the HTML are recorded too. The chunks and their imports come
+// The CSS and the HTML are recorded too, and on market watch's level the
+// feed's worker (`assets/worker-*.js`, which the market table starts once
+// it fills: in no import graph, as Vite emits a worker as an asset). The chunks and their imports come
 // from Vite's build manifest (`dist/.vite/manifest.json`), the graph the
 // build itself resolved.
 //
@@ -21,10 +23,10 @@
 // in perf/baseline.json, keeping its other entries. Run `just observatory
 // tanstack-build [level]` first.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { brotli } from '../../../shared-web/src/brotli.ts';
-import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { flag, localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { BUILT, type Level } from '../contenders/scenarios.ts';
 import { ENGINE_CHUNK, budgetLimits, distDir, perfDir, tanstackWebDir } from './harness.ts';
 
@@ -89,21 +91,24 @@ const sum = (sizes: Record<string, number>) => kib(Object.values(sizes).reduce((
 const firstPaintSizes = sized(firstPaint);
 const dataLayerSizes = sized(dataLayer);
 const engineSizes = sized(engine);
+const workers = existsSync(join(dist, 'assets')) ? readdirSync(join(dist, 'assets')).filter((file) => /^worker-[\w-]+\.js$/.test(file)).map((file) => `assets/${file}`) : [];
 const result = {
   firstPaintJsBrotliKiB: sum(firstPaintSizes),
   dataLayerJsBrotliKiB: sum(dataLayerSizes),
   engineJsBrotliKiB: sum(engineSizes),
   cssBrotliKiB: sum(sized(css)),
   htmlBrotliKiB: kib(brotli(Buffer.from(html)).byteLength),
+  ...(workers.length ? { workerJsBrotliKiB: sum(sized(workers)) } : {}),
   chunks: { firstPaint: firstPaintSizes, dataLayer: dataLayerSizes, engine: engineSizes },
 };
 console.log(
   `TanStack contender${build ? ` at the${build} level` : ''}, brotli: first-paint JS ${result.firstPaintJsBrotliKiB} KiB (${Object.keys(firstPaintSizes).join(', ')}); ` +
     `data layer ${result.dataLayerJsBrotliKiB} KiB (${Object.keys(dataLayerSizes).join(', ')}); engine chunk ${result.engineJsBrotliKiB} KiB; ` +
-    `CSS ${result.cssBrotliKiB} KiB; HTML ${result.htmlBrotliKiB} KiB`,
+    `CSS ${result.cssBrotliKiB} KiB; HTML ${result.htmlBrotliKiB} KiB${workers.length ? `; the feed's worker ${result.workerJsBrotliKiB} KiB` : ''}`,
 );
 
-const date = new Date().toISOString().slice(0, 10);
+// The local date, as every results file's.
+const date = localDate();
 const label = option('label');
 if (label) {
   mkdirSync(join(perfDir, 'results'), { recursive: true });

@@ -15,7 +15,7 @@ import { createElement as h, memo, useCallback, useEffect, useLayoutEffect, useM
 import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import type { Contender } from '../../../../contract.ts';
 import { exactText, shownText } from './data/format.ts';
-import type { ArrowPage } from './data/table.ts';
+import type { TablePage } from './data/table.ts';
 import { barInset } from './density.ts';
 import { formatCount, padOf, type LaidOutColumn, type Sizes } from './layout.ts';
 import { FramePaint, documentTheme, fromOklab, rampAt, rampCss, resolveRamp, type Oklab } from './paint.ts';
@@ -158,7 +158,7 @@ export function WideHead({ columns, sheet, gutter, width, sizes }: { columns: re
 interface WideRowProps {
   row: number;
   top: number;
-  page: ArrowPage | null;
+  page: TablePage | null;
   index: number;
   failed: string | null;
   columns: readonly LaidOutColumn[];
@@ -184,7 +184,7 @@ export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps
   // The scrolled columns whose cells were created with the row's page: set
   // when the page arrives, narrowed as columns leave (a column that comes
   // back is a new element, painted for the scroll, not the load).
-  const timed = useRef<{ page: ArrowPage | null; first: number; last: number }>({ page: null, first: 0, last: -1 });
+  const timed = useRef<{ page: TablePage | null; first: number; last: number }>({ page: null, first: 0, last: -1 });
   if (measured && page) {
     if (timed.current.page !== page) timed.current = { page, first, last };
     else timed.current = { page, first: Math.max(timed.current.first, first), last: Math.min(timed.current.last, last) };
@@ -276,7 +276,7 @@ export function cellRect(scroller: Element, sheet: Sheet, gutter: number, row: n
  * scrolled, right of the run's edge; its exact and shown text, and its
  * heat's color (8-bit RGBA, the ramp's mix) or null.
  */
-export function publishCells(scroller: HTMLElement, columns: readonly LaidOutColumn[], sheet: Sheet, gutter: number, scene: WideScene, heat: Oklab[], page: (row: number) => { page: ArrowPage; index: number } | null): void {
+export function publishCells(scroller: HTMLElement, columns: readonly LaidOutColumn[], sheet: Sheet, gutter: number, scene: WideScene, heat: Oklab[], page: (row: number) => { page: TablePage; index: number } | null): void {
   const contender = (globalThis as { __contender?: Contender & { layout?: unknown; cells?: unknown } }).__contender;
   if (!contender) return;
   const box = scroller.getBoundingClientRect();

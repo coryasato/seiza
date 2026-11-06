@@ -16,10 +16,18 @@ import type { CellKind, CellValue } from './format.ts';
 import type { Page, PageSource } from './paging.ts';
 import { LOAD_PARQUET_SQL, PARQUET_METADATA_CACHE_SQL, WARM_UP_SQL, pageSql, summaryQueries } from './sql.ts';
 
+/** A page as the view draws it: its rows' values, undefined past its end.
+ *  The engine's pages are `ArrowPage`s; market watch's re-reads, the
+ *  store's (`quotes.ts`). */
+export interface TablePage extends Page {
+  readonly length: number;
+  value(row: number, column: number): CellValue | undefined;
+}
+
 /** A page of rows, decoded from the Arrow IPC bytes it arrived as. The
  *  vectors are views into those bytes, so `byteLength` is what it holds
  *  (the component's `heap_bytes`). */
-export class ArrowPage implements Page {
+export class ArrowPage implements TablePage {
   readonly byteLength: number;
   readonly length: number;
   private readonly columns: Vector[];

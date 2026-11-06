@@ -46,20 +46,32 @@
 //   wheel does; a vertical wheel holds the header and its pinned names to
 //   the pixel, the pinned cells at their place in the new rows. Control:
 //   the screenshot of a region that scrolls differs.
+// - The market level (all three; market watch at its default stop, `?cells`,
+//   light and dark): under the feed, Change and Change % drawn in the rise's
+//   or the fall's color by sign (`scenarios.ts`'s, within one 8-bit step), a
+//   zero in neither; cells flashing, only in the scenario's columns, each in
+//   the rise's or the fall's color at no more than its mix; and the fade
+//   ending once a short feed stops (`?ticks`), no cell left lit. In the
+//   light theme, the tooltip as the table's under `format`: a cell whose
+//   fitted text the format rounded (a Change % at 2 decimals) shows its
+//   exact text, one it only dressed (a Last at its decimals) shows none.
 //
 // Usage: node apps/observatory/perf/tanstack-parity.ts [--browsers chromium,firefox,webkit] [--firefox] [--label <name>]
 // Needs `just observatory data`; run `just observatory tanstack-build`,
-// `tanstack-build wide`, `gpui-build`, and `gpui-build wide` first.
+// `tanstack-build wide`, `tanstack-build market`, `gpui-build`, and
+// `gpui-build wide` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from '@playwright/test';
-import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { flag, localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { ROW_HEIGHT } from '../contenders/tall-table/tanstack/web/src/layout.ts';
 import { PAGING } from '../contenders/tall-table/tanstack/web/src/data/paging.ts';
 import { TOOLTIP_DELAY, TOOLTIP_GRACE } from '../contenders/tall-table/tanstack/web/src/tooltip.ts';
-import { WIDE_SHEET } from '../contenders/scenarios.ts';
+import { MARKET_WATCH, WIDE_SHEET, type Oklch } from '../contenders/scenarios.ts';
+import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
+import { COLUMNS } from '../contenders/market/feed.ts';
 import { MARKS, dataFile, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 const PORT = 4319;
@@ -67,6 +79,8 @@ const GPUI_PORT = 4320;
 /** The wide level's builds. */
 const WIDE_PORT = 4351;
 const GPUI_WIDE_PORT = 4352;
+/** The market level's build. */
+const MARKET_PORT = 4364;
 /** The row height (both contenders': `layout.ts` pins it to GPUI's), the
  *  tooltip's delay and grace, and the drag settle, from the contender. */
 const ROW = ROW_HEIGHT;
@@ -81,7 +95,7 @@ const KNOWN_WARNINGS = [/WebAssembly exception handling 'try' instruction is dep
 const label = option('label');
 const browsers = (option('browsers') ?? 'chromium,firefox,webkit').split(',');
 const failures: string[] = [];
-const output: Record<string, unknown> = { date: new Date().toISOString().slice(0, 10), label, ...machineInfo() };
+const output: Record<string, unknown> = { date: localDate(), label, ...machineInfo() };
 const check = (ok: boolean, problem: string) => {
   if (!ok) failures.push(problem);
   return ok;
@@ -915,6 +929,116 @@ async function borderPixel(page: Page): Promise<number[]> {
   } finally {
     await wideTanstack?.close();
     await wideGpui?.close();
+  }
+}
+
+// --- the market level: the sign colors and the flash ---
+
+{
+  let market: Awaited<ReturnType<typeof serveTanstack>> | null = null;
+  try {
+    market = await serveTanstack(MARKET_PORT, undefined, 'market');
+    const query = `?scenario=${MARKET_WATCH.id}&stop=${MARKET_WATCH.defaultStop}&cells`;
+    const columns: readonly string[] = COLUMNS;
+    const signed = new Set(['Change', 'Change %']);
+    const flashColumns = new Set<string>(MARKET_WATCH.flash.columns);
+    const mix = Math.round(MARKET_WATCH.flash.mix * 255);
+    const rgb8 = (lch: Oklch) => {
+      const color = fromOklch(...lch);
+      return [color.r, color.g, color.b].map((channel) => Math.round(channel * 255));
+    };
+    const close = (a: readonly number[], b: readonly number[], steps: number) => a.every((channel, i) => Math.abs(channel - b[i]!) <= steps);
+    type Cell = { row: number; column: number; exact: string; text: number[] | null; flash: number[] | null };
+    const cellsOf = (page: Page) => page.evaluate(() => ((globalThis as { __contender?: { cells?: Cell[] } }).__contender?.cells ?? []) as Cell[]);
+    const marketOut: Record<string, unknown> = {};
+    for (const name of browsers) {
+      const browser = await launch(name);
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          const [up, down] = [rgb8(MARKET_WATCH.signs[theme].up), rgb8(MARKET_WATCH.signs[theme].down)];
+          const at = `${name} market ${theme}`;
+          const context = await protocolContext(browser, { dpr: name === 'chromium' ? 2 : 1 });
+          const page = await context.newPage();
+          await page.emulateMedia({ colorScheme: theme });
+          const found = problems(page);
+          await page.goto(`${market.url}${query}&theme=${theme}`);
+          await waitMark(page, MARKS.filled, 0, 60_000);
+          await page.waitForTimeout(1000);
+          const cells = await cellsOf(page);
+          // The sign colors.
+          let rises = 0;
+          let falls = 0;
+          const wrongSign: string[] = [];
+          for (const cell of cells.filter((cell) => signed.has(columns[cell.column]!))) {
+            const value = Number(cell.exact);
+            const color = cell.text?.slice(0, 3) ?? [];
+            if (value > 0) rises++;
+            if (value < 0) falls++;
+            if (value !== 0 && !close(color, value > 0 ? up : down, 1)) wrongSign.push(`row ${cell.row} ${columns[cell.column]} ${cell.exact}: ${color}`);
+            if (value === 0 && (close(color, up, 8) || close(color, down, 8))) wrongSign.push(`row ${cell.row} ${columns[cell.column]} 0: a sign's color ${color}`);
+          }
+          check(rises > 0 && falls > 0, `${at}: ${rises} rises and ${falls} falls under the feed, want both`);
+          check(wrongSign.length === 0, `${at}: sign colors off: ${wrongSign.slice(0, 4).join('; ')}`);
+          // The flash.
+          const flashing = cells.filter((cell) => cell.flash);
+          const wrongColumn = [...new Set(flashing.map((cell) => columns[cell.column]!))].filter((column) => !flashColumns.has(column));
+          const offColor = flashing.filter((cell) => {
+            const [r = 0, g = 0, b = 0, a = 0] = cell.flash!;
+            return a > mix + 1 || !(close([r, g, b], up, 1) || close([r, g, b], down, 1));
+          });
+          check(flashing.length > 0, `${at}: nothing flashing under the feed`);
+          check(wrongColumn.length === 0, `${at}: ${wrongColumn.join(', ')} flashing`);
+          check(offColor.length === 0, `${at}: ${offColor.length} flashes off the rise's or the fall's color at the mix, e.g. ${JSON.stringify(offColor[0])}`);
+          await context.close();
+          // The fade ends: a short feed, then no cell lit.
+          const short = await protocolContext(browser, { dpr: name === 'chromium' ? 2 : 1 });
+          const quiet = await short.newPage();
+          await quiet.emulateMedia({ colorScheme: theme });
+          await quiet.goto(`${market.url}${query}&theme=${theme}&ticks=200`);
+          await waitMark(quiet, MARKS.filled, 0, 60_000);
+          await quiet.waitForTimeout(300);
+          const lit = (await cellsOf(quiet)).filter((cell) => cell.flash).length;
+          const ended = await quiet
+            .waitForFunction(() => !((globalThis as { __contender?: { cells?: { flash: unknown }[] } }).__contender?.cells ?? []).some((cell) => cell.flash), null, { timeout: 5_000, polling: 100 })
+            .then(() => true, () => false);
+          check(ended, `${at}: a flash still lit 5 s after a 200-tick feed`);
+          // The tooltip under the format, once the short feed is still.
+          let tooltips: Record<string, unknown> | null = null;
+          if (theme === 'light') {
+            await quiet.evaluate(tooltipWatch);
+            const still = (await cellsOf(quiet)) as (Cell & { shown: string })[];
+            const number = (text: string) => Number(text.replace(/[+,%]/g, ''));
+            const rounded = still.find((cell) => columns[cell.column] === 'Change %' && cell.row < 20 && number(cell.shown) !== Number(cell.exact));
+            const dressed = still.find((cell) => columns[cell.column] === 'Last' && cell.row < 20 && number(cell.shown) === Number(cell.exact) && cell.shown !== cell.exact);
+            if (check(!!rounded && !!dressed, `${at}: no rounded Change % or dressed Last on screen to hover`)) {
+              const away = (await cellBox(quiet, 0, 0))!;
+              const hover = async (cell: Cell) => {
+                await moveTo(quiet, away);
+                await tipState(quiet, false, 1_000);
+                await quiet.waitForTimeout(GRACE + 100);
+                await moveTo(quiet, (await cellBox(quiet, cell.row, cell.column))!);
+                return tipState(quiet, true, DELAY + 400);
+              };
+              const shownRounded = await hover(rounded!);
+              const shownDressed = await hover(dressed!);
+              check(shownRounded.visible && shownRounded.text === rounded!.exact, `${at}: the rounded ${rounded!.shown}'s tooltip ${shownRounded.visible ? `'${shownRounded.text}'` : 'not shown'}, want '${rounded!.exact}'`);
+              check(!shownDressed.visible, `${at}: the dressed ${dressed!.shown} showed a tooltip '${shownDressed.text}'`);
+              tooltips = { rounded: [rounded!.shown, shownRounded.visible ? shownRounded.text : null], dressed: [dressed!.shown, shownDressed.visible ? shownDressed.text : null] };
+            }
+          }
+          await short.close();
+          const real = found.filter((problem) => !KNOWN_WARNINGS.some((warning) => warning.test(problem)));
+          for (const problem of real) check(false, `${at}: ${problem}`);
+          marketOut[`${name}-${theme}`] = { cells: cells.length, rises, falls, flashing: flashing.length, wrongSign: wrongSign.length, offColor: offColor.length, litAfterShortFeed: lit, ended, tooltips };
+          console.log(`${at}: ${cells.length} cells; ${rises} rises, ${falls} falls in their colors${wrongSign.length ? ` (${wrongSign.length} off)` : ''}; ${flashing.length} flashing, in ${[...new Set(flashing.map((cell) => columns[cell.column]))].join(', ')}${offColor.length ? `, ${offColor.length} off color` : ''}; a short feed's ${lit} lit cells ${ended ? 'faded' : 'still lit'}${tooltips ? `; tooltips ${JSON.stringify(tooltips)}` : ''}`);
+        }
+      } finally {
+        await browser.close();
+      }
+    }
+    output.market = marketOut;
+  } finally {
+    await market?.close();
   }
 }
 

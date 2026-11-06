@@ -1,0 +1,220 @@
+{
+  "date": "2026-11-05",
+  "label": "m10-c2-market",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "gpui": {
+    "fold": {
+      "2000-light": {
+        "cells": 600,
+        "wrong": 0,
+        "first": []
+      },
+      "2000-dark": {
+        "cells": 600,
+        "wrong": 0,
+        "first": []
+      },
+      "1999-light": {
+        "cells": 600,
+        "wrong": 6,
+        "first": [
+          "TDLW Bid: exact 62.63, the fold's 62.62",
+          "TDLW Bid: shown 62.63, the format's 62.62",
+          "TDLW Bid size: exact 5800, the fold's 5200",
+          "TDLW Bid size: shown 5,800, the format's 5,200",
+          "TDLW Ask size: exact 7200, the fold's 7900"
+        ]
+      },
+      "1999-dark": {
+        "cells": 600,
+        "wrong": 6,
+        "first": [
+          "TDLW Bid: exact 62.63, the fold's 62.62",
+          "TDLW Bid: shown 62.63, the format's 62.62",
+          "TDLW Bid size: exact 5800, the fold's 5200",
+          "TDLW Bid size: shown 5,800, the format's 5,200",
+          "TDLW Ask size: exact 7200, the fold's 7900"
+        ]
+      }
+    },
+    "flash": {
+      "flashing": 150,
+      "columns": [
+        "Last",
+        "Bid",
+        "Ask"
+      ],
+      "off": 0
+    },
+    "marks": {
+      "100": {
+        "refreshed": 135,
+        "sampled": 23,
+        "presented": 23,
+        "batches": 137,
+        "visible": 118,
+        "reached": 118,
+        "sendToMarkMs": {
+          "p50": 12,
+          "max": 23.1
+        },
+        "ticks": 298
+      },
+      "500": {
+        "refreshed": 132,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 133,
+        "visible": 133,
+        "reached": 133,
+        "sendToMarkMs": {
+          "p50": 12.6,
+          "max": 21.6
+        },
+        "ticks": 1489
+      },
+      "1k": {
+        "refreshed": 133,
+        "sampled": 23,
+        "presented": 23,
+        "batches": 135,
+        "visible": 135,
+        "reached": 134,
+        "sendToMarkMs": {
+          "p50": 12.8,
+          "max": 24.5
+        },
+        "ticks": 3000
+      },
+      "5k": {
+        "refreshed": 132,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 132,
+        "visible": 132,
+        "reached": 132,
+        "sendToMarkMs": {
+          "p50": 13.6,
+          "max": 21.8
+        },
+        "ticks": 14922
+      }
+    }
+  },
+  "tanstack": {
+    "fold": {
+      "2000-light": {
+        "cells": 600,
+        "wrong": 0,
+        "first": []
+      },
+      "2000-dark": {
+        "cells": 600,
+        "wrong": 0,
+        "first": []
+      },
+      "1999-light": {
+        "cells": 600,
+        "wrong": 6,
+        "first": [
+          "TDLW Bid: exact 62.63, the fold's 62.62",
+          "TDLW Bid: shown 62.63, the format's 62.62",
+          "TDLW Bid size: exact 5800, the fold's 5200",
+          "TDLW Bid size: shown 5,800, the format's 5,200",
+          "TDLW Ask size: exact 7200, the fold's 7900"
+        ]
+      },
+      "1999-dark": {
+        "cells": 600,
+        "wrong": 6,
+        "first": [
+          "TDLW Bid: exact 62.63, the fold's 62.62",
+          "TDLW Bid: shown 62.63, the format's 62.62",
+          "TDLW Bid size: exact 5800, the fold's 5200",
+          "TDLW Bid size: shown 5,800, the format's 5,200",
+          "TDLW Ask size: exact 7200, the fold's 7900"
+        ]
+      }
+    },
+    "flash": {
+      "flashing": 150,
+      "columns": [
+        "Last",
+        "Bid",
+        "Ask"
+      ],
+      "off": 0
+    },
+    "marks": {
+      "100": {
+        "refreshed": 131,
+        "sampled": 131,
+        "presented": 130,
+        "batches": 131,
+        "visible": 115,
+        "reached": 115,
+        "sendToMarkMs": {
+          "p50": 9.5,
+          "max": 19
+        },
+        "ticks": 298
+      },
+      "500": {
+        "refreshed": 131,
+        "sampled": 131,
+        "presented": 131,
+        "batches": 131,
+        "visible": 131,
+        "reached": 131,
+        "sendToMarkMs": {
+          "p50": 8.8,
+          "max": 18.4
+        },
+        "ticks": 1497
+      },
+      "1k": {
+        "refreshed": 134,
+        "sampled": 134,
+        "presented": 134,
+        "batches": 135,
+        "visible": 135,
+        "reached": 134,
+        "sendToMarkMs": {
+          "p50": 9.7,
+          "max": 18.7
+        },
+        "ticks": 2992
+      },
+      "5k": {
+        "refreshed": 131,
+        "sampled": 131,
+        "presented": 130,
+        "batches": 131,
+        "visible": 131,
+        "reached": 131,
+        "sendToMarkMs": {
+          "p50": 10.5,
+          "max": 19.7
+        },
+        "ticks": 14916
+      }
+    }
+  },
+  "same": {
+    "columns": 12,
+    "moved": 0,
+    "cells": 600,
+    "differ": 0
+  },
+  "failures": []
+}

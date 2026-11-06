@@ -17,7 +17,15 @@ import { Domain, fromOklch, type Ramp, type Rgba } from './paint.ts';
 export const HEAT: Ramp = ['heat-cold', 'heat-mid', 'heat-warm'];
 
 /** `#rrggbb`: a color the browser resolves with no conversion. */
-const hex = (color: Rgba): string => `#${[color.r, color.g, color.b].map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0')).join('')}`;
+export const hex = (color: Rgba): string => `#${[color.r, color.g, color.b].map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0')).join('')}`;
+
+/** A theme's variables (`block`'s, light or dark) on the root as
+ *  `theme.css` switches its own: the system's scheme, or the root's
+ *  `data-theme` (market watch's colors; `heatCss` writes the same selectors
+ *  out, below). */
+export function themeCss(block: (theme: 'light' | 'dark') => string): string {
+  return `:root { ${block('light')} }\n@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${block('dark')} } }\n:root[data-theme="dark"] { ${block('dark')} }`;
+}
 
 /**
  * The scenario's heat stops as CSS variables, light and dark as `theme.css`
@@ -30,6 +38,8 @@ const hex = (color: Rgba): string => `#${[color.r, color.g, color.b].map((channe
  */
 export function heatCss(scenario: WideScenario): string {
   const block = (theme: 'light' | 'dark') => HEAT.map((token, index) => `--${token}: ${hex(fromOklch(...scenario.heat.stops[theme][index]!))};`).join(' ');
+  // `themeCss`'s selectors, written out: through it the wide level's bundle,
+  // pinned byte for byte, would move (an extra function renames its others).
   return `:root { ${block('light')} }\n@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${block('dark')} } }\n:root[data-theme="dark"] { ${block('dark')} }`;
 }
 

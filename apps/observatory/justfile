@@ -77,12 +77,12 @@ gpui-extensions:
 
 # The TanStack contender (contenders/tall-table/tanstack/): its Vite dev
 # server with COOP/COEP, at /observatory/contenders/tall-table/tanstack/
-# (a level's under it: `wide`), with the data files by range.
+# (a level's under it: `wide`, `market`), with the data files by range.
 tanstack-dev level="base": tanstack-extensions
     npm run dev --workspace @seiza/observatory-tall-table-tanstack {{ if level == "base" { "" } else { "-- --mode " + level } }}
 
 # The TanStack contender's release build at a feature level (`base`,
-# `wide`) into web/dist/ or web/dist-<level>/, then asset sizes. DuckDB's
+# `wide`, `market`) into web/dist/ or web/dist-<level>/, then asset sizes. DuckDB's
 # bundles and extensions land in its duckdb/, the same files as the GPUI
 # contender's (`engine-files` checks it). The build fails if Arrow or
 # DuckDB's JS reaches a first-paint chunk (contenders/engine.ts).
@@ -115,9 +115,11 @@ tanstack-view *args:
 # item against the component's README, on its release build (`?probe`):
 # the keys (and the GPUI contender's, the same keys), Shift+wheel, a track
 # press, the drag settle, the tooltip, and the focus ring, in Chromium,
-# Firefox, and WebKit. --firefox adds a headed Firefox's track press
-# (classic scrollbars); --browsers, --label. Needs `just observatory data`;
-# run `just observatory tanstack-build` and `gpui-build` first.
+# Firefox, and WebKit; at the wide level the pinned edge and the sideways
+# scroll; at the market level the sign colors and the flash (its colors,
+# its columns, its fade ending), light and dark. --firefox adds a headed
+# Firefox's track press (classic scrollbars); --browsers, --label. Needs
+# `just observatory data`; run `just observatory builds` first.
 tanstack-parity *args:
     node {{app_dir}}/perf/tanstack-parity.ts {{args}}
 
@@ -127,19 +129,23 @@ tanstack-parity *args:
 # contract (marks in order, the engine started after first paint and
 # usable, each filled mark's cells painted right after it, state, targets,
 # and Element Timing only with ?measure, the replay hooks, the marks
-# relayed from a frame), in Chromium. --label writes perf/results/. Needs
-# `just observatory data`; run `just observatory tanstack-build` first.
+# relayed from a frame), in Chromium; and at the market level (the feed's
+# batches in order, the refreshed marks, the feed ended by a reopen, only
+# with ?measure). --label writes perf/results/. Needs `just observatory
+# data`; run `just observatory tanstack-build` and `tanstack-build market`
+# first.
 tanstack-contract *args:
     node {{app_dir}}/perf/tanstack-contract.ts {{args}}
 
 # The TanStack contender's JS from its release build, brotli: the
 # first-paint JS (the entry and its static imports) and the data layer with
 # Arrow (after first paint), each against perf/baseline.json (--check), and
-# the engine's chunk, CSS, and HTML recorded. --level wide: that build,
-# against its own baseline (perf/baseline.json's `levels`), label
-# tanstack-sizes-wide. --label writes perf/results/; --write-baseline
-# records both in perf/baseline.json. Run `just observatory tanstack-build`
-# (and `tanstack-build wide`) first.
+# the engine's chunk, CSS, and HTML recorded (and the feed's worker, on the
+# market level). --level wide|market: that build, against its own baseline
+# (perf/baseline.json's `levels`), label tanstack-sizes-<level>. --label
+# writes perf/results/; --write-baseline records both in
+# perf/baseline.json. Run `just observatory tanstack-build` (and
+# `tanstack-build <level>`) first.
 tanstack-sizes *args:
     node {{app_dir}}/perf/tanstack-sizes.ts {{args}}
 
@@ -147,7 +153,8 @@ tanstack-sizes *args:
 tanstack-extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{tanstack_web}}/public duckdb
 
-# The engine both contenders load: each build's duckdb/ byte-identical,
+# The engine both contenders load: each build's duckdb/ byte-identical
+# (every level's too),
 # both pages loading it from /observatory/duckdb/, the TanStack contender's
 # JS past its entry requested after first paint, and whether the engine's
 # JS chunk is shared (recorded). --controls: the comparison's and the
@@ -352,15 +359,16 @@ worker-check *args:
 wide *args:
     node {{app_dir}}/perf/wide.ts {{args}}
 
-# The GPUI contender at the market level, on its release build: the feed's
-# fold of the fixture's 2,000 ticks drawn (every cell's exact and shown
-# text, the sign colors, no flash left; light and dark), its control one
-# tick short; the flash under the feed on Last, Bid, and Ask alone; Shown
-# in's marks at each stop (each refreshed mark right after a presented
-# frame, each visible batch drawn); an unknown stop or scenario, `?ticks`
-# that isn't a count, and market watch on the base build fail the load.
-# --label writes perf/results/. Run `gpui-build` and `gpui-build market`
-# first.
+# Both contenders at the market level, on their release builds, the same
+# checks each: the feed's fold of the fixture's 2,000 ticks drawn (every
+# cell's exact and shown text, the sign colors, no flash left; light and
+# dark), its control one tick short; the flash under the feed on Last, Bid,
+# and Ask alone; Shown in's marks at each stop (GPUI's right after a
+# presented frame, TanStack's in a frame's callback; each visible batch
+# drawn); an unknown stop or scenario, `?ticks` that isn't a count, and
+# market watch on the base build fail the load; and both sides' columns
+# and cells the same. --side gpui|tanstack, --label. Run `builds` first
+# (each side's base and market builds).
 market *args:
     node {{app_dir}}/perf/market.ts {{args}}
 

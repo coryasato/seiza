@@ -3,7 +3,7 @@
 //
 // - the page's build at /observatory/, each contender's at its base, and
 //   each level a side builds (`scenarios.ts`'s `BUILT`) at its own
-//   (`gpui/wide/`, `tanstack/wide/`);
+//   (`gpui/wide/`, `tanstack/market/`, …);
 // - the engine at /observatory/duckdb/, one copy: the GPUI build's, after
 //   checking every other build's is the same files and bytes;
 // - the data at /observatory/data/: every file data/MANIFEST.json names,

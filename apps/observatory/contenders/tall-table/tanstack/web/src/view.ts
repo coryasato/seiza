@@ -11,7 +11,7 @@
 import { createElement as h, memo, useEffect, useLayoutEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { ArrowPage, Column } from './data/table.ts';
+import type { Column, TablePage } from './data/table.ts';
 import type { TablePaging } from './data/paging.ts';
 import { MARKS, measuring } from '../../../../contract.ts';
 import { cellTooltip, shownRow } from './cells.ts';
@@ -21,6 +21,7 @@ import { sceneColumns, type WideScene } from './scene.ts';
 import { SCROLL, ScaledScroller } from './scroll.ts';
 import { CellTooltip } from './tooltip.ts';
 import { EdgeLine, WideHead, WideRow, cellElement, cellRect, publishCells, sheetStyle, useFramePaint, useSheet } from './wide.ts';
+import { FlashTurns, MarketRow, publishMarketCells, type MarketCells } from './market.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -28,7 +29,11 @@ const WINDOW_ROWS = 4096;
 
 export type Load =
   | { kind: 'waiting'; status: string; failed?: boolean; first?: boolean }
-  | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<ArrowPage>; scene?: WideScene };
+  | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<TablePage>; scene?: LevelScene };
+
+/** What a feature level hands the table: the wide sheet's scene at its
+ *  stop, market watch's cells (`main.ts`). */
+export type LevelScene = WideScene | MarketCells;
 
 /** The first screen: the build prerenders it into the page's HTML
  *  (`vite.config.ts`), and the page hydrates it. */
@@ -99,17 +104,21 @@ interface TableProps {
   open: number;
   rows: number;
   columns: Column[];
-  paging: TablePaging<ArrowPage>;
-  /** The wide level's scene at its stop (`main.ts`). */
-  scene?: WideScene;
+  paging: TablePaging<TablePage>;
+  /** The level's scene (`main.ts`): the wide sheet's at its stop, market
+   *  watch's cells (`data/quotes.ts`). */
+  scene?: LevelScene;
 }
 
 function Table({ open, rows, columns: fileColumns, paging, scene: given }: TableProps): ReactNode {
   // The wide level's scene: on the base's build, never (its code is dropped).
-  const scene = __LEVEL__ === 'wide' ? given : undefined;
+  const scene = __LEVEL__ === 'wide' ? (given as WideScene | undefined) : undefined;
   const sizes = scene?.sizes ?? BASE_SIZES;
   const rowHeight = sizes.row;
-  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : layOutAll(fileColumns)), [fileColumns, scene]);
+  // The market level's cells, laid out by the data layer (a build constant,
+  // so on another level it's nothing).
+  const market = __LEVEL__ === 'market' ? (given as MarketCells | undefined) : undefined;
+  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : __LEVEL__ === 'market' && market ? market.columns : layOutAll(fileColumns)), [fileColumns, scene]);
   const gutter = gutterWidth(rows, sizes);
   const width = gutter + columns.reduce((sum, column) => sum + column.width, 0);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -128,6 +137,10 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   sheetRef.current = sheet;
   const paintRef = useRef(paint);
   paintRef.current = paint;
+  // The market level's flashes' turns (a build constant, so the hooks run
+  // the same every render).
+  const turns = __LEVEL__ === 'market' ? useMemo(() => new FlashTurns(), [paging]) : null;
+  const probedCells = __LEVEL__ === 'market' ? useMemo(probingCells, []) : false;
 
   // Before the virtualizer's own layout effects: it subscribes to the model.
   useLayoutEffect(() => {
@@ -159,6 +172,13 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       const laidOut = columns[column];
       const tooltip = laidOut ? cellTooltip(laidOut, state.page.value(state.index, column)) : null;
       if (!tooltip) return null;
+      // The market level: a fitted text opens it only where the format
+      // rounded it; a fallback is judged as the base's (`tooltip_for`).
+      // `market` is the open's, as the effect's other inputs are.
+      if (__LEVEL__ === 'market' && market) {
+        const rounded = market.rounded(column, laidOut!, row, state.page.value(state.index, column)!);
+        if (rounded !== null) return rounded ? tooltip.text : null;
+      }
       if (tooltip.differs) return tooltip.text;
       // Cut: the text is wider than its cell's room, measured unrounded
       // (`scrollWidth` rounds, and missed text over by under a pixel).
@@ -178,7 +198,9 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
               return state.kind === 'loaded' ? { page: state.page, index: state.index } : null;
             });
           }
-        : undefined;
+        : __LEVEL__ === 'market' && probingCells()
+          ? () => publishMarketCells(scroller, columns)
+          : undefined;
     const contract = new TableContract(open, paging, model, scroller, columns, gutter, measured, rowHeight, probe);
     contractRef.current = contract;
     // Subscribed before the virtualizer, whose render checks.
@@ -232,6 +254,35 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       paging.onChange = () => {};
     };
   }, [paging]);
+  // The market level: a page landed (a re-read, nearly every frame under the
+  // feed) draws once a frame, in the frame's own callback, the rows it
+  // changed rendering in that frame; and with `?measure`, the commit that
+  // first draws a re-read raises `__contenderRefreshed` and marks
+  // `contender:refreshed` (Shown in's mark, `docs/contender-contract.md`).
+  if (__LEVEL__ === 'market') {
+    useEffect(() => {
+      let frame = 0;
+      paging.onChange = () => {
+        landed.current = true;
+        if (!frame)
+          frame = requestAnimationFrame(() => {
+            frame = 0;
+            flushSync(rerender);
+          });
+      };
+      return () => {
+        cancelAnimationFrame(frame);
+        paging.onChange = () => {};
+      };
+    }, [paging]);
+    useLayoutEffect(() => {
+      if (!measured || !market) return;
+      const drawn = market.refreshed();
+      if (drawn === null) return;
+      (globalThis as { __contenderRefreshed?: number }).__contenderRefreshed = drawn;
+      performance.mark(MARKS.refreshed);
+    });
+  }
 
   // The window's base and the content's, as last rendered.
   const rendered = useRef({ window: 0, content: 0 });
@@ -269,6 +320,22 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
         .filter((row) => row < rows)
         .map((row) => {
           const state = paging.row(row);
+          if (__LEVEL__ === 'market' && market && turns)
+            return h(MarketRow, {
+              key: row,
+              row,
+              top: (row - model.base) * rowHeight,
+              page: state.kind === 'loaded' ? state.page : null,
+              index: state.kind === 'loaded' ? state.index : 0,
+              quote: state.kind === 'loaded' ? market.quoteOf(state.page, state.index) : undefined,
+              failed: state.kind === 'failed' ? state.message : null,
+              columns,
+              gutter,
+              measured,
+              probed: probedCells,
+              market,
+              turns,
+            });
           if (__LEVEL__ === 'wide' && sheet && paint && scene)
             return h(WideRow, {
               key: row,
@@ -351,7 +418,7 @@ function Head({ columns, gutter, width }: { columns: LaidOutColumn[]; gutter: nu
 interface RowProps {
   row: number;
   top: number;
-  page: ArrowPage | null;
+  page: TablePage | null;
   index: number;
   failed: string | null;
   columns: LaidOutColumn[];

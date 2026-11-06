@@ -12,7 +12,7 @@
 import { MARKS, nextFrame, nextMark, type Contender, type ContenderState, type Replay } from '../../../../contract.ts';
 import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
 import type { TablePaging } from './data/paging.ts';
-import type { ArrowPage } from './data/table.ts';
+import type { TablePage } from './data/table.ts';
 import { exactText, shownText } from './data/format.ts';
 import type { LaidOutColumn } from './layout.ts';
 import type { ScaledScroller } from './scroll.ts';
@@ -34,7 +34,7 @@ export class TableContract {
   private filled = false;
   /** A check ran since the current move started. */
   private checkedThisMove = false;
-  private readonly paging: TablePaging<ArrowPage>;
+  private readonly paging: TablePaging<TablePage>;
   private readonly model: ScaledScroller;
   private readonly scroller: HTMLElement;
   private readonly gutter: number;
@@ -51,7 +51,7 @@ export class TableContract {
 
   constructor(
     open: number,
-    paging: TablePaging<ArrowPage>,
+    paging: TablePaging<TablePage>,
     model: ScaledScroller,
     scroller: HTMLElement,
     columns: LaidOutColumn[],

@@ -194,7 +194,7 @@ export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET];
  *  the page's servers, `stage.ts`) reads it, never `LEVEL_FEATURES`. */
 export const BUILT: Record<Side, readonly Level[]> = {
   gpui: ['base', 'wide', 'market'],
-  tanstack: ['base', 'wide'],
+  tanstack: ['base', 'wide', 'market'],
 };
 
 /** `side`'s levels past the base. */

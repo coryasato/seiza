@@ -25,20 +25,35 @@
 //   `open()` marks a new open and fills, `fling()` ends at the last row.
 // - The relay: framed in a same-origin page, each contract mark reaches the
 //   parent by `postMessage`.
+// - The market level (market watch at its default stop, its own build): the
+//   first screen prerendered and hydrated in place; usable ≤ open < filled,
+//   the probe key; with `?measure`, state (a row per instrument, End's
+//   lastCell the last symbol), every batch of the feed on
+//   `__contender.batches` in order from 0 (none missing), and
+//   `contender:refreshed` marks with `__contenderRefreshed` rising; the
+//   replay's `open()` ending the feed (no batch after it) and filling, its
+//   `fling()` ending at the last row; without `?measure` none of state,
+//   batches, refreshed marks, or cell timing; framed, every mark relayed,
+//   the refreshed ones too.
 //
 // Usage: node apps/observatory/perf/tanstack-contract.ts [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
-// data`; run `just observatory tanstack-build` first.
+// data`; run `just observatory tanstack-build` and `tanstack-build market`
+// first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Page } from '@playwright/test';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
-import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
+import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { PROBE_KEY, PROBE_MS } from '../metrics/metrics.ts';
+import { INSTRUMENTS } from '../contenders/market/feed.ts';
+import { MARKET_WATCH } from '../contenders/scenarios.ts';
 import { MARKS, dataFile, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveTanstack } from './harness.ts';
 
 const PORT = 4321;
+/** The market level's build. */
+const MARKET_PORT = 4365;
 /** The data layer's chunk: the engine's start imports it first. */
 const DATA_LAYER = /\/assets\/table-[\w-]+\.js$/;
 /** How long after the filled mark its cells may paint: three frames. */
@@ -48,7 +63,7 @@ const ENTRY = /\/assets\/index-[\w-]+\.js$/;
 
 const label = option('label');
 const failures: string[] = [];
-const output: Record<string, unknown> = { date: new Date().toISOString().slice(0, 10), label, ...machineInfo() };
+const output: Record<string, unknown> = { date: localDate(), label, ...machineInfo() };
 const check = (ok: boolean, problem: string) => {
   if (!ok) failures.push(problem);
   return ok;
@@ -345,9 +360,158 @@ try {
     failures.push(...found.map((problem) => `framed page: ${problem}`));
     await context.close();
   }
+
+  await marketContract();
 } finally {
   await browser.close();
   await server.close();
+}
+
+/** The market level's contract (its own build, market watch at its default stop). */
+async function marketContract(): Promise<void> {
+  const market = await serveTanstack(MARKET_PORT, undefined, 'market');
+  const out: Record<string, unknown> = {};
+  output.market = out;
+  type Batches = [seq: number, ticks: number, sent: number, generation: number, visible: number][];
+  type MarketGlobal = Global & { __contender?: { batches?: Batches }; __contenderRefreshed?: number };
+  const url = `${market.url}?scenario=${MARKET_WATCH.id}&stop=${MARKET_WATCH.defaultStop}`;
+  const symbols = INSTRUMENTS.map(({ symbol }) => symbol);
+  try {
+    {
+      const html = await (await fetch(market.url)).text();
+      check(/<div id="root"><div class="page"><div class="frame status"[^>]*>Engine loading…<\/div><\/div><\/div>/.test(html), "market: the served HTML doesn't hold the prerendered first screen");
+    }
+
+    // Measured.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(`${url}&measure`);
+      const usable = await waitMark(page, MARKS.usable, 0);
+      const hydratedInPlace = await page.evaluate(() => {
+        const parsed = (globalThis as Global).__firstScreen;
+        return !!parsed && parsed === document.querySelector('#root .frame.status');
+      });
+      check(hydratedInPlace, 'market: hydration replaced the prerendered first screen');
+      await page.keyboard.press(PROBE_KEY);
+      const input = await waitMark(page, MARKS.input, usable, 5_000).catch(() => null);
+      const keyAt = await page.evaluate(() => (globalThis as Global).__keys?.[0] ?? null);
+      const probeMs = input !== null && keyAt !== null ? input - keyAt : null;
+      check(probeMs !== null && probeMs >= 0 && probeMs <= PROBE_MS, `market: the probe key after usable: ${probeMs?.toFixed(1)} ms (0–${PROBE_MS.toFixed(1)})`);
+      const filled = await waitMark(page, MARKS.filled, 0);
+      const open = await lastMark(page, MARKS.open);
+      check(open !== null && usable <= open && open < filled, `market: marks out of order: usable ${usable}, open ${open}, filled ${filled}`);
+      const opened = await filledState(page, 's.first === 0');
+      check(opened.rows === symbols.length, `market: state.rows ${opened.rows}, the feed's ${symbols.length} instruments`);
+      check(opened.cacheBytes > 0, `market: state.cacheBytes ${opened.cacheBytes}`);
+
+      // Under the feed: every batch in order, the refreshed marks rising.
+      await page.waitForTimeout(1500);
+      const feed = await page.evaluate(() => {
+        const g = globalThis as MarketGlobal;
+        return { batches: g.__contender?.batches ?? [], refreshed: performance.getEntriesByName('contender:refreshed', 'mark').length, drawn: g.__contenderRefreshed ?? 0 };
+      });
+      const inOrder = feed.batches.every(([seq], index) => seq === index);
+      const lastGeneration = feed.batches.at(-1)?.[3] ?? 0;
+      check(feed.batches.length > 50, `market: ${feed.batches.length} batches in 1.5 s`);
+      check(inOrder, `market: the batches out of order or missing: ${feed.batches.slice(0, 8).map(([seq]) => seq).join(', ')}…`);
+      check(feed.refreshed > 50, `market: ${feed.refreshed} refreshed marks in 1.5 s`);
+      check(feed.drawn > 0 && feed.drawn <= lastGeneration, `market: __contenderRefreshed ${feed.drawn}, the last batch's generation ${lastGeneration}`);
+      console.log(`market: usable ${usable.toFixed(1)}, open ${open?.toFixed(1)}, filled ${filled.toFixed(1)} ms; probe key ${probeMs?.toFixed(1)} ms; ${opened.rows} rows; ${feed.batches.length} batches in order from 0, ${feed.refreshed} refreshed marks, generation ${feed.drawn} drawn of ${lastGeneration}`);
+
+      // End: the last instrument.
+      await page.keyboard.press('End');
+      const atEnd = await filledState(page, 's.end === s.rows');
+      check(atEnd.lastCell === symbols.at(-1), `market: End's lastCell ${atEnd.lastCell}, the last symbol ${symbols.at(-1)}`);
+
+      // The replay: open() ends the feed and fills; fling() reaches the end.
+      // The old feed's batches array, kept: the reopened table publishes a
+      // new one, which a feed still running wouldn't reach.
+      await page.evaluate(() => ((globalThis as MarketGlobal & { __oldBatches?: Batches }).__oldBatches = (globalThis as MarketGlobal).__contender?.batches));
+      const since = await now(page);
+      await page.evaluate('globalThis.__contender.replay.open()');
+      const reopened = await lastMark(page, MARKS.open);
+      check(reopened !== null && reopened >= since, 'market: open() set no new open mark');
+      await filledState(page, 's.first === 0');
+      const lengths = () =>
+        page.evaluate(() => {
+          const g = globalThis as MarketGlobal & { __oldBatches?: Batches };
+          return { old: g.__oldBatches?.length ?? -1, fresh: g.__contender?.batches?.length ?? 0, replaced: g.__oldBatches !== g.__contender?.batches };
+        });
+      const was = await lengths();
+      await page.waitForTimeout(500);
+      const now_ = await lengths();
+      const before = was.old;
+      const after = now_.old;
+      check(was.old > 0 && was.replaced, `market: the reopen's batches ${JSON.stringify(was)}, want the old feed's array kept apart from a new one`);
+      check(after === before && now_.fresh === 0, `market: ${after - before} batches to the old feed and ${now_.fresh} to the new table after the replay's open(), want the feed ended and none started`);
+      await page.evaluate('globalThis.__contender.replay.fling()');
+      const flung = await filledState(page, 'true');
+      check(flung.end === symbols.length && flung.lastCell === symbols.at(-1), `market: fling() ended at ${flung.first}–${flung.end}, lastCell ${flung.lastCell}`);
+      out.measured = { usable, open, filled, input, probeMs, opened, feed: { batches: feed.batches.length, inOrder, refreshed: feed.refreshed, drawn: feed.drawn, lastGeneration }, atEnd, batchesAfterOpen: after - before, flung };
+      console.log(`market: End → ${atEnd.lastCell}; open() ended the feed (${after - before} batches after it); fling() → ${flung.first}–${flung.end}`);
+      failures.push(...found.map((problem) => `market measured page: ${problem}`));
+      await context.close();
+    }
+
+    // Unmeasured: none of state, batches, refreshed marks, cell timing.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(url);
+      await waitMark(page, MARKS.filled, 0);
+      await page.waitForTimeout(1000);
+      const seen = await page.evaluate(() => {
+        const g = globalThis as MarketGlobal;
+        return {
+          state: g.__contender?.state ?? null,
+          batches: g.__contender?.batches ?? null,
+          refreshed: performance.getEntriesByName('contender:refreshed', 'mark').length,
+          drawn: g.__contenderRefreshed ?? null,
+          cellTiming: document.querySelectorAll('.row [elementtiming]').length,
+        };
+      });
+      check(seen.state === null && seen.batches === null && seen.refreshed === 0 && seen.drawn === null && seen.cellTiming === 0, `market without ?measure: ${JSON.stringify(seen)}`);
+      out.unmeasured = seen;
+      failures.push(...found.map((problem) => `market unmeasured page: ${problem}`));
+      await context.close();
+    }
+
+    // Framed, measured: every mark relayed, the refreshed ones too.
+    {
+      const context = await protocolContext(browser);
+      const frameUrl = new URL('__frame', market.url).href;
+      await context.route(frameUrl, (route) =>
+        route.fulfill({
+          contentType: 'text/html',
+          headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' },
+          body: `<!doctype html><body style="margin:0"><script>window.__messages = []; addEventListener('message', (event) => event.origin === location.origin && __messages.push(event.data));</script><iframe src="${url}&measure" style="border:0;width:100vw;height:100vh"></iframe></body>`,
+        }),
+      );
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(frameUrl);
+      await page.waitForFunction(() => ((globalThis as { __messages?: { name: string }[] }).__messages ?? []).some((message) => message.name === 'contender:refreshed'), null, { timeout: 60_000, polling: 50 });
+      await page.waitForTimeout(300);
+      const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;
+      const epoch = await frame.evaluate(() => performance.getEntriesByType('mark').filter((entry) => entry.name.startsWith('contender:')).map((entry) => ({ name: entry.name, at: performance.timeOrigin + entry.startTime })));
+      const all = (await page.evaluate(() => (globalThis as { __messages?: unknown[] }).__messages ?? [])) as { seiza: string; name: string; at: number }[];
+      // The marks set by the time the messages were read (the newest may still be on its way).
+      const read = epoch.filter((mark) => mark.at <= Math.max(...all.map((message) => message.at)));
+      const missing = read.filter((mark) => !all.some((message) => message.seiza === 'mark' && message.name === mark.name && Math.abs(message.at - mark.at) < 0.01));
+      check(missing.length === 0, `market relay: ${missing.length} marks never reached the parent, e.g. ${JSON.stringify(missing[0])}`);
+      const names = [...new Set(all.map((message) => message.name))];
+      check(names.includes(MARKS.filled) && names.includes(MARKS.refreshed), `market relay: ${names.join(', ')}`);
+      out.framed = { messages: all.length, marks: read.length, names };
+      console.log(`market relay: ${all.length} messages for ${read.length} marks (${names.join(', ')})`);
+      failures.push(...found.map((problem) => `market framed page: ${problem}`));
+      await context.close();
+    }
+  } finally {
+    await market.close();
+  }
 }
 
 output.failures = failures;

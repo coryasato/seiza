@@ -996,7 +996,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     const credit = await page.locator('[data-credit]').textContent();
     expect(credit === `Data: ${cold.credit}.`, `the data's credit: ${JSON.stringify(credit)}, data/MANIFEST.json says ${JSON.stringify(cold.credit)}`);
     // The README's credit is typed: held to the same.
-    expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids:** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
+    expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids (Big file):** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
     console.log(`credit: ${credit} (the page's and the README's)`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
     expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);

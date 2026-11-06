@@ -1,5 +1,5 @@
-// The GPUI contender at the market level (`contenders/scenarios.ts`'s market
-// watch), on its release build, in Chromium:
+// Both contenders at the market level (`contenders/scenarios.ts`'s market
+// watch), on their release builds, in Chromium, each side the same checks:
 //
 // - the feed's fold on screen: with `?ticks=2000` (the feed fixture's
 //   count) at the top stop, once every tick is folded and drawn, at
@@ -18,8 +18,10 @@
 //   flash of the rise's or the fall's color at no more than the mix, and
 //   no other column's;
 // - Shown in's marks (`docs/contender-contract.md`), under the feed at each
-//   stop with `?measure`: every `contender:refreshed` right after a
-//   presented frame (`presentedMark`), and each batch with a tick to a
+//   stop with `?measure`: every `contender:refreshed` where its side sets
+//   it (GPUI's right after a presented frame, `presentedMark`; TanStack's
+//   in the commit that draws the re-read, inside the frame's animation
+//   frame callback, so that frame paints it), and each batch with a tick to a
 //   visible row (`__contender.batches`) paired with its frame, the first
 //   refreshed mark whose generation (`__contenderRefreshed`, logged at each
 //   mark) reaches the batch's: after the batch's send, and within
@@ -28,10 +30,14 @@
 //   load (`contender:failed`, no `contender:filled`), and market watch
 //   asked of the base build fails too; and the feed's worker failing to
 //   load fails the view (`contender:failed` after `contender:filled`).
+// - The same on both sides (when both run): the columns where the GPUI
+//   contender's are (each `x` and `width` within half a pixel), and every
+//   drawn cell's text the same.
 //
-// Usage: node apps/observatory/perf/market.ts [--label <name>]
+// Usage: node apps/observatory/perf/market.ts [--side gpui|tanstack] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
-// data`; run `just observatory gpui-build` and `gpui-build market` first.
+// data`; run `gpui-build`, `gpui-build market`, `tanstack-build`, and
+// `tanstack-build market` first (a side's own with --side).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,19 +45,21 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { presentedMark, presentingTaskRecorder, waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { formatNumber, type NumberFormat } from '../../../components/tall-table/perf/harness.ts';
-import { INSTRUMENTS, decimalsOf } from '../contenders/market/feed.ts';
+import { COLUMNS, INSTRUMENTS, decimalsOf } from '../contenders/market/feed.ts';
 import { MARKET_WATCH, type Oklch } from '../contenders/scenarios.ts';
 import { fromOklch, type Rgba } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
-import { MARKS, perfDir, problems, serveGpui } from './harness.ts';
+import type { Side } from '../contenders/contract.ts';
+import { MARKS, perfDir, problems, serveGpui, serveTanstack } from './harness.ts';
 
 const label = option('label');
-const PORTS = { market: 4359, base: 4360 };
+const sideOption = option('side');
+if (sideOption && sideOption !== 'gpui' && sideOption !== 'tanstack') throw new Error(`--side ${sideOption}: gpui or tanstack`);
+const sides: Side[] = sideOption ? [sideOption as Side] : ['gpui', 'tanstack'];
+const PORTS: Record<Side, { market: number; base: number }> = { gpui: { market: 4359, base: 4360 }, tanstack: { market: 4361, base: 4362 } };
 /** A batch's frame must come this soon after its send (three frames): Shown in reads
  *  ~12 ms here, so a pairing past it is a frame that didn't draw the batch. */
 const PAIRED_MS = 50;
-/** The columns, as the file has them (`data/prep-market.sql`). */
-const COLUMNS = ['Symbol', 'Name', 'Last', 'Change', 'Change %', 'Bid', 'Ask', 'Bid size', 'Ask size', 'Volume', 'High', 'Low'] as const;
 type Field = 'last' | 'change' | 'change_pct' | 'bid' | 'ask' | 'bid_size' | 'ask_size' | 'volume' | 'high' | 'low';
 /** Each number column's fixture field, its kind, its format, and whether it's at the instrument's decimals. */
 const NUMBERS: Record<string, { field: Field; kind: 'float' | 'integer'; format: NumberFormat; priced: boolean }> = {
@@ -79,10 +87,16 @@ interface Cell {
   text: number[] | null;
   flash: number[] | null;
 }
+interface ColumnBox {
+  name: string;
+  x: number;
+  width: number;
+}
 type Global = {
-  __contender?: { cells?: Cell[]; batches?: [seq: number, ticks: number, sent: number, generation: number, visible: number][] };
+  __contender?: { cells?: Cell[]; columns?: ColumnBox[]; batches?: [seq: number, ticks: number, sent: number, generation: number, visible: number][] };
   __contenderRefreshed?: number;
-  __refreshedLog?: [at: number, generation: number][];
+  __refreshedLog?: [at: number, generation: number, inFrame: boolean][];
+  __inFrame?: number;
 };
 type Theme = 'light' | 'dark';
 
@@ -95,14 +109,27 @@ const sign = (theme: Theme, rise: boolean): number[] => rgb8(fromOklch(...(MARKE
 const near = (a: readonly number[], b: readonly number[], steps = 1) => a.every((channel, i) => Math.abs(channel - b[i]!) <= steps);
 
 /** Logs `__contenderRefreshed` at each refreshed mark, as it stands then
- *  (set in the frame's task, before its mark). */
+ *  (set in the frame's task, before its mark), and whether the mark was
+ *  set inside an animation frame callback (every rAF callback wrapped). */
 function refreshedLog(): void {
-  const log: [number, number][] = [];
-  (globalThis as Global).__refreshedLog = log;
+  const g = globalThis as Global;
+  const log: [number, number, boolean][] = [];
+  g.__refreshedLog = log;
+  g.__inFrame = 0;
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (callback: FrameRequestCallback) =>
+    raf((time) => {
+      g.__inFrame!++;
+      try {
+        callback(time);
+      } finally {
+        g.__inFrame!--;
+      }
+    });
   const mark = performance.mark.bind(performance);
   performance.mark = (name: string, options?: PerformanceMarkOptions) => {
     const entry = mark(name, options);
-    if (name === 'contender:refreshed') log.push([entry.startTime, (globalThis as Global).__contenderRefreshed ?? 0]);
+    if (name === 'contender:refreshed') log.push([entry.startTime, g.__contenderRefreshed ?? 0, g.__inFrame! > 0]);
     return entry;
   };
 }
@@ -171,12 +198,47 @@ function compare(cells: Cell[], theme: Theme): string[] {
   return wrong;
 }
 
+/** Each side's drawn cells after the fixture's ticks, light, and its columns. */
+const drawn: Partial<Record<Side, { cells: Cell[]; columns: ColumnBox[] }>> = {};
+
 const servers: AppServer[] = [];
 const browser = await chromium.launch({ channel: 'chromium' });
 try {
-  const market = await serveGpui(PORTS.market, undefined, 'market');
+  for (const side of sides) await runSide(side);
+  if (drawn.gpui && drawn.tanstack) sameOnBoth(drawn.gpui, drawn.tanstack);
+} finally {
+  await browser.close();
+  for (const server of servers) await server.close();
+}
+
+/** Both sides drew the fold the same: the columns where GPUI's are, and
+ *  every cell's text the same. */
+function sameOnBoth(gpui: { cells: Cell[]; columns: ColumnBox[] }, tanstack: { cells: Cell[]; columns: ColumnBox[] }): void {
+  const moved = gpui.columns.flatMap((column, index) => {
+    const other = tanstack.columns[index];
+    return other && other.name === column.name && Math.abs(other.x - column.x) <= 0.5 && Math.abs(other.width - column.width) <= 0.5
+      ? []
+      : [`${column.name}: GPUI x ${column.x} width ${column.width}, TanStack ${other ? `${other.name} x ${other.x} width ${other.width}` : 'none'}`];
+  });
+  if (gpui.columns.length !== tanstack.columns.length) moved.push(`${gpui.columns.length} columns on GPUI, ${tanstack.columns.length} on TanStack`);
+  const text = (cells: Cell[]) => new Map(cells.map((cell) => [`${cell.row}:${cell.column}`, cell.shown]));
+  const [a, b] = [text(gpui.cells), text(tanstack.cells)];
+  const differ = [...a].filter(([key, shown]) => b.get(key) !== shown).map(([key, shown]) => `${key}: GPUI ${shown}, TanStack ${b.get(key)}`);
+  results.same = { columns: gpui.columns.length, moved: moved.length, cells: a.size, differ: differ.length };
+  console.log(`\nboth sides: ${gpui.columns.length} columns, ${moved.length} placed differently; ${a.size} cells, ${differ.length} written differently`);
+  if (moved.length) fail(`the columns differ: ${moved.slice(0, 4).join('; ')}`);
+  if (differ.length || a.size !== b.size) fail(`the cells differ (${a.size} on GPUI, ${b.size} on TanStack): ${differ.slice(0, 4).join('; ')}`);
+}
+
+async function runSide(side: Side): Promise<void> {
+  const serve = side === 'gpui' ? serveGpui : serveTanstack;
+  const fail = (what: string) => failures.push(`${side}: ${what}`);
+  const out: Record<string, unknown> = {};
+  results[side] = out;
+  console.log(`\n${side}:`);
+  const market = await serve(PORTS[side].market, undefined, 'market');
   servers.push(market);
-  const base = await serveGpui(PORTS.base);
+  const base = await serve(PORTS[side].base);
   servers.push(base);
   const stop = MARKET_WATCH.stops.at(-1)!;
   const scene = `?scenario=${MARKET_WATCH.id}&stop=${stop.id}`;
@@ -199,6 +261,7 @@ try {
         await page.waitForTimeout(MARKET_WATCH.flash.ms + 300);
         const cells = await page.evaluate(() => (globalThis as Global).__contender?.cells ?? []);
         const wrong = compare(cells, theme);
+        if (!control && theme === 'light') drawn[side] = { cells, columns: await page.evaluate(() => (globalThis as Global).__contender?.columns ?? []) };
         fold[`${ticks}-${theme}`] = { cells: cells.length, wrong: wrong.length, first: wrong.slice(0, 5) };
         console.log(`fold of ${ticks} ticks, ${theme}: ${cells.length} cells drawn, ${wrong.length} differ${control ? ' (the control: some must)' : ''}`);
         if (control ? wrong.length === 0 : wrong.length > 0) fail(control ? `the control (${ticks} ticks, ${theme}) matched the fixture` : `fold ${ticks} ${theme}: ${wrong.slice(0, 5).join('; ')}`);
@@ -208,7 +271,7 @@ try {
       }
     }
   }
-  results.fold = fold;
+  out.fold = fold;
 
   // A flash while the feed runs: only Last, Bid, and Ask, at the mix at most.
   {
@@ -227,7 +290,7 @@ try {
         const [r = 0, g = 0, b = 0, a = 0] = cell.flash!;
         return a > mix + 1 || !signs.some((color) => near([r, g, b], color));
       });
-      results.flash = { flashing: flashing.length, columns: [...columns], off: off.length };
+      out.flash = { flashing: flashing.length, columns: [...columns], off: off.length };
       console.log(`flash: ${flashing.length} cells flashing, in ${[...columns].join(', ')}; ${off.length} off the rise's or fall's color at the mix`);
       if (flashing.length === 0) fail('flash: nothing flashing under the feed');
       if (wrongColumn.length) fail(`flash: ${wrongColumn.join(', ')} flashing`);
@@ -248,10 +311,13 @@ try {
       }
       await page.waitForTimeout(3000);
       const { log, batches, origin } = await page.evaluate(() => ({ log: (globalThis as Global).__refreshedLog ?? [], batches: (globalThis as Global).__contender?.batches ?? [], origin: performance.timeOrigin }));
-      // The marks right after a presented frame: a sample spread over the window.
-      const sample = log.filter((_, i) => i % Math.max(1, Math.floor(log.length / 20)) === 0);
+      // Where each side sets the mark. GPUI's right after a presented frame:
+      // a sample spread over the window (each check waits). TanStack's in
+      // the commit inside the frame's animation frame callback: every mark.
+      const sample = side === 'gpui' ? log.filter((_, i) => i % Math.max(1, Math.floor(log.length / 20)) === 0) : log;
       let presented = 0;
-      for (const [time] of sample) if ((await presentedMark(page, time)).ok) presented++;
+      if (side === 'gpui') for (const [time] of sample) if ((await presentedMark(page, time)).ok) presented++;
+      if (side === 'tanstack') presented = log.filter(([, , inFrame]) => inFrame).length;
       // Each visible batch's frame: the first mark whose generation reaches
       // its own, after its send and within PAIRED_MS. One folded in the
       // window's last frames may have none yet.
@@ -269,16 +335,21 @@ try {
       const lag = { p50: Number((lags[Math.floor(lags.length / 2)] ?? 0).toFixed(1)), max: Number((lags.at(-1) ?? 0).toFixed(1)) };
       const ticks = batches.reduce((total, [, count]) => total + count, 0);
       marks[at.id] = { refreshed: log.length, sampled: sample.length, presented, batches: batches.length, visible: visible.length, reached, sendToMarkMs: lag, ticks };
-      console.log(`marks at ${at.id}: ${log.length} refreshed, ${presented} of ${sample.length} sampled right after a presented frame; ${batches.length} batches (${ticks} ticks), ${reached} of ${visible.length} visible paired with their frame (send → mark p50 ${lag.p50}, max ${lag.max} ms)`);
+      console.log(`marks at ${at.id}: ${log.length} refreshed, ${presented} of ${sample.length} ${side === 'gpui' ? 'sampled right after a presented frame' : 'set in a frame callback'}; ${batches.length} batches (${ticks} ticks), ${reached} of ${visible.length} visible paired with their frame (send → mark p50 ${lag.p50}, max ${lag.max} ms)`);
       if (log.length === 0) fail(`marks ${at.id}: no refreshed mark`);
-      if (presented !== sample.length) fail(`marks ${at.id}: ${sample.length - presented} refreshed marks not right after a presented frame`);
+      // TanStack: a commit of the virtualizer's own (its scroll state reset,
+      // ~150 ms after a scroll event, in a task of its own) can draw a
+      // landed re-read before the frame's callback does; it's still the
+      // commit that draws it, painted by the next frame. At most two a run.
+      const strays = sample.length - presented;
+      if (side === 'gpui' ? strays > 0 : strays > 2) fail(`marks ${at.id}: ${strays} refreshed marks not ${side === 'gpui' ? 'right after a presented frame' : 'set in a frame callback'}`);
       if (unpaired > 2) fail(`marks ${at.id}: ${unpaired} visible batches with no frame of their own within ${PAIRED_MS} ms`);
       if (found.length) fail(`marks ${at.id}: ${found.join('; ')}`);
     } finally {
       await context.close();
     }
   }
-  results.marks = marks;
+  out.marks = marks;
 
   // Unmeasured, no refreshed marks: they'd pile up in a long session.
   {
@@ -316,9 +387,6 @@ try {
     if (end !== 'failed') fail(`${what}: ${end}, not failed`);
     await context.close();
   }
-} finally {
-  await browser.close();
-  for (const server of servers) await server.close();
 }
 
 if (label) {
