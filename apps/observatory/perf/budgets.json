@@ -264,6 +264,74 @@
       ]
     },
     {
+      "id": "gpui-tail-ttfp",
+      "label": "GPUI contender at the tail level: time to first paint",
+      "unit": "ms",
+      "budget": {
+        "overBaseline": "gpui.ttfpOverBaseline",
+        "baseline": "levels.tail.ttfpMs.reference"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-tail.json",
+            "path": "ttfpMs.reference"
+          },
+          {
+            "baseline": "levels.tail.ttfpMs.reference"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-tail-ttfp-throttled",
+      "label": "GPUI contender at the tail level: time to first paint, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-tail.json",
+            "path": "ttfpMs.throttled"
+          },
+          {
+            "baseline": "levels.tail.ttfpMs.throttled"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "gpui-tail-wasm",
+      "label": "GPUI contender at the tail level: wasm (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "gpui.wasmOverBaseline",
+        "baseline": "levels.tail.wasmBrotliKiB"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-gpui-cold-tail.json",
+            "path": "wasmBrotliKiB"
+          },
+          {
+            "baseline": "levels.tail.wasmBrotliKiB"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
       "id": "tanstack-first-paint-js",
       "label": "TanStack contender: first-paint JS (brotli)",
       "unit": "KiB",

@@ -127,6 +127,9 @@ impl Host {
         // The feed's ticks would miss the new store: a reopen ends it.
         #[cfg(feature = "market")]
         crate::feed::stop();
+        // A replay starts over: its clock ends, and the new table's starts.
+        #[cfg(feature = "tail")]
+        crate::clock::stop();
         crate::contract::opening();
         let url = self.data_url.clone();
         let sent = Sent::default();
@@ -144,53 +147,71 @@ impl Host {
                     )
                     .await
                 };
-                let _ = this.update_in(cx, |this, window, cx| {
-                    // Market watch's file must be its instruments' columns.
-                    #[cfg(feature = "market")]
-                    let opened =
-                        opened
-                            .map_err(|error| error.to_string())
-                            .and_then(|(summary, rest)| {
+                let _ =
+                    this.update_in(cx, |this, window, cx| {
+                        // Market watch's file must be its instruments' columns.
+                        #[cfg(feature = "market")]
+                        let opened = opened.map_err(|error| error.to_string()).and_then(
+                            |(summary, rest)| {
                                 scene::market::check(&summary.columns, summary.rows, &scene.market)
                                     .map(|()| (summary, rest))
-                            });
-                    this.load = match opened {
-                        Ok((summary, _)) => {
-                            let columns = scene::columns(&summary.columns, &scene);
-                            let table = cx.new(|cx| {
-                                let mut table = Table::new(
-                                    scene::rows(engine, &scene),
-                                    columns,
-                                    summary.rows,
-                                    seiza_tall_table::Paging::default(),
-                                    cx,
-                                )
-                                // Always: the replay's fling reads the rows and
-                                // row height from the probes. Measured runs
-                                // have them on anyway (`?measure`'s state).
-                                .probe_frames(true)
-                                .probe_cells(crate::contract::probing_cells());
-                                scene::set_level(&mut table, &scene, cx);
-                                table
-                            });
-                            crate::contract::watch(&table, cx);
-                            #[cfg(feature = "market")]
-                            crate::feed::watch(&table, cx);
-                            let focus = table.read(cx).focus_handle().clone();
-                            window.focus(&focus, cx);
-                            Load::Open(table)
-                        }
-                        Err(error) => {
-                            // A failed DESCRIBE leaves the other queries running.
-                            for request in sent.borrow().iter() {
-                                engine.cancel(*request);
+                            },
+                        );
+                        // Live tail's file must be the log's columns and rows.
+                        #[cfg(feature = "tail")]
+                        let opened = opened.map_err(|error| error.to_string()).and_then(
+                            |(summary, rest)| {
+                                scene::tail::check(&summary.columns, summary.rows)
+                                    .map(|()| (summary, rest))
+                            },
+                        );
+                        this.load = match opened {
+                            Ok((summary, _)) => {
+                                let columns = scene::columns(&summary.columns, &scene);
+                                // A replay starts with no rows: the clock grows them.
+                                #[cfg(feature = "tail")]
+                                let rows = 0;
+                                #[cfg(not(feature = "tail"))]
+                                let rows = summary.rows;
+                                let table = cx.new(|cx| {
+                                    let mut table = Table::new(
+                                        scene::rows(engine, &scene),
+                                        columns,
+                                        rows,
+                                        seiza_tall_table::Paging::default(),
+                                        cx,
+                                    )
+                                    // Always: the replay's fling reads the rows and
+                                    // row height from the probes. Measured runs
+                                    // have them on anyway (`?measure`'s state).
+                                    .probe_frames(true)
+                                    .probe_cells(crate::contract::probing_cells());
+                                    scene::set_level(&mut table, &scene, cx);
+                                    table
+                                });
+                                crate::contract::watch(&table, cx);
+                                #[cfg(feature = "market")]
+                                crate::feed::watch(&table, cx);
+                                let focus = table.read(cx).focus_handle().clone();
+                                window.focus(&focus, cx);
+                                Load::Open(table)
                             }
-                            crate::contract::failed();
-                            Load::Failed(error.to_string().into())
+                            Err(error) => {
+                                // A failed DESCRIBE leaves the other queries running.
+                                for request in sent.borrow().iter() {
+                                    engine.cancel(*request);
+                                }
+                                crate::contract::failed();
+                                Load::Failed(error.to_string().into())
+                            }
+                        };
+                        // The file fetched whole, then the clock (`crate::clock`).
+                        #[cfg(feature = "tail")]
+                        if matches!(this.load, Load::Open(_)) {
+                            crate::clock::watch(this, cx);
                         }
-                    };
-                    cx.notify();
-                });
+                        cx.notify();
+                    });
             }
         });
         self.load = Load::Opening { _task: task, sent };
@@ -237,10 +258,23 @@ impl Host {
         });
     }
 
-    /// The feed can't go on: the table closes and the failure shows.
-    #[cfg(all(target_family = "wasm", feature = "market"))]
+    /// Sets the clock's count of rows due on the shown table (live tail):
+    /// following, the view moves on as their reads land.
+    #[cfg(all(target_family = "wasm", feature = "tail"))]
+    pub(crate) fn rows_due(&mut self, rows: u64, cx: &mut Context<Self>) {
+        if let Load::Open(table) = &self.load {
+            table.update(cx, |table, cx| table.set_rows(rows, cx));
+        }
+    }
+
+    /// The feed (or live tail's clock) can't go on: the table closes and
+    /// the failure shows.
+    #[cfg(all(target_family = "wasm", any(feature = "market", feature = "tail")))]
     pub(crate) fn fail_feed(&mut self, message: SharedString, cx: &mut Context<Self>) {
+        #[cfg(feature = "market")]
         crate::feed::stop();
+        #[cfg(feature = "tail")]
+        crate::clock::stop();
         if let Load::Open(table) = &self.load {
             table.update(cx, |table, cx| table.close(cx));
         }

@@ -12,10 +12,11 @@
  */
 
 import type { Side } from './contract.ts';
+import { DATA_FILE } from './tail/data.ts';
 
 /** A build of each contender: the base, or the base with a set of features
  *  built the same on both sides. */
-export type Level = 'base' | 'wide' | 'market';
+export type Level = 'base' | 'wide' | 'market' | 'tail';
 
 /** The features each level turns on (the GPUI contender's Cargo feature of
  *  the level's name turns on the table's), every level's, built or not:
@@ -25,6 +26,7 @@ export const LEVEL_FEATURES: Record<Level, readonly string[]> = {
   base: [],
   wide: ['custom-cells', 'pin', 'density'],
   market: ['custom-cells', 'live', 'format'],
+  tail: ['custom-cells', 'follow', 'live', 'format', 'density'],
 };
 
 export interface Stop {
@@ -105,7 +107,21 @@ export interface MarketScenario extends ScenarioOf<'market', RateStop> {
   flash: { ms: number; mix: number; columns: readonly string[] };
 }
 
-export type Scenario = BaseScenario | WideScenario | MarketScenario;
+/** A live tail's stop: the rows appended a second. */
+export interface RowsStop extends Stop {
+  rate: number;
+}
+
+export interface TailScenario extends ScenarioOf<'tail', RowsStop> {
+  /** An error status (4xx and 5xx) per theme, as the canvas draws a 404
+   *  (`--down`): market watch's fall. */
+  error: Record<'light' | 'dark', Oklch>;
+  /** Each column's width, px, in the file's order (time, request, status,
+   *  bytes): the design canvas's, set through the table's `density`. */
+  widths: readonly [time: number, request: number, status: number, bytes: number];
+}
+
+export type Scenario = BaseScenario | WideScenario | MarketScenario | TailScenario;
 
 export const BIG_FILE: BaseScenario = {
   id: 'big-file',
@@ -179,10 +195,33 @@ export const MARKET_WATCH: MarketScenario = {
   flash: { ms: 400, mix: 0.3, columns: ['Last', 'Bid', 'Ask'] },
 };
 
+/** A live tail's stop, named by its rate as the dial says it ("10k"),
+ *  its label with the unit ("10k rows/s"). */
+const rowsStop = (id: string, rate: number): RowsStop => ({ id, label: `${id} rows/s`, rate });
+
+/**
+ * Live tail (`docs/DECISIONS.md`, "Scenarios"): NASA-HTTP's July 1995 log
+ * replayed into the table by the clock (`contenders/tail/`) while the view
+ * follows the newest, looping past the file's end. The file is opened by
+ * range under its own name, then fetched whole and every page read from
+ * that copy (`contenders/tail/data.ts`). Its stops are the canvas's.
+ */
+export const LIVE_TAIL: TailScenario = {
+  id: 'live-tail',
+  label: 'Live tail',
+  use: 'An observability tool: a log growing while the view follows the newest',
+  level: 'tail',
+  data: DATA_FILE,
+  stops: [rowsStop('1k', 1_000), rowsStop('10k', 10_000), rowsStop('50k', 50_000), rowsStop('100k', 100_000)],
+  defaultStop: '10k',
+  error: { light: MARKET_WATCH.signs.light.down, dark: MARKET_WATCH.signs.dark.down },
+  widths: [196, 470, 72, 90],
+};
+
 /** Every scenario, each level's first its default: what a frame can load
  *  (`pickScenario`) and what the scripts measure, on whichever sides build
  *  its level (`BUILT`). */
-export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH];
+export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL];
 
 /** The scenarios the page shows: a scenario joins once both sides build its
  *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The
@@ -194,7 +233,7 @@ export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATC
  *  levels (the recipes, `sizes`, `cold`, `tanstack-sizes`, `placeholder`,
  *  the page's servers, `stage.ts`) reads it, never `LEVEL_FEATURES`. */
 export const BUILT: Record<Side, readonly Level[]> = {
-  gpui: ['base', 'wide', 'market'],
+  gpui: ['base', 'wide', 'market', 'tail'],
   tanstack: ['base', 'wide', 'market'],
 };
 

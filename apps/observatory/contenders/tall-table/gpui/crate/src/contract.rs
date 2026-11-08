@@ -35,6 +35,17 @@ const REFRESHED_MARK: &str = "contender:refreshed";
 /// draws it, before its mark (the bridge's).
 #[cfg(feature = "market")]
 const REFRESHED_GLOBAL: &str = "__contenderRefreshed";
+/// With `?measure`, right after each frame whose drawn tail grew while
+/// following (`TailDrawn`): live tail's Row shown in reads it.
+#[cfg(feature = "tail")]
+const TAIL_MARK: &str = "contender:tail";
+/// With `?measure`, the end of the tail last drawn, set in the frame that
+/// draws it, before its mark (the bridge's).
+#[cfg(feature = "tail")]
+const TAIL_GLOBAL: &str = "__contenderTail";
+/// With `?measure`, whether the view follows the tail, set as it changes.
+#[cfg(feature = "tail")]
+const FOLLOWING_GLOBAL: &str = "__contenderFollowing";
 
 /// Whether the page was opened for measuring (`?measure`): only then are
 /// `__contender.state` and the targets published.
@@ -177,6 +188,17 @@ const CACHE_READ_INTERVAL: std::time::Duration = std::time::Duration::from_milli
 pub fn watch(table: &Entity<Table>, cx: &mut Context<Host>) {
     cx.subscribe(table, |_, _, event, _| on_event(event))
         .detach();
+    // The table followed from the start (`scene::set_level`), before this
+    // subscription heard its `Following`.
+    #[cfg(feature = "tail")]
+    if measuring() {
+        let following = table.read(cx).is_following();
+        let _ = Reflect::set(
+            &js_sys::global(),
+            &JsValue::from_str(FOLLOWING_GLOBAL),
+            &JsValue::from_bool(following),
+        );
+    }
     if measuring() {
         // A page landing or leaving changes the cache without changing
         // what's shown, so the frame's probe doesn't report it. Every
@@ -224,6 +246,13 @@ fn on_event(event: &TallTableEvent) {
         refreshed_mark: measuring().then_some(REFRESHED_MARK),
         #[cfg(feature = "market")]
         refreshed: measuring().then_some(REFRESHED_GLOBAL),
+        // Measured runs only, as the refreshed mark: one a frame under the feed.
+        #[cfg(feature = "tail")]
+        tail_mark: measuring().then_some(TAIL_MARK),
+        #[cfg(feature = "tail")]
+        tail: measuring().then_some(TAIL_GLOBAL),
+        #[cfg(feature = "tail")]
+        following: measuring().then_some(FOLLOWING_GLOBAL),
         ..Default::default()
     }
     .event(event);
@@ -358,7 +387,7 @@ fn with_host(update: impl FnOnce(&mut Host, &mut Window, &mut Context<Host>) + '
 
 /// Runs `update` on the host now, from a JS task outside GPUI's (a
 /// worker's message): GPUI's effects flush at its end, as an input's do.
-#[cfg(feature = "market")]
+#[cfg(any(feature = "market", feature = "tail"))]
 pub fn with_host_now(update: impl FnOnce(&mut Host, &mut Context<Host>)) {
     let Some((host, _, mut cx)) = HOST.with_borrow(Clone::clone) else {
         return;

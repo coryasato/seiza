@@ -42,6 +42,9 @@ export interface Contender {
   side: Side;
   state: ContenderState | null;
   replay: Replay;
+  /** Live tail, `?measure` only: pauses the clock's count (`true`) or
+   *  resumes it (`false`), the scroll back's control. */
+  pause?(on: boolean): void;
 }
 
 export const MARKS = {
@@ -57,6 +60,10 @@ export const MARKS = {
    *  feed's rows (market watch): Shown in's mark, its generation on
    *  `globalThis.__contenderRefreshed`. */
   refreshed: 'contender:refreshed',
+  /** `?measure`: right after each frame whose drawn tail grew while
+   *  following (live tail): Row shown in's mark, the tail it drew on
+   *  `globalThis.__contenderTail`. */
+  tail: 'contender:tail',
   /** `?measure`: the view handled the probe key (any key) and drew it. */
   input: 'contender:input',
   /** The view shows a failure (the engine didn't load or stopped, the file

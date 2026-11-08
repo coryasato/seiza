@@ -30,6 +30,10 @@ seiza.workspace = true
 tall-table-bridge.workspace = true
 wasm-bindgen.workspace = true
 js-sys.workspace = true
+# Live tail's file fetched whole, handed to the engine as a `File`: the
+# tail level's alone (optional), so the other levels' builds are as before.
+wasm-bindgen-futures = { workspace = true, optional = true }
+web-sys = { workspace = true, features = ["File"], optional = true }
 
 # A feature level is a build of its own (`contenders/scenarios.ts`,
 # `LEVEL_FEATURES`): built alone (`-p`), at a base of its own. Off, the
@@ -57,8 +61,21 @@ market = [
     "tall-table-bridge/live",
     "tall-table-bridge/format",
 ]
-# Live tail's level: the replay's page SQL over the looping file and the
-# time's text (`src/tail.rs`), which the tall table's fixtures run natively.
-# The table's features and the host's scene for it come with the level's
-# build.
-tail = []
+# Live tail's level: the view following the tail as the clock grows the
+# rows (`follow`, with its `live`), the time muted and an error status in
+# the fall's color (`custom-cells`), the bytes grouped (`format`), and the
+# canvas's column widths (`density`, at the base's rows and text); the
+# replay's page SQL over the looping file and the time's text
+# (`src/tail.rs`), which the tall table's fixtures run natively.
+tail = [
+    "seiza-tall-table/custom-cells",
+    "seiza-tall-table/follow",
+    "seiza-tall-table/format",
+    "seiza-tall-table/density",
+    "tall-table-bridge/custom-cells",
+    "tall-table-bridge/follow",
+    "tall-table-bridge/format",
+    "tall-table-bridge/density",
+    "dep:wasm-bindgen-futures",
+    "dep:web-sys",
+]

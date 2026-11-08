@@ -43,10 +43,14 @@ const PORT = 4313;
  *  the float columns on screen at the sideways scroll's 0 (the first
  *  painted ones), so a jump draws them. Market watch isn't: its cells are
  *  its formats', which `cells.json`'s `format` section pins, and the feed
- *  moves them (`perf/market.ts` checks them against the feed's fold). */
+ *  moves them (`perf/market.ts` checks them against the feed's fold). Nor
+ *  is live tail: it has no float column, its time's text is
+ *  `timestamp_text`'s, and `perf/tail.ts` checks its cells against native
+ *  DuckDB's rows through the replay. */
 const SAMPLED: Record<string, { port: number; only?: string[] } | null> = {
   'wide-sheet': { port: 4348, only: ['Latitude', 'Jan 1', 'Jan 2', 'Jan 15'] },
   'market-watch': null,
+  'live-tail': null,
 };
 const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtures/cells.json', import.meta.url));
 /** The fixture's synthetic values, which this script keeps as they are: no

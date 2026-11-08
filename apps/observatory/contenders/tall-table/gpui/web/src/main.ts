@@ -9,7 +9,7 @@ import { MARKS, followPageTheme, markAt, nextFrame, nextMark, pageTheme, publish
 import { DATA, ENGINE_DIR, OBSERVATORY, UI_FONT } from '../../../../paths.ts';
 import { pickScenario } from '../../../../scenarios.ts';
 import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
-// The level's host: nothing on the base and the wide level (`market.ts` on the market's).
+// The level's host: nothing on the base and the wide level (`market.ts` on the market's, `tail.ts` on the tail's).
 import { levelHost } from './level.ts';
 
 /** Set by shared-web's placeholder (`PLACEHOLDER_PAINT_MARK`) and `seiza`'s

@@ -1,8 +1,9 @@
 /**
  * What a feature level adds to the host (`main.ts`), on the base and the
  * wide level: nothing (the wide sheet's numbers are `main.ts`'s). The
- * market level's build resolves this module to `market.ts` instead
- * (`vite.config.ts`), so no other build carries its feed.
+ * market level's build resolves this module to `market.ts` instead, and
+ * the tail level's to `tail.ts` (`vite.config.ts`), so no other build
+ * carries its feed or its clock.
  */
 
 import type { Picked } from '../../../../scenarios.ts';

@@ -1,0 +1,157 @@
+{
+  "date": "2026-11-07",
+  "label": "m11-b2-tail",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "gpui": {
+    "cells": {
+      "widths-light": {
+        "widths": [
+          196,
+          470,
+          72,
+          90
+        ],
+        "off": [],
+        "controlOff": 4
+      },
+      "tail-light": {
+        "rows": 54,
+        "first": 1901641,
+        "last": 1901694,
+        "laps": [
+          1
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": 54
+      },
+      "seam-light": {
+        "rows": 54,
+        "first": 1890963,
+        "last": 1891016,
+        "laps": [
+          0,
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 34
+      },
+      "first-light": {
+        "rows": 54,
+        "first": 0,
+        "last": 53,
+        "laps": [
+          0
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": null
+      },
+      "widths-dark": {
+        "widths": [
+          196,
+          470,
+          72,
+          90
+        ],
+        "off": [],
+        "controlOff": 4
+      },
+      "tail-dark": {
+        "rows": 54,
+        "first": 1896494,
+        "last": 1896547,
+        "laps": [
+          1
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": 54
+      },
+      "seam-dark": {
+        "rows": 54,
+        "first": 1890963,
+        "last": 1891016,
+        "laps": [
+          0,
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 34
+      },
+      "first-dark": {
+        "rows": 54,
+        "first": 0,
+        "last": 53,
+        "laps": [
+          0
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": null
+      }
+    },
+    "marks": {
+      "tail": 143,
+      "sampled": 21,
+      "presented": 21,
+      "rising": true,
+      "batches": 139,
+      "ordered": true,
+      "reached": 127,
+      "unreached": 0,
+      "messageToMarkMs": {
+        "p50": 20.2,
+        "max": 56.4
+      },
+      "following": true
+    },
+    "scrollBack": {
+      "letGo": false,
+      "heldTop": true,
+      "rowsGrew": 10293,
+      "marksWhileHeld": 0,
+      "followingAfterEnd": true,
+      "marksAfterEnd": 50
+    },
+    "unmeasured": {
+      "end": "filled",
+      "marks": 0,
+      "batches": false,
+      "tail": false,
+      "following": false,
+      "pause": false
+    },
+    "reopen": {
+      "end": "filled",
+      "before": 14600,
+      "reopened": 0,
+      "grown": 9894,
+      "firstLogged": 241
+    },
+    "earlyPause": {
+      "end": "filled",
+      "held": 0,
+      "lifted": 9747
+    }
+  },
+  "failures": []
+}

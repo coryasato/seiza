@@ -212,6 +212,7 @@ check: lint builds && fixtures
     levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/cold.ts --level $level --check || exit 1; done
     node {{app_dir}}/perf/wide.ts
     node {{app_dir}}/perf/market.ts
+    node {{app_dir}}/perf/tail.ts
     levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/placeholder.ts --level $level || exit 1; done
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
@@ -253,6 +254,7 @@ fixtures:
     node {{app_dir}}/contenders/market/fixtures/write.ts --check
     node --test {{app_dir}}/contenders/tail/fixtures/clock.test.ts
     cargo test -p tall-table-gpui --features market -- market:: tail::
+    cargo test -p tall-table-gpui --features tail scene::tail::
     npm test --workspace @seiza/observatory-tall-table-tanstack
     node {{app_dir}}/perf/cell-fixture.ts --check
 
@@ -381,6 +383,21 @@ wide *args:
 market *args:
     node {{app_dir}}/perf/market.ts {{args}}
 
+# The contenders at the tail level, on their release builds (the TanStack
+# side once it builds the level): the replay's cells past a lap at the top
+# stop, the clock paused (the tail, a lap's seam, the first rows: each
+# cell against native DuckDB's row of the file, the time the log's text
+# moved on by its laps and muted, an error status in the error color, the
+# bytes grouped; the columns at the scenario's widths; light and dark;
+# the controls, no lap's shift and the kinds' widths); the tail
+# marks right after presented frames, each clock message reached; a wheel
+# up letting go and holding, End following again; nothing logged without
+# ?measure; a replay open starting over; the worker or the whole file 404
+# failing the view; an unknown stop or scenario, and live tail on the base
+# build, failing the load. --side, --label. Run `builds` first.
+tail *args:
+    node {{app_dir}}/perf/tail.ts {{args}}
+
 # Request bursts on the page's release build: the most requests one visitor
 # sends in any 10 s (the zone's rate limit's window), counted at the server
 # while the replay hooks fling and jump each side (on the wide sheet, at
@@ -440,6 +457,8 @@ lint:
     cargo clippy -p tall-table-gpui --features wide --all-targets -- -D warnings
     cargo clippy -p tall-table-gpui --features market --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --features market --all-targets -- -D warnings
+    cargo clippy -p tall-table-gpui --features tail --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-gpui --features tail --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
     node {{page_web}}/scripts/grays.ts

@@ -7317,6 +7317,8 @@ dependencies = [
  "serde_json",
  "tall-table-bridge",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

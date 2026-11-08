@@ -5,15 +5,23 @@
 //! which the host shows and marks (`contender:failed`).
 
 use gpui_kit::*;
+#[cfg(not(feature = "tail"))]
 #[cfg(any(target_family = "wasm", not(feature = "wide")))]
 use seiza_duckdb::tall_table::{ParquetFile, QueryRows};
 
-#[cfg(all(feature = "wide", feature = "market"))]
-compile_error!("a build is one level: `wide` and `market` can't both be on");
+#[cfg(any(
+    all(feature = "wide", feature = "market"),
+    all(feature = "wide", feature = "tail"),
+    all(feature = "market", feature = "tail")
+))]
+compile_error!("a build is one level: only one of `wide`, `market`, and `tail` can be on");
 
 /// Market watch's level: its store as the table's source, its formats and colors.
 #[cfg(feature = "market")]
 pub mod market;
+/// Live tail's level: the replay's pages, the time's text, its colors.
+#[cfg(feature = "tail")]
+pub mod tail;
 
 /// What the host opens and how it sets the table.
 #[derive(Debug, Clone, PartialEq)]
@@ -25,6 +33,8 @@ pub struct Scene {
     pub wide: Wide,
     #[cfg(feature = "market")]
     pub market: market::Market,
+    #[cfg(feature = "tail")]
+    pub tail: tail::Tail,
 }
 
 /// The wide sheet's level at a stop.
@@ -46,9 +56,9 @@ pub struct Wide {
 impl Scene {
     /// From the JS host's numbers: on the wide level `[row_height,
     /// text_size, column_width, pinned, heat_from, lo, mid, hi]`, on the
-    /// base none (the market level's is [`Scene::market`]). Anything else
-    /// is an error the host shows.
-    #[cfg(not(feature = "market"))]
+    /// base none (the market level's is [`Scene::market`], the tail
+    /// level's [`Scene::tail`]). Anything else is an error the host shows.
+    #[cfg(not(any(feature = "market", feature = "tail")))]
     pub fn new(file: String, level: &[f64]) -> Result<Self, String> {
         #[cfg(feature = "wide")]
         {
@@ -116,18 +126,41 @@ impl Scene {
     }
 }
 
+#[cfg(feature = "tail")]
+impl Scene {
+    /// The tail level's scene: `level` as `tail::Tail::new` takes it.
+    pub fn tail(file: String, level: &[f64]) -> Result<Self, String> {
+        Ok(Self {
+            file,
+            tail: tail::Tail::new(level)?,
+        })
+    }
+}
+
 /// The table's source: the engine's rows, on the wide level painted, on
-/// the market level the store's once the open's page is in.
-#[cfg(not(any(feature = "wide", feature = "market")))]
+/// the market level the store's once the open's page is in, on the tail
+/// level the replay's pages over the file fetched whole.
+#[cfg(not(any(feature = "wide", feature = "market", feature = "tail")))]
 pub type Rows = QueryRows<ParquetFile>;
 #[cfg(feature = "wide")]
 pub type Rows = heat::HeatRows;
 #[cfg(feature = "market")]
 pub type Rows = market::MarketRows<QueryRows<ParquetFile>>;
+#[cfg(feature = "tail")]
+pub type Rows = tail::TailRows;
 
 /// The source over `engine` for `scene` (the engine exists only on the web).
 #[cfg(target_family = "wasm")]
 pub fn rows(engine: seiza_duckdb::Engine, scene: &Scene) -> Rows {
+    // Every page from the file fetched whole, never the ranged copy the
+    // open read (`scene.file`).
+    #[cfg(feature = "tail")]
+    let _ = scene;
+    #[cfg(feature = "tail")]
+    return tail::TailRows {
+        rows: seiza_duckdb::tall_table::QueryRows::new(engine, crate::tail::TailQuery::default()),
+    };
+    #[cfg(not(feature = "tail"))]
     let rows = QueryRows::new(engine, ParquetFile::new(scene.file.clone()));
     #[cfg(feature = "wide")]
     return heat::HeatRows {
@@ -137,7 +170,7 @@ pub fn rows(engine: seiza_duckdb::Engine, scene: &Scene) -> Rows {
     };
     #[cfg(feature = "market")]
     return market::MarketRows::new(rows, &scene.market);
-    #[cfg(not(any(feature = "wide", feature = "market")))]
+    #[cfg(not(any(feature = "wide", feature = "market", feature = "tail")))]
     rows
 }
 
@@ -159,7 +192,15 @@ pub fn columns(
             .collect(),
         &scene.market,
     );
-    #[cfg(not(feature = "market"))]
+    #[cfg(feature = "tail")]
+    return tail::columns(
+        summary
+            .iter()
+            .map(|info| info.tall_table_column())
+            .collect(),
+        &scene.tail,
+    );
+    #[cfg(not(any(feature = "market", feature = "tail")))]
     summary
         .iter()
         .enumerate()
@@ -196,13 +237,18 @@ pub fn set_level(
             cx,
         );
     }
-    #[cfg(not(feature = "wide"))]
+    // A log view follows from the start, before its first frame.
+    #[cfg(feature = "tail")]
+    table.follow(cx);
+    #[cfg(not(any(feature = "wide", feature = "tail")))]
     let _ = (table, scene, cx);
+    #[cfg(feature = "tail")]
+    let _ = scene;
 }
 
 /// An Oklch color in sRGB (each of a level's colors is inside its gamut),
 /// as CSS converts `oklch()`: Björn Ottosson's matrices.
-#[cfg(any(feature = "wide", feature = "market"))]
+#[cfg(any(feature = "wide", feature = "market", feature = "tail"))]
 pub(crate) fn oklch([l, c, h]: [f32; 3]) -> Hsla {
     let (a, b) = (c * h.to_radians().cos(), c * h.to_radians().sin());
     let l_ = (l + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);

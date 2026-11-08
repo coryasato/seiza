@@ -341,3 +341,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - The fixtures are read generically, so a new kind of page broke tests it never meant to join. Both sides' plain-file SQL runs walk every `scenarios` section of `sql.json` with the plain file's query, so live tail's loop needed a marker (`query`) before it could live there at all.
 - `cell-fixture` rewrites `cells.json` whole and keeps only the sections it knows by name, so a hand-written section vanishes from its output and `--check` fails on the committed file. A new hand-written section is added to its kept list in the same change.
 - The time's controls needed choosing with the cases. An unpadded day fails only when a case falls on days 1–9, and a local-time conversion only when it isn't UTC on the machine running it; the control shifts by the log's own −0400 instead, so it fails on any machine.
+
+## M11 part B2: the GPUI contender at the tail level (2026-11-07)
+
+**Results:** [`perf/results/2026-11-07-m11-b2.md`](../perf/results/2026-11-07-m11-b2.md).
+
+**Surprises:**
+- Two dependencies no other level calls changed every level's wasm throughout. With `web-sys` and `wasm-bindgen-futures` added as plain dependencies, most functions in the base were renumbered and the market level grew 36 bytes. Made optional under `tail`, the base built with the old sources was byte-identical again. A level's own dependency belongs behind its feature.
+- A hash can't tell a moved line number from new code. The other levels still differ by +12 bytes and millions of shifted bytes. Rebuilding the base with the touched files put back is what showed it's only their source positions.
+- The first `Following(true)` went unheard. The table follows before its first frame, while it's being made, and the contract subscribes after that. So the flag's global started unset under a feed that was following. A state a table reaches while it's built has to be read, not waited for.
+- The design canvas held what the plan's summary of it didn't: each column's width. Built from the summary, `request` was laid out by kind at 200 px and cut every line. The canvas gives it 470, and setting a width needs `density`. Read the canvas itself before building a scene.
+- A lap's seam can't be found under a running clock. The rows grow by ~1,700 a frame at 100k, so a jump computed from the count misses a 54-row view. The pause hook, which part D needs anyway for the scroll back's control, holds the count still, and then the jump lands exactly.

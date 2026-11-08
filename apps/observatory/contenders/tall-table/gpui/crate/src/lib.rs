@@ -3,6 +3,9 @@
 //! on screen but the table. It publishes the contender contract
 //! (`apps/observatory/docs/contender-contract.md`) from the table's events.
 
+/// Live tail's clock: the file fetched whole, then its worker's counts.
+#[cfg(all(target_family = "wasm", feature = "tail"))]
+mod clock;
 #[cfg(target_family = "wasm")]
 mod contract;
 /// Market watch's feed: its worker's batches into the store.
@@ -53,7 +56,9 @@ pub fn start(
             let scene = if failure.is_empty() {
                 #[cfg(feature = "market")]
                 let scene = scene::Scene::market(file, &level, &feed::flash());
-                #[cfg(not(feature = "market"))]
+                #[cfg(feature = "tail")]
+                let scene = scene::Scene::tail(file, &level);
+                #[cfg(not(any(feature = "market", feature = "tail")))]
                 let scene = scene::Scene::new(file, &level);
                 scene.map_err(SharedString::from)
             } else {
