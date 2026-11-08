@@ -243,13 +243,16 @@ placeholder *args:
 # build's drawing. And market watch's feed fixture
 # (contenders/market/fixtures/feed.json): the feed regenerating it, then
 # each side's store against it with its controls (the GPUI contender's
-# natively, the TanStack contender's in its `npm test`).
+# natively, the TanStack contender's in its `npm test`). And live tail's:
+# its clock's fixture (contenders/tail/fixtures/clock.json), then each
+# side's loop SQL and time text against sql.json and cells.json.
 fixtures:
     cargo test -p seiza-tall-table fixtures
     cargo test -p seiza-tall-table --features custom-cells,pin,density fixtures
     cargo test -p seiza-duckdb --all-features sql_fixture
     node {{app_dir}}/contenders/market/fixtures/write.ts --check
-    cargo test -p tall-table-gpui --features market market::
+    node --test {{app_dir}}/contenders/tail/fixtures/clock.test.ts
+    cargo test -p tall-table-gpui --features market -- market:: tail::
     npm test --workspace @seiza/observatory-tall-table-tanstack
     node {{app_dir}}/perf/cell-fixture.ts --check
 
@@ -312,9 +315,12 @@ readout-cost *args:
 # data/raw/ghcn/ and checked against their pins (a missing one downloaded),
 # market-instruments.parquet from the feed's instruments
 # (contenders/market/feed.ts; it fails if a symbol is listed on a US
-# exchange, NASDAQ Trader's directories fetched). Installs data/'s native
-# DuckDB (its own lockfile). Flags: --only asteroids|ghcn|market; --repin (download GHCN's sources again and pin them: a
-# new file, so regenerate cells.json).
+# exchange, NASDAQ Trader's directories fetched), and
+# nasa-http-jul95.parquet from NASA-HTTP's July 1995 log, kept in
+# data/raw/nasa/ and checked against its pin (downloaded when missing), with
+# the replay's pages run against it. Installs data/'s native DuckDB (its own
+# lockfile). Flags: --only asteroids|ghcn|market|nasa; --repin (download
+# GHCN's sources again and pin them: a new file, so regenerate cells.json).
 data *args:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
     node {{app_dir}}/data/prep.ts {{args}}

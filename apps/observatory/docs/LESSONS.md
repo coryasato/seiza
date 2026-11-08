@@ -332,3 +332,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - The spike's DOM side drew a blank table for most of a minute and still reported numbers. Past the scroller's 2^24 px cap, it computed the content's offset in the effect after the render, one batch late, so every row was drawn below the view. Only a screenshot showed it. A tail's logs say what was committed, not what's on screen.
 - Nothing leveled off in 10 minutes: GPUI's JavaScript grew ~2–3 MiB a minute and TanStack's ~1, partly the spike's own logs. The wasm memory did stop growing, at 5.5 minutes.
 - The spike's own controls needed controlling. The review found two faults on the TanStack side. Its tail pin waited a page when the tail page landed before the page above it, and its hold delayed the next read as well as the frame. Holding only the draw then moved the reading by nothing, because the previous landing's delayed draw drew the new page anyway. A control has to hold exactly one thing, here what the view is allowed to see.
+
+## M11 part B1: live tail's data and the replay's shared parts (2026-11-07)
+
+**Results:** none measured: the file, the clock, the loop's SQL, and the time's text, each pinned by a fixture with its controls (`PLAN.md`'s B1 checks hold the evidence).
+
+**Surprises:**
+- The fixtures are read generically, so a new kind of page broke tests it never meant to join. Both sides' plain-file SQL runs walk every `scenarios` section of `sql.json` with the plain file's query, so live tail's loop needed a marker (`query`) before it could live there at all.
+- `cell-fixture` rewrites `cells.json` whole and keeps only the sections it knows by name, so a hand-written section vanishes from its output and `--check` fails on the committed file. A new hand-written section is added to its kept list in the same change.
+- The time's controls needed choosing with the cases. An unpadded day fails only when a case falls on days 1–9, and a local-time conversion only when it isn't UTC on the machine running it; the control shifts by the log's own −0400 instead, so it fails on any machine.

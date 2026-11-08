@@ -13,6 +13,9 @@ mod host;
 #[cfg(feature = "market")]
 pub mod market;
 mod scene;
+/// Live tail's replay: the loop's page SQL and the time's text.
+#[cfg(any(test, feature = "tail"))]
+pub mod tail;
 
 pub use host::Host;
 

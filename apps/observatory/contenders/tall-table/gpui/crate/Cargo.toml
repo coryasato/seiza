@@ -57,3 +57,8 @@ market = [
     "tall-table-bridge/live",
     "tall-table-bridge/format",
 ]
+# Live tail's level: the replay's page SQL over the looping file and the
+# time's text (`src/tail.rs`), which the tall table's fixtures run natively.
+# The table's features and the host's scene for it come with the level's
+# build.
+tail = []

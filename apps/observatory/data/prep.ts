@@ -16,9 +16,16 @@
 //   prep-market.sql, after checking that no symbol is listed on a US
 //   exchange (NASDAQ Trader's symbol directories, fetched at each build).
 //
+// - nasa-http-jul95.parquet, live tail's, from NASA-HTTP's July 1995 log
+//   (prep-nasa.sql), the source kept in data/raw/nasa/ (gitignored,
+//   downloaded when missing) and checked against the SHA-256 MANIFEST.json
+//   pins; its rows and span checked against the replay's constants
+//   (contenders/tail/data.ts), and the replay's page SQL (sql.json's
+//   `live-tail`) run against it.
+//
 // Each is checked to fit a Workers static asset.
 //
-// Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market] [--repin]
+// Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market|nasa] [--repin]
 //        (`just observatory data`). The asteroids need Tycho's file first:
 //        `just tycho data`.
 
@@ -30,6 +37,7 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { INSTRUMENTS } from '../contenders/market/feed.ts';
+import { DATA_FILE as NASA, FILE_ROWS as NASA_ROWS, SPAN_S as NASA_SPAN_S, WHOLE_FILE as NASA_WHOLE } from '../contenders/tail/data.ts';
 
 /** Cloudflare's per-file limit for Workers static assets. */
 const STATIC_ASSET_LIMIT = 25 * 2 ** 20;
@@ -71,6 +79,8 @@ interface ManifestFile {
   rowGroups?: number;
   /** The least and greatest value over the painted columns (the wide sheet's heat domain). */
   range?: [number, number];
+  /** The first row's time to the last's, s (live tail's lap). */
+  spanSeconds?: number;
   writer: string;
   notes?: string[];
 }
@@ -111,6 +121,22 @@ const MARKET_CREDIT = "Fictional instruments, the observatory's own: synthetic";
 const MARKET_TERMS =
   "The observatory's own, made up for market watch and dedicated to the public domain (CC0 1.0). The names and symbols are fictional: prep fails if a symbol is listed on a US exchange (NASDAQ Trader's nasdaqlisted.txt and otherlisted.txt, fetched at each build).";
 
+/** NASA-HTTP's July 1995 log, from the Internet Traffic Archive. A 1995
+ *  file that doesn't change: the pin is its first download's, and another
+ *  download fails. */
+const NASA_SOURCE = {
+  file: 'NASA_access_log_Jul95.gz',
+  url: 'https://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz',
+  sha256: '199109ed0f273e095da6ccd5fc9dc4cd8bb58daa06d62135e62090fea9d27488',
+};
+/** The day it was first downloaded: the file's metadata carries it, so the file stays byte-identical. */
+const NASA_FETCHED = '2026-11-06';
+/** The rows a row group holds (docs/DECISIONS.md, "Scenarios"). */
+const NASA_ROW_GROUP = 30_720;
+const NASA_CREDIT = 'NASA-HTTP: Jim Dumoulin, NASA Kennedy Space Center; contributed by Martin Arlitt and Carey Williamson, University of Saskatchewan';
+const NASA_TERMS =
+  'The Internet Traffic Archive\'s NASA-HTTP page (ita.ee.lbl.gov/html/contrib/NASA-HTTP.html): Restrictions, "The traces may be freely redistributed."; Privacy, "The logs fully preserve the originating host and HTTP request. Please do not however attempt any analysis beyond general traffic patterns."; Acknowledgements, "The logs was collected by Jim Dumoulin of the Kennedy Space Center, and contributed by Martin Arlitt [an address] and Carey Williamson [an address] of the University of Saskatchewan." (their addresses left out here). No named license: the data rule admits an explicit grant to redistribute (docs/DECISIONS.md, "Scenarios", 2026-11-06). Checked 2026-11-07.';
+
 const sqlText = (value: string) => value.replaceAll("'", "''");
 
 async function sha256(path: string): Promise<string> {
@@ -125,7 +151,7 @@ async function value(conn: DuckDBConnection, sql: string): Promise<unknown> {
 
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : undefined;
-if (only !== undefined && only !== 'asteroids' && only !== 'ghcn' && only !== 'market') throw new Error(`--only takes asteroids, ghcn, or market, not ${only}`);
+if (only !== undefined && only !== 'asteroids' && only !== 'ghcn' && only !== 'market' && only !== 'nasa') throw new Error(`--only takes asteroids, ghcn, market, or nasa, not ${only}`);
 const repin = args.includes('--repin');
 
 const manifest: Record<string, ManifestFile> = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
@@ -135,7 +161,7 @@ process.chdir(dataDir);
 /** MANIFEST.json as it stands, in a fixed order: written after each file,
  *  so one that fails (the market's fetch) keeps the others' entries. */
 function writeManifest(): void {
-  const ordered = Object.fromEntries([ASTEROIDS, GHCN, MARKET].filter((name) => manifest[name]).map((name) => [name, manifest[name]]));
+  const ordered = Object.fromEntries([ASTEROIDS, GHCN, MARKET, NASA].filter((name) => manifest[name]).map((name) => [name, manifest[name]]));
   writeFileSync(manifestPath, `${JSON.stringify(ordered, null, 2)}\n`);
 }
 if (only === undefined || only === 'asteroids') {
@@ -148,6 +174,10 @@ if (only === undefined || only === 'ghcn') {
 }
 if (only === undefined || only === 'market') {
   manifest[MARKET] = await market();
+  writeManifest();
+}
+if (only === undefined || only === 'nasa') {
+  manifest[NASA] = await nasa();
   writeManifest();
 }
 
@@ -339,4 +369,71 @@ async function market(): Promise<ManifestFile> {
   };
   console.log(`${MARKET}: ${rows} rows, ${bytes} B, sha256 ${entry.sha256}`);
   return entry;
+}
+
+async function nasa(): Promise<ManifestFile> {
+  const raw = join(dataDir, 'raw/nasa');
+  mkdirSync(raw, { recursive: true });
+  const path = join(raw, NASA_SOURCE.file);
+  if (!existsSync(path)) await download(NASA_SOURCE.url, path);
+  const found = await sha256(path);
+  if (found !== NASA_SOURCE.sha256)
+    throw new Error(`data/raw/nasa/${NASA_SOURCE.file}: SHA-256 ${found}, but the pin is ${NASA_SOURCE.sha256} (the 1995 log doesn't change): delete it and download again`);
+
+  await runSql('prep-nasa.sql', { raw: sqlText(raw), rowGroup: String(NASA_ROW_GROUP), fetched: NASA_FETCHED });
+  const bytes = fits(NASA, 'larger row groups in prep-nasa.sql');
+  const [rows, span] = (await conn.runAndReadAll(`SELECT count(*), epoch(max("time")) - epoch(min("time")) FROM '${NASA}'`)).getRows()[0]!.map(Number);
+  if (rows !== NASA_ROWS || span !== NASA_SPAN_S)
+    throw new Error(`${NASA}: ${rows} rows over ${span} s, but the replay (contenders/tail/data.ts) has ${NASA_ROWS} over ${NASA_SPAN_S}: change both, and sql.json's live-tail`);
+  await nasaLoop();
+  const entry: ManifestFile = {
+    rows,
+    bytes,
+    sha256: await sha256(join(dataDir, NASA)),
+    source: `${NASA_SOURCE.url} (NASA-HTTP, July 1995: the Kennedy Space Center's web server log)`,
+    credit: NASA_CREDIT,
+    terms: NASA_TERMS,
+    fetched: NASA_FETCHED,
+    sources: [{ file: NASA_SOURCE.file, url: NASA_SOURCE.url, bytes: statSync(path).size, sha256: found }],
+    rowGroups: Number(await value(conn, `SELECT num_row_groups FROM parquet_file_metadata('${NASA}')`)),
+    spanSeconds: span,
+    writer: `DuckDB ${await value(conn, 'SELECT version()')}, ZSTD, ROW_GROUP_SIZE ${NASA_ROW_GROUP}, in the log's order (its time's)`,
+    notes: [
+      "the host dropped, every query string cut, a request holding '@' or a '~' path not served (status 400 or more) dropped, lines that don't parse dropped (prep-nasa.sql, docs/DECISIONS.md, \"Scenarios\")",
+      'time is the log\'s wall time (-0400) as a zoneless TIMESTAMP; bytes NULL where the log has "-"',
+      `columns: ${await columns(NASA)}`,
+    ],
+  };
+  console.log(`${NASA}: ${rows} rows over ${span} s, ${(bytes / 2 ** 20).toFixed(2)} MiB, ${entry.rowGroups} row groups, sha256 ${entry.sha256}`);
+  return entry;
+}
+
+/** Runs each of sql.json's live-tail pages on the file and fails unless
+ *  every row is the file's row i mod n with its time moved on by its laps,
+ *  read here by another query; the control, a page read with no shift,
+ *  must differ. */
+async function nasaLoop(): Promise<void> {
+  const sql = JSON.parse(readFileSync(join(dataDir, '../../../components/tall-table/fixtures/sql.json'), 'utf8')).scenarios['live-tail'];
+  if (sql.loop_file !== NASA_WHOLE || sql.file_rows !== NASA_ROWS || sql.span_s !== NASA_SPAN_S) throw new Error("sql.json's live-tail isn't the replay's (contenders/tail/data.ts)");
+  const text = (rows: unknown[][]) => rows.map((row) => row.map(String).join('\t'));
+  let laps = 0;
+  for (const { rows: [start, end], sql: page } of sql.pages as { rows: [number, number]; sql: string }[]) {
+    const read = text((await conn.runAndReadAll(page.replaceAll(`'${NASA_WHOLE}'`, `'${NASA}'`))).getRows());
+    const want = text(
+      (
+        await conn.runAndReadAll(
+          `SELECT f."time" + INTERVAL (i // ${NASA_ROWS} * ${NASA_SPAN_S}) SECOND, f.request, f.status, f.bytes ` +
+            `FROM range(${start}, ${end}) t(i) JOIN read_parquet('${NASA}', file_row_number = true) f ON f.file_row_number = i % ${NASA_ROWS} ORDER BY i`,
+        )
+      ).getRows(),
+    );
+    if (read.length !== end - start || JSON.stringify(read) !== JSON.stringify(want)) throw new Error(`sql.json's live-tail page ${start}..${end}: its rows aren't the file's looped (${read.length} rows)`);
+    if (Math.floor((end - 1) / NASA_ROWS) > 0) {
+      const unshifted = text((await conn.runAndReadAll(page.replaceAll(`'${NASA_WHOLE}'`, `'${NASA}'`).replace(/to_seconds\(\d+\)/g, 'to_seconds(0)'))).getRows());
+      if (JSON.stringify(unshifted) === JSON.stringify(want)) throw new Error(`control: page ${start}..${end} read with no shift matched the looped rows`);
+      laps++;
+    }
+  }
+  if (!laps) throw new Error("sql.json's live-tail has no page past a lap");
+  console.log(`sql.json's live-tail: ${sql.pages.length} pages, each the file's rows looped (${laps} past a lap, each failing with no shift)`);
 }

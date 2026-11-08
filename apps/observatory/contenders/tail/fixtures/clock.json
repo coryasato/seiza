@@ -1,0 +1,45 @@
+{
+  "about": "Live tail's clock (contenders/tail/clock.ts): a rate (rows a second) started at 0 ms, then steps on a script's clock (ms): `at` counts the rows due by then, `pause` and `resume` stop and restart the count there. `rows` is the running count after the step. Run by clock.test.ts beside it, with controls that must fail it: no-cap (a gap counted whole), round (each call's rows rounded, its fraction dropped), pause-counts (a pause that keeps counting).",
+  "scenarios": [
+    {
+      "name": "a steady rate, the fraction carried",
+      "rate": 1000,
+      "steps": [
+        { "at": 16, "rows": 16, "why": "1 row a ms" },
+        { "at": 32, "rows": 32 },
+        { "at": 32.5, "rows": 32, "why": "half a row is owed, not counted" },
+        { "at": 33, "rows": 33, "why": "two halves make the row" }
+      ]
+    },
+    {
+      "name": "a gap counts 100 ms at most",
+      "rate": 1000,
+      "steps": [
+        { "at": 16, "rows": 16 },
+        { "at": 516, "rows": 116, "why": "500 ms passed, 100 counted (a tab in the background catches up only that far)" },
+        { "at": 532, "rows": 132 }
+      ]
+    },
+    {
+      "name": "a pause owes nothing",
+      "rate": 10000,
+      "steps": [
+        { "at": 16, "rows": 160 },
+        { "pause": 20, "rows": 200, "why": "the rows due by the pause are counted" },
+        { "at": 50, "rows": 200, "why": "paused" },
+        { "resume": 100, "rows": 200 },
+        { "at": 116, "rows": 360, "why": "16 ms from the resume, nothing for the pause" }
+      ]
+    },
+    {
+      "name": "a slow rate, rows only once they're whole",
+      "rate": 30,
+      "steps": [
+        { "at": 16, "rows": 0, "why": "0.48 owed" },
+        { "at": 32, "rows": 0, "why": "0.96 owed" },
+        { "at": 48, "rows": 1, "why": "1.44: one row, 0.44 owed" },
+        { "at": 90, "rows": 2, "why": "0.44 + 1.26" }
+      ]
+    }
+  ]
+}

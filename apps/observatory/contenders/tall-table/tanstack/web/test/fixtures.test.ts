@@ -435,12 +435,15 @@ function scriptBridge(sent: string[], rows = 1_567_523): Bridge {
 }
 
 /** The fixture's queries that `page` (a page's SQL) and the open don't
- *  send: the top section's, or a scenario's (`scenarios`). */
-async function sqlMismatches(page: (file: string, start: number, end: number) => string, scenario?: string): Promise<string[]> {
+ *  send: the top section's, or a scenario's (`scenarios`; only the summary
+ *  of one whose pages are its own `query`). */
+async function sqlMismatches(page: (file: string, start: number, end: number) => string, scenario?: string, openFile?: string): Promise<string[]> {
   const sql = scenario ? fixture('sql.json').scenarios[scenario] : fixture('sql.json');
   assert.ok(sql, `sql.json has no scenario ${scenario}`);
   const mismatches: string[] = [];
-  for (const { rows, sql: expected } of sql.pages) {
+  // A scenario whose pages are its own query (`query`, live tail's loop:
+  // `tail.test.ts`) has only its open's summary checked here.
+  for (const { rows, sql: expected } of sql.query ? [] : sql.pages) {
     const actual = page(sql.file, rows[0], rows[1]);
     if (actual !== expected) mismatches.push(`page ${rows}: ${actual}`);
   }
@@ -448,7 +451,8 @@ async function sqlMismatches(page: (file: string, start: number, end: number) =>
   const rows = scenario ? 10_632 : 1_567_523;
   const sent: string[] = [];
   const bridge = scriptBridge(sent, rows);
-  const opened = await openParquet(bridge, new Queries(bridge), Promise.resolve(), sql.file, `/data/${sql.file}`);
+  const name = openFile ?? sql.file;
+  const opened = await openParquet(bridge, new Queries(bridge), Promise.resolve(), name, `/data/${name}`);
   assert.equal(opened.rows, rows);
   if (JSON.stringify(sent) !== JSON.stringify(sql.summary)) mismatches.push(`summary: ${JSON.stringify(sent)}`);
   return mismatches;
@@ -470,6 +474,14 @@ describe('sql.json', () => {
     test(`the ${scenario} scenario's page and summary queries`, async () => {
       assert.deepEqual(await sqlMismatches(pageSql, scenario), []);
     });
+    if (fixture('sql.json').scenarios[scenario].query) {
+      // Its pages are its own query's (`tail.test.ts`): only its summary is
+      // checked here, and another file's summary must fail it.
+      test(`the ${scenario} scenario's summary control fails`, async () => {
+        assert.notDeepEqual(await sqlMismatches(pageSql, scenario, 'another.parquet'), [], `another file's summary passed ${scenario}'s`);
+      });
+      continue;
+    }
     test(`the ${scenario} scenario's controls fail`, async () => {
       // Another file's name, and the controls' query shapes on this file's.
       assert.notDeepEqual(await sqlMismatches((_file, start, end) => pageSql('asteroids.parquet', start, end), scenario), [], `another file's SQL passed ${scenario}'s`);

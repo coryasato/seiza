@@ -58,6 +58,60 @@
         "DESCRIBE SELECT * FROM read_parquet('ghcn-2025-tmax.parquet')",
         "SELECT num_rows, num_row_groups FROM parquet_file_metadata('ghcn-2025-tmax.parquet')"
       ]
+    },
+    "live-tail": {
+      "about": "Live tail's replay (`query: \"loop\"`): pages aren't the plain file's, so the plain-file runs skip them (and check `summary`, the open's by range of `file`). Row i reads `loop_file` (the file fetched whole and registered as a File) at row i mod `file_rows`, its time moved on by i div `file_rows` laps of `span_s` seconds: one SELECT per lap the page crosses, in row order. Each side formats the TIMESTAMP (cells.json's `timestamp_text`). Run by the GPUI contender's `src/tail.rs` and the TanStack contender's `test/tail.test.ts`, with controls (no shift, the seam read as one SELECT, a lap off by one); prep (`data/prep.ts`) runs each page in native DuckDB against the file's rows.",
+      "query": "loop",
+      "file": "nasa-http-jul95.parquet",
+      "loop_file": "nasa-http-jul95.whole.parquet",
+      "file_rows": 1890983,
+      "span_s": 2381544,
+      "pages": [
+        {
+          "rows": [
+            0,
+            1024
+          ],
+          "why": "the first page, within the first lap",
+          "sql": "SELECT \"time\", request, status, bytes FROM (SELECT \"time\" + to_seconds(0) AS \"time\", request, status, bytes, file_row_number + 0 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 1024) ORDER BY r"
+        },
+        {
+          "rows": [
+            1024,
+            1500
+          ],
+          "why": "a short tail page, as the rows grow",
+          "sql": "SELECT \"time\", request, status, bytes FROM (SELECT \"time\" + to_seconds(0) AS \"time\", request, status, bytes, file_row_number + 0 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 1024 AND file_row_number < 1500) ORDER BY r"
+        },
+        {
+          "rows": [
+            1890304,
+            1891328
+          ],
+          "why": "page 1,846 across the file's end: the end of lap 0, then the start of lap 1",
+          "sql": "SELECT \"time\", request, status, bytes FROM (SELECT \"time\" + to_seconds(0) AS \"time\", request, status, bytes, file_row_number + 0 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 1890304 AND file_row_number < 1890983 UNION ALL SELECT \"time\" + to_seconds(2381544) AS \"time\", request, status, bytes, file_row_number + 1890983 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 345) ORDER BY r"
+        },
+        {
+          "rows": [
+            1890304,
+            1891000
+          ],
+          "why": "the same page short, its tail in lap 1",
+          "sql": "SELECT \"time\", request, status, bytes FROM (SELECT \"time\" + to_seconds(0) AS \"time\", request, status, bytes, file_row_number + 0 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 1890304 AND file_row_number < 1890983 UNION ALL SELECT \"time\" + to_seconds(2381544) AS \"time\", request, status, bytes, file_row_number + 1890983 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 17) ORDER BY r"
+        },
+        {
+          "rows": [
+            61440000,
+            61441024
+          ],
+          "why": "past 32 laps, just past the soak's reach (60 M rows at 100k end in lap 31)",
+          "sql": "SELECT \"time\", request, status, bytes FROM (SELECT \"time\" + to_seconds(76209408) AS \"time\", request, status, bytes, file_row_number + 60511456 AS r FROM read_parquet('nasa-http-jul95.whole.parquet', file_row_number = true) WHERE file_row_number >= 928544 AND file_row_number < 929568) ORDER BY r"
+        }
+      ],
+      "summary": [
+        "DESCRIBE SELECT * FROM read_parquet('nasa-http-jul95.parquet')",
+        "SELECT num_rows, num_row_groups FROM parquet_file_metadata('nasa-http-jul95.parquet')"
+      ]
     }
   },
   "controls": [

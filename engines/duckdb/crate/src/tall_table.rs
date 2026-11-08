@@ -445,7 +445,8 @@ mod tests {
     }
 
     /// The fixture's SQL that `page_sql` and `summary` don't write: its own
-    /// file's, and each scenario's (`scenarios`, a file of its own).
+    /// file's, and each scenario's (`scenarios`, a file of its own; only the
+    /// summary of one whose pages are its host's `query`).
     fn sql_mismatches(
         page_sql: impl Fn(&str, Range<u64>) -> String,
         summary: impl Fn(&str) -> Vec<String>,
@@ -458,7 +459,13 @@ mod tests {
         let mut mismatches = Vec::new();
         for section in sections {
             let file = section["file"].as_str().unwrap();
-            for page in section["pages"].as_array().unwrap() {
+            // A section whose pages are its host's own `PageQuery`
+            // (`query`) has them checked there; its open's summary here.
+            let pages = match section["query"] {
+                serde_json::Value::Null => section["pages"].as_array().unwrap().as_slice(),
+                _ => &[],
+            };
+            for page in pages {
                 let rows = page["rows"][0].as_u64().unwrap()..page["rows"][1].as_u64().unwrap();
                 let sql = page_sql(file, rows.clone());
                 if sql != page["sql"] {
@@ -519,6 +526,28 @@ mod tests {
         let all = |file: &str| summary_queries(file, &["observatory.credit"]);
         let page_sql = |file: &str, rows| ParquetFile::new(file).page_sql(rows);
         assert!(!sql_mismatches(page_sql, all).is_empty());
+        // A section whose pages are its host's own query is checked by its
+        // summary alone here: another file's summary for it fails.
+        let hosted: Vec<&str> = fixture["scenarios"]
+            .as_object()
+            .into_iter()
+            .flat_map(|scenarios| scenarios.values())
+            .filter(|section| !section["query"].is_null())
+            .map(|section| section["file"].as_str().unwrap())
+            .collect();
+        for file in hosted {
+            let other = |asked: &str| {
+                summary_sent(if asked == file {
+                    "another.parquet"
+                } else {
+                    asked
+                })
+            };
+            assert!(
+                !sql_mismatches(page_sql, other).is_empty(),
+                "another file's summary passed {file}'s"
+            );
+        }
     }
 
     #[test]

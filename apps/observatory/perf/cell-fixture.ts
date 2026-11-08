@@ -52,16 +52,18 @@ const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtur
 /** The fixture's synthetic values, which this script keeps as they are: no
  *  value in the data file is long enough for its column to round it, so
  *  these exercise the rounding at the same budgets (README.md). */
-const kept = existsSync(fixturePath) ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as { rounding?: unknown[]; number_px?: number; resize?: unknown; format?: unknown }) : {};
+const kept = existsSync(fixturePath) ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as { rounding?: unknown[]; number_px?: number; resize?: unknown; format?: unknown; timestamp_text?: unknown }) : {};
 const rounding = kept.rounding ?? [];
 if (rounding.length === 0) throw new Error(`no rounding cases in ${fixturePath}: restore them before writing`);
 /** GPUI's widest number advance and the widths it gives budgets at
  *  (`resize`), kept as they are too: the budgets drawn here must agree. */
-const { number_px: numberPx, resize, format } = kept;
+const { number_px: numberPx, resize, format, timestamp_text: timestampText } = kept;
 if (numberPx === undefined || resize === undefined) throw new Error(`no number_px or resize section in ${fixturePath}: restore them before writing`);
 /** The format's advances and cases (`format`), the table's own: kept as
  *  they are. */
 if (format === undefined) throw new Error(`no format section in ${fixturePath}: restore it before writing`);
+/** A TIMESTAMP's text (`timestamp_text`, live tail's), hand-written: kept as it is. */
+if (timestampText === undefined) throw new Error(`no timestamp_text section in ${fixturePath}: restore it before writing`);
 const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import.meta.url), 'utf8')) as Record<string, { sha256: string }>;
 
 // --- the rows, from native DuckDB ---
@@ -291,7 +293,7 @@ try {
   }
   fixture = {
     about:
-      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
+      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); a TIMESTAMP's text as live tail draws it (timestamp_text, hand-written, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
     source: { file: 'apps/observatory/data/asteroids.parquet', sha256: manifest['asteroids.parquet']!.sha256, contender: 'tall-table-gpui, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)' },
     number_px: numberPx,
     columns: base.columns,
@@ -299,6 +301,7 @@ try {
     rounding,
     resize,
     format,
+    timestamp_text: timestampText,
     scenarios,
   };
 } finally {

@@ -75,5 +75,30 @@
       "the open as the table draws it: each price the instrument's reference, no change, sizes and volume 0; the feed (seeded, synthetic) moves them",
       "columns: Symbol VARCHAR, Name VARCHAR, Last DOUBLE, Change DOUBLE, Change % DOUBLE, Bid DOUBLE, Ask DOUBLE, Bid size INTEGER, Ask size INTEGER, Volume BIGINT, High DOUBLE, Low DOUBLE"
     ]
+  },
+  "nasa-http-jul95.parquet": {
+    "rows": 1890983,
+    "bytes": 9719404,
+    "sha256": "9bb2d937e7f0c6281d8724128debd61de1dffec3a2ba4899c0b8abdeacae0ca2",
+    "source": "https://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz (NASA-HTTP, July 1995: the Kennedy Space Center's web server log)",
+    "credit": "NASA-HTTP: Jim Dumoulin, NASA Kennedy Space Center; contributed by Martin Arlitt and Carey Williamson, University of Saskatchewan",
+    "terms": "The Internet Traffic Archive's NASA-HTTP page (ita.ee.lbl.gov/html/contrib/NASA-HTTP.html): Restrictions, \"The traces may be freely redistributed.\"; Privacy, \"The logs fully preserve the originating host and HTTP request. Please do not however attempt any analysis beyond general traffic patterns.\"; Acknowledgements, \"The logs was collected by Jim Dumoulin of the Kennedy Space Center, and contributed by Martin Arlitt [an address] and Carey Williamson [an address] of the University of Saskatchewan.\" (their addresses left out here). No named license: the data rule admits an explicit grant to redistribute (docs/DECISIONS.md, \"Scenarios\", 2026-11-06). Checked 2026-11-07.",
+    "fetched": "2026-11-06",
+    "sources": [
+      {
+        "file": "NASA_access_log_Jul95.gz",
+        "url": "https://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz",
+        "bytes": 20676672,
+        "sha256": "199109ed0f273e095da6ccd5fc9dc4cd8bb58daa06d62135e62090fea9d27488"
+      }
+    ],
+    "rowGroups": 62,
+    "spanSeconds": 2381544,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, in the log's order (its time's)",
+    "notes": [
+      "the host dropped, every query string cut, a request holding '@' or a '~' path not served (status 400 or more) dropped, lines that don't parse dropped (prep-nasa.sql, docs/DECISIONS.md, \"Scenarios\")",
+      "time is the log's wall time (-0400) as a zoneless TIMESTAMP; bytes NULL where the log has \"-\"",
+      "columns: time TIMESTAMP, request VARCHAR, status USMALLINT, bytes UINTEGER"
+    ]
   }
 }

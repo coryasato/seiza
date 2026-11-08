@@ -1,5 +1,5 @@
 {
-  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
+  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); a TIMESTAMP's text as live tail draws it (timestamp_text, hand-written, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
   "source": {
     "file": "apps/observatory/data/asteroids.parquet",
     "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
@@ -2584,6 +2584,61 @@
         "fallback": false,
         "rounded": false,
         "why": "the canvas's Volume"
+      }
+    ]
+  },
+  "timestamp_text": {
+    "about": "A zoneless TIMESTAMP (live tail's `time`: the log's wall time, −0400, no zone) as the log wrote it: two-digit day, the English month's three letters, four-digit year, a space, 24-hour HH:MM:SS, no fraction (cut, not rounded): `13/Jul/1995 03:14:02`, 20 characters. `micros` is the value from the epoch, as Arrow holds a microsecond timestamp, read as UTC (never through a local-time conversion, so a visitor's zone changes nothing). Run by the GPUI contender's `src/tail.rs` and the TanStack contender's `test/tail.test.ts`, with controls: an unpadded day, a numeric month, a local-time conversion.",
+    "cases": [
+      {
+        "micros": 804556801000000,
+        "text": "01/Jul/1995 00:00:01",
+        "why": "the file's first row"
+      },
+      {
+        "micros": 806938345000000,
+        "text": "28/Jul/1995 13:32:25",
+        "why": "the file's last row (and lap 1's first: the seam's time repeats, never runs back)"
+      },
+      {
+        "micros": 805605242000000,
+        "text": "13/Jul/1995 03:14:02",
+        "why": "the canvas's"
+      },
+      {
+        "micros": 809319889000000,
+        "text": "25/Aug/1995 03:04:49",
+        "why": "lap 2's first row, into August"
+      },
+      {
+        "micros": 822276050000000,
+        "text": "22/Jan/1996 02:00:50",
+        "why": "the canvas's row in lap 7, into 1996"
+      },
+      {
+        "micros": 880766209000000,
+        "text": "29/Nov/1997 01:16:49",
+        "why": "lap 32's first row, past the soak's reach, in 1997"
+      },
+      {
+        "micros": 820454399000000,
+        "text": "31/Dec/1995 23:59:59",
+        "why": "a year's last second"
+      },
+      {
+        "micros": 820454400000000,
+        "text": "01/Jan/1996 00:00:00",
+        "why": "midnight, a year's first"
+      },
+      {
+        "micros": 825595200000000,
+        "text": "29/Feb/1996 12:00:00",
+        "why": "a leap day"
+      },
+      {
+        "micros": 812451907999999,
+        "text": "30/Sep/1995 09:05:07",
+        "why": "a fraction of a second, dropped"
       }
     ]
   },
