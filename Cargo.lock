@@ -7282,6 +7282,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tail-spike"
+version = "0.1.0"
+dependencies = [
+ "gpui-kit",
+ "js-sys",
+ "seiza",
+ "seiza-duckdb",
+ "seiza-tall-table",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "tall-table-bridge"
 version = "0.1.0"
 dependencies = [

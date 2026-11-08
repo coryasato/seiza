@@ -11,6 +11,8 @@ members = [
     "engines/duckdb/crate",
     "apps/tycho/crate",
     "apps/observatory/contenders/tall-table/gpui/crate",
+    # Throwaway: live tail's spike, deleted with apps/observatory/spike/.
+    "apps/observatory/spike/tail-gpui",
 ]
 
 [workspace.package]
