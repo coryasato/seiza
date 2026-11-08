@@ -17,20 +17,20 @@
 // loop timed on the page, which the throttled profile must slow ~4× before
 // its times are read (a long task before the window moves a page's frame
 // scheduling for the whole of it): a throttled run whose loop took under
-// `THROTTLE_MIN` times the side's reference median fails (unchecked when
-// only the throttled profile runs).
+// `THROTTLE_MIN` times the side's reference median fails
+// (`throttle-control.ts`).
 //
 // Usage: node apps/observatory/perf/metric-feed.ts --scenario market-watch
 //          [--stop <id,…|all>] [--side gpui|tanstack] [--runs 10]
 //          [--profile reference|throttled] [--label <name>]
 // Run `just observatory gpui-build market` and `tanstack-build market` first.
 
-import type { Page } from '@playwright/test';
 import { frameIntervals, frameRecorder, recordedBetween, waitMark } from '../../../shared-web/perf/harness.ts';
 import { percentiles } from '../../../shared-web/perf/protocol.ts';
 import { KEEPS_UP_SHARE, WORK_CATEGORIES, ORIGIN_MARK, Trace, collections, feedFrames, frameWork, lateFrames, shownIn, type Collections, type FeedBatch, type RefreshedFrame } from '../metrics/metrics.ts';
 import { medianOf, openSide, runMetric, type RunResult } from './contender.ts';
 import { MARKS } from './harness.ts';
+import { spin, throttleCheck } from './throttle-control.ts';
 
 const SETTLE_MS = 1000;
 const WINDOW_MS = 10_000;
@@ -38,10 +38,6 @@ const WINDOW_MS = 10_000;
  *  thread's work, V8's collections among it (`devtools.timeline`); not the
  *  compositor's verbose `cc`, which costs the frames it would read. */
 const CATEGORIES = WORK_CATEGORIES;
-/** The throttled profile's busy loop must take at least this many times
- *  the reference's (the profile's 4×, less the loop's own spread), or its
- *  run's times aren't the slow device's. */
-const THROTTLE_MIN = 3.5;
 
 type Global = {
   __contender?: { batches?: FeedBatch[] };
@@ -68,21 +64,8 @@ function refreshedRecorder(): void {
 // The init script names the mark itself: fail if it drifts from the contract's.
 if (!refreshedRecorder.toString().includes(`'${MARKS.refreshed}'`)) throw new Error(`refreshedRecorder doesn't name ${MARKS.refreshed}`);
 
-/** The throttle's control: a fixed loop's time on the page. */
-const spin = (page: Page): Promise<number> =>
-  page.evaluate(() => {
-    const t0 = performance.now();
-    let x = 0;
-    for (let i = 0; i < 3e7; i++) x = (x + i * 7) % 1000003;
-    return [performance.now() - t0, x][0]!;
-  });
-
 const round = (value: number, digits = 2) => Number(value.toFixed(digits));
 const p = (values: number[]) => (values.length ? percentiles(values) : null);
-
-/** Each side's reference busy loop, ms, by its runs so far: the throttled
- *  runs (the profiles run reference first) are checked against its median. */
-const referenceSpin = new Map<string, number[]>();
 
 interface Run extends RunResult {
   /** The traced window, ms (a little over `WINDOW_MS`). */
@@ -127,12 +110,8 @@ await runMetric<Run>(
       const to = await page.evaluate(() => performance.now());
       const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
       const spinMs = await spin(page);
-      if (profile.name === 'reference') referenceSpin.set(side, [...(referenceSpin.get(side) ?? []), spinMs]);
-      else {
-        const reference = referenceSpin.get(side);
-        const base = reference?.length ? [...reference].sort((a, b) => a - b)[Math.floor(reference.length / 2)]! : null;
-        if (base !== null && spinMs < THROTTLE_MIN * base) failures.push(`the throttle's control: the busy loop took ${spinMs.toFixed(0)} ms, under ${THROTTLE_MIN}× the reference's ${base.toFixed(0)}`);
-      }
+      const throttled = throttleCheck(side, profile, spinMs);
+      if (throttled) failures.push(throttled);
 
       const { batches, refreshed, origin } = await page.evaluate(() => {
         const g = globalThis as Global;

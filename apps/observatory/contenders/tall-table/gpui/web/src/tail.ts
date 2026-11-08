@@ -4,8 +4,9 @@
  * status's color per theme and the columns' widths, `scenarios.ts`'s, never
  * copied into Rust), how
  * to fetch the file whole, and the clock's worker, which the wasm makes
- * only once the table is open and the file registered (`crate/src/clock.rs`);
- * with `?measure`, `__contender.pause`, the clock paused and resumed.
+ * only once the table is open and the file registered (`crate/src/clock.rs`),
+ * stopping at `?rows=<n>` rows if asked (`tail/data.ts`'s `limitFrom`); with
+ * `?measure`, `__contender.pause`, the clock paused and resumed.
  */
 
 // The level's bindings (`pkg-tail/`, by `vite.config.ts`'s alias): `tail`
@@ -13,7 +14,7 @@
 import * as pkg from '../pkg/tall_table_gpui.js';
 import { measuring, type Contender } from '../../../../contract.ts';
 import { DATA } from '../../../../paths.ts';
-import { DATA_FILE, WHOLE_FILE } from '../../../../tail/data.ts';
+import { DATA_FILE, WHOLE_FILE, limitFrom } from '../../../../tail/data.ts';
 import type { TailStart } from '../../../../tail/worker.ts';
 import type { Picked, TailScenario } from '../../../../scenarios.ts';
 import type { LevelHost } from './level.ts';
@@ -33,11 +34,14 @@ const fetchWhole = async (): Promise<File> => {
 export const levelHost = (picked: Picked): LevelHost | undefined => {
   if (picked.scenario.level !== 'tail') return undefined;
   const { scenario, stop } = picked as Picked<TailScenario>;
+  const limit = limitFrom(location.search);
   return {
     numbers: [...scenario.error.light, ...scenario.error.dark, ...scenario.widths],
+    failure: limit instanceof Error ? limit.message : undefined,
     beforeStart: () => {
       const exports = pkg as unknown as TailExports;
-      exports.tail(fetchWhole, () => new Worker(new URL('../../../../tail/worker.ts', import.meta.url), { type: 'module' }), { rate: stop.rate });
+      const start: TailStart = { rate: stop.rate, limit: limit instanceof Error ? 0 : limit };
+      exports.tail(fetchWhole, () => new Worker(new URL('../../../../tail/worker.ts', import.meta.url), { type: 'module' }), start);
       // The scroll back's control: the same gesture without the feed.
       const contender = (globalThis as { __contender?: Contender }).__contender;
       if (measuring() && contender) contender.pause = (on) => exports.clockPause(on);

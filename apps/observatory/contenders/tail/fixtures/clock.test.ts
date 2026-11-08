@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { CATCH_UP_MS, Clock } from '../clock.ts';
+import { limitFrom } from '../data.ts';
 
 interface Step {
   at?: number;
@@ -20,6 +21,7 @@ interface Step {
 interface Scenario {
   name: string;
   rate: number;
+  limit?: number;
   steps: Step[];
 }
 
@@ -34,10 +36,10 @@ interface Counter {
 const fixture: { scenarios: Scenario[] } = JSON.parse(readFileSync(new URL('clock.json', import.meta.url), 'utf8'));
 
 /** Each step whose count isn't the fixture's, as text. */
-function mismatches(make: (rate: number, now: number) => Counter): string[] {
+function mismatches(make: (rate: number, now: number, limit: number) => Counter): string[] {
   const found: string[] = [];
-  for (const { name, rate, steps } of fixture.scenarios) {
-    const clock = make(rate, 0);
+  for (const { name, rate, limit = 0, steps } of fixture.scenarios) {
+    const clock = make(rate, 0, limit);
     for (const step of steps) {
       if (step.at !== undefined) clock.advance(step.at);
       else if (step.pause !== undefined) clock.pause(step.pause);
@@ -48,6 +50,8 @@ function mismatches(make: (rate: number, now: number) => Counter): string[] {
   return found;
 }
 
+type Kind = 'no-cap' | 'round' | 'pause-counts' | 'no-limit';
+
 /** A control: the clock's rule changed in one way. */
 class Control implements Counter {
   rows = 0;
@@ -55,14 +59,17 @@ class Control implements Counter {
   private paused = false;
   private readonly rate: number;
   private last: number;
-  private readonly kind: 'no-cap' | 'round' | 'pause-counts';
-  constructor(rate: number, now: number, kind: 'no-cap' | 'round' | 'pause-counts') {
+  private readonly kind: Kind;
+  private readonly limit: number;
+  constructor(rate: number, now: number, limit: number, kind: Kind) {
     this.rate = rate;
     this.last = now;
+    this.limit = kind === 'no-limit' ? 0 : limit;
     this.kind = kind;
   }
   advance(now: number): void {
     if (this.paused && this.kind !== 'pause-counts') return;
+    if (this.limit > 0 && this.rows >= this.limit) return;
     const ms = this.kind === 'no-cap' ? now - this.last : Math.min(now - this.last, CATCH_UP_MS);
     this.last = now;
     if (this.kind === 'round') {
@@ -72,7 +79,7 @@ class Control implements Counter {
     this.owed += this.rate * (ms / 1000);
     const count = Math.floor(this.owed);
     this.owed -= count;
-    this.rows += count;
+    this.rows += this.limit > 0 ? Math.min(count, this.limit - this.rows) : count;
   }
   pause(now: number): void {
     this.advance(now);
@@ -89,12 +96,19 @@ class Control implements Counter {
 
 describe('clock.json', () => {
   test('the clock counts the rows due', () => {
-    assert.ok(fixture.scenarios.length >= 4);
-    assert.deepEqual(mismatches((rate, now) => new Clock(rate, now)), []);
+    assert.ok(fixture.scenarios.length >= 5);
+    assert.deepEqual(mismatches((rate, now, limit) => new Clock(rate, now, limit)), []);
   });
 
-  for (const kind of ['no-cap', 'round', 'pause-counts'] as const)
+  for (const kind of ['no-cap', 'round', 'pause-counts', 'no-limit'] as const)
     test(`control ${kind} fails it`, () => {
-      assert.notDeepEqual(mismatches((rate, now) => new Control(rate, now, kind)), []);
+      assert.notDeepEqual(mismatches((rate, now, limit) => new Control(rate, now, limit, kind)), []);
     });
+
+  test('?rows parses to a limit', () => {
+    assert.equal(limitFrom(''), 0);
+    assert.equal(limitFrom('?measure&rows=100000'), 100_000);
+    assert.ok(limitFrom('?rows=-1') instanceof Error);
+    assert.ok(limitFrom('?rows=1e5') instanceof Error);
+  });
 });

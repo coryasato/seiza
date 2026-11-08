@@ -18,6 +18,7 @@ import { createBridge } from '@seiza/duckdb/bridge';
 import { MARKS, followPageTheme, measuring, publishContender, readingOut, type Contender } from '../../../../contract.ts';
 import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
 import { pickScenario, type MarketScenario, type RateStop, type RowsStop, type TailScenario } from '../../../../scenarios.ts';
+import { limitFrom } from '../../../../tail/data.ts';
 import { replay } from './contract.ts';
 import { heatCss, wideScene, type WideScene } from './scene.ts';
 import { App, FIRST_SCREEN, type Load } from './view.ts';
@@ -68,13 +69,16 @@ if (__LEVEL__ === 'market' && !(picked instanceof Error)) {
     document.head.append(colors);
   }
 }
-/** What the tail level replays: the scenario at the stop's rate. A
- *  scenario of another level fails the load, as an unknown id does. */
-let tail: { scenario: TailScenario; stop: RowsStop } | undefined;
+/** What the tail level replays: the scenario at the stop's rate, to
+ *  `?rows=<n>` rows if asked (`limitFrom`). A scenario of another level,
+ *  or `?rows` not a count, fails the load, as an unknown id does. */
+let tail: { scenario: TailScenario; stop: RowsStop; limit: number } | undefined;
 if (__LEVEL__ === 'tail' && !(picked instanceof Error)) {
+  const limit = limitFrom(location.search);
   if (picked.scenario.level !== 'tail' || !('rate' in picked.stop)) unset = new Error(`the tail level can't set ${picked.scenario.id} at ${picked.stop.id}`);
+  else if (limit instanceof Error) unset = limit;
   else {
-    tail = { scenario: picked.scenario, stop: picked.stop };
+    tail = { scenario: picked.scenario, stop: picked.stop, limit };
     const colors = document.createElement('style');
     colors.textContent = tailCss(picked.scenario);
     document.head.append(colors);
@@ -274,7 +278,7 @@ async function openTail(data: DataLayer, queries: Engine['queries'], file: Await
   const paging = new data.TablePaging<TablePage>(file.rows, layer.tailSource(queries));
   let cells: Awaited<ReturnType<typeof layer.tailTable>>;
   try {
-    cells = await layer.tailTable(tail!.scenario, tail!.stop, paging, file.columns, bridge, measuring());
+    cells = await layer.tailTable(tail!.scenario, tail!.stop, tail!.limit, paging, file.columns, bridge, measuring());
   } catch (error) {
     paging.close();
     throw error;

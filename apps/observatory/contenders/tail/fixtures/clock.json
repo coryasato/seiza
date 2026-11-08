@@ -1,5 +1,5 @@
 {
-  "about": "Live tail's clock (contenders/tail/clock.ts): a rate (rows a second) started at 0 ms, then steps on a script's clock (ms): `at` counts the rows due by then, `pause` and `resume` stop and restart the count there. `rows` is the running count after the step. Run by clock.test.ts beside it, with controls that must fail it: no-cap (a gap counted whole), round (each call's rows rounded, its fraction dropped), pause-counts (a pause that keeps counting).",
+  "about": "Live tail's clock (contenders/tail/clock.ts): a rate (rows a second) started at 0 ms, then steps on a script's clock (ms): `at` counts the rows due by then, `pause` and `resume` stop and restart the count there; a `limit` stops the count at that many rows. `rows` is the running count after the step. Run by clock.test.ts beside it, with controls that must fail it: no-cap (a gap counted whole), round (each call's rows rounded, its fraction dropped), pause-counts (a pause that keeps counting), no-limit (a limit ignored).",
   "scenarios": [
     {
       "name": "a steady rate, the fraction carried",
@@ -39,6 +39,19 @@
         { "at": 32, "rows": 0, "why": "0.96 owed" },
         { "at": 48, "rows": 1, "why": "1.44: one row, 0.44 owed" },
         { "at": 90, "rows": 2, "why": "0.44 + 1.26" }
+      ]
+    },
+    {
+      "name": "a limit stops the count",
+      "rate": 10000,
+      "limit": 250,
+      "steps": [
+        { "at": 16, "rows": 160 },
+        { "at": 32, "rows": 250, "why": "320 due, the limit's 250 counted" },
+        { "at": 100, "rows": 250, "why": "no row past the limit" },
+        { "pause": 110, "rows": 250 },
+        { "resume": 120, "rows": 250 },
+        { "at": 200, "rows": 250 }
       ]
     }
   ]

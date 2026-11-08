@@ -3,7 +3,8 @@
  * contender runs at a time), as market watch's feed worker is. Started by
  * `{ rate }` (`TailStart`), it posts `[rows, at]` about every 16 ms while
  * rows came due: the running count (`clock.ts`) and the post's stamp in
- * epoch ms (the page subtracts its own `timeOrigin`). `{ pause: true }`
+ * epoch ms (the page subtracts its own `timeOrigin`); with a `limit`, it
+ * stops once the count reaches it (its last post the limit). `{ pause: true }`
  * stops the count (the scroll back's control), posting the rows due by
  * then, and stops the timer; `{ pause: false }` resumes both. A pause sent
  * before the start holds from the start.
@@ -17,6 +18,8 @@ import { Clock } from './clock.ts';
 /** What starts the clock. */
 export interface TailStart {
   rate: number;
+  /** The rows at which the clock stops (`data.ts`'s `limitFrom`); 0 or none: never. */
+  limit?: number;
 }
 
 /** What pauses or resumes it. */
@@ -40,7 +43,7 @@ if (typeof self !== 'undefined' && typeof (self as unknown as { importScripts?: 
   const post = (clock: Clock) => self.postMessage([clock.rows, performance.timeOrigin + performance.now()]);
   const tick = () => {
     if (clock && clock.advance(performance.now()) > 0) post(clock);
-    timer = setTimeout(tick, INTERVAL_MS);
+    timer = clock?.done ? undefined : setTimeout(tick, INTERVAL_MS);
   };
   const stop = () => {
     if (timer !== undefined) clearTimeout(timer);
@@ -58,12 +61,12 @@ if (typeof self !== 'undefined' && typeof (self as unknown as { importScripts?: 
         if (clock.rows > before) post(clock);
       } else {
         clock.resume(performance.now());
-        timer = setTimeout(tick, INTERVAL_MS);
+        if (!clock.done) timer = setTimeout(tick, INTERVAL_MS);
       }
       return;
     }
     if (clock) return;
-    clock = new Clock(data.rate, performance.now());
+    clock = new Clock(data.rate, performance.now(), data.limit ?? 0);
     if (paused) clock.pause(performance.now());
     else timer = setTimeout(tick, INTERVAL_MS);
   };

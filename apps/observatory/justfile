@@ -293,13 +293,18 @@ reach *args:
 # wide sheet's scroll (keeps up: at each stop, the file read whole, then the
 # gesture scroll down, sideways, and fast), and market watch's feed (at each
 # stop, 10 s traced under the feed: keeps up, Shown in, collection pauses,
-# late frames, work).
+# late frames, work), live tail's tail (at each stop, 10 s traced under the
+# replay: Row shown in and keeps up, late frames, work, collections; then
+# the scroll back and its control) and soak (at 100k for --minutes, 10: a
+# window at the start and the end, memory after each; memory at the tail
+# level: the replay to a fixed row count).
 # Flags: --side gpui|tanstack (default both, alternated), --runs (10),
 # --profile reference|throttled (default both), --label (writes
 # perf/results/), --scenario <id> (on its level's builds; default the base's
-# Big file) and --stop <id,…|all> (default its default stop; scroll's and
-# feed's, all: each stop's file <label>-<scenario>-<stop>), and response's
-# --inputs (6 per kind). Run gpui-build and tanstack-build (at the scenario's level) first;
+# Big file) and --stop <id,…|all> (default its default stop; scroll's,
+# feed's, and tail's, all; soak's, 100k: each stop's file
+# <label>-<scenario>-<stop>), response's --inputs (6 per kind), and soak's
+# --minutes. Run gpui-build and tanstack-build (at the scenario's level) first;
 # reach and memory need `just observatory data`.
 metric name *args:
     node {{app_dir}}/perf/metric-{{name}}.ts {{args}}

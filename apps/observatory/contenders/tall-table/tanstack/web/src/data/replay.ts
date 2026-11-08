@@ -86,7 +86,7 @@ let whole: Promise<void> | null = null;
 /** The scene's cells for the view, and the replay's path into the paging. */
 export interface Tail extends TailCells {
   /** The table is open: fetches the file whole and registers it (once a
-   *  page), then starts the clock's worker at the stop's rate. Any of that
+   *  page), then starts the clock's worker at the stop's rate (to its limit). Any of that
    *  failing, or the worker failing later, calls `failed` and ends it. */
   watch(failed: (message: string) => void): void;
   /** Ends the clock (a reopen starts the replay over, or the view failed). */
@@ -94,8 +94,9 @@ export interface Tail extends TailCells {
 }
 
 /** Live tail's table over `paging` (at 0 rows, following once this
- *  returns), its `file` columns laid out at the scenario's widths. */
-export async function tailTable(scenario: TailScenario, stop: RowsStop, paging: TablePaging<TablePage>, file: readonly Column[], bridge: Bridge, measured: boolean): Promise<Tail> {
+ *  returns), its `file` columns laid out at the scenario's widths, its
+ *  clock stopping at `limit` rows (0: never). */
+export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: number, paging: TablePaging<TablePage>, file: readonly Column[], bridge: Bridge, measured: boolean): Promise<Tail> {
   const advances = await measureAdvances();
   // The canvas's widths, set as the GPUI side's `density` sets them.
   const columns = layOutAll(file.map((column, index) => ({ ...column, width: scenario.widths[index] })));
@@ -177,7 +178,7 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, paging: 
             fail(`its worker failed: ${event.message ?? ''}`);
           };
           worker.onmessageerror = () => fail("its count couldn't be read");
-          const start: TailStart = { rate: stop.rate };
+          const start: TailStart = { rate: stop.rate, limit };
           worker.postMessage(start);
           started = true;
           // A pause asked before the worker existed holds from its start.

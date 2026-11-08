@@ -7,7 +7,8 @@
  * Rows due = the rate × the time since the start, its fraction carried to
  * the next call, a gap past `CATCH_UP_MS` counted only that far. A pause
  * stops the count; a resume starts it again from the resume's time, owing
- * nothing for the pause.
+ * nothing for the pause. A limit (`?rows=<n>`, `data.ts`'s `limitFrom`: memory's
+ * equal work) stops the count at n rows; 0, the default, never.
  */
 
 import { CATCH_UP_MS, Rate } from '../market/feed.ts';
@@ -16,20 +17,27 @@ export { CATCH_UP_MS };
 
 export class Clock {
   private readonly rate: number;
+  private readonly limit: number;
   private owed: Rate;
   private paused = false;
   /** Rows due so far. */
   rows = 0;
 
-  constructor(rate: number, now: number) {
+  constructor(rate: number, now: number, limit = 0) {
     this.rate = rate;
+    this.limit = limit;
     this.owed = new Rate(rate, now);
+  }
+
+  /** The limit reached: no row will come due again. */
+  get done(): boolean {
+    return this.limit > 0 && this.rows >= this.limit;
   }
 
   /** Counts the rows due by `now`; how many were added. */
   advance(now: number): number {
-    if (this.paused) return 0;
-    const due = this.owed.due(now);
+    if (this.paused || this.done) return 0;
+    const due = this.limit > 0 ? Math.min(this.owed.due(now), this.limit - this.rows) : this.owed.due(now);
     this.rows += due;
     return due;
   }

@@ -374,3 +374,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - The check's first fling under the clock was wrong, not the contender. A fling goes the rows it started with, and 3 s at 10k adds ~30,000 more, so it can't reach a moving end. Under the clock, the end also recedes at ~300,000 px/s while let go, so no scripted wheel catches it. Both checks pause the clock for that step.
 - `export` alone moved market's bytes. Exporting `quotes.ts`'s advance measure, so the tail level could share it, changed market watch's `quotes` chunk and its entry's import of it. The tail level keeps its own copy.
 - After the review, one fix broke what it sat beside. Moving the paging only to the end of the rows the model holds, so a move never reaches rows not drawn yet, also fed that shorter end to the following decision. End then landed short of the paging's end and stopped following. `tail` caught it on the next run. Where a move goes and what it decides read the same number, but they need different ends.
+
+## M11 part D1: live tail's metrics, the soak, and the once-a-scenario metrics at the level (2026-11-08)
+
+**Results:** smoke runs only, nothing published, so no results note; the evidence is in `PLAN.md`'s D1.
+
+**Surprises:**
+- On the real contenders, the spike's one edge isn't the only one. A2's TanStack page kept up at 100k on a slow device (p95 ≤ 55 ms). The contender, with the full paging port, `follow`, and `live`, trails by about a second there, as GPUI does. Row shown in and the plain count of rows behind agree, so the lag is real: the spike's lighter data path flattered it.
+- "The top went up" isn't the scroll back's frame under the replay. A count set in the wheel's frame can pin the view down by more than the wheel moves it up, so the first frame whose top rose came a frame or two late (50.9 ms against `EventLatency`'s 29.3). The spike's rule, the first frame that moves after following lets go, reads 15–19 ms.
+- The tail drawn isn't always one of the clock's counts. Both sides sometimes stop at a page's end (1024, 3072): the table pins the tail to the rows read, so while the next page loads the view rests at the loaded ones' end. The content check had to allow it.
+- TanStack writes `state` a frame after the commit, and at 10k a count moves the rows past the 28 in view. So the recorder rarely samples the very frame that drew a given tail. The content check verifies whichever of the first five frames it caught.
+- A zsh loop passed `--scenario live-tail` as one word (no word splitting), and the scripts quietly ran the base level. A smoke loop runs under bash, or quotes its arguments as an array.

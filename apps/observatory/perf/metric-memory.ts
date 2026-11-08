@@ -27,6 +27,16 @@
 // `FLASH_WAIT_MS` for the last flash to fade. The open's reading comes once
 // the table has filled, the feed (which starts there) just under way.
 //
+// On live tail's level (the table grows from 0 rows while it follows), the
+// equal work is the replay's: `?rows=TAIL_ROWS` at the stop's rate, the
+// clock stopping there (`contenders/tail/data.ts`'s `limitFrom`), every row
+// drawn on both devices (the tail drawn, `__contenderTail`, reaching it),
+// then the page cache quiet. The open's reading is at one point on every
+// device and side: the clock paused at the open's fill (a pause asked
+// before its worker exists holds from its start, at 0 rows), the file
+// fetched whole and nothing in flight for `QUIET_MS`; then the clock
+// resumes.
+//
 // Memory once open and at the end, each as measured and again after a
 // forced garbage collection (what the page holds, not what it hasn't yet
 // collected): `performance.measureUserAgentSpecificMemory`, the page's own
@@ -42,11 +52,13 @@
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import type { Page, Request } from '@playwright/test';
-import { memoryOf, type MemoryEntry } from '../metrics/metrics.ts';
 import { SCROLLS } from '../metrics/metrics.ts';
-import { PAGE_ROWS, dataReads, fedTicks, fileFacts, filledState, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
-import { ENGINE_CHUNK } from './harness.ts';
-import type { RateStop } from '../contenders/scenarios.ts';
+import { PAGE_ROWS, dataReads, state, fedTicks, fileFacts, filledState, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
+import { ENGINE_CHUNK, MARKS } from './harness.ts';
+import { wholeFileWatch } from './tail-metric.ts';
+import { MEMORY_ARGS, collectGarbage, pageMemory, unknownTypes, wasmRecorder, type PageMemory } from './memory-reading.ts';
+import { waitMark } from '../../../shared-web/perf/harness.ts';
+import type { RateStop, RowsStop } from '../contenders/scenarios.ts';
 
 /** The walk: its length, and each step, in pages (a step within the even prefetch's reach). */
 const WALK_PAGES = 144;
@@ -58,11 +70,11 @@ const SIDEWAYS_TRIPS = 5;
 /** Market watch's session: the ticks the feed sends, then ends (20 s at
  *  the default stop's 500 a second). */
 const FEED_TICKS = 10_000;
+/** Live tail's session: the rows the clock counts, then stops (10 s at the
+ *  default stop's 10k a second, ~98 pages). */
+const TAIL_ROWS = 100_000;
 /** After the last tick is drawn: its flash fades (the scenario's 400 ms). */
 const FLASH_WAIT_MS = 1000;
-/** The page's memory types the budgets' rows account for: the canvas's
- *  backing store apart, the rest "JavaScript". Any other fails the run. */
-const KNOWN_TYPES = new Set(['JavaScript', 'Canvas']);
 
 type Kind = 'html' | 'js' | 'wasm' | 'css' | 'font' | 'engine' | 'data' | 'other';
 function kindOf(url: string): Kind {
@@ -79,53 +91,26 @@ function kindOf(url: string): Kind {
 /** A file's path without its content hash (`index-AbC123de.js` → `index.js`). */
 const fileOf = (url: string) => new URL(url).pathname.replace(/-[\w-]{8}(\.\w+)$/, '$1');
 
-/** Init script: every wasm memory the page instantiates. */
-function wasmRecorder(): void {
-  const g = globalThis as { __wasmMemories?: WebAssembly.Memory[] };
-  g.__wasmMemories = [];
-  const keep = (result: WebAssembly.WebAssemblyInstantiatedSource | WebAssembly.Instance) => {
-    const instance = 'instance' in result ? result.instance : result;
-    for (const value of Object.values(instance.exports)) if (value instanceof WebAssembly.Memory) g.__wasmMemories!.push(value);
-    return result;
-  };
-  const streaming = WebAssembly.instantiateStreaming;
-  WebAssembly.instantiateStreaming = (...args) => streaming(...args).then(keep) as never;
-  const instantiate = WebAssembly.instantiate;
-  WebAssembly.instantiate = ((...args: Parameters<typeof instantiate>) => instantiate(...args).then(keep)) as typeof instantiate;
-}
-
-interface Reading {
-  /** The page's own (its window), by `types` ("JavaScript", "DOM", …), and its workers'. */
-  pageBytes: number;
-  pageByType: Record<string, number>;
-  workerBytes: number;
+interface Reading extends PageMemory {
   jsHeapBytes: number;
   nodes: number;
-  wasmBytes: number;
 }
 
 async function reading(page: Page, session: Session): Promise<Reading> {
-  const breakdown = await page.evaluate(async () => {
-    const result = await (performance as Performance & { measureUserAgentSpecificMemory(): Promise<{ breakdown: MemoryEntry[] }> }).measureUserAgentSpecificMemory();
-    return result.breakdown;
-  });
-  const { pageBytes, workerBytes, pageByType } = memoryOf(breakdown);
+  const memory = await pageMemory(page);
   const cdp = await session.context.newCDPSession(page);
   await cdp.send('Performance.enable');
   const { metrics } = await cdp.send('Performance.getMetrics');
   await cdp.detach();
   const metric = (name: string) => metrics.find((entry) => entry.name === name)?.value ?? 0;
-  const wasmBytes = await page.evaluate(() => ((globalThis as { __wasmMemories?: WebAssembly.Memory[] }).__wasmMemories ?? []).reduce((sum, memory) => sum + memory.buffer.byteLength, 0));
-  return { pageBytes, pageByType, workerBytes, jsHeapBytes: metric('JSHeapUsedSize'), nodes: metric('Nodes'), wasmBytes };
+  return { ...memory, jsHeapBytes: metric('JSHeapUsedSize'), nodes: metric('Nodes') };
 }
 
 /** As measured, then after a forced garbage collection (the page's: the
  *  engine's worker isn't collected, so its reading is the measured one). */
 async function both(page: Page, session: Session): Promise<{ measured: Reading; afterGc: Reading }> {
   const measured = await reading(page, session);
-  const cdp = await session.context.newCDPSession(page);
-  await cdp.send('HeapProfiler.collectGarbage');
-  await cdp.detach();
+  await collectGarbage(session);
   return { measured, afterGc: await reading(page, session) };
 }
 
@@ -156,15 +141,18 @@ await runMetric<Run>(
   async ({ side, profile, url, picked }) => {
     const requests: Request[] = [];
     const market = picked?.scenario.level === 'market';
+    const tail = picked?.scenario.level === 'tail';
     let reads: ReturnType<typeof dataReads> | undefined;
+    let whole: ReturnType<typeof wholeFileWatch> | undefined;
     const session = await openSide(side, url, profile, {
       picked,
-      params: market ? { ticks: String(FEED_TICKS) } : {},
+      params: market ? { ticks: String(FEED_TICKS) } : tail ? { rows: String(TAIL_ROWS) } : {},
       init: [wasmRecorder],
       // Without it, the measurement waits for a garbage collection (up to 20 s).
-      args: ['--enable-blink-features=ForceEagerMeasureMemory'],
+      args: MEMORY_ARGS,
       before: async (page) => {
         reads = dataReads(page);
+        if (tail) whole = wholeFileWatch(page);
         page.on('requestfinished', (request) => {
           // Not a download: a script the page made (the engine's worker, by blob URL).
           if (!request.url().startsWith('blob:')) requests.push(request);
@@ -175,13 +163,27 @@ await runMetric<Run>(
     try {
       const failures = [...session.problems];
       if (!(await page.evaluate(() => crossOriginIsolated))) failures.push("the page isn't cross-origin isolated: no memory measurement");
-      const { state: start } = await opened(session);
+      // The tail's view never rests at row 0: opened is its first fill (at 0 rows).
+      const start = tail ? null : (await opened(session)).state;
       const inFlight = reads!.inFlight;
+      if (tail) {
+        await waitMark(page, MARKS.filled, await waitMark(page, MARKS.open, 0, 180_000), 180_000);
+        await page.evaluate(() => (globalThis as { __contender?: { pause?(on: boolean): void } }).__contender?.pause?.(true));
+          const deadline = Date.now() + 180_000;
+        while (!whole!.done()) {
+          if (Date.now() > deadline) throw new Error('the file was never fetched whole');
+          await page.waitForTimeout(50);
+        }
+        await quiet(page, inFlight, QUIET_MS);
+        whole!.request();
+      }
       // Market watch's feed starts at the fill: its open reading at once,
       // before the devices' different waits fold different counts of ticks
       // (its one page is read by then).
-      const open = market ? await both(page, session) : null;
-      const cacheBytesOpen = await quiet(page, inFlight, QUIET_MS);
+      const open = market || tail ? await both(page, session) : null;
+      // The tail's clock, held for the open's reading, runs to its limit.
+      if (tail) await page.evaluate(() => (globalThis as { __contender?: { pause?(on: boolean): void } }).__contender?.pause?.(false));
+      const cacheBytesOpen = tail ? ((await state(page))?.cacheBytes ?? 0) : await quiet(page, inFlight, QUIET_MS);
       const openReading = open ?? (await both(page, session));
       const wide = wideStop(picked);
       let read: Run['read'];
@@ -197,11 +199,14 @@ await runMetric<Run>(
         // The feed's time at the stop's rate, twice over, and a minute.
         await fedTicks(page, FEED_TICKS, (2 * FEED_TICKS * 1000) / (picked!.stop as RateStop).rate + 60_000);
         await page.waitForTimeout(FLASH_WAIT_MS);
+      } else if (tail) {
+        // The replay's time at the stop's rate, twice over, and a minute.
+        await page.waitForFunction((rows) => ((globalThis as { __contenderTail?: number }).__contenderTail ?? 0) >= rows, TAIL_ROWS, { timeout: (2 * TAIL_ROWS * 1000) / (picked!.stop as RowsStop).rate + 60_000, polling: 50 });
       } else {
-        const lastPage = Math.ceil(start.rows / PAGE_ROWS) - 1;
+        const lastPage = Math.ceil(start!.rows / PAGE_ROWS) - 1;
         if (lastPage < WALK_PAGES) throw new Error(`the file has ${lastPage + 1} pages, fewer than the walk's ${WALK_PAGES}`);
         const fractions = [];
-        for (let walked = lastPage - WALK_PAGES; walked < lastPage; walked += STEP_PAGES) fractions.push((walked * PAGE_ROWS) / start.rows);
+        for (let walked = lastPage - WALK_PAGES; walked < lastPage; walked += STEP_PAGES) fractions.push((walked * PAGE_ROWS) / start!.rows);
         fractions.push(1);
         for (const fraction of fractions) {
           await jump(page, fraction);
@@ -212,7 +217,7 @@ await runMetric<Run>(
       const cacheBytesEnd = await quiet(page, inFlight, QUIET_MS);
       const atEnd = await both(page, session);
       for (const taken of [openReading.measured, openReading.afterGc, ...(read ? [read.measured, read.afterGc] : []), atEnd.measured, atEnd.afterGc])
-        for (const type of Object.keys(taken.pageByType)) if (!KNOWN_TYPES.has(type)) failures.push(`page memory of an unaccounted type: ${type}`);
+        failures.push(...unknownTypes(taken));
       const seen = expected.get(side);
       if (seen === undefined) expected.set(side, cacheBytesEnd);
       else if (seen !== cacheBytesEnd) failures.push(`unequal work: the cache ended at ${cacheBytesEnd} bytes, the side's first run at ${seen}`);
@@ -269,6 +274,6 @@ await runMetric<Run>(
       filesKiB: Object.fromEntries(files.map((file) => [file, { kind: runs.find((run) => run.files[file])!.files[file]!.kind, encoding: runs.find((run) => run.files[file])!.files[file]!.encoding, kib: medianOf(runs, (run) => (run.files[file]?.bytes ?? 0) / 1024) }])),
     };
   },
-  (picked) => (picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
-  { levels: ['base', 'wide', 'market'] },
+  (picked) => (picked?.scenario.level === 'tail' ? { session: 'the replay to its row limit', tailRows: TAIL_ROWS, quietMs: QUIET_MS } : picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
+  { levels: ['base', 'wide', 'market', 'tail'] },
 );

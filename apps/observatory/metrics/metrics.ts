@@ -110,6 +110,82 @@ export function timeToData(side: Side, open: number, filled: number, painted: nu
   return { openMs: open, ms: at - open, filledMarkMs: filled - open };
 }
 
+/** Live tail's load, split (`docs/DECISIONS.md`, "Measurement"): the log
+ *  downloads first, so the measurement is the table keeping up, not the
+ *  network. Page ms throughout. */
+export interface TailData {
+  openMs: number;
+  /** Open → the file fetched whole, its response's end: network only, the
+   *  same file on both sides. */
+  downloadMs: number;
+  /** The file in hand → the clock's first count posted: the engine
+   *  registering the file, then the clock's worker starting. */
+  fileToFirstBatchMs: number;
+  /** The first count's stamp → the presentation of the first frame that drew
+   *  its rows: the UI's share, the number that can differ between sides. */
+  dataMs: number;
+  /** Open → that presentation: the total, for continuity with the other
+   *  scenarios' time to data (the download among it). */
+  openToDataMs: number;
+}
+
+/**
+ * Live tail's load from a trace through it: `open` (`contender:open`),
+ * `downloaded` (the whole file's response end), the clock's counts and the
+ * tail marks (`TailBatch`es with the worker's epoch stamps, `timeOrigin`
+ * turning them into page ms). The first count's frame is paired as Row
+ * shown in pairs it (`tailFrames`), presented per `Trace.presentationOf`.
+ * Null without a count, its frame, or that frame's presentation.
+ */
+export function tailData(trace: Trace, open: number, downloaded: number, batches: readonly TailBatch[], marks: readonly TailFrame[], timeOrigin: number): TailData | null {
+  const first = batches[0];
+  if (!first) return null;
+  const sent = first[1] - timeOrigin;
+  const frame = marks.find(([at, tail]) => at >= sent && tail >= first[0]);
+  const presented = frame ? trace.presentationOf(trace.toTrace(frame[0])) : null;
+  if (!presented) return null;
+  const at = trace.toPage(presented.at);
+  return { openMs: round(open), downloadMs: round(downloaded - open), fileToFirstBatchMs: round(sent - downloaded), dataMs: round(at - sent), openToDataMs: round(at - open) };
+}
+
+/** The table's page, rows (the component's paging; `perf/contender.ts`'s too). */
+export const PAGE_ROWS = 1024;
+
+/** How many of the first tail marks the content check looks at. */
+export const CONTENT_MARKS = 5;
+
+/**
+ * Live tail's content check on the first frames that drew rows (the rows
+ * move, so no position holds), over the first `CONTENT_MARKS` tail marks
+ * (`marks`, from the first count's frame on, with `timeOrigin` turning the
+ * counts' epoch stamps into page ms): each tail drawn is one the clock had
+ * posted by its mark, or a page's end below the latest (`PAGE_ROWS`: the
+ * table pins the tail to the rows read, so while the next page loads the
+ * view stops at the end of the loaded ones); and for each mark whose frame the recorder sampled (the
+ * first view at or after the mark whose rows hold the tail, `first < tail ≤
+ * end`; TanStack writes its state a frame after the commit, by when the
+ * next count may have moved the rows past it), every row up to the tail is
+ * real (only rows grown past it may be placeholders, a grown page's until
+ * its re-read lands). At least one mark must be checked this way. The
+ * problems, or none.
+ */
+export function tailContent(marks: readonly TailFrame[], batches: readonly TailBatch[], frames: readonly StateFrame[], timeOrigin: number): string[] {
+  const problems: string[] = [];
+  let checked = 0;
+  for (const [at, tail] of marks.slice(0, CONTENT_MARKS)) {
+    const posted = batches.filter(([, sent]) => sent - timeOrigin <= at).map(([rows]) => rows);
+    const latest = posted.at(-1) ?? 0;
+    if (!posted.includes(tail) && !(tail % PAGE_ROWS === 0 && tail < latest)) problems.push(`the tail drawn, ${tail}, is neither a count the clock had posted (the latest ${latest}) nor a page's end below it`);
+    const view = frames.find((frame) => frame.t >= at && (frame.first ?? 0) < tail && tail <= (frame.end ?? 0));
+    if (!view) continue;
+    checked++;
+    const upToTail = tail - (view.first ?? 0);
+    if ((view.loaded ?? 0) < upToTail) problems.push(`the frame that drew the tail ${tail} shows ${view.loaded} rows real of the ${upToTail} up to it`);
+  }
+  if (!checked) problems.push(`none of the first ${CONTENT_MARKS} tail marks' frames was sampled`);
+  return problems;
+}
+
 // ---------------------------------------------------------------- the trace
 
 /** Set by the scripts right before each input (`input:<n>`) and once it
@@ -527,6 +603,102 @@ export function collections(trace: Trace, from: number, to: number, frameTimes: 
     longestMs: round(Math.max(0, ...durations)),
     inLateFrame,
   };
+}
+
+// ---------------------------------------------------------------- under the replay (live tail's stops)
+
+/** A count the clock posted (`__contender.batches` on the tail level): the
+ *  rows due, and the worker's stamp (epoch ms). */
+export type TailBatch = readonly [rows: number, sent: number];
+
+/** A `contender:tail` mark (page ms) and the tail drawn then
+ *  (`__contenderTail`, set before the mark). */
+export type TailFrame = readonly [at: number, tail: number];
+
+/** Live tail keeps up when Row shown in's p95 is at most this, ms: the
+ *  view stays with the tail (6 frames; `docs/DECISIONS.md`, "Measurement"). */
+export const TAIL_KEEPS_UP_MS = 100;
+
+/** How long past its window a trace runs, so a batch sent near the
+ *  window's end can find its frame; a batch with none by then is counted
+ *  at this (a lower bound), ms. */
+export const TAIL_GRACE_MS = 1000;
+
+export interface TailFrames {
+  /** The batches sent in the window. */
+  sent: number;
+  /** Each paired with the first tail mark at or after its stamp whose tail
+   *  reaches its rows, by the trace's end (`until`). */
+  shown: BatchShown[];
+  /** The batches with no such mark by `until`: the view trailed. */
+  unshown: number;
+  /** The distinct marks in the window: the frames that drew a grown tail. */
+  frames: number;
+  displayFrames: number;
+  /** The frame share (beside the verdict): `frames` over the lesser of
+   *  `sent` and `displayFrames`, at most 1. */
+  share: number;
+}
+
+/**
+ * The batches of a replay's window (`from`–`to`, page ms) and the frames
+ * that drew them (the contract's "Row shown in"): each batch's frame is the
+ * first tail mark at or after its stamp whose tail reaches the batch's
+ * rows, at most `until` (the trace's end). Both lists only rise (the
+ * clock's counts, a tail that grows while following), so one pass.
+ * `timeOrigin` turns the worker's epoch stamps into page ms.
+ */
+export function tailFrames(batches: readonly TailBatch[], marks: readonly TailFrame[], timeOrigin: number, from: number, to: number, until: number, refreshMs = FRAME_MS): TailFrames {
+  const inWindow = batches.map(([rows, sent]) => ({ rows, sent: sent - timeOrigin })).filter(({ sent }) => sent >= from && sent <= to);
+  const shown: BatchShown[] = [];
+  let unshown = 0;
+  let next = 0;
+  for (const batch of inWindow) {
+    while (next < marks.length && (marks[next]![0] < batch.sent || marks[next]![1] < batch.rows)) next++;
+    const frame = marks[next];
+    if (frame && frame[0] <= until) shown.push({ sent: batch.sent, mark: frame[0] });
+    else unshown++;
+  }
+  const frames = marks.filter(([at]) => at >= from && at <= to).length;
+  const displayFrames = (to - from) / refreshMs;
+  const most = Math.min(inWindow.length, displayFrames);
+  return { sent: inWindow.length, shown, unshown, frames, displayFrames: round(displayFrames), share: most > 0 ? Math.min(1, frames / most) : 0 };
+}
+
+/** Row shown in's readings over a window: each shown batch's ms
+ *  (`shownIn`'s) with each unshown one at `TAIL_GRACE_MS`, so a trailing
+ *  view's p95 can't pass; and the verdict. */
+export function rowShownIn(read: ShownIn, unshown: number): { ms: number[]; p50: number | null; p95: number | null; keepsUp: boolean } {
+  const ms = [...read.ms, ...Array<number>(unshown).fill(TAIL_GRACE_MS)].sort((a, b) => a - b);
+  if (!ms.length) return { ms, p50: null, p95: null, keepsUp: false };
+  // Nearest rank, as `shared-web/perf/protocol.ts`'s `percentiles` (Node's, so not imported here).
+  const at = (q: number) => ms[Math.min(ms.length, Math.max(1, Math.ceil(q * ms.length))) - 1]!;
+  const p95 = round(at(0.95));
+  return { ms, p50: round(at(0.5)), p95, keepsUp: p95 <= TAIL_KEEPS_UP_MS };
+}
+
+/** Set by the scroll back's GPUI probe in the first frame whose `top`
+ *  moved while not following (`perf/tail-metric.ts`'s `gpuiLetGoProbe`). */
+export const LET_GO_MARK = 'probe:let-go';
+
+/**
+ * The scroll back on GPUI, by its probe (`docs/DECISIONS.md`,
+ * "Measurement", 2026-11-07): within input `index`'s window (`input:<n>` …
+ * `input:<n>:end`), the first wheel `EventLatency`'s start (the event's
+ * own timestamp, whether or not it reached a frame) → the presentation of
+ * the frame holding the first `LET_GO_MARK`, ms. Null if either is missing.
+ */
+export function probeResponse(trace: Trace, index: number): number | null {
+  const start = trace.marks(new RegExp(`^${INPUT_MARK}${index}$`)).at(-1);
+  const end = trace.marks(new RegExp(`^${INPUT_MARK}${index}:end$`)).at(-1);
+  if (!start || !end) return null;
+  const within = (event: TraceEvent) => event.ts >= start.ts && event.ts < end.ts;
+  const event = spans(trace.events, 'EventLatency')
+    .filter(({ begin }) => within(begin) && LATENCY_TYPES.wheel.includes(begin.args?.event_latency?.event_type))
+    .sort((a, b) => a.begin.ts - b.begin.ts)[0];
+  const moved = trace.marks(new RegExp(`^${LET_GO_MARK}$`)).find(within);
+  const presented = moved ? trace.presentationOf(moved.ts) : null;
+  return event && presented ? round((presented.at - event.begin.ts) / 1000) : null;
 }
 
 // ---------------------------------------------------------------- memory

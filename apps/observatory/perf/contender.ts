@@ -7,7 +7,7 @@
 //
 // Flags every metric script takes:
 //   --side gpui|tanstack   one contender (default: both, their order alternated)
-//   --runs <n>             runs per contender and profile (default 10)
+//   --runs <n>             runs per contender and profile (default 10; a metric may set its own)
 //   --profile reference|throttled   one profile (default: both)
 //   --label <name>         writes perf/results/<date>-<label>.json
 //   --scenario <id>        a scenario on its level's builds (`contenders/scenarios.ts`;
@@ -25,7 +25,7 @@ export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
-import { FLING_FRAMES, FRAME_MS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
+import { FLING_FRAMES, FRAME_MS, PAGE_ROWS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
 import { ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
 import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
@@ -370,8 +370,8 @@ export async function quiet(page: Scope & Pick<Page, 'waitForTimeout'>, inFlight
   }
 }
 
-/** The paging's page, rows (the component's `Paging::default()`). */
-export const PAGE_ROWS = 1024;
+/** The paging's page, rows (the component's `Paging::default()`; the metrics module's). */
+export { PAGE_ROWS };
 
 /**
  * Reads the whole file into the page cache (a scenario's file fits it:
@@ -462,6 +462,8 @@ const PORTS: Record<string, [number, number]> = {
   cost: [4332, 4333],
   memory: [4335, 4336],
   feed: [4366, 4367],
+  tail: [4375, 4376],
+  soak: [4377, 4378],
 };
 
 /**
@@ -476,15 +478,15 @@ export async function runMetric<R extends RunResult>(
   measure: (context: RunContext) => Promise<R>,
   summarize: (runs: R[]) => Record<string, unknown>,
   extra: Record<string, unknown> | ((picked: Picked | null) => Record<string, unknown>) = {},
-  { levels = ['base', 'wide'], allStops = false }: { levels?: Scenario['level'][]; allStops?: boolean } = {},
+  { levels = ['base', 'wide'], allStops = false, defaultStop, defaultRuns = 10 }: { levels?: Scenario['level'][]; allStops?: boolean; defaultStop?: string; defaultRuns?: number } = {},
 ): Promise<void> {
   const sides = option('side') ? [option('side') as Side] : SIDES;
   if (!sides.every((side) => SIDES.includes(side))) throw new Error(`--side ${option('side')}: gpui or tanstack`);
-  const runs = Number(option('runs') ?? 10);
+  const runs = Number(option('runs') ?? defaultRuns);
   const profiles = option('profile') ? PROFILES.filter((profile) => profile.name === option('profile')) : PROFILES;
   if (!profiles.length) throw new Error(`--profile ${option('profile')}: reference or throttled`);
   const label = option('label');
-  const picks = pickStops(allStops);
+  const picks = pickStops(allStops, defaultStop);
   const level = picks[0]?.scenario.level ?? 'base';
   if (!levels.includes(level)) throw new Error(`metric ${metric} doesn't run on the ${level} level`);
   const [gpuiPort, tanstackPort] = PORTS[metric]!;
@@ -559,11 +561,11 @@ export function flaggedScenario(): Scenario {
 }
 
 /** The scenario and stops `--scenario` and `--stop` ask for: the base
- *  level's Big file without them; a scenario's default stop, or with
- *  `allStops` every stop, without `--stop`. */
-function pickStops(allStops: boolean): Picked[] {
+ *  level's Big file without them; without `--stop`, a scenario's default
+ *  stop (or the metric's own `defaultStop`), or with `allStops` every stop. */
+function pickStops(allStops: boolean, defaultStop?: string): Picked[] {
   const scenario = flaggedScenario();
-  const asked = option('stop') ?? (allStops ? 'all' : scenario.defaultStop);
+  const asked = option('stop') ?? (allStops ? 'all' : (defaultStop ?? scenario.defaultStop));
   const stops = asked === 'all' ? [...scenario.stops] : asked.split(',').map((stopId) => scenario.stops.find((stop) => stop.id === stopId) ?? stopId);
   const unknown = stops.filter((stop) => typeof stop === 'string');
   if (unknown.length) throw new Error(`--stop ${unknown.join(',')}: not a stop of ${scenario.id} (${scenario.stops.map((stop) => stop.id).join(', ')})`);
