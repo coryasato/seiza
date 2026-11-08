@@ -20,6 +20,7 @@ import { Advances, ColumnFormat, f32Text, type FormatControl, type NumberFormat,
 import { PAGING, TablePaging, type Clock, type Page, type PageSource, type Paging } from '../src/data/paging.ts';
 import { ArrowPage, Queries, openParquet } from '../src/data/table.ts';
 import { invalidateRows, setLiveControl, type LiveControl } from '../src/data/live.ts';
+import { follow, isFollowing, setFollowControl, setRows, wheel, type FollowControl } from '../src/data/follow.ts';
 import { asLevel } from './level.ts';
 import type { Level } from '../../../../scenarios.ts';
 import { pageSql } from '../src/data/sql.ts';
@@ -87,7 +88,8 @@ class ScriptSource implements PageSource<Page> {
   open: Read[] = [];
   private next = 0;
   private readonly paging: Paging;
-  private readonly rows: number;
+  /** The rows it holds: a `rows` step changes them. */
+  rows: number;
 
   constructor(paging: Paging, rows: number) {
     this.paging = paging;
@@ -160,9 +162,15 @@ function normalized(log: string[]): string[] {
   return log;
 }
 
+/** A scenario's controls: the cache's (`live`'s, a shrink's) and following's. */
+interface Controls {
+  cache?: LiveControl;
+  follow?: FollowControl;
+}
+
 /** One scenario under `paging`: the first step whose requests weren't the
- *  expected ones, or null. */
-async function runScenario(paging: Paging, scenario: any, control: LiveControl = null): Promise<string | null> {
+ *  expected ones (or with `follow`, whose flag or bottom wasn't), or null. */
+async function runScenario(paging: Paging, scenario: any, controls: Controls = {}): Promise<string | null> {
   const source = new ScriptSource(paging, scenario.rows);
   const clock = new ScriptClock();
   let table: TablePaging<Page> | null = null;
@@ -176,7 +184,8 @@ async function runScenario(paging: Paging, scenario: any, control: LiveControl =
     switch (action) {
       case 'open':
         table = new TablePaging(scenario.rows, source, paging, clock);
-        if (control) setLiveControl(table, control);
+        if (controls.cache) setLiveControl(table, controls.cache);
+        if (controls.follow) setFollowControl(table, controls.follow);
         table.setViewportRows(scenario.viewport_rows);
         break;
       case 'scroll':
@@ -203,6 +212,20 @@ async function runScenario(paging: Paging, scenario: any, control: LiveControl =
       case 'invalidate':
         invalidateRows(on(), argument);
         break;
+      // The source holds that many rows now (live tail's level).
+      case 'rows':
+        source.rows = argument;
+        setRows(on(), argument);
+        break;
+      // `follow`: the view follows the end.
+      case 'follow':
+        follow(on());
+        break;
+      // Sideways, as Shift+wheel (the table's `scroll_by(0, x)`): the
+      // fixture's one column fits, so nothing moves, and following stays.
+      case 'scroll_x':
+        wheel(on(), 0, argument, 30);
+        break;
       case 'answer':
       case 'fail': {
         const fail = action === 'fail';
@@ -221,9 +244,12 @@ async function runScenario(paging: Paging, scenario: any, control: LiveControl =
     }
     await settle(clock);
     const actual = normalized(source.log.splice(0));
+    const at = `${scenario.name}, step ${index} (${action} ${JSON.stringify(argument)})`;
     if (JSON.stringify(actual) !== JSON.stringify(step.expect)) {
-      return `${scenario.name}, step ${index} (${action} ${JSON.stringify(argument)}): expected ${JSON.stringify(step.expect)}, got ${JSON.stringify(actual)}`;
+      return `${at}: expected ${JSON.stringify(step.expect)}, got ${JSON.stringify(actual)}`;
     }
+    if ('following' in step && isFollowing(on()) !== step.following) return `${at}: following ${isFollowing(on())}, expected ${step.following}`;
+    if ('bottom' in step && on().visible()[1] !== step.bottom) return `${at}: bottom ${on().visible()[1]}, expected ${step.bottom}`;
   }
   return null;
 }
@@ -231,20 +257,24 @@ async function runScenario(paging: Paging, scenario: any, control: LiveControl =
 describe('paging.json', () => {
   const paging = fixture('paging.json');
   /** The table's features each level builds into the paging: the market
-   *  level's `live` (`live.ts`); every other level's none. */
-  const FEATURES: Partial<Record<Level, string[]>> = { market: ['live'] };
+   *  level's `live` (`live.ts`), live tail's `live` and `follow`
+   *  (`follow.ts`); every other level's none. */
+  const FEATURES: Partial<Record<Level, string[]>> = { market: ['live'], tail: ['live', 'follow'] };
   // A scenario runs at a level that builds its features and none it's
-  // skipped under (`without`), unless it has a step the contender doesn't
-  // build (`rows`: its row count is fixed). A fault in the table's own code
-  // (a `cache` control) isn't the contender's.
-  const steps = new Set(['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail', 'invalidate']);
+  // skipped under (`without`), unless it has a step the level doesn't
+  // build: the rows grow and shrink only on live tail's (`rows`), which
+  // follows (`follow`, `scroll_x`); every other level's row count is fixed.
+  const STEPS = ['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail', 'invalidate'];
+  const steps: Partial<Record<Level, Set<string>>> = { tail: new Set([...STEPS, 'rows', 'follow', 'scroll_x']) };
+  const CHECKS = new Set(['expect', 'why', 'following', 'bottom']);
   const scenariosAt = (level: Level): any[] => {
     const built = FEATURES[level] ?? [];
+    const runs = steps[level] ?? new Set(STEPS);
     return (paging.scenarios as any[]).filter(
       (scenario) =>
         (scenario.features ?? []).every((feature: string) => built.includes(feature)) &&
         !(scenario.without ?? []).some((feature: string) => built.includes(feature)) &&
-        (scenario.steps as any[]).every((step) => Object.keys(step).every((key) => key === 'expect' || key === 'why' || steps.has(key))),
+        (scenario.steps as any[]).every((step) => Object.keys(step).every((key) => CHECKS.has(key) || runs.has(key))),
     );
   };
   const controls = (paging.controls as any[]).filter((control) => control.paging);
@@ -254,7 +284,7 @@ describe('paging.json', () => {
     assert.deepEqual(pagingWith(PAGING, paging.paging), PAGING);
   });
 
-  for (const level of ['base', 'market'] satisfies Level[]) {
+  for (const level of ['base', 'market', 'tail'] satisfies Level[]) {
     test(`every scenario, on the ${level} level`, () =>
       asLevel(level, async () => {
         const failures: string[] = [];
@@ -285,16 +315,47 @@ describe('paging.json', () => {
     for (const name of skipped) assert.ok(live.find((scenario) => scenario.name === name).steps.some((step: object) => 'rows' in step), `${name} is skipped without a rows step`);
   });
 
+  test('the tail level runs every scenario but sort’s and those skipped under live', () => {
+    const all = paging.scenarios as any[];
+    const expected = all.filter((scenario) => !scenario.features?.includes('sort') && !scenario.without?.includes('live'));
+    assert.deepEqual(
+      scenariosAt('tail').map((scenario) => scenario.name),
+      expected.map((scenario) => scenario.name),
+    );
+    // Among them, follow's, and those that grow or shrink the rows.
+    assert.ok(expected.some((scenario) => scenario.features?.includes('follow')), 'a follow scenario runs');
+    assert.ok(expected.some((scenario) => scenario.steps.some((step: object) => 'rows' in step)), 'a rows scenario runs');
+  });
+
   // `live`'s controls: each a way to re-read wrongly. `drop-grown` drops a
-  // short last page that grows, which needs `rows`: not the contender's.
-  test('every live control fails a scenario, on the market level', () =>
-    asLevel('market', async () => {
-      const live = (paging.controls as any[]).filter((control) => control.live).map((control) => control.live as string);
-      assert.deepEqual(live.sort(), ['drop-grown', 'reread-unwanted', 'restart-stale']);
-      for (const control of ['reread-unwanted', 'restart-stale'] satisfies LiveControl[]) {
+  // short last page that grows, which needs `rows`: live tail's alone.
+  const liveControls = (level: Level): LiveControl[] => (level === 'tail' ? ['reread-unwanted', 'restart-stale', 'drop-grown'] : ['reread-unwanted', 'restart-stale']);
+  for (const level of ['market', 'tail'] satisfies Level[]) {
+    test(`every live control fails a scenario, on the ${level} level`, () =>
+      asLevel(level, async () => {
+        const live = (paging.controls as any[]).filter((control) => control.live).map((control) => control.live as string);
+        assert.deepEqual(live.sort(), ['drop-grown', 'reread-unwanted', 'restart-stale']);
+        for (const control of liveControls(level)) {
+          let failed = 0;
+          for (const scenario of scenariosAt(level)) if (await runScenario(PAGING, scenario, { cache: control })) failed++;
+          assert.ok(failed > 0, `control ${control} passed every scenario`);
+        }
+      }));
+  }
+
+  // A shrink's control (`cache`) and following's, each a way to get them
+  // wrong: live tail's level, where the rows change and the view follows.
+  test('the cache’s and following’s controls fail a scenario, on the tail level', () =>
+    asLevel('tail', async () => {
+      const cache = (paging.controls as any[]).filter((control) => control.cache).map((control) => control.cache as LiveControl);
+      const following = (paging.controls as any[]).filter((control) => control.follow).map((control) => control.follow as FollowControl);
+      assert.deepEqual(cache, ['keep-past-end']);
+      assert.deepEqual([...following].sort(), ['follow-at-end', 'follow-ignores-reader', 'pin-to-rows', 'top-first']);
+      const runs: Controls[] = [...cache.map((control) => ({ cache: control })), ...following.map((control) => ({ follow: control }))];
+      for (const controls of runs) {
         let failed = 0;
-        for (const scenario of scenariosAt('market')) if (await runScenario(PAGING, scenario, control)) failed++;
-        assert.ok(failed > 0, `control ${control} passed every scenario`);
+        for (const scenario of scenariosAt('tail')) if (await runScenario(PAGING, scenario, controls)) failed++;
+        assert.ok(failed > 0, `control ${JSON.stringify(controls)} passed every scenario`);
       }
     }));
 });

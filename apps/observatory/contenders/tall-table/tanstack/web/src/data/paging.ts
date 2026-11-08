@@ -10,12 +10,16 @@
  * model's V) and when the scrollbar is held (`startDrag`, `endDrag`); it
  * reads rows back with `row` and hears `onChange` when a page lands.
  *
- * On market watch's level, `live` too (`live.ts`: `invalidateRows` and the
- * rest), its branches here behind the build constant, as `pages.ts`'s are,
- * reaching the paging's private members through a typed view of them
- * (`live.ts`'s `PagingInside`).
+ * On market watch's and live tail's levels, `live` too (`live.ts`:
+ * `invalidateRows` and the rest), its branches here behind the build
+ * constant, as `pages.ts`'s are, reaching the paging's private members
+ * through a typed view of them (`live.ts`'s `PagingInside`). On live
+ * tail's alone, the rows grow and the view follows them (`follow.ts`:
+ * `setRows`, `follow`, the reader's moves deciding following, the tail
+ * pin, the visible pages bottom first), behind `__LEVEL__ === 'tail'`.
  */
 
+import { keepBottom, readerMoved, releaseDrag, tailFirst, type FollowControl } from './follow.ts';
 import { dragRested, loadWantedLive, pageDoneLive, type RowSet } from './live.ts';
 import { PageCache, type Direction, type Rows, type RowState } from './pages.ts';
 
@@ -70,6 +74,7 @@ export const pageClock: Clock = {
 };
 
 export class TablePaging<P extends Page> {
+  /** Fixed but on live tail's level, where `follow.ts`'s `setRows` moves it. */
   readonly rows: number;
   private readonly paging: Paging;
   private readonly source: PageSource<P>;
@@ -97,6 +102,14 @@ export class TablePaging<P extends Page> {
    *  `trackChanges` is on) to compare with `landed` (the flash), before
    *  the cache swaps them. */
   declare onLanded?: (page: number, old: P, landed: P, rows: RowSet) => void;
+  /** Live tail's: the view follows the end (`follow.ts`). */
+  declare private following: boolean;
+  /** Live tail's: the end of the tail last drawn while following. */
+  declare private tailDrawn: number;
+  /** Live tail's: the fixture's control (tests only). */
+  declare private followControl: FollowControl;
+  /** Live tail's: following turned on or off. */
+  declare onFollowing?: (following: boolean) => void;
 
   constructor(rows: number, source: PageSource<P>, paging: Paging = PAGING, clock: Clock = pageClock) {
     this.rows = rows;
@@ -104,9 +117,14 @@ export class TablePaging<P extends Page> {
     this.source = source;
     this.clock = clock;
     this.cache = new PageCache(rows, paging.pageRows, paging.budgetBytes, paging.maxInFlight);
-    if (__LEVEL__ === 'market') {
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') {
       this.dragResting = true;
       this.loadDeferred = false;
+    }
+    if (__LEVEL__ === 'tail') {
+      this.following = false;
+      this.tailDrawn = 0;
+      this.followControl = null;
     }
   }
 
@@ -145,13 +163,18 @@ export class TablePaging<P extends Page> {
   setViewportRows(rows: number): void {
     const viewportRows = Math.max(0, rows);
     if (viewportRows === this.viewportRows) return;
+    // Live tail's: while following, the bottom stays where it was (`fit_viewport`).
+    const bottom = __LEVEL__ === 'tail' ? this.topRow + this.viewportRows : 0;
     this.viewportRows = viewportRows;
     this.topRow = clamp(this.topRow, 0, this.maxTop());
+    if (__LEVEL__ === 'tail') keepBottom(this, bottom);
     this.rowsMoved();
   }
 
   /** Scrolls by `rows` (positive is down), as a wheel or a key does. */
   scrollBy(rows: number): void {
+    // Live tail's: following decided before the move, so its reads are planned the way following plans them.
+    if (__LEVEL__ === 'tail' && rows !== 0) readerMoved(this, rows > 0 ? 'down' : 'up', this.topRow + rows);
     if (!this.setTop(this.topRow + rows)) return;
     if (rows !== 0) this.direction = rows > 0 ? 'down' : 'up';
     this.rowsMoved();
@@ -167,11 +190,14 @@ export class TablePaging<P extends Page> {
 
   /** Scrolls `row` to the top, or as near as the end allows. */
   jumpTo(row: number): void {
+    if (__LEVEL__ === 'tail') readerMoved(this, 'land', row);
     this.moveTopTo(row);
   }
 
   /** `fraction` of the way down: Home is 0, End is 1. */
   scrollToFraction(fraction: number): void {
+    // Live tail's: Home lets go; End, or a drag released, lands.
+    if (__LEVEL__ === 'tail') readerMoved(this, fraction <= 0 ? 'up' : 'land', clamp(fraction, 0, 1) * this.maxTop());
     this.moveTopTo(clamp(fraction, 0, 1) * this.maxTop());
   }
 
@@ -181,13 +207,17 @@ export class TablePaging<P extends Page> {
   }
 
   endDrag(): void {
+    // Live tail's: the release decides following, as a landing, and the
+    // pin moves on: its new view's reads are planned even if the drag's
+    // were.
+    const pinned = __LEVEL__ === 'tail' && releaseDrag(this);
     this.dragging = false;
-    if (__LEVEL__ === 'market') this.dragResting = true;
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') this.dragResting = true;
     if (this.dragSettle !== null) {
       this.clock.clearTimeout(this.dragSettle);
       this.dragSettle = null;
       this.loadPages();
-    }
+    } else if (__LEVEL__ === 'tail' && pinned) this.loadPages();
   }
 
   /** Cancels every read still out; nothing loads after. */
@@ -221,15 +251,17 @@ export class TablePaging<P extends Page> {
       // can't take a read back once it starts: load once the pointer rests,
       // or on release.
       if (this.dragSettle !== null) this.clock.clearTimeout(this.dragSettle);
-      if (__LEVEL__ === 'market') this.dragResting = false;
+      if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') this.dragResting = false;
       // `live`: the settle is the drag resting (only it: never the scroll's).
-      this.dragSettle = this.clock.setTimeout(__LEVEL__ === 'market' ? () => dragRested(this) : () => this.loadPages(), this.paging.dragSettleMs);
+      this.dragSettle = this.clock.setTimeout((__LEVEL__ === 'market' || __LEVEL__ === 'tail') ? () => dragRested(this) : () => this.loadPages(), this.paging.dragSettleMs);
     } else {
       this.loadPages();
     }
   }
 
   private wanted(): number[] {
+    // Live tail's: the visible pages bottom first while following.
+    if (__LEVEL__ === 'tail') return tailFirst(this, this.cache.wanted(this.visible(), this.direction, this.paging.prefetch));
     return this.cache.wanted(this.visible(), this.direction, this.paging.prefetch);
   }
 
@@ -239,7 +271,7 @@ export class TablePaging<P extends Page> {
 
   /** Sends the reads the viewport needs and cancels the ones it doesn't. */
   private loadWanted(wanted: readonly number[]): void {
-    if (__LEVEL__ === 'market') return loadWantedLive(this, wanted);
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') return loadWantedLive(this, wanted);
     if (this.closed) return;
     const plan = this.cache.plan(wanted, this.cache.visiblePages(this.visible()));
     for (const request of plan.cancel) this.source.cancel(request);
@@ -254,7 +286,7 @@ export class TablePaging<P extends Page> {
   }
 
   private pageDone(page: number, request: number, answer: { data: P } | { error: unknown }): void {
-    if (__LEVEL__ === 'market') return pageDoneLive(this, page, request, answer);
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') return pageDoneLive(this, page, request, answer);
     if (this.closed) return;
     const wanted = this.wanted();
     if ('data' in answer) {

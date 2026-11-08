@@ -352,3 +352,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The first `Following(true)` went unheard. The table follows before its first frame, while it's being made, and the contract subscribes after that. So the flag's global started unset under a feed that was following. A state a table reaches while it's built has to be read, not waited for.
 - The design canvas held what the plan's summary of it didn't: each column's width. Built from the summary, `request` was laid out by kind at 200 px and cut every line. The canvas gives it 470, and setting a width needs `density`. Read the canvas itself before building a scene.
 - A lap's seam can't be found under a running clock. The rows grow by ~1,700 a frame at 100k, so a jump computed from the count misses a 54-row view. The pause hook, which part D needs anyway for the scroll back's control, holds the count still, and then the jump lands exactly.
+
+## M11 part C1: the TanStack data layer's `rows` and `follow` ports (2026-11-08)
+
+**Results:** none (nothing measured).
+
+**Surprises:**
+- The port passed every `follow` and `rows` scenario on its first run, so a pass showed little on its own. Breaking it by hand (no pin, a landing that doesn't pin, a drag that doesn't hold, the grown page's old end kept, the shrink's clamp removed) showed the fixture catches each of those. One break it can't catch: the release's pin. A release follows only at the end, and the pin only moves down, so in a correct run it never moves the view. What a fixture pins is worth checking by breaking the port.
+- A one-line method moved market's bytes. `RowSet.truncate`, used only by the grown page, stayed in market's paging chunk although every call to it was folded away. As a function it's dropped. The rule held at its smallest: a level's code goes in a function, never a method.
+- A "before" build that didn't happen read as no change. `git stash` leaves an untracked file, so the new `follow.ts` stayed beside the old sources. The build's `tsc` failed on it, with the output discarded, and `dist-market/` kept the new build to compare with itself. Moving the new file out too gave the real old chunk, and a diff of it named the leak. Check a build's exit status before comparing its bytes.
+- After the review, sharing two small helpers moved bytes again. `follow.ts` importing `clamp` (a value) from `paging.ts`, which imports `follow.ts`, closed a cycle, and every level's paging chunk came out in a new order, the base's too. One function for `invalidateRows` and `setRows`' deferred plan reshaped market's. Each copy stays, commented. Hash after every cleanup, not only after the feature.

@@ -4,25 +4,29 @@
  * port of the tall table's re-read paths (`components/tall-table/src/`
  * `pages.rs`'s `Live` and `state.rs`'s `invalidate_rows`,
  * `load_after_update`, `answered`, `page_done`), decision for decision:
- * `paging.json`'s `live` scenarios pin the reads. The table's `rows` (a
- * source that grows or shrinks) isn't the contender's, so a grown page's
- * paths aren't ported.
+ * `paging.json`'s `live` scenarios pin the reads. A grown page's paths
+ * (`end`, `readingEnd`) are live tail's alone, where the rows grow
+ * (`follow.ts`'s `setRows`): behind `__LEVEL__ === 'tail'`, so market
+ * watch's bundle carries none of them.
  *
  * `pages.ts` and `paging.ts` call in here only behind the build constant
- * (`__LEVEL__ === 'market'`), so no other level's bundle carries any of
- * it; what only `live` does is a function here over the cache or the
+ * (`__LEVEL__ === 'market' || __LEVEL__ === 'tail'`), so no other level's
+ * bundle carries any of it; what only `live` does is a function here over the cache or the
  * paging, never a method of theirs (a method would stay in every bundle).
  * The functions reach their private members through a typed view of them
  * (`CacheInside`, `PagingInside`), so the classes keep them private to
  * every other caller.
  */
 
+import { pinAndWant } from './follow.ts';
 import type { PageCache, Plan, Rows, Slot } from './pages.ts';
 import type { Page, PageSource, TablePaging } from './paging.ts';
 
 /** The paging fixture's `live` controls (`paging.json`), each a way to
- *  re-read wrongly that the fixture must catch; `null` in the contender. */
-export type LiveControl = 'reread-unwanted' | 'restart-stale' | null;
+ *  re-read wrongly that the fixture must catch, and its `cache` control
+ *  (`keep-past-end`, a shrink's; live tail's, as `drop-grown` is); `null`
+ *  in the contender. */
+export type LiveControl = 'reread-unwanted' | 'restart-stale' | 'drop-grown' | 'keep-past-end' | null;
 
 /** The cache's own `live` state. */
 export interface LiveBooks {
@@ -51,6 +55,11 @@ export interface Live<R> {
   /** Rows invalidated while the re-read in flight is out: compared too, and
    *  kept for the next read (its answer may or may not hold the change). */
   changedDuring: RowSet;
+  /** Live tail's: the end of the rows the drawn page holds (past it, the
+   *  rows grew since it was read: placeholders), and the end of those the
+   *  re-read in flight asks for. */
+  end?: number;
+  readingEnd?: number;
 }
 
 /** Rows, as sorted ranges that never overlap or touch. */
@@ -197,6 +206,7 @@ export function startReread<T, R>(of: PageCache<T, R>, page: number, request: R)
   const slot = cache.slots.get(page);
   if (slot?.kind !== 'loaded') return false;
   slot.live!.reading = { request, generation: cache.live.generation };
+  if (__LEVEL__ === 'tail') slot.live!.readingEnd = cache.rowsOf(page)[1];
   slot.live!.stale = false;
   return true;
 }
@@ -206,6 +216,8 @@ export function startReread<T, R>(of: PageCache<T, R>, page: number, request: R)
 export function attachLive<T, R>(of: PageCache<T, R>, page: number, read: Loading<T, R>): void {
   const slot = inside(of).slots.get(page) as Loaded<T, R>;
   slot.live = newLive(read.stale ?? false, read.changed);
+  // Live tail's: it holds the rows its read asked for.
+  if (__LEVEL__ === 'tail') slot.live.end = slot.live.readingEnd = read.end!;
 }
 
 /** A re-read's answer for a loaded page: kept only if it's the page's read
@@ -223,6 +235,7 @@ export function landReread<T, R>(of: PageCache<T, R>, page: number, request: R, 
   slot.used = ++cache.tick;
   live.landed = live.reading.generation;
   live.reading = null;
+  if (__LEVEL__ === 'tail') live.end = live.readingEnd;
   // Compared (`changes`); those invalidated during the read, by the next one too.
   live.changed = live.changedDuring;
   live.changedDuring = new RowSet();
@@ -288,6 +301,9 @@ function changes<T, R>(of: PageCache<T, R>, page: number, request: R): { page: T
   const rows = new RowSet();
   rows.extend(slot.live!.changed);
   rows.extend(slot.live!.changedDuring);
+  // Live tail's: a grown page's rows past what it was read with weren't
+  // drawn: nothing to compare them with.
+  if (__LEVEL__ === 'tail') truncate(rows, Math.min(slot.live!.end!, slot.live!.readingEnd!));
   return rows.isEmpty() ? null : { page: slot.page, rows };
 }
 
@@ -304,7 +320,8 @@ export function invalidateRows<P extends Page>(of: TablePaging<P>, rows: Rows): 
   const table = insidePaging(of);
   const generation = invalidate(table.cache, rows);
   // One plan for every invalidation in the task; a drag still moving: its
-  // settle loads them with the rest.
+  // settle loads them with the rest. (`follow.ts`'s `setRows` keeps a copy:
+  // a function for both changes market watch's bundle.)
   if ((!table.dragging || table.dragResting) && !table.loadDeferred) {
     table.loadDeferred = true;
     queueMicrotask(() => {
@@ -358,8 +375,22 @@ export function takeRefreshed<P extends Page>(of: TablePaging<P>): Array<{ rows:
   const [start, end] = table.visible();
   return landed
     .sort(([a], [b]) => a - b)
-    .map(([page, generation]) => ({ rows: cache.rowsOf(page), generation }))
+    // Live tail's: a grown page's rows up to where it was read.
+    .map(([page, generation]) => ({ rows: __LEVEL__ === 'tail' ? heldRows(cache, page) : cache.rowsOf(page), generation }))
     .filter(({ rows: [first, last] }) => first < end && start < last);
+}
+
+/** Drops `set`'s rows at or past `end` (live tail's: a function, so no
+ *  other level's bundle carries it, as a method of `RowSet` would). */
+function truncate(set: RowSet, end: number): void {
+  set.ranges = set.ranges.flatMap(([start, stop]): Rows[] => (start < Math.min(stop, end) ? [[start, Math.min(stop, end)]] : []));
+}
+
+/** The rows `page` holds as drawn (live tail's): a grown page's up to where it was read. */
+function heldRows<T, R>(cache: CacheInside<T, R>, page: number): Rows {
+  const [start, end] = cache.rowsOf(page);
+  const slot = cache.slots.get(page) as Loaded<T, R>;
+  return [start, Math.min(end, slot.live!.end!)];
 }
 
 /** Sets the fixture's control on the paging's cache (tests only: `null` in the contender). */
@@ -397,7 +428,10 @@ export function loadWantedLive<P extends Page>(of: TablePaging<P>, wanted: reado
   if (ready.length === 0) return;
   for (const [page, request, data] of ready) land(table, page, request, data, wanted);
   table.onChange();
-  if (!table.dragging || table.dragResting) table.loadWanted(wanted);
+  // Live tail's: the pin moves on to the rows landed, and the new view's
+  // pages are wanted instead.
+  const pinned = __LEVEL__ === 'tail' ? pinAndWant(of) : null;
+  if (!table.dragging || table.dragResting) table.loadWanted(pinned ?? wanted);
 }
 
 /** `pageDone` with `live` (`page_done`): a source's refusal frees a
@@ -414,7 +448,10 @@ export function pageDoneLive<P extends Page>(of: TablePaging<P>, page: number, r
     cache.finished(request);
     cancelLive(table.cache, page, request, false);
   } else cache.failed(page, request, answer.error instanceof Error ? answer.error.message : String(answer.error));
-  if (!table.dragging || table.dragResting) table.loadWanted(wanted);
+  // Live tail's: the pin moves on to the rows landed (never during a drag),
+  // and the new view's pages are wanted instead.
+  const pinned = __LEVEL__ === 'tail' ? pinAndWant(of) : null;
+  if (!table.dragging || table.dragResting) table.loadWanted(pinned ?? wanted);
   table.onChange();
 }
 

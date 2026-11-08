@@ -51,7 +51,7 @@ A step's `following: <bool>` checks the flag after it, and `bottom: <row>` the e
 
 `controls` each change one `paging` field, or (`cache`, in every build) name a way of keeping pages wrongly: `keep-past-end` keeps the pages wholly past a shrink's new end, forgetting only a short last page; or (with `live`) a way of re-reading wrongly: `reread-unwanted` keeps stale pages outside `wanted` and reads them again, `restart-stale` cancels a page's read when it's invalidated during it and reads it anew, `drop-grown` forgets a short last page that grows, as the base does; or (with `follow`, its `follow` field) a way of following wrongly: `follow-at-end` takes following to be the view at the end, `follow-ignores-reader` never lets go for the reader, `pin-to-rows` keeps the view at the last row whether it's loaded or not, `top-first` reads the visible pages top first while following; or (with `sort`, its `sort` field) `keep-pages`, a sort that keeps every page and read. Every control must fail at least one scenario the build runs.
 
-The TanStack contender runs every scenario its levels build: the base's on each level, and the `live` ones and controls on its market level, but those with a `rows` step and `drop-grown` (its row count is fixed).
+The TanStack contender runs every scenario its levels build: the base's on each level; the `live` ones and controls on its market level, but those with a `rows` step and `drop-grown` (its row count is fixed there); and on its tail level every scenario but `sort`'s and those skipped under `live`, with the `rows`, `follow`, and `scroll_x` steps (`scroll_x` moves nothing there), each step's `following` and `bottom`, and every `cache`, `live`, and `follow` control.
 
 ## `sort.json`
 
