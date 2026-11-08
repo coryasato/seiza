@@ -16,11 +16,19 @@
 //   differ). The seam's view must hold rows of both laps, and the
 //   control (every time read with no lap's shift) must fail the tail's and
 //   the seam's;
+// - the same on both sides (when both run): the seam's and the first rows'
+//   cells, light and dark, byte-identical in their exact and shown text (a
+//   request either side cut with "…" by its exact text alone) and within
+//   one 8-bit step in their color; the columns at the same x and width;
 // - the marks (`docs/contender-contract.md`), at the default stop with
-//   `?measure`: `contender:tail` right after a presented frame
-//   (`presentedMark`, a sample over the window), `__contenderTail` at each
+//   `?measure`: `contender:tail` right after a presented frame on GPUI
+//   (`presentedMark`, a sample over the window), set in a frame's callback
+//   on TanStack (the commit that draws it), `__contenderTail` at each
 //   mark rising, each clock message on `__contender.batches` (`[rows,
-//   at]`) reached by a later tail mark; following on `__contenderFollowing`;
+//   at]`) reached by a later tail mark, its counts the clock's (each
+//   message's rows since the last the rate times the time between their
+//   stamps, within 2, at each side's receiver); following on
+//   `__contenderFollowing`;
 //   a wheel up lets go, and the state's top holds for a second as the rows
 //   grow; End follows again, the tail marks resuming;
 // - unmeasured, none of it: no tail mark, no batches, no tail global, no
@@ -35,21 +43,21 @@
 //
 // Usage: node apps/observatory/perf/tail.ts [--side gpui] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
-// data`; run `gpui-build` and `gpui-build tail` first, and the TanStack
-// side's builds once it builds the level.
+// data`; run `gpui-build`, `gpui-build tail`, `tanstack-build`, and
+// `tanstack-build tail` first.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { presentedMark, presentingTaskRecorder, waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
-import { LIVE_TAIL, BUILT, type Oklch } from '../contenders/scenarios.ts';
+import { LIVE_TAIL, BUILT } from '../contenders/scenarios.ts';
+import { CATCH_UP_MS } from '../contenders/tail/clock.ts';
 import { DATA_FILE, FILE_ROWS, SPAN_S } from '../contenders/tail/data.ts';
 import { timeText } from '../contenders/tall-table/tanstack/web/src/data/tail.ts';
-import { fromOklch, type Rgba } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import type { Contender, Side } from '../contenders/contract.ts';
-import { MARKS, dataPath, nativeDuckDB, perfDir, problems, serveGpui, serveTanstack, tanstackWebDir } from './harness.ts';
+import { MARKS, dataPath, mutedForeground, nativeDuckDB, perfDir, problems, serveGpui, serveTanstack, tailError } from './harness.ts';
 
 const label = option('label');
 const sideOption = option('side');
@@ -72,46 +80,71 @@ interface Cell {
 }
 interface ColumnBox {
   name: string;
+  x: number;
   width: number;
 }
 type Global = {
   __contender?: Contender & { cells?: Cell[]; columns?: ColumnBox[]; batches?: [rows: number, at: number][] };
   __contenderTail?: number;
   __contenderFollowing?: boolean;
-  __tailLog?: [at: number, tail: number][];
+  __tailLog?: [at: number, tail: number, inFrame: boolean][];
+  __inFrame?: number;
 };
 type Theme = 'light' | 'dark';
 
 const failures: string[] = [];
 const results: Record<string, unknown> = {};
 
-const rgb8 = (color: Rgba): number[] => [color.r, color.g, color.b].map((channel) => Math.round(channel * 255));
-const errorColor = (theme: Theme): number[] => rgb8(fromOklch(...(LIVE_TAIL.error[theme] as Oklch)));
 const near = (a: readonly number[], b: readonly number[], steps = 1) => a.length === b.length && a.every((channel, i) => Math.abs(channel - b[i]!) <= steps);
 
-/** `theme.css`'s muted foreground in each theme (generated from gpui-kit's
- *  theme, which the GPUI side draws). */
-const muted: Record<Theme, number[]> = (() => {
-  const css = readFileSync(join(tanstackWebDir, 'src/theme.css'), 'utf8');
-  const hex = [...css.matchAll(/--muted-foreground:\s*#([0-9a-f]{6})/g)].map(([, value]) => [0, 2, 4].map((i) => parseInt(value!.slice(i, i + 2), 16)));
-  if (hex.length < 2) throw new Error("theme.css: no muted foreground per theme");
-  return { light: hex[0]!, dark: hex[1]! };
-})();
+const muted = mutedForeground();
 const grouped = new Intl.NumberFormat('en-US', { useGrouping: true });
 
 /** Logs `__contenderTail` at each tail mark, as it stands then (set in the
- *  frame's task, before its mark). */
+ *  frame's task, before its mark), and whether the mark was set inside an
+ *  animation frame callback (every rAF callback wrapped). */
 function tailLog(): void {
   const g = globalThis as Global;
-  const log: [number, number][] = [];
+  const log: [number, number, boolean][] = [];
   g.__tailLog = log;
+  g.__inFrame = 0;
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (callback: FrameRequestCallback) =>
+    raf((time) => {
+      g.__inFrame!++;
+      try {
+        callback(time);
+      } finally {
+        g.__inFrame!--;
+      }
+    });
   const mark = performance.mark.bind(performance);
   performance.mark = (name: string, options?: PerformanceMarkOptions) => {
     const entry = mark(name, options);
-    if (name === 'contender:tail') log.push([entry.startTime, g.__contenderTail ?? 0]);
+    if (name === 'contender:tail') log.push([entry.startTime, g.__contenderTail ?? 0, g.__inFrame! > 0]);
     return entry;
   };
 }
+
+/** Each message's rows since the last against the rate times the time
+ *  between their stamps (a gap past the clock's catch-up cap skipped): the
+ *  largest difference, rows. The clock carries a fraction, so the one
+ *  clock's counts are within 1 of it, and a stamp taken after the count
+ *  within 2. */
+function clockDrift(batches: readonly (readonly [number, number])[], rate: number): number {
+  let worst = 0;
+  for (let i = 1; i < batches.length; i++) {
+    const [rows, at] = batches[i]!;
+    const [before, then] = batches[i - 1]!;
+    if (at - then > CATCH_UP_MS) continue;
+    worst = Math.max(worst, Math.abs(rows - before - (rate * (at - then)) / 1000));
+  }
+  return worst;
+}
+
+/** Each side's drawn cells by view and theme, and its columns, for the
+ *  comparison of the two sides. */
+const drawnBySide: Partial<Record<Side, { cells: Map<string, Cell[]>; columns: ColumnBox[] }>> = {};
 
 async function open(browser: Browser, url: string, query: string, options: { theme?: Theme; viewport?: { width: number; height: number }; init?: (() => void)[]; route?: (page: Page) => Promise<void> } = {}) {
   const context = await browser.newContext({ viewport: options.viewport ?? { width: 1440, height: 900 }, deviceScaleFactor: 1 });
@@ -179,7 +212,7 @@ async function compare(cells: Cell[], theme: Theme, noShift = false): Promise<st
       case 'status': {
         if (cell.exact !== String(want.status)) wrong.push(`${at}: ${cell.exact}, want ${want.status}`);
         const error = want.status >= 400;
-        if (error ? !color || !near(color, errorColor(theme)) : color !== null) wrong.push(`${at}: ${want.status} drawn ${color}, want ${error ? errorColor(theme) : 'no paint'}`);
+        if (error ? !color || !near(color, tailError(theme)) : color !== null) wrong.push(`${at}: ${want.status} drawn ${color}, want ${error ? tailError(theme) : 'no paint'}`);
         break;
       }
       case 'bytes': {
@@ -198,9 +231,40 @@ const servers: AppServer[] = [];
 const browser = await chromium.launch({ channel: 'chromium' });
 try {
   for (const side of sides) await runSide(side);
+  if (drawnBySide.gpui && drawnBySide.tanstack) bothSides(drawnBySide.gpui, drawnBySide.tanstack);
 } finally {
   await browser.close();
   for (const server of servers) await server.close();
+}
+
+/** The two sides' drawn cells at the same rows (the seam's and the first
+ *  rows', by the replay's jump), and their columns. */
+function bothSides(gpui: NonNullable<(typeof drawnBySide)['gpui']>, tanstack: NonNullable<(typeof drawnBySide)['gpui']>): void {
+  const out: Record<string, unknown> = {};
+  results.same = out;
+  const geometry = gpui.columns.map((column, i) => ({ column, other: tanstack.columns[i] }));
+  const columnsOff = geometry.filter(({ column, other }) => !other || other.name !== column.name || Math.abs(other.x - column.x) > 0.5 || Math.abs(other.width - column.width) > 0.5);
+  out.columns = { gpui: gpui.columns.map(({ name, x, width }) => [name, x, width]), off: columnsOff.length };
+  console.log(`\nboth sides: the columns ${gpui.columns.map(({ name, x, width }) => `${name} at ${x}, ${width}`).join('; ')}; ${columnsOff.length} off on TanStack`);
+  if (columnsOff.length || gpui.columns.length !== tanstack.columns.length) failures.push(`same: columns ${JSON.stringify(columnsOff)}`);
+  for (const [key, cells] of gpui.cells) {
+    if (key.startsWith('tail-')) continue;
+    const theirs = new Map((tanstack.cells.get(key) ?? []).map((cell) => [`${cell.row}:${cell.column}`, cell]));
+    let shared = 0;
+    const wrong: string[] = [];
+    for (const cell of cells) {
+      const other = theirs.get(`${cell.row}:${cell.column}`);
+      if (!other) continue;
+      shared++;
+      const cut = COLUMNS[cell.column] === 'request' && (cell.shown.endsWith('…') || other.shown.endsWith('…'));
+      const colors = cell.text === null || other.text === null ? cell.text === other.text : near(cell.text.slice(0, 3), other.text.slice(0, 3));
+      if (cell.exact !== other.exact || (!cut && cell.shown !== other.shown) || !colors) wrong.push(`row ${cell.row} ${COLUMNS[cell.column]}: ${cell.shown} ${cell.text} | ${other.shown} ${other.text}`);
+    }
+    out[key] = { shared, differ: wrong.length, examples: wrong.slice(0, 5) };
+    console.log(`both sides, ${key}: ${shared} cells at the same rows, ${wrong.length} differ`);
+    if (shared < cells.length / 2) failures.push(`same ${key}: ${shared} of ${cells.length} cells at rows both drew`);
+    if (wrong.length) failures.push(`same ${key}: ${wrong.slice(0, 5).join('; ')}`);
+  }
 }
 
 async function runSide(side: Side): Promise<void> {
@@ -218,6 +282,8 @@ async function runSide(side: Side): Promise<void> {
   // The replay's cells past a lap, the clock paused: the tail, the seam, the first rows.
   const top = LIVE_TAIL.stops.at(-1)!;
   const cellsOut: Record<string, unknown> = {};
+  const drawn: { cells: Map<string, Cell[]>; columns: ColumnBox[] } = { cells: new Map(), columns: [] };
+  drawnBySide[side] = drawn;
   for (const theme of ['light', 'dark'] as const) {
     const { context, page, found, end } = await open(browser, tail.url, `${scene}&stop=${top.id}&measure&cells&theme=${theme}`, { theme, viewport: { width: 2560, height: 1700 } });
     try {
@@ -240,6 +306,7 @@ async function runSide(side: Side): Promise<void> {
       // The columns at the canvas's widths, and the control: the table's by
       // kind (time 184, request 200, status 69, bytes 101 at 14 px text).
       const columns = await page.evaluate(() => (globalThis as Global).__contender?.columns ?? []);
+      drawn.columns = columns;
       const widthsOff = (want: readonly number[]) => columns.filter((column, i) => column.name !== COLUMNS[i] || Math.abs(column.width - want[i]!) > 0.5).map((column) => `${column.name} ${column.width}`);
       const off = columns.length === COLUMNS.length ? widthsOff(LIVE_TAIL.widths) : [`${columns.length} columns`];
       const control = widthsOff([184, 200, 69, 101]);
@@ -256,6 +323,7 @@ async function runSide(side: Side): Promise<void> {
         await go();
         await filledView(page);
         const cells = await page.evaluate(() => (globalThis as Global).__contender?.cells ?? []);
+        drawn.cells.set(`${view}-${theme}`, cells);
         const wrong = await compare(cells, theme);
         const control = view === 'first' ? null : (await compare(cells, theme, true)).length;
         const drawnRows = [...new Set(cells.map((cell) => cell.row))].sort((a, b) => a - b);
@@ -289,9 +357,12 @@ async function runSide(side: Side): Promise<void> {
         origin: performance.timeOrigin,
         following: (globalThis as Global).__contenderFollowing,
       }));
-      const sample = log.filter((_, i) => i % Math.max(1, Math.floor(log.length / 20)) === 0);
+      // Where each side sets the mark: GPUI's right after a presented frame
+      // (a sample), TanStack's in a frame's callback (every one).
+      const sample = side === 'gpui' ? log.filter((_, i) => i % Math.max(1, Math.floor(log.length / 20)) === 0) : log;
       let presented = 0;
-      for (const [time] of sample) if ((await presentedMark(page, time)).ok) presented++;
+      if (side === 'gpui') for (const [time] of sample) if ((await presentedMark(page, time)).ok) presented++;
+      if (side === 'tanstack') presented = log.filter(([, , inFrame]) => inFrame).length;
       const rising = log.every(([, rows], i) => i === 0 || rows >= log[i - 1]![1]);
       // Each message's count reached by a tail mark after it, soon; the
       // window's last messages may not be yet.
@@ -308,9 +379,12 @@ async function runSide(side: Side): Promise<void> {
       lags.sort((a, b) => a - b);
       const ordered = batches.every(([rows], i) => i === 0 || rows >= batches[i - 1]![0]);
       const lag = { p50: Number((lags[Math.floor(lags.length / 2)] ?? 0).toFixed(1)), max: Number((lags.at(-1) ?? 0).toFixed(1)) };
-      out.marks = { tail: log.length, sampled: sample.length, presented, rising, batches: batches.length, ordered, reached: lags.length, unreached, messageToMarkMs: lag, following };
-      console.log(`marks: ${log.length} tail marks, ${presented} of ${sample.length} sampled right after a presented frame, rising ${rising}; ${batches.length} clock messages (in order ${ordered}), ${lags.length} reached by a tail mark (p50 ${lag.p50}, max ${lag.max} ms), ${unreached} not; following ${following}`);
-      if (presented < sample.length) fail(`marks: ${sample.length - presented} tail marks not right after a presented frame`);
+      const where = side === 'gpui' ? 'sampled right after a presented frame' : 'set in a frame callback';
+      const drift = Number(clockDrift(batches, LIVE_TAIL.stops.find((stop) => stop.id === LIVE_TAIL.defaultStop)!.rate).toFixed(2));
+      out.marks = { tail: log.length, sampled: sample.length, presented, rising, batches: batches.length, ordered, reached: lags.length, unreached, messageToMarkMs: lag, clockDrift: drift, following };
+      console.log(`marks: ${log.length} tail marks, ${presented} of ${sample.length} ${where}, rising ${rising}; ${batches.length} clock messages (in order ${ordered}, the clock's counts within ${drift} rows), ${lags.length} reached by a tail mark (p50 ${lag.p50}, max ${lag.max} ms), ${unreached} not; following ${following}`);
+      if (presented < sample.length) fail(`marks: ${sample.length - presented} tail marks not ${where}`);
+      if (drift > 2) fail(`marks: a clock message ${drift} rows off the rate between stamps`);
       if (!rising || !ordered) fail(`marks: the tail falling (${rising}) or the messages out of order (${ordered})`);
       if (!batches.length || unreached > 2) fail(`marks: ${batches.length} messages, ${unreached} not reached within ${REACHED_MS} ms`);
       if (following !== true) fail(`marks: following ${following} under the feed`);

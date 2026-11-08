@@ -404,6 +404,30 @@
       ]
     },
     {
+      "id": "tanstack-tail-first-paint-js",
+      "label": "TanStack contender at the tail level: first-paint JS (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.firstPaintJsOverBaseline",
+        "baseline": "levels.tail.tanstackJsBrotliKiB.firstPaint"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes-tail.json",
+            "path": "firstPaintJsBrotliKiB"
+          },
+          {
+            "baseline": "levels.tail.tanstackJsBrotliKiB.firstPaint"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
       "id": "tanstack-data-layer-js",
       "label": "TanStack contender: data layer and Arrow, after first paint (brotli)",
       "unit": "KiB",
@@ -468,6 +492,30 @@
           },
           {
             "baseline": "levels.market.tanstackJsBrotliKiB.dataLayer"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "tanstack-tail-data-layer-js",
+      "label": "TanStack contender at the tail level: data layer and Arrow, after first paint (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.dataLayerJsOverBaseline",
+        "baseline": "levels.tail.tanstackJsBrotliKiB.dataLayer"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes-tail.json",
+            "path": "dataLayerJsBrotliKiB"
+          },
+          {
+            "baseline": "levels.tail.tanstackJsBrotliKiB.dataLayer"
           }
         ]
       ],

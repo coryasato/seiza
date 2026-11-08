@@ -9,8 +9,9 @@
 //   each contender loads its own copy) is recorded beside them, not
 //   budgeted (`engine-files` records whether it's shared).
 // The CSS and the HTML are recorded too, and on market watch's level the
-// feed's worker (`assets/worker-*.js`, which the market table starts once
-// it fills: in no import graph, as Vite emits a worker as an asset). The chunks and their imports come
+// feed's worker, on live tail's the clock's (`assets/worker-*.js`, which
+// the table starts once it fills or opens: in no import graph, as Vite
+// emits a worker as an asset). The chunks and their imports come
 // from Vite's build manifest (`dist/.vite/manifest.json`), the graph the
 // build itself resolved.
 //
@@ -104,7 +105,7 @@ const result = {
 console.log(
   `TanStack contender${build ? ` at the${build} level` : ''}, brotli: first-paint JS ${result.firstPaintJsBrotliKiB} KiB (${Object.keys(firstPaintSizes).join(', ')}); ` +
     `data layer ${result.dataLayerJsBrotliKiB} KiB (${Object.keys(dataLayerSizes).join(', ')}); engine chunk ${result.engineJsBrotliKiB} KiB; ` +
-    `CSS ${result.cssBrotliKiB} KiB; HTML ${result.htmlBrotliKiB} KiB${workers.length ? `; the feed's worker ${result.workerJsBrotliKiB} KiB` : ''}`,
+    `CSS ${result.cssBrotliKiB} KiB; HTML ${result.htmlBrotliKiB} KiB${workers.length ? `; the ${level === 'tail' ? "clock's" : "feed's"} worker ${result.workerJsBrotliKiB} KiB` : ''}`,
 );
 
 // The local date, as every results file's.

@@ -55,11 +55,22 @@
 //   light theme, the tooltip as the table's under `format`: a cell whose
 //   fitted text the format rounded (a Change % at 2 decimals) shows its
 //   exact text, one it only dressed (a Last at its decimals) shows none.
+// - The tail level (all three; live tail at its default stop, `?measure`):
+//   following under the clock (`__contenderFollowing`, the tail marks
+//   rising, the view's bottom at the tail); a wheel up lets go, and the top
+//   holds as the rows grow, with no tail mark; End follows again, the tail
+//   marks resuming; with the clock paused (the end recedes at the rate
+//   while let go), let go again and a wheel down that reaches the end
+//   follows again. Then, the clock paused and the view jumped to the file's
+//   first error status (`?cells`), light and dark: the
+//   time in the muted foreground (`theme.css`'s), an error status in the
+//   scenario's error color (within one 8-bit step), any other status and
+//   the request and bytes unpainted.
 //
 // Usage: node apps/observatory/perf/tanstack-parity.ts [--browsers chromium,firefox,webkit] [--firefox] [--label <name>]
 // Needs `just observatory data`; run `just observatory tanstack-build`,
-// `tanstack-build wide`, `tanstack-build market`, `gpui-build`, and
-// `gpui-build wide` first.
+// `tanstack-build wide`, `tanstack-build market`, `tanstack-build tail`,
+// `gpui-build`, and `gpui-build wide` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -69,10 +80,11 @@ import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { ROW_HEIGHT } from '../contenders/tall-table/tanstack/web/src/layout.ts';
 import { PAGING } from '../contenders/tall-table/tanstack/web/src/data/paging.ts';
 import { TOOLTIP_DELAY, TOOLTIP_GRACE } from '../contenders/tall-table/tanstack/web/src/tooltip.ts';
-import { MARKET_WATCH, WIDE_SHEET, type Oklch } from '../contenders/scenarios.ts';
+import { LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Oklch } from '../contenders/scenarios.ts';
 import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COLUMNS } from '../contenders/market/feed.ts';
-import { MARKS, dataFile, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
+import { MARKS, dataFile, dataPath, mutedForeground, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack, tailError } from './harness.ts';
+import { DATA_FILE } from '../contenders/tail/data.ts';
 
 const PORT = 4319;
 const GPUI_PORT = 4320;
@@ -81,6 +93,8 @@ const WIDE_PORT = 4351;
 const GPUI_WIDE_PORT = 4352;
 /** The market level's build. */
 const MARKET_PORT = 4364;
+/** The tail level's build. */
+const TAIL_PORT = 4374;
 /** The row height (both contenders': `layout.ts` pins it to GPUI's), the
  *  tooltip's delay and grace, and the drag settle, from the contender. */
 const ROW = ROW_HEIGHT;
@@ -1039,6 +1053,111 @@ async function borderPixel(page: Page): Promise<number[]> {
     output.market = marketOut;
   } finally {
     await market?.close();
+  }
+}
+
+// --- the tail level: following, letting go, coming back; the time and an error's color ---
+
+{
+  let tail: Awaited<ReturnType<typeof serveTanstack>> | null = null;
+  try {
+    tail = await serveTanstack(TAIL_PORT, undefined, 'tail');
+    const query = `?scenario=${LIVE_TAIL.id}&stop=${LIVE_TAIL.defaultStop}&measure&cells`;
+    type TailGlobal = {
+      __contender?: { state: { top: number; rows: number; first: number; end: number } | null; pause?: (on: boolean) => void; replay: { jump(fraction: number): Promise<void> }; cells?: { row: number; column: number; exact: string; text: number[] | null }[] };
+      __contenderFollowing?: boolean;
+      __contenderTail?: number;
+    };
+    const muted = mutedForeground();
+    const close = (a: readonly number[], b: readonly number[], steps: number) => a.length >= 3 && b.every((channel, i) => Math.abs(channel - a[i]!) <= steps);
+    const read = (page: Page) =>
+      page.evaluate(() => {
+        const g = globalThis as TailGlobal;
+        return { following: g.__contenderFollowing, tail: g.__contenderTail ?? 0, marks: performance.getEntriesByName('contender:tail', 'mark').length, state: g.__contender?.state ?? null };
+      });
+    const firstError = Number((await rowsOf(`SELECT min(file_row_number) FROM read_parquet('${dataPath(DATA_FILE)}', file_row_number = true) WHERE status >= 400`))[0]![0]);
+    const tailOut: Record<string, unknown> = {};
+    for (const name of browsers) {
+      const browser = await launch(name);
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          const at = `${name} tail ${theme}`;
+          const context = await protocolContext(browser, { dpr: name === 'chromium' ? 2 : 1 });
+          const page = await context.newPage();
+          await page.emulateMedia({ colorScheme: theme });
+          const found = problems(page);
+          await page.goto(`${tail.url}${query}&theme=${theme}`);
+          await waitMark(page, MARKS.filled, 0, 60_000);
+          await page.waitForFunction(() => ((globalThis as TailGlobal).__contenderTail ?? 0) > 2000, null, { timeout: 30_000, polling: 50 });
+          let follow: Record<string, unknown> | null = null;
+          if (theme === 'light') {
+            // Following under the clock.
+            const fed = await read(page);
+            check(fed.following === true && fed.state !== null && fed.state.end >= fed.tail - 1, `${at}: under the clock following ${fed.following}, the view ${fed.state?.first}–${fed.state?.end}, the tail ${fed.tail}`);
+            // A wheel up lets go; the top holds as the rows grow.
+            await page.mouse.move(720, 450);
+            await page.mouse.wheel(0, -300);
+            const letGo = await page.waitForFunction(() => (globalThis as TailGlobal).__contenderFollowing === false, null, { timeout: 5_000 }).then(() => true, () => false);
+            await page.waitForTimeout(300);
+            const held = await read(page);
+            await page.waitForTimeout(1000);
+            const after = await read(page);
+            check(letGo && held.state?.top === after.state?.top && (after.state?.rows ?? 0) > (held.state?.rows ?? 0) && after.marks === held.marks, `${at}: a wheel up: following ${!letGo}, top ${held.state?.top} → ${after.state?.top}, rows ${held.state?.rows} → ${after.state?.rows}, ${after.marks - held.marks} tail marks while let go`);
+            // Let go again, then End follows again, under the clock.
+            await page.waitForTimeout(500);
+            const before = await read(page);
+            await page.keyboard.press('End');
+            const ended = await page.waitForFunction(() => (globalThis as TailGlobal).__contenderFollowing === true, null, { timeout: 5_000 }).then(() => true, () => false);
+            await page.waitForTimeout(1000);
+            const afterEnd = await read(page);
+            check(before.following === false && ended && afterEnd.marks > before.marks, `${at}: End: let go ${before.following === false}, following ${ended}, ${afterEnd.marks - before.marks} tail marks after it`);
+            // A wheel down that reaches the end follows again: the clock
+            // paused, since the end recedes at the rate while let go.
+            await page.evaluate(() => (globalThis as TailGlobal).__contender?.pause?.(true));
+            await page.waitForTimeout(300);
+            await page.mouse.wheel(0, -300);
+            await page.waitForFunction(() => (globalThis as TailGlobal).__contenderFollowing === false, null, { timeout: 5_000 }).catch(() => {});
+            await page.waitForTimeout(500);
+            const away = await read(page);
+            for (let i = 0; i < 3; i++) await page.mouse.wheel(0, 400);
+            const wheeledBack = await page.waitForFunction(() => (globalThis as TailGlobal).__contenderFollowing === true, null, { timeout: 5_000 }).then(() => true, () => false);
+            check(away.following === false && wheeledBack, `${at}: a wheel down to the end (the clock paused): let go ${away.following === false}, following ${wheeledBack}`);
+            follow = { fed: fed.following, letGo, heldTop: held.state?.top === after.state?.top, rowsGrew: (after.state?.rows ?? 0) - (held.state?.rows ?? 0), wheeledBack, endFollowed: ended };
+          }
+          // The colors: the clock paused, the view at the file's first
+          // error status (from native DuckDB), the rows due by then past it.
+          await page.evaluate(() => (globalThis as TailGlobal).__contender?.pause?.(true));
+          await page.waitForTimeout(300);
+          const rows = (await read(page)).state?.rows ?? 0;
+          await page.evaluate((fraction) => (globalThis as TailGlobal).__contender!.replay.jump(fraction), (firstError + 0.5) / rows);
+          await page.waitForTimeout(300);
+          const cells = await page.evaluate(() => (globalThis as TailGlobal).__contender?.cells ?? []);
+          const wrong: string[] = [];
+          let errors = 0;
+          for (const cell of cells) {
+            const color = cell.text?.slice(0, 3) ?? null;
+            const where = `row ${cell.row} column ${cell.column} ${cell.exact}`;
+            if (cell.column === 0 && !(color && close(color, muted[theme], 1))) wrong.push(`${where}: ${color}, not muted`);
+            if (cell.column === 2 && Number(cell.exact) >= 400) {
+              errors++;
+              if (!(color && close(color, tailError(theme), 1))) wrong.push(`${where}: ${color}, not the error color`);
+            } else if (cell.column !== 0 && color !== null) wrong.push(`${where}: painted ${color}`);
+          }
+          check(cells.length > 100 && errors > 0, `${at}: ${cells.length} cells at the first rows, ${errors} error statuses`);
+          check(wrong.length === 0, `${at}: ${wrong.slice(0, 4).join('; ')}`);
+          const real = found.filter((problem) => !KNOWN_WARNINGS.some((warning) => warning.test(problem)));
+          for (const problem of real) check(false, `${at}: ${problem}`);
+          tailOut[`${name}-${theme}`] = { follow, cells: cells.length, errors, wrong: wrong.length };
+          console.log(`${at}: ${follow ? `following ${follow.fed}, a wheel up let go ${follow.letGo} (top held ${follow.heldTop} as ${follow.rowsGrew} rows came), a wheel to the end followed ${follow.wheeledBack}, End followed ${follow.endFollowed}; ` : ''}${cells.length} cells, the time muted, ${errors} error statuses in the error color${wrong.length ? `; ${wrong.length} off` : ''}`);
+          await context.close();
+        }
+      } finally {
+        await browser.close();
+      }
+    }
+    output.tail = tailOut;
+  } finally {
+    await tail?.close();
   }
 }
 

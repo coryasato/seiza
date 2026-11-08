@@ -77,12 +77,12 @@ gpui-extensions:
 
 # The TanStack contender (contenders/tall-table/tanstack/): its Vite dev
 # server with COOP/COEP, at /observatory/contenders/tall-table/tanstack/
-# (a level's under it: `wide`, `market`), with the data files by range.
+# (a level's under it: `wide`, `market`, `tail`), with the data files by range.
 tanstack-dev level="base": tanstack-extensions
     npm run dev --workspace @seiza/observatory-tall-table-tanstack {{ if level == "base" { "" } else { "-- --mode " + level } }}
 
 # The TanStack contender's release build at a feature level (`base`,
-# `wide`, `market`) into web/dist/ or web/dist-<level>/, then asset sizes. DuckDB's
+# `wide`, `market`, `tail`) into web/dist/ or web/dist-<level>/, then asset sizes. DuckDB's
 # bundles and extensions land in its duckdb/, the same files as the GPUI
 # contender's (`engine-files` checks it). The build fails if Arrow or
 # DuckDB's JS reaches a first-paint chunk (contenders/engine.ts).
@@ -117,7 +117,10 @@ tanstack-view *args:
 # press, the drag settle, the tooltip, and the focus ring, in Chromium,
 # Firefox, and WebKit; at the wide level the pinned edge and the sideways
 # scroll; at the market level the sign colors and the flash (its colors,
-# its columns, its fade ending), light and dark. --firefox adds a headed
+# its columns, its fade ending), light and dark; at the tail level
+# following, letting go on a wheel up, coming back at End and at a wheel
+# to the end, the time muted and an error status's color, light and
+# dark. --firefox adds a headed
 # Firefox's track press (classic scrollbars); --browsers, --label. Needs
 # `just observatory data`; run `just observatory builds` first.
 tanstack-parity *args:
@@ -131,17 +134,20 @@ tanstack-parity *args:
 # and Element Timing only with ?measure, the replay hooks, the marks
 # relayed from a frame), in Chromium; and at the market level (the feed's
 # batches in order, the refreshed marks, the feed ended by a reopen, only
-# with ?measure). --label writes perf/results/. Needs `just observatory
-# data`; run `just observatory tanstack-build` and `tanstack-build market`
-# first.
+# with ?measure) and the tail level (the clock's messages in order, the
+# tail marks rising, the pause, the replay's jump letting go and its fling
+# following again, a reopen starting the replay over, only with
+# ?measure). --label writes perf/results/. Needs `just observatory data`;
+# run `just observatory tanstack-build`, `tanstack-build market`, and
+# `tanstack-build tail` first.
 tanstack-contract *args:
     node {{app_dir}}/perf/tanstack-contract.ts {{args}}
 
 # The TanStack contender's JS from its release build, brotli: the
 # first-paint JS (the entry and its static imports) and the data layer with
 # Arrow (after first paint), each against perf/baseline.json (--check), and
-# the engine's chunk, CSS, and HTML recorded (and the feed's worker, on the
-# market level). --level wide|market: that build, against its own baseline
+# the engine's chunk, CSS, and HTML recorded (and the feed's worker on the
+# market level, the clock's on the tail level). --level wide|market|tail: that build, against its own baseline
 # (perf/baseline.json's `levels`), label tanstack-sizes-<level>. --label
 # writes perf/results/; --write-baseline records both in
 # perf/baseline.json. Run `just observatory tanstack-build` (and
@@ -383,18 +389,19 @@ wide *args:
 market *args:
     node {{app_dir}}/perf/market.ts {{args}}
 
-# The contenders at the tail level, on their release builds (the TanStack
-# side once it builds the level): the replay's cells past a lap at the top
+# Both contenders at the tail level, on their release builds: the replay's cells past a lap at the top
 # stop, the clock paused (the tail, a lap's seam, the first rows: each
 # cell against native DuckDB's row of the file, the time the log's text
 # moved on by its laps and muted, an error status in the error color, the
 # bytes grouped; the columns at the scenario's widths; light and dark;
 # the controls, no lap's shift and the kinds' widths); the tail
-# marks right after presented frames, each clock message reached; a wheel
+# marks right after presented frames (GPUI) or set in a frame's callback
+# (TanStack), each clock message reached, its counts the rate's; a wheel
 # up letting go and holding, End following again; nothing logged without
 # ?measure; a replay open starting over; the worker or the whole file 404
 # failing the view; an unknown stop or scenario, and live tail on the base
-# build, failing the load. --side, --label. Run `builds` first.
+# build, failing the load; both sides' cells at a seam and the first rows
+# the same, and their columns. --side, --label. Run `builds` first.
 tail *args:
     node {{app_dir}}/perf/tail.ts {{args}}
 

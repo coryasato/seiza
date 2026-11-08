@@ -15,15 +15,16 @@ import { createElement as h } from 'react';
 import { flushSync } from 'react-dom';
 import { hydrateRoot } from 'react-dom/client';
 import { createBridge } from '@seiza/duckdb/bridge';
-import { MARKS, followPageTheme, measuring, publishContender, readingOut } from '../../../../contract.ts';
+import { MARKS, followPageTheme, measuring, publishContender, readingOut, type Contender } from '../../../../contract.ts';
 import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
-import { pickScenario, type MarketScenario, type RateStop } from '../../../../scenarios.ts';
+import { pickScenario, type MarketScenario, type RateStop, type RowsStop, type TailScenario } from '../../../../scenarios.ts';
 import { replay } from './contract.ts';
 import { heatCss, wideScene, type WideScene } from './scene.ts';
 import { App, FIRST_SCREEN, type Load } from './view.ts';
 // The market level's, after the view's: imported first, it'd move the
 // other levels' modules in their bundles.
 import { marketCss } from './market.ts';
+import { tailCss } from './tail.ts';
 import type { TablePage } from './data/table.ts';
 import './theme.css';
 import './view.css';
@@ -67,6 +68,18 @@ if (__LEVEL__ === 'market' && !(picked instanceof Error)) {
     document.head.append(colors);
   }
 }
+/** What the tail level replays: the scenario at the stop's rate. A
+ *  scenario of another level fails the load, as an unknown id does. */
+let tail: { scenario: TailScenario; stop: RowsStop } | undefined;
+if (__LEVEL__ === 'tail' && !(picked instanceof Error)) {
+  if (picked.scenario.level !== 'tail' || !('rate' in picked.stop)) unset = new Error(`the tail level can't set ${picked.scenario.id} at ${picked.stop.id}`);
+  else {
+    tail = { scenario: picked.scenario, stop: picked.stop };
+    const colors = document.createElement('style');
+    colors.textContent = tailCss(picked.scenario);
+    document.head.append(colors);
+  }
+}
 /** Why this frame opens nothing, if it doesn't. */
 const failure = picked instanceof Error ? picked : unset;
 
@@ -99,6 +112,13 @@ let shownPaging: { close(): void } | null = null;
 type DataLayer = typeof import('./data/table.ts') & typeof import('./data/paging.ts');
 /** The market level's data layer (`data/quotes.ts`), loaded with the rest. */
 let marketLayer: Promise<typeof import('./data/quotes.ts')> | null = null;
+/** The tail level's data layer (`data/replay.ts`), loaded with the rest. */
+let tailLayer: Promise<typeof import('./data/replay.ts')> | null = null;
+/** The tail level's clock, paused or not (`__contender.pause`, `?measure`):
+ *  held by a clock started later too (a reopen's). */
+let clockPaused = false;
+/** The shown table's clock, for the pause. */
+let shownClock: { pause(on: boolean): void } | null = null;
 /** The market level's feed starts once a page: a table opened again (the
  *  replay's `open`) gets none, since its store starts over and would miss
  *  the ticks sent meanwhile. */
@@ -119,6 +139,7 @@ function startEngine(): Promise<Engine> {
   if (!engine) {
     const started = (async () => {
       if (__LEVEL__ === 'market') marketLayer = import('./data/quotes.ts');
+      if (__LEVEL__ === 'tail') tailLayer = import('./data/replay.ts');
       const [table, paging] = await Promise.all([import('./data/table.ts'), import('./data/paging.ts')]);
       const data = { ...table, ...paging };
       const queries = new data.Queries(bridge);
@@ -161,6 +182,7 @@ async function openFile(): Promise<number> {
   try {
     const file = await data.openParquet(bridge, queries, parquet, FILE, dataUrl);
     if (__LEVEL__ === 'market') return await openMarket(data, file);
+    if (__LEVEL__ === 'tail') return await openTail(data, queries, file);
     const paging = new data.TablePaging<TablePage>(file.rows, file.source);
     shownPaging = paging;
     // The first screen is gone: its paint, if it never came (a hidden
@@ -235,6 +257,49 @@ async function openMarket(data: DataLayer, file: Awaited<ReturnType<DataLayer['o
   return id;
 }
 
+/**
+ * The tail level's open (`openFile`'s, once the file's summary is read by
+ * range): the file checked as the log's, its table at 0 rows following,
+ * every page read through the replay's page SQL (`data/replay.ts`), shown;
+ * then the file fetched whole and registered, and only then the clock's
+ * worker started, its counts growing the rows. The fetch, the
+ * registration, or the worker failing replaces the table with the failure,
+ * marked `contender:failed`. The next open (the replay's `open`) ends the
+ * clock: the replay starts over.
+ */
+async function openTail(data: DataLayer, queries: Engine['queries'], file: Awaited<ReturnType<DataLayer['openParquet']>>): Promise<number> {
+  const layer = await tailLayer!;
+  const wrong = layer.checkFile(file.columns, file.rows);
+  if (wrong) throw new Error(wrong);
+  const paging = new data.TablePaging<TablePage>(file.rows, layer.tailSource(queries));
+  let cells: Awaited<ReturnType<typeof layer.tailTable>>;
+  try {
+    cells = await layer.tailTable(tail!.scenario, tail!.stop, paging, file.columns, bridge, measuring());
+  } catch (error) {
+    paging.close();
+    throw error;
+  }
+  cells.pause(clockPaused);
+  shownClock = cells;
+  shownPaging = {
+    close: () => {
+      cells.stop();
+      paging.close();
+    },
+  };
+  firstPixels.disconnect();
+  const id = ++opens;
+  show({ kind: 'open', id, rows: paging.rows, columns: file.columns, paging, scene: cells });
+  cells.watch((why) => {
+    if (id !== opens) return;
+    shownPaging?.close();
+    shownPaging = null;
+    show({ kind: 'waiting', status: why, failed: true });
+    performance.mark(MARKS.failed);
+  });
+  return id;
+}
+
 /** Opens the file once nothing else is: after the hydration commit and
  *  any open still running, so the replay's `open` never races the first. */
 function openAfter(): Promise<number> {
@@ -252,6 +317,12 @@ function openAfter(): Promise<number> {
 // fails at once rather than wait for a fill.
 const unknown = (): Promise<never> => Promise.reject(failure);
 publishContender('tanstack', failure ? { open: unknown, fling: unknown, jump: unknown } : replay(openAfter));
+// The tail level's scroll back's control, `?measure` only: the same gesture without the feed.
+if (__LEVEL__ === 'tail' && !failure && measuring())
+  (globalThis as { __contender?: Contender }).__contender!.pause = (on) => {
+    clockPaused = on;
+    shownClock?.pause(on);
+  };
 
 /**
  * `contender:first-pixels` at the prerendered screen's paint: its line's

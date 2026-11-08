@@ -1,0 +1,12 @@
+/* Live tail's table (src/tail.ts): the time in the muted foreground, as
+   the GPUI side's text ramp draws it, and an error status (4xx and 5xx) in
+   the scenario's error color, `tailCss`'s variable. Imported only by the
+   tail level's build (`./level.css`, `vite.config.ts`). */
+
+.cell.muted { color: var(--muted-foreground); }
+.cell.error { color: var(--error); }
+
+/* The rows change under the view every frame as they grow: the browser's
+   scroll anchoring would move the scroller to keep a row in place, behind
+   the scroll model's back. The model places the content itself. */
+.scroller { overflow-anchor: none; }

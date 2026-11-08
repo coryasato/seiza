@@ -22,6 +22,8 @@ import { SCROLL, ScaledScroller } from './scroll.ts';
 import { CellTooltip } from './tooltip.ts';
 import { EdgeLine, WideHead, WideRow, cellElement, cellRect, publishCells, sheetStyle, useFramePaint, useSheet } from './wide.ts';
 import { FlashTurns, MarketRow, publishMarketCells, type MarketCells } from './market.ts';
+import { TailReader, TailRow, drawnRows, publishTailCells, renotify, setContractGutter, setModelRows, type TailCells } from './tail.ts';
+import { isFollowing, noteTailDrawn } from './data/follow.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -32,8 +34,8 @@ export type Load =
   | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<TablePage>; scene?: LevelScene };
 
 /** What a feature level hands the table: the wide sheet's scene at its
- *  stop, market watch's cells (`main.ts`). */
-export type LevelScene = WideScene | MarketCells;
+ *  stop, market watch's cells, live tail's cells (`main.ts`). */
+export type LevelScene = WideScene | MarketCells | TailCells;
 
 /** The first screen: the build prerenders it into the page's HTML
  *  (`vite.config.ts`), and the page hydrates it. */
@@ -118,7 +120,11 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   // The market level's cells, laid out by the data layer (a build constant,
   // so on another level it's nothing).
   const market = __LEVEL__ === 'market' ? (given as MarketCells | undefined) : undefined;
-  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : __LEVEL__ === 'market' && market ? market.columns : layOutAll(fileColumns)), [fileColumns, scene]);
+  // Live tail's cells, and its rows: the paging's, which the clock grows
+  // (the open's count is 0), so the gutter grows with them.
+  const tail = __LEVEL__ === 'tail' ? (given as TailCells | undefined) : undefined;
+  if (__LEVEL__ === 'tail') rows = paging.rows;
+  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : __LEVEL__ === 'market' && market ? market.columns : __LEVEL__ === 'tail' && tail ? tail.columns : layOutAll(fileColumns)), [fileColumns, scene]);
   const gutter = gutterWidth(rows, sizes);
   const width = gutter + columns.reduce((sum, column) => sum + column.width, 0);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -140,7 +146,9 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   // The market level's flashes' turns (a build constant, so the hooks run
   // the same every render).
   const turns = __LEVEL__ === 'market' ? useMemo(() => new FlashTurns(), [paging]) : null;
-  const probedCells = __LEVEL__ === 'market' ? useMemo(probingCells, []) : false;
+  const probedCells = __LEVEL__ === 'market' || __LEVEL__ === 'tail' ? useMemo(probingCells, []) : false;
+  // Live tail's reader: the scroller's moves deciding following, the pin moving the scroller.
+  const readerRef = __LEVEL__ === 'tail' ? useRef<TailReader | null>(null) : null;
 
   // Before the virtualizer's own layout effects: it subscribes to the model.
   useLayoutEffect(() => {
@@ -200,15 +208,28 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
           }
         : __LEVEL__ === 'market' && probingCells()
           ? () => publishMarketCells(scroller, columns)
-          : undefined;
+          : __LEVEL__ === 'tail' && probingCells()
+            ? () => publishTailCells(scroller, columns)
+            : undefined;
     const contract = new TableContract(open, paging, model, scroller, columns, gutter, measured, rowHeight, probe);
     contractRef.current = contract;
     // Subscribed before the virtualizer, whose render checks.
     model.subscribe(() => contract.moveStarted());
     // The first viewport is the open's: it loads the first pages.
     paging.setViewportRows(model.viewport / rowHeight);
-    const unsubscribe = model.subscribe((v) => paging.moveTopTo(v / rowHeight));
+    // Live tail's: the reader's moves decide following before the paging moves.
+    if (__LEVEL__ === 'tail') readerRef!.current = new TailReader(paging, model, scroller, rowHeight);
+    const unsubscribe = model.subscribe(__LEVEL__ === 'tail' ? (v) => readerRef!.current!.moved(v) : (v) => paging.moveTopTo(v / rowHeight));
     const resized = new ResizeObserver(() => {
+      // Live tail's: the resize is the view's own move; the paging keeps
+      // its top, or while following its bottom, and the scroller follows.
+      if (__LEVEL__ === 'tail') {
+        const reader = readerRef!.current!;
+        reader.asOwn(() => model.resize());
+        paging.setViewportRows(model.viewport / rowHeight);
+        reader.sync();
+        return;
+      }
       model.resize();
       paging.setViewportRows(model.viewport / rowHeight);
     });
@@ -220,18 +241,22 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       contractRef.current = null;
       resized.disconnect();
       unsubscribe();
+      if (__LEVEL__ === 'tail') {
+        readerRef!.current?.destroy();
+        readerRef!.current = null;
+      }
       tooltipRef.current?.destroy();
       tooltipRef.current = null;
       model.destroy();
       modelRef.current = null;
     };
-  }, [open, rows, paging, columns, gutter, measured, rowHeight, scene]);
+  }, [open, __LEVEL__ === 'tail' ? 0 : rows, paging, columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
 
   // The contract after each commit, and after each move that rendered
   // nothing (the rows were drawn already). Subscribed after the
   // virtualizer, whose subscriber renders first.
   useLayoutEffect(() => contractRef.current?.check());
-  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, rows, paging, columns, gutter, measured, rowHeight, scene]);
+  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, __LEVEL__ === 'tail' ? 0 : rows, paging, columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
   // The table gone (a new open replaced it): its reads and timers stop.
   useEffect(() => () => paging.close(), [paging]);
 
@@ -284,12 +309,75 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     });
   }
 
+  // Live tail's: a landing (a page or a re-read, the pin moving on) and
+  // each count the clock sets draw once a frame, in the frame's callback:
+  // the model takes the rows and the scroller follows the paging's top
+  // (the pin), then the rows render. With `?measure`, the commit whose
+  // drawn tail grew while following (every visible row drawn with its
+  // values) sets `__contenderTail` and marks `contender:tail`, Row shown
+  // in's mark, and following is on `__contenderFollowing`
+  // (`docs/contender-contract.md`).
+  if (__LEVEL__ === 'tail') {
+    useEffect(() => {
+      let frame = 0;
+      const draw = () => {
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          const model = modelRef.current;
+          const reader = readerRef!.current;
+          // A shrink's clamp is the view's own move, never the reader's.
+          if (model && reader) reader.asOwn(() => setModelRows(model, paging.rows));
+          reader?.sync();
+          // The window of rows TanStack Virtual is given moves with the
+          // rows: it hears the model again (and renders, if the window
+          // moved), else the rows render here.
+          const drawn = rendered.current;
+          if (model && windowBase() !== drawn.window) renotify(model);
+          if (rendered.current === drawn) flushSync(rerender);
+        });
+      };
+      paging.onChange = () => {
+        landed.current = true;
+        draw();
+      };
+      const global = globalThis as { __contenderFollowing?: boolean };
+      if (tail) {
+        tail.rows = draw;
+        tail.following = (on) => {
+          if (measured) global.__contenderFollowing = on;
+        };
+      }
+      if (measured) global.__contenderFollowing = isFollowing(paging);
+      return () => {
+        cancelAnimationFrame(frame);
+        paging.onChange = () => {};
+        if (tail) tail.rows = tail.following = () => {};
+      };
+    }, [paging]);
+    useLayoutEffect(() => {
+      if (contractRef.current) setContractGutter(contractRef.current, gutter);
+      const model = modelRef.current;
+      if (!measured || !model) return;
+      // The rows this commit drew (the model's), not the paging's, which a
+      // landing's pin can move ahead of them until the next draw.
+      const [first, end] = drawnRows(model, rowHeight);
+      if (end <= first) return;
+      for (let row = first; row < end; row++) if (paging.row(row).kind !== 'loaded') return;
+      if (!noteTailDrawn(paging, end)) return;
+      (globalThis as { __contenderTail?: number }).__contenderTail = end;
+      performance.mark(MARKS.tail);
+    });
+  }
+
   // The window's base and the content's, as last rendered.
   const rendered = useRef({ window: 0, content: 0 });
   const windowBase = (): number => {
     const model = modelRef.current;
     if (!model) return 0;
-    return Math.max(0, Math.min(rows - WINDOW_ROWS, model.base - WINDOW_ROWS / 2));
+    // Live tail's rows grow: the paging's count, not this render's (the
+    // virtualizer keeps the first render's subscription).
+    return Math.max(0, Math.min((__LEVEL__ === 'tail' ? paging.rows : rows) - WINDOW_ROWS, model.base - WINDOW_ROWS / 2));
   };
 
   const virtualizer = useVirtualizer({
@@ -320,6 +408,20 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
         .filter((row) => row < rows)
         .map((row) => {
           const state = paging.row(row);
+          if (__LEVEL__ === 'tail' && tail)
+            return h(TailRow, {
+              key: row,
+              row,
+              top: (row - model.base) * rowHeight,
+              page: state.kind === 'loaded' ? state.page : null,
+              index: state.kind === 'loaded' ? state.index : 0,
+              failed: state.kind === 'failed' ? state.message : null,
+              columns,
+              gutter,
+              measured,
+              probed: probedCells,
+              cells: tail,
+            });
           if (__LEVEL__ === 'market' && market && turns)
             return h(MarketRow, {
               key: row,

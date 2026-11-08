@@ -35,11 +35,23 @@
 //   `fling()` ending at the last row; without `?measure` none of state,
 //   batches, refreshed marks, or cell timing; framed, every mark relayed,
 //   the refreshed ones too.
+// - The tail level (live tail at its default stop, its own build): the
+//   first screen prerendered and hydrated in place; usable ≤ open < filled,
+//   the probe key; with `?measure`, the table open at 0 rows and growing,
+//   following (`__contenderFollowing`), every clock message on
+//   `__contender.batches` in order, `contender:tail` marks with
+//   `__contenderTail` rising and never past the rows; `__contender.pause`
+//   holding the rows; the replay's `jump(0.9)` landing there and letting go
+//   (the top held as the rows grow), `fling()` (the clock paused) ending
+//   at the end and following again, `open()` starting the replay over (a new batches array
+//   from a smaller count, the rows from 0); without `?measure` none of
+//   state, batches, tail marks, the globals, the pause, or cell timing;
+//   framed, every mark relayed, the tail ones too.
 //
 // Usage: node apps/observatory/perf/tanstack-contract.ts [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
-// data`; run `just observatory tanstack-build` and `tanstack-build market`
-// first.
+// data`; run `just observatory tanstack-build`, `tanstack-build market`,
+// and `tanstack-build tail` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -48,12 +60,14 @@ import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { PROBE_KEY, PROBE_MS } from '../metrics/metrics.ts';
 import { INSTRUMENTS } from '../contenders/market/feed.ts';
-import { MARKET_WATCH } from '../contenders/scenarios.ts';
+import { LIVE_TAIL, MARKET_WATCH } from '../contenders/scenarios.ts';
 import { MARKS, dataFile, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveTanstack } from './harness.ts';
 
 const PORT = 4321;
 /** The market level's build. */
 const MARKET_PORT = 4365;
+/** The tail level's build. */
+const TAIL_PORT = 4373;
 /** The data layer's chunk: the engine's start imports it first. */
 const DATA_LAYER = /\/assets\/table-[\w-]+\.js$/;
 /** How long after the filled mark its cells may paint: three frames. */
@@ -362,6 +376,7 @@ try {
   }
 
   await marketContract();
+  await tailContract();
 } finally {
   await browser.close();
   await server.close();
@@ -511,6 +526,173 @@ async function marketContract(): Promise<void> {
     }
   } finally {
     await market.close();
+  }
+}
+
+/** The tail level's contract (its own build, live tail at its default stop). */
+async function tailContract(): Promise<void> {
+  const tail = await serveTanstack(TAIL_PORT, undefined, 'tail');
+  const out: Record<string, unknown> = {};
+  output.tail = out;
+  type TailGlobal = Global & {
+    __contender?: { batches?: [rows: number, at: number][]; pause?: (on: boolean) => void };
+    __contenderTail?: number;
+    __contenderFollowing?: boolean;
+    __oldBatches?: [number, number][];
+  };
+  const url = `${tail.url}?scenario=${LIVE_TAIL.id}&stop=${LIVE_TAIL.defaultStop}`;
+  const state = (page: Page) => page.evaluate(() => (globalThis as TailGlobal).__contender?.state ?? null);
+  const following = (page: Page) => page.evaluate(() => (globalThis as TailGlobal).__contenderFollowing);
+  try {
+    {
+      const html = await (await fetch(tail.url)).text();
+      check(/<div id="root"><div class="page"><div class="frame status"[^>]*>Engine loading…<\/div><\/div><\/div>/.test(html), "tail: the served HTML doesn't hold the prerendered first screen");
+    }
+
+    // Measured.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(`${url}&measure`);
+      const usable = await waitMark(page, MARKS.usable, 0);
+      const hydratedInPlace = await page.evaluate(() => {
+        const parsed = (globalThis as Global).__firstScreen;
+        return !!parsed && parsed === document.querySelector('#root .frame.status');
+      });
+      check(hydratedInPlace, 'tail: hydration replaced the prerendered first screen');
+      await page.keyboard.press(PROBE_KEY);
+      const input = await waitMark(page, MARKS.input, usable, 5_000).catch(() => null);
+      const keyAt = await page.evaluate(() => (globalThis as Global).__keys?.[0] ?? null);
+      const probeMs = input !== null && keyAt !== null ? input - keyAt : null;
+      check(probeMs !== null && probeMs >= 0 && probeMs <= PROBE_MS, `tail: the probe key after usable: ${probeMs?.toFixed(1)} ms (0–${PROBE_MS.toFixed(1)})`);
+      const filled = await waitMark(page, MARKS.filled, 0);
+      const open = await lastMark(page, MARKS.open);
+      check(open !== null && usable <= open && open < filled, `tail: marks out of order: usable ${usable}, open ${open}, filled ${filled}`);
+
+      // Under the clock: the rows growing, following, the messages in order, the tail marks rising.
+      await page.waitForTimeout(1500);
+      const fed = await page.evaluate(() => {
+        const g = globalThis as TailGlobal;
+        return { batches: g.__contender?.batches ?? [], marks: performance.getEntriesByName('contender:tail', 'mark').length, tail: g.__contenderTail ?? 0, following: g.__contenderFollowing, rows: g.__contender?.state?.rows ?? 0 };
+      });
+      const inOrder = fed.batches.every(([rows], index) => index === 0 || rows >= fed.batches[index - 1]![0]);
+      check(fed.batches.length > 50 && inOrder, `tail: ${fed.batches.length} clock messages in 1.5 s, in order ${inOrder}`);
+      check(fed.following === true, `tail: following ${fed.following} under the clock`);
+      check(fed.marks > 20 && fed.tail > 0 && fed.tail <= fed.rows, `tail: ${fed.marks} tail marks, the tail ${fed.tail} of ${fed.rows} rows`);
+      console.log(`tail: usable ${usable.toFixed(1)}, open ${open?.toFixed(1)}, filled ${filled.toFixed(1)} ms; probe key ${probeMs?.toFixed(1)} ms; ${fed.batches.length} clock messages in order, ${fed.marks} tail marks, the tail ${fed.tail} of ${fed.rows} rows, following ${fed.following}`);
+
+      // The pause holds the rows.
+      await page.evaluate(() => (globalThis as TailGlobal).__contender?.pause?.(true));
+      await page.waitForTimeout(200);
+      const paused = (await state(page))?.rows ?? -1;
+      await page.waitForTimeout(500);
+      const held = (await state(page))?.rows ?? -2;
+      check(paused === held && paused > 0, `tail: the pause held ${paused} → ${held} rows`);
+
+      // The replay's jump lands at 90% of the rows (still paused, so the
+      // count it's judged by is the jump's) and lets go: then, the clock
+      // resumed, the top holds as the rows grow.
+      await page.evaluate('globalThis.__contender.replay.jump(0.9)');
+      const jumped = await filledState(page, 'true');
+      const letGo = await following(page);
+      await page.evaluate(() => (globalThis as TailGlobal).__contender?.pause?.(false));
+      await page.waitForTimeout(500);
+      const later = await state(page);
+      check(jumped.rows === held && jumped.first === Math.floor(0.9 * held), `tail: jump(0.9) landed at ${jumped.first} of ${jumped.rows}, want ${Math.floor(0.9 * held)} of ${held}`);
+      check(letGo === false && later?.top === jumped.top && (later?.rows ?? 0) > jumped.rows, `tail: after jump(0.9) following ${letGo}, top ${jumped.top} → ${later?.top}, rows ${jumped.rows} → ${later?.rows}`);
+
+      // The fling ends at the end, following again: the clock paused for it,
+      // since it goes the rows it started with.
+      await page.evaluate(() => (globalThis as TailGlobal).__contender?.pause?.(true));
+      await page.waitForTimeout(200);
+      await page.evaluate('globalThis.__contender.replay.fling()');
+      const flung = await filledState(page, 's.end === s.rows');
+      const flungFollowing = await following(page);
+      await page.evaluate(() => (globalThis as TailGlobal).__contender?.pause?.(false));
+      check(flungFollowing === true, `tail: fling() ended at ${flung.first}–${flung.end} of ${flung.rows}, following ${flungFollowing}`);
+
+      // The replay's open starts over: a new batches array, the rows from 0.
+      await page.evaluate(() => ((globalThis as TailGlobal).__oldBatches = (globalThis as TailGlobal).__contender?.batches));
+      const before = (await state(page))?.rows ?? 0;
+      const since = await now(page);
+      await page.evaluate('globalThis.__contender.replay.open()');
+      const reopened = await lastMark(page, MARKS.open);
+      check(reopened !== null && reopened >= since, 'tail: open() set no new open mark');
+      const restarted = await page.evaluate(() => {
+        const g = globalThis as TailGlobal;
+        return { replaced: g.__oldBatches !== g.__contender?.batches, rows: g.__contender?.state?.rows ?? -1 };
+      });
+      await page.waitForTimeout(500);
+      const regrown = await page.evaluate(() => {
+        const g = globalThis as TailGlobal;
+        return { first: g.__contender?.batches?.[0]?.[0] ?? -1, rows: g.__contender?.state?.rows ?? -1, following: g.__contenderFollowing };
+      });
+      check(restarted.replaced && restarted.rows < before && regrown.rows > restarted.rows && regrown.first >= 0 && regrown.first < before && regrown.following === true, `tail: open() from ${before} rows: ${JSON.stringify({ restarted, regrown })}`);
+      out.measured = { usable, open, filled, input, probeMs, fed: { batches: fed.batches.length, inOrder, marks: fed.marks, tail: fed.tail, rows: fed.rows }, paused: [paused, held], jumped, letGo, flung, flungFollowing, reopen: { before, restarted, regrown } };
+      console.log(`tail: the pause held ${held} rows; jump(0.9) → ${jumped.first} of ${jumped.rows}, following ${letGo}, the top held; fling() → ${flung.first}–${flung.end} of ${flung.rows}, following ${flungFollowing}; open() from ${before} rows → ${restarted.rows}, then ${regrown.rows}`);
+      failures.push(...found.map((problem) => `tail measured page: ${problem}`));
+      await context.close();
+    }
+
+    // Unmeasured: none of state, batches, tail marks, the globals, the pause, cell timing.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(url);
+      await waitMark(page, MARKS.filled, 0);
+      await page.waitForTimeout(1000);
+      const seen = await page.evaluate(() => {
+        const g = globalThis as TailGlobal;
+        return {
+          state: g.__contender?.state ?? null,
+          batches: g.__contender?.batches ?? null,
+          pause: g.__contender?.pause ?? null,
+          marks: performance.getEntriesByName('contender:tail', 'mark').length,
+          tail: g.__contenderTail ?? null,
+          following: g.__contenderFollowing ?? null,
+          cellTiming: document.querySelectorAll('.row [elementtiming]').length,
+          rows: document.querySelectorAll('.content > .row').length,
+        };
+      });
+      check(seen.state === null && seen.batches === null && seen.pause === null && seen.marks === 0 && seen.tail === null && seen.following === null && seen.cellTiming === 0 && seen.rows > 0, `tail without ?measure: ${JSON.stringify(seen)}`);
+      out.unmeasured = seen;
+      failures.push(...found.map((problem) => `tail unmeasured page: ${problem}`));
+      await context.close();
+    }
+
+    // Framed, measured: every mark relayed, the tail ones too.
+    {
+      const context = await protocolContext(browser);
+      const frameUrl = new URL('__frame', tail.url).href;
+      await context.route(frameUrl, (route) =>
+        route.fulfill({
+          contentType: 'text/html',
+          headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' },
+          body: `<!doctype html><body style="margin:0"><script>window.__messages = []; addEventListener('message', (event) => event.origin === location.origin && __messages.push(event.data));</script><iframe src="${url}&measure" style="border:0;width:100vw;height:100vh"></iframe></body>`,
+        }),
+      );
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(frameUrl);
+      await page.waitForFunction(() => ((globalThis as { __messages?: { name: string }[] }).__messages ?? []).some((message) => message.name === 'contender:tail'), null, { timeout: 60_000, polling: 50 });
+      await page.waitForTimeout(300);
+      const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;
+      const epoch = await frame.evaluate(() => performance.getEntriesByType('mark').filter((entry) => entry.name.startsWith('contender:')).map((entry) => ({ name: entry.name, at: performance.timeOrigin + entry.startTime })));
+      const all = (await page.evaluate(() => (globalThis as { __messages?: unknown[] }).__messages ?? [])) as { seiza: string; name: string; at: number }[];
+      const read = epoch.filter((mark) => mark.at <= Math.max(...all.map((message) => message.at)));
+      const missing = read.filter((mark) => !all.some((message) => message.seiza === 'mark' && message.name === mark.name && Math.abs(message.at - mark.at) < 0.01));
+      check(missing.length === 0, `tail relay: ${missing.length} marks never reached the parent, e.g. ${JSON.stringify(missing[0])}`);
+      const names = [...new Set(all.map((message) => message.name))];
+      check(names.includes(MARKS.filled) && names.includes(MARKS.tail), `tail relay: ${names.join(', ')}`);
+      out.framed = { messages: all.length, marks: read.length, names };
+      console.log(`tail relay: ${all.length} messages for ${read.length} marks (${names.join(', ')})`);
+      failures.push(...found.map((problem) => `tail framed page: ${problem}`));
+      await context.close();
+    }
+  } finally {
+    await tail.close();
   }
 }
 

@@ -2,7 +2,7 @@
 // contenders' release builds under test. Everything app-agnostic is in
 // shared-web/perf/.
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
@@ -11,7 +11,8 @@ import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
 import { levelOutDir } from '../contenders/level.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { ALL_SCENARIOS, type Level } from '../contenders/scenarios.ts';
+import { ALL_SCENARIOS, LIVE_TAIL, type Level, type Oklch } from '../contenders/scenarios.ts';
+import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 
 /** A script's budgets, from perf/budgets.json (`limits('gpui', [...])`). */
 export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
@@ -19,6 +20,21 @@ export { budgetLimits } from '../../../shared-web/perf/protocol.ts';
 export const perfDir = fileURLToPath(new URL('.', import.meta.url));
 export const gpuiWebDir = fileURLToPath(new URL('../contenders/tall-table/gpui/web', import.meta.url));
 export const tanstackWebDir = fileURLToPath(new URL('../contenders/tall-table/tanstack/web', import.meta.url));
+
+/** `theme.css`'s muted foreground in each theme, 8-bit `[r, g, b]`
+ *  (generated from gpui-kit's theme, which the GPUI side draws). */
+export function mutedForeground(): Record<'light' | 'dark', number[]> {
+  const css = readFileSync(`${tanstackWebDir}/src/theme.css`, 'utf8');
+  const hex = [...css.matchAll(/--muted-foreground:\s*#([0-9a-f]{6})/g)].map(([, value]) => [0, 2, 4].map((i) => parseInt(value!.slice(i, i + 2), 16)));
+  if (hex.length < 2) throw new Error('theme.css: no muted foreground per theme');
+  return { light: hex[0]!, dark: hex[1]! };
+}
+
+/** Live tail's error color in `theme`, 8-bit `[r, g, b]`. */
+export function tailError(theme: 'light' | 'dark'): number[] {
+  const color = fromOklch(...(LIVE_TAIL.error[theme] as Oklch));
+  return [color.r, color.g, color.b].map((channel) => Math.round(channel * 255));
+}
 export const pageWebDir = fileURLToPath(new URL('../web', import.meta.url));
 /** A file in `data/`, by name. */
 export const dataPath = (name: string): string => fileURLToPath(new URL(`../data/${name}`, import.meta.url));

@@ -1,0 +1,347 @@
+{
+  "date": "2026-11-08",
+  "label": "m11-c2-tail",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "gpui": {
+    "cells": {
+      "widths-light": {
+        "widths": [
+          196,
+          470,
+          72,
+          90
+        ],
+        "off": [],
+        "controlOff": 4
+      },
+      "tail-light": {
+        "rows": 54,
+        "first": 1900423,
+        "last": 1900476,
+        "laps": [
+          1
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": 54
+      },
+      "seam-light": {
+        "rows": 54,
+        "first": 1890963,
+        "last": 1891016,
+        "laps": [
+          0,
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 34
+      },
+      "first-light": {
+        "rows": 54,
+        "first": 0,
+        "last": 53,
+        "laps": [
+          0
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": null
+      },
+      "widths-dark": {
+        "widths": [
+          196,
+          470,
+          72,
+          90
+        ],
+        "off": [],
+        "controlOff": 4
+      },
+      "tail-dark": {
+        "rows": 54,
+        "first": 1902739,
+        "last": 1902792,
+        "laps": [
+          1
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": 54
+      },
+      "seam-dark": {
+        "rows": 54,
+        "first": 1890963,
+        "last": 1891016,
+        "laps": [
+          0,
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 34
+      },
+      "first-dark": {
+        "rows": 54,
+        "first": 0,
+        "last": 53,
+        "laps": [
+          0
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": null
+      }
+    },
+    "marks": {
+      "tail": 157,
+      "sampled": 23,
+      "presented": 23,
+      "rising": true,
+      "batches": 161,
+      "ordered": true,
+      "reached": 148,
+      "unreached": 0,
+      "messageToMarkMs": {
+        "p50": 19.8,
+        "max": 63.6
+      },
+      "clockDrift": 0.9,
+      "following": true
+    },
+    "scrollBack": {
+      "letGo": false,
+      "heldTop": true,
+      "rowsGrew": 9953,
+      "marksWhileHeld": 0,
+      "followingAfterEnd": true,
+      "marksAfterEnd": 54
+    },
+    "unmeasured": {
+      "end": "filled",
+      "marks": 0,
+      "batches": false,
+      "tail": false,
+      "following": false,
+      "pause": false
+    },
+    "reopen": {
+      "end": "filled",
+      "before": 14538,
+      "reopened": 0,
+      "grown": 10095,
+      "firstLogged": 200
+    },
+    "earlyPause": {
+      "end": "filled",
+      "held": 0,
+      "lifted": 9840
+    }
+  },
+  "tanstack": {
+    "cells": {
+      "widths-light": {
+        "widths": [
+          196,
+          470,
+          72,
+          90
+        ],
+        "off": [],
+        "controlOff": 4
+      },
+      "tail-light": {
+        "rows": 55,
+        "first": 1906780,
+        "last": 1906834,
+        "laps": [
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 55
+      },
+      "seam-light": {
+        "rows": 55,
+        "first": 1890963,
+        "last": 1891017,
+        "laps": [
+          0,
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 35
+      },
+      "first-light": {
+        "rows": 55,
+        "first": 0,
+        "last": 54,
+        "laps": [
+          0
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": null
+      },
+      "widths-dark": {
+        "widths": [
+          196,
+          470,
+          72,
+          90
+        ],
+        "off": [],
+        "controlOff": 4
+      },
+      "tail-dark": {
+        "rows": 55,
+        "first": 1899563,
+        "last": 1899617,
+        "laps": [
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 55
+      },
+      "seam-dark": {
+        "rows": 55,
+        "first": 1890963,
+        "last": 1891017,
+        "laps": [
+          0,
+          1
+        ],
+        "errors": 0,
+        "wrong": 0,
+        "examples": [],
+        "control": 35
+      },
+      "first-dark": {
+        "rows": 55,
+        "first": 0,
+        "last": 54,
+        "laps": [
+          0
+        ],
+        "errors": 1,
+        "wrong": 0,
+        "examples": [],
+        "control": null
+      }
+    },
+    "marks": {
+      "tail": 157,
+      "sampled": 157,
+      "presented": 157,
+      "rising": true,
+      "batches": 160,
+      "ordered": true,
+      "reached": 147,
+      "unreached": 0,
+      "messageToMarkMs": {
+        "p50": 17.9,
+        "max": 56.4
+      },
+      "clockDrift": 1.1,
+      "following": true
+    },
+    "scrollBack": {
+      "letGo": false,
+      "heldTop": true,
+      "rowsGrew": 10080,
+      "marksWhileHeld": 0,
+      "followingAfterEnd": true,
+      "marksAfterEnd": 53
+    },
+    "unmeasured": {
+      "end": "filled",
+      "marks": 0,
+      "batches": false,
+      "tail": false,
+      "following": false,
+      "pause": false
+    },
+    "reopen": {
+      "end": "filled",
+      "before": 14821,
+      "reopened": 0,
+      "grown": 9824,
+      "firstLogged": 175
+    },
+    "earlyPause": {
+      "end": "filled",
+      "held": 0,
+      "lifted": 9856
+    }
+  },
+  "same": {
+    "columns": {
+      "gpui": [
+        [
+          "time",
+          0,
+          196
+        ],
+        [
+          "request",
+          196,
+          470
+        ],
+        [
+          "status",
+          666,
+          72
+        ],
+        [
+          "bytes",
+          738,
+          90
+        ]
+      ],
+      "off": 0
+    },
+    "seam-light": {
+      "shared": 216,
+      "differ": 0,
+      "examples": []
+    },
+    "first-light": {
+      "shared": 216,
+      "differ": 0,
+      "examples": []
+    },
+    "seam-dark": {
+      "shared": 216,
+      "differ": 0,
+      "examples": []
+    },
+    "first-dark": {
+      "shared": 216,
+      "differ": 0,
+      "examples": []
+    }
+  },
+  "failures": []
+}
