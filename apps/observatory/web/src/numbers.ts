@@ -16,14 +16,14 @@
  * main thread (the readout's cost, "Page").
  */
 
-import { ChevronDown, ChevronUp, Ellipsis, Info, Pause, Play, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Database, Ellipsis, Info, Pause, Play, X } from 'lucide-react';
 import { createElement as h, Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import cold from 'virtual:cold-numbers';
 import type { Side } from '../../contenders/contract.ts';
 import type { FollowMessage, FollowingMessage } from '../../contenders/follow.ts';
 import type { Scenario, Stop } from '../../contenders/scenarios.ts';
-import { millions, SCENARIO_LINK, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
+import { millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
 import { toggleMeter, useMeter } from './meter.ts';
@@ -123,6 +123,8 @@ interface StatusProps {
 export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, coldReady }: StatusProps) {
   const side = shown.side;
   const meter = useMeter().mode !== 'off';
+  const dataLabel = scenarioCopy(scenario).dataLabel;
+  const dataRowsText = `${rows.toLocaleString('en-US')} rows`;
   const cards = cardsOf(scenario);
   const phone = numbersOf(scenario).phone;
   const coldFast = (card: Card) => cardValues(card, coldOf(scenario).values, 'reference', stop.id);
@@ -164,17 +166,35 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
   const later = (label: ReactNode, what: string) => h('button', { type: 'button', disabled: true, title: `${what}: coming soon`, className: `${SEGMENT} max-md:hidden` }, label);
   return h(
     'div',
-    { 'data-status-ready': '', className: 'flex h-full items-stretch justify-between' },
+    { 'data-status-ready': '', className: '@container flex h-full items-stretch justify-between' },
     h(
       'div',
       { className: 'flex min-w-0 items-stretch' },
       h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 text-xs max-md:px-2 max-md:text-[13px]' }, seriesDot(side), shown.label),
-      // The scenario's file and its rows (a phone has no room for either).
+      // What the data is and its rows; in a bar too narrow for both sides'
+      // text (the wide sheet's needs ~1,010 px), an icon that opens them. A
+      // phone has no room for either.
       h(
         'span',
-        { 'data-file': '', className: 'inline-flex min-w-0 items-center gap-1.5 px-2.5 text-xs text-muted-foreground tabular-nums max-md:hidden' },
-        h('span', { className: 'truncate text-foreground' }, scenario.data),
-        h('span', { className: 'whitespace-nowrap' }, `${rows.toLocaleString('en-US')} rows`),
+        { 'data-file': '', className: 'inline-flex min-w-0 items-center gap-1.5 px-2.5 text-xs text-muted-foreground tabular-nums max-md:hidden @max-[1100px]:hidden' },
+        h('span', { className: 'truncate text-foreground' }, dataLabel),
+        h('span', { className: 'whitespace-nowrap' }, dataRowsText),
+      ),
+      h(
+        'span',
+        { className: 'hidden @max-[1100px]:flex max-md:hidden' },
+        h(
+          Explainer,
+          {
+            className: 'h-full',
+            placement: 'above-start',
+            width: 320,
+            trigger: h(Database, { 'aria-hidden': true }),
+            triggerProps: { 'aria-label': 'The data', 'data-file-icon': '', className: `${SEGMENT} min-w-9 justify-center` },
+          },
+          h('span', { className: 'text-foreground' }, dataLabel),
+          h('span', { className: 'block text-muted-foreground tabular-nums' }, dataRowsText),
+        ),
       ),
     ),
     h(
@@ -823,7 +843,7 @@ const STORIES: Record<string, Story> = {
       body: h(
         'p',
         null,
-        'Cost per cell: the DOM pays style, layout, and paint for each cell’s element, so its frames grow with the cells on screen, while the GPU draws them all as quads and glyphs. That’s the canvas’s doing rather than WebAssembly’s, and the two aren’t measured apart yet. WebAssembly’s part is decoding and formatting each visible cell. ',
+        'Cost per cell: the DOM pays style, layout, and paint for each cell’s element, so its frames grow with the cells on screen, while the GPU draws them all as quads and glyphs. That’s the canvas’s doing rather than WebAssembly’s, and the two aren’t measured apart yet. WebAssembly’s part is decoding and formatting each visible cell. The platform’s tools are the DOM’s here as everywhere: it downloads less and is ready sooner. ',
         h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
         '.',
       ),
@@ -839,7 +859,7 @@ const STORIES: Record<string, Story> = {
         body: h(
           'p',
           null,
-          'Garbage under churn: each tick makes new objects on the DOM side, and the page pauses to collect them, more often the faster the feed; GPUI’s store is Rust’s plain buffers, which make none. That’s WebAssembly’s doing rather than the canvas’s. Cost per cell: the DOM renders only the rows a tick moved, while the GPU draws the whole screen each frame, so at the lower stops the DOM does less. ',
+          'Garbage under churn: each tick makes new objects on the DOM side, and the page pauses to collect them, more often the faster the feed; GPUI’s store is Rust’s plain buffers, which make none. That’s WebAssembly’s doing rather than the canvas’s. Cost per cell: the DOM renders only the rows a tick moved, while the GPU draws the whole screen each frame, so at the lower stops the DOM does less. The platform’s tools are the DOM’s here as everywhere: it downloads less and is ready sooner. ',
           h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
           '.',
         ),
@@ -855,7 +875,7 @@ const STORIES: Record<string, Story> = {
         body: h(
           'p',
           null,
-          'Garbage under a growing table: the DOM side makes new objects for each page it reads and each row it renders, and its page spends longer paused collecting them; GPUI’s pages are Rust’s plain buffers. That’s WebAssembly’s doing rather than the canvas’s. Cost per cell matters less here than on the wide sheet: each frame only a few rows are new, so the two sides spend about the same time on a frame, and where the rows come faster than a slow device can draw them, both fall behind. A scroll back is the DOM’s: the browser moves its page on the compositor before the page’s own thread hears of it. ',
+          'Garbage under a growing table: the DOM side makes new objects for each page it reads and each row it renders, and its page spends longer paused collecting them; GPUI’s pages are Rust’s plain buffers. That’s WebAssembly’s doing rather than the canvas’s. Cost per cell matters less here than on the wide sheet: each frame only a few rows are new, so the two sides spend about the same time on a frame, and where the rows come faster than a slow device can draw them, both fall behind. A scroll back is the DOM’s: the browser moves its page on the compositor before the page’s own thread hears of it. The platform’s tools are the DOM’s here as everywhere: it downloads less and is ready sooner. ',
           h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
           '.',
         ),

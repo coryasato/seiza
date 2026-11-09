@@ -456,6 +456,30 @@
   opacity: 0.55;
 }
 
+/* A row that doesn't fit whole wraps into a second column, out of the box
+   (a phone's shorter mosaic), so no drawing ends in half a row. */
+.observatory-drawing {
+  flex-wrap: wrap;
+  column-gap: 100%;
+}
+
+.observatory-drawing > span {
+  width: 100%;
+}
+
+/* The Overview's mosaic: the design's compact rows, so a tile a third of the
+   card's width holds its table in whole rows, the heat's as the rest
+   (its cells still touch: below). */
+.observatory-mosaic .observatory-drawing {
+  row-gap: 2px;
+  padding: 4px;
+}
+
+.observatory-mosaic .observatory-drawing > span {
+  gap: 3px;
+  height: 6px;
+}
+
 .observatory-heat > span {
   gap: 0;
   height: 8px;
@@ -480,6 +504,10 @@
 .observatory-heat > span:not(.observatory-head) > i:not(:first-child) {
   flex: 1 1 0;
   border-radius: 0;
+}
+
+.observatory-mosaic .observatory-heat > span {
+  gap: 0;
 }
 
 /* Market watch's flashing cells: its rise and fall per theme (set on the

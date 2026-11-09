@@ -53,6 +53,9 @@ export interface ScenarioCopy {
   /** The load explainer's data row, where it isn't the file read a page at
    *  a time: what the data is, and how this load reads it. */
   data?: { what: string; how: string };
+  /** What the data is, plainly, for the status bar beside its rows: what a
+   *  row is and whose it is (the description has the full credit). */
+  dataLabel: string;
   /** What the frame makes beside the data, after its first rows: the load
    *  explainer's row for it (the feed, the replay's clock), and what it says
    *  once the frame has filled. */
@@ -94,6 +97,7 @@ export const millions = (count: number) => `${(count / 1e6).toFixed(2)} million`
 
 const COPY: Record<string, ScenarioCopy> = {
   'big-file': {
+    dataLabel: 'Asteroid catalog, NASA/JPL',
     lead: (rows) => `Scroll ${millions(rows)} asteroids. Flip the switch to compare.`,
     // The base level's numbers (the research's "Where the two stacks
     // differ"): GPUI's throttled fling (cells, garbage), TanStack's first
@@ -102,23 +106,30 @@ const COPY: Record<string, ScenarioCopy> = {
     session: 'one session of opening the file, a fling, and a jump, in its own Compare',
   },
   'wide-sheet': {
+    dataLabel: 'Daily highs by weather station, 2025 (NOAA)',
     lead: (rows) => `${rows.toLocaleString('en-US')} weather stations × 365 days. Turn up the cells to find where each side stops keeping up.`,
     dial: { label: 'Cells on screen', about: 'Each stop sets the row height, the days’ width, and the text size: the same on both sides.' },
-    leans: ['cells', 'decoding'],
+    // TanStack ready sooner and downloading less, as in every scenario: the platform.
+    leans: ['cells', 'decoding', 'platform'],
   },
   'market-watch': {
+    dataLabel: 'Simulated stock prices',
     lead: () => 'Fifty instruments, every price live. Turn up the updates.',
     dial: { label: 'Updates per second', about: 'Each stop sets how many price changes the seeded feed sends per second: the same feed on both sides.' },
-    // The design canvas's: cost per cell, garbage under churn, decoding.
-    leans: ['cells', 'gc', 'decoding'],
+    // The design canvas's: cost per cell, garbage under churn, decoding;
+    // and the platform, TanStack ready sooner and downloading less.
+    leans: ['cells', 'gc', 'decoding', 'platform'],
     synthetic: true,
     made: { what: 'The feed (seeded, generated here)', filled: 'in its own worker' },
   },
   'live-tail': {
+    dataLabel: 'NASA web server log, July 1995',
     lead: () => 'NASA’s web server, July 1995, replayed. Turn up the rows.',
     dial: { label: 'Rows per second', about: 'Each stop sets how many log rows the replay appends a second while the view follows the newest: the same clock on both sides. Each frame draws the rows that came since the last.' },
-    // The design canvas's: cost per cell, garbage under a growing table.
-    leans: ['cells', 'gc'],
+    // The design canvas's: cost per cell, garbage under a growing table;
+    // TanStack's scroll back on the compositor, and the platform (ready
+    // sooner, downloading less).
+    leans: ['cells', 'gc', 'compositor', 'platform'],
     data: { what: 'NASA-HTTP logs', how: 'by range, then whole' },
     // Its worker starts once the file is fetched whole, after the first
     // rows: the page can't see that moment, so the row says the order.

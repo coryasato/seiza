@@ -1801,13 +1801,14 @@ async function followToggleCheck(page: Page, side: string): Promise<Record<strin
 
 let FILE_ROWS: Record<string, number> | null = null;
 
-/** The status bar's left side: the scenario's file (`scenarios.ts`'s
- *  `data`) and its rows (`MANIFEST.json`'s, as the page has them). */
+/** The status bar's left side: what the data is (the copy's `dataLabel`)
+ *  and its file's rows (`MANIFEST.json`'s, as the page has them). */
 async function fileInStatus(page: Page, scenario: Scenario): Promise<string> {
   const text = (await page.locator('[data-file]').textContent()) ?? '';
   // The manifest's rows, as the page's `virtual:data-rows` has them.
   const rows = (FILE_ROWS ??= dataRows())[scenario.data]!;
-  expect(text === `${scenario.data}${rows.toLocaleString('en-US')} rows`, `${scenario.label}'s status bar reads "${text}", not ${scenario.data} and ${rows} rows`);
+  const label = scenarioCopy(scenario).dataLabel;
+  expect(text === `${label}${rows.toLocaleString('en-US')} rows`, `${scenario.label}'s status bar reads "${text}", not ${label} and ${rows} rows`);
   return text;
 }
 

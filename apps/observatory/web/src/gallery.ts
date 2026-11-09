@@ -66,11 +66,11 @@ const heatDrawing = ({ heat }: WideScenario) => {
 };
 
 /** A table of text drawn small: a header, then rows of values as bars. */
-const rowsDrawing = () =>
+const rowsDrawing = (rows: number) =>
   h(
     'span',
     { className: 'observatory-drawing' },
-    ...Array.from({ length: 10 }, (_, row) =>
+    ...Array.from({ length: rows }, (_, row) =>
       h(
         'span',
         { key: row, className: row ? undefined : 'observatory-head' },
@@ -81,14 +81,14 @@ const rowsDrawing = () =>
 
 /** Market watch drawn small (the design canvas's): a header, then rows
  *  whose price cells flash in the scenario's rise or fall, per theme. */
-const marketDrawing = ({ signs }: MarketScenario) =>
+const marketDrawing = ({ signs }: MarketScenario, rows: number) =>
   h(
     'span',
     {
       className: 'observatory-drawing observatory-market',
       style: Object.fromEntries((['light', 'dark'] as const).flatMap((theme) => [[`--up-${theme}`, oklchCss(signs[theme].up)], [`--down-${theme}`, oklchCss(signs[theme].down)]])),
     },
-    ...Array.from({ length: 9 }, (_, row) =>
+    ...Array.from({ length: rows }, (_, row) =>
       h(
         'span',
         { key: row, className: row ? undefined : 'observatory-head' },
@@ -103,23 +103,35 @@ const marketDrawing = ({ signs }: MarketScenario) =>
 /** Live tail drawn small (the design canvas's): a header, then log rows
  *  (time, request, status, bytes), the newest at the bottom outlined, its
  *  request just in. */
-const tailDrawing = () =>
+const tailDrawing = (rows: number) =>
   h(
     'span',
     { className: 'observatory-drawing' },
-    // Eight rows: a ninth falls below the thumbnail's edge, and the newest is the point.
-    ...Array.from({ length: 8 }, (_, row) =>
+    ...Array.from({ length: rows }, (_, row) =>
       h(
         'span',
-        { key: row, className: row === 0 ? 'observatory-head' : row === 7 ? 'observatory-newest' : undefined },
+        { key: row, className: row === 0 ? 'observatory-head' : row === rows - 1 ? 'observatory-newest' : undefined },
         ...[22, 20 + noise(row, 1) * 34, 8, 10].map((width, at) => h('i', { key: at, style: { width: `${width.toFixed(1)}%` } })),
       ),
     ),
   );
 
-/** A scenario's frame, drawn small: its level's shape. */
-const drawing = (scenario: Scenario) =>
-  scenario.level === 'wide' ? heatDrawing(scenario) : scenario.level === 'market' ? marketDrawing(scenario) : scenario.level === 'tail' ? tailDrawing() : rowsDrawing();
+/** A scenario's frame, drawn small: its level's shape, in `rows` rows (the
+ *  header's included) that fit its box whole, the newest of live tail's last.
+ *  The heat's rows are its latitudes, whatever the box. */
+const drawing = (scenario: Scenario, rows: number) =>
+  scenario.level === 'wide'
+    ? heatDrawing(scenario)
+    : scenario.level === 'market'
+      ? marketDrawing(scenario, rows)
+      : scenario.level === 'tail'
+        ? tailDrawing(rows)
+        : rowsDrawing(rows);
+
+/** Rows that fit whole: the Overview's mosaic tile (the design's compact
+ *  rows, `.observatory-mosaic` in `page.css`) and a scenario card's thumbnail. */
+const MOSAIC_ROWS = 9;
+const CARD_ROWS = 8;
 
 // ---------------------------------------------------------------- shared
 
@@ -183,8 +195,8 @@ export function OverviewBody({ components }: { components: readonly Component[] 
             { href: component.path, 'data-component-card': component.id, className: `${CARD} flex-1` },
             h(
               'span',
-              { className: `${THUMB} grid h-[150px] gap-2 md:h-[200px]`, style: { gridTemplateColumns: `repeat(${Math.min(component.scenarios.length, 3)}, minmax(0, 1fr))` }, 'aria-hidden': true },
-              ...component.scenarios.map((scenario) => h('span', { key: scenario.id, 'data-tile': scenario.id, className: 'block min-h-0 overflow-hidden' }, drawing(scenario))),
+              { className: `${THUMB} observatory-mosaic grid h-[150px] gap-2 md:h-[200px]`, style: { gridTemplateColumns: `repeat(${Math.min(component.scenarios.length, 3)}, minmax(0, 1fr))` }, 'aria-hidden': true },
+              ...component.scenarios.map((scenario) => h('span', { key: scenario.id, 'data-tile': scenario.id, className: 'block min-h-0 overflow-hidden' }, drawing(scenario, MOSAIC_ROWS))),
             ),
             h(
               'span',
@@ -238,7 +250,8 @@ function ReachBar({ component, side, stops, index }: { component: Component; sid
     'span',
     { 'data-reach': side, className: 'grid grid-cols-[8px_minmax(0,1fr)_84px] items-center gap-2' },
     seriesDot(side),
-    h('span', { className: 'h-2 overflow-hidden rounded-[3px] bg-muted' }, h('i', { className: `block h-full ${seriesClass(side, 'bg')}`, style: { width: `${((index + 1) / stops.length) * 100}%` } })),
+    // The track darkens with its row's hover (`bg-accent`, the same gray as `bg-muted`), so it never vanishes.
+    h('span', { className: 'h-2 overflow-hidden rounded-[3px] bg-muted group-hover:bg-border' }, h('i', { className: `block h-full ${seriesClass(side, 'bg')}`, style: { width: `${((index + 1) / stops.length) * 100}%` } })),
     h('span', { className: 'text-right text-xs text-muted-foreground tabular-nums' }, h('span', { className: 'sr-only' }, `${labelOf(component, side)}: `), text),
   );
 }
@@ -272,7 +285,7 @@ function KeepsUp({ component }: { component: Component }) {
             { key: scenario.id, className: 'border-t first:border-t-0' },
             h(
               'a',
-              { href: `${scenarioPath(component, scenario)}#${COMPARE_HASH}`, 'data-reach-row': scenario.id, className: `${columns} flex flex-col gap-2.5 px-4 py-3 text-[13px] hover:bg-accent` },
+              { href: `${scenarioPath(component, scenario)}#${COMPARE_HASH}`, 'data-reach-row': scenario.id, className: `${columns} group flex flex-col gap-2.5 px-4 py-3 text-[13px] hover:bg-accent` },
               h('span', { className: 'flex flex-col gap-0.5' }, h('span', null, scenario.label), h('span', { className: 'text-xs text-muted-foreground' }, `${dial?.label ?? 'Stops'}: ${stopShort(stops[0]!)} to ${stopShort(stops.at(-1)!)}`)),
               ...(['reference', 'throttled'] as const).map((profile) =>
                 h(
@@ -382,7 +395,7 @@ export function ComponentBody({ component }: { component: Component }) {
           h(
             'a',
             { href: scenarioPath(component, scenario), 'data-scenario-card': scenario.id, className: `${CARD} flex-1` },
-            h('span', { className: `${THUMB} h-[132px]`, 'aria-hidden': true }, drawing(scenario)),
+            h('span', { className: `${THUMB} h-[132px]`, 'aria-hidden': true }, drawing(scenario, CARD_ROWS)),
             h(
               'span',
               { className: 'flex flex-1 flex-col gap-1.5 px-3.5 pt-3 pb-3.5' },
