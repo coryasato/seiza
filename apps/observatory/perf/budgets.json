@@ -4093,7 +4093,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-keeps-throttled",
@@ -4110,7 +4110,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-shown-reference",
@@ -4127,7 +4127,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-shown-throttled",
@@ -4144,7 +4144,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-shown-min-reference",
@@ -4163,7 +4163,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-shown-min-throttled",
@@ -4182,7 +4182,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-shown-max-reference",
@@ -4201,7 +4201,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-shown-max-throttled",
@@ -4220,7 +4220,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-late-reference",
@@ -4237,7 +4237,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-late-throttled",
@@ -4254,7 +4254,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-work-reference",
@@ -4271,7 +4271,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-work-throttled",
@@ -4288,7 +4288,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-collections-reference",
@@ -4353,7 +4353,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-collection-time-throttled",
@@ -4384,7 +4384,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-collection-longest-reference",
@@ -4497,7 +4497,7 @@
           "path": "profiles.reference.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-back-throttled",
@@ -4514,7 +4514,7 @@
           "path": "profiles.throttled.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-1k-back-min-reference",
@@ -4533,7 +4533,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-back-min-throttled",
@@ -4552,7 +4552,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-back-max-reference",
@@ -4571,7 +4571,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-1k-back-max-throttled",
@@ -4590,7 +4590,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-keeps-reference",
@@ -4607,7 +4607,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-keeps-throttled",
@@ -4624,7 +4624,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-shown-reference",
@@ -4641,7 +4641,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-shown-throttled",
@@ -4658,7 +4658,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-shown-min-reference",
@@ -4677,7 +4677,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-shown-min-throttled",
@@ -4696,7 +4696,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-shown-max-reference",
@@ -4715,7 +4715,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-shown-max-throttled",
@@ -4734,7 +4734,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-late-reference",
@@ -4751,7 +4751,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-late-throttled",
@@ -4768,7 +4768,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-work-reference",
@@ -4785,7 +4785,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-work-throttled",
@@ -4802,7 +4802,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-collections-reference",
@@ -4867,7 +4867,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-collection-time-throttled",
@@ -4898,7 +4898,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-collection-longest-reference",
@@ -5011,7 +5011,7 @@
           "path": "profiles.reference.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-back-throttled",
@@ -5028,7 +5028,7 @@
           "path": "profiles.throttled.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-10k-back-min-reference",
@@ -5047,7 +5047,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-back-min-throttled",
@@ -5066,7 +5066,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-back-max-reference",
@@ -5085,7 +5085,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-10k-back-max-throttled",
@@ -5104,7 +5104,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-keeps-reference",
@@ -5121,7 +5121,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-keeps-throttled",
@@ -5138,7 +5138,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-shown-reference",
@@ -5155,7 +5155,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-shown-throttled",
@@ -5172,7 +5172,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-shown-min-reference",
@@ -5191,7 +5191,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-shown-min-throttled",
@@ -5210,7 +5210,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-shown-max-reference",
@@ -5229,7 +5229,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-shown-max-throttled",
@@ -5248,7 +5248,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-late-reference",
@@ -5265,7 +5265,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-late-throttled",
@@ -5282,7 +5282,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-work-reference",
@@ -5299,7 +5299,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-work-throttled",
@@ -5316,7 +5316,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-collections-reference",
@@ -5381,7 +5381,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-collection-time-throttled",
@@ -5412,7 +5412,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-collection-longest-reference",
@@ -5525,7 +5525,7 @@
           "path": "profiles.reference.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-back-throttled",
@@ -5542,7 +5542,7 @@
           "path": "profiles.throttled.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-50k-back-min-reference",
@@ -5561,7 +5561,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-back-min-throttled",
@@ -5580,7 +5580,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-back-max-reference",
@@ -5599,7 +5599,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-50k-back-max-throttled",
@@ -5618,7 +5618,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-keeps-reference",
@@ -5635,7 +5635,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-keeps-throttled",
@@ -5652,7 +5652,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-shown-reference",
@@ -5669,7 +5669,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-shown-throttled",
@@ -5686,7 +5686,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-shown-min-reference",
@@ -5705,7 +5705,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-shown-min-throttled",
@@ -5724,7 +5724,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-shown-max-reference",
@@ -5743,7 +5743,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-shown-max-throttled",
@@ -5762,7 +5762,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-late-reference",
@@ -5779,7 +5779,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-late-throttled",
@@ -5796,7 +5796,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-work-reference",
@@ -5813,7 +5813,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-work-throttled",
@@ -5830,7 +5830,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-collections-reference",
@@ -5895,7 +5895,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-collection-time-throttled",
@@ -5926,7 +5926,7 @@
           }
         ]
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-collection-longest-reference",
@@ -6039,7 +6039,7 @@
           "path": "profiles.reference.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-back-throttled",
@@ -6056,7 +6056,7 @@
           "path": "profiles.throttled.tanstack.summary.scrollBackMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-stops"]
     },
     {
       "id": "live-tail-100k-back-min-reference",
@@ -6075,7 +6075,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-back-min-throttled",
@@ -6094,7 +6094,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-back-max-reference",
@@ -6113,7 +6113,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-100k-back-max-throttled",
@@ -6132,7 +6132,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail-ranges"]
     },
     {
       "id": "live-tail-usable-reference",
@@ -6149,7 +6149,7 @@
           "path": "profiles.reference.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-usable-throttled",
@@ -6166,7 +6166,41 @@
           "path": "profiles.throttled.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
+    },
+    {
+      "id": "live-tail-first-pixels-reference",
+      "label": "Live tail: first pixels (10k rows/s), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": ["readme:live-tail"]
+    },
+    {
+      "id": "live-tail-first-pixels-throttled",
+      "label": "Live tail: first pixels (10k rows/s), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-memory-open-reference",
@@ -6183,7 +6217,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-memory-open-throttled",
@@ -6200,7 +6234,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-memory-reference",
@@ -6217,7 +6251,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-memory-throttled",
@@ -6234,7 +6268,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-data-reference",
@@ -6251,7 +6285,7 @@
           "path": "profiles.reference.tanstack.summary.dataMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-data-throttled",
@@ -6268,7 +6302,7 @@
           "path": "profiles.throttled.tanstack.summary.dataMs"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-soak-memory-reference",
@@ -6285,7 +6319,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBEndByType.JavaScript"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-soak-memory-throttled",
@@ -6302,7 +6336,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBEndByType.JavaScript"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-soak-p95-start-reference",
@@ -6319,7 +6353,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP95MsStart"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-soak-p95-start-throttled",
@@ -6336,7 +6370,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP95MsStart"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-soak-p95-end-reference",
@@ -6353,7 +6387,7 @@
           "path": "profiles.reference.tanstack.summary.rowShownInP95MsEnd"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     },
     {
       "id": "live-tail-soak-p95-end-throttled",
@@ -6370,7 +6404,7 @@
           "path": "profiles.throttled.tanstack.summary.rowShownInP95MsEnd"
         }
       ],
-      "show": []
+      "show": ["readme:live-tail"]
     }
   ]
 }

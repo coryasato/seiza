@@ -4,14 +4,14 @@
 
 **Live at [seiza.io/observatory](https://seiza.io/observatory/).** It also runs locally: `just observatory preview` after `gpui-build`, `tanstack-build`, and `build`.
 
-The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in three scenarios: **Big file**, all 1.57 M known asteroids; **Wide sheet**, a spreadsheet's shape, 10,632 weather stations by 365 days of daily highs as heat, at four densities; and **Market watch**, a trading screen, 50 made-up instruments whose prices a seeded feed updates in place, 100 to 5k times a second, each change flashing.
+The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in four scenarios: **Big file**, all 1.57 M known asteroids; **Wide sheet**, a spreadsheet's shape, 10,632 weather stations by 365 days of daily highs as heat, at four densities; and **Market watch**, a trading screen, 50 made-up instruments whose prices a seeded feed updates in place, 100 to 5k times a second, each change flashing; and **Live tail**, a log tool's live view, NASA's web server log of July 1995 replayed into the table at 1k to 100k rows a second while the view follows the newest.
 
 - **What it measures: use, not page load.** A data component is judged over a session: how soon it's usable, how long data takes to appear, how fast a scroll or a jump shows up, what a fling looks like, whether the last row is reachable, and what it costs in memory, CPU, and bytes. First pixels and bundle size are footnotes.
 - **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.
 - **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm.
 - **Where TanStack wins, too:** the page's Compare panel shows the cold numbers for both devices, each card with its verdict, and says which side is lower, as this README does below.
-- **What your tab reads, and what that costs:** the contender's window has a status bar (Ready in, Rows in, Smooth, Memory; on market watch, Shown in in place of Rows in) and a meter over its corner (frame time over 10 s, memory over a minute; open, a pill, or hidden). They show what your tab reads of the side you're using, labelled warm for a side loaded second or from the cache. They share the contender's main thread, so they're held to a budget: with the meter open, a fling's late frames and dropped or GPU frames stay within noise of the meter hidden, the page spends 0.3–0.4 ms per refresh on a fast machine and under 1.5 ms on a slow one, and it re-renders nothing in React mid-fling ([`perf/results/2026-10-21-m5-d4.md`](perf/results/2026-10-21-m5-d4.md)). The pill drops more compositor frames under throttling than the open meter does.
+- **What your tab reads, and what that costs:** the contender's window has a status bar (Ready in, Rows in, Smooth, Memory; on market watch and live tail, Shown in in place of Rows in; on live tail, a Pause / Follow button beside the dial) and a meter over its corner (frame time over 10 s, memory over a minute; open, a pill, or hidden). They show what your tab reads of the side you're using, labelled warm for a side loaded second or from the cache. They share the contender's main thread, so they're held to a budget: with the meter open, a fling's late frames and dropped or GPU frames stay within noise of the meter hidden, the page spends 0.3–0.4 ms per refresh on a fast machine and under 1.5 ms on a slow one, and it re-renders nothing in React mid-fling ([`perf/results/2026-10-21-m5-d4.md`](perf/results/2026-10-21-m5-d4.md)). The pill drops more compositor frames under throttling than the open meter does.
 
 ## Numbers
 
@@ -265,6 +265,138 @@ Once, at the default stop (500 updates a second):
 "Now" is each metric's newest local measurement: [2026-11-06-m10-d2-usable-market-watch-500](perf/results/2026-11-06-m10-d2-usable-market-watch-500.json), [2026-11-06-m10-d2-data-market-watch-500](perf/results/2026-11-06-m10-d2-data-market-watch-500.json), [2026-11-06-m10-d2-memory-market-watch-500](perf/results/2026-11-06-m10-d2-memory-market-watch-500.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
 <!-- report:readme:market-watch:end -->
 
+### Live tail
+
+The tall table at its tail level (following the tail with live re-reads, custom cells, number formats, and the canvas's column widths) on both sides, over NASA's Kennedy Space Center web server log of July 1995: 1.89 M requests, each its time, request line, status, and bytes (the visitor's host dropped). The feed is a replay: one clock, run in a worker in each side's frame, posts the count of rows due about every 16 ms, and each side grows its table to the latest count once a frame while the view follows the newest row, every page read from the file through the same engine and SQL. Past the file's end the rows loop, each lap's times moved on by the file's span, so a 10-minute soak at 100k never runs out. A dial sets the rate: 1k, 10k, 50k, or 100k rows a second. Each value is **GPUI / TanStack**, cold, median of 10, with no input. **Row shown in** is a count's post in the worker to the first presented frame whose newest row reaches it; a side **keeps up** at a stop when its 95th percentile is at most 100 ms. **A scroll back** is a 300 px gesture up under the replay, the event to the first frame that moves (GPUI's read by a probe, TanStack's by Chromium's `EventLatency`); it lets go of the tail, and End, or scrolling back to the bottom, follows it again. How it's read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics"; the runs: [`perf/results/2026-11-08-m11-d2.md`](perf/results/2026-11-08-m11-d2.md).
+
+- **Where GPUI wins:** keeping up on a slow device, and in garbage. Both keep up at every stop on a fast device; on a slow one both keep up through 10k, and at 50k GPUI keeps up while TanStack misses by a little (its median 95th percentile just over the line, 3 of its 10 runs under it). A new row shows sooner on GPUI at 1k and 100k on a fast device and at 1k through 50k on a slow one. It spends a fraction of TanStack's time paused for garbage collection at every stop on both devices. Its HTML placeholder shell paints first pixels sooner.
+- **Where TanStack wins:** a scroll back reaches the screen first at most stops, because the browser's compositor moves the content before the main thread hears of it. It's usable far sooner (its prerendered first screen hydrates while GPUI's wasm downloads), holds less memory (at 100,000 rows and after 10 minutes at 100k), downloads a fraction of GPUI's bytes, and on a slow device draws the clock's first count sooner.
+- **Even:** work per frame at every stop on both devices; smoothness (no late frames on a fast device, under 1% on a slow one); the first count drawn on a fast device; and a new row's time to show at 10k and 50k on a fast device, where the two sides' runs overlap.
+- **Neither, at 100k on a slow device:** in the replay's first seconds both trail the tail by over half a second. Over 10 minutes the lag shrinks (the soak's last window) but neither keeps up even then.
+
+At each stop:
+
+<!-- report:readme:live-tail-stops:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Live tail at 1k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference | — | 26.1 / 27.7 ms |
+| Live tail at 1k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled | — | 47.2 / 57.9 ms |
+| Live tail at 1k rows/s: row shown in (p50), reference | — | 17.6 / 19.5 ms |
+| Live tail at 1k rows/s: row shown in (p50), throttled | — | 33.5 / 37.2 ms |
+| Live tail at 1k rows/s: late frames under the replay, reference | — | 0 / 0 % |
+| Live tail at 1k rows/s: late frames under the replay, throttled | — | 0 / 0 % |
+| Live tail at 1k rows/s: work per frame (p95) under the replay, reference | — | 3.4 / 3.4 ms |
+| Live tail at 1k rows/s: work per frame (p95) under the replay, throttled | — | 12.6 / 13 ms |
+| Live tail at 1k rows/s: time paused in collections in 10 s, reference | — | 7.3 / 27 ms |
+| Live tail at 1k rows/s: time paused in collections in 10 s, throttled | — | 26.9 / 101 ms |
+| Live tail at 1k rows/s: a scroll back's first frame under the replay, reference | — | 16.4 / 7.4 ms |
+| Live tail at 1k rows/s: a scroll back's first frame under the replay, throttled | — | 21.1 / 8.9 ms |
+| Live tail at 10k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference | — | 31.2 / 33.1 ms |
+| Live tail at 10k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled | — | 59.3 / 75.4 ms |
+| Live tail at 10k rows/s: row shown in (p50), reference | — | 20.8 / 21.6 ms |
+| Live tail at 10k rows/s: row shown in (p50), throttled | — | 40.8 / 45.1 ms |
+| Live tail at 10k rows/s: late frames under the replay, reference | — | 0 / 0 % |
+| Live tail at 10k rows/s: late frames under the replay, throttled | — | 0.2 / 0 % |
+| Live tail at 10k rows/s: work per frame (p95) under the replay, reference | — | 3.9 / 3.8 ms |
+| Live tail at 10k rows/s: work per frame (p95) under the replay, throttled | — | 13.8 / 14.4 ms |
+| Live tail at 10k rows/s: time paused in collections in 10 s, reference | — | 7.1 / 35.7 ms |
+| Live tail at 10k rows/s: time paused in collections in 10 s, throttled | — | 35.6 / 125.1 ms |
+| Live tail at 10k rows/s: a scroll back's first frame under the replay, reference | — | 17.3 / 11.5 ms |
+| Live tail at 10k rows/s: a scroll back's first frame under the replay, throttled | — | 21 / 7.5 ms |
+| Live tail at 50k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference | — | 33.8 / 38.7 ms |
+| Live tail at 50k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled | — | 79.8 / 101.7 ms |
+| Live tail at 50k rows/s: row shown in (p50), reference | — | 25.3 / 26.3 ms |
+| Live tail at 50k rows/s: row shown in (p50), throttled | — | 52.5 / 61.3 ms |
+| Live tail at 50k rows/s: late frames under the replay, reference | — | 0 / 0 % |
+| Live tail at 50k rows/s: late frames under the replay, throttled | — | 0 / 0.2 % |
+| Live tail at 50k rows/s: work per frame (p95) under the replay, reference | — | 3.7 / 3.9 ms |
+| Live tail at 50k rows/s: work per frame (p95) under the replay, throttled | — | 14.2 / 14.7 ms |
+| Live tail at 50k rows/s: time paused in collections in 10 s, reference | — | 8.9 / 41 ms |
+| Live tail at 50k rows/s: time paused in collections in 10 s, throttled | — | 43.6 / 126.3 ms |
+| Live tail at 50k rows/s: a scroll back's first frame under the replay, reference | — | 17.8 / 11.6 ms |
+| Live tail at 50k rows/s: a scroll back's first frame under the replay, throttled | — | 22.9 / 6.8 ms |
+| Live tail at 100k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference | — | 44.8 / 49.2 ms |
+| Live tail at 100k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled | — | 815.9 / 843.3 ms |
+| Live tail at 100k rows/s: row shown in (p50), reference | — | 31.6 / 33.2 ms |
+| Live tail at 100k rows/s: row shown in (p50), throttled | — | 699.2 / 756.7 ms |
+| Live tail at 100k rows/s: late frames under the replay, reference | — | 0 / 0 % |
+| Live tail at 100k rows/s: late frames under the replay, throttled | — | 0 / 0.6 % |
+| Live tail at 100k rows/s: work per frame (p95) under the replay, reference | — | 3.5 / 3.7 ms |
+| Live tail at 100k rows/s: work per frame (p95) under the replay, throttled | — | 14.5 / 14.8 ms |
+| Live tail at 100k rows/s: time paused in collections in 10 s, reference | — | 10.1 / 44.5 ms |
+| Live tail at 100k rows/s: time paused in collections in 10 s, throttled | — | 49 / 128.6 ms |
+| Live tail at 100k rows/s: a scroll back's first frame under the replay, reference | — | 18.5 / 11.8 ms |
+| Live tail at 100k rows/s: a scroll back's first frame under the replay, throttled | — | 22.2 / 14.6 ms |
+
+"Now" is each metric's newest local measurement: [2026-11-08-m11-d2-tail-live-tail-1k](perf/results/2026-11-08-m11-d2-tail-live-tail-1k.json), [2026-11-08-m11-d2-tail-live-tail-10k](perf/results/2026-11-08-m11-d2-tail-live-tail-10k.json), [2026-11-08-m11-d2-tail-live-tail-50k](perf/results/2026-11-08-m11-d2-tail-live-tail-50k.json), [2026-11-08-m11-d2-tail-live-tail-100k](perf/results/2026-11-08-m11-d2-tail-live-tail-100k.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:live-tail-stops:end -->
+
+A side is called faster only where its runs and the other's don't overlap. The range of each side's runs, its fastest and slowest run's median row shown in and scroll back, at each stop:
+
+<!-- report:readme:live-tail-ranges:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Live tail at 1k rows/s: row shown in (p50), the fastest run, reference | — | 14.8 / 19 ms |
+| Live tail at 1k rows/s: row shown in (p50), the fastest run, throttled | — | 32.7 / 35.3 ms |
+| Live tail at 1k rows/s: row shown in (p50), the slowest run, reference | — | 18.4 / 20 ms |
+| Live tail at 1k rows/s: row shown in (p50), the slowest run, throttled | — | 34.7 / 37.9 ms |
+| Live tail at 1k rows/s: a scroll back's first frame, the fastest run, reference | — | 12.8 / 1.1 ms |
+| Live tail at 1k rows/s: a scroll back's first frame, the fastest run, throttled | — | 19.4 / 3.4 ms |
+| Live tail at 1k rows/s: a scroll back's first frame, the slowest run, reference | — | 19.5 / 12.3 ms |
+| Live tail at 1k rows/s: a scroll back's first frame, the slowest run, throttled | — | 24.9 / 15.8 ms |
+| Live tail at 10k rows/s: row shown in (p50), the fastest run, reference | — | 18.9 / 20.7 ms |
+| Live tail at 10k rows/s: row shown in (p50), the fastest run, throttled | — | 34.6 / 44.4 ms |
+| Live tail at 10k rows/s: row shown in (p50), the slowest run, reference | — | 21.1 / 22.2 ms |
+| Live tail at 10k rows/s: row shown in (p50), the slowest run, throttled | — | 43.1 / 45.9 ms |
+| Live tail at 10k rows/s: a scroll back's first frame, the fastest run, reference | — | 15.8 / 1.7 ms |
+| Live tail at 10k rows/s: a scroll back's first frame, the fastest run, throttled | — | 18 / 1.5 ms |
+| Live tail at 10k rows/s: a scroll back's first frame, the slowest run, reference | — | 23.7 / 13.3 ms |
+| Live tail at 10k rows/s: a scroll back's first frame, the slowest run, throttled | — | 24.2 / 14.6 ms |
+| Live tail at 50k rows/s: row shown in (p50), the fastest run, reference | — | 24.4 / 25.7 ms |
+| Live tail at 50k rows/s: row shown in (p50), the fastest run, throttled | — | 49.4 / 58.9 ms |
+| Live tail at 50k rows/s: row shown in (p50), the slowest run, reference | — | 26.2 / 27.4 ms |
+| Live tail at 50k rows/s: row shown in (p50), the slowest run, throttled | — | 54.8 / 63.3 ms |
+| Live tail at 50k rows/s: a scroll back's first frame, the fastest run, reference | — | 16.1 / 3.6 ms |
+| Live tail at 50k rows/s: a scroll back's first frame, the fastest run, throttled | — | 19.9 / 4 ms |
+| Live tail at 50k rows/s: a scroll back's first frame, the slowest run, reference | — | 22.2 / 16.6 ms |
+| Live tail at 50k rows/s: a scroll back's first frame, the slowest run, throttled | — | 33.8 / 17 ms |
+| Live tail at 100k rows/s: row shown in (p50), the fastest run, reference | — | 30.6 / 33 ms |
+| Live tail at 100k rows/s: row shown in (p50), the fastest run, throttled | — | 486.6 / 651.2 ms |
+| Live tail at 100k rows/s: row shown in (p50), the slowest run, reference | — | 31.7 / 33.9 ms |
+| Live tail at 100k rows/s: row shown in (p50), the slowest run, throttled | — | 884.6 / 928 ms |
+| Live tail at 100k rows/s: a scroll back's first frame, the fastest run, reference | — | 14.3 / 4.1 ms |
+| Live tail at 100k rows/s: a scroll back's first frame, the fastest run, throttled | — | 15.9 / 3.1 ms |
+| Live tail at 100k rows/s: a scroll back's first frame, the slowest run, reference | — | 22.8 / 14 ms |
+| Live tail at 100k rows/s: a scroll back's first frame, the slowest run, throttled | — | 35 / 17.3 ms |
+
+"Now" is each metric's newest local measurement: [2026-11-08-m11-d2-tail-live-tail-1k](perf/results/2026-11-08-m11-d2-tail-live-tail-1k.json), [2026-11-08-m11-d2-tail-live-tail-10k](perf/results/2026-11-08-m11-d2-tail-live-tail-10k.json), [2026-11-08-m11-d2-tail-live-tail-50k](perf/results/2026-11-08-m11-d2-tail-live-tail-50k.json), [2026-11-08-m11-d2-tail-live-tail-100k](perf/results/2026-11-08-m11-d2-tail-live-tail-100k.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:live-tail-ranges:end -->
+
+Once, at the default stop (10k rows a second), and the soak (10 minutes at 100k, median of 3). Time to data here is the clock's first count to the frame that draws it; the log downloads whole before the clock starts (about 160 ms on a fast device, 11.3 s on Fast 4G, the same file on both sides):
+
+<!-- report:readme:live-tail:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Live tail: time to first usable (10k rows/s), reference | — | 144.8 / 43.6 ms |
+| Live tail: time to first usable (10k rows/s), throttled | — | 3596 / 499.9 ms |
+| Live tail: first pixels (10k rows/s), reference | — | 34.6 / 40.1 ms |
+| Live tail: first pixels (10k rows/s), throttled | — | 249.2 / 391.7 ms |
+| Live tail: memory once open, after GC (10k rows/s), reference | — | 28.9 / 3.1 MiB |
+| Live tail: memory once open, after GC (10k rows/s), throttled | — | 29 / 3.1 MiB |
+| Live tail: memory once 100,000 rows are drawn (JavaScript, after GC) (10k rows/s), reference | — | 19.2 / 10.9 MiB |
+| Live tail: memory once 100,000 rows are drawn (JavaScript, after GC) (10k rows/s), throttled | — | 19.2 / 10.9 MiB |
+| Live tail: the clock's first count to its frame (10k rows/s), reference | — | 59 / 54.5 ms |
+| Live tail: the clock's first count to its frame (10k rows/s), throttled | — | 121.5 / 73.6 ms |
+| Live tail: memory after 10 minutes at 100k rows/s (JavaScript, less the canvas), reference | — | 99.7 / 82.1 MiB |
+| Live tail: memory after 10 minutes at 100k rows/s (JavaScript, less the canvas), throttled | — | 97 / 79.5 MiB |
+| Live tail: row shown in (p95) in the soak's first window at 100k rows/s, reference | — | 43.1 / 51.5 ms |
+| Live tail: row shown in (p95) in the soak's first window at 100k rows/s, throttled | — | 719 / 852.3 ms |
+| Live tail: row shown in (p95) after 10 minutes at 100k rows/s, reference | — | 44.9 / 51.1 ms |
+| Live tail: row shown in (p95) after 10 minutes at 100k rows/s, throttled | — | 141.6 / 192 ms |
+
+"Now" is each metric's newest local measurement: [2026-11-09-m11-d2-usable-live-tail-10k](perf/results/2026-11-09-m11-d2-usable-live-tail-10k.json), [2026-11-09-m11-d2-memory-live-tail-10k](perf/results/2026-11-09-m11-d2-memory-live-tail-10k.json), [2026-11-09-m11-d2-data-live-tail-10k](perf/results/2026-11-09-m11-d2-data-live-tail-10k.json), [2026-11-08-m11-d2-soak-live-tail-100k](perf/results/2026-11-08-m11-d2-soak-live-tail-100k.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:live-tail:end -->
+
 ## Canvas tradeoffs
 
 Where the GPUI side falls short of a DOM table, said here and in the page's description below the window:
@@ -281,5 +413,6 @@ The tables' data are re-hosted copies of public data, rewritten as Parquet, and 
 - **Asteroids (Big file):** NASA/JPL Small-Body Database (JPL Solar System Dynamics), courtesy NASA/JPL-Caltech.
 - **Daily highs (Wide sheet):** NOAA National Centers for Environmental Information, GHCN-Daily, version 3.35-upd-2026103117, under CC0 1.0. The file is cut from NOAA's data (the daily highs of 2025 with no quality flag, at stations with at least 300 such days), not NOAA's unaltered data, and NOAA endorses nothing here. Cite it as: Menne, M.J., I. Durre, B. Korzeniewski, S. McNeill, K. Thomas, X. Yin, S. Anthony, R. Ray, R.S. Vose, B.E. Gleason, and T.G. Houston, 2012: Global Historical Climatology Network - Daily (GHCN-Daily), Version 3.35. NOAA National Climatic Data Center. doi:10.7289/V5D21VHZ, accessed 2026-11-02.
 - **Instruments (Market watch):** the observatory's own, fictional and synthetic: 50 made-up companies, their names, symbols, and price levels invented for the scenario (no symbol is listed on a US exchange; the build checks), dedicated to the public domain under CC0 1.0. The prices that move are a seeded feed's, not a market's.
+- **Web server logs (Live tail):** NASA-HTTP, the Kennedy Space Center's web server log of July 1995, collected by Jim Dumoulin of NASA's Kennedy Space Center and contributed by Martin Arlitt and Carey Williamson of the University of Saskatchewan, from the Internet Traffic Archive, whose terms say "The traces may be freely redistributed." The archive asks that nothing be analyzed beyond general traffic patterns: the file keeps each request's time, request line, status, and bytes, drops the visitor's host, cuts every query string, and drops a request holding `@` (mostly e-mail addresses) or for a `~` path the server didn't serve ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"). The feed is a replay of the log, looped past its end.
 
 The rules are the root [`CLAUDE.md`](../../CLAUDE.md)'s "Comparison protocol", and the decisions behind them are in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md). What's next is in [`PLAN.md`](PLAN.md).

@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-09",
+  "label": "m11-f-burst",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "scenarios": {
+    "visit": {
+      "requests": 68,
+      "data": 33,
+      "peak10s": 68,
+      "peakData10s": 33
+    },
+    "reloads": {
+      "requests": 126,
+      "data": 37,
+      "peak10s": 126,
+      "peakData10s": 37
+    },
+    "wide": {
+      "requests": 172,
+      "data": 88,
+      "peak10s": 66,
+      "peakData10s": 33
+    },
+    "both": {
+      "requests": 54,
+      "data": 22,
+      "peak10s": 54,
+      "peakData10s": 22
+    },
+    "wide-reloads": {
+      "requests": 141,
+      "data": 54,
+      "peak10s": 141,
+      "peakData10s": 54
+    },
+    "market": {
+      "requests": 120,
+      "data": 24,
+      "peak10s": 64,
+      "peakData10s": 12
+    },
+    "market-reloads": {
+      "requests": 107,
+      "data": 15,
+      "peak10s": 107,
+      "peakData10s": 15
+    },
+    "tail": {
+      "requests": 144,
+      "data": 48,
+      "peak10s": 76,
+      "peakData10s": 24
+    },
+    "tail-reloads": {
+      "requests": 122,
+      "data": 30,
+      "peak10s": 122,
+      "peakData10s": 30
+    }
+  },
+  "peak10s": 141
+}

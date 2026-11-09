@@ -414,3 +414,11 @@ One entry per milestone, written before starting the next one: what surprised us
 - A function a level alone calls still lands in whatever chunk its module is in: `followToggle` first sat in `contract.ts`, which the TanStack entry imports, so the tail level's first-paint JS grew 0.1 KiB though only the after-paint `replay` chunk calls it. In a module of its own (`contenders/follow.ts`) it moved out of the entry (the code review's catch).
 - Without `?measure` a page can't read where GPUI's view is, so "the view held" came from screenshots of the frame's cells, and the meter, which redraws over the frame, had to be hidden first. The control is the same clip changing while following.
 - A shared anchor in a long check script is a trap: the bare-page control's closing lines are the same in market watch's section and live tail's, and the new control first went into market watch's, where it failed on a tail URL.
+
+## M11 part F: live tail shipped (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m11-f.md`](../perf/results/2026-11-09-m11-f.md).
+
+**Surprises:**
+- `report` belongs after `burst`, not before: the PLAN's burst row reads the newest burst file, so the README's report run earlier in the part left it stale, and `lint`'s `report --check` caught it.
+- Live tail turns the dial with more requests in 10 s than any other scenario (76) though it fetches its file whole: each new frame opens it by range first. Still well under the reloads' peak.
