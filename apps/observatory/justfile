@@ -421,6 +421,15 @@ tail *args:
 burst *args:
     node {{app_dir}}/perf/burst.ts {{args}}
 
+# The tab's memory over a scripted session on the page: every route, each
+# stop on both sides (a flip and back), then the Overview idle; at each step
+# the tab's breakdown, which destroyed frames' documents, wasm memories, and
+# workers are still alive, and the renderer's and GPU process's footprint.
+# Writes perf/results/<date>-<label>.json. --gc (a forced collection before
+# every reading), --dwell 5, --idle-minutes 10, --label. Run `builds` first.
+session-memory *args:
+    node {{app_dir}}/perf/session-memory.ts {{args}}
+
 # DuckDB-Wasm reading the data file in production next to Tycho's R2 path for
 # the same rows (Chromium, a cold context per run, sides alternating): register,
 # first page, the page at 90%, bytes read, count(*), and a digest of the first

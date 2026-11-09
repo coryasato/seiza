@@ -422,3 +422,13 @@ One entry per milestone, written before starting the next one: what surprised us
 **Surprises:**
 - `report` belongs after `burst`, not before: the PLAN's burst row reads the newest burst file, so the README's report run earlier in the part left it stale, and `lint`'s `report --check` caught it.
 - Live tail turns the dial with more requests in 10 s than any other scenario (76) though it fetches its file whole: each new frame opens it by range first. Still well under the reloads' peak.
+
+## The tab's memory over a session (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-session-memory.md`](../perf/results/2026-11-09-session-memory.md).
+
+**Surprises:**
+- The tracker first kept alive the frames it was tracking: its records were object literals made by each frame's init script and held by the top window, and an object keeps the realm that made it. The smoke run showed every destroyed frame alive; the records made by a function from the top's realm fixed it. The page's own leak was the same mistake in another form: closures over the old frame's `window`, and on the feed levels an array its realm made.
+- The page held exactly one frame, the one replaced last, never a growing number: `sides` keeps the other side's `Tracked` by design, and the bug was what that object still pointed to.
+- The measured memory (JS, canvas, workers) stayed flat through a route while the renderer's footprint climbed 30 to 300 MiB, and a forced collection before each reading barely changed that climb. The hover card's number is the process's pages, which the allocator gives back lazily; it came back within 30 s of leaving the route.
+- The largest renderer isn't always the tab's: at the first reading a spare renderer (59 MiB) outweighed the fresh Overview's (52 MiB). Spinning the page for 300 ms and taking the renderer whose CPU time rose finds it; the code review's catch, and the recorded PIDs showed the tab kept one process through every navigation.

@@ -1,0 +1,4685 @@
+{
+  "date": "2026-11-09",
+  "label": "session-memory-fixed",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "forcedEachReading": false,
+  "dwellMs": 5000,
+  "idleMs": 600000,
+  "problems": [],
+  "readings": [
+    {
+      "atS": 7,
+      "step": "overview",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 2.8,
+        "topMiB": 1.1,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.7,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 1.1,
+          "Shared": 1.6,
+          "DOM": 0.1
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 52.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 58.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 91.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 52.4,
+      "gpuMiB": 91.1
+    },
+    {
+      "atS": 12,
+      "step": "component page",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 2.9,
+        "topMiB": 2.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.5,
+        "byType": {
+          "JavaScript": 2.4,
+          "DOM": 0.1,
+          "Shared": 0.4,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 58.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 54.8
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 100.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 58.2,
+      "gpuMiB": 100.2
+    },
+    {
+      "atS": 19,
+      "step": "big-file all gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 84.1,
+        "topMiB": 3.9,
+        "framesMiB": 22.8,
+        "workersMiB": 56.6,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 71,
+          "Canvas": 12.4,
+          "untyped": 0,
+          "Shared": 0.7
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/f90bfb27-be4a-454d-abe2-d0efc6d7bb38",
+            "mib": 56.6
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/",
+            "mib": 22.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 1,
+        "framesCreated": 1,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.4,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 330.3
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 54.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 151.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 330.3,
+      "gpuMiB": 151.1
+    },
+    {
+      "atS": 25,
+      "step": "big-file all tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 65.8,
+        "topMiB": 4.3,
+        "framesMiB": 3.3,
+        "workersMiB": 56.6,
+        "unattributedMiB": 1.7,
+        "byType": {
+          "Canvas": 0.3,
+          "untyped": 0,
+          "JavaScript": 63.9,
+          "DOM": 0.1,
+          "Shared": 1.5
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/6eefbef6-f75d-43a7-9015-5a82b6070be9",
+            "mib": 56.6
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/",
+            "mib": 3.3
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 2,
+        "framesCreated": 2,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 301.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 54.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 150
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 301.6,
+      "gpuMiB": 150
+    },
+    {
+      "atS": 31,
+      "step": "big-file all gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 86.8,
+        "topMiB": 4.3,
+        "framesMiB": 23.1,
+        "workersMiB": 56.6,
+        "unattributedMiB": 2.7,
+        "byType": {
+          "untyped": 0,
+          "DOM": 0.1,
+          "JavaScript": 71.6,
+          "Canvas": 12.4,
+          "Shared": 2.6
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/e81f27c7-3240-4f8f-9009-6ab0ea222cac",
+            "mib": 56.6
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/",
+            "mib": 23.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 3,
+        "framesCreated": 3,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.7,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 356.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 54.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 155.6
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 356.6,
+      "gpuMiB": 155.6
+    },
+    {
+      "atS": 31,
+      "step": "big-file leaving, forced",
+      "forced": true,
+      "breakdown": {
+        "totalMiB": 84.7,
+        "topMiB": 4.2,
+        "framesMiB": 23.1,
+        "workersMiB": 56.6,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "JavaScript": 71.6,
+          "Shared": 0.6,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/e81f27c7-3240-4f8f-9009-6ab0ea222cac",
+            "mib": 56.6
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/",
+            "mib": 23.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 3,
+        "framesCreated": 3,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.7,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 341.1
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 54.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 174
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 341.1,
+      "gpuMiB": 174
+    },
+    {
+      "atS": 37,
+      "step": "wide-sheet rows-20 gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 175.5,
+        "topMiB": 4.2,
+        "framesMiB": 47,
+        "workersMiB": 123.7,
+        "unattributedMiB": 0.6,
+        "byType": {
+          "JavaScript": 150.4,
+          "Canvas": 24.5,
+          "DOM": 0.1,
+          "Shared": 0.5,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/ef51578a-1fd4-4ed9-8ec1-0d2e84d43c8a",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 47
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 1,
+        "framesCreated": 1,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 20.3,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 432.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.8
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 153.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 432.7,
+      "gpuMiB": 153.8
+    },
+    {
+      "atS": 43,
+      "step": "wide-sheet rows-20 tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 159.5,
+        "topMiB": 4.3,
+        "framesMiB": 13,
+        "workersMiB": 140.3,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "Shared": 1.6,
+          "Canvas": 0.3,
+          "DOM": 0.2,
+          "JavaScript": 157.4,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/87ff4cac-40ec-4ed0-8fff-e76d1486801c",
+            "mib": 140.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/wide/",
+            "mib": 13
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 2,
+        "framesCreated": 2,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 410.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 167.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 410.8,
+      "gpuMiB": 167.7
+    },
+    {
+      "atS": 50,
+      "step": "wide-sheet rows-20 gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 165.5,
+        "topMiB": 4.3,
+        "framesMiB": 34.8,
+        "workersMiB": 123.7,
+        "unattributedMiB": 2.7,
+        "byType": {
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 2.6,
+          "JavaScript": 150.4,
+          "Canvas": 12.4
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/95a09bea-05b1-4b27-9d8b-44f46bf70202",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 34.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 3,
+        "framesCreated": 3,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 20.3,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 443.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 161.4
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 443.9,
+      "gpuMiB": 161.4
+    },
+    {
+      "atS": 56,
+      "step": "wide-sheet rows-26 gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 176,
+        "topMiB": 4.4,
+        "framesMiB": 45,
+        "workersMiB": 123.7,
+        "unattributedMiB": 2.8,
+        "byType": {
+          "Canvas": 24.5,
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 2.7,
+          "JavaScript": 148.6
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/3d81bd1e-ddab-449a-b4ae-c36ddb2b33f3",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 45
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 4,
+        "framesCreated": 4,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 18.4,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 478.1
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 161.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 478.1,
+      "gpuMiB": 161.2
+    },
+    {
+      "atS": 62,
+      "step": "wide-sheet rows-26 tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 159.5,
+        "topMiB": 4.4,
+        "framesMiB": 12.9,
+        "workersMiB": 140.3,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 157.4,
+          "Shared": 1.7,
+          "Canvas": 0.3,
+          "DOM": 0.2
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/2fd3a92e-5259-4ada-b89c-e657c1784823",
+            "mib": 140.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/wide/",
+            "mib": 12.9
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 5,
+        "framesCreated": 5,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 452.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 158.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 452.8,
+      "gpuMiB": 158.7
+    },
+    {
+      "atS": 68,
+      "step": "wide-sheet rows-26 gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 192.7,
+        "topMiB": 4.4,
+        "framesMiB": 45.1,
+        "workersMiB": 140.3,
+        "unattributedMiB": 2.8,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 165.3,
+          "Shared": 2.7,
+          "Canvas": 24.5,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/ef1d100e-ccfb-4062-9a6a-cc5d7d998475",
+            "mib": 140.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 45.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 6,
+        "framesCreated": 6,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 18.4,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 434.3
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 157.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 434.3,
+      "gpuMiB": 157.8
+    },
+    {
+      "atS": 74,
+      "step": "wide-sheet rows-22 gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 177.1,
+        "topMiB": 4.5,
+        "framesMiB": 46.1,
+        "workersMiB": 123.7,
+        "unattributedMiB": 2.9,
+        "byType": {
+          "Shared": 2.8,
+          "Canvas": 24.5,
+          "JavaScript": 149.8,
+          "DOM": 0.1,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/7461e536-dfa8-447d-93ec-99cdbe42412e",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 46.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 7,
+        "framesCreated": 7,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 19.5,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 444.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 161.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 444.9,
+      "gpuMiB": 161.7
+    },
+    {
+      "atS": 80,
+      "step": "wide-sheet rows-22 tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 143.2,
+        "topMiB": 4.5,
+        "framesMiB": 13.1,
+        "workersMiB": 123.7,
+        "unattributedMiB": 1.9,
+        "byType": {
+          "Shared": 1.7,
+          "JavaScript": 141,
+          "untyped": 0,
+          "Canvas": 0.3,
+          "DOM": 0.2
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/33817972-97c4-4ebb-8e96-f44334e39eda",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/wide/",
+            "mib": 13.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 8,
+        "framesCreated": 8,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 460.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 163.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 460.4,
+      "gpuMiB": 163.7
+    },
+    {
+      "atS": 86,
+      "step": "wide-sheet rows-22 gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 177.2,
+        "topMiB": 4.5,
+        "framesMiB": 46.1,
+        "workersMiB": 123.7,
+        "unattributedMiB": 2.9,
+        "byType": {
+          "JavaScript": 149.8,
+          "Canvas": 24.5,
+          "untyped": 0,
+          "DOM": 0.1,
+          "Shared": 2.8
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/a7ef904f-912a-423e-bc22-495c0b18c0e7",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 46.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 9,
+        "framesCreated": 9,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 19.5,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 457.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 162
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 457.2,
+      "gpuMiB": 162
+    },
+    {
+      "atS": 92,
+      "step": "wide-sheet rows-18 gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 180.4,
+        "topMiB": 4.6,
+        "framesMiB": 49.4,
+        "workersMiB": 123.7,
+        "unattributedMiB": 2.7,
+        "byType": {
+          "Canvas": 24.5,
+          "JavaScript": 153.2,
+          "Shared": 2.6,
+          "untyped": 0,
+          "DOM": 0.1
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/bed0c0d7-e34f-418a-b97f-32e1fdccdf7b",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 49.4
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 10,
+        "framesCreated": 10,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 22.8,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 475.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 162.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 475.7,
+      "gpuMiB": 162.5
+    },
+    {
+      "atS": 98,
+      "step": "wide-sheet rows-18 tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 143.5,
+        "topMiB": 4.6,
+        "framesMiB": 13.3,
+        "workersMiB": 123.7,
+        "unattributedMiB": 2,
+        "byType": {
+          "DOM": 0.3,
+          "untyped": 0,
+          "Shared": 1.7,
+          "JavaScript": 141.3,
+          "Canvas": 0.3
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/fbcf28cb-8f22-409a-abaa-98831c0016ab",
+            "mib": 123.7
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/wide/",
+            "mib": 13.3
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 11,
+        "framesCreated": 11,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 516.5
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 170
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 516.5,
+      "gpuMiB": 170
+    },
+    {
+      "atS": 105,
+      "step": "wide-sheet rows-18 gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 197.5,
+        "topMiB": 4.6,
+        "framesMiB": 49.7,
+        "workersMiB": 140.3,
+        "unattributedMiB": 2.9,
+        "byType": {
+          "JavaScript": 170,
+          "Canvas": 24.5,
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 2.8
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/04abcc9a-bbb0-4c74-9572-8eecd9f7efa9",
+            "mib": 140.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 49.7
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 12,
+        "framesCreated": 12,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 23.1,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 502.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 159
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 502.6,
+      "gpuMiB": 159
+    },
+    {
+      "atS": 105,
+      "step": "wide-sheet leaving, forced",
+      "forced": true,
+      "breakdown": {
+        "totalMiB": 195.3,
+        "topMiB": 4.6,
+        "framesMiB": 49.7,
+        "workersMiB": 140.3,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "JavaScript": 170,
+          "Canvas": 24.5,
+          "Shared": 0.6,
+          "DOM": 0.1,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/04abcc9a-bbb0-4c74-9572-8eecd9f7efa9",
+            "mib": 140.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/wide/",
+            "mib": 49.7
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 12,
+        "framesCreated": 12,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 23.1,
+          "workers": 1
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 483
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 46.9
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 156.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 483,
+      "gpuMiB": 156.9
+    },
+    {
+      "atS": 111,
+      "step": "market-watch 500 gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 84.4,
+        "topMiB": 4.2,
+        "framesMiB": 22.5,
+        "workersMiB": 56.9,
+        "unattributedMiB": 0.8,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 71.2,
+          "Canvas": 12.4,
+          "Shared": 0.7,
+          "DOM": 0.1
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/36be12d1-eb49-41b5-b3a7-a4ca01b67c5a",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.5
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 1,
+        "framesCreated": 1,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 7.9,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 301.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 186.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 301.6,
+      "gpuMiB": 186.7
+    },
+    {
+      "atS": 117,
+      "step": "market-watch 500 tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 66.8,
+        "topMiB": 4.4,
+        "framesMiB": 3.8,
+        "workersMiB": 56.9,
+        "unattributedMiB": 1.7,
+        "byType": {
+          "Canvas": 0.3,
+          "untyped": 0,
+          "JavaScript": 64.9,
+          "Shared": 1.5,
+          "DOM": 0.2
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/50e8928c-3fe6-406e-9924-8d0f8035b248",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/",
+            "mib": 3.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 2,
+        "framesCreated": 2,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 305.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 218.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 305.4,
+      "gpuMiB": 218.5
+    },
+    {
+      "atS": 123,
+      "step": "market-watch 500 gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 86.8,
+        "topMiB": 4.5,
+        "framesMiB": 22.4,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3,
+        "byType": {
+          "DOM": 0.1,
+          "Shared": 2.9,
+          "JavaScript": 71.4,
+          "Canvas": 12.4,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/c7bc10de-0219-4e97-a375-019217f7acd6",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.4
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 3,
+        "framesCreated": 3,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 7.8,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 344.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 189.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 344.9,
+      "gpuMiB": 189.7
+    },
+    {
+      "atS": 129,
+      "step": "market-watch 100 gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 86.8,
+        "topMiB": 4.5,
+        "framesMiB": 22.3,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3,
+        "byType": {
+          "untyped": 0,
+          "DOM": 0.1,
+          "JavaScript": 71.3,
+          "Canvas": 12.4,
+          "Shared": 2.9
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/d417b294-4b02-4e80-bec5-565aad5738fb",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.3
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 4,
+        "framesCreated": 4,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 7.8,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 359
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 188.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 359,
+      "gpuMiB": 188.5
+    },
+    {
+      "atS": 135,
+      "step": "market-watch 100 tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 67.1,
+        "topMiB": 3.9,
+        "framesMiB": 3.8,
+        "workersMiB": 56.9,
+        "unattributedMiB": 2.5,
+        "byType": {
+          "Shared": 2.4,
+          "JavaScript": 64.3,
+          "Canvas": 0.3,
+          "untyped": 0,
+          "DOM": 0.2
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/a75d7b34-2fba-4ea4-8dff-784221fc2f2e",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/",
+            "mib": 3.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 5,
+        "framesCreated": 5,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 342.1
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 195.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 342.1,
+      "gpuMiB": 195.8
+    },
+    {
+      "atS": 141,
+      "step": "market-watch 100 gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 86.8,
+        "topMiB": 4.5,
+        "framesMiB": 22.4,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "JavaScript": 71.4,
+          "untyped": 0,
+          "Shared": 3
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/64f4c1cf-3625-4c89-a195-8839e8a76893",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.4
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 6,
+        "framesCreated": 6,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 7.8,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 381.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 189.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 381.2,
+      "gpuMiB": 189.9
+    },
+    {
+      "atS": 147,
+      "step": "market-watch 1k gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 86.8,
+        "topMiB": 4.5,
+        "framesMiB": 22.3,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 71.4,
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "Shared": 2.9
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/98976559-e0ee-4c1d-99ec-806390c7c022",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.3
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 7,
+        "framesCreated": 7,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 7.8,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 385.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 189.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 385.6,
+      "gpuMiB": 189.8
+    },
+    {
+      "atS": 153,
+      "step": "market-watch 1k tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 67.2,
+        "topMiB": 4.6,
+        "framesMiB": 3.9,
+        "workersMiB": 56.9,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "JavaScript": 65.1,
+          "DOM": 0.2,
+          "Canvas": 0.3,
+          "untyped": 0,
+          "Shared": 1.7
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/ed8304e3-4786-4d11-8982-f108d2c5b002",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/",
+            "mib": 3.9
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 8,
+        "framesCreated": 8,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 392
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 243.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 392,
+      "gpuMiB": 243.1
+    },
+    {
+      "atS": 159,
+      "step": "market-watch 1k gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 87,
+        "topMiB": 4,
+        "framesMiB": 22.4,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3.6,
+        "byType": {
+          "DOM": 0.1,
+          "Shared": 3.5,
+          "Canvas": 12.4,
+          "JavaScript": 71,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/517b3495-6ddf-4045-be1c-794965cd58c8",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.4
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 9,
+        "framesCreated": 9,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 7.8,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 428
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 190.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 428,
+      "gpuMiB": 190.8
+    },
+    {
+      "atS": 165,
+      "step": "market-watch 5k gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 87.5,
+        "topMiB": 4.7,
+        "framesMiB": 22.9,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 72,
+          "Canvas": 12.4,
+          "Shared": 3,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/3bb9d228-eac3-4769-b4e2-79d02a3d7cb5",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.9
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 10,
+        "framesCreated": 10,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.4,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 437
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 191.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 437,
+      "gpuMiB": 191.5
+    },
+    {
+      "atS": 171,
+      "step": "market-watch 5k tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 67.3,
+        "topMiB": 4.7,
+        "framesMiB": 3.8,
+        "workersMiB": 56.9,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 65.2,
+          "Canvas": 0.3,
+          "DOM": 0.2,
+          "Shared": 1.6
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/20634de9-429d-4618-ad0d-f3089100053b",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/market/",
+            "mib": 3.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 11,
+        "framesCreated": 11,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 423.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 236.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 423.4,
+      "gpuMiB": 236.1
+    },
+    {
+      "atS": 177,
+      "step": "market-watch 5k gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 87.4,
+        "topMiB": 4.6,
+        "framesMiB": 22.8,
+        "workersMiB": 56.9,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "Canvas": 12.4,
+          "JavaScript": 72,
+          "Shared": 3,
+          "DOM": 0.1,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/f64180d4-9314-4644-ae08-36790dba1377",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 12,
+        "framesCreated": 12,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.3,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 456.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 195.3
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 456.9,
+      "gpuMiB": 195.3
+    },
+    {
+      "atS": 177,
+      "step": "market-watch leaving, forced",
+      "forced": true,
+      "breakdown": {
+        "totalMiB": 85,
+        "topMiB": 4.8,
+        "framesMiB": 22.8,
+        "workersMiB": 56.9,
+        "unattributedMiB": 0.5,
+        "byType": {
+          "JavaScript": 72.1,
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 0.4
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/f64180d4-9314-4644-ae08-36790dba1377",
+            "mib": 56.6
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/assets/worker-yKwMQ4b7.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/market/",
+            "mib": 22.8
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 12,
+        "framesCreated": 12,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.3,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 397.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 194.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 397.7,
+      "gpuMiB": 194.9
+    },
+    {
+      "atS": 183,
+      "step": "live-tail 10k gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 88.7,
+        "topMiB": 4.2,
+        "framesMiB": 26.3,
+        "workersMiB": 57.3,
+        "unattributedMiB": 0.9,
+        "byType": {
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "JavaScript": 75.5,
+          "untyped": 0,
+          "Shared": 0.8
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/fabce3ce-7821-4465-85a3-2eaed1802d20",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 26.3
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 1,
+        "framesCreated": 1,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 11.7,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 350.5
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 198.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 350.5,
+      "gpuMiB": 198.2
+    },
+    {
+      "atS": 189,
+      "step": "live-tail 10k tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 70.5,
+        "topMiB": 4.4,
+        "framesMiB": 7,
+        "workersMiB": 57.3,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 68.5,
+          "untyped": 0,
+          "Shared": 1.6,
+          "Canvas": 0.3
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/f3f59170-a8c1-48d5-add3-c14e5c76acfd",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/",
+            "mib": 7
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 2,
+        "framesCreated": 2,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 373.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 260.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 373.4,
+      "gpuMiB": 260.8
+    },
+    {
+      "atS": 195,
+      "step": "live-tail 10k gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 90.7,
+        "topMiB": 4.6,
+        "framesMiB": 26,
+        "workersMiB": 57.1,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "JavaScript": 75.2,
+          "Canvas": 12.4,
+          "untyped": 0,
+          "Shared": 3,
+          "DOM": 0.1
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/d42e6042-b246-4dc7-b4d2-b3a7106d0b7c",
+            "mib": 56.8
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 26
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 3,
+        "framesCreated": 3,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 11.3,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 413.3
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 282.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 413.3,
+      "gpuMiB": 282.2
+    },
+    {
+      "atS": 201,
+      "step": "live-tail 1k gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 87.8,
+        "topMiB": 4.6,
+        "framesMiB": 23.1,
+        "workersMiB": 57.1,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "JavaScript": 72.4,
+          "untyped": 0,
+          "DOM": 0.1,
+          "Canvas": 12.4,
+          "Shared": 2.9
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/c548127b-1fb6-403a-8aeb-fed1b2619676",
+            "mib": 56.8
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 23.1
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 4,
+        "framesCreated": 4,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.5,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 415.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 215
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 415.4,
+      "gpuMiB": 215
+    },
+    {
+      "atS": 207,
+      "step": "live-tail 1k tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 68,
+        "topMiB": 4.7,
+        "framesMiB": 4.4,
+        "workersMiB": 57.3,
+        "unattributedMiB": 1.7,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 66,
+          "Shared": 1.5,
+          "Canvas": 0.3,
+          "DOM": 0.1
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/724bf43a-28a7-4136-b9d0-74a6fee550a2",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/",
+            "mib": 4.4
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 5,
+        "framesCreated": 5,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 423.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 208.7
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 423.9,
+      "gpuMiB": 208.7
+    },
+    {
+      "atS": 213,
+      "step": "live-tail 1k gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 88.1,
+        "topMiB": 4.6,
+        "framesMiB": 23.4,
+        "workersMiB": 57.1,
+        "unattributedMiB": 3,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 72.7,
+          "Canvas": 12.4,
+          "untyped": 0,
+          "Shared": 2.9
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/03ecc814-010b-48e9-b9b3-98f76b747e5c",
+            "mib": 56.8
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 23.4
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 6,
+        "framesCreated": 6,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 8.6,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 454
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 237.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 454,
+      "gpuMiB": 237.1
+    },
+    {
+      "atS": 219,
+      "step": "live-tail 50k gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 103.6,
+        "topMiB": 4.6,
+        "framesMiB": 38.6,
+        "workersMiB": 57.3,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "JavaScript": 88.2,
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 3
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/d0455e03-3744-491a-83df-aa61ca07f3e8",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 38.6
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 7,
+        "framesCreated": 7,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 23.8,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 513.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 215.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 513.6,
+      "gpuMiB": 215.1
+    },
+    {
+      "atS": 225,
+      "step": "live-tail 50k tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 83.8,
+        "topMiB": 4.7,
+        "framesMiB": 20,
+        "workersMiB": 57.3,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 81.7,
+          "Shared": 1.7,
+          "Canvas": 0.3,
+          "untyped": 0
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/f0ecdeee-d509-4888-bcdb-8161285d433e",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/",
+            "mib": 20
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 8,
+        "framesCreated": 8,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 519.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 306.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 519.4,
+      "gpuMiB": 306.2
+    },
+    {
+      "atS": 231,
+      "step": "live-tail 50k gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 103.4,
+        "topMiB": 4.6,
+        "framesMiB": 38.3,
+        "workersMiB": 57.3,
+        "unattributedMiB": 3.2,
+        "byType": {
+          "JavaScript": 87.8,
+          "Canvas": 12.4,
+          "Shared": 3.1,
+          "untyped": 0,
+          "DOM": 0.1
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/0f6298fa-4f3b-4995-8bb4-fd71caf92366",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 38.3
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 9,
+        "framesCreated": 9,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 23.6,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 550
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 287.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 550,
+      "gpuMiB": 287.5
+    },
+    {
+      "atS": 237,
+      "step": "live-tail 100k gpui",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 118.2,
+        "topMiB": 4.7,
+        "framesMiB": 53,
+        "workersMiB": 57.3,
+        "unattributedMiB": 3.1,
+        "byType": {
+          "JavaScript": 102.7,
+          "untyped": 0,
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "Shared": 3
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/bc64532b-c80f-499d-bb5a-5df64789f208",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 53
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 10,
+        "framesCreated": 10,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 38.6,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 577.5
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 226.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 577.5,
+      "gpuMiB": 226.5
+    },
+    {
+      "atS": 242,
+      "step": "live-tail 100k tanstack",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 99.5,
+        "topMiB": 4.6,
+        "framesMiB": 35.5,
+        "workersMiB": 57.5,
+        "unattributedMiB": 1.8,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 97.4,
+          "Shared": 1.7,
+          "DOM": 0.1,
+          "Canvas": 0.3
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/124bea52-7aec-4140-9cd9-2809290d91f8",
+            "mib": 57.2
+          },
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/tanstack/tail/",
+            "mib": 35.5
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 11,
+        "framesCreated": 11,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 585.4
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 286
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 585.4,
+      "gpuMiB": 286
+    },
+    {
+      "atS": 249,
+      "step": "live-tail 100k gpui again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 118.4,
+        "topMiB": 4.7,
+        "framesMiB": 53.2,
+        "workersMiB": 57.3,
+        "unattributedMiB": 3.3,
+        "byType": {
+          "untyped": 0,
+          "Canvas": 12.4,
+          "JavaScript": 102.8,
+          "DOM": 0.1,
+          "Shared": 3.2
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/c8469332-791b-4288-8a47-7a6ecd7a56ad",
+            "mib": 57
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 53.2
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 12,
+        "framesCreated": 12,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 38.6,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 601.5
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 285.3
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 601.5,
+      "gpuMiB": 285.3
+    },
+    {
+      "atS": 249,
+      "step": "live-tail leaving, forced",
+      "forced": true,
+      "breakdown": {
+        "totalMiB": 117.6,
+        "topMiB": 4.7,
+        "framesMiB": 54.7,
+        "workersMiB": 57.5,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "Canvas": 12.4,
+          "DOM": 0.1,
+          "JavaScript": 104.6,
+          "untyped": 0,
+          "Shared": 0.6
+        },
+        "workers": [
+          {
+            "url": "http://localhost:4379/c8469332-791b-4288-8a47-7a6ecd7a56ad",
+            "mib": 57.2
+          },
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/assets/worker-CH5OJ_Rq.js",
+            "mib": 0.3
+          }
+        ],
+        "frames": [
+          {
+            "url": "/observatory/contenders/tall-table/gpui/tail/",
+            "mib": 54.7
+          }
+        ]
+      },
+      "tracked": {
+        "currentFrame": 12,
+        "framesCreated": 12,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 1,
+          "wasmMiB": 40.2,
+          "workers": 2
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 524.6
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.1
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 287
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 524.6,
+      "gpuMiB": 287
+    },
+    {
+      "atS": 249,
+      "step": "overview again",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.8,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 2.3,
+          "DOM": 0.2,
+          "Shared": 0.6
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 292
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 230.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 292,
+      "gpuMiB": 230.2
+    },
+    {
+      "atS": 280,
+      "step": "idle 30 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 2.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "untyped": 0,
+          "DOM": 0.1,
+          "JavaScript": 2.4,
+          "Shared": 0.6
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 146.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 113.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 146.9,
+      "gpuMiB": 113.2
+    },
+    {
+      "atS": 310,
+      "step": "idle 60 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 0.9,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 2.1,
+        "byType": {
+          "untyped": 0,
+          "DOM": 0.1,
+          "JavaScript": 0.9,
+          "Shared": 2
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 112.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 112.8
+    },
+    {
+      "atS": 340,
+      "step": "idle 90 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 2.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 2.4,
+          "Shared": 0.6,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 112.2
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149,
+      "gpuMiB": 112.2
+    },
+    {
+      "atS": 370,
+      "step": "idle 120 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 1.5,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.6,
+        "byType": {
+          "JavaScript": 1.5,
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 1.5
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149,
+      "gpuMiB": 110.8
+    },
+    {
+      "atS": 400,
+      "step": "idle 150 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 1,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 2.1,
+        "byType": {
+          "JavaScript": 1,
+          "Shared": 2,
+          "DOM": 0.1,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110.1
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149,
+      "gpuMiB": 110.1
+    },
+    {
+      "atS": 431,
+      "step": "idle 180 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3.1,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.8,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 2.3,
+          "untyped": 0,
+          "Shared": 0.7
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 461,
+      "step": "idle 210 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 1.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.6,
+        "byType": {
+          "DOM": 0.1,
+          "Shared": 1.5,
+          "untyped": 0,
+          "JavaScript": 1.4
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 491,
+      "step": "idle 240 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "Shared": 0.6,
+          "DOM": 0.1,
+          "JavaScript": 2.3,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 521,
+      "step": "idle 270 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.1,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.8,
+        "byType": {
+          "Shared": 0.7,
+          "DOM": 0.1,
+          "JavaScript": 2.1,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 551,
+      "step": "idle 300 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "untyped": 0,
+          "DOM": 0.1,
+          "Shared": 0.6,
+          "JavaScript": 2.3
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 582,
+      "step": "idle 330 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "untyped": 0,
+          "DOM": 0.1,
+          "Shared": 0.6,
+          "JavaScript": 2.3
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 612,
+      "step": "idle 360 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 1.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.5,
+        "byType": {
+          "Shared": 1.4,
+          "JavaScript": 1.4,
+          "untyped": 0,
+          "DOM": 0.1
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.9
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.9
+    },
+    {
+      "atS": 642,
+      "step": "idle 390 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 1.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.6,
+        "byType": {
+          "Shared": 1.5,
+          "JavaScript": 1.4,
+          "untyped": 0,
+          "DOM": 0.1
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 23.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 148.9
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.2
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.8
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 148.9,
+      "gpuMiB": 109.8
+    },
+    {
+      "atS": 672,
+      "step": "idle 420 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "untyped": 0,
+          "JavaScript": 2.3,
+          "Shared": 0.6,
+          "DOM": 0.1
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.8,
+      "gpuMiB": 110
+    },
+    {
+      "atS": 702,
+      "step": "idle 450 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.1,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.9,
+        "byType": {
+          "JavaScript": 2.1,
+          "Shared": 0.8,
+          "untyped": 0,
+          "DOM": 0.1
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.8,
+      "gpuMiB": 110
+    },
+    {
+      "atS": 733,
+      "step": "idle 480 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 1.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.6,
+        "byType": {
+          "DOM": 0.1,
+          "JavaScript": 1.4,
+          "Shared": 1.5,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.8
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.8,
+      "gpuMiB": 110
+    },
+    {
+      "atS": 763,
+      "step": "idle 510 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "untyped": 0,
+          "Shared": 0.6,
+          "DOM": 0.1,
+          "JavaScript": 2.3
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.7,
+      "gpuMiB": 110
+    },
+    {
+      "atS": 793,
+      "step": "idle 540 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 1.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.6,
+        "byType": {
+          "JavaScript": 1.4,
+          "DOM": 0.1,
+          "untyped": 0,
+          "Shared": 1.5
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 110
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.7,
+      "gpuMiB": 110
+    },
+    {
+      "atS": 823,
+      "step": "idle 570 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 1.4,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 1.6,
+        "byType": {
+          "untyped": 0,
+          "Shared": 1.5,
+          "JavaScript": 1.4,
+          "DOM": 0.1
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.6
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.7,
+      "gpuMiB": 109.6
+    },
+    {
+      "atS": 853,
+      "step": "idle 600 s",
+      "forced": false,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.3,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.7,
+        "byType": {
+          "DOM": 0.1,
+          "Shared": 0.6,
+          "JavaScript": 2.3,
+          "untyped": 0
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 149.7
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.6
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 149.7,
+      "gpuMiB": 109.6
+    },
+    {
+      "atS": 854,
+      "step": "idle end, forced",
+      "forced": true,
+      "breakdown": {
+        "totalMiB": 3,
+        "topMiB": 2.2,
+        "framesMiB": 0,
+        "workersMiB": 0,
+        "unattributedMiB": 0.8,
+        "byType": {
+          "DOM": 0.1,
+          "Shared": 0.6,
+          "untyped": 0,
+          "JavaScript": 2.2
+        },
+        "workers": [],
+        "frames": []
+      },
+      "tracked": {
+        "currentFrame": -1,
+        "framesCreated": 0,
+        "destroyedAlive": {
+          "documents": 0,
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0,
+          "frames": []
+        },
+        "current": {
+          "wasm": 0,
+          "wasmMiB": 0,
+          "workers": 0
+        }
+      },
+      "processes": [
+        {
+          "type": "renderer",
+          "pid": 10030,
+          "footprintMiB": 24.2
+        },
+        {
+          "type": "renderer",
+          "pid": 10028,
+          "footprintMiB": 130
+        },
+        {
+          "type": "renderer",
+          "pid": 10027,
+          "footprintMiB": 47.4
+        },
+        {
+          "type": "GPU",
+          "pid": 10023,
+          "footprintMiB": 109.5
+        }
+      ],
+      "tabPid": 10028,
+      "tabRendererMiB": 130,
+      "gpuMiB": 109.5
+    }
+  ]
+}

@@ -52,9 +52,23 @@ export interface MeterSide {
 const SCROLL_INPUTS: Record<Side, string[]> = { gpui: ['wheel', 'keydown', 'touchmove', 'pointermove'], tanstack: ['wheel', 'touchmove', 'scroll'] };
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
+/** What reaches a frame's realm: its element, the closures over its
+ *  window, its ring's array. Kept apart from the readings and dropped
+ *  whole when the frame is replaced, so `sides`, which keeps the readings,
+ *  never keeps a destroyed frame alive. */
+interface Link {
+  frame: HTMLIFrameElement;
+  /** Starts recording the feed's frames (set once the window is listened on). */
+  startFeed: () => void;
+  /** The frame's ring as last read, and the samples read from it. */
+  ring: { samples: Float64Array; read: number } | null;
+  detach: () => void;
+}
+
 interface Tracked {
   side: Side;
-  frame: HTMLIFrameElement;
+  /** Null once the frame is replaced (`release`). */
+  link: Link | null;
   record: LiveRecord;
   warm: boolean;
   /** Why it's warm: a frame came before it in this tab, or its files came
@@ -67,15 +81,10 @@ interface Tracked {
   scrolling: boolean;
   /** Its scenario runs a feed: its frames are recorded from its first rows on. */
   feed: boolean;
-  /** Starts recording the feed's frames (set once the window is listened on). */
-  startFeed: () => void;
   /** The feed's frames recorded, and as of the last refresh: the record's
    *  version moves once a refresh, not once a frame. */
   feedFrames: number;
   feedFramesRead: number;
-  /** The frame's ring as last read, and the samples read from it. */
-  ring: { samples: Float64Array; read: number } | null;
-  detach: () => void;
   /** Bumped by every change to `record`; `read` is the readings at one. */
   version: number;
   read: { version: number; side: LiveSide } | null;
@@ -98,10 +107,10 @@ const epoch = (pageMs: number) => performance.timeOrigin + pageMs;
 /** A new frame for `side`, as the slot creates it: its readings start over.
  *  `feed`: its scenario runs a feed. */
 export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, feed = false): void {
-  shown?.detach();
+  if (shown) release(shown);
   const tracked: Tracked = {
     side,
-    frame,
+    link: { frame, startFeed: () => {}, ring: null, detach: () => {} },
     record: { timeOrigin: 0, usable: null, open: null, filled: [], scrolls: [], memory: [], shown: [] },
     second: framesCreated > 0,
     cached: false,
@@ -109,11 +118,8 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, f
     base: new URL(base, location.href).href,
     scrolling: false,
     feed,
-    startFeed: () => {},
     feedFrames: 0,
     feedFramesRead: 0,
-    ring: null,
-    detach: () => {},
     version: 0,
     read: null,
   };
@@ -122,11 +128,12 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, f
   // The window to listen on exists once the frame's document has loaded.
   const attach = () => {
     const window = frame.contentWindow;
-    if (!window || shown !== tracked) return;
+    const link = tracked.link;
+    if (!window || !link || shown !== tracked) return;
     tracked.record.timeOrigin ||= window.performance.timeOrigin;
-    tracked.detach = listenForScrolls(tracked, window);
+    link.detach = listenForScrolls(tracked, link, window);
     // A frame that filled before its `load`: its feed's frames start now.
-    if (tracked.feed && tracked.record.filled.length) tracked.startFeed();
+    if (tracked.feed && tracked.record.filled.length) link.startFeed();
   };
   frame.addEventListener('load', attach, { once: true });
   // A scroll's recording ends on the module's rest time: load it with the
@@ -134,10 +141,17 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, f
   void loadMetrics().then((loaded) => (metrics = loaded));
 }
 
+/** A replaced frame's tracking: its listeners off and its link dropped,
+ *  so the destroyed frame is collected while `sides` keeps its readings. */
+function release(tracked: Tracked): void {
+  tracked.link?.detach();
+  tracked.link = null;
+}
+
 /** A mark the shown frame relayed (`publishContender`), epoch ms. */
 export function frameMark(source: MessageEventSource | null, name: string, at: number): void {
   const tracked = shown;
-  if (!tracked || source !== tracked.frame.contentWindow) return;
+  if (!tracked?.link || source !== tracked.link.frame.contentWindow) return;
   const { record } = tracked;
   tracked.version++;
   if (!record.timeOrigin) record.timeOrigin = (source as Window).performance.timeOrigin;
@@ -148,7 +162,7 @@ export function frameMark(source: MessageEventSource | null, name: string, at: n
       tracked.cached = fromCache(source as Window);
       tracked.warm ||= tracked.cached;
       measureMemory(tracked);
-      if (tracked.feed) tracked.startFeed();
+      if (tracked.feed) tracked.link?.startFeed();
     }
     record.filled.push(at);
   }
@@ -166,7 +180,7 @@ export const cached = (entry: PerformanceResourceTiming): boolean => entry.trans
 /** Records each scroll's animation frames: from its first input until the
  *  input rests `SCROLL_REST_MS`. The page's rAF runs in the frame's own
  *  animation frames (a same-origin frame shares the page's main thread). */
-function listenForScrolls(tracked: Tracked, window: Window): () => void {
+function listenForScrolls(tracked: Tracked, link: Link, window: Window): () => void {
   let last = 0;
   let scroll: number[] | null = null;
   // Under a feed, every frame from the first rows on, in runs: the page
@@ -190,7 +204,7 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
     tracked.scrolling = !!metrics && performance.now() - last <= metrics.SCROLL_REST_MS;
     requestAnimationFrame(feedTick);
   };
-  tracked.startFeed = () => {
+  link.startFeed = () => {
     if (feed) return;
     tracked.record.scrolls.push((feed = []));
     requestAnimationFrame(feedTick);
@@ -252,14 +266,16 @@ function readRing(tracked: Tracked): void {
     shown.splice(0, drop);
     tracked.version++;
   }
-  const held = (tracked.frame.contentWindow as (Window & { __contender?: { shownIn?: unknown } }) | null)?.__contender?.shownIn;
+  const { link } = tracked;
+  if (!link) return;
+  const held = (link.frame.contentWindow as (Window & { __contender?: { shownIn?: unknown } }) | null)?.__contender?.shownIn;
   // The frame's realm's array: not this window's `Float64Array`.
   if (Object.prototype.toString.call(held) !== '[object Float64Array]') return;
   const samples = held as Float64Array;
   const size = (samples.length - 1) / 2;
   if (!Number.isInteger(size) || size < 1) return;
-  if (tracked.ring?.samples !== samples) tracked.ring = { samples, read: 0 };
-  const ring = tracked.ring!;
+  if (link.ring?.samples !== samples) link.ring = { samples, read: 0 };
+  const ring = link.ring!;
   const written = samples[0]!;
   if (written < ring.read) ring.read = 0;
   if (written === ring.read) return;

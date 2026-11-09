@@ -46,10 +46,16 @@ export async function pageMemory(page: Page): Promise<PageMemory> {
   return { pageBytes, pageByType, workerBytes, wasmBytes };
 }
 
-/** A forced garbage collection of the page (the engine's worker isn't collected). */
-export async function collectGarbage(session: Session): Promise<void> {
+/** A forced garbage collection of the page (the engine's worker isn't
+ *  collected), `passes` times with a task between: a `WeakRef`'s target is
+ *  kept until the job that read it ends, so a weak reference read before
+ *  the first pass clears only at the second. */
+export async function collectGarbage(session: Pick<Session, 'context' | 'page'>, passes = 1): Promise<void> {
   const cdp = await session.context.newCDPSession(session.page);
-  await cdp.send('HeapProfiler.collectGarbage');
+  for (let pass = 0; pass < passes; pass++) {
+    if (pass) await session.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    await cdp.send('HeapProfiler.collectGarbage');
+  }
   await cdp.detach();
 }
 
