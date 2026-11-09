@@ -71,6 +71,12 @@ export interface Card {
 
 const on = (share: number) => Number((100 - share * 100).toFixed(1));
 
+/** What every Memory card's reading holds (its explainer's start). */
+const MEMORY_HOLDS = 'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s.';
+/** Every Memory card's last line: Chrome, unlike the Chromium the cold runs
+ *  use, doesn't attribute GPUI's WebAssembly memory to its frame. */
+export const CHROME_MEMORY = 'In Chrome itself, this tab’s GPUI reading leaves out its WebAssembly memory, which Chrome doesn’t count as the frame’s; the cold runs’ Chromium does.';
+
 /** The cards, in the status bar's order; the panel adds Download. */
 export const CARDS: Card[] = [
   {
@@ -131,7 +137,7 @@ export const CARDS: Card[] = [
     waiting: 'measuring',
     caption: 'After reading the same pages',
     explain:
-      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: after both read the same pages; this tab’s is now, after your scrolling.',
+      `${MEMORY_HOLDS} Cold: after both read the same pages; this tab’s is now, after your scrolling. ${CHROME_MEMORY}`,
   },
 ];
 
@@ -163,7 +169,7 @@ export const WIDE_CARDS: Card[] = [
     metric: 'memory',
     caption: 'After reading the file and a sideways session',
     explain:
-      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: after both read the whole file, then scroll across every day and back five times, at the default stop; this tab’s is now, after your scrolling.',
+      `${MEMORY_HOLDS} Cold: after both read the whole file, then scroll across every day and back five times, at the default stop; this tab’s is now, after your scrolling. ${CHROME_MEMORY}`,
   },
 ];
 
@@ -242,7 +248,7 @@ export const MARKET_CARDS: Card[] = [
     metric: 'memory',
     caption: 'After the feed’s 10,000 ticks',
     explain:
-      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: once each side has drawn the feed’s first 10,000 ticks, at the default stop; this tab’s is now.',
+      `${MEMORY_HOLDS} Cold: once each side has drawn the feed’s first 10,000 ticks, at the default stop; this tab’s is now. ${CHROME_MEMORY}`,
   },
 ];
 
@@ -304,7 +310,7 @@ export const TAIL_CARDS: Card[] = [
     metric: 'memory',
     caption: 'After 100,000 rows drawn',
     explain:
-      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: once each side has drawn the replay’s first 100,000 rows, at the default stop; this tab’s is now, however long the replay has run.',
+      `${MEMORY_HOLDS} Cold: once each side has drawn the replay’s first 100,000 rows, at the default stop; this tab’s is now, however long the replay has run. ${CHROME_MEMORY}`,
   },
 ];
 

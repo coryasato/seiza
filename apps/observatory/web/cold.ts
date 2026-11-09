@@ -50,7 +50,7 @@ function dataFile(name: string, files = readManifest()): { rows: number; credit:
 }
 
 /** Every scenario's data file's rows, by name, from one read. */
-function dataRows(): Record<string, number> {
+export function dataRows(): Record<string, number> {
   const files = readManifest();
   return Object.fromEntries(SCENARIOS.map(({ data }) => [data, dataFile(data, files).rows]));
 }

@@ -191,13 +191,16 @@ pub fn watch(table: &Entity<Table>, cx: &mut Context<Host>) {
     // The table followed from the start (`scene::set_level`), before this
     // subscription heard its `Following`.
     #[cfg(feature = "tail")]
-    if measuring() {
+    {
         let following = table.read(cx).is_following();
-        let _ = Reflect::set(
-            &js_sys::global(),
-            &JsValue::from_str(FOLLOWING_GLOBAL),
-            &JsValue::from_bool(following),
-        );
+        crate::clock::following(following);
+        if measuring() {
+            let _ = Reflect::set(
+                &js_sys::global(),
+                &JsValue::from_str(FOLLOWING_GLOBAL),
+                &JsValue::from_bool(following),
+            );
+        }
     }
     if measuring() {
         // A page landing or leaving changes the cache without changing
@@ -304,8 +307,12 @@ fn on_event(event: &TallTableEvent) {
         TallTableEvent::TailDrawn { rows } => crate::readout::drawn(*rows),
         // Counts posted while the reader holds the view aren't drawn until
         // it follows again: they'd read as the reader's time, not the view's.
+        // The page's follow toggle hears it too, with `?readout`.
         #[cfg(feature = "tail")]
-        TallTableEvent::Following(_) => crate::readout::forget(),
+        TallTableEvent::Following(on) => {
+            crate::readout::forget();
+            crate::clock::following(*on);
+        }
         TallTableEvent::Scrollbar { track, .. } if measuring() => {
             SHOWN.with_borrow_mut(|shown| shown.track = Some(*track));
             SHOWN.with_borrow(publish_rows_target);

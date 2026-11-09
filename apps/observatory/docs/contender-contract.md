@@ -92,6 +92,15 @@ The scripts record `state` with every frame through `shared-web/perf/`'s `frameR
 
 **The probe.** To find the first frame drawn at a new position, the scripts mark the frame in which `state.top` changes. On GPUI, `state` is read right after the task that made the frame's GPU calls (a microtask queued at its first call); on the DOM, in a rAF. Each is tied to that animation frame's presentation in Chromium's trace.
 
+### The follow toggle
+
+Live tail's frames only, with `?readout` only (`contenders/follow.ts`'s `followToggle`): a bare page, the cold runs' (`?measure` alone), neither heeds the page nor tells it anything. Two messages, same origin both ways:
+
+- **The page asks** `{ seiza: 'follow', on }`: `true` follows the newest (the table's `follow`, as End does: the view jumps to the end and follows), `false` lets go with the view where it is (its `let_go`). The replay never stops; only the view does. GPUI: the wasm export `followTail`, run on the host in the message's task. TanStack: `follow.ts`'s `follow` (the view's next draw moves the scroller to the end) or `letGo`.
+- **The frame tells** `{ seiza: 'following', on, rows }`: `rows` the clock's last count. Sent when following changes (the page's ask, the reader's scroll up, End, a scroll back to the bottom), and while let go at most every 250 ms (`FOLLOWING_EVERY_MS`) as the counts arrive, a count held back sent when the 250 ms are up (so the last one arrives though the clock stops): never a message a frame. The page assumes a frame follows until told otherwise, and counts the rows since following was let go itself. GPUI's reports come from the table's `Following` and the clock's counts (`crate/src/clock.rs`); TanStack's from the paging's `onFollowing` and the counts (`data/replay.ts`).
+
+While let go no count is drawn, so the ring takes no sample (above) and this tab's Shown in reads "—" once the last 5 s hold none, as after a scroll up.
+
 ## The cell probe
 
 `?cells` (never in a measured run: the table then formats every cell twice) turns on the table's cell probe, and the GPUI contender publishes what it drew: `__contender.columns` (each column's `name`, `x` and `width` in CSS px, `kind`, and `budget`, the characters a float may take: the table's `ColumnProbe`s) and `__contender.cells` (every cell of the last frame: `row`, `column` by index, `exact`, `shown`). `perf/cell-fixture.ts` pins the tall table's cell fixture from them (`components/tall-table/fixtures/`); a DOM contender reads its budgets from that fixture, not from a page. On market watch's level the GPUI cells also carry `text` and `flash`, each drawn color as 8-bit `[r, g, b, a]` (the flash's null when none shows); on live tail's, `text` (null for a cell the scene doesn't paint).

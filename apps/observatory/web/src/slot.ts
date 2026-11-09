@@ -4,7 +4,8 @@
  * between a title bar and a status bar, at its scenario's level (the
  * build `scenarios.ts` names) and stop. The title bar holds the GPUI |
  * TanStack toggle, the dial (a scenario with stops: a segmented control on
- * a desktop, a menu on a phone), the side's state (the page's only
+ * a desktop, a menu on a phone), live tail's follow toggle (`numbers.ts`'s,
+ * after first paint), the side's state (the page's only
  * `aria-live` text, changed only by a load, never by a scroll) and its
  * explainer (what this load fetched and what came from the cache), and the
  * lead; the status bar every number and the panel's button. The window is
@@ -111,6 +112,7 @@ export const PANEL_ID = 'observatory-panel';
 const StatusBar = lazy(() => import('./numbers.ts').then(({ StatusBar }) => ({ default: StatusBar })));
 const Panel = lazy(() => import('./numbers.ts').then(({ Panel }) => ({ default: Panel })));
 const Meter = lazy(() => import('./numbers.ts').then(({ Meter }) => ({ default: Meter })));
+const Follow = lazy(() => import('./numbers.ts').then(({ FollowToggle }) => ({ default: FollowToggle })));
 
 /** Sends the page's theme to a contender's frame. */
 function sendTheme(frame: HTMLIFrameElement | null, theme = currentTheme()): void {
@@ -242,6 +244,8 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
         ...component.contenders.map((contender) => h(ToggleGroupItem, { key: contender.side, value: contender.side, className: 'h-7 gap-2 px-3 text-[13px]' }, seriesDot(contender.side), contender.label)),
       ),
       dial ? h(Dial, { scenario, dial, stop, pick, busy, stage, rows: fileRows }) : null,
+      // Live tail's follow toggle, after first paint, each frame's its own.
+      painted && scenario.level === 'tail' ? h(Suspense, { fallback: null }, h(Follow, { key: frame, frame: ref, disabled: state !== 'filled' || stopped })) : null,
       dial ? h('span', { className: 'h-5 w-px shrink-0 bg-border max-md:hidden', 'aria-hidden': true }) : null,
       h(
         'span',

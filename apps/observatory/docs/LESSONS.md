@@ -405,3 +405,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - A shared ring needs a key that only grows, nothing more: market watch's generation and live tail's rows fit the same queue. The tail's one twist is the reader: counts posted while the reader holds the view would read as the reader's time, so a change of following drops them.
 - Moving the GPUI ring into its own module left market watch's code the same but swapped two string constants in its data, and the tail's new `on_event` arms moved three panic locations' line numbers in the base and wide builds. "Byte-identical" for the other levels means checking what differs, not just the hash.
 - One numeric constant imported across a chunk boundary changed rolldown's chunking: the metrics module became a shared chunk instead of an entry. The check looked it up by its module path and failed, though nothing reached the first paint.
+
+## M11 part E2: the follow toggle (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m11-e2.md`](../perf/results/2026-11-09-m11-e2.md).
+
+**Surprises:**
+- A function a level alone calls still lands in whatever chunk its module is in: `followToggle` first sat in `contract.ts`, which the TanStack entry imports, so the tail level's first-paint JS grew 0.1 KiB though only the after-paint `replay` chunk calls it. In a module of its own (`contenders/follow.ts`) it moved out of the entry (the code review's catch).
+- Without `?measure` a page can't read where GPUI's view is, so "the view held" came from screenshots of the frame's cells, and the meter, which redraws over the frame, had to be hidden first. The control is the same clip changing while following.
+- A shared anchor in a long check script is a trap: the bare-page control's closing lines are the same in market watch's section and live tail's, and the new control first went into market watch's, where it failed on a tail URL.

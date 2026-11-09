@@ -267,6 +267,21 @@ impl Host {
         }
     }
 
+    /// The page's follow toggle (live tail): follows the newest, as End
+    /// does, or lets go with the view where it is.
+    #[cfg(all(target_family = "wasm", feature = "tail"))]
+    pub(crate) fn follow_tail(&mut self, on: bool, cx: &mut Context<Self>) {
+        if let Load::Open(table) = &self.load {
+            table.update(cx, |table, cx| {
+                if on {
+                    table.follow(cx)
+                } else {
+                    table.let_go(cx)
+                }
+            });
+        }
+    }
+
     /// The feed (or live tail's clock) can't go on: the table closes and
     /// the failure shows.
     #[cfg(all(target_family = "wasm", any(feature = "market", feature = "tail")))]

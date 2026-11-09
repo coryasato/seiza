@@ -8,7 +8,10 @@
 //! message's task (`Host::rows_due`), as market watch's batches are folded
 //! in theirs. A replay `open()` starts the replay over: the worker ended
 //! (`stop`), and the new table's `watch` starts another at 0 rows, the
-//! file registered once.
+//! file registered once. With `?readout` the page's follow toggle reaches
+//! the table here (`followTail`), and the frame tells the page whether it
+//! follows and its rows (`report`, `contenders/contract.ts`'s
+//! `followToggle`).
 
 use std::cell::{Cell, RefCell};
 
@@ -35,6 +38,9 @@ struct Clock {
     /// The worker's `onmessage`, `onerror`, and `onmessageerror`, kept
     /// while it runs.
     listeners: Vec<Closure<dyn FnMut(JsValue)>>,
+    /// With `?readout`, the page's follow toggle's reporter (`(on, rows)
+    /// => void`), which throttles what it posts.
+    report: Option<Function>,
 }
 
 /// Where the file fetched whole is.
@@ -57,13 +63,16 @@ thread_local! {
     static WHOLE: Cell<Whole> = const { Cell::new(Whole::Missing) };
     /// A table is open and waits for the file to start its clock.
     static WAITING: Cell<bool> = const { Cell::new(false) };
+    /// Whether the shown table follows, and the clock's last count: what
+    /// the page's follow toggle is told.
+    static FOLLOWING: Cell<(bool, u64)> = const { Cell::new((true, 0)) };
 }
 
 /// How the JS host fetches the file whole, makes the frame's worker, and
-/// its start message (`contenders/tail/worker.ts`'s `TailStart`). Called
-/// before `start`.
+/// its start message (`contenders/tail/worker.ts`'s `TailStart`), and with
+/// `?readout` the follow toggle's reporter. Called before `start`.
 #[wasm_bindgen]
-pub fn tail(fetch: Function, make: Function, start: JsValue) {
+pub fn tail(fetch: Function, make: Function, start: JsValue, report: Option<Function>) {
     CLOCK.set(Some(Clock {
         fetch,
         make,
@@ -71,7 +80,47 @@ pub fn tail(fetch: Function, make: Function, start: JsValue) {
         worker: None,
         paused: false,
         listeners: Vec::new(),
+        report,
     }));
+}
+
+/// Tells the page's follow toggle, if there is one, `on` and `rows`.
+fn report(on: bool, rows: u64) {
+    CLOCK.with_borrow(|clock| {
+        if let Some(report) = clock.as_ref().and_then(|clock| clock.report.as_ref()) {
+            let _ = report.call2(
+                &JsValue::UNDEFINED,
+                &JsValue::from_bool(on),
+                &JsValue::from_f64(rows as f64),
+            );
+        }
+    });
+}
+
+/// The shown table started or stopped following (its `Following`, or a
+/// new table, which follows from the start): the page's toggle hears it.
+pub fn following(on: bool) {
+    let (_, rows) = FOLLOWING.get();
+    FOLLOWING.set((on, rows));
+    report(on, rows);
+}
+
+/// The clock set `rows`: while let go, the page's toggle hears the count
+/// (the reporter keeps it to a few messages a second).
+fn counted(rows: u64) {
+    let (on, _) = FOLLOWING.get();
+    FOLLOWING.set((on, rows));
+    if !on {
+        report(false, rows);
+    }
+}
+
+/// The page's follow toggle (`{ seiza: 'follow', on }`, which the JS host
+/// hears with `?readout` only): follows the newest (the table's `follow`,
+/// as End does) or lets go with the view where it is (`let_go`).
+#[wasm_bindgen(js_name = followTail)]
+pub fn follow_tail(on: bool) {
+    crate::contract::with_host_now(|host, cx| host.follow_tail(on, cx));
 }
 
 /// The table is open: starts its clock once the file is in hand, fetching
@@ -178,6 +227,7 @@ fn start() -> Result<(), String> {
             // frame whose drawn tail reaches it.
             crate::readout::waiting(at, rows as u64);
             crate::contract::with_host_now(|host, cx| host.rows_due(rows as u64, cx));
+            counted(rows as u64);
         });
         let failed = |what: &'static str| {
             Closure::<dyn FnMut(JsValue)>::new(move |event: JsValue| {
@@ -251,6 +301,7 @@ pub fn stop() {
         BATCHES.with(|batches| batches.set_length(0));
     }
     crate::readout::forget();
+    FOLLOWING.set((FOLLOWING.get().0, 0));
     CLOCK.with_borrow_mut(|clock| {
         let Some(clock) = clock else {
             return;

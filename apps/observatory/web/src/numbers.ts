@@ -16,11 +16,12 @@
  * main thread (the readout's cost, "Page").
  */
 
-import { ChevronDown, ChevronUp, Ellipsis, Info, Play, X } from 'lucide-react';
-import { createElement as h, Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Ellipsis, Info, Pause, Play, X } from 'lucide-react';
+import { createElement as h, Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import cold from 'virtual:cold-numbers';
 import type { Side } from '../../contenders/contract.ts';
+import type { FollowMessage, FollowingMessage } from '../../contenders/follow.ts';
 import type { Scenario, Stop } from '../../contenders/scenarios.ts';
 import { millions, SCENARIO_LINK, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
@@ -168,7 +169,13 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
       'div',
       { className: 'flex min-w-0 items-stretch' },
       h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 text-xs max-md:px-2 max-md:text-[13px]' }, seriesDot(side), shown.label),
-      h('span', { className: 'inline-flex items-center px-2.5 text-xs text-muted-foreground tabular-nums max-md:hidden' }, `${rows.toLocaleString('en-US')} rows`),
+      // The scenario's file and its rows (a phone has no room for either).
+      h(
+        'span',
+        { 'data-file': '', className: 'inline-flex min-w-0 items-center gap-1.5 px-2.5 text-xs text-muted-foreground tabular-nums max-md:hidden' },
+        h('span', { className: 'truncate text-foreground' }, scenario.data),
+        h('span', { className: 'whitespace-nowrap' }, `${rows.toLocaleString('en-US')} rows`),
+      ),
     ),
     h(
       'div',
@@ -205,6 +212,65 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
         h(MenuButton, { disabled: true }, 'Run benchmark: coming soon'),
       ),
     ),
+  );
+}
+
+// ---------------------------------------------------------------- the follow toggle
+
+/**
+ * Live tail's follow toggle, beside the dial (`docs/DECISIONS.md`, "Page"):
+ * a log tool's pause. The replay keeps running; only the view stops
+ * following. "Pause" while the frame says its view follows; once it
+ * doesn't (pressed, or the reader scrolled up), "Follow · <n> new rows",
+ * the rows the clock set since following was let go; pressing it follows
+ * again, which jumps to the newest. It shows what the frame says
+ * (`FollowingMessage`), never what it asked: the frame hears the ask
+ * (`FollowMessage`) with `?readout` only (`docs/contender-contract.md`,
+ * "The follow toggle"). A phone's is its icon and the count.
+ */
+export function FollowToggle({ frame, disabled }: { frame: RefObject<HTMLIFrameElement | null>; disabled: boolean }) {
+  const [following, setFollowing] = useState(true);
+  const [count, setCount] = useState(0);
+  /** The rows when following was let go. */
+  const since = useRef<number | null>(null);
+  useEffect(() => {
+    const listen = (event: MessageEvent<Partial<FollowingMessage>>) => {
+      if (event.origin !== location.origin || event.source !== frame.current?.contentWindow || event.data?.seiza !== 'following') return;
+      const { on, rows } = event.data;
+      if (typeof on !== 'boolean' || typeof rows !== 'number') return;
+      if (on) since.current = null;
+      else since.current ??= rows;
+      setFollowing(on);
+      setCount(on ? 0 : Math.max(0, rows - since.current!));
+    };
+    window.addEventListener('message', listen);
+    return () => window.removeEventListener('message', listen);
+  }, [frame]);
+  const ask = () => {
+    const message: FollowMessage = { seiza: 'follow', on: !following };
+    frame.current?.contentWindow?.postMessage(message, location.origin);
+  };
+  return h(
+    'button',
+    {
+      type: 'button',
+      'data-follow': following ? 'on' : 'off',
+      disabled,
+      onClick: ask,
+      title: following ? 'Stop following the newest rows; the replay keeps running' : 'Follow the newest rows again',
+      className: 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-[13px] whitespace-nowrap hover:bg-accent disabled:opacity-50 disabled:hover:bg-background max-md:h-8 max-md:px-2 [&_svg]:size-3.5',
+    },
+    h(following ? Pause : Play, { 'aria-hidden': true }),
+    h('span', { className: 'max-md:sr-only' }, following ? 'Pause' : 'Follow'),
+    following
+      ? null
+      : h(
+          'span',
+          { 'data-follow-count': '', className: 'text-muted-foreground tabular-nums' },
+          h('span', { className: 'max-md:sr-only' }, '· '),
+          count.toLocaleString('en-US'),
+          h('span', { className: 'max-md:sr-only' }, count === 1 ? ' new row' : ' new rows'),
+        ),
   );
 }
 

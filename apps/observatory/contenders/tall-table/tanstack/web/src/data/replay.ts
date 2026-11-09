@@ -9,8 +9,11 @@
  * replay's path: once the table is open (at 0 rows, following), the file
  * fetched whole and registered as `WHOLE_FILE` (once a page), and only then
  * the clock's worker started at the stop's rate, each count set on the
- * paging (`follow.ts`'s `setRows`) in its message's task. The view draws
- * what `TailCells` answers (`tail.ts`, beside `view.ts`).
+ * paging (`follow.ts`'s `setRows`) in its message's task. With `?readout`,
+ * the page's follow toggle (`followToggle`): its asks follow (`follow`, as
+ * End does) or let go (`letGo`), and the page hears following change and,
+ * while let go, the rows. The view draws what `TailCells` answers
+ * (`tail.ts`, beside `view.ts`).
  *
  * Every setting is the scenario's (`scenarios.ts`) or the replay's
  * (`contenders/tail/`), read here, never copied. `main.ts` imports this
@@ -20,13 +23,14 @@
 
 import type { Bridge } from '@seiza/duckdb/bridge';
 import { SHOWN_RING } from '../../../../../contract.ts';
+import { followToggle } from '../../../../../follow.ts';
 import { DATA } from '../../../../../paths.ts';
 import { DATA_FILE, FILE_ROWS, WHOLE_FILE } from '../../../../../tail/data.ts';
 import type { TailRows, TailStart } from '../../../../../tail/worker.ts';
 import type { RowsStop, TailScenario } from '../../../../../scenarios.ts';
 import { BASE_SIZES, layOutAll, padOf, type LaidOutColumn } from '../layout.ts';
 import type { TailCells } from '../tail.ts';
-import { follow, setRows } from './follow.ts';
+import { follow, isFollowing, letGo, setRows } from './follow.ts';
 import { shownText, type CellValue } from './format.ts';
 import { Advances, ColumnFormat } from './number.ts';
 import type { PageSource, TablePaging } from './paging.ts';
@@ -83,6 +87,11 @@ async function fetchWhole(): Promise<File> {
 /** Where the file fetched whole is: once registered, every replay's pages
  *  read it (a reopen doesn't fetch it again). */
 let whole: Promise<void> | null = null;
+
+/** With `?readout`, the page's follow toggle: its reporter, made once a
+ *  page (its listener with it), and what the shown table does with an ask. */
+let report: ((on: boolean, rows: number) => void) | null | undefined;
+let asked: ((on: boolean) => void) | null = null;
 
 /** The counts not yet drawn, at most: past it, the oldest is dropped. */
 const PENDING = 256;
@@ -223,6 +232,7 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: n
             ring?.waiting(at, rows);
             setRows(paging, rows);
             cells.rows();
+            report?.(isFollowing(paging), rows);
           };
           worker.onerror = (event) => {
             event.preventDefault();
@@ -241,6 +251,7 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: n
     stop: () => {
       ended = true;
       ring?.forget();
+      asked = null;
       if (!worker) return;
       worker.onmessage = worker.onerror = worker.onmessageerror = null;
       worker.terminate();
@@ -252,7 +263,20 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: n
     // follows again: they'd read as the reader's time, not the view's.
     ring?.forget();
     cells.following(on);
+    report?.(on, paging.rows);
   };
+  if (readout) {
+    report ??= followToggle((on) => asked?.(on));
+    // Following again moves the paging to the end; the view's next draw
+    // moves the scroller there (its `sync`).
+    asked = (on) => {
+      if (!on) return letGo(paging);
+      follow(paging);
+      cells.rows();
+    };
+    // A new table follows from the start, before `onFollowing` was set.
+    report?.(true, 0);
+  }
   return cells;
 }
 

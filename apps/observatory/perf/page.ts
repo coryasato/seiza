@@ -82,7 +82,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { chromium, type Browser, type Page } from '@playwright/test';
+import { chromium, type Browser, type Frame, type Page } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { MARKS } from '../contenders/contract.ts';
@@ -93,10 +93,11 @@ import { COMPARE_HASH, COMPONENTS, isDensity, listOf, millions, READOUT_PARAM, R
 import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
 import { KEEPS_UP_SHARE, TAIL_KEEPS_UP_MS } from '../metrics/metrics.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
-import { resolveCold, resolveGallery } from '../web/cold.ts';
+import { dataRows, resolveCold, resolveGallery } from '../web/cold.ts';
 import {
   BARS,
   CARDS,
+  CHROME_MEMORY,
   MARKET_CARDS,
   MARKET_STOP_CARDS,
   SOAK_MEMORY,
@@ -107,6 +108,7 @@ import {
   WIDE_CARDS,
   WIDE_STOP_CARDS,
   cardOutcome,
+  cardsOf,
   cardValues,
   coldKey,
   downloadTotal,
@@ -857,6 +859,9 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     const gpui = contenderBase('tall-table', 'gpui');
     await waitFilled(page, gpui);
     await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-segment="data"] > span:last-child')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("GPUI's Rows in didn't show within 2 s of its filled mark"));
+    out.file = { [BIG_FILE.id]: await fileInStatus(page, BIG_FILE) };
+    // Every Memory explainer says what Chrome leaves out.
+    expect([BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL].every((scenario) => cardsOf(scenario).find((card) => card.key === 'memory')?.explain.endsWith(CHROME_MEMORY)), "a Memory card's explainer lacks Chrome's line");
     const marks = await page.frameLocator('iframe').locator(':root').evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').map((mark) => [mark.name, mark.startTime])));
     // As shown: whole milliseconds from 100, else one decimal.
     const near = (text: string | null, ms: number) => Math.abs(parseFloat(text ?? '') - ms) <= (ms >= 100 ? 0.51 : 0.051);
@@ -1105,6 +1110,7 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     await waitFilled(page, gpuiWide);
     await waitEnabled(page, 'the wide sheet');
     await page.waitForSelector('[data-status-ready]');
+    out.file = await fileInStatus(page, WIDE_SHEET);
 
     // The status bar's cold values, at the window's stop for Smooth.
     const atStop = async (stop: string) => {
@@ -1265,6 +1271,7 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     await waitFilled(page, base('gpui'));
     await waitEnabled(page, 'market watch');
     await page.waitForSelector('[data-status-ready]');
+    out.file = await fileInStatus(page, MARKET_WATCH);
     const theme = await page.evaluate(() => document.documentElement.dataset.theme ?? 'light');
     const src = await frameSrc(page);
     expect(src === `${frameUrl('gpui', MARKET_WATCH, MARKET_WATCH.defaultStop, theme)}&${READOUT_PARAM}=`, `market watch's first frame: ${src}`);
@@ -1442,6 +1449,7 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     await waitFilled(page, base('gpui'));
     await waitEnabled(page, 'live tail');
     await page.waitForSelector('[data-status-ready]');
+    out.file = await fileInStatus(page, LIVE_TAIL);
     const theme = await page.evaluate(() => document.documentElement.dataset.theme ?? 'light');
     const src = await frameSrc(page);
     expect(src === `${frameUrl('gpui', LIVE_TAIL, LIVE_TAIL.defaultStop, theme)}&${READOUT_PARAM}=`, `live tail's first frame: ${src}`);
@@ -1488,6 +1496,7 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
       const want = [`Cold, GPUI${at}${withUnit(gpui, card.unit)}`, `Cold, TanStack${at}${withUnit(tanstack, card.unit)}`];
       expect(want.every((line) => text.includes(line)), `${card.key}'s explainer: ${JSON.stringify(text)}, the numbers say ${JSON.stringify(want)}`);
       seen[card.key] = want.join(', ');
+      if (card.key === 'memory') expect(text.includes(CHROME_MEMORY), `the Memory explainer lacks Chrome's line: ${JSON.stringify(text)}`);
     }
     await page.mouse.move(0, 0);
     out.statusBar = seen;
@@ -1504,21 +1513,21 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
       return { shownIn, smooth };
     };
     // The ring fills as the view draws counts: 50 samples is about a second at 10k.
-    const ringOf = async () => {
-      const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;
-      const read = () => frame.evaluate(() => (globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn?.[0] ?? null);
-      await frame.waitForFunction(() => ((globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn?.[0] ?? 0) >= 50, null, { timeout: 10_000 }).catch(() => {});
-      return read();
-    };
+    const ringOf = () => ringAtLeast(contenderFrame(page), 50, 10_000);
     out.liveGpui = await reads('GPUI');
     const gpuiRing = await ringOf();
     expect(gpuiRing !== null && gpuiRing >= 50, `GPUI's ring holds ${gpuiRing} samples`);
+    out.followGpui = await followToggleCheck(page, 'GPUI');
     await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    // The follow toggle waits for the new frame's rows, as the toggle and the dial do.
+    expect(await page.locator('[data-follow]').isDisabled(), "the follow toggle isn't disabled while TanStack's frame loads");
     await waitFilled(page, base('tanstack'));
     await waitEnabled(page, 'TanStack at live tail');
+    expect(await page.locator('[data-follow]').isEnabled(), "the follow toggle isn't enabled once TanStack's frame fills");
     out.liveTanstack = await reads('TanStack');
     const tanstackRing = await ringOf();
     expect(tanstackRing !== null && tanstackRing >= 50, `TanStack's ring holds ${tanstackRing} samples`);
+    out.followTanstack = await followToggleCheck(page, 'TanStack');
     console.log(`status bar: ${JSON.stringify(seen)}; this tab, no input: GPUI ${JSON.stringify(out.liveGpui)} (${gpuiRing} samples), TanStack ${JSON.stringify(out.liveTanstack)} (${tanstackRing})`);
 
     // The control: a bare page (no ?readout), as the cold runs load it, keeps no ring.
@@ -1530,8 +1539,47 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
       const kept = await bare.evaluate(() => (globalThis as { __contender?: { shownIn?: unknown } }).__contender?.shownIn !== undefined);
       expect(!kept, `${side}'s bare page keeps a ring without ?${READOUT_PARAM}`);
     }
+    // The follow toggle's control: in a frame without ?readout (?measure
+    // only, as the cold runs load it) neither side heeds the page's ask nor
+    // sends a message; with it, both do.
+    await bare.goto(new URL(OBSERVATORY, origin).href);
+    const asked: Record<string, unknown> = {};
+    for (const side of ['gpui', 'tanstack'] as const) {
+      for (const readout of [false, true]) {
+        const src = `${base(side)}?scenario=${LIVE_TAIL.id}&stop=${LIVE_TAIL.defaultStop}&measure${readout ? `&${READOUT_PARAM}` : ''}`;
+        const got = await bare.evaluate(async (src) => {
+          const heard: { on: boolean; rows: number }[] = [];
+          const frame = document.createElement('iframe');
+          frame.src = src;
+          frame.style.cssText = 'position: fixed; inset: 0; width: 1000px; height: 700px; border: 0';
+          const listen = (event: MessageEvent) => {
+            if (event.source === frame.contentWindow && event.data?.seiza === 'following') heard.push(event.data);
+          };
+          addEventListener('message', listen);
+          document.body.append(frame);
+          const inside = () => frame.contentWindow as (Window & { __contenderFollowing?: boolean }) | null;
+          const since = Date.now();
+          while (!inside()?.performance.getEntriesByName('contender:filled').length) {
+            if (Date.now() - since > 60_000) throw new Error(`${src}: no contender:filled`);
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          // The clock running (the file whole), then the ask.
+          await new Promise((resolve) => setTimeout(resolve, 2_000));
+          inside()!.postMessage({ seiza: 'follow', on: false }, location.origin);
+          await new Promise((resolve) => setTimeout(resolve, 1_500));
+          const following = inside()!.__contenderFollowing;
+          removeEventListener('message', listen);
+          frame.remove();
+          return { following, heard: heard.length, last: heard.at(-1) ?? null };
+        }, new URL(src, origin).href);
+        asked[`${side}${readout ? ':readout' : ''}`] = got;
+        if (readout) expect(got.following === false && got.heard >= 1 && got.last?.on === false && (got.last?.rows ?? 0) > 0, `${side} with ?${READOUT_PARAM}: the ask to let go: ${JSON.stringify(got)}`);
+        else expect(got.following === true && got.heard === 0, `${side} without ?${READOUT_PARAM} heeded the ask or sent a message: ${JSON.stringify(got)}`);
+      }
+    }
+    out.followControl = asked;
     await bare.close();
-    console.log(`control: neither bare page keeps a ring without ?${READOUT_PARAM}`);
+    console.log(`control: neither bare page keeps a ring without ?${READOUT_PARAM}, nor heeds the follow toggle or tells it anything (with it: ${JSON.stringify(asked)})`);
 
     // The panel at the window's stop, and at the last one picked.
     await page.locator('[data-compare]').click();
@@ -1633,12 +1681,134 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     await small.getByRole('button', { name: 'More numbers' }).tap();
     const more = (await popovers(small).textContent()) ?? '';
     expect(more.includes('Ready in') && more.includes('Memory'), `a phone's overflow: ${more}`);
+    await small.keyboard.press('Escape');
+    // A phone's follow toggle: its icon, and once let go the count.
+    // Enabled once the frame fills.
+    await small.waitForFunction(() => document.querySelector<HTMLButtonElement>('[data-follow]')?.disabled === false, null, { timeout: 60_000 });
+    const toggle = small.locator('[data-follow]');
+    await toggle.tap();
+    await small.waitForFunction(() => document.querySelector('[data-follow]')?.getAttribute('data-follow') === 'off', null, { timeout: 5_000 }).catch(() => {});
+    await small.waitForTimeout(600);
+    const phoneToggle = await toggle.evaluate((button) => ({
+      state: button.getAttribute('data-follow'),
+      width: button.getBoundingClientRect().width,
+      icon: !!button.querySelector('svg'),
+      // What shows: the count alone, the words for a screen reader.
+      shown: (() => {
+        const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+        let text = '';
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.parentElement!.getBoundingClientRect().width > 1) text += node.textContent;
+        return text.trim();
+      })(),
+      count: button.querySelector('[data-follow-count]')?.textContent ?? '',
+    }));
+    expect(phoneToggle.state === 'off' && phoneToggle.icon && /^[\d,]+$/.test(phoneToggle.shown) && Number(phoneToggle.shown.replace(/,/g, '')) > 0 && phoneToggle.width < 110 && /new rows?$/.test(phoneToggle.count), `a phone's follow toggle: ${JSON.stringify(phoneToggle)}`);
+    out.phoneFollow = phoneToggle;
     await phone.close();
-    console.log('phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow');
+    console.log(`phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow; the follow toggle ${JSON.stringify(phoneToggle)}`);
   } finally {
     await browser.close();
   }
   return out;
+}
+
+/** The shown contender's frame (the page has one). */
+const contenderFrame = (page: Page): Frame => page.frames().find((candidate) => candidate !== page.mainFrame())!;
+/** The samples the frame's readout ring has written (`SHOWN_RING`'s first element), 0 without one. */
+const ringSamples = (frame: Frame): Promise<number> => frame.evaluate(() => (globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn?.[0] ?? 0);
+/** The ring's samples once they reach `count`, or what they are after `timeoutMs`. */
+async function ringAtLeast(frame: Frame, count: number, timeoutMs: number): Promise<number> {
+  const until = Date.now() + timeoutMs;
+  let samples = await ringSamples(frame);
+  while (samples < count && Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    samples = await ringSamples(frame);
+  }
+  return samples;
+}
+
+/**
+ * Live tail's follow toggle on the side the page shows: Pause lets go with
+ * the view held (the frame's cells unchanged for a second, its control the
+ * same clip moving while following) as the count rises and the ring takes
+ * no sample; Follow follows again (the ring filling, the view moving); a
+ * scroll up lets go too, and the count rises after it.
+ */
+async function followToggleCheck(page: Page, side: string): Promise<Record<string, unknown>> {
+  const button = page.locator('[data-follow]');
+  const frame = contenderFrame(page);
+  const ring = () => ringSamples(frame);
+  const count = async () => Number(((await page.locator('[data-follow-count]').textContent()) ?? '').replace(/\D/g, ''));
+  const toggled = (want: 'on' | 'off') => page.waitForFunction((want) => document.querySelector('[data-follow]')?.getAttribute('data-follow') === want, want, { timeout: 5_000 }).then(() => true, () => false);
+  // The meter sits over the frame and redraws: hidden while the cells are compared.
+  const meterShown = (await page.locator('[data-meter-toggle]').getAttribute('aria-pressed')) === 'true';
+  if (meterShown) await page.locator('[data-meter-toggle]').click();
+  const stage = await box(page, 'iframe');
+  // The cells, clear of the gutter, the header, the scrollbar, and the meter's corner.
+  const clip = { x: stage.x + 80, y: stage.y + 60, width: Math.round(stage.width * 0.6), height: Math.round(stage.height * 0.5) };
+  const still = async (ms: number) => {
+    const first = await page.screenshot({ clip });
+    await page.waitForTimeout(ms);
+    return first.equals(await page.screenshot({ clip }));
+  };
+  const out: Record<string, unknown> = {};
+  await page.mouse.move(0, 0);
+  expect((await toggled('on')) && (await button.textContent()) === 'Pause' && (await button.isEnabled()), `${side}: the toggle reads "${await button.textContent()}", enabled ${await button.isEnabled()}, before a press`);
+  const movingBefore = !(await still(600));
+  expect(movingBefore, `${side}: following, the cells didn't change in 600 ms (the held view's control)`);
+
+  // Pause: let go, the view held, the count rising, no sample drawn.
+  await button.click();
+  await page.mouse.move(0, 0);
+  const paused = await toggled('off');
+  const [countFrom, ringFrom] = [await count(), await ring()];
+  const held = await still(1_000);
+  await page.waitForTimeout(300);
+  const [countTo, ringTo] = [await count(), await ring()];
+  const label = (await button.textContent()) ?? '';
+  expect(paused && /^Follow\s*· [\d,]+ new rows$/.test(label), `${side}: after Pause the toggle reads "${label}"`);
+  expect(held, `${side}: paused, the cells changed in a second`);
+  expect(countTo > countFrom, `${side}: paused, the count went ${countFrom} → ${countTo}`);
+  expect(ringTo === ringFrom, `${side}: paused, the ring took ${ringTo - ringFrom} samples`);
+  out.paused = { held, count: [countFrom, countTo], label };
+
+  // Follow: back to the newest, following (the ring fills again, the cells move).
+  await button.click();
+  await page.mouse.move(0, 0);
+  const followed = await toggled('on');
+  const drawing = (await ringAtLeast(frame, ringTo + 10, 5_000)) >= ringTo + 10;
+  const moving = !(await still(600));
+  expect(followed && drawing && moving, `${side}: after Follow: "${await button.textContent()}", the ring filling ${drawing}, the cells moving ${moving}`);
+  out.followed = { drawing, moving };
+
+  // A scroll up lets go too, and the count rises after it.
+  await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2);
+  await page.mouse.wheel(0, -600);
+  await page.mouse.move(0, 0);
+  const letGo = await toggled('off');
+  await page.waitForTimeout(300);
+  const scrolledFrom = await count();
+  await page.waitForTimeout(800);
+  const scrolledTo = await count();
+  expect(letGo && scrolledTo > scrolledFrom, `${side}: a scroll up: the toggle ${await button.getAttribute('data-follow')}, the count ${scrolledFrom} → ${scrolledTo}`);
+  await button.click();
+  expect(await toggled('on'), `${side}: Follow after a scroll up didn't follow`);
+  out.scrolledUp = [scrolledFrom, scrolledTo];
+  if (meterShown) await page.locator('[data-meter-toggle]').click();
+  console.log(`${side}'s follow toggle: Pause held the cells as the count rose ${countFrom} → ${countTo} ("${label}"), the ring untouched; Follow drew the tail again; a scroll up let go (${scrolledFrom} → ${scrolledTo})`);
+  return out;
+}
+
+let FILE_ROWS: Record<string, number> | null = null;
+
+/** The status bar's left side: the scenario's file (`scenarios.ts`'s
+ *  `data`) and its rows (`MANIFEST.json`'s, as the page has them). */
+async function fileInStatus(page: Page, scenario: Scenario): Promise<string> {
+  const text = (await page.locator('[data-file]').textContent()) ?? '';
+  // The manifest's rows, as the page's `virtual:data-rows` has them.
+  const rows = (FILE_ROWS ??= dataRows())[scenario.data]!;
+  expect(text === `${scenario.data}${rows.toLocaleString('en-US')} rows`, `${scenario.label}'s status bar reads "${text}", not ${scenario.data} and ${rows} rows`);
+  return text;
 }
 
 /** Every text the title bar's live state has shown, in order, from page load. */
