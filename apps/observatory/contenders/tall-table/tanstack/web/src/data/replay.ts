@@ -19,6 +19,7 @@
  */
 
 import type { Bridge } from '@seiza/duckdb/bridge';
+import { SHOWN_RING } from '../../../../../contract.ts';
 import { DATA } from '../../../../../paths.ts';
 import { DATA_FILE, FILE_ROWS, WHOLE_FILE } from '../../../../../tail/data.ts';
 import type { TailRows, TailStart } from '../../../../../tail/worker.ts';
@@ -83,6 +84,50 @@ async function fetchWhole(): Promise<File> {
  *  read it (a reopen doesn't fetch it again). */
 let whole: Promise<void> | null = null;
 
+/** The counts not yet drawn, at most: past it, the oldest is dropped. */
+const PENDING = 256;
+
+/**
+ * With `?readout`: each count's post → the frame whose drawn tail first
+ * reached it, on `__contender.shownIn` for the observatory's page
+ * (`SHOWN_RING`'s layout). Market watch's ring (`quotes.ts`) keyed by the
+ * rows rather than a generation: a copy, since sharing its own changes
+ * market watch's chunk. Preallocated: the readout adds no garbage.
+ */
+class TailRing {
+  readonly samples = new Float64Array(1 + 2 * SHOWN_RING);
+  private readonly sent = new Float64Array(PENDING);
+  private readonly rows = new Float64Array(PENDING);
+  private head = 0;
+  private tail = 0;
+
+  /** A count posted at `sent` (epoch ms): drawn once the tail reaches `rows`. */
+  waiting(sent: number, rows: number): void {
+    if (this.tail - this.head === PENDING) this.head++;
+    const slot = this.tail++ % PENDING;
+    this.sent[slot] = sent;
+    this.rows[slot] = rows;
+  }
+
+  /** The tail drawn to `end` at `at` (epoch ms): every count it reaches is a sample. */
+  drawn(end: number, at: number): void {
+    const samples = this.samples;
+    while (this.head < this.tail && this.rows[this.head % PENDING]! <= end) {
+      const sent = this.sent[this.head++ % PENDING]!;
+      const count = samples[0]!;
+      const slot = 1 + 2 * (count % SHOWN_RING);
+      samples[slot] = at;
+      samples[slot + 1] = at - sent;
+      samples[0] = count + 1;
+    }
+  }
+
+  /** The counts waiting are dropped: following changed, or the replay starts over. */
+  forget(): void {
+    this.head = this.tail;
+  }
+}
+
 /** The scene's cells for the view, and the replay's path into the paging. */
 export interface Tail extends TailCells {
   /** The table is open: fetches the file whole and registers it (once a
@@ -96,7 +141,7 @@ export interface Tail extends TailCells {
 /** Live tail's table over `paging` (at 0 rows, following once this
  *  returns), its `file` columns laid out at the scenario's widths, its
  *  clock stopping at `limit` rows (0: never). */
-export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: number, paging: TablePaging<TablePage>, file: readonly Column[], bridge: Bridge, measured: boolean): Promise<Tail> {
+export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: number, paging: TablePaging<TablePage>, file: readonly Column[], bridge: Bridge, measured: boolean, readout: boolean): Promise<Tail> {
   const advances = await measureAdvances();
   // The canvas's widths, set as the GPUI side's `density` sets them.
   const columns = layOutAll(file.map((column, index) => ({ ...column, width: scenario.widths[index] })));
@@ -116,9 +161,14 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: n
   /** With `?measure`, each count as the clock posted it (`__contender.batches`). */
   const batches: TailRows[] | null = measured ? [] : null;
   if (batches) (globalThis as { __contender?: { batches?: unknown } }).__contender!.batches = batches;
+  /** With `?readout`, this tab's Shown in (`__contender.shownIn`). */
+  const ring = readout ? new TailRing() : null;
+  if (ring) (globalThis as { __contender?: { shownIn?: unknown } }).__contender!.shownIn = ring.samples;
   let paused = false;
   let ended = false;
   const cells: Tail = {
+    readout,
+    drawn: (end) => ring?.drawn(end, performance.timeOrigin + performance.now()),
     columns,
     rows: () => {},
     following: () => {},
@@ -170,6 +220,7 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: n
             const [rows, at] = Array.isArray(data) ? data : [];
             if (typeof rows !== 'number' || typeof at !== 'number') return fail('the clock sent something other than [rows, at]');
             batches?.push([rows, at]);
+            ring?.waiting(at, rows);
             setRows(paging, rows);
             cells.rows();
           };
@@ -189,13 +240,19 @@ export async function tailTable(scenario: TailScenario, stop: RowsStop, limit: n
     },
     stop: () => {
       ended = true;
+      ring?.forget();
       if (!worker) return;
       worker.onmessage = worker.onerror = worker.onmessageerror = null;
       worker.terminate();
       worker = null;
     },
   };
-  paging.onFollowing = (on) => cells.following(on);
+  paging.onFollowing = (on) => {
+    // Counts posted while the reader holds the view aren't drawn until it
+    // follows again: they'd read as the reader's time, not the view's.
+    ring?.forget();
+    cells.following(on);
+  };
   return cells;
 }
 

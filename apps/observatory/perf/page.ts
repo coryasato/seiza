@@ -87,11 +87,11 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
-import { BIG_FILE, MARKET_WATCH, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
+import { BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
 import { COLUMNS as MARKET_COLUMNS, INSTRUMENTS } from '../contenders/market/feed.ts';
-import { COMPARE_HASH, COMPONENTS, isDensity, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
+import { COMPARE_HASH, COMPONENTS, isDensity, listOf, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
 import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
-import { KEEPS_UP_SHARE } from '../metrics/metrics.ts';
+import { KEEPS_UP_SHARE, TAIL_KEEPS_UP_MS } from '../metrics/metrics.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
 import { resolveCold, resolveGallery } from '../web/cold.ts';
 import {
@@ -99,6 +99,9 @@ import {
   CARDS,
   MARKET_CARDS,
   MARKET_STOP_CARDS,
+  SOAK_MEMORY,
+  TAIL_CARDS,
+  TAIL_STOP_CARDS,
   PROFILES as DEVICE_PROFILES,
   READY,
   WIDE_CARDS,
@@ -111,6 +114,7 @@ import {
   galleryOf,
   keepsVerdict,
   measuredWith,
+  numbersOf,
   number,
   outcome,
   size,
@@ -137,6 +141,7 @@ const TALL_TABLE = COMPONENTS.find((component) => component.id === 'tall-table')
 const ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
 const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
 const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
+const TAIL_ROUTE = scenarioPath(TALL_TABLE, LIVE_TAIL);
 /** Every route's HTML file, from the build's root. */
 const HTML_FILES = ROUTES.map((route) => route.html.slice(1));
 /** A frame's URL as the page makes it: its level's base, the scenario, the stop, the theme. */
@@ -197,7 +202,10 @@ const firstPaintFiles = [...firstPaintKeys].map((key) => manifest[key]!.file).fi
 const kib = (bytes: number) => Math.round((bytes / 1024) * 10) / 10;
 const brotliKiB = (files: string[]) => kib(files.reduce((total, file) => total + brotli(readFileSync(join(dist, file))).byteLength, 0));
 const firstPaintJsBrotliKiB = brotliKiB(firstPaintFiles);
-const metricsChunk = Object.entries(manifest).find(([key]) => key.endsWith('metrics/metrics.ts'))?.[1];
+// The metrics module's chunk: an entry of its own, or, once a lazy chunk
+// imports one of its constants too, a shared chunk rolldown names for it
+// (`_metrics-<hash>.js`); either way loaded after first paint.
+const metricsChunk = Object.entries(manifest).find(([key, chunk]) => key.endsWith('metrics/metrics.ts') || (key.startsWith('_') && (chunk as { name?: string }).name === 'metrics'))?.[1];
 expect(!!metricsChunk, 'the build has no chunk of its own for the metrics module');
 expect(!!metricsChunk && !firstPaintFiles.includes(metricsChunk.file), 'the metrics module is in the first-paint JS');
 const cssFiles = [...new Set([...firstPaintKeys].flatMap((key) => manifest[key]!.css ?? []))];
@@ -1003,7 +1011,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids (Big file):** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
     console.log(`credit: ${credit} (the page's and the README's)`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
     const blocks = await page.locator('[data-description] h2').allTextContents();
     const order = ['What you’re looking at', `Why ${millions(cold.rows)} rows`, 'Where each side wins', 'Where the canvas falls short', 'Other scenarios'];
     expect(JSON.stringify(blocks) === JSON.stringify(order), `Big file's description's blocks: ${JSON.stringify(blocks)}`);
@@ -1062,6 +1070,14 @@ async function checkCard(page: Page, card: Card, values: ScenarioCold['values'],
   });
   const want = verdict(outcomes[0]!, outcomes[1]!, card.word, card.ratio);
   expect(shown.verdict === want, `${what} ${card.key}: the verdict "${shown.verdict}", the numbers say "${want}"`);
+  // The collection card's longest pause and those in a late frame, per side, fast · slow.
+  if (card.pauses)
+    for (const [metric, unit] of [['collection-longest', ' ms'], ['collection-late', '']] as const)
+      for (const [index, side] of (['gpui', 'tanstack'] as const).entries()) {
+        const got = await page.locator(`[data-card="${card.key}"] [data-pauses="${metric}:${side}"]`).textContent();
+        const want = `${DEVICE_PROFILES.map((profile) => number(values[coldKey(metric, profile, stop)]![index]!)).join(' · ')}${unit}`;
+        expect(got === want, `${what} ${card.key}: ${metric} for ${side} shows ${JSON.stringify(got)}, the numbers say ${want}`);
+      }
   return shown;
 }
 
@@ -1190,7 +1206,7 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions) && cold.versions.every(([, list]) => list.length === 1), `"measured with": ${JSON.stringify(measured)}, the results say ${JSON.stringify(cold.versions)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE, TAIL_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     out.measured = measured;
     // The other scenarios carry the route's `?side=`, as the sidebar's and the crumb's links do.
@@ -1256,7 +1272,7 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     // The title bar: the tag, the dial's rates and what each sets, the lead.
     expect((await page.locator('[data-synthetic]').textContent()) === 'Synthetic data', "the title bar's \"Synthetic data\" tag");
     const stops = await page.locator('[data-dial] [data-stop]').evaluateAll((buttons) => buttons.map((button) => [button.textContent, button.getAttribute('title')]));
-    const sets = MARKET_WATCH.stops.map((stop) => [stopShort(stop), stopSets(stop, cold.rows)]);
+    const sets = MARKET_WATCH.stops.map((stop) => [stopShort(stop), stopSets(MARKET_WATCH, stop, cold.rows)]);
     expect(!MARKET_WATCH.stops.some(isDensity) && JSON.stringify(stops) === JSON.stringify(sets), `the dial's stops ${JSON.stringify(stops)}, want ${JSON.stringify(sets)}`);
     expect((await pressedStop(page)) === MARKET_WATCH.defaultStop, `the dial's pressed stop: ${await pressedStop(page)}`);
     // The copy's counts, the canvas's words, against the data: "Fifty
@@ -1370,7 +1386,7 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, TAIL_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
     const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
@@ -1390,6 +1406,235 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     expect(more.includes('Ready in') && more.includes('Memory'), `a phone's overflow: ${more}`);
     await phone.close();
     console.log("phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow");
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/**
+ * Live tail's route (the design canvas's `tail` scenario): the frame at
+ * its level and default stop with `?readout`, no "Synthetic data" tag, the
+ * dial's rows a second; the load's data and clock rows; the status bar's
+ * Ready in, Shown in, Smooth, and Memory, their cold values at the
+ * window's stop, and this tab's Shown in and Smooth reading on both sides
+ * with no input (the replay's frames, the frame's ring); the bare page
+ * without `?readout` keeping no ring (the control); the panel's keeps-up
+ * verdict and its log-scale charts, the four cards at the window's stop
+ * and at 100k (with the slow device's note), the card no stop changes
+ * with the soak's memory; the description; a phone's Shown in and Smooth.
+ */
+async function tailReadouts(url: string, origin: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const cold = resolveCold().numbers.scenarios[LIVE_TAIL.id]!;
+  const { values } = cold;
+  const shape = numbersOf(LIVE_TAIL);
+  const stopOf = (id: string) => LIVE_TAIL.stops.find((candidate) => candidate.id === id)!;
+  const last = LIVE_TAIL.stops.at(-1)!;
+  const base = (side: 'gpui' | 'tanstack') => contenderBase('tall-table', side, 'tail');
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, base('gpui'));
+    await waitEnabled(page, 'live tail');
+    await page.waitForSelector('[data-status-ready]');
+    const theme = await page.evaluate(() => document.documentElement.dataset.theme ?? 'light');
+    const src = await frameSrc(page);
+    expect(src === `${frameUrl('gpui', LIVE_TAIL, LIVE_TAIL.defaultStop, theme)}&${READOUT_PARAM}=`, `live tail's first frame: ${src}`);
+
+    // The title bar: no tag (the log is real), the dial's rates and what each sets, the lead.
+    expect((await page.locator('[data-synthetic]').count()) === 0, 'live tail\'s title bar has a "Synthetic data" tag');
+    const stops = await page.locator('[data-dial] [data-stop]').evaluateAll((buttons) => buttons.map((button) => [button.textContent, button.getAttribute('title')]));
+    const sets = LIVE_TAIL.stops.map((stop) => [stopShort(stop), stopSets(LIVE_TAIL, stop, cold.rows)]);
+    expect(JSON.stringify(stops) === JSON.stringify(sets) && JSON.stringify(stops.map(([label]) => label)) === JSON.stringify(['1k', '10k', '50k', '100k']), `the dial's stops ${JSON.stringify(stops)}, want ${JSON.stringify(sets)}`);
+    expect(JSON.stringify(sets.map(([, what]) => what)) === JSON.stringify(['~17', '~170', '~830', '~1,700'].map((rows) => `${rows} rows a frame at 60 Hz`)), `what each stop sets: ${JSON.stringify(sets)}`);
+    // The load's labels keep their room: none wraps past two lines.
+    {
+      await page.getByRole('button', { name: 'About this load' }).click();
+      const tallest = await page.locator('[data-load-rows] > span:nth-child(odd):not(.col-span-2)').evaluateAll((labels) => Math.max(...labels.map((label) => label.getBoundingClientRect().height)));
+      const line = await page.locator('[data-load-rows] > span').first().evaluate((label) => Number.parseFloat(getComputedStyle(label).lineHeight));
+      expect(tallest <= 2 * line + 1, `the load's labels wrap to ${tallest} px (a line is ${line} px)`);
+      await page.keyboard.press('Escape');
+    }
+    expect((await pressedStop(page)) === LIVE_TAIL.defaultStop, `the dial's pressed stop: ${await pressedStop(page)}`);
+    const lead = scenarioCopy(LIVE_TAIL).lead(cold.rows);
+    expect(lead === 'NASA’s web server, July 1995, replayed. Turn up the rows.' && (await page.getByText(lead).count()) === 1, `the lead "${lead}" isn't in the title bar`);
+    await page.getByRole('button', { name: 'About the stops' }).click();
+    const dialText = (await popovers(page).textContent()) ?? '';
+    expect(dialText.startsWith(scenarioCopy(LIVE_TAIL).dial!.about) && LIVE_TAIL.stops.every((stop) => dialText.includes(stop.label)) && !dialText.includes('Cells counted'), `the dial's explainer: ${dialText}`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'About this load' }).click();
+    const loadText = (await popovers(page).textContent()) ?? '';
+    const { data, made } = scenarioCopy(LIVE_TAIL);
+    expect(loadText.includes(`The data (${data!.what})${data!.how}`) && loadText.includes(`${made!.what}${made!.filled}`) && /once the file is whole/.test(made!.filled), `the load's explainer lacks the data's or the clock's row: ${loadText}`);
+    await page.keyboard.press('Escape');
+    console.log(`live tail: GPUI's tail build at ${LIVE_TAIL.defaultStop} with ?${READOUT_PARAM}, no tag, the dial ${JSON.stringify(stops.map(([label]) => label))}, the lead, the load's data and clock rows`);
+
+    // The status bar: its segments, their cold values at the window's stop.
+    const segments = await page.locator('[data-segment]').evaluateAll((items) => items.map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(segments) === JSON.stringify(TAIL_CARDS.map((card) => card.key)), `the status bar's segments ${JSON.stringify(segments)}`);
+    const seen: Record<string, string> = {};
+    for (const card of TAIL_CARDS) {
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await page.locator(`[data-segment="${card.key}"]`).hover();
+      const text = (await popovers(page).textContent()) ?? '';
+      const at = card.perStop ? ` at ${stopOf(LIVE_TAIL.defaultStop).label}` : '';
+      const [gpui, tanstack] = cardValues(card, values, 'reference', LIVE_TAIL.defaultStop);
+      const want = [`Cold, GPUI${at}${withUnit(gpui, card.unit)}`, `Cold, TanStack${at}${withUnit(tanstack, card.unit)}`];
+      expect(want.every((line) => text.includes(line)), `${card.key}'s explainer: ${JSON.stringify(text)}, the numbers say ${JSON.stringify(want)}`);
+      seen[card.key] = want.join(', ');
+    }
+    await page.mouse.move(0, 0);
+    out.statusBar = seen;
+
+    // This tab's Shown in and Smooth, on both sides, with no input: the
+    // replay's frames and the frame's ring.
+    const liveOf = async (key: string) => (await page.locator(`[data-segment="${key}"] .tabular-nums`).first().textContent()) ?? '';
+    const reads = async (side: string) => {
+      const ok = await page
+        .waitForFunction(() => /^\d+(\.\d+)? ms$/.test(document.querySelector('[data-segment="shown"] .tabular-nums')?.textContent ?? '') && /^\d+(\.\d+)? %$/.test(document.querySelector('[data-segment="smooth"] .tabular-nums')?.textContent ?? ''), null, { timeout: 15_000 })
+        .then(() => true, () => false);
+      const [shownIn, smooth] = [await liveOf('shown'), await liveOf('smooth')];
+      expect(ok && Number.parseFloat(shownIn) > 0 && Number.parseFloat(shownIn) < 1_000, `${side}'s live Shown in "${shownIn}" and Smooth "${smooth}"`);
+      return { shownIn, smooth };
+    };
+    // The ring fills as the view draws counts: 50 samples is about a second at 10k.
+    const ringOf = async () => {
+      const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;
+      const read = () => frame.evaluate(() => (globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn?.[0] ?? null);
+      await frame.waitForFunction(() => ((globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn?.[0] ?? 0) >= 50, null, { timeout: 10_000 }).catch(() => {});
+      return read();
+    };
+    out.liveGpui = await reads('GPUI');
+    const gpuiRing = await ringOf();
+    expect(gpuiRing !== null && gpuiRing >= 50, `GPUI's ring holds ${gpuiRing} samples`);
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, base('tanstack'));
+    await waitEnabled(page, 'TanStack at live tail');
+    out.liveTanstack = await reads('TanStack');
+    const tanstackRing = await ringOf();
+    expect(tanstackRing !== null && tanstackRing >= 50, `TanStack's ring holds ${tanstackRing} samples`);
+    console.log(`status bar: ${JSON.stringify(seen)}; this tab, no input: GPUI ${JSON.stringify(out.liveGpui)} (${gpuiRing} samples), TanStack ${JSON.stringify(out.liveTanstack)} (${tanstackRing})`);
+
+    // The control: a bare page (no ?readout), as the cold runs load it, keeps no ring.
+    const bare = await context.newPage();
+    for (const side of ['gpui', 'tanstack'] as const) {
+      await bare.goto(new URL(`${base(side)}?scenario=${LIVE_TAIL.id}&stop=${LIVE_TAIL.defaultStop}`, origin).href);
+      await bare.waitForFunction(() => performance.getEntriesByName('contender:filled').length > 0, null, { timeout: 60_000 });
+      await bare.waitForTimeout(1_500);
+      const kept = await bare.evaluate(() => (globalThis as { __contender?: { shownIn?: unknown } }).__contender?.shownIn !== undefined);
+      expect(!kept, `${side}'s bare page keeps a ring without ?${READOUT_PARAM}`);
+    }
+    await bare.close();
+    console.log(`control: neither bare page keeps a ring without ?${READOUT_PARAM}`);
+
+    // The panel at the window's stop, and at the last one picked.
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-card="keeps"]').waitFor();
+    expect((await page.locator('[data-panel-header] h2').textContent()) === `How they compare: ${LIVE_TAIL.label}`, "the panel's title doesn't name live tail");
+    const keeps = await page.locator('[data-card="keeps"] [data-verdict]').textContent();
+    expect(keeps === keepsVerdict(LIVE_TAIL, values), `the keeps-up verdict "${keeps}", the numbers say "${keepsVerdict(LIVE_TAIL, values)}"`);
+    for (const profile of DEVICE_PROFILES) {
+      const chart = page.locator(`[data-keeps-chart="${profile}"]`);
+      const label = (await chart.locator('svg').first().getAttribute('aria-label')) ?? '';
+      for (const side of [0, 1] as const) {
+        const p95s = LIVE_TAIL.stops.map((stop) => number(values[coldKey('keeps', profile, stop.id)]![side])).join(', ');
+        expect(label.includes(shape.keeps!.reads) && label.includes(`${side ? 'TanStack' : 'GPUI'} ${p95s} ms`), `the ${profile} chart's label: ${label}; the numbers say ${p95s}`);
+      }
+      // The log scale: 1 s, 100 ms, 10 ms evenly apart, the dashed line on 100 ms.
+      const scale = await chart.evaluate((element) => ({
+        labels: [...element.querySelectorAll<HTMLElement>('span[aria-hidden]')].map((span) => [span.textContent, Number.parseFloat(span.style.top)]),
+        line: Number.parseFloat(element.querySelector('[data-keeps-line]')!.getAttribute('y1')!),
+        lineAt: element.querySelector('[data-keeps-line]')!.getAttribute('data-keeps-line'),
+      }));
+      const [second, hundred, ten] = scale.labels as [string, number][];
+      expect(JSON.stringify(scale.labels.map(([text]) => text)) === JSON.stringify(['1 s', '100 ms', '10 ms']) && Math.abs(hundred![1] - second![1] - (ten![1] - hundred![1])) < 0.01, `the ${profile} chart's scale: ${JSON.stringify(scale.labels)}`);
+      expect(scale.lineAt === String(TAIL_KEEPS_UP_MS) && Math.abs(scale.line - hundred![1]) < 0.01, `the ${profile} chart's dashed line at ${scale.line}, 100 ms at ${hundred![1]}`);
+      // Each point past the line, or clamped to the axis's 10 ms or 1 s, labeled with its value, and no other.
+      const misses = await chart.locator('[data-miss]').evaluateAll((labels) => labels.map((label) => [label.getAttribute('data-miss'), label.textContent]));
+      const wantMisses = (['gpui', 'tanstack'] as const).flatMap((side, index) =>
+        LIVE_TAIL.stops.filter((stop) => { const ms = values[coldKey('keeps', profile, stop.id)]![index]!; return ms > TAIL_KEEPS_UP_MS || ms < 10 || ms > 1000; }).map((stop) => [`${side}:${stop.id}`, `${number(values[coldKey('keeps', profile, stop.id)]![index]!)} ms`]),
+      );
+      expect(JSON.stringify(misses) === JSON.stringify(wantMisses), `the ${profile} chart's labeled misses ${JSON.stringify(misses)}, want ${JSON.stringify(wantMisses)}`);
+    }
+    const checkStop = async (stop: string, what: string) => {
+      expect((await page.locator('[data-stop-heading] h3').textContent()) === `At ${stopOf(stop).label}`, `${what}: the cards' heading`);
+      const cards: Record<string, unknown> = {};
+      for (const card of TAIL_STOP_CARDS) cards[card.key] = (await checkCard(page, card, values, stop, what)).verdict;
+      expect((await page.locator('[data-card]').count()) === TAIL_STOP_CARDS.length + 2, `${what}: ${await page.locator('[data-card]').count()} cards`);
+      // The 2 × 2: the first two cards side by side, the next two below them.
+      const boxes = await Promise.all(TAIL_STOP_CARDS.map((card) => box(page, `[data-card="${card.key}"]`)));
+      expect(boxes[0]!.y === boxes[1]!.y && boxes[2]!.y === boxes[3]!.y && boxes[2]!.y > boxes[0]!.y && boxes[0]!.x === boxes[2]!.x, `${what}: the cards aren't a 2 × 2: ${JSON.stringify(boxes)}`);
+      const note = await page.locator('[data-stop-note]').textContent().catch(() => null);
+      const wantNote = shape.stopNote!(stopOf(stop), values);
+      expect((await page.locator('[data-stop-note]').count()) === (wantNote ? 1 : 0) && (wantNote === null || note === wantNote), `${what}: the stop's note ${JSON.stringify(note)}, want ${JSON.stringify(wantNote)}`);
+      cards.note = wantNote;
+      return cards;
+    };
+    out.keeps = keeps;
+    out.atDefault = await checkStop(LIVE_TAIL.defaultStop, 'the window’s stop');
+    await page.locator(`[data-keeps-chart="throttled"] [data-pick="${last.id}"]`).click();
+    out.atLast = await checkStop(last.id, 'a picked stop');
+    // The note's claims from the numbers, re-derived: the lag shrinks only where the soak's end reads under the cold window on both sides.
+    {
+      const lastNote = String((out.atLast as { note: string }).note);
+      const [soakG, soakT] = values[coldKey('soak-p95-end', 'throttled')]!;
+      const [windowG, windowT] = values[coldKey('soak-p95-start', 'throttled')]!;
+      const shrinks = soakG < windowG && soakT < windowT;
+      const neither = soakG > TAIL_KEEPS_UP_MS && soakT > TAIL_KEEPS_UP_MS;
+      expect(/lag shrinks/.test(lastNote) === shrinks && /neither keeps up even then/.test(lastNote) === neither && lastNote.includes(`${number(soakG)} ms on GPUI`) && lastNote.includes(`${number(soakT)} ms on TanStack`), `the last stop's note: ${lastNote}; the soak's end ${soakG} / ${soakT} against its start ${windowG} / ${windowT}`);
+    }
+    // The card no stop changes: Ready in, the soak's memory, Download.
+    const soak = await page.locator('[data-card="once"]').evaluate((element, metric) =>
+      ['reference', 'throttled'].map((profile) => [...element.querySelectorAll(`[data-${metric}-${profile}]`)].map((value) => ({ text: value.firstChild!.textContent, best: value.textContent!.endsWith('best') }))), SOAK_MEMORY.metric);
+    for (const [index, profile] of DEVICE_PROFILES.entries()) {
+      const want = cardValues(SOAK_MEMORY, values, profile).map(number);
+      const winner = cardOutcome(SOAK_MEMORY, values, profile).winner;
+      expect(JSON.stringify(soak[index]!.map((value) => value.text)) === JSON.stringify(want) && JSON.stringify(soak[index]!.map((value) => value.best)) === JSON.stringify([winner === 'gpui', winner === 'tanstack']), `the soak's memory ${profile}: ${JSON.stringify(soak[index])}, the numbers say ${want} (${winner})`);
+    }
+    const onceVerdict = (await page.locator('[data-card="once"] [data-verdict]').textContent()) ?? '';
+    expect(onceVerdict.includes('Memory after 10 minutes, at 100k rows/s: '), `the card no stop changes: ${onceVerdict}`);
+    console.log(`panel: ${keeps}; at ${LIVE_TAIL.defaultStop} ${JSON.stringify(out.atDefault)}; at ${last.id} ${JSON.stringify(out.atLast)}; ${onceVerdict}`);
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+
+    // The description.
+    await page.locator('[data-description]').waitFor();
+    const won = winsOf(LIVE_TAIL, cold);
+    const sentences = await page.locator('[data-wins] li').allTextContents();
+    const want = [...(['gpui', 'tanstack'] as const).filter((side) => won[side].length).map((side) => winsSentence(side, won[side])), ...(won.even.length ? [evenSentence(won.even)] : [])];
+    expect(JSON.stringify(sentences) === JSON.stringify(want), `live tail's wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
+    const credit = (await page.locator('[data-credit]').textContent()) ?? '';
+    expect(credit.startsWith(`Data: ${cold.credit}.`) && /Jim Dumoulin/.test(credit) && /Martin Arlitt and Carey Williamson/.test(credit) && /freely redistributed/.test(credit), `live tail's credit: ${JSON.stringify(credit)}`);
+    const description = (await page.locator('[data-description]').textContent()) ?? '';
+    expect(/replayed/.test(description) && /End, or scrolling back to the bottom, follows the tail again/.test(description) && !/made up/.test(description), "the description doesn't say the log is replayed, or how to follow the tail again");
+    const measured = await page.locator('[data-measured]').textContent();
+    expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
+    const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE]), `live tail's other scenarios: ${JSON.stringify(others)}`);
+    out.wins = sentences;
+    console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
+    const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
+    const rest = found.filter((problem) => !teardown.includes(problem));
+    expect(teardown.length <= 1 && rest.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: Shown in and Smooth; Ready in and Memory in the overflow.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForSelector('[data-status-ready]');
+    const visible = await small.locator('[data-segment]').evaluateAll((items) => items.filter((item) => (item as HTMLElement).offsetParent !== null).map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(visible) === JSON.stringify(['shown', 'smooth']), `a phone's segments: ${JSON.stringify(visible)}`);
+    await small.getByRole('button', { name: 'More numbers' }).tap();
+    const more = (await popovers(small).textContent()) ?? '';
+    expect(more.includes('Ready in') && more.includes('Memory'), `a phone's overflow: ${more}`);
+    await phone.close();
+    console.log('phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow');
   } finally {
     await browser.close();
   }
@@ -1734,7 +1979,10 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     const { values } = cold.numbers.scenarios[scenario.id]!;
     let last = -1;
     for (const [index, stop] of scenario.stops.entries()) {
-      if (values[coldKey('keeps', profile, stop.id)]![side] < KEEPS_UP_SHARE * 100) break;
+      // The lines as the measures define them (metrics.ts), not the page's
+      // `keepsUpAt`: a share at or over 90 %, live tail's p95 at or under 100 ms.
+      const value = values[coldKey('keeps', profile, stop.id)]![side];
+      if (scenario === LIVE_TAIL ? value > TAIL_KEEPS_UP_MS : value < KEEPS_UP_SHARE * 100) break;
       last = index;
     }
     return last;
@@ -1745,7 +1993,7 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
   // keeps up further, on the fast device, else on the slow one, saying so.
   let dom = false;
   const clauses: string[] = [];
-  for (const [scenario, unit] of [[WIDE_SHEET, 'cells on screen'], [MARKET_WATCH, 'updates a second']] as const) {
+  for (const [scenario, unit] of [[WIDE_SHEET, 'cells on screen'], [MARKET_WATCH, 'updates a second'], [LIVE_TAIL, 'rows a second']] as const) {
     const kept = keptIn(scenario);
     const ahead = (profile: 'reference' | 'throttled') => kept(0, profile) > kept(1, profile);
     const even = kept(0, 'reference') === kept(1, 'reference');
@@ -1755,7 +2003,7 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     if (n >= 0 && scenario === WIDE_SHEET) dom = true;
     clauses.push(`${n < 0 ? `from ${stopShort(scenario.stops[0]!)}` : `past ${stopShort(scenario.stops[n]!)}`} ${unit}${profile === 'throttled' ? ' on a slow device' : ''}`);
   }
-  const clause = clauses.length ? clauses.join(' or ') : null;
+  const clause = clauses.length ? listOf(clauses, 'or') : null;
   const rule = !clause ? 'Verdict after the scenarios run.' : `${dom ? 'Use the DOM for small tables.' : ''}Use GPUI ${clause}.`;
 
   // The code: its own chunk, after first paint.
@@ -1796,15 +2044,17 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     const wide = gallery.verdicts[WIDE_SHEET.id]!.text;
     expect(wide === keepsVerdict(WIDE_SHEET, values).split(' · ')[0], `the wide sheet's card "${wide}" isn't the panel's fast-device verdict`);
     // Market watch's fast device shows no edge, so its card says the slow one's too.
-    const market = gallery.verdicts[MARKET_WATCH.id]!;
-    const marketValues = cold.numbers.scenarios[MARKET_WATCH.id]!.values;
-    // The card's verdict: the fast device's reach, and the slow device's after it where the fast one's is even; its lean the device that decides.
-    const marketKeptAt = keptIn(MARKET_WATCH);
-    const [fastG, fastT, slowG, slowT] = [marketKeptAt(0, 'reference'), marketKeptAt(1, 'reference'), marketKeptAt(0, 'throttled'), marketKeptAt(1, 'throttled')];
-    const [g, t, both] = fastG !== fastT ? [fastG, fastT, false] : [slowG, slowT, slowG !== slowT];
-    const wantText = both ? keepsVerdict(MARKET_WATCH, marketValues) : keepsVerdict(MARKET_WATCH, marketValues).split(' · ')[0];
-    const wantLean = g === t ? null : g > t ? 'gpui' : 'tanstack';
-    expect(market.text === wantText && market.lean === wantLean, `market watch's card "${market.text}" (${market.lean}), the numbers say "${wantText}" (${wantLean})`);
+    for (const fed of [MARKET_WATCH, LIVE_TAIL]) {
+      const card = gallery.verdicts[fed.id]!;
+      const fedValues = cold.numbers.scenarios[fed.id]!.values;
+      // The card's verdict: the fast device's reach, and the slow device's after it where the fast one's is even; its lean the device that decides.
+      const keptAt = keptIn(fed);
+      const [fastG, fastT, slowG, slowT] = [keptAt(0, 'reference'), keptAt(1, 'reference'), keptAt(0, 'throttled'), keptAt(1, 'throttled')];
+      const [g, t, both] = fastG !== fastT ? [fastG, fastT, false] : [slowG, slowT, slowG !== slowT];
+      const wantText = both ? keepsVerdict(fed, fedValues) : keepsVerdict(fed, fedValues).split(' · ')[0];
+      const wantLean = g === t ? null : g > t ? 'gpui' : 'tanstack';
+      expect(card.text === wantText && card.lean === wantLean, `${fed.label}'s card "${card.text}" (${card.lean}), the numbers say "${wantText}" (${wantLean})`);
+    }
     const synthetic = await page.locator('[data-scenario-card] [data-synthetic]').evaluateAll((tags) => tags.map((tag) => tag.closest('[data-scenario-card]')!.getAttribute('data-scenario-card')));
     expect(JSON.stringify(synthetic) === JSON.stringify([MARKET_WATCH.id]), `the "Synthetic data" tags: ${JSON.stringify(synthetic)}`);
     const rows = await page.locator('[data-reach-row]').evaluateAll((rows) =>
@@ -1827,12 +2077,16 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     expect(JSON.stringify(leans) === JSON.stringify(leansWant), `the mechanisms' rows ${JSON.stringify(leans)}, want ${JSON.stringify(leansWant)}`);
     const defined = await page.locator(`#${WHY_ANCHOR} [data-mechanism]`).evaluateAll((items) => items.map((item) => item.id));
     expect(JSON.stringify(defined) === JSON.stringify(MECHANISMS.map(mechanismAnchor)), `the mechanisms' definitions: ${JSON.stringify(defined)}`);
-    const marketKept = keptIn(MARKET_WATCH);
-    const marketLabel = (index: number) => (index < 0 ? 'none' : MARKET_WATCH.stops[index]!.label);
-    const marketReach = (['reference', 'throttled'] as const).map((profile) => [marketLabel(marketKept(0, profile)), marketLabel(marketKept(1, profile))]);
-    const marketRow = rows.find((candidate) => candidate.id === MARKET_WATCH.id);
-    expect(JSON.stringify(marketRow?.reach) === JSON.stringify(marketReach), `market watch's reach ${JSON.stringify(marketRow?.reach)}, the numbers say ${JSON.stringify(marketReach)}`);
-    out.component = { verdicts, reach: row?.reach, marketReach: marketRow?.reach, leans };
+    const fedReach: Record<string, unknown> = {};
+    for (const fed of [MARKET_WATCH, LIVE_TAIL]) {
+      const kept = keptIn(fed);
+      const labelAt = (index: number) => (index < 0 ? 'none' : fed.stops[index]!.label);
+      const want = (['reference', 'throttled'] as const).map((profile) => [labelAt(kept(0, profile)), labelAt(kept(1, profile))]);
+      const got = rows.find((candidate) => candidate.id === fed.id)?.reach;
+      expect(JSON.stringify(got) === JSON.stringify(want), `${fed.label}'s reach ${JSON.stringify(got)}, the numbers say ${JSON.stringify(want)}`);
+      fedReach[fed.id] = got;
+    }
+    out.component = { verdicts, reach: row?.reach, fedReach, leans };
     console.log(`${TALL_TABLE.path}: the verdicts ${JSON.stringify(verdicts.map(([, text]) => text))}; the wide sheet's reach ${JSON.stringify(row?.reach)} (re-derived), its row opening its Compare; the mechanisms per scenario and their ${defined.length} definitions`);
 
     // A row's #compare opens the scenario's panel once, and clears.
@@ -1894,6 +2148,7 @@ try {
     readOut.scenarios = await scenarios(new URL(WIDE_ROUTE, url).href);
     readOut.wide = await wideReadouts(new URL(WIDE_ROUTE, url).href);
     readOut.market = await marketReadouts(new URL(MARKET_ROUTE, url).href, server.url);
+    readOut.tail = await tailReadouts(new URL(TAIL_ROUTE, url).href, server.url);
     readOut.galleries = await galleries(server.url);
   }
   const shots = option('shots');

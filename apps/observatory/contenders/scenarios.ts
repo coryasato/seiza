@@ -226,7 +226,7 @@ export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_
 /** The scenarios the page shows: a scenario joins once both sides build its
  *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The
  *  page's routes and cold numbers read it. */
-export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH];
+export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL];
 
 /** The levels each side builds, the base first: a level joins a side with
  *  its build there. What builds, serves, sizes, and stages each side's

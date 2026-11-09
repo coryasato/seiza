@@ -75,9 +75,9 @@ export const MARKS = {
 export const measuring = (): boolean => new URLSearchParams(location.search).has('measure');
 
 /** The observatory's page's parameter on a feed's frame (never a bare cold
- *  run's): the frame keeps its last `SHOWN_RING` visible batches' Shown in
- *  on `__contender.shownIn` for the page's readout (`docs/contender-contract.md`,
- *  "The readout's ring"). */
+ *  run's): the frame keeps its last `SHOWN_RING` samples of Shown in (market
+ *  watch's visible batches, live tail's counts) on `__contender.shownIn` for
+ *  the page's readout (`docs/contender-contract.md`, "The readout's ring"). */
 export const READOUT_PARAM = 'readout';
 export const readingOut = (): boolean => new URLSearchParams(location.search).has(READOUT_PARAM);
 

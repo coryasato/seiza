@@ -10,11 +10,11 @@
  * it too.
  */
 
-import { KEEPS_UP_SHARE, SCROLLS, type LiveReadings } from '../../metrics/metrics.ts';
+import { KEEPS_UP_SHARE, SCROLLS, TAIL_KEEPS_UP_MS, type LiveReadings } from '../../metrics/metrics.ts';
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
-import { BIG_FILE, MARKET_WATCH, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { isDensity, isRate, stopShort } from './components.ts';
+import { BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { listOf, stopShort } from './components.ts';
 
 export type Profile = 'reference' | 'throttled';
 export const PROFILES: Profile[] = ['reference', 'throttled'];
@@ -61,6 +61,12 @@ export interface Card {
    *  a side wins only where the two sides' runs don't overlap (Shown in's
    *  rule, `docs/DECISIONS.md`, "Measurement"). */
   apart?: boolean;
+  /** What "where each side wins" says of it: the winner's words, and the
+   *  even list's. */
+  said?: [won: string, even: string];
+  /** The collection card's: beside the pauses' time, the longest pause
+   *  (`collection-longest`) and those in a late frame (`collection-late`). */
+  pauses?: boolean;
 }
 
 const on = (share: number) => Number((100 - share * 100).toFixed(1));
@@ -240,27 +246,106 @@ export const MARKET_CARDS: Card[] = [
   },
 ];
 
+/**
+ * The collection card (`docs/DECISIONS.md`, "Page", 2026-11-09): the time
+ * the page's thread spent paused in collections over 10 s of the feed, not
+ * how many there were (a hundred short pauses cost less than three long
+ * ones), the longest and those in a late frame beside it, the count in the
+ * explainer. Market watch's and live tail's, so the two compare.
+ */
+const COLLECTIONS: Card = {
+  key: 'collections',
+  metric: 'collection-time',
+  perStop: true,
+  segment: 'Collections',
+  label: 'Collection pauses',
+  unit: 'ms',
+  better: 'lower',
+  shown: (cold) => cold,
+  word: 'less',
+  ratio: true,
+  caption: 'Paused in 10 s of the feed',
+  explain:
+    'How long the page’s thread was paused by its garbage collector in 10 seconds of the feed: JavaScript’s objects are collected, and each collection pauses the thread; WebAssembly’s memory isn’t collected. Beside it, the longest pause, and how many pauses fell in a late frame: a pause matters when it makes a frame late. The count of collections is in the results files; it says less, since a hundred short pauses cost less than three long ones. Read from Chromium’s trace, cold; a page can’t read them.',
+  said: ['spends less time paused collecting garbage', 'collection pauses'],
+  pauses: true,
+};
+
 /** Market watch's cards at a stop, under its keeps-up charts (the design
- *  canvas's): Smoothness, Update shown in, and Collection pauses in 10 s. */
+ *  canvas's): Smoothness, Update shown in, and Collection pauses. */
 export const MARKET_STOP_CARDS: Card[] = [
   { ...MARKET_CARDS.find((card) => card.key === 'smooth')!, live: undefined },
   { ...MARKET_CARDS.find((card) => card.key === 'shown')!, live: undefined },
+  COLLECTIONS,
+];
+
+/** Live tail's status bar (the design canvas's): Ready in, Shown in,
+ *  Smooth, and Memory; Shown in and Smooth at the window's stop. */
+export const TAIL_CARDS: Card[] = [
+  { ...card('usable'), metric: 'usable' },
   {
-    key: 'collections',
-    metric: 'collections',
-    perStop: true,
-    segment: 'Collections',
-    label: 'Collection pauses in 10 s',
-    unit: '',
-    better: 'lower',
-    shown: (cold) => cold,
-    word: 'pauses less',
-    ratio: false,
-    caption: 'Under the feed',
+    ...MARKET_CARDS.find((card) => card.key === 'shown')!,
+    label: 'Row shown in',
+    waiting: 'waiting for the tail',
+    caption: 'The middle of the counts',
     explain:
-      'How often the page’s garbage collector ran in 10 seconds of the feed: JavaScript’s objects are collected, and each collection pauses the page’s thread; WebAssembly’s memory isn’t collected. Read from Chromium’s trace, cold; a page can’t read them.',
+      'From the replay’s clock posting a count of rows to the first frame whose newest row reaches it: in this tab, the middle of the last 5 seconds while the view follows, from the frame’s own clock. The clock stamps each count as it posts it, and the side notes the frame that first draws it. Cold: the middle run’s median, to the frame on screen, at this stop. A side is faster only where its runs and the other’s don’t overlap.',
+    said: ['shows new rows sooner', 'how soon a new row shows'],
+  },
+  {
+    ...MARKET_CARDS.find((card) => card.key === 'smooth')!,
+    caption: 'Under the replay',
+    explain:
+      'The share of frames on time while the replay runs and you scroll. A frame is late when it takes longer than one and a half of your display’s frames: 25 ms at 60 Hz, 12.5 ms at 120 Hz. Counted on the page’s own thread. Cold: 10 seconds of the replay at this stop.',
+    said: ['stays smoother under the replay', 'smoothness under the replay'],
+  },
+  {
+    ...card('memory'),
+    metric: 'memory',
+    caption: 'After 100,000 rows drawn',
+    explain:
+      'What the table’s page holds, the database engine’s workers apart (Chrome only), less GPUI’s canvas, which holds one window-sized image or more. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s. Cold: once each side has drawn the replay’s first 100,000 rows, at the default stop; this tab’s is now, however long the replay has run.',
   },
 ];
+
+/** Live tail's cards at a stop, under its keeps-up charts: the design
+ *  canvas's Smoothness and Row shown in, then Collection pauses and the
+ *  scroll back (`docs/DECISIONS.md`, "Page", 2026-11-09). */
+export const TAIL_STOP_CARDS: Card[] = [
+  { ...TAIL_CARDS.find((card) => card.key === 'smooth')!, live: undefined },
+  { ...TAIL_CARDS.find((card) => card.key === 'shown')!, live: undefined },
+  { ...COLLECTIONS, caption: 'Paused in 10 s of the replay', explain: COLLECTIONS.explain.replaceAll('the feed', 'the replay') },
+  {
+    key: 'back',
+    metric: 'back',
+    perStop: true,
+    segment: 'Scroll back',
+    label: 'Scroll back',
+    unit: 'ms',
+    better: 'lower',
+    shown: (cold) => cold,
+    word: 'faster',
+    ratio: true,
+    apart: true,
+    caption: 'A wheel up under the replay',
+    explain:
+      'From a wheel up (300 px, a quick flick) to the first frame that moves, while rows keep arriving: the view lets go of the tail and holds where the reader put it. GPUI’s is read from the table’s own frame, the DOM’s from the browser’s, which scrolls the page on its compositor without waiting for the page’s thread. Cold, the middle run, at this stop; a side is faster only where its runs and the other’s don’t overlap. End, or a move that reaches the end, follows the tail again.',
+    said: ['answers a scroll back sooner', 'a scroll back'],
+  },
+];
+
+/** Live tail's card no stop changes gains its soak's memory: measured at
+ *  one stop only (`docs/DECISIONS.md`, "Measurement", 2026-11-07). */
+export const SOAK_MEMORY: Card = {
+  ...card('memory'),
+  key: 'soak-memory',
+  metric: 'soak-memory',
+  said: ['holds less memory after 10 minutes at 100k rows/s', 'memory after 10 minutes'],
+  segment: 'Memory after 10 minutes',
+  label: 'Memory after 10 minutes',
+  caption: 'At 100k rows/s',
+  explain: 'What the table’s page holds after 10 minutes of the replay at 100k rows/s (60 million rows), less GPUI’s canvas, the engine’s workers apart. Neither side’s collected it back: a forced collection frees none of it.',
+};
 
 /** A scenario's status bar cards. */
 export const cardsOf = (scenario: Scenario): Card[] => numbersOf(scenario).cards;
@@ -393,8 +478,39 @@ interface ScenarioNumbers {
   stopCards?: Card[];
   /** A scenario with stops: what "keeps up" reads at a stop, in the panel's
    *  explainer and its chart's label, and its win in "where each side wins". */
-  keeps?: { reads: string; explain: string; won: string };
+  keeps?: Keeps;
+  /** The card no stop changes: what it shows beside Ready in and Download. */
+  onceCards?: Card[];
+  /** The cards at a stop per row: 3 by default; live tail's four in a 2 × 2. */
+  stopColumns?: 2 | 3;
+  /** A line under the stop's heading in the panel, where a stop's numbers
+   *  need one. */
+  stopNote?: (stop: Stop, values: ScenarioCold['values']) => string | null;
 }
+
+/** What "keeps up" reads at a stop: a share of frames at or over its line
+ *  (the wide sheet, market watch), or a latency at or under it (live tail). */
+export interface Keeps {
+  reads: string;
+  /** After "A side keeps up at a stop when": a share's the rest of its
+   *  sentence after "at least 90 %" (the line said for it); a latency's
+   *  whole clause. */
+  explain: string;
+  won: string;
+  /** The line, in `unit`; a side keeps up at or over it (`higher`) or at
+   *  or under it (`lower`). */
+  line: number;
+  better: 'higher' | 'lower';
+  unit: '%' | 'ms';
+  /** The phrase the dial's unit takes in the Overview's rule ("cells on
+   *  screen", "updates a second"); a density dial's also backs its "use the
+   *  DOM" half. */
+  rule: string;
+  density?: boolean;
+}
+
+/** The shares' line: the wide sheet's and market watch's. */
+const SHARE = { line: KEEPS_UP_SHARE * 100, better: 'higher', unit: '%' } as const;
 
 /** The status bar's cards on a phone, by default. */
 const PHONE = ['smooth', 'memory'];
@@ -412,6 +528,9 @@ const NUMBERS: Record<string, ScenarioNumbers> = {
       reads: 'the share of the display’s frames that drew new cells',
       explain: 'of the display’s frames draw new cells in a steady scroll down and in one sideways; the slower of the two is drawn. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in.',
       won: 'keeps up with more cells on screen',
+      ...SHARE,
+      rule: 'cells on screen',
+      density: true,
     },
   },
   [MARKET_WATCH.id]: {
@@ -419,13 +538,50 @@ const NUMBERS: Record<string, ScenarioNumbers> = {
     // The design canvas's phone: Shown in and Smooth.
     phone: ['shown', 'smooth'],
     once: ['usable', 'memory'],
-    perStop: ['keeps', 'late', 'shown', 'shown-min', 'shown-max', 'collections'],
+    perStop: ['keeps', 'late', 'shown', 'shown-min', 'shown-max', 'collections', 'collection-time', 'collection-longest', 'collection-late'],
     ...filesOf(MARKET_WATCH),
     stopCards: MARKET_STOP_CARDS,
     keeps: {
       reads: 'the share of the feed’s batches shown in a frame of their own',
       explain: 'of the feed’s batches that change a row on screen are each shown in a frame of their own (over the display’s frames, where batches outnumber them), in 10 seconds of the feed. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in.',
       won: 'keeps up with more updates a second',
+      ...SHARE,
+      rule: 'updates a second',
+    },
+  },
+  [LIVE_TAIL.id]: {
+    cards: TAIL_CARDS,
+    // The design canvas's phone: Shown in and Smooth.
+    phone: ['shown', 'smooth'],
+    once: ['usable', 'memory', 'soak-memory', 'soak-p95-start', 'soak-p95-end'],
+    stopColumns: 2,
+    perStop: ['keeps', 'late', 'shown', 'shown-min', 'shown-max', 'collections', 'collection-time', 'collection-longest', 'collection-late', 'back', 'back-min', 'back-max'],
+    ...filesOf(LIVE_TAIL),
+    stopCards: TAIL_STOP_CARDS,
+    onceCards: [SOAK_MEMORY],
+    keeps: {
+      reads: 'how long the 95th percentile of the rows took to show',
+      explain: `95 % of the replay’s counts show within ${TAIL_KEEPS_UP_MS} ms: Row shown in’s 95th percentile, from the clock posting a count to the first frame on screen that draws its newest row, in 10 seconds of the replay. Past it, the view trails the tail. Read on a log scale: each line is ten times the one below.`,
+      won: 'keeps up with more rows a second',
+      line: TAIL_KEEPS_UP_MS,
+      better: 'lower',
+      unit: 'ms',
+      rule: 'rows a second',
+    },
+    // The 100k stop on a slow device reads the replay's first seconds, as
+    // a turn of the dial shows them (`docs/DECISIONS.md`, "Measurement",
+    // 2026-11-08): the soak says what follows.
+    stopNote: (stop, values) => {
+      if (stop.id !== LIVE_TAIL.stops.at(-1)!.id) return null;
+      const [gpui, tanstack] = values[coldKey('soak-p95-end', 'throttled')]!;
+      // Its own first window: the same run's, 1 s after the first tail mark, as the stop's.
+      const [startGpui, startTanstack] = values[coldKey('soak-p95-start', 'throttled')]!;
+      const keeps = (ms: number) => ms <= TAIL_KEEPS_UP_MS;
+      // Said only where the soak's end reads lower than its start on both sides.
+      const shrinks = gpui < startGpui && tanstack < startTanstack;
+      const after = `after 10 minutes, Row shown in’s 95th percentile is ${number(gpui)} ms on GPUI and ${number(tanstack)} ms on TanStack`;
+      const verdict = keeps(gpui) && keeps(tanstack) ? ', so both keep up by then' : keeps(gpui) || keeps(tanstack) ? `, so only ${keeps(gpui) ? 'GPUI' : 'TanStack'} keeps up by then` : ', so neither keeps up even then';
+      return `On a slow device these are the replay’s first seconds, as a turn of the dial starts them. ${shrinks ? `The lag shrinks over minutes: ${after}` : `${after.charAt(0).toUpperCase()}${after.slice(1)}`}${verdict}.`;
     },
   },
 };
@@ -507,7 +663,8 @@ const times = (value: number) => `${value.toFixed(1)}×`;
  * card measured on one device.
  */
 export function verdict(fast: Outcome, slow: Outcome | null, word: string, ratio: boolean): string {
-  const says = (o: Outcome) => `${LABELS[o.winner!]} ${ratio ? `${times(o.times)} ` : ''}${word}`;
+  // A ratio over a zero (no pauses at all) says the win without one.
+  const says = (o: Outcome) => `${LABELS[o.winner!]} ${ratio && Number.isFinite(o.times) ? `${times(o.times)} ` : ''}${word}`;
   if (!slow) return fast.winner ? says(fast) : 'Even';
   if (!fast.winner && !slow.winner) return 'Even';
   if (!fast.winner) return `${says(slow)} on a slow device`;
@@ -548,7 +705,7 @@ export interface Wins {
   even: string[];
 }
 
-const join = (items: string[]) => (items.length < 3 ? items.join(' and ') : `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`);
+const join = (items: string[]) => listOf(items, 'and');
 
 /** A side's wins as a sentence: "GPUI stays smoother on a slow device, and …". */
 export const winsSentence = (side: Side, wins: string[]) => `${LABELS[side]} ${join(wins)}.`;
@@ -615,17 +772,20 @@ export function wheelNote(values: ScenarioCold['values']): string {
 
 // ---------------------------------------------------------------- a scenario's stops
 
-/** Whether a side keeps up at a stop: "keeps up"'s share at or over the
- *  dashed line (`KEEPS_UP_SHARE`, `derive`'s `keeps`). */
-export const keepsUpAt = (values: ScenarioCold['values'], side: Side, profile: Profile, stop: string): boolean =>
-  values[coldKey('keeps', profile, stop)]![side === 'gpui' ? 0 : 1] >= KEEPS_UP_SHARE * 100;
+/** Whether a side keeps up at a stop: "keeps up"'s reading on the right
+ *  side of the dashed line (`Keeps`; the shares' `derive`d `keeps`). */
+export function keepsUpAt(scenario: Scenario, values: ScenarioCold['values'], side: Side, profile: Profile, stop: string): boolean {
+  const { line, better } = numbersOf(scenario).keeps!;
+  const value = values[coldKey('keeps', profile, stop)]![side === 'gpui' ? 0 : 1];
+  return better === 'higher' ? value >= line : value <= line;
+}
 
 /** How far a side keeps up: the index of the last stop in the dial's
  *  first run of stops it keeps up at, -1 at none. */
 export function reachOf(scenario: Scenario, values: ScenarioCold['values'], side: Side, profile: Profile): number {
   let last = -1;
   for (const [index, stop] of (scenario.stops as readonly Stop[]).entries()) {
-    if (!keepsUpAt(values, side, profile, stop.id)) break;
+    if (!keepsUpAt(scenario, values, side, profile, stop.id)) break;
     last = index;
   }
   return last;
@@ -700,13 +860,25 @@ export function stopWins(scenario: Scenario, cold: ScenarioCold): Wins {
     memory: ['holds less memory', 'memory'],
     smooth: ['stays smoother under the feed', 'smoothness under the feed'],
     shown: ['shows each update sooner', 'how soon an update shows'],
-    collections: ['pauses less for garbage collection', 'collection pauses'],
   };
-  for (const card of numbers.stopCards ?? []) credit(...both(card, scenario.defaultStop), ...said[card.key]!);
+  for (const card of numbers.stopCards ?? []) credit(...both(card, scenario.defaultStop), ...(card.said ?? said[card.key]!));
   credit(...both(READY), 'is ready sooner', 'ready');
   // A card the status bar has and the panel's cards don't: memory, measured once.
   const memory = numbers.cards.find((card) => card.key === 'memory');
-  if (memory && !numbers.stopCards?.some((card) => card.key === 'memory')) credit(...both(memory), ...said.memory!);
+  const once = numbers.onceCards ?? [];
+  // The card no stop changes' memory (live tail's after 10 minutes) beside
+  // the status bar's: one phrase where one side wins both on both devices.
+  const sole = (card: Card) => {
+    const [fast, slow] = both(card);
+    return fast.winner && fast.winner === slow.winner ? fast.winner : null;
+  };
+  const soak = once.find((card) => card.metric === 'soak-memory');
+  const merged = memory && soak && sole(memory) && sole(memory) === sole(soak) ? sole(memory) : null;
+  if (memory && !numbers.stopCards?.some((card) => card.key === 'memory')) {
+    if (merged) out[merged].push('holds less memory (after 10 minutes at 100k rows/s too)');
+    else credit(...both(memory), ...said.memory!);
+  }
+  for (const card of once) if (!(merged && card === soak)) credit(...both(card), ...card.said!);
   const download = outcome([downloadTotal('gpui', cold.parts, scenario), downloadTotal('tanstack', cold.parts, scenario)], 'lower');
   credit(download, null, 'downloads less', 'the download');
   return out;
@@ -809,9 +981,6 @@ export interface Rule {
   gpui: string[];
 }
 
-/** What a rule's clause counts a dial's stops in. */
-const DIAL_UNITS = { density: 'cells on screen', rate: 'updates a second' } as const;
-
 /**
  * A component's rule from its scenarios' numbers: past the last stop where
  * the DOM keeps up ("past ~380 cells on screen"), or from the first where
@@ -825,8 +994,8 @@ export function ruleOf(scenarios: readonly Scenario[], numbers: ColdNumbers): Ru
   for (const scenario of scenarios) {
     const cold = numbers.scenarios[scenario.id];
     const stops = scenario.stops as readonly Stop[];
-    const kind = stops.every(isDensity) ? 'density' : stops.every(isRate) ? 'rate' : null;
-    if (!cold || stops.length < 2 || !numbersOf(scenario).stopCards || !kind) continue;
+    const keeps = numbersOf(scenario).keeps;
+    if (!cold || stops.length < 2 || !numbersOf(scenario).stopCards || !keeps) continue;
     const reach = reachesOf(scenario, cold);
     // The slow device only where the fast one shows no edge: a fast device
     // the DOM leads on says nothing for GPUI.
@@ -834,9 +1003,9 @@ export function ruleOf(scenarios: readonly Scenario[], numbers: ColdNumbers): Ru
     const profile = fastGpui > fastTanstack ? 'reference' : fastGpui === fastTanstack && reach.throttled[0] > reach.throttled[1] ? 'throttled' : null;
     if (!profile) continue;
     const tanstack = reach[profile][1];
-    if (tanstack >= 0 && kind === 'density') rule.dom = true;
+    if (tanstack >= 0 && keeps.density) rule.dom = true;
     const device = profile === 'reference' ? '' : ' on a slow device';
-    rule.gpui.push(`${tanstack < 0 ? `from ${stopShort(stops[0]!)}` : `past ${stopShort(stops[tanstack]!)}`} ${DIAL_UNITS[kind]}${device}`);
+    rule.gpui.push(`${tanstack < 0 ? `from ${stopShort(stops[0]!)}` : `past ${stopShort(stops[tanstack]!)}`} ${keeps.rule}${device}`);
   }
   return rule;
 }
@@ -851,12 +1020,10 @@ export interface Gallery {
   verdicts: Record<string, ScenarioVerdict>;
   /** Each scenario with stops' reach. */
   reach: Record<string, Reach>;
-  /** "Keeps up"'s line, a percentage. */
-  share: number;
 }
 
 export function galleryOf(components: readonly { id: string; scenarios: readonly Scenario[] }[], numbers: ColdNumbers): Gallery {
-  const gallery: Gallery = { rules: {}, verdicts: {}, reach: {}, share: KEEPS_UP_SHARE * 100 };
+  const gallery: Gallery = { rules: {}, verdicts: {}, reach: {} };
   for (const component of components) {
     gallery.rules[component.id] = ruleOf(component.scenarios, numbers);
     for (const scenario of component.scenarios) {

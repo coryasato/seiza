@@ -298,7 +298,14 @@ fn on_event(event: &TallTableEvent) {
         }
         // This tab's Shown in, with `?readout`: the batches the frame draws.
         #[cfg(feature = "market")]
-        TallTableEvent::Refreshed { generation, .. } => crate::feed::shown_drawn(*generation),
+        TallTableEvent::Refreshed { generation, .. } => crate::readout::drawn(*generation),
+        // This tab's Shown in, with `?readout`: the counts the drawn tail reached.
+        #[cfg(feature = "tail")]
+        TallTableEvent::TailDrawn { rows } => crate::readout::drawn(*rows),
+        // Counts posted while the reader holds the view aren't drawn until
+        // it follows again: they'd read as the reader's time, not the view's.
+        #[cfg(feature = "tail")]
+        TallTableEvent::Following(_) => crate::readout::forget(),
         TallTableEvent::Scrollbar { track, .. } if measuring() => {
             SHOWN.with_borrow_mut(|shown| shown.track = Some(*track));
             SHOWN.with_borrow(publish_rows_target);

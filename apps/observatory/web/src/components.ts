@@ -16,7 +16,7 @@
 import { createElement as h } from 'react';
 import type { Side } from '../../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../../contenders/paths.ts';
-import { BIG_FILE, MARKET_WATCH, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { BIG_FILE, LIVE_TAIL, MARKET_WATCH, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 
 export interface Contender {
   side: Side;
@@ -50,6 +50,13 @@ export interface ScenarioCopy {
   /** Its data is made up (the design canvas's "Synthetic data" tag, in the
    *  title bar and on its card). */
   synthetic?: boolean;
+  /** The load explainer's data row, where it isn't the file read a page at
+   *  a time: what the data is, and how this load reads it. */
+  data?: { what: string; how: string };
+  /** What the frame makes beside the data, after its first rows: the load
+   *  explainer's row for it (the feed, the replay's clock), and what it says
+   *  once the frame has filled. */
+  made?: { what: string; filled: string };
 }
 
 export interface Component {
@@ -105,6 +112,17 @@ const COPY: Record<string, ScenarioCopy> = {
     // The design canvas's: cost per cell, garbage under churn, decoding.
     leans: ['cells', 'gc', 'decoding'],
     synthetic: true,
+    made: { what: 'The feed (seeded, generated here)', filled: 'in its own worker' },
+  },
+  'live-tail': {
+    lead: () => 'NASA’s web server, July 1995, replayed. Turn up the rows.',
+    dial: { label: 'Rows per second', about: 'Each stop sets how many log rows the replay appends a second while the view follows the newest: the same clock on both sides. Each frame draws the rows that came since the last.' },
+    // The design canvas's: cost per cell, garbage under a growing table.
+    leans: ['cells', 'gc'],
+    data: { what: 'NASA-HTTP logs', how: 'by range, then whole' },
+    // Its worker starts once the file is fetched whole, after the first
+    // rows: the page can't see that moment, so the row says the order.
+    made: { what: 'The replay’s clock (generated here)', filled: 'once the file is whole' },
   },
 };
 
@@ -136,7 +154,7 @@ export const COMPONENTS: Component[] = [
 /** The scenarios whose cold numbers the page shows: `cold.ts` resolves
  *  each one's, and fails the build on a missing value. A scenario joins
  *  once its numbers part has run. */
-const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id];
+const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id, LIVE_TAIL.id];
 
 /** Whether the page has a scenario's cold numbers: without them its status
  *  bar has no cold rows, its Compare is off, and it has no description. */
@@ -151,7 +169,12 @@ export const COMPARE_HASH = 'compare';
 export const SCENARIO_LINK = 'data-scenario-link';
 
 export const isDensity = (stop: Stop): stop is DensityStop => 'cells' in stop;
+/** A rate's stop: market watch's updates or live tail's rows a second. */
 export const isRate = (stop: Stop): stop is RateStop => 'rate' in stop;
+
+/** A scenario under a feed: its frames keep this tab's Shown in
+ *  (`?readout`), and the page records every frame from its first rows. */
+export const feeds = (scenario: Scenario): boolean => scenario.level === 'market' || scenario.level === 'tail';
 
 /** A stop as the dial names it ("~710", "1k"): the keeps-up verdict and
  *  the panel's stops name it so too. */
@@ -159,8 +182,19 @@ export const stopShort = (stop: Stop): string => (isDensity(stop) ? `~${stop.cel
 
 /** What a stop sets, in its title and the dial's explainer; `rows`, its
  *  scenario's file's. */
-export const stopSets = (stop: Stop, rows: number): string =>
-  isDensity(stop) ? `${stop.rowHeight} px rows · ${stop.columnWidth} px days · ${stop.textSize} px text` : isRate(stop) ? `across ${rows} instruments, 10 of their 12 columns` : '';
+export const stopSets = (scenario: Scenario, stop: Stop, rows: number): string =>
+  isDensity(stop)
+    ? `${stop.rowHeight} px rows · ${stop.columnWidth} px days · ${stop.textSize} px text`
+    : scenario.level === 'market'
+      ? `across ${rows} instruments, 10 of their 12 columns`
+      : scenario.level === 'tail' && isRate(stop)
+        ? // What a frame takes in at a 60 Hz display, to two figures: ~17, ~170, ~830, ~1,700.
+          `~${Number((stop.rate / 60).toPrecision(2)).toLocaleString('en-US')} rows a frame at 60 Hz`
+        : '';
+
+/** Items in a sentence: "a and b", "a, b, or c" (the wins, the Overview's rule). */
+export const listOf = (items: readonly string[], conjunction: 'and' | 'or'): string =>
+  items.length < 3 ? items.join(` ${conjunction} `) : `${items.slice(0, -1).join(', ')}, ${conjunction} ${items.at(-1)}`;
 
 /** A scenario's route: one level below its component's. */
 export const scenarioPath = (component: Component, scenario: Scenario) => `${component.path}${scenario.id}/`;

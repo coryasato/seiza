@@ -42,6 +42,12 @@ export interface TailCells {
   rows: () => void;
   /** Set by the view: following turned on or off. */
   following: (on: boolean) => void;
+  /** The frame keeps this tab's Shown in (`?readout`): the view notes each
+   *  drawn tail then, measured or not. */
+  readout: boolean;
+  /** The view drew the tail to `end` while following: with `?readout`,
+   *  every count at or under it is a sample (`__contender.shownIn`). */
+  drawn(end: number): void;
 }
 
 /**

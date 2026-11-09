@@ -174,6 +174,9 @@ fn start() -> Result<(), String> {
                 });
             };
             record(rows, at);
+            // This tab's Shown in, with `?readout`: the count waits for the
+            // frame whose drawn tail reaches it.
+            crate::readout::waiting(at, rows as u64);
             crate::contract::with_host_now(|host, cx| host.rows_due(rows as u64, cx));
         });
         let failed = |what: &'static str| {
@@ -242,10 +245,12 @@ pub fn clock_pause(on: bool) {
 /// still waiting for the file stops waiting.
 pub fn stop() {
     WAITING.set(false);
-    // A replay's new clock counts from 0 again: its log starts over too.
+    // A replay's new clock counts from 0 again: its log starts over too,
+    // and so do the counts waiting for this tab's Shown in.
     if crate::contract::measuring() {
         BATCHES.with(|batches| batches.set_length(0));
     }
+    crate::readout::forget();
     CLOCK.with_borrow_mut(|clock| {
         let Some(clock) = clock else {
             return;

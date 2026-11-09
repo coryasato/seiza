@@ -15,7 +15,7 @@ import gallery from 'virtual:gallery';
 import type { Side } from '../../contenders/contract.ts';
 import { oklchCss, type Heat, type MarketScenario, type Scenario, type Stop, type WideScenario } from '../../contenders/scenarios.ts';
 import { Domain, rampCss } from '../../contenders/tall-table/tanstack/web/src/paint.ts';
-import { COMPARE_HASH, scenarioCopy, scenarioPath, seriesClass, seriesDot, stopShort, WHY_ANCHOR, type Component } from './components.ts';
+import { COMPARE_HASH, listOf, scenarioCopy, scenarioPath, seriesClass, seriesDot, stopShort, WHY_ANCHOR, type Component } from './components.ts';
 import { MECHANISMS, mechanismAnchor } from './mechanisms.ts';
 import type { Lean, Reach } from './readouts.ts';
 
@@ -100,8 +100,26 @@ const marketDrawing = ({ signs }: MarketScenario) =>
     ),
   );
 
+/** Live tail drawn small (the design canvas's): a header, then log rows
+ *  (time, request, status, bytes), the newest at the bottom outlined, its
+ *  request just in. */
+const tailDrawing = () =>
+  h(
+    'span',
+    { className: 'observatory-drawing' },
+    // Eight rows: a ninth falls below the thumbnail's edge, and the newest is the point.
+    ...Array.from({ length: 8 }, (_, row) =>
+      h(
+        'span',
+        { key: row, className: row === 0 ? 'observatory-head' : row === 7 ? 'observatory-newest' : undefined },
+        ...[22, 20 + noise(row, 1) * 34, 8, 10].map((width, at) => h('i', { key: at, style: { width: `${width.toFixed(1)}%` } })),
+      ),
+    ),
+  );
+
 /** A scenario's frame, drawn small: its level's shape. */
-const drawing = (scenario: Scenario) => (scenario.level === 'wide' ? heatDrawing(scenario) : scenario.level === 'market' ? marketDrawing(scenario) : rowsDrawing());
+const drawing = (scenario: Scenario) =>
+  scenario.level === 'wide' ? heatDrawing(scenario) : scenario.level === 'market' ? marketDrawing(scenario) : scenario.level === 'tail' ? tailDrawing() : rowsDrawing();
 
 // ---------------------------------------------------------------- shared
 
@@ -130,7 +148,7 @@ function Rule({ component }: { component: Component }) {
     'span',
     { 'data-rule': '', className: 'flex flex-col gap-0.5' },
     rule.dom ? h('span', null, 'Use ', dom, ' for small tables.') : null,
-    rule.gpui.length ? h('span', null, 'Use ', gpui, ` ${rule.gpui.join(' or ')}.`) : null,
+    rule.gpui.length ? h('span', null, 'Use ', gpui, ` ${listOf(rule.gpui, 'or')}.`) : null,
   );
 }
 
@@ -236,7 +254,7 @@ function KeepsUp({ component }: { component: Component }) {
   const columns = 'md:grid md:grid-cols-[minmax(200px,1fr)_minmax(220px,1fr)_minmax(220px,1fr)] md:gap-4';
   return section(
     'How far each side keeps up',
-    `the highest stop where each side keeps up, the ${gallery.share} % line in its Compare · each row opens its scenario’s Compare`,
+    'the highest stop where each side keeps up, by the line in its Compare · each row opens its scenario’s Compare',
     undefined,
     h(
       'div',

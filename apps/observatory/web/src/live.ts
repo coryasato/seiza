@@ -8,7 +8,7 @@
  * last frame's readings after a flip; a side loaded after another in this
  * tab, or from the browser's cache, is warm.
  *
- * Under a feed (market watch), the frames from the first rows painted
+ * Under a feed (market watch, live tail), the frames from the first rows painted
  * on, whatever the visitor does, and the frame's Shown in samples, read
  * from its ring (`__contender.shownIn`, kept with `?readout`) at each
  * refresh, never sent per frame.
@@ -227,6 +227,15 @@ function listenForScrolls(tracked: Tracked, window: Window): () => void {
   };
 }
 
+/** When the page last became visible, epoch ms: a sample sent before it
+ *  waited out the hidden time (no frame draws in a hidden page), and would
+ *  read as that time on return, so it isn't read. */
+let visibleSince = 0;
+if (typeof document !== 'undefined')
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') visibleSince = epoch(performance.now());
+  });
+
 /** A feed's frames kept: about the meter's 10 s at 60 Hz. */
 const FEED_FRAMES = 600;
 const FEED_FRAME_MS = 1000 / 60;
@@ -256,7 +265,8 @@ function readRing(tracked: Tracked): void {
   if (written === ring.read) return;
   for (let n = Math.max(ring.read, written - size); n < written; n++) {
     const slot = 1 + 2 * (n % size);
-    if (samples[slot]! >= from) shown.push({ at: samples[slot]!, ms: samples[slot + 1]! });
+    // Drawn in the window, and sent while the page was visible.
+    if (samples[slot]! >= from && samples[slot]! - samples[slot + 1]! >= visibleSince) shown.push({ at: samples[slot]!, ms: samples[slot + 1]! });
   }
   ring.read = written;
   tracked.version++;

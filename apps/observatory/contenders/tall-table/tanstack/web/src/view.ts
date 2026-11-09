@@ -358,13 +358,15 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     useLayoutEffect(() => {
       if (contractRef.current) setContractGutter(contractRef.current, gutter);
       const model = modelRef.current;
-      if (!measured || !model) return;
+      if (!(measured || tail?.readout) || !model) return;
       // The rows this commit drew (the model's), not the paging's, which a
       // landing's pin can move ahead of them until the next draw.
       const [first, end] = drawnRows(model, rowHeight);
       if (end <= first) return;
       for (let row = first; row < end; row++) if (paging.row(row).kind !== 'loaded') return;
       if (!noteTailDrawn(paging, end)) return;
+      tail?.drawn(end);
+      if (!measured) return;
       (globalThis as { __contenderTail?: number }).__contenderTail = end;
       performance.mark(MARKS.tail);
     });

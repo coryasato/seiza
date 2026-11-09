@@ -502,6 +502,15 @@
   background: var(--down);
 }
 
+/* Live tail's newest row: outlined, its request just in. */
+.observatory-drawing .observatory-newest i {
+  outline: 1px solid var(--ring);
+}
+
+.observatory-drawing .observatory-newest i:nth-child(2) {
+  background: var(--muted-foreground);
+}
+
 /* A verdict that splits: each side's half. */
 .observatory-split {
   background: linear-gradient(90deg, var(--series-gpui) 50%, var(--series-tanstack) 50%);

@@ -278,7 +278,7 @@ async function openTail(data: DataLayer, queries: Engine['queries'], file: Await
   const paging = new data.TablePaging<TablePage>(file.rows, layer.tailSource(queries));
   let cells: Awaited<ReturnType<typeof layer.tailTable>>;
   try {
-    cells = await layer.tailTable(tail!.scenario, tail!.stop, tail!.limit, paging, file.columns, bridge, measuring());
+    cells = await layer.tailTable(tail!.scenario, tail!.stop, tail!.limit, paging, file.columns, bridge, measuring(), readingOut());
   } catch (error) {
     paging.close();
     throw error;

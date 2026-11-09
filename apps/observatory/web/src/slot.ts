@@ -37,7 +37,7 @@ import rows from 'virtual:data-rows';
 import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
 import { FONTS } from '../../contenders/paths.ts';
 import { SCENARIO_PARAM, type DensityStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { COMPARE_HASH, hasCold, seriesDot, isDensity, READOUT_PARAM, scenarioCopy, SIDE_PARAM, stopSets, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
+import { COMPARE_HASH, feeds, hasCold, seriesDot, isDensity, READOUT_PARAM, scenarioCopy, SIDE_PARAM, stopSets, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { cached, frameMark, isWarm, trackFrame, warmth } from './live.ts';
 import { loadMetrics } from './metrics.ts';
@@ -184,12 +184,12 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
     if (!base || !painted) return null;
     const params = new URLSearchParams({ [SCENARIO_PARAM]: scenario.id, [STOP_PARAM]: stop.id, theme: currentTheme() });
     // A feed's frame keeps what this tab's Shown in reads (`live.ts`).
-    if (scenario.level === 'market') params.set(READOUT_PARAM, '');
+    if (feeds(scenario)) params.set(READOUT_PARAM, '');
     return `${base}?${params}`;
   }, [base, painted, frame, stop, scenario]);
   // This tab's readouts follow each frame from its creation (`live.ts`).
   useEffect(() => {
-    if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base, scenario.level === 'market');
+    if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base, feeds(scenario));
   }, [src]);
 
   /** A new frame, and the URL's parameters, the defaults omitted. */
@@ -296,21 +296,23 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
  *  load claims nothing past the app. */
 function LoadRows({ shown, scenario, state, stopped, frame }: { shown: Contender; scenario: Scenario; state: FrameState; stopped: boolean; frame: RefObject<HTMLIFrameElement | null> }) {
   const failed = state === 'failed';
+  const copy = scenarioCopy(scenario);
   const step = { app: 0, engine: 1, data: 2, filled: 3, failed: 3 }[state];
   const at = (n: number, done: string) => (step < n ? 'next' : step === n ? 'loading…' : done);
   const read = (prefix: string) => loadedFrom(frame.current, prefix) ?? '—';
   const rowsOf: [string, string][] = [
     [`${shown.label}’s app at this level`, at(0, read(shown.url(scenario.level)))],
     ['The engine (DuckDB-Wasm)', failed ? 'its frame says what failed' : at(1, 'in its own worker, not timed here')],
-    [`The data (${scenario.data})`, failed ? 'not read' : at(2, 'read a page at a time')],
-    // Market watch's prices: the seeded feed, made in the frame once it fills.
-    ...(scenario.level === 'market' ? ([['The feed (seeded, generated here)', failed ? 'not started' : stopped ? 'stopped: its frame says why' : state === 'filled' ? 'in its own worker' : 'next']] as [string, string][]) : []),
+    [`The data (${copy.data?.what ?? scenario.data})`, failed ? 'not read' : at(2, copy.data?.how ?? 'read a page at a time')],
+    // A feed's (market watch's prices, live tail's clock): made in the frame once it fills.
+    ...(copy.made ? ([[copy.made.what, failed ? 'not started' : stopped ? 'stopped: its frame says why' : state === 'filled' ? copy.made.filled : 'next']] as [string, string][]) : []),
     ['The font', at(0, read(FONTS))],
   ];
   const why = warmth(shown.side);
   return h(
     'span',
-    { 'data-load-rows': '', className: 'mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-muted-foreground' },
+    // The labels keep room of their own: a long value wraps rather than squeezing them.
+    { 'data-load-rows': '', className: 'mt-2 grid grid-cols-[minmax(9rem,1fr)_auto] gap-x-3 gap-y-0.5 text-muted-foreground' },
     ...rowsOf.flatMap(([what, how]) => [h('span', { key: what }, what), h('span', { key: `${what}:how`, className: 'text-right text-foreground' }, how)]),
     state === 'filled'
       ? h(
@@ -341,7 +343,7 @@ interface DialProps {
  *  and in the explainer, with this window's count; a phone's menu button. */
 function Dial({ scenario, dial, stop, pick, busy, stage, rows }: DialProps) {
   const stops = stopsOf(scenario);
-  const sets = (candidate: Stop) => stopSets(candidate, rows);
+  const sets = (candidate: Stop) => stopSets(scenario, candidate, rows);
   const here = () => {
     const box = stage.current;
     return box && isDensity(stop) ? cellsHere(stop, box.clientWidth, box.clientHeight) : null;

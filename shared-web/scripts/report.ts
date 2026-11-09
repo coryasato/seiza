@@ -27,9 +27,11 @@
 //     nearest object on the path with its own `date`, else the file's;
 //   - { "glob": "*-x.json", "path": "a.b" | "sum": [paths], "where": { path: value } }:
 //     the newest local results file matching the glob that has every path;
-//     with "of": "min" | "max", "path" names an array of numbers and the
-//     value is its least or greatest (a metric's range over its runs).
-//   A path step may be an array index; -1 is the last element.
+//     with "of": "min" | "max" | "median", "path" names an array of numbers
+//     and the value is its least, greatest, or median (a metric's range over
+//     its runs, or a median a summary doesn't record).
+//   A path step may be an array index; -1 is the last element; `*` reads the
+//   rest of the path in each element of an array (`runs.*.collections.totalMs`).
 // - exclude: globs of results files never read (before runs, controls, A/Bs).
 // "Newest" is the file's `date` field, then its name; a tie is reported.
 // A headline template may also say {rows:<file>}: that file's row count in

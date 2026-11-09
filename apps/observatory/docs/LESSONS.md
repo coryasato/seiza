@@ -395,3 +395,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - GPUI's second canvas backing store isn't always garbage. In the soak a forced collection freed it every time. At the end of `memory`'s equal work it survived the collection in 4 of 10 reference runs and 9 of 10 throttled. The page's Memory card leaves the canvas out, so nothing changed.
 - Both pages' JavaScript grew by about the same amount over the soak, apart from GPUI's wasm memory: ~10 MiB at the reference, ~7 throttled. Growth that matches on both sides is likely common code or the harness, not either view.
 - The word-splitting slip came back a part after D1's lesson: a quoted `"tail --stop all"` reached `node` as one path. A long run's commands go to `just` through a shell function that passes `"$@"`, each argument its own word, never one quoted string.
+
+## M11 part E: live tail on the page (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m11-e.md`](../perf/results/2026-11-09-m11-e.md).
+
+**Surprises:**
+- A count of collections hid what time shows. Live tail's 30 against 9.5 collections in 10 s read as 3×; the time paused reads 5× (35.7 against 7.1 ms), and market watch's GPUI time stays flat across the dial while TanStack's grows with it. Every run had recorded the time all along; only the summaries and the card had picked the count.
+- A shared ring needs a key that only grows, nothing more: market watch's generation and live tail's rows fit the same queue. The tail's one twist is the reader: counts posted while the reader holds the view would read as the reader's time, so a change of following drops them.
+- Moving the GPUI ring into its own module left market watch's code the same but swapped two string constants in its data, and the tail's new `on_event` arms moved three panic locations' line numbers in the base and wide builds. "Byte-identical" for the other levels means checking what differs, not just the hash.
+- One numeric constant imported across a chunk boundary changed rolldown's chunking: the metrics module became a shared chunk instead of an entry. The check looked it up by its module path and failed, though nothing reached the first paint.

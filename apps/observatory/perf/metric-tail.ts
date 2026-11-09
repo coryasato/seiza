@@ -170,6 +170,9 @@ await runMetric<Run>(
       busyMsPerSecond: medianOf(runs, (run) => run.busyMsPerSecond),
       collectionsIn10s: medianOf(runs, (run) => (run.collections.count * 10_000) / run.windowMs),
       collectionLongestMs: medianOf(runs, (run) => run.collections.longestMs, 2),
+      collectionTotalMs: medianOf(runs, (run) => run.collections.totalMs, 2),
+      // To 2 decimals, as the page's median over the runs reads it.
+      collectionsInLateFrame: medianOf(runs, (run) => run.collections.inLateFrame, 2),
       scrollBackMs: medianOf(runs, (run) => run.back.ms, 2),
       scrollBackMsRuns: runs.map((run) => run.back.ms),
       scrollBackControlMs: medianOf(runs, (run) => run.control.ms, 2),

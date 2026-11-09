@@ -164,7 +164,8 @@ await runMetric<Run>(
       collectionsIn10s: medianOf(runs, (run) => (run.collections.count * 10_000) / run.windowMs),
       collectionLongestMs: medianOf(runs, (run) => run.collections.longestMs, 2),
       collectionTotalMs: medianOf(runs, (run) => run.collections.totalMs, 2),
-      collectionsInLateFrame: medianOf(runs, (run) => run.collections.inLateFrame),
+      // To 2 decimals, as live tail's (`metric tail`) and the page's median over runs.
+      collectionsInLateFrame: medianOf(runs, (run) => run.collections.inLateFrame, 2),
       latePct: medianOf(runs, (run) => run.latePct),
       workP50Ms: medianOf(runs, (run) => run.workP50Ms, 2),
       workP95Ms: medianOf(runs, (run) => run.workP95Ms, 2),

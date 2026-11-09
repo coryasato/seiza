@@ -22,7 +22,6 @@ import { SOURCE } from '@seiza/site-ui/components/footer';
 import cold from 'virtual:cold-numbers';
 import type { Side } from '../../contenders/contract.ts';
 import type { Scenario, Stop } from '../../contenders/scenarios.ts';
-import { KEEPS_UP_SHARE } from '../../metrics/metrics.ts';
 import { millions, SCENARIO_LINK, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
@@ -329,6 +328,24 @@ interface StatCardProps {
   contenders: [Contender, Contender];
 }
 
+/** Beside the collection card's time: the longest pause and those in a
+ *  late frame, per side, the fast device's then the slow one's. */
+function Pauses({ values, stop, contenders }: { values: ScenarioCold['values']; stop?: string; contenders: [Contender, Contender] }) {
+  const at = (metric: string, side: Side) => PROFILES.map((profile) => values[coldKey(metric, profile, stop)]![sideIndex(side)]!);
+  const row = (label: string, metric: string, unit: string) => [
+    h('span', { key: `${metric}-label`, className: CAPTION }, label),
+    ...contenders.map((contender) =>
+      h('span', { key: `${metric}-${contender.side}`, 'data-pauses': `${metric}:${contender.side}`, className: 'text-xs tabular-nums' }, `${at(metric, contender.side).map(number).join(' · ')}${unit}`),
+    ),
+  ];
+  return h(
+    'div',
+    { 'data-pauses': '', className: 'grid grid-cols-2 gap-x-2.5 border-t pt-0.5' },
+    ...row('The longest pause, fast · slow device', 'collection-longest', ' ms'),
+    ...row('Pauses in a late frame, fast · slow device', 'collection-late', ''),
+  );
+}
+
 function StatCard({ card, values, stop, note, live, contenders }: StatCardProps) {
   const outcomes = PROFILES.map((profile) => cardOutcome(card, values, profile, stop));
   // This tab: only once a side has loaded, for a card with a reading here.
@@ -353,6 +370,7 @@ function StatCard({ card, values, stop, note, live, contenders }: StatCardProps)
         ];
       }),
     ),
+    card.pauses ? h(Pauses, { values, stop, contenders }) : null,
     loaded.length
       ? h(
           'div',
@@ -484,8 +502,12 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
   const [picked, setPicked] = useState<string | null>(null);
   const at = stops.find((candidate) => candidate.id === (picked ?? stop.id)) ?? stop;
   const byDefault = stops.find((candidate) => candidate.id === scenario.defaultStop)!;
-  const line = `${number(KEEPS_UP_SHARE * 100)} %`;
-  const keeps = numbersOf(scenario).keeps!;
+  const shape = numbersOf(scenario);
+  const keeps = shape.keeps!;
+  const line = `${keeps.better === 'lower' ? '≤ ' : ''}${number(keeps.line)} ${keeps.unit}`;
+  const note = shape.stopNote?.(at, numbers.values) ?? null;
+  // Two a row (a 2 × 2) where the scenario says so; three otherwise.
+  const pairs = shape.stopColumns === 2;
   return h(
     Fragment,
     null,
@@ -494,8 +516,8 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
       { 'data-card': 'keeps', 'aria-label': 'Where each side keeps up', className: CARD },
       h(CardHead, {
         label: 'Where each side keeps up',
-        explain: `A side keeps up at a stop when at least ${line} ${keeps.explain} Cold, the middle of ${runsOf(scenario)} runs.`,
-        note: 'higher is better',
+        explain: `A side keeps up at a stop when ${keeps.better === 'higher' ? `at least ${line} ` : ''}${keeps.explain} Cold, the middle of ${runsOf(scenario)} runs.`,
+        note: `${keeps.better} is better`,
       }),
       h('span', { 'data-verdict': '', className: 'text-sm leading-snug' }, keepsVerdict(scenario, numbers.values)),
       h(
@@ -510,32 +532,57 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
       'div',
       { 'data-stop-heading': '', className: 'flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-0.5' },
       h('h3', { className: 'text-sm' }, `At ${at.label}`),
-      h('span', { className: 'text-xs text-muted-foreground' }, stopSets(at, numbers.rows)),
+      h('span', { className: 'text-xs text-muted-foreground' }, stopSets(scenario, at, numbers.rows)),
       at.id === stop.id ? h('span', { className: 'text-xs text-muted-foreground' }, 'this window’s stop') : null,
     ),
+    note ? h('p', { 'data-stop-note': '', className: '-mt-2 px-0.5 text-xs leading-snug text-muted-foreground' }, note) : null,
     h(
       'div',
-      { className: 'grid gap-3 @3xl:grid-cols-3' },
-      ...numbersOf(scenario).stopCards!.map((card) =>
+      { className: `grid gap-3 ${pairs ? '@2xl:grid-cols-2' : '@3xl:grid-cols-3'}` },
+      ...shape.stopCards!.map((card) =>
         h(StatCard, { key: card.key, card, values: numbers.values, stop: at.id, note: !card.perStop && at.id !== byDefault.id ? `Measured once, at ${byDefault.label}, the default stop` : undefined, live, contenders }),
       ),
-      h(OnceCard, { key: 'once', scenario, numbers, contenders }),
+      h(OnceCard, { key: 'once', scenario, numbers, contenders, pairs }),
     ),
   );
 }
 
-/** The chart's plot: its height, the shares' 100 % and 0 lines in it, and
- *  the gutters its labels and its last marker take, CSS px. Its x is a
- *  share of the plot's width, so the chart keeps its height and text size
- *  at any width. */
+/** The chart's plot: its height, its top and bottom lines in it, and the
+ *  gutters its labels and its last marker take, CSS px. Its x is a share
+ *  of the plot's width, so the chart keeps its height and text size at any
+ *  width. */
 const [PLOT, TOP, BOTTOM, GUTTER, END] = [150, 8, 142, 46, 8];
+
+/** A chart's y scale: a share from 0 to 100 % (higher up), or a latency on
+ *  a log scale from 10 ms to 1 s (lower down), the decades its lines
+ *  (`docs/DECISIONS.md`, "Page", 2026-11-09). */
+interface Scale {
+  y: (value: number) => number;
+  lines: { value: number; label: string }[];
+}
+
+const SHARE_SCALE: Scale = {
+  y: (share) => TOP + ((100 - share) / 100) * (BOTTOM - TOP),
+  lines: [100, 50, 0].map((share) => ({ value: share, label: `${share} %` })),
+};
+
+const [LOG_LO, LOG_HI] = [10, 1000];
+const LOG_SCALE: Scale = {
+  y: (ms) => TOP + ((Math.log10(LOG_HI) - Math.log10(Math.min(LOG_HI, Math.max(LOG_LO, ms)))) / (Math.log10(LOG_HI) - Math.log10(LOG_LO))) * (BOTTOM - TOP),
+  lines: [
+    { value: 1000, label: '1 s' },
+    { value: 100, label: '100 ms' },
+    { value: 10, label: '10 ms' },
+  ],
+};
 
 function KeepsChart({ scenario, values, profile, picked, pick }: { scenario: Scenario; values: ScenarioCold['values']; profile: Profile; picked: string; pick: (stop: string) => void }) {
   const stops = scenario.stops as readonly Stop[];
+  const keeps = numbersOf(scenario).keeps!;
+  const { y, lines } = keeps.unit === '%' ? SHARE_SCALE : LOG_SCALE;
   const x = (index: number) => `${(((index + 0.5) / stops.length) * 100).toFixed(2)}%`;
-  const y = (share: number) => TOP + ((100 - share) / 100) * (BOTTOM - TOP);
   const shares = (side: Side) => stops.map((stop) => values[coldKey('keeps', profile, stop.id)]![sideIndex(side)]!);
-  const label = `${DEVICES[profile]}, ${numbersOf(scenario).keeps!.reads} at ${stops.map((stop) => stop.label).join(', ')}: ${(['gpui', 'tanstack'] as const).map((side) => `${LABELS[side]} ${shares(side).map(number).join(', ')} %`).join('; ')}`;
+  const label = `${DEVICES[profile]}, ${keeps.reads} at ${stops.map((stop) => stop.label).join(', ')}: ${(['gpui', 'tanstack'] as const).map((side) => `${LABELS[side]} ${shares(side).map(number).join(', ')} ${keeps.unit}`).join('; ')}`;
   const selected = stops.findIndex((stop) => stop.id === picked);
   // Each side's line as segments: a polyline's points can't be a share of the width.
   const segments = (side: Side, className: string) =>
@@ -549,20 +596,40 @@ function KeepsChart({ scenario, values, profile, picked, pick }: { scenario: Sce
     h(
       'div',
       { className: 'relative', style: { height: PLOT } },
-      ...[100, 50, 0].map((share) =>
-        h('span', { key: share, 'aria-hidden': true, className: 'absolute left-0 -translate-y-1/2 whitespace-nowrap text-right text-[11px] leading-none text-muted-foreground tabular-nums', style: { top: y(share), width: GUTTER - 8 } }, `${share} %`),
+      ...lines.map(({ value, label }) =>
+        h('span', { key: value, 'aria-hidden': true, className: 'absolute left-0 -translate-y-1/2 whitespace-nowrap text-right text-[11px] leading-none text-muted-foreground tabular-nums', style: { top: y(value), width: GUTTER - 8 } }, label),
       ),
       h(
         'svg',
         { role: 'img', 'aria-label': label, className: 'absolute top-0 overflow-visible', style: { left: GUTTER, width: `calc(100% - ${GUTTER + END}px)`, height: PLOT } },
         h('rect', { x: `${((selected / stops.length) * 100).toFixed(2)}%`, y: TOP, width: `${(100 / stops.length).toFixed(2)}%`, height: BOTTOM - TOP, className: 'fill-accent' }),
-        ...[100, 50, 0].map((share) => h('line', { key: share, x1: '0%', x2: '100%', y1: y(share), y2: y(share), className: 'stroke-border' })),
-        h('line', { x1: '0%', x2: '100%', y1: y(KEEPS_UP_SHARE * 100), y2: y(KEEPS_UP_SHARE * 100), strokeDasharray: '4 3', className: 'stroke-muted-foreground' }),
+        ...lines.map(({ value }) => h('line', { key: value, x1: '0%', x2: '100%', y1: y(value), y2: y(value), className: 'stroke-border' })),
+        h('line', { 'data-keeps-line': keeps.line, x1: '0%', x2: '100%', y1: y(keeps.line), y2: y(keeps.line), strokeDasharray: '4 3', className: 'stroke-muted-foreground' }),
         ...segments('gpui', 'stroke-series-gpui'),
         ...segments('tanstack', 'stroke-series-tanstack'),
         // A circle for GPUI, a square for TanStack: told apart without the color.
         ...shares('gpui').map((share, index) => h('circle', { key: `g${index}`, cx: x(index), cy: y(share), r: 3.5, className: 'fill-series-gpui' })),
         ...shares('tanstack').map((share, index) => h('svg', { key: `s${index}`, x: x(index), y: y(share), overflow: 'visible' }, h('rect', { x: -3.5, y: -3.5, width: 7, height: 7, className: 'fill-series-tanstack' }))),
+        // On a latency's chart, each point past the line says its value, and so
+        // does one the axis clamps to 10 ms or 1 s: GPUI's to its left,
+        // TanStack's to its right, so two near misses don't overlap.
+        ...(keeps.better === 'lower'
+          ? (['gpui', 'tanstack'] as const).flatMap((side) =>
+              shares(side).flatMap((value, index) =>
+                value > keeps.line || value < LOG_LO || value > LOG_HI
+                  ? [
+                      h(
+                        'text',
+                        { key: `miss-${side}${index}`, 'data-miss': `${side}:${stops[index]!.id}`, x: x(index), y: y(value), dx: side === 'gpui' ? -7 : 7, dy: 3.5, textAnchor: side === 'gpui' ? 'end' : 'start', // A halo in the card's color keeps it legible over the lines it crosses.
+                          style: { paintOrder: 'stroke', stroke: 'var(--background)', strokeWidth: 3, strokeLinejoin: 'round' },
+                          className: `text-[10px] tabular-nums ${side === 'gpui' ? 'fill-series-gpui' : 'fill-series-tanstack'}` },
+                        `${number(value)} ms`,
+                      ),
+                    ]
+                  : [],
+              ),
+            )
+          : []),
       ),
     ),
     h(
@@ -588,26 +655,37 @@ function KeepsChart({ scenario, values, profile, picked, pick }: { scenario: Sce
 }
 
 /** What no stop changes, one build per side: Ready in on both devices, and Download. */
-function OnceCard({ scenario, numbers, contenders }: { scenario: Scenario; numbers: ScenarioCold; contenders: [Contender, Contender] }) {
+function OnceCard({ scenario, numbers, contenders, pairs }: { scenario: Scenario; numbers: ScenarioCold; contenders: [Contender, Contender]; pairs: boolean }) {
   const ready = PROFILES.map((profile) => cardOutcome(READY, numbers.values, profile));
+  // Live tail's memory after 10 minutes, measured at one stop.
+  const extras = numbersOf(scenario).onceCards ?? [];
+  const extraOutcomes = extras.map((card) => PROFILES.map((profile) => cardOutcome(card, numbers.values, profile)));
   const totals = contenders.map((contender) => downloadTotal(contender.side, numbers.parts, scenario)) as [number, number];
   const download = outcome(totals, 'lower');
   const head = (text: string) => h('span', { key: text, className: 'text-right text-[11px] text-muted-foreground' }, text);
   return h(
     'div',
-    { 'data-card': 'once', className: `${CARD} @3xl:col-span-3` },
+    { 'data-card': 'once', className: `${CARD} ${pairs ? '@2xl:col-span-2' : '@3xl:col-span-3'}` },
     h(CardHead, {
       label: 'The same at every stop',
-      explain: `One build per side, whatever the stop. ${READY.explain} Download: what each side’s page fetches, compressed as sent; the database engine and the data are the same files on both sides, so they’re left out.`,
+      explain: `One build per side, whatever the stop. ${READY.explain} Download: what each side’s page fetches, compressed as sent; the database engine and the data are the same files on both sides, so they’re left out.${extras.map((card) => ` ${card.label}: ${card.explain}`).join('')}`,
       note: 'lower is better',
     }),
-    h('span', { 'data-verdict': '', className: 'text-sm leading-snug' }, `Ready in: ${verdict(ready[0]!, ready[1]!, READY.word, READY.ratio)}. Download: ${verdict(download, null, 'smaller', true)}.`),
+    h(
+      'span',
+      { 'data-verdict': '', className: 'text-sm leading-snug' },
+      `Ready in: ${verdict(ready[0]!, ready[1]!, READY.word, READY.ratio)}. ${extras.map((card, index) => `${card.label}, ${card.caption!.toLowerCase()}: ${verdict(extraOutcomes[index]![0]!, extraOutcomes[index]![1]!, card.word, card.ratio)}. `).join('')}Download: ${verdict(download, null, 'smaller', true)}.`,
+    ),
     h(
       'div',
-      { className: 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-baseline gap-x-6 gap-y-1' },
+      { className: 'overflow-x-auto' },
+      h(
+      'div',
+      { className: 'grid items-baseline gap-x-6 gap-y-1', style: { gridTemplateColumns: `minmax(0,1fr) repeat(${3 + 2 * extras.length}, auto)` } },
       h('span', { key: 'corner' }),
       head('Ready in, fast device'),
       head('Ready in, slow device'),
+      ...extras.flatMap((card) => [head(`${card.label}, fast device`), head(`${card.label}, slow device`)]),
       head('Download'),
       ...contenders.flatMap((contender, index) => [
         h('span', { key: `${contender.side}-name`, className: 'flex items-center gap-1.5 text-xs text-muted-foreground' }, seriesDot(contender.side), contender.label),
@@ -616,6 +694,15 @@ function OnceCard({ scenario, numbers, contenders }: { scenario: Scenario; numbe
             'span',
             { key: `${contender.side}-${profile}`, className: 'text-right' },
             big(number(cardValues(READY, numbers.values, profile)[index]!), READY.unit, ready[at]!.winner === contender.side, { [`data-cold-${profile}`]: contender.side }),
+          ),
+        ),
+        ...extras.flatMap((card, which) =>
+          PROFILES.map((profile, at) =>
+            h(
+              'span',
+              { key: `${contender.side}-${card.key}-${profile}`, className: 'text-right' },
+              big(number(cardValues(card, numbers.values, profile)[index]!), card.unit, extraOutcomes[which]![at]!.winner === contender.side, { [`data-${card.metric}-${profile}`]: contender.side }),
+            ),
           ),
         ),
         h(
@@ -627,6 +714,7 @@ function OnceCard({ scenario, numbers, contenders }: { scenario: Scenario; numbe
           })(),
         ),
       ]),
+      ),
     ),
   );
 }
@@ -642,6 +730,8 @@ interface Story {
   shows: (numbers: ScenarioCold) => string;
   before?: (numbers: ScenarioCold, component: Component) => Block[];
   after?: (numbers: ScenarioCold, component: Component) => Block[];
+  /** The data's terms, after its credit, where it has no license. */
+  terms?: string;
 }
 
 const STORIES: Record<string, Story> = {
@@ -690,6 +780,23 @@ const STORIES: Record<string, Story> = {
       },
     ],
   },
+  'live-tail': {
+    shows: (numbers) =>
+      `An observability tool’s live tail: the web server log of NASA’s Kennedy Space Center from July 1995, ${numbers.rows.toLocaleString('en-US')} requests, replayed into the table while the view follows the newest row. One clock, the same on both sides, runs in a worker of each side’s own and posts how many rows are due; each side reads them from the same file through the same database engine, a page at a time, and draws once a frame. Each stop of the dial adds more rows a second. Past the file’s end the replay loops, each lap’s times moved on by the log’s length, so it never runs out. Scroll up and the view lets go of the tail and holds where you put it; End, or scrolling back to the bottom, follows the tail again.`,
+    after: (_, component) => [
+      {
+        title: 'Why',
+        body: h(
+          'p',
+          null,
+          'Garbage under a growing table: the DOM side makes new objects for each page it reads and each row it renders, and its page spends longer paused collecting them; GPUI’s pages are Rust’s plain buffers. That’s WebAssembly’s doing rather than the canvas’s. Cost per cell matters less here than on the wide sheet: each frame only a few rows are new, so the two sides spend about the same time on a frame, and where the rows come faster than a slow device can draw them, both fall behind. A scroll back is the DOM’s: the browser moves its page on the compositor before the page’s own thread hears of it. ',
+          h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
+          '.',
+        ),
+      },
+    ],
+    terms: 'The Internet Traffic Archive’s terms: “The traces may be freely redistributed.” The visitors’ hosts are left out, every query string is cut, and a request naming a person is dropped.',
+  },
 };
 
 /** A scenario's story: one without fails its description by name. */
@@ -714,7 +821,7 @@ export function Description({ component, scenario }: { component: Component; sce
   const muted = h('span', { className: 'inline-block size-2 shrink-0 rounded-full bg-muted-foreground', 'aria-hidden': true });
   const link = 'text-foreground underline underline-offset-4';
   const data = [
-    h('p', { key: 'credit', 'data-credit': '', className: 'text-muted-foreground' }, `Data: ${numbers.credit}.${numbers.license ? ` ${numbers.license}.` : ''}`),
+    h('p', { key: 'credit', 'data-credit': '', className: 'text-muted-foreground' }, `Data: ${numbers.credit}.${numbers.license ? ` ${numbers.license}.` : story.terms ? ` ${story.terms}` : ''}`),
     numbers.citation ? h('p', { key: 'citation', 'data-citation': '', className: 'mt-1 text-muted-foreground' }, `Its citation: ${numbers.citation}`) : null,
     measured ? h('p', { key: 'measured', 'data-measured': '', className: 'mt-1 text-muted-foreground' }, measured) : null,
   ];

@@ -3669,6 +3669,2708 @@
         }
       ],
       "show": ["readme:market-watch"]
+    },
+    {
+      "id": "market-watch-100-collection-time-reference",
+      "label": "Market watch at 100 updates/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collection-time-throttled",
+      "label": "Market watch at 100 updates/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collection-longest-reference",
+      "label": "Market watch at 100 updates/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collection-longest-throttled",
+      "label": "Market watch at 100 updates/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collection-late-reference",
+      "label": "Market watch at 100 updates/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-100-collection-late-throttled",
+      "label": "Market watch at 100 updates/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-100.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collection-time-reference",
+      "label": "Market watch at 500 updates/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collection-time-throttled",
+      "label": "Market watch at 500 updates/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collection-longest-reference",
+      "label": "Market watch at 500 updates/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collection-longest-throttled",
+      "label": "Market watch at 500 updates/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collection-late-reference",
+      "label": "Market watch at 500 updates/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-500-collection-late-throttled",
+      "label": "Market watch at 500 updates/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-500.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collection-time-reference",
+      "label": "Market watch at 1k updates/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collection-time-throttled",
+      "label": "Market watch at 1k updates/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collection-longest-reference",
+      "label": "Market watch at 1k updates/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collection-longest-throttled",
+      "label": "Market watch at 1k updates/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collection-late-reference",
+      "label": "Market watch at 1k updates/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-1k-collection-late-throttled",
+      "label": "Market watch at 1k updates/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-1k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collection-time-reference",
+      "label": "Market watch at 5k updates/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collection-time-throttled",
+      "label": "Market watch at 5k updates/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collection-longest-reference",
+      "label": "Market watch at 5k updates/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collection-longest-throttled",
+      "label": "Market watch at 5k updates/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collection-late-reference",
+      "label": "Market watch at 5k updates/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "market-watch-5k-collection-late-throttled",
+      "label": "Market watch at 5k updates/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-market-watch-5k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-keeps-reference",
+      "label": "Live tail at 1k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-keeps-throttled",
+      "label": "Live tail at 1k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-shown-reference",
+      "label": "Live tail at 1k rows/s: row shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-shown-throttled",
+      "label": "Live tail at 1k rows/s: row shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-shown-min-reference",
+      "label": "Live tail at 1k rows/s: row shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-shown-min-throttled",
+      "label": "Live tail at 1k rows/s: row shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-shown-max-reference",
+      "label": "Live tail at 1k rows/s: row shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-shown-max-throttled",
+      "label": "Live tail at 1k rows/s: row shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-late-reference",
+      "label": "Live tail at 1k rows/s: late frames under the replay, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-late-throttled",
+      "label": "Live tail at 1k rows/s: late frames under the replay, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-work-reference",
+      "label": "Live tail at 1k rows/s: work per frame (p95) under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-work-throttled",
+      "label": "Live tail at 1k rows/s: work per frame (p95) under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collections-reference",
+      "label": "Live tail at 1k rows/s: collections in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collections-throttled",
+      "label": "Live tail at 1k rows/s: collections in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collection-time-reference",
+      "label": "Live tail at 1k rows/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collection-time-throttled",
+      "label": "Live tail at 1k rows/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collection-longest-reference",
+      "label": "Live tail at 1k rows/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collection-longest-throttled",
+      "label": "Live tail at 1k rows/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collection-late-reference",
+      "label": "Live tail at 1k rows/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-collection-late-throttled",
+      "label": "Live tail at 1k rows/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-1k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-back-reference",
+      "label": "Live tail at 1k rows/s: a scroll back's first frame under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-back-throttled",
+      "label": "Live tail at 1k rows/s: a scroll back's first frame under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-back-min-reference",
+      "label": "Live tail at 1k rows/s: a scroll back's first frame, the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-back-min-throttled",
+      "label": "Live tail at 1k rows/s: a scroll back's first frame, the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-back-max-reference",
+      "label": "Live tail at 1k rows/s: a scroll back's first frame, the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-1k-back-max-throttled",
+      "label": "Live tail at 1k rows/s: a scroll back's first frame, the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-1k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-keeps-reference",
+      "label": "Live tail at 10k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-keeps-throttled",
+      "label": "Live tail at 10k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-shown-reference",
+      "label": "Live tail at 10k rows/s: row shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-shown-throttled",
+      "label": "Live tail at 10k rows/s: row shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-shown-min-reference",
+      "label": "Live tail at 10k rows/s: row shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-shown-min-throttled",
+      "label": "Live tail at 10k rows/s: row shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-shown-max-reference",
+      "label": "Live tail at 10k rows/s: row shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-shown-max-throttled",
+      "label": "Live tail at 10k rows/s: row shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-late-reference",
+      "label": "Live tail at 10k rows/s: late frames under the replay, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-late-throttled",
+      "label": "Live tail at 10k rows/s: late frames under the replay, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-work-reference",
+      "label": "Live tail at 10k rows/s: work per frame (p95) under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-work-throttled",
+      "label": "Live tail at 10k rows/s: work per frame (p95) under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collections-reference",
+      "label": "Live tail at 10k rows/s: collections in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collections-throttled",
+      "label": "Live tail at 10k rows/s: collections in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collection-time-reference",
+      "label": "Live tail at 10k rows/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collection-time-throttled",
+      "label": "Live tail at 10k rows/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collection-longest-reference",
+      "label": "Live tail at 10k rows/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collection-longest-throttled",
+      "label": "Live tail at 10k rows/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collection-late-reference",
+      "label": "Live tail at 10k rows/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-collection-late-throttled",
+      "label": "Live tail at 10k rows/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-10k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-back-reference",
+      "label": "Live tail at 10k rows/s: a scroll back's first frame under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-back-throttled",
+      "label": "Live tail at 10k rows/s: a scroll back's first frame under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-back-min-reference",
+      "label": "Live tail at 10k rows/s: a scroll back's first frame, the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-back-min-throttled",
+      "label": "Live tail at 10k rows/s: a scroll back's first frame, the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-back-max-reference",
+      "label": "Live tail at 10k rows/s: a scroll back's first frame, the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-10k-back-max-throttled",
+      "label": "Live tail at 10k rows/s: a scroll back's first frame, the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-keeps-reference",
+      "label": "Live tail at 50k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-keeps-throttled",
+      "label": "Live tail at 50k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-shown-reference",
+      "label": "Live tail at 50k rows/s: row shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-shown-throttled",
+      "label": "Live tail at 50k rows/s: row shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-shown-min-reference",
+      "label": "Live tail at 50k rows/s: row shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-shown-min-throttled",
+      "label": "Live tail at 50k rows/s: row shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-shown-max-reference",
+      "label": "Live tail at 50k rows/s: row shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-shown-max-throttled",
+      "label": "Live tail at 50k rows/s: row shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-late-reference",
+      "label": "Live tail at 50k rows/s: late frames under the replay, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-late-throttled",
+      "label": "Live tail at 50k rows/s: late frames under the replay, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-work-reference",
+      "label": "Live tail at 50k rows/s: work per frame (p95) under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-work-throttled",
+      "label": "Live tail at 50k rows/s: work per frame (p95) under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collections-reference",
+      "label": "Live tail at 50k rows/s: collections in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collections-throttled",
+      "label": "Live tail at 50k rows/s: collections in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collection-time-reference",
+      "label": "Live tail at 50k rows/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collection-time-throttled",
+      "label": "Live tail at 50k rows/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collection-longest-reference",
+      "label": "Live tail at 50k rows/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collection-longest-throttled",
+      "label": "Live tail at 50k rows/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collection-late-reference",
+      "label": "Live tail at 50k rows/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-collection-late-throttled",
+      "label": "Live tail at 50k rows/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-50k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-back-reference",
+      "label": "Live tail at 50k rows/s: a scroll back's first frame under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-back-throttled",
+      "label": "Live tail at 50k rows/s: a scroll back's first frame under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-back-min-reference",
+      "label": "Live tail at 50k rows/s: a scroll back's first frame, the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-back-min-throttled",
+      "label": "Live tail at 50k rows/s: a scroll back's first frame, the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-back-max-reference",
+      "label": "Live tail at 50k rows/s: a scroll back's first frame, the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-50k-back-max-throttled",
+      "label": "Live tail at 50k rows/s: a scroll back's first frame, the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-50k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-keeps-reference",
+      "label": "Live tail at 100k rows/s: row shown in (p95; keeps up at ≤ 100 ms), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-keeps-throttled",
+      "label": "Live tail at 100k rows/s: row shown in (p95; keeps up at ≤ 100 ms), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-shown-reference",
+      "label": "Live tail at 100k rows/s: row shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-shown-throttled",
+      "label": "Live tail at 100k rows/s: row shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-shown-min-reference",
+      "label": "Live tail at 100k rows/s: row shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-shown-min-throttled",
+      "label": "Live tail at 100k rows/s: row shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-shown-max-reference",
+      "label": "Live tail at 100k rows/s: row shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-shown-max-throttled",
+      "label": "Live tail at 100k rows/s: row shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-late-reference",
+      "label": "Live tail at 100k rows/s: late frames under the replay, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-late-throttled",
+      "label": "Live tail at 100k rows/s: late frames under the replay, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-work-reference",
+      "label": "Live tail at 100k rows/s: work per frame (p95) under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-work-throttled",
+      "label": "Live tail at 100k rows/s: work per frame (p95) under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collections-reference",
+      "label": "Live tail at 100k rows/s: collections in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collections-throttled",
+      "label": "Live tail at 100k rows/s: collections in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collection-time-reference",
+      "label": "Live tail at 100k rows/s: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collection-time-throttled",
+      "label": "Live tail at 100k rows/s: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.totalMs",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collection-longest-reference",
+      "label": "Live tail at 100k rows/s: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collection-longest-throttled",
+      "label": "Live tail at 100k rows/s: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collection-late-reference",
+      "label": "Live tail at 100k rows/s: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.reference.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-collection-late-throttled",
+      "label": "Live tail at 100k rows/s: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.gpui.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ],
+        [
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+          },
+          {
+            "glob": "*-tail-live-tail-100k.json",
+            "path": "profiles.throttled.tanstack.runs.*.collections.inLateFrame",
+            "of": "median"
+          }
+        ]
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-back-reference",
+      "label": "Live tail at 100k rows/s: a scroll back's first frame under the replay, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-back-throttled",
+      "label": "Live tail at 100k rows/s: a scroll back's first frame under the replay, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMs"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-back-min-reference",
+      "label": "Live tail at 100k rows/s: a scroll back's first frame, the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-back-min-throttled",
+      "label": "Live tail at 100k rows/s: a scroll back's first frame, the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-back-max-reference",
+      "label": "Live tail at 100k rows/s: a scroll back's first frame, the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-100k-back-max-throttled",
+      "label": "Live tail at 100k rows/s: a scroll back's first frame, the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.scrollBackMsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-tail-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.scrollBackMsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-usable-reference",
+      "label": "Live tail: time to first usable (10k rows/s), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-usable-throttled",
+      "label": "Live tail: time to first usable (10k rows/s), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-memory-open-reference",
+      "label": "Live tail: memory once open, after GC (10k rows/s), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-memory-open-throttled",
+      "label": "Live tail: memory once open, after GC (10k rows/s), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-memory-reference",
+      "label": "Live tail: memory once 100,000 rows are drawn (JavaScript, after GC) (10k rows/s), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-memory-throttled",
+      "label": "Live tail: memory once 100,000 rows are drawn (JavaScript, after GC) (10k rows/s), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcByType.JavaScript"
+        },
+        {
+          "glob": "*-memory-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcByType.JavaScript"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-data-reference",
+      "label": "Live tail: the clock's first count to its frame (10k rows/s), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-live-tail-10k.json",
+          "path": "profiles.reference.gpui.summary.dataMs"
+        },
+        {
+          "glob": "*-data-live-tail-10k.json",
+          "path": "profiles.reference.tanstack.summary.dataMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-data-throttled",
+      "label": "Live tail: the clock's first count to its frame (10k rows/s), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-live-tail-10k.json",
+          "path": "profiles.throttled.gpui.summary.dataMs"
+        },
+        {
+          "glob": "*-data-live-tail-10k.json",
+          "path": "profiles.throttled.tanstack.summary.dataMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-soak-memory-reference",
+      "label": "Live tail: memory after 10 minutes at 100k rows/s (JavaScript, less the canvas), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndByType.JavaScript"
+        },
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndByType.JavaScript"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-soak-memory-throttled",
+      "label": "Live tail: memory after 10 minutes at 100k rows/s (JavaScript, less the canvas), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndByType.JavaScript"
+        },
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndByType.JavaScript"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-soak-p95-start-reference",
+      "label": "Live tail: row shown in (p95) in the soak's first window at 100k rows/s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP95MsStart"
+        },
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP95MsStart"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-soak-p95-start-throttled",
+      "label": "Live tail: row shown in (p95) in the soak's first window at 100k rows/s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP95MsStart"
+        },
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP95MsStart"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-soak-p95-end-reference",
+      "label": "Live tail: row shown in (p95) after 10 minutes at 100k rows/s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.reference.gpui.summary.rowShownInP95MsEnd"
+        },
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.reference.tanstack.summary.rowShownInP95MsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "live-tail-soak-p95-end-throttled",
+      "label": "Live tail: row shown in (p95) after 10 minutes at 100k rows/s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.throttled.gpui.summary.rowShownInP95MsEnd"
+        },
+        {
+          "glob": "*-soak-live-tail-100k.json",
+          "path": "profiles.throttled.tanstack.summary.rowShownInP95MsEnd"
+        }
+      ],
+      "show": []
     }
   ]
 }

@@ -8,10 +8,9 @@
 //! before it reaches the store, as on the DOM side.
 
 use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
 
 use gpui_kit::*;
-use js_sys::{Array, Float64Array, Function, Reflect, Uint8Array};
+use js_sys::{Array, Function, Reflect, Uint8Array};
 use seiza_tall_table::TallTableEvent;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
@@ -134,11 +133,7 @@ fn start() -> Result<(), String> {
 /// Ends the worker: a refused batch, or the table opened again.
 pub fn stop() {
     // A reopened table counts its generations from the start again.
-    RING.with_borrow_mut(|ring| {
-        if let Some(ring) = ring {
-            ring.pending.clear();
-        }
-    });
+    crate::readout::forget();
     FEED.with_borrow_mut(|feed| {
         let Some(worker) = feed.as_mut().and_then(|feed| feed.worker.take()) else {
             return;
@@ -157,83 +152,6 @@ pub fn stop() {
     });
 }
 
-/// The ring's samples, as `contenders/contract.ts`'s `SHOWN_RING` lays
-/// them out: `[written, then (drawn at, ms) pairs]`, sample `n` at
-/// `1 + 2 * (n % SHOWN_RING)`.
-const SHOWN_RING: u32 = 512;
-/// The visible batches not yet drawn, at most: past it, the oldest is dropped.
-const PENDING: usize = 256;
-
-/// With `?readout` (the observatory's page, never a bare cold run): each
-/// visible batch's send → the frame that first drew it, epoch ms, on
-/// `__contender.shownIn` for the page's Shown in (`docs/contender-contract.md`,
-/// "The readout's ring"). Preallocated: the readout makes no garbage.
-struct Ring {
-    samples: Float64Array,
-    written: u32,
-    /// Each visible batch not yet drawn: its send time and generation.
-    pending: VecDeque<(f64, u64)>,
-    /// `performance.timeOrigin`: the frame's clock as epoch ms.
-    origin: f64,
-}
-
-thread_local! {
-    static RING: RefCell<Option<Ring>> = const { RefCell::new(None) };
-}
-
-fn reading_out() -> bool {
-    thread_local! {
-        static READOUT: bool = seiza::url::has_param("readout");
-    }
-    READOUT.with(|readout| *readout)
-}
-
-/// Runs `f` on the ring, made at its first use, with `?readout` only.
-fn with_ring(f: impl FnOnce(&mut Ring)) {
-    if !reading_out() {
-        return;
-    }
-    RING.with_borrow_mut(|ring| {
-        let ring = ring.get_or_insert_with(|| {
-            let samples = Float64Array::new_with_length(1 + 2 * SHOWN_RING);
-            crate::contract::set_on_contender("shownIn", &samples);
-            let origin = Reflect::get(&js_sys::global(), &JsValue::from_str("performance"))
-                .and_then(|performance| {
-                    Reflect::get(&performance, &JsValue::from_str("timeOrigin"))
-                })
-                .ok()
-                .and_then(|origin| origin.as_f64())
-                .unwrap_or_default();
-            Ring {
-                samples,
-                written: 0,
-                pending: VecDeque::with_capacity(PENDING),
-                origin,
-            }
-        });
-        f(ring);
-    });
-}
-
-/// A frame drew the re-reads up to `generation` (`TallTableEvent::Refreshed`,
-/// emitted while it renders): every visible batch it shows is a sample.
-pub fn shown_drawn(generation: u64) {
-    with_ring(|ring| {
-        let at = ring.origin + seiza::marks::now();
-        while let Some(&(sent, pending)) = ring.pending.front() {
-            if pending > generation {
-                break;
-            }
-            ring.pending.pop_front();
-            let slot = 1 + 2 * (ring.written % SHOWN_RING);
-            ring.samples.set_index(slot, at);
-            ring.samples.set_index(slot + 1, at - sent);
-            ring.written = ring.written.wrapping_add(1);
-            ring.samples.set_index(0, f64::from(ring.written));
-        }
-    });
-}
-
 /// A batch folded: with `?readout`, a visible one waits in the ring for
 /// the frame that draws it; with `?measure`, on `__contender.batches` as `[seq,
 /// ticks, sent (epoch ms), generation (the last of its invalidations, 0 for
@@ -241,12 +159,7 @@ pub fn shown_drawn(generation: u64) {
 /// (`docs/contender-contract.md`, "Reading the metrics").
 pub fn record(batch: crate::market::Batch, generation: u64, visible: bool) {
     if visible {
-        with_ring(|ring| {
-            if ring.pending.len() == PENDING {
-                ring.pending.pop_front();
-            }
-            ring.pending.push_back((batch.sent, generation));
-        });
+        crate::readout::waiting(batch.sent, generation);
     }
     if !crate::contract::measuring() {
         return;

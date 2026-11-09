@@ -140,6 +140,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | Feature | Waiting | Their note |
 |---|---|---|
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `follow`'s `let_go` (a follow-up, below) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
@@ -153,13 +154,14 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 - **A feature can move up** when an app needs it sooner. The change goes here, with a decision, never in the app's PLAN.
 - **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`format` moves up (2026-11-04)** ahead of `reorder`: the observatory's market watch (its M10) waits on it from its part B, and `reorder`'s run has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
+- **`follow`'s `let_go` first (2026-11-09),** ahead of `reorder`: a follow-up to a built feature, small, and the observatory's live tail waits on it before it ships (its M11 part E2; "Follow-ups to built features", `follow`).
 - **The flash's frames first (2026-11-04),** then `format`: market watch's spike found a flash redraws the whole table every frame, which sinks the bare host on a slow device; the observatory measures market watch only on the improved component ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
 
 ## Active milestone
 
-None: M12 (`format`) closed 2026-11-05 ([`docs/milestones.md`](docs/milestones.md)). M13 (`reorder`) is next, opening with its research ("Next milestones").
+None: M12 (`format`) closed 2026-11-05 ([`docs/milestones.md`](docs/milestones.md)). `follow`'s `let_go` is next (asked 2026-11-09, "Follow-ups to built features"), a milestone of its own; then M13 (`reorder`), opening with its research ("Next milestones").
 
 ---
 
@@ -174,6 +176,15 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 - **Stepped ramps** (`Ramp::stepped`, the nearest stop, no mix): bucketed heat maps, as Grafana's thresholds are. Not needed for categories: a category mapped to its stop's place (k / (n − 1)) lands on the stop already.
 - **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
 - **Selection over paint:** settled in `select`'s research: a tint under the text, over the fill, bar, and flash ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-10-26); built in M6.
+
+### `follow`: `let_go`
+
+Asked 2026-11-09 by the observatory: live tail's Pause button ([its PLAN](../../apps/observatory/PLAN.md), M11 part E2), a log tool's pause, the rows still arriving and the view no longer following them. Today only the reader's moves let go (`reader_moved`; `set_following` is private), so a host can follow (`follow`) but can't stop following without moving the view. A draft, its checks tightened when its milestone opens:
+
+- **The call:** `let_go(&mut self, cx)`, under `follow`: following off with the view where it is (the top unmoved, nothing re-planned but what letting go changes: the visible pages no longer bottom first, `tail_first`), `Following(false)` emitted if it was on, nothing if it was off; on a closed table, the flag only. `follow` turns it back on as today (the view to the end, the tail drawn forgotten, `TailDrawn` again at the first filled frame there).
+- **What it pins:** `paging.json` gains a `let_go` step and a scenario (following, rows growing, let go: the view holds as `set_rows` grows it and the tail pin no longer moves it; `follow` again lands at the end), with a negative control (a `let_go` that also moves the view to the end, or one that leaves the pin on), run natively and by the observatory's TanStack contender (its `follow.ts` port, `letGo`); the random test gains the step. `follow`'s native tests: the event once per change.
+- **Its cost:** the bare host's `follow` build before and after (`just tall-table size`), likely a few hundred bytes; no frame work changes (`let_go` runs only when a host calls it). The bare host can bind it to a key for its smoke check (End follows again).
+- **Who adopts it:** the observatory's GPUI contender (live tail's level), and its TanStack contender's port. Tycho, when it adopts `follow`.
 
 ---
 

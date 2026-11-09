@@ -15,6 +15,8 @@ mod host;
 /// Market watch's store, folding the feed's batches.
 #[cfg(feature = "market")]
 pub mod market;
+#[cfg(all(target_family = "wasm", any(feature = "market", feature = "tail")))]
+mod readout;
 mod scene;
 /// Live tail's replay: the loop's page SQL and the time's text.
 #[cfg(any(test, feature = "tail"))]
