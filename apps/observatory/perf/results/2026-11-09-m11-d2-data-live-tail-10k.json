@@ -1,0 +1,483 @@
+{
+  "date": "2026-11-09",
+  "label": "m11-d2-data",
+  "metric": "data",
+  "scenario": "live-tail",
+  "stop": {
+    "id": "10k",
+    "label": "10k rows/s",
+    "rate": 10000
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "split": "download: open → the file whole; data: the first count → its frame presented; openToData: the total",
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "downloadMs": 158,
+          "fileToFirstBatchMs": 30.3,
+          "dataMs": 59,
+          "dataMsRuns": [
+            61.92,
+            65.78,
+            57.92,
+            49.75,
+            63.66,
+            57.55,
+            51.78,
+            62.75,
+            57.61,
+            60.16
+          ],
+          "openToDataMs": 246.2,
+          "openMs": 585.8
+        },
+        "runs": [
+          {
+            "openMs": 598.55,
+            "downloadMs": 160.53,
+            "fileToFirstBatchMs": 33.8,
+            "dataMs": 61.92,
+            "openToDataMs": 256.25,
+            "rows": 481,
+            "failures": []
+          },
+          {
+            "openMs": 591.05,
+            "downloadMs": 167,
+            "fileToFirstBatchMs": 32.83,
+            "dataMs": 65.78,
+            "openToDataMs": 265.61,
+            "rows": 439,
+            "failures": []
+          },
+          {
+            "openMs": 592.32,
+            "downloadMs": 159.07,
+            "fileToFirstBatchMs": 30.89,
+            "dataMs": 57.92,
+            "openToDataMs": 247.87,
+            "rows": 435,
+            "failures": []
+          },
+          {
+            "openMs": 585.32,
+            "downloadMs": 155.67,
+            "fileToFirstBatchMs": 31.17,
+            "dataMs": 49.75,
+            "openToDataMs": 236.59,
+            "rows": 231,
+            "failures": []
+          },
+          {
+            "openMs": 596.97,
+            "downloadMs": 156.57,
+            "fileToFirstBatchMs": 31.35,
+            "dataMs": 63.66,
+            "openToDataMs": 251.57,
+            "rows": 654,
+            "failures": []
+          },
+          {
+            "openMs": 585.37,
+            "downloadMs": 160.79,
+            "fileToFirstBatchMs": 25.78,
+            "dataMs": 57.55,
+            "openToDataMs": 244.13,
+            "rows": 219,
+            "failures": []
+          },
+          {
+            "openMs": 586.23,
+            "downloadMs": 156.06,
+            "fileToFirstBatchMs": 29.66,
+            "dataMs": 51.78,
+            "openToDataMs": 237.5,
+            "rows": 193,
+            "failures": []
+          },
+          {
+            "openMs": 584.1,
+            "downloadMs": 157.34,
+            "fileToFirstBatchMs": 20.85,
+            "dataMs": 62.75,
+            "openToDataMs": 240.94,
+            "rows": 408,
+            "failures": []
+          },
+          {
+            "openMs": 583.81,
+            "downloadMs": 158.7,
+            "fileToFirstBatchMs": 29.66,
+            "dataMs": 57.61,
+            "openToDataMs": 245.97,
+            "rows": 481,
+            "failures": []
+          },
+          {
+            "openMs": 583.32,
+            "downloadMs": 157.13,
+            "fileToFirstBatchMs": 29.22,
+            "dataMs": 60.16,
+            "openToDataMs": 246.51,
+            "rows": 482,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "downloadMs": 165.8,
+          "fileToFirstBatchMs": 27.1,
+          "dataMs": 54.5,
+          "dataMsRuns": [
+            48.23,
+            52.26,
+            56.72,
+            51.47,
+            56.69,
+            46.05,
+            61.94,
+            59.39,
+            57.57,
+            45.4
+          ],
+          "openToDataMs": 248.6,
+          "openMs": 506.2
+        },
+        "runs": [
+          {
+            "openMs": 507.66,
+            "downloadMs": 172.57,
+            "fileToFirstBatchMs": 29.81,
+            "dataMs": 48.23,
+            "openToDataMs": 250.61,
+            "rows": 240,
+            "failures": []
+          },
+          {
+            "openMs": 506.92,
+            "downloadMs": 179.52,
+            "fileToFirstBatchMs": 25.37,
+            "dataMs": 52.26,
+            "openToDataMs": 257.15,
+            "rows": 205,
+            "failures": []
+          },
+          {
+            "openMs": 516.25,
+            "downloadMs": 166.01,
+            "fileToFirstBatchMs": 25.56,
+            "dataMs": 56.72,
+            "openToDataMs": 248.29,
+            "rows": 557,
+            "failures": []
+          },
+          {
+            "openMs": 498.47,
+            "downloadMs": 165.58,
+            "fileToFirstBatchMs": 28.61,
+            "dataMs": 51.47,
+            "openToDataMs": 245.66,
+            "rows": 241,
+            "failures": []
+          },
+          {
+            "openMs": 496.94,
+            "downloadMs": 166.06,
+            "fileToFirstBatchMs": 22.26,
+            "dataMs": 56.69,
+            "openToDataMs": 245.01,
+            "rows": 407,
+            "failures": []
+          },
+          {
+            "openMs": 510.41,
+            "downloadMs": 164.9,
+            "fileToFirstBatchMs": 24.22,
+            "dataMs": 46.05,
+            "openToDataMs": 235.18,
+            "rows": 198,
+            "failures": []
+          },
+          {
+            "openMs": 507.27,
+            "downloadMs": 163.23,
+            "fileToFirstBatchMs": 28.1,
+            "dataMs": 61.94,
+            "openToDataMs": 253.27,
+            "rows": 481,
+            "failures": []
+          },
+          {
+            "openMs": 493.76,
+            "downloadMs": 163.39,
+            "fileToFirstBatchMs": 26.07,
+            "dataMs": 59.39,
+            "openToDataMs": 248.85,
+            "rows": 410,
+            "failures": []
+          },
+          {
+            "openMs": 501.27,
+            "downloadMs": 166.03,
+            "fileToFirstBatchMs": 28.38,
+            "dataMs": 57.57,
+            "openToDataMs": 251.97,
+            "rows": 450,
+            "failures": []
+          },
+          {
+            "openMs": 505.55,
+            "downloadMs": 164.64,
+            "fileToFirstBatchMs": 28.67,
+            "dataMs": 45.4,
+            "openToDataMs": 238.71,
+            "rows": 241,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "downloadMs": 11312.9,
+          "fileToFirstBatchMs": 197.1,
+          "dataMs": 121.5,
+          "dataMsRuns": [
+            122.02,
+            125,
+            120.95,
+            119.44,
+            113.74,
+            122.07,
+            96.86,
+            134.88,
+            132.05,
+            114.17
+          ],
+          "openToDataMs": 11631.5,
+          "openMs": 9808.2
+        },
+        "runs": [
+          {
+            "openMs": 9809.36,
+            "downloadMs": 11318.94,
+            "fileToFirstBatchMs": 191.31,
+            "dataMs": 122.02,
+            "openToDataMs": 11632.27,
+            "rows": 161,
+            "failures": []
+          },
+          {
+            "openMs": 9808.99,
+            "downloadMs": 11307.58,
+            "fileToFirstBatchMs": 197.59,
+            "dataMs": 125,
+            "openToDataMs": 11630.17,
+            "rows": 179,
+            "failures": []
+          },
+          {
+            "openMs": 9806.07,
+            "downloadMs": 11313.7,
+            "fileToFirstBatchMs": 203.44,
+            "dataMs": 120.95,
+            "openToDataMs": 11638.09,
+            "rows": 240,
+            "failures": []
+          },
+          {
+            "openMs": 9815.07,
+            "downloadMs": 11310.41,
+            "fileToFirstBatchMs": 196.42,
+            "dataMs": 119.44,
+            "openToDataMs": 11626.26,
+            "rows": 170,
+            "failures": []
+          },
+          {
+            "openMs": 9807.34,
+            "downloadMs": 11320.44,
+            "fileToFirstBatchMs": 196.54,
+            "dataMs": 113.74,
+            "openToDataMs": 11630.71,
+            "rows": 185,
+            "failures": []
+          },
+          {
+            "openMs": 9824.64,
+            "downloadMs": 11321.52,
+            "fileToFirstBatchMs": 208.79,
+            "dataMs": 122.07,
+            "openToDataMs": 11652.38,
+            "rows": 240,
+            "failures": []
+          },
+          {
+            "openMs": 9805.91,
+            "downloadMs": 11311.93,
+            "fileToFirstBatchMs": 190.35,
+            "dataMs": 96.86,
+            "openToDataMs": 11599.13,
+            "rows": 162,
+            "failures": []
+          },
+          {
+            "openMs": 9806.74,
+            "downloadMs": 11312.11,
+            "fileToFirstBatchMs": 189.44,
+            "dataMs": 134.88,
+            "openToDataMs": 11636.43,
+            "rows": 168,
+            "failures": []
+          },
+          {
+            "openMs": 9800.16,
+            "downloadMs": 11315.55,
+            "fileToFirstBatchMs": 204.53,
+            "dataMs": 132.05,
+            "openToDataMs": 11652.13,
+            "rows": 240,
+            "failures": []
+          },
+          {
+            "openMs": 9817.46,
+            "downloadMs": 11303.63,
+            "fileToFirstBatchMs": 200.14,
+            "dataMs": 114.17,
+            "openToDataMs": 11617.93,
+            "rows": 221,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "downloadMs": 11304.7,
+          "fileToFirstBatchMs": 195.6,
+          "dataMs": 73.6,
+          "dataMsRuns": [
+            74.76,
+            67.21,
+            78.1,
+            66.92,
+            71.57,
+            70.9,
+            94.27,
+            94.77,
+            91.42,
+            72.39
+          ],
+          "openToDataMs": 11576.5,
+          "openMs": 6893.7
+        },
+        "runs": [
+          {
+            "openMs": 6892.48,
+            "downloadMs": 11303.07,
+            "fileToFirstBatchMs": 200.38,
+            "dataMs": 74.76,
+            "openToDataMs": 11578.21,
+            "rows": 200,
+            "failures": []
+          },
+          {
+            "openMs": 6892.18,
+            "downloadMs": 11297.78,
+            "fileToFirstBatchMs": 193.9,
+            "dataMs": 67.21,
+            "openToDataMs": 11558.89,
+            "rows": 161,
+            "failures": []
+          },
+          {
+            "openMs": 6912.99,
+            "downloadMs": 11304.12,
+            "fileToFirstBatchMs": 188.68,
+            "dataMs": 78.1,
+            "openToDataMs": 11570.9,
+            "rows": 161,
+            "failures": []
+          },
+          {
+            "openMs": 6880.28,
+            "downloadMs": 11313,
+            "fileToFirstBatchMs": 198.96,
+            "dataMs": 66.92,
+            "openToDataMs": 11578.87,
+            "rows": 169,
+            "failures": []
+          },
+          {
+            "openMs": 6891.33,
+            "downloadMs": 11298.19,
+            "fileToFirstBatchMs": 190.34,
+            "dataMs": 71.57,
+            "openToDataMs": 11560.1,
+            "rows": 161,
+            "failures": []
+          },
+          {
+            "openMs": 6894.92,
+            "downloadMs": 11302.67,
+            "fileToFirstBatchMs": 189.94,
+            "dataMs": 70.9,
+            "openToDataMs": 11563.51,
+            "rows": 161,
+            "failures": []
+          },
+          {
+            "openMs": 6889.53,
+            "downloadMs": 11305.21,
+            "fileToFirstBatchMs": 197.2,
+            "dataMs": 94.27,
+            "openToDataMs": 11596.68,
+            "rows": 161,
+            "failures": []
+          },
+          {
+            "openMs": 6897.17,
+            "downloadMs": 11312.17,
+            "fileToFirstBatchMs": 201.8,
+            "dataMs": 94.77,
+            "openToDataMs": 11608.73,
+            "rows": 201,
+            "failures": []
+          },
+          {
+            "openMs": 6896.01,
+            "downloadMs": 11312.17,
+            "fileToFirstBatchMs": 200.59,
+            "dataMs": 91.42,
+            "openToDataMs": 11604.18,
+            "rows": 202,
+            "failures": []
+          },
+          {
+            "openMs": 6898.68,
+            "downloadMs": 11312.46,
+            "fileToFirstBatchMs": 190,
+            "dataMs": 72.39,
+            "openToDataMs": 11574.85,
+            "rows": 169,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

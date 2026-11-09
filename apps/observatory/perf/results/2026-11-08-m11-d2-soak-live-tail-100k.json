@@ -1,0 +1,1285 @@
+{
+  "date": "2026-11-08",
+  "label": "m11-d2-soak",
+  "metric": "soak",
+  "scenario": "live-tail",
+  "stop": {
+    "id": "100k",
+    "label": "100k rows/s",
+    "rate": 100000
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 3,
+  "minutes": 10,
+  "settleMs": 1000,
+  "windowMs": 10000,
+  "cacheCap": 67108864,
+  "throttleMin": 3.5,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "pageMiBStart": 98.4,
+          "pageMiBEnd": 119.4,
+          "pageMiBEndRuns": [
+            119.4,
+            119.2,
+            119.7
+          ],
+          "pageMiBEndAfterGc": 119.7,
+          "pageMiBStartByType": {
+            "JavaScript": 78.7,
+            "Canvas": 19.8
+          },
+          "pageMiBEndByType": {
+            "JavaScript": 99.7,
+            "Canvas": 19.8
+          },
+          "wasmMiBStart": 75.4,
+          "wasmMiBEnd": 86.2,
+          "workerMiBEnd": 64,
+          "cacheMiBEnd": 64,
+          "rowsEnd": 60863398,
+          "tailBehindRowsEnd": 3077,
+          "latePctStart": 0,
+          "latePctEnd": 0,
+          "collectionsIn10sStart": 13,
+          "collectionsIn10sEnd": 6,
+          "rowShownInP95MsStart": 43.1,
+          "rowShownInP95MsEnd": 44.9,
+          "workP50MsEnd": 3.07,
+          "spinMs": 116
+        },
+        "runs": [
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10002.1,
+              "batchesPerSecond": 46.2,
+              "drawnPerSecond": 59.4,
+              "rowShownInP50Ms": 31.67,
+              "rowShownInP95Ms": 45.21,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 30.78,
+              "toPresentP50Ms": 0.94,
+              "tailBehindRows": 1332,
+              "latePct": 0,
+              "workP50Ms": 3.15,
+              "workP95Ms": 3.56,
+              "busyMsPerSecond": 239.2,
+              "collections": {
+                "count": 13,
+                "minor": 2,
+                "major": 11,
+                "totalMs": 9.57,
+                "longestMs": 0.93,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10006.4,
+              "batchesPerSecond": 46.8,
+              "drawnPerSecond": 59.3,
+              "rowShownInP50Ms": 30.59,
+              "rowShownInP95Ms": 45.49,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 29.58,
+              "toPresentP50Ms": 0.98,
+              "tailBehindRows": 2404,
+              "latePct": 0,
+              "workP50Ms": 3.08,
+              "workP95Ms": 3.5,
+              "busyMsPerSecond": 236.4,
+              "collections": {
+                "count": 7,
+                "minor": 2,
+                "major": 5,
+                "totalMs": 50.95,
+                "longestMs": 11.23,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 103253737,
+              "pageByType": {
+                "JavaScript": 82517737,
+                "Canvas": 20736000
+              },
+              "workerBytes": 60358263,
+              "wasmBytes": 79101952,
+              "atS": 19.6,
+              "cacheBytes": 67075216,
+              "rows": 1965801,
+              "tail": 1964032
+            },
+            "memoryEnd": {
+              "pageBytes": 125243536,
+              "pageByType": {
+                "JavaScript": 104507536,
+                "Canvas": 20736000
+              },
+              "workerBytes": 67522437,
+              "wasmBytes": 90374144,
+              "atS": 608.6,
+              "cacheBytes": 67092080,
+              "rows": 60863493,
+              "tail": 60860416
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 125521438,
+              "pageByType": {
+                "JavaScript": 104785438,
+                "Canvas": 20736000
+              },
+              "workerBytes": 67163399,
+              "wasmBytes": 90374144,
+              "atS": 608.7,
+              "cacheBytes": 67087248,
+              "rows": 60871475,
+              "tail": 60864512
+            },
+            "spinMs": 117.4,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10006,
+              "batchesPerSecond": 48.4,
+              "drawnPerSecond": 59.4,
+              "rowShownInP50Ms": 31.36,
+              "rowShownInP95Ms": 42.37,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 30.45,
+              "toPresentP50Ms": 0.93,
+              "tailBehindRows": 2181,
+              "latePct": 0,
+              "workP50Ms": 3.11,
+              "workP95Ms": 3.53,
+              "busyMsPerSecond": 235.4,
+              "collections": {
+                "count": 13,
+                "minor": 2,
+                "major": 11,
+                "totalMs": 10.26,
+                "longestMs": 1.08,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10003.2,
+              "batchesPerSecond": 46.2,
+              "drawnPerSecond": 59.1,
+              "rowShownInP50Ms": 31.32,
+              "rowShownInP95Ms": 44.87,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 30.36,
+              "toPresentP50Ms": 0.96,
+              "tailBehindRows": 2404,
+              "latePct": 0,
+              "workP50Ms": 3.07,
+              "workP95Ms": 3.47,
+              "busyMsPerSecond": 235.1,
+              "collections": {
+                "count": 6,
+                "minor": 2,
+                "major": 4,
+                "totalMs": 44.36,
+                "longestMs": 11.82,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 103219083,
+              "pageByType": {
+                "JavaScript": 82483083,
+                "Canvas": 20736000
+              },
+              "workerBytes": 60157594,
+              "wasmBytes": 79036416,
+              "atS": 19.6,
+              "cacheBytes": 67072832,
+              "rows": 1967297,
+              "tail": 1965056
+            },
+            "memoryEnd": {
+              "pageBytes": 124944420,
+              "pageByType": {
+                "JavaScript": 104208420,
+                "Canvas": 20736000
+              },
+              "workerBytes": 67156003,
+              "wasmBytes": 89849856,
+              "atS": 608.6,
+              "cacheBytes": 67092944,
+              "rows": 60861676,
+              "tail": 60857651
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 124999364,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 104263364
+              },
+              "workerBytes": 67512585,
+              "wasmBytes": 89849856,
+              "atS": 608.6,
+              "cacheBytes": 67088952,
+              "rows": 60870506,
+              "tail": 60861440
+            },
+            "spinMs": 116,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10003.1,
+              "batchesPerSecond": 47.2,
+              "drawnPerSecond": 59.2,
+              "rowShownInP50Ms": 31.48,
+              "rowShownInP95Ms": 43.11,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 30.51,
+              "toPresentP50Ms": 0.98,
+              "tailBehindRows": 4257,
+              "latePct": 0,
+              "workP50Ms": 3.13,
+              "workP95Ms": 3.48,
+              "busyMsPerSecond": 235.4,
+              "collections": {
+                "count": 14,
+                "minor": 2,
+                "major": 12,
+                "totalMs": 10.53,
+                "longestMs": 0.94,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10005.7,
+              "batchesPerSecond": 45.9,
+              "drawnPerSecond": 59.5,
+              "rowShownInP50Ms": 31.65,
+              "rowShownInP95Ms": 43.8,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 30.71,
+              "toPresentP50Ms": 0.95,
+              "tailBehindRows": 1744,
+              "latePct": 0,
+              "workP50Ms": 3.04,
+              "workP95Ms": 3.45,
+              "busyMsPerSecond": 232.1,
+              "collections": {
+                "count": 5,
+                "minor": 1,
+                "major": 4,
+                "totalMs": 35.45,
+                "longestMs": 9.97,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 103214069,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 82478069
+              },
+              "workerBytes": 59958929,
+              "wasmBytes": 79167488,
+              "atS": 19.4,
+              "cacheBytes": 67056032,
+              "rows": 1950664,
+              "tail": 1945600
+            },
+            "memoryEnd": {
+              "pageBytes": 125559251,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 104823251
+              },
+              "workerBytes": 67157703,
+              "wasmBytes": 90439680,
+              "atS": 608.6,
+              "cacheBytes": 67092080,
+              "rows": 60863398,
+              "tail": 60860416
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 125592227,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 104856227
+              },
+              "workerBytes": 67334924,
+              "wasmBytes": 90439680,
+              "atS": 608.6,
+              "cacheBytes": 67088760,
+              "rows": 60870824,
+              "tail": 60862464
+            },
+            "spinMs": 115.8,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "pageMiBStart": 71.9,
+          "pageMiBEnd": 82.1,
+          "pageMiBEndRuns": [
+            82,
+            82.1,
+            82.2
+          ],
+          "pageMiBEndAfterGc": 81.7,
+          "pageMiBStartByType": {
+            "JavaScript": 71.9
+          },
+          "pageMiBEndByType": {
+            "JavaScript": 82.1
+          },
+          "wasmMiBStart": 0,
+          "wasmMiBEnd": 0,
+          "workerMiBEnd": 64,
+          "cacheMiBEnd": 64,
+          "rowsEnd": 60910606,
+          "tailBehindRowsEnd": 2062,
+          "latePctStart": 0,
+          "latePctEnd": 0,
+          "collectionsIn10sStart": 35,
+          "collectionsIn10sEnd": 18,
+          "rowShownInP95MsStart": 51.5,
+          "rowShownInP95MsEnd": 51.1,
+          "workP50MsEnd": 3.29,
+          "spinMs": 116.9
+        },
+        "runs": [
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10002.5,
+              "batchesPerSecond": 44.9,
+              "drawnPerSecond": 58.1,
+              "rowShownInP50Ms": 33.8,
+              "rowShownInP95Ms": 52.76,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 29.77,
+              "toPresentP50Ms": 3.93,
+              "tailBehindRows": 3737,
+              "latePct": 0,
+              "workP50Ms": 3.36,
+              "workP95Ms": 3.68,
+              "busyMsPerSecond": 263.2,
+              "collections": {
+                "count": 35,
+                "minor": 9,
+                "major": 26,
+                "totalMs": 40.69,
+                "longestMs": 1.76,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10002,
+              "batchesPerSecond": 44.4,
+              "drawnPerSecond": 58.6,
+              "rowShownInP50Ms": 33.39,
+              "rowShownInP95Ms": 51.09,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 29.3,
+              "toPresentP50Ms": 3.8,
+              "tailBehindRows": 2447,
+              "latePct": 0,
+              "workP50Ms": 3.3,
+              "workP95Ms": 3.6,
+              "busyMsPerSecond": 259.1,
+              "collections": {
+                "count": 18,
+                "minor": 9,
+                "major": 9,
+                "totalMs": 115.99,
+                "longestMs": 12.2,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 75432289,
+              "pageByType": {
+                "JavaScript": 75432289
+              },
+              "workerBytes": 60152876,
+              "wasmBytes": 0,
+              "atS": 20.2,
+              "cacheBytes": 67074552,
+              "rows": 2027942,
+              "tail": 2024436
+            },
+            "memoryEnd": {
+              "pageBytes": 85971648,
+              "pageByType": {
+                "JavaScript": 85971648
+              },
+              "workerBytes": 67548909,
+              "wasmBytes": 0,
+              "atS": 609.1,
+              "cacheBytes": 67087624,
+              "rows": 60910606,
+              "tail": 60908544
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 85625210,
+              "pageByType": {
+                "JavaScript": 85625210
+              },
+              "workerBytes": 67155607,
+              "wasmBytes": 0,
+              "atS": 609.2,
+              "cacheBytes": 67106072,
+              "rows": 60921598,
+              "tail": 60912640
+            },
+            "spinMs": 116.2,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10003,
+              "batchesPerSecond": 45.1,
+              "drawnPerSecond": 58.3,
+              "rowShownInP50Ms": 33.07,
+              "rowShownInP95Ms": 51.51,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 28.98,
+              "toPresentP50Ms": 3.95,
+              "tailBehindRows": 2484,
+              "latePct": 0,
+              "workP50Ms": 3.37,
+              "workP95Ms": 3.68,
+              "busyMsPerSecond": 263.5,
+              "collections": {
+                "count": 37,
+                "minor": 11,
+                "major": 26,
+                "totalMs": 43.49,
+                "longestMs": 2.03,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10003.3,
+              "batchesPerSecond": 44.7,
+              "drawnPerSecond": 58.1,
+              "rowShownInP50Ms": 32.92,
+              "rowShownInP95Ms": 58.13,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 29.11,
+              "toPresentP50Ms": 3.78,
+              "tailBehindRows": 1776,
+              "latePct": 0,
+              "workP50Ms": 3.29,
+              "workP95Ms": 3.59,
+              "busyMsPerSecond": 258,
+              "collections": {
+                "count": 18,
+                "minor": 9,
+                "major": 9,
+                "totalMs": 119.16,
+                "longestMs": 14.01,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 75470695,
+              "pageByType": {
+                "JavaScript": 75470695
+              },
+              "workerBytes": 60307127,
+              "wasmBytes": 0,
+              "atS": 20.5,
+              "cacheBytes": 67088568,
+              "rows": 2056921,
+              "tail": 2052934
+            },
+            "memoryEnd": {
+              "pageBytes": 86051867,
+              "pageByType": {
+                "JavaScript": 86051867
+              },
+              "workerBytes": 67156011,
+              "wasmBytes": 0,
+              "atS": 609.5,
+              "cacheBytes": 67047744,
+              "rows": 60953252,
+              "tail": 60951552
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 85716578,
+              "pageByType": {
+                "JavaScript": 85716578
+              },
+              "workerBytes": 67505349,
+              "wasmBytes": 0,
+              "atS": 609.6,
+              "cacheBytes": 67042144,
+              "rows": 60967180,
+              "tail": 60956672
+            },
+            "spinMs": 116.9,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10005.1,
+              "batchesPerSecond": 45.1,
+              "drawnPerSecond": 58,
+              "rowShownInP50Ms": 33.13,
+              "rowShownInP95Ms": 49.05,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 29.06,
+              "toPresentP50Ms": 3.99,
+              "tailBehindRows": 2025,
+              "latePct": 0,
+              "workP50Ms": 3.31,
+              "workP95Ms": 3.62,
+              "busyMsPerSecond": 259.4,
+              "collections": {
+                "count": 35,
+                "minor": 9,
+                "major": 26,
+                "totalMs": 42.22,
+                "longestMs": 1.7,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10002.6,
+              "batchesPerSecond": 44.9,
+              "drawnPerSecond": 58.6,
+              "rowShownInP50Ms": 33.61,
+              "rowShownInP95Ms": 49.17,
+              "unshown": 0,
+              "keepsUp": true,
+              "framesPct": 100,
+              "toMarkP50Ms": 29.76,
+              "toPresentP50Ms": 3.79,
+              "tailBehindRows": 4570,
+              "latePct": 0,
+              "workP50Ms": 3.25,
+              "workP95Ms": 3.58,
+              "busyMsPerSecond": 256.4,
+              "collections": {
+                "count": 18,
+                "minor": 9,
+                "major": 9,
+                "totalMs": 107.47,
+                "longestMs": 12.22,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 75395557,
+              "pageByType": {
+                "JavaScript": 75395557
+              },
+              "workerBytes": 60154386,
+              "wasmBytes": 0,
+              "atS": 20,
+              "cacheBytes": 67063744,
+              "rows": 2002823,
+              "tail": 1999872
+            },
+            "memoryEnd": {
+              "pageBytes": 86192692,
+              "pageByType": {
+                "JavaScript": 86192692
+              },
+              "workerBytes": 67157011,
+              "wasmBytes": 0,
+              "atS": 608.8,
+              "cacheBytes": 67083608,
+              "rows": 60880093,
+              "tail": 60875662
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 85716109,
+              "pageByType": {
+                "JavaScript": 85716109
+              },
+              "workerBytes": 67679663,
+              "wasmBytes": 0,
+              "atS": 608.9,
+              "cacheBytes": 67090304,
+              "rows": 60890322,
+              "tail": 60880896
+            },
+            "spinMs": 117.1,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "pageMiBStart": 98.6,
+          "pageMiBEnd": 136.3,
+          "pageMiBEndRuns": [
+            117.3,
+            136.3,
+            136.5
+          ],
+          "pageMiBEndAfterGc": 116.7,
+          "pageMiBStartByType": {
+            "JavaScript": 78.7,
+            "Canvas": 19.8
+          },
+          "pageMiBEndByType": {
+            "JavaScript": 97,
+            "Canvas": 39.6
+          },
+          "wasmMiBStart": 75.1,
+          "wasmMiBEnd": 85.7,
+          "workerMiBEnd": 64.2,
+          "cacheMiBEnd": 63.9,
+          "rowsEnd": 60758538,
+          "tailBehindRowsEnd": 44554,
+          "latePctStart": 0,
+          "latePctEnd": 0,
+          "collectionsIn10sStart": 14,
+          "collectionsIn10sEnd": 5,
+          "rowShownInP95MsStart": 719,
+          "rowShownInP95MsEnd": 141.6,
+          "workP50MsEnd": 12.2,
+          "spinMs": 479.6
+        },
+        "runs": [
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10014.2,
+              "batchesPerSecond": 51.4,
+              "drawnPerSecond": 50.3,
+              "rowShownInP50Ms": 430.73,
+              "rowShownInP95Ms": 662.59,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 97.9,
+              "toMarkP50Ms": 429.6,
+              "toPresentP50Ms": 1.18,
+              "tailBehindRows": 17118,
+              "latePct": 0,
+              "workP50Ms": 12.5,
+              "workP95Ms": 14.34,
+              "busyMsPerSecond": 822,
+              "collections": {
+                "count": 14,
+                "minor": 1,
+                "major": 13,
+                "totalMs": 39.66,
+                "longestMs": 5.88,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10002.3,
+              "batchesPerSecond": 51.5,
+              "drawnPerSecond": 52,
+              "rowShownInP50Ms": 70.72,
+              "rowShownInP95Ms": 141.64,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 100,
+              "toMarkP50Ms": 68.34,
+              "toPresentP50Ms": 1.29,
+              "tailBehindRows": 6344,
+              "latePct": 0,
+              "workP50Ms": 12.2,
+              "workP95Ms": 13.79,
+              "busyMsPerSecond": 815.2,
+              "collections": {
+                "count": 5,
+                "minor": 1,
+                "major": 4,
+                "totalMs": 22.2,
+                "longestMs": 5.47,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 103412530,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 82676530
+              },
+              "workerBytes": 60142430,
+              "wasmBytes": 78774272,
+              "atS": 18.3,
+              "cacheBytes": 67070240,
+              "rows": 1838618,
+              "tail": 1778688
+            },
+            "memoryEnd": {
+              "pageBytes": 122961576,
+              "pageByType": {
+                "JavaScript": 102225576,
+                "Canvas": 20736000
+              },
+              "workerBytes": 67166087,
+              "wasmBytes": 90374144,
+              "atS": 607.4,
+              "cacheBytes": 67105136,
+              "rows": 60753435,
+              "tail": 60706816
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 123008720,
+              "pageByType": {
+                "Canvas": 20736000,
+                "JavaScript": 102272720
+              },
+              "workerBytes": 67164863,
+              "wasmBytes": 90374144,
+              "atS": 607.6,
+              "cacheBytes": 67045824,
+              "rows": 60771088,
+              "tail": 60710912
+            },
+            "spinMs": 479.6,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10013.3,
+              "batchesPerSecond": 52,
+              "drawnPerSecond": 44.4,
+              "rowShownInP50Ms": 1310.63,
+              "rowShownInP95Ms": 1469.93,
+              "unshown": 19,
+              "keepsUp": false,
+              "framesPct": 85.4,
+              "toMarkP50Ms": 1314.97,
+              "toPresentP50Ms": 1.04,
+              "tailBehindRows": 137662,
+              "latePct": 0,
+              "workP50Ms": 12.52,
+              "workP95Ms": 14.93,
+              "busyMsPerSecond": 797.2,
+              "collections": {
+                "count": 14,
+                "minor": 1,
+                "major": 13,
+                "totalMs": 38.79,
+                "longestMs": 5.23,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10002.8,
+              "batchesPerSecond": 51.4,
+              "drawnPerSecond": 50.2,
+              "rowShownInP50Ms": 84.72,
+              "rowShownInP95Ms": 167.34,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 97.7,
+              "toMarkP50Ms": 82.85,
+              "toPresentP50Ms": 1.16,
+              "tailBehindRows": 8249,
+              "latePct": 0,
+              "workP50Ms": 12.34,
+              "workP95Ms": 14.05,
+              "busyMsPerSecond": 815.5,
+              "collections": {
+                "count": 6,
+                "minor": 1,
+                "major": 5,
+                "totalMs": 27.92,
+                "longestMs": 7.54,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 123959681,
+              "pageByType": {
+                "Canvas": 41472000,
+                "JavaScript": 82487681
+              },
+              "workerBytes": 59956149,
+              "wasmBytes": 78839808,
+              "atS": 18.1,
+              "cacheBytes": 67059480,
+              "rows": 1821907,
+              "tail": 1633280
+            },
+            "memoryEnd": {
+              "pageBytes": 142916847,
+              "pageByType": {
+                "JavaScript": 101444847,
+                "Canvas": 41472000
+              },
+              "workerBytes": 67357397,
+              "wasmBytes": 89784320,
+              "atS": 607.4,
+              "cacheBytes": 67044664,
+              "rows": 60760665,
+              "tail": 60719104
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 122292983,
+              "pageByType": {
+                "JavaScript": 101556983,
+                "Canvas": 20736000
+              },
+              "workerBytes": 67542099,
+              "wasmBytes": 89784320,
+              "atS": 607.6,
+              "cacheBytes": 67105616,
+              "rows": 60776444,
+              "tail": 60723200
+            },
+            "spinMs": 479.3,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10003.7,
+              "batchesPerSecond": 51.7,
+              "drawnPerSecond": 48.1,
+              "rowShownInP50Ms": 645.55,
+              "rowShownInP95Ms": 718.99,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 93,
+              "toMarkP50Ms": 644.26,
+              "toPresentP50Ms": 1.23,
+              "tailBehindRows": 48135,
+              "latePct": 0.2,
+              "workP50Ms": 12.57,
+              "workP95Ms": 14.62,
+              "busyMsPerSecond": 811.6,
+              "collections": {
+                "count": 14,
+                "minor": 1,
+                "major": 13,
+                "totalMs": 41.28,
+                "longestMs": 5.58,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10002.5,
+              "batchesPerSecond": 51.9,
+              "drawnPerSecond": 51.1,
+              "rowShownInP50Ms": 69.47,
+              "rowShownInP95Ms": 117.78,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 98.5,
+              "toMarkP50Ms": 68.21,
+              "toPresentP50Ms": 1.17,
+              "tailBehindRows": 6183,
+              "latePct": 0.2,
+              "workP50Ms": 12.05,
+              "workP95Ms": 13.91,
+              "busyMsPerSecond": 806.2,
+              "collections": {
+                "count": 5,
+                "minor": 1,
+                "major": 4,
+                "totalMs": 22.59,
+                "longestMs": 5.37,
+                "inLateFrame": 0
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 103166932,
+              "pageByType": {
+                "JavaScript": 82430932,
+                "Canvas": 20736000
+              },
+              "workerBytes": 60143410,
+              "wasmBytes": 78446592,
+              "atS": 18.3,
+              "cacheBytes": 67085248,
+              "rows": 1842790,
+              "tail": 1764352
+            },
+            "memoryEnd": {
+              "pageBytes": 143164898,
+              "pageByType": {
+                "JavaScript": 101692898,
+                "Canvas": 41472000
+              },
+              "workerBytes": 67530959,
+              "wasmBytes": 89849856,
+              "atS": 607.5,
+              "cacheBytes": 67043808,
+              "rows": 60758538,
+              "tail": 60713984
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 122319260,
+              "pageByType": {
+                "JavaScript": 101583260,
+                "Canvas": 20736000
+              },
+              "workerBytes": 67342745,
+              "wasmBytes": 89849856,
+              "atS": 607.7,
+              "cacheBytes": 67045304,
+              "rows": 60776797,
+              "tail": 60716032
+            },
+            "spinMs": 479.6,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "pageMiBStart": 71.7,
+          "pageMiBEnd": 79.5,
+          "pageMiBEndRuns": [
+            79.5,
+            78.3,
+            79.6
+          ],
+          "pageMiBEndAfterGc": 79,
+          "pageMiBStartByType": {
+            "JavaScript": 71.7
+          },
+          "pageMiBEndByType": {
+            "JavaScript": 79.5
+          },
+          "wasmMiBStart": 0,
+          "wasmMiBEnd": 0,
+          "workerMiBEnd": 64.1,
+          "cacheMiBEnd": 64,
+          "rowsEnd": 60770081,
+          "tailBehindRowsEnd": 28228,
+          "latePctStart": 0.2,
+          "latePctEnd": 1,
+          "collectionsIn10sStart": 30,
+          "collectionsIn10sEnd": 16,
+          "rowShownInP95MsStart": 852.3,
+          "rowShownInP95MsEnd": 192,
+          "workP50MsEnd": 12.8,
+          "spinMs": 477.1
+        },
+        "runs": [
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10015.6,
+              "batchesPerSecond": 51.1,
+              "drawnPerSecond": 42.2,
+              "rowShownInP50Ms": 856.02,
+              "rowShownInP95Ms": 1144.48,
+              "unshown": 9,
+              "keepsUp": false,
+              "framesPct": 82.6,
+              "toMarkP50Ms": 842.63,
+              "toPresentP50Ms": 10.38,
+              "tailBehindRows": 111286,
+              "latePct": 0.2,
+              "workP50Ms": 13.25,
+              "workP95Ms": 14.88,
+              "busyMsPerSecond": 770.2,
+              "collections": {
+                "count": 30,
+                "minor": 12,
+                "major": 18,
+                "totalMs": 121.62,
+                "longestMs": 9.73,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10014.9,
+              "batchesPerSecond": 55.3,
+              "drawnPerSecond": 46.5,
+              "rowShownInP50Ms": 111.02,
+              "rowShownInP95Ms": 192,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 84.1,
+              "toMarkP50Ms": 100.36,
+              "toPresentP50Ms": 10.19,
+              "tailBehindRows": 7451,
+              "latePct": 0.5,
+              "workP50Ms": 13.21,
+              "workP95Ms": 14.36,
+              "busyMsPerSecond": 805.5,
+              "collections": {
+                "count": 16,
+                "minor": 8,
+                "major": 8,
+                "totalMs": 146.14,
+                "longestMs": 20.84,
+                "inLateFrame": 2
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 75020623,
+              "pageByType": {
+                "JavaScript": 75020623
+              },
+              "workerBytes": 59956725,
+              "wasmBytes": 0,
+              "atS": 18.4,
+              "cacheBytes": 67092976,
+              "rows": 1847151,
+              "tail": 1715200
+            },
+            "memoryEnd": {
+              "pageBytes": 83372081,
+              "pageByType": {
+                "JavaScript": 83372081
+              },
+              "workerBytes": 67170303,
+              "wasmBytes": 0,
+              "atS": 607.6,
+              "cacheBytes": 67069032,
+              "rows": 60770081,
+              "tail": 60740608
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 82790713,
+              "pageByType": {
+                "JavaScript": 82790713
+              },
+              "workerBytes": 67364087,
+              "wasmBytes": 0,
+              "atS": 607.8,
+              "cacheBytes": 67074144,
+              "rows": 60791613,
+              "tail": 60746752
+            },
+            "spinMs": 477.5,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10003.3,
+              "batchesPerSecond": 55.5,
+              "drawnPerSecond": 43.9,
+              "rowShownInP50Ms": 718.43,
+              "rowShownInP95Ms": 803.11,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 79.1,
+              "toMarkP50Ms": 707.85,
+              "toPresentP50Ms": 10.31,
+              "tailBehindRows": 69366,
+              "latePct": 0.2,
+              "workP50Ms": 13.21,
+              "workP95Ms": 14.69,
+              "busyMsPerSecond": 793.6,
+              "collections": {
+                "count": 29,
+                "minor": 10,
+                "major": 19,
+                "totalMs": 107.05,
+                "longestMs": 6.12,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10016.1,
+              "batchesPerSecond": 51.4,
+              "drawnPerSecond": 45,
+              "rowShownInP50Ms": 91.27,
+              "rowShownInP95Ms": 154.36,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 87.6,
+              "toMarkP50Ms": 81.06,
+              "toPresentP50Ms": 10.02,
+              "tailBehindRows": 6028,
+              "latePct": 1.2,
+              "workP50Ms": 12.78,
+              "workP95Ms": 13.8,
+              "busyMsPerSecond": 754.5,
+              "collections": {
+                "count": 15,
+                "minor": 7,
+                "major": 8,
+                "totalMs": 146.7,
+                "longestMs": 24.79,
+                "inLateFrame": 3
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 75161325,
+              "pageByType": {
+                "JavaScript": 75161325
+              },
+              "workerBytes": 60355557,
+              "wasmBytes": 0,
+              "atS": 18.6,
+              "cacheBytes": 67063216,
+              "rows": 1866168,
+              "tail": 1809408
+            },
+            "memoryEnd": {
+              "pageBytes": 82119532,
+              "pageByType": {
+                "JavaScript": 82119532
+              },
+              "workerBytes": 67553779,
+              "wasmBytes": 0,
+              "atS": 607.5,
+              "cacheBytes": 67057872,
+              "rows": 60761668,
+              "tail": 60733440
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 83116126,
+              "pageByType": {
+                "JavaScript": 83116126
+              },
+              "workerBytes": 67551287,
+              "wasmBytes": 0,
+              "atS": 607.8,
+              "cacheBytes": 67066856,
+              "rows": 60783296,
+              "tail": 60739584
+            },
+            "spinMs": 473,
+            "failures": []
+          },
+          {
+            "minutes": 10,
+            "start": {
+              "windowMs": 10012.4,
+              "batchesPerSecond": 51.5,
+              "drawnPerSecond": 41.4,
+              "rowShownInP50Ms": 730.83,
+              "rowShownInP95Ms": 852.32,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 80.4,
+              "toMarkP50Ms": 720.27,
+              "toPresentP50Ms": 10.33,
+              "tailBehindRows": 77634,
+              "latePct": 0.5,
+              "workP50Ms": 13.02,
+              "workP95Ms": 14.75,
+              "busyMsPerSecond": 756.5,
+              "collections": {
+                "count": 30,
+                "minor": 11,
+                "major": 19,
+                "totalMs": 119.46,
+                "longestMs": 8.24,
+                "inLateFrame": 0
+              }
+            },
+            "end": {
+              "windowMs": 10015.8,
+              "batchesPerSecond": 51.4,
+              "drawnPerSecond": 45.3,
+              "rowShownInP50Ms": 107.71,
+              "rowShownInP95Ms": 215.4,
+              "unshown": 0,
+              "keepsUp": false,
+              "framesPct": 88.2,
+              "toMarkP50Ms": 98.25,
+              "toPresentP50Ms": 9.98,
+              "tailBehindRows": 20861,
+              "latePct": 1,
+              "workP50Ms": 12.8,
+              "workP95Ms": 13.65,
+              "busyMsPerSecond": 761.2,
+              "collections": {
+                "count": 16,
+                "minor": 8,
+                "major": 8,
+                "totalMs": 161.52,
+                "longestMs": 24.38,
+                "inLateFrame": 2
+              }
+            },
+            "memoryStart": {
+              "pageBytes": 75316090,
+              "pageByType": {
+                "JavaScript": 75316090
+              },
+              "workerBytes": 60293915,
+              "wasmBytes": 0,
+              "atS": 18.8,
+              "cacheBytes": 67070784,
+              "rows": 1883998,
+              "tail": 1774592
+            },
+            "memoryEnd": {
+              "pageBytes": 83435851,
+              "pageByType": {
+                "JavaScript": 83435851
+              },
+              "workerBytes": 67164151,
+              "wasmBytes": 0,
+              "atS": 607.9,
+              "cacheBytes": 67105840,
+              "rows": 60798893,
+              "tail": 60775424
+            },
+            "memoryEndAfterGc": {
+              "pageBytes": 81592944,
+              "pageByType": {
+                "JavaScript": 81592944
+              },
+              "workerBytes": 67542191,
+              "wasmBytes": 0,
+              "atS": 608.2,
+              "cacheBytes": 67107296,
+              "rows": 60823797,
+              "tail": 60783616
+            },
+            "spinMs": 477.1,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

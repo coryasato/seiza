@@ -385,3 +385,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The tail drawn isn't always one of the clock's counts. Both sides sometimes stop at a page's end (1024, 3072): the table pins the tail to the rows read, so while the next page loads the view rests at the loaded ones' end. The content check had to allow it.
 - TanStack writes `state` a frame after the commit, and at 10k a count moves the rows past the 28 in view. So the recorder rarely samples the very frame that drew a given tail. The content check verifies whichever of the first five frames it caught.
 - A zsh loop passed `--scenario live-tail` as one word (no word splitting), and the scripts quietly ran the base level. A smoke loop runs under bash, or quotes its arguments as an array.
+
+## M11 part D2: live tail's numbers (2026-11-08)
+
+**Results:** [`perf/results/2026-11-08-m11-d2.md`](../perf/results/2026-11-08-m11-d2.md).
+
+**Surprises:**
+- The 100k lag on a slow device is mostly the replay's first seconds. The tail metric's window opens 1 s after the first tail mark, where both sides trail by 0.4–1.3 s. Ten minutes later they run 69–111 ms behind (p50). Neither keeps up even then, so the verdict holds, but a cold window alone overstates the steady lag by about 8×.
+- GPUI's second canvas backing store isn't always garbage. In the soak a forced collection freed it every time. At the end of `memory`'s equal work it survived the collection in 4 of 10 reference runs and 9 of 10 throttled. The page's Memory card leaves the canvas out, so nothing changed.
+- Both pages' JavaScript grew by about the same amount over the soak, apart from GPUI's wasm memory: ~10 MiB at the reference, ~7 throttled. Growth that matches on both sides is likely common code or the harness, not either view.
+- The word-splitting slip came back a part after D1's lesson: a quoted `"tail --stop all"` reached `node` as one path. A long run's commands go to `just` through a shell function that passes `"$@"`, each argument its own word, never one quoted string.
