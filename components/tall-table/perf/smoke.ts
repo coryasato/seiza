@@ -114,7 +114,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -266,20 +266,39 @@ async function followsTail(page: Page, label: string, since: number, count: numb
 }
 
 /** With the tail feed: it follows, a wheel up lets go and holds the view
- *  while rows arrive, and End follows again. */
+ *  while rows arrive, and End follows again; then the host lets go (the
+ *  table's `let_go`, through `__tallTableLetGo`), the view held where it
+ *  was while rows arrive, and End follows again. */
 async function checkFollow(page: Page, label: string, layout: Layout): Promise<string> {
   if ((await global<boolean>(page, FOLLOWING_GLOBAL)) !== true) failures.push(`${label}: not following at open with ?follow`);
   const first = await followsTail(page, label, 0, TAIL_MARKS);
   // A wheel up: following stops, and the view holds while rows arrive.
   await page.mouse.move(layout.left + 200, layout.top + 200);
   await wheel(page, -10 * layout.rowHeight);
-  await page.waitForFunction((name) => (globalThis as Record<string, unknown>)[name] === false, FOLLOWING_GLOBAL, { timeout: 10_000, polling: 10 });
-  // Firefox and WebKit deliver one scripted wheel in parts: the view is
-  // the reader's until it rests.
+  await followingIs(page, false);
+  const wheeled = await holdsWhileLetGo(page, `${label}: a wheel up`);
+  const back = await followsAgain(page, `${label} (End)`, wheeled.later.rows);
+  // The host lets go: following stops with no move of the reader's, and
+  // the view stays where it was as rows arrive.
+  const before = (await shown(page)).shown;
+  await letGo(page);
+  const paused = await holdsWhileLetGo(page, `${label}: the host's let go`);
+  // A batch may land between the read above and the call: the pin moves
+  // only down, so the view is at or past where it was, and then holds.
+  if (paused.held.top < before.top) failures.push(`${label}: let go moved the view up from ${before.top} to ${paused.held.top}`);
+  const again = await followsAgain(page, `${label} (End after let go)`, paused.later.rows);
+  return `, followed to ${first.tail}, held at ${wheeled.held.top.toFixed(1)} while ${wheeled.later.rows - wheeled.held.rows} rows arrived, followed again to ${back.tail}, let go at ${paused.held.top.toFixed(1)} while ${paused.later.rows - paused.held.rows} rows arrived, followed again to ${again.tail}`;
+}
+
+/** Once following is off: the view rests (Firefox and WebKit deliver one
+ *  scripted wheel in parts, and the probe is a frame's, so the frame
+ *  after a pin move may not be drawn yet), then stays where it rested for
+ *  500 ms while rows arrive. Returns where it rested and the view after. */
+async function holdsWhileLetGo(page: Page, what: string): Promise<{ held: Shown; later: Shown }> {
   let held = (await shown(page)).shown;
   for (let waited = 0; ; waited += 200) {
     if (waited >= REST_MS) {
-      failures.push(`${label}: the view still moving ${REST_MS} ms after a wheel up (top ${held.top})`);
+      failures.push(`${what}: the view still moving ${REST_MS} ms after (top ${held.top})`);
       break;
     }
     await page.waitForTimeout(200);
@@ -289,14 +308,19 @@ async function checkFollow(page: Page, label: string, layout: Layout): Promise<s
   }
   await page.waitForTimeout(500);
   const later = (await shown(page)).shown;
-  if (later.top !== held.top) failures.push(`${label}: the view moved from ${held.top} to ${later.top} after a wheel up`);
-  if (later.rows <= held.rows) failures.push(`${label}: no rows arrived while let go (${held.rows} → ${later.rows})`);
-  // End: following again, the tail mark advancing past where it was.
+  if (later.top !== held.top) failures.push(`${what}: the view moved from ${held.top} to ${later.top} while let go`);
+  if (later.rows <= held.rows) failures.push(`${what}: no rows arrived while let go (${held.rows} → ${later.rows})`);
+  return { held, later };
+}
+
+/** End: following again, the tail mark advancing past `rows`, the rows
+ *  when it was pressed. */
+async function followsAgain(page: Page, label: string, rows: number): Promise<{ at: number; tail: number }> {
   await page.keyboard.press('End');
-  await page.waitForFunction((name) => (globalThis as Record<string, unknown>)[name] === true, FOLLOWING_GLOBAL, { timeout: 10_000, polling: 10 });
-  const back = await followsTail(page, `${label} (End)`, await page.evaluate(() => performance.now()), TAIL_MARKS);
-  if (back.tail <= later.rows - TAIL_RATE) failures.push(`${label}: after End the tail drawn ${back.tail} is behind the rows (${later.rows})`);
-  return `, followed to ${first.tail}, held at ${held.top.toFixed(1)} while ${later.rows - held.rows} rows arrived, followed again to ${back.tail}`;
+  await followingIs(page, true);
+  const back = await followsTail(page, label, await page.evaluate(() => performance.now()), TAIL_MARKS);
+  if (back.tail <= rows - TAIL_RATE) failures.push(`${label}: after End the tail drawn ${back.tail} is behind the rows (${rows})`);
+  return back;
 }
 
 /** What a widths global held at each set: an init script records them on

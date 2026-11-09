@@ -296,6 +296,8 @@ type Global = {
   __tallTablePin?: (columns: number) => boolean;
   /** With `density` and `?perf`. */
   __tallTableDensity?: (row: number, text: number) => boolean;
+  /** With `follow` and `?perf`. */
+  __tallTableLetGo?: () => void;
 };
 
 /** The cells the last frame drew, with their paint (`custom-cells`, a
@@ -680,6 +682,19 @@ export async function pinnedAs(page: Page, pinned: number, timeout = 10_000): Pr
     { timeout, polling: 10 },
   );
   return (await handle.jsonValue()) as Layout;
+}
+
+/** Waits until the table's following flag (`FOLLOWING_GLOBAL`, the
+ *  bridge's at each `Following`) is `on`. */
+export async function followingIs(page: Page, on: boolean, timeout = 10_000): Promise<void> {
+  await page.waitForFunction(({ name, on }) => (globalThis as Record<string, unknown>)[name] === on, { name: FOLLOWING_GLOBAL, on }, { timeout, polling: 10 });
+}
+
+/** With `follow` and `?perf`: the table's `let_go`, through the host's
+ *  hook, then the flag off. */
+export async function letGo(page: Page): Promise<void> {
+  await page.evaluate(() => (globalThis as Global).__tallTableLetGo!());
+  await followingIs(page, false);
 }
 
 /** With `pin` and `?perf`: the table's `set_pinned`, through the host's

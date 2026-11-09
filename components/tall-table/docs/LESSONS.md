@@ -486,3 +486,11 @@ Results: [`perf/results/2026-11-05-m12-c.md`](../perf/results/2026-11-05-m12-c.m
 - The advances part B estimated from the font natively were GPUI's on the web to every digit printed: the pin changed nothing. The step was still worth it: the fixture now rests on what Chromium draws, not on an estimate.
 - The first version had the host read the advances itself, a copy of the table's calls. It passed every browser and would have kept passing after the table's reading changed; the code review caught it. A probe should report the component's own numbers, not a host's copy of how it gets them.
 - A smoke check that judged its cells after a fixed wait passed everywhere and could still read a frame at the old width on a slow machine; waiting for the layout at the new width costs nothing, since the table publishes the layout and the cells in the same render.
+
+## M13: `follow`'s `let_go` (part A, 2026-11-09)
+
+Results: [`perf/results/2026-11-09-m13-a.md`](../perf/results/2026-11-09-m13-a.md).
+
+**Surprises:**
+- A size comparison that shared one cargo target directory between a worktree at the parent and the working tree read the two `follow` builds as identical, and then failed to build the working tree at all (`let_go` not found). The worktree's files, checked out after this tree's edits, were newer, so cargo's mtime check took the parent's build of the table as fresh for both. A tree measured against another needs a target directory of its own (as `size --against` does), or every source touched before its build.
+- Most of the build's 2 KiB brotli is the bare host's script hook, not the call (the call +320 B after wasm-opt, the hook +2,725): the `follow` build had no hook before, so its first one brings the machinery (a `Closure`, a global, the entry into GPUI). A feature's added bytes in the bare host can be mostly the host's.

@@ -297,6 +297,7 @@ fn follow_control(name: &str) -> super::follow::Control {
         "follow-ignores-reader" => Control::IgnoresReader,
         "pin-to-rows" => Control::PinToRows,
         "top-first" => Control::TopFirst,
+        "let-go-to-end" => Control::LetGoToEnd,
         other => panic!("unknown follow control {other:?}"),
     }
 }
@@ -413,6 +414,8 @@ fn run_scenario(
             }
             #[cfg(feature = "follow")]
             "follow" => on_table(cx, &table, |table, cx| table.follow(cx)),
+            #[cfg(feature = "follow")]
+            "let_go" => on_table(cx, &table, |table, cx| table.let_go(cx)),
             "jump" => {
                 let row = argument.as_u64().expect("jump: a row");
                 on_table(cx, &table, |table, cx| table.jump_to(row, cx));

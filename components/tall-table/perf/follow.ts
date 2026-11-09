@@ -33,7 +33,7 @@ import { frameIntervals, frameRecorder, open, presentedAfter, presentedRecorder,
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { APPENDED_GLOBAL, APPENDED_MARK, FOLLOWING_GLOBAL, PORT, READS_DRAINED_GLOBAL, READS_SENT_GLOBAL, TAIL_GLOBAL, TAIL_MARK, buildName, builtFeatures, global, hostWebDir, perfDir, shown } from './harness.ts';
+import { APPENDED_GLOBAL, APPENDED_MARK, FOLLOWING_GLOBAL, PORT, READS_DRAINED_GLOBAL, READS_SENT_GLOBAL, TAIL_GLOBAL, TAIL_MARK, buildName, builtFeatures, followingIs, global, hostWebDir, perfDir, shown } from './harness.ts';
 
 const RATE = Number(option('rate') ?? 10_000);
 const RUNS = Number(option('runs') ?? 10);
@@ -128,7 +128,7 @@ const reads = async (page: Page) => ({ sent: (await global<number>(page, READS_S
 async function scrollBack(page: Page, failures: string[], index: number): Promise<{ frame: number; real: number }> {
   if (index > 0) {
     await page.keyboard.press('End');
-    await page.waitForFunction((name) => (globalThis as Record<string, unknown>)[name] === true, FOLLOWING_GLOBAL, { timeout: 5_000, polling: 10 });
+    await followingIs(page, true, 5_000);
     await waitMark(page, TAIL_MARK, await now(page), 5_000);
   }
   await page.waitForTimeout(SETTLE_MS);
@@ -204,7 +204,7 @@ async function run(url: string, profile: Profile): Promise<{ reading: Reading | 
     await stopPresentedRecorder(page);
     // Following again for the third window, as in the first.
     await page.keyboard.press('End');
-    await page.waitForFunction((name) => (globalThis as Record<string, unknown>)[name] === true, FOLLOWING_GLOBAL, { timeout: 5_000, polling: 10 });
+    await followingIs(page, true, 5_000);
 
     // 3. Frame work, traced, with the rAF recorder.
     await page.evaluate(frameRecorder);

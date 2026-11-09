@@ -20,7 +20,7 @@ import { Advances, ColumnFormat, f32Text, type FormatControl, type NumberFormat,
 import { PAGING, TablePaging, type Clock, type Page, type PageSource, type Paging } from '../src/data/paging.ts';
 import { ArrowPage, Queries, openParquet } from '../src/data/table.ts';
 import { invalidateRows, setLiveControl, type LiveControl } from '../src/data/live.ts';
-import { follow, isFollowing, setFollowControl, setRows, wheel, type FollowControl } from '../src/data/follow.ts';
+import { follow, isFollowing, letGo, setFollowControl, setRows, wheel, type FollowControl } from '../src/data/follow.ts';
 import { asLevel } from './level.ts';
 import type { Level } from '../../../../scenarios.ts';
 import { pageSql } from '../src/data/sql.ts';
@@ -221,6 +221,10 @@ async function runScenario(paging: Paging, scenario: any, controls: Controls = {
       case 'follow':
         follow(on());
         break;
+      // `follow`: the host lets go, the view where it is.
+      case 'let_go':
+        letGo(on());
+        break;
       // Sideways, as Shift+wheel (the table's `scroll_by(0, x)`): the
       // fixture's one column fits, so nothing moves, and following stays.
       case 'scroll_x':
@@ -263,9 +267,9 @@ describe('paging.json', () => {
   // A scenario runs at a level that builds its features and none it's
   // skipped under (`without`), unless it has a step the level doesn't
   // build: the rows grow and shrink only on live tail's (`rows`), which
-  // follows (`follow`, `scroll_x`); every other level's row count is fixed.
+  // follows (`follow`, `let_go`, `scroll_x`); every other level's row count is fixed.
   const STEPS = ['open', 'scroll', 'jump', 'fraction', 'drag', 'release', 'wait', 'answer', 'fail', 'invalidate'];
-  const steps: Partial<Record<Level, Set<string>>> = { tail: new Set([...STEPS, 'rows', 'follow', 'scroll_x']) };
+  const steps: Partial<Record<Level, Set<string>>> = { tail: new Set([...STEPS, 'rows', 'follow', 'let_go', 'scroll_x']) };
   const CHECKS = new Set(['expect', 'why', 'following', 'bottom']);
   const scenariosAt = (level: Level): any[] => {
     const built = FEATURES[level] ?? [];
@@ -350,7 +354,7 @@ describe('paging.json', () => {
       const cache = (paging.controls as any[]).filter((control) => control.cache).map((control) => control.cache as LiveControl);
       const following = (paging.controls as any[]).filter((control) => control.follow).map((control) => control.follow as FollowControl);
       assert.deepEqual(cache, ['keep-past-end']);
-      assert.deepEqual([...following].sort(), ['follow-at-end', 'follow-ignores-reader', 'pin-to-rows', 'top-first']);
+      assert.deepEqual([...following].sort(), ['follow-at-end', 'follow-ignores-reader', 'let-go-to-end', 'pin-to-rows', 'top-first']);
       const runs: Controls[] = [...cache.map((control) => ({ cache: control })), ...following.map((control) => ({ follow: control }))];
       for (const controls of runs) {
         let failed = 0;

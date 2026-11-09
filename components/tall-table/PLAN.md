@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`reorder`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`reorder`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -31,9 +31,10 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M10 | `density`: a row height, a set column width, and a text size | Done 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | The flash's frames, cheap: the cells' text from one element | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | `format`: a number column's shown text set by its host | Done 2026-11-05 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | `reorder`: drag a column to move it | Planned |
-| M14 | `context-menu`: right- and double-click events | Planned |
-| M15 | `group-headers`: header rows over column groups | Planned |
+| M13 | `follow`'s `let_go`: following turned off by the host | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
+| M14 | `reorder`: drag a column to move it | Planned |
+| M15 | `context-menu`: right- and double-click events | Planned |
+| M16 | `group-headers`: header rows over column groups | Planned |
 
 One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
 
@@ -140,7 +141,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | Feature | Waiting | Their note |
 |---|---|---|
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `follow`'s `let_go` (a follow-up, below) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
@@ -154,14 +155,14 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 - **A feature can move up** when an app needs it sooner. The change goes here, with a decision, never in the app's PLAN.
 - **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`format` moves up (2026-11-04)** ahead of `reorder`: the observatory's market watch (its M10) waits on it from its part B, and `reorder`'s run has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
-- **`follow`'s `let_go` first (2026-11-09),** ahead of `reorder`: a follow-up to a built feature, small, and the observatory's live tail waits on it before it ships (its M11 part E2; "Follow-ups to built features", `follow`).
+- **`follow`'s `let_go` first (2026-11-09),** ahead of `reorder`, as M13 (`reorder` and the two after it moved down one, to M14–M16): a follow-up to a built feature, small, and the observatory's live tail waits on it before it ships (its M11 part E2).
 - **The flash's frames first (2026-11-04),** then `format`: market watch's spike found a flash redraws the whole table every frame, which sinks the bare host on a slow device; the observatory measures market watch only on the improved component ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
 
 ## Active milestone
 
-None: M12 (`format`) closed 2026-11-05 ([`docs/milestones.md`](docs/milestones.md)). `follow`'s `let_go` is next (asked 2026-11-09, "Follow-ups to built features"), a milestone of its own; then M13 (`reorder`), opening with its research ("Next milestones").
+None: M13 (`follow`'s `let_go`) closed 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)). M14 (`reorder`) is next, opening with its research ("Next milestones").
 
 ---
 
@@ -177,22 +178,13 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 - **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
 - **Selection over paint:** settled in `select`'s research: a tint under the text, over the fill, bar, and flash ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-10-26); built in M6.
 
-### `follow`: `let_go`
-
-Asked 2026-11-09 by the observatory: live tail's Pause button ([its PLAN](../../apps/observatory/PLAN.md), M11 part E2), a log tool's pause, the rows still arriving and the view no longer following them. Today only the reader's moves let go (`reader_moved`; `set_following` is private), so a host can follow (`follow`) but can't stop following without moving the view. A draft, its checks tightened when its milestone opens:
-
-- **The call:** `let_go(&mut self, cx)`, under `follow`: following off with the view where it is (the top unmoved, nothing re-planned but what letting go changes: the visible pages no longer bottom first, `tail_first`), `Following(false)` emitted if it was on, nothing if it was off; on a closed table, the flag only. `follow` turns it back on as today (the view to the end, the tail drawn forgotten, `TailDrawn` again at the first filled frame there).
-- **What it pins:** `paging.json` gains a `let_go` step and a scenario (following, rows growing, let go: the view holds as `set_rows` grows it and the tail pin no longer moves it; `follow` again lands at the end), with a negative control (a `let_go` that also moves the view to the end, or one that leaves the pin on), run natively and by the observatory's TanStack contender (its `follow.ts` port, `letGo`); the random test gains the step. `follow`'s native tests: the event once per change.
-- **Its cost:** the bare host's `follow` build before and after (`just tall-table size`), likely a few hundred bytes; no frame work changes (`let_go` runs only when a host calls it). The bare host can bind it to a key for its smoke check (End follows again).
-- **Who adopts it:** the observatory's GPUI contender (live tail's level), and its TanStack contender's port. Tycho, when it adopts `follow`.
-
 ---
 
 ## Next milestones
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-M13's (`reorder`) is written after its research, which opens it; until then its spec is its row under "Features".
+M14's (`reorder`) is written after its research, which opens it; until then its spec is its row under "Features".
 
 ---
 

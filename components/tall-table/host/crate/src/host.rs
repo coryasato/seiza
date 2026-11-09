@@ -103,7 +103,8 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// (`false`, and nothing sent, for anything but a whole count). With
 /// `density`: `__tallTableDensity(row, text)`, the table's `set_density` at
 /// a row height and a text size in px (`false`, and nothing sent, for
-/// anything but two positive numbers).
+/// anything but two positive numbers). With `follow`: `__tallTableLetGo()`,
+/// the table's `let_go`.
 #[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
 const EXACT_HOOK: &str = "__tallTableExact";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
@@ -122,6 +123,8 @@ const DRAINED_HOOK: &str = "__tallTableDrained";
 const PIN_HOOK: &str = "__tallTablePin";
 #[cfg(all(feature = "density", target_family = "wasm"))]
 const DENSITY_HOOK: &str = "__tallTableDensity";
+#[cfg(all(feature = "follow", target_family = "wasm"))]
+const LET_GO_HOOK: &str = "__tallTableLetGo";
 
 // gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
 // `assets`), for `?sort-icons`: bundled whichever the page draws, so the
@@ -349,7 +352,8 @@ impl Host {
                 feature = "copy",
                 feature = "sort",
                 feature = "pin",
-                feature = "density"
+                feature = "density",
+                feature = "follow"
             ),
             target_family = "wasm"
         ))]
@@ -586,7 +590,8 @@ impl Density {
         feature = "copy",
         feature = "sort",
         feature = "pin",
-        feature = "density"
+        feature = "density",
+        feature = "follow"
     ),
     target_family = "wasm"
 ))]
@@ -602,12 +607,12 @@ struct Source {
     drained: Box<dyn Fn() -> u64>,
 }
 
-/// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, `pin`, or
-/// `density`): with
+/// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, `pin`,
+/// `density`, or `follow`): with
 /// `copy` or `sort` [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`],
 /// [`SELECT_HOOK`], and [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`],
 /// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`], with
-/// `density` [`DENSITY_HOOK`].
+/// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
@@ -615,7 +620,8 @@ struct Source {
         feature = "copy",
         feature = "sort",
         feature = "pin",
-        feature = "density"
+        feature = "density",
+        feature = "follow"
     ),
     target_family = "wasm"
 ))]
@@ -734,6 +740,19 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                         .update(cx, |table, cx| table.set_density(density.density(), cx));
                 }));
                 true
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "follow")]
+    {
+        let on_let_go = enter.clone();
+        set(
+            LET_GO_HOOK,
+            Closure::<dyn Fn()>::new(move || {
+                on_let_go(Box::new(|host, _, cx| {
+                    host.table.update(cx, |table, cx| table.let_go(cx));
+                }));
             })
             .into_js_value(),
         );

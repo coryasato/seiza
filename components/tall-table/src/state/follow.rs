@@ -36,6 +36,8 @@ pub(crate) enum Control {
     PinToRows,
     /// The visible pages planned top to bottom while following.
     TopFirst,
+    /// `let_go` moves the view to the end first, as `follow` does.
+    LetGoToEnd,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -48,6 +50,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // On first, so the move's reads are planned bottom first.
         self.set_following(true, cx);
         self.move_top_to(self.scroll.max_top(), cx);
+    }
+
+    /// Stops following with the view where it is (a log tool's pause):
+    /// the rows keep arriving through `set_rows`, and the view no longer
+    /// moves with them. Nothing is read or cancelled; the next plan takes
+    /// the visible pages top first. Emits `Following(false)` if it was on.
+    /// `follow()` follows again, and so do the reader's moves to the end:
+    /// a scrollbar drag's release there among them, even one that began
+    /// before the call (the release is a landing).
+    pub fn let_go(&mut self, cx: &mut Context<Self>) {
+        #[cfg(test)]
+        if self.follow_control == Control::LetGoToEnd {
+            self.move_top_to(self.scroll.max_top(), cx);
+        }
+        self.set_following(false, cx);
     }
 
     /// Whether the view is following the end.

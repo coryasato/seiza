@@ -27,6 +27,7 @@
     { "name": "never let go for the reader", "follow": "follow-ignores-reader" },
     { "name": "pin the view to the rows, not the loaded tail", "follow": "pin-to-rows" },
     { "name": "plan the visible pages top first while following", "follow": "top-first" },
+    { "name": "move the view to the end when the host lets go", "follow": "let-go-to-end" },
     { "name": "keep the pages through a sort", "sort": "keep-pages" }
   ],
   "scenarios": [
@@ -394,6 +395,27 @@
         { "scroll": -1, "expect": [], "following": false, "bottom": 1499, "why": "Up by any amount lets go." },
         { "rows": 1600, "expect": ["load 1"], "following": false, "bottom": 1499, "why": "The grown page is read again (live), the view left where the reader put it." },
         { "answer": "all", "expect": [], "following": false, "bottom": 1499 }
+      ]
+    },
+    {
+      "name": "the host lets go: the view holds as rows arrive, and follow() comes back",
+      "features": ["follow"],
+      "rows": 1500,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1"] },
+        { "follow": true, "expect": [], "following": true, "bottom": 1500 },
+        { "rows": 1600, "expect": ["load 1"], "following": true, "bottom": 1500, "why": "The grown page is read again (live); the view waits for it." },
+        { "let_go": true, "expect": [], "following": false, "bottom": 1500, "why": "Following off, the view where it is: nothing read or cancelled, page 1's read still out." },
+        { "answer": [1], "expect": [], "following": false, "bottom": 1500, "why": "It lands holding rows to 1600; let go, the pin doesn't move the view." },
+        { "rows": 1700, "expect": ["load 1"], "following": false, "bottom": 1500 },
+        { "answer": "all", "expect": [], "following": false, "bottom": 1500 },
+        { "let_go": true, "expect": [], "following": false, "bottom": 1500, "why": "Already let go: nothing changes." },
+        { "follow": true, "expect": [], "following": true, "bottom": 1700, "why": "To the end, rows 1672..1700, every one loaded." },
+        { "rows": 1800, "expect": ["load 1"], "following": true, "bottom": 1700 },
+        { "answer": "all", "expect": [], "following": true, "bottom": 1800, "why": "Following again: the pin moves on as the read lands." }
       ]
     },
     {

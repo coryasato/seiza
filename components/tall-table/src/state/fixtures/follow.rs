@@ -11,7 +11,8 @@ use std::time::Duration;
 use gpui_kit::{Entity, TestAppContext, VisualTestContext, px, size};
 
 use super::super::{
-    LineDown, LineUp, PageUp, Paging, ScrollToEnd, ScrollToTop, TallTableEvent, TallTableState,
+    Drag, LineDown, LineUp, PageUp, Paging, ScrollToEnd, ScrollToTop, TallTableEvent,
+    TallTableState,
 };
 use super::{Reads, Script, answer};
 use crate::column::{ColumnKind, TallTableColumn};
@@ -394,4 +395,118 @@ fn a_resize_keeps_the_bottom(cx: &mut TestAppContext) {
     table.answer_all();
     assert_eq!(table.view().1, 1_520);
     assert!(table.following());
+}
+
+#[gpui_kit::test]
+fn the_host_lets_go_with_the_view_held(cx: &mut TestAppContext) {
+    let mut table = Tail::open(cx, 1_500, Paging::default());
+    // Not following: letting go changes nothing and emits nothing.
+    table.answer_all();
+    table.update(|table, cx| table.let_go(cx));
+    assert!(!table.following());
+    assert_eq!(table.events(), []);
+    table.update(|table, cx| table.follow(cx));
+    table.answer_all();
+    assert_eq!(table.events(), [following(true), tail(1_500)]);
+    // Rows arrive, and the host lets go while their read is out: the view
+    // holds, nothing is read or cancelled at the call.
+    table.grow(1_600);
+    let held = table.view().0;
+    let sent = table.reads.borrow().log.len();
+    table.update(|table, cx| table.let_go(cx));
+    assert!(!table.following());
+    assert_eq!(
+        table.reads.borrow().log.len(),
+        sent,
+        "nothing read or cancelled"
+    );
+    assert_eq!(table.events(), [following(false)]);
+    // A second `let_go` emits nothing; reads landing and more rows arriving
+    // leave the view where it was, and no `TailDrawn`.
+    table.update(|table, cx| table.let_go(cx));
+    for rows in [1_600, 1_700, 2_100] {
+        table.grow(rows);
+        table.answer_all();
+        assert_eq!(table.view().0, held, "held at {rows}");
+    }
+    assert!(!table.following());
+    assert_eq!(
+        table.events(),
+        [],
+        "no Following, no TailDrawn while let go"
+    );
+    // `follow()` again: to the end, the tail drawn again there.
+    table.update(|table, cx| table.follow(cx));
+    table.answer_all();
+    let (_, end, pending) = table.view();
+    assert_eq!((end, pending), (2_100, 0));
+    assert_eq!(table.events(), [following(true), tail(2_100)]);
+    // The reader's End after a `let_go` follows too, as after a scroll up.
+    table.update(|table, cx| table.let_go(cx));
+    table.key(Key::End);
+    table.grow(2_200);
+    table.answer_all();
+    assert_eq!(
+        table.events(),
+        [following(false), following(true), tail(2_100), tail(2_200)]
+    );
+}
+
+#[gpui_kit::test]
+fn a_closed_table_lets_go_of_the_flag(cx: &mut TestAppContext) {
+    let mut table = Tail::open(cx, 1_500, Paging::default());
+    table.update(|table, cx| table.follow(cx));
+    table.answer_all();
+    let _ = table.events();
+    table.update(|table, cx| table.close(cx));
+    let sent = table.reads.borrow().log.len();
+    table.update(|table, cx| table.let_go(cx));
+    assert!(!table.following());
+    assert_eq!(table.events(), [following(false)]);
+    assert_eq!(
+        table.reads.borrow().log.len(),
+        sent,
+        "a closed table reads nothing"
+    );
+}
+
+#[gpui_kit::test]
+fn a_drags_release_decides_after_a_let_go(cx: &mut TestAppContext) {
+    let mut table = Tail::open(cx, 5_000, Paging::default());
+    table.update(|table, cx| table.follow(cx));
+    table.answer_all();
+    let _ = table.events();
+    // The host lets go during a scrollbar drag; the reader's release at
+    // the end is a landing there, and follows, as after a scroll up.
+    table.update(|table, cx| {
+        table.drag = Some(Drag::Vertical { grab: 0.0 });
+        table.scroll_to_fraction(0.5, cx);
+    });
+    table.update(|table, cx| table.let_go(cx));
+    assert!(!table.following());
+    table.update(|table, cx| table.scroll_to_fraction(1.0, cx));
+    assert!(
+        !table.following(),
+        "the drag holds the flag until its release"
+    );
+    table.update(|table, cx| table.end_drag(cx));
+    assert!(table.following());
+    // Released away from the end, it stays let go.
+    table.update(|table, cx| {
+        table.drag = Some(Drag::Vertical { grab: 0.0 });
+        table.scroll_to_fraction(1.0, cx);
+    });
+    table.update(|table, cx| table.let_go(cx));
+    table.update(|table, cx| table.scroll_to_fraction(0.5, cx));
+    table.update(|table, cx| table.end_drag(cx));
+    assert!(!table.following());
+    assert_eq!(
+        table.events(),
+        [
+            following(false),
+            following(true),
+            tail(5_000),
+            following(false)
+        ]
+    );
 }

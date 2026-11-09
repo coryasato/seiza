@@ -15,7 +15,8 @@
  * holds it until its release. While it's on, the view's bottom is pinned
  * to the loaded tail (`pinToTail`: moved down, never up, to the end of the
  * rows drawn with their values, once every row in view is loaded; not a
- * scroll), and the visible pages are read bottom first (`tailFirst`).
+ * scroll), and the visible pages are read bottom first (`tailFirst`). A
+ * host lets go with the view where it is (`letGo`, the table's `let_go`).
  *
  * As `live.ts`, these are functions over the cache and the paging, never
  * methods (a method would stay in every level's bundle), reaching their
@@ -39,7 +40,7 @@ export type Reach = 'down' | 'land' | 'up';
 
 /** The paging fixture's `follow` controls (`paging.json`), each a way to
  *  follow wrongly that the fixture must catch; `null` in the contender. */
-export type FollowControl = 'follow-at-end' | 'follow-ignores-reader' | 'pin-to-rows' | 'top-first' | null;
+export type FollowControl = 'follow-at-end' | 'follow-ignores-reader' | 'pin-to-rows' | 'top-first' | 'let-go-to-end' | null;
 
 /** The cache's members the rows' changes read and write, private to every other caller. */
 interface CacheInside<T, R> {
@@ -206,6 +207,17 @@ export function setRows<P extends Page>(of: TablePaging<P>, rows: number): void 
 export function follow<P extends Page>(of: TablePaging<P>): void {
   setFollowing(inside(of), true);
   of.moveTopTo(of.maxTop());
+}
+
+/** Stops following with the view where it is (`let_go`, a log tool's
+ *  pause): the rows keep arriving through `setRows`, and the view no
+ *  longer moves with them. Nothing is read or canceled; the next plan
+ *  takes the visible pages top first. `onFollowing` hears `false` if it
+ *  was on. `follow` follows again. */
+export function letGo<P extends Page>(of: TablePaging<P>): void {
+  const table = inside(of);
+  if (table.followControl === 'let-go-to-end') of.moveTopTo(of.maxTop());
+  setFollowing(table, false);
 }
 
 /** Whether the view is following the end. */

@@ -345,6 +345,9 @@ enum Step {
     },
     #[cfg(feature = "follow")]
     Follow,
+    /// The host's `let_go`: placed, never drawn ([`with_let_gos`]).
+    #[cfg(feature = "follow")]
+    LetGo,
     #[cfg(feature = "select")]
     Select {
         kind: u8,
@@ -989,6 +992,8 @@ impl Run {
             }
             #[cfg(feature = "follow")]
             Step::Follow => self.update(|table, cx| table.follow(cx)),
+            #[cfg(feature = "follow")]
+            Step::LetGo => self.update(|table, cx| table.let_go(cx)),
             #[cfg(feature = "select")]
             Step::Select { .. } if rows == 0 => {}
             #[cfg(feature = "select")]
@@ -1533,7 +1538,7 @@ fn with_pins(seed: u64, steps: &mut Vec<Step>) {
 
 /// Up to eight of `step`'s, each from a number at a place among `steps`,
 /// both from `seed`: never drawn ([`with_pins`]).
-#[cfg(any(feature = "pin", feature = "density"))]
+#[cfg(any(feature = "pin", feature = "density", feature = "follow"))]
 fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u8) -> Step) {
     // SplitMix64.
     let mut state = seed;
@@ -1569,6 +1574,16 @@ fn with_densities(seed: u64, steps: &mut Vec<Step>) {
     place_steps(seed ^ 0xd1b5_4a32_d192_ed03, steps, Step::Density);
 }
 
+/// `follow`'s `let_go` steps, up to eight, placed as `pin`'s are
+/// ([`with_pins`]), from the scheduler seed by a stream of their own, so
+/// `pin`'s and `density`'s places stay what they were. Following is drawn
+/// (`Step::Follow`); letting go, added after, is placed, so the draws of
+/// the cases before it stay.
+#[cfg(feature = "follow")]
+fn with_let_gos(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0x2545_f491_4f6c_dd1d, steps, |_| Step::LetGo);
+}
+
 /// How many cases: `PROPTEST_CASES`, else 48 in the all-on run, 16 in the
 /// others.
 fn cases() -> u32 {
@@ -1592,19 +1607,22 @@ fn run(control: Option<Control>) -> Result<(), String> {
     let mut runner = TestRunner::new(config);
     runner
         .run(&(any::<u64>(), case()), |(seed, case)| {
-            // A failure names its step in the case as run, `pin`'s and
-            // `density`'s steps among them, so it's printed with them.
-            #[cfg(any(feature = "pin", feature = "density"))]
+            // A failure names its step in the case as run, `pin`'s,
+            // `density`'s, and `let_go`'s steps among them, so it's printed
+            // with them.
+            #[cfg(any(feature = "pin", feature = "density", feature = "follow"))]
             let case = {
                 let mut case = case;
                 #[cfg(feature = "pin")]
                 with_pins(seed, &mut case.steps);
                 #[cfg(feature = "density")]
                 with_densities(seed, &mut case.steps);
+                #[cfg(feature = "follow")]
+                with_let_gos(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
-                #[cfg(any(feature = "pin", feature = "density"))]
+                #[cfg(any(feature = "pin", feature = "density", feature = "follow"))]
                 let failure = format!("{failure}\nthe case as run, with the placed steps:\n{case}");
                 TestCaseError::fail(failure)
             })
