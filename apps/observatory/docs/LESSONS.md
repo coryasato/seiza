@@ -432,3 +432,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - The page held exactly one frame, the one replaced last, never a growing number: `sides` keeps the other side's `Tracked` by design, and the bug was what that object still pointed to.
 - The measured memory (JS, canvas, workers) stayed flat through a route while the renderer's footprint climbed 30 to 300 MiB, and a forced collection before each reading barely changed that climb. The hover card's number is the process's pages, which the allocator gives back lazily; it came back within 30 s of leaving the route.
 - The largest renderer isn't always the tab's: at the first reading a spare renderer (59 MiB) outweighed the fresh Overview's (52 MiB). Spinning the page for 300 ms and taking the renderer whose CPU time rose finds it; the code review's catch, and the recorded PIDs showed the tab kept one process through every navigation.
+
+## M12 part A1: the countries file and the capabilities' checks (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m12-a1.md`](../perf/results/2026-11-09-m12-a1.md).
+
+**Surprises:**
+- The flags already draw on GPUI: gpui-pre-web 0.3.11 hands emoji to the browser's Canvas 2D text, and `shared/` turns that on. M8's canvas drew them missing.
+- The DOM side would have failed three of its own capabilities. Virtualized, it holds only the rows near the view (34 on the asteroids' first screen; the admin table's 250 would get about as many), so Ctrl+F, Translate, and a screen reader reach only those, and it had no ARIA roles, so a screen reader hears text, not a table. The capabilities had been assumed for the DOM, never checked; a probe with controls on both sides found both gaps before anything was built.
+- CLDR leaves out a region's likely language when it's English (`und-US` isn't listed; `und` → `en-Latn` covers it), and ten languages have no region names at all, Dhivehi among them, so the Maldives' Thaana name can't come from CLDR.
+- CLDR gives uninhabited Bouvet and Heard Islands a population of 1, and Wikidata gives eight regions several capitals; mechanical rules handle both, each written down.
+- IBM Plex Sans covers every Latin, Greek, and Cyrillic character in the names (Vietnamese and Tajik included): the gap is exactly the 15 scripts outside those three. Noto has no sans Tibetan, and Noto Serif Tibetan is a third of the 13 faces' 582 KiB.
