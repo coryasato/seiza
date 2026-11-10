@@ -496,3 +496,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - GPUI's `top` comes back from a gesture down and up as 3e-12, not 0: it sums the wheel's float deltas. A wait for `top === 0` timed out in four runs of six; "back at the top" is within a pixel.
 - With fonts, GPUI's "Canvas" memory doubles (19.8 → 39.6 MiB) on the scroll back, in every run, though no second canvas exists: the browser fallback draws each glyph in a 33×33 OffscreenCanvas and reads it back. Chromium counts a second buffer for the window's canvas, and does so in about one default run in five too, from the open. A first guess, "the CJK fallback's own canvas", was wrong; listing every canvas the page creates settled it.
 - `compositorScrolls` as first written counted every delta; paired with the frame reporter's vsyncs (the latest begun before each delta, on the compositor's thread), the read-through's 121 deltas were 121 distinct vsyncs, all presented, so the reading kept its value and gained its guard (the code review's catch).
+
+## M12 part C2: the runs (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m12-c2.md`](../perf/results/2026-11-09-m12-c2.md).
+
+**Surprises:**
+- The suite took about half A3's estimate: the estimate borrowed market watch's run length, and a 250-row file loads and scrolls in a few seconds.
+- On a slow device, Chromium counted a second buffer for GPUI's canvas in every default run, not the occasional one C1 saw at the reference. What C1 read as the fonts toggle's memory was mostly that buffer, which a slow frame brings on too; it now has its own line, outside the card.
+- TanStack's work per frame in the read-through didn't grow under the CPU throttle, though the wide sheet's did. With no row to render, `BeginMainFrame` is likely mostly the commit's wait on the compositor thread, which the throttle doesn't slow.
+- Rows in (open → rows) favors GPUI, but TanStack opens sooner, so its rows appear first from the page's start. Neither card shows that alone.

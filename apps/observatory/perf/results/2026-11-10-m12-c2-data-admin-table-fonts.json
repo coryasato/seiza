@@ -1,0 +1,716 @@
+{
+  "date": "2026-11-10",
+  "label": "m12-c2-data",
+  "metric": "data",
+  "scenario": "admin-table",
+  "stop": {
+    "id": "all",
+    "label": "All rows"
+  },
+  "fonts": true,
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "ms": 193.9,
+          "openMs": 597.3,
+          "filledMarkMs": 193.9,
+          "fonts": {
+            "scriptsDrawnMs": 832.7,
+            "scriptsDrawnMsRuns": [
+              833.2,
+              840.8,
+              833.3,
+              827.5,
+              825.8,
+              830.7,
+              832.2,
+              827.2,
+              839.7,
+              842.3
+            ],
+            "rowsMs": 790.3,
+            "fetchMs": 19,
+            "inToDrawnMs": 22.1,
+            "bytesKiB": 586.1,
+            "faceKiB": {
+              "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 54,
+              "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9.2,
+              "NotoSansBengali-Regular-3.011-5dceda02.ttf": 46.1,
+              "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 60.2,
+              "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 77.5,
+              "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17.6,
+              "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8,
+              "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 21.7,
+              "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10.1,
+              "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 55.4,
+              "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 33.3,
+              "NotoSansThai-Regular-2.002-d4303fe9.ttf": 10.8,
+              "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 182.4
+            }
+          }
+        },
+        "runs": [
+          {
+            "openMs": 597.4349994659424,
+            "ms": 193.375,
+            "filledMarkMs": 193.375,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 833.1599998474121,
+              "rowsMs": 790.8099994659424,
+              "fetchMs": 20.230000495910645,
+              "inToDrawnMs": 22.119999885559082,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 597.2200002670288,
+            "ms": 203.24499988555908,
+            "filledMarkMs": 203.24499988555908,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 840.8099994659424,
+              "rowsMs": 800.4650001525879,
+              "fetchMs": 18.274999618530273,
+              "inToDrawnMs": 22.06999969482422,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 598.1799993515015,
+            "ms": 191.53500080108643,
+            "filledMarkMs": 191.53500080108643,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 833.335000038147,
+              "rowsMs": 789.7150001525879,
+              "fetchMs": 20.125,
+              "inToDrawnMs": 23.494999885559082,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 592.085000038147,
+            "ms": 194.35999965667725,
+            "filledMarkMs": 194.35999965667725,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 827.4749994277954,
+              "rowsMs": 786.4449996948242,
+              "fetchMs": 18.885000228881836,
+              "inToDrawnMs": 22.144999504089355,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 592.8100004196167,
+            "ms": 191.81999969482422,
+            "filledMarkMs": 191.81999969482422,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 825.7650003433228,
+              "rowsMs": 784.6300001144409,
+              "fetchMs": 19.15499973297119,
+              "inToDrawnMs": 21.980000495910645,
+              "presented": "0.10 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 593.1999998092651,
+            "ms": 196.17000007629395,
+            "filledMarkMs": 196.17000007629395,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 830.7199993133545,
+              "rowsMs": 789.3699998855591,
+              "fetchMs": 19.139999389648438,
+              "inToDrawnMs": 22.210000038146973,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 600.375,
+            "ms": 191.19999980926514,
+            "filledMarkMs": 191.19999980926514,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 832.1599998474121,
+              "rowsMs": 791.5749998092651,
+              "fetchMs": 18.71500015258789,
+              "inToDrawnMs": 21.869999885559082,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 594.2399997711182,
+            "ms": 192.14000034332275,
+            "filledMarkMs": 192.14000034332275,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 827.1750001907349,
+              "rowsMs": 786.3800001144409,
+              "fetchMs": 18.734999656677246,
+              "inToDrawnMs": 22.0600004196167,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 602.75,
+            "ms": 195.4650001525879,
+            "filledMarkMs": 195.4650001525879,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 839.6900005340576,
+              "rowsMs": 798.2150001525879,
+              "fetchMs": 19.15499973297119,
+              "inToDrawnMs": 22.320000648498535,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 601.0200004577637,
+            "ms": 200.5649995803833,
+            "filledMarkMs": 200.5649995803833,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 842.295000076294,
+              "rowsMs": 801.585000038147,
+              "fetchMs": 18.68000030517578,
+              "inToDrawnMs": 22.02999973297119,
+              "presented": "0.09 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "ms": 1314.7,
+          "openMs": 9782.8,
+          "filledMarkMs": 1314.7,
+          "fonts": {
+            "scriptsDrawnMs": 12240.6,
+            "scriptsDrawnMsRuns": [
+              12233,
+              12228.8,
+              12251.7,
+              12245.2,
+              12225.7,
+              12242.4,
+              12270.8,
+              12231.4,
+              12241,
+              12240.1
+            ],
+            "rowsMs": 11095.9,
+            "fetchMs": 1051.1,
+            "inToDrawnMs": 91.7,
+            "bytesKiB": 586.1,
+            "faceKiB": {
+              "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 54,
+              "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9.2,
+              "NotoSansBengali-Regular-3.011-5dceda02.ttf": 46.1,
+              "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 60.2,
+              "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 77.5,
+              "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17.6,
+              "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8,
+              "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 21.7,
+              "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10.1,
+              "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 55.4,
+              "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 33.3,
+              "NotoSansThai-Regular-2.002-d4303fe9.ttf": 10.8,
+              "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 182.4
+            }
+          }
+        },
+        "runs": [
+          {
+            "openMs": 9783.305000305176,
+            "ms": 1308.2250003814697,
+            "filledMarkMs": 1308.2250003814697,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12233.034999847412,
+              "rowsMs": 11091.530000686646,
+              "fetchMs": 1050.1949996948242,
+              "inToDrawnMs": 91.30999946594238,
+              "presented": "0.07 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9775.464999198914,
+            "ms": 1308.8250007629395,
+            "filledMarkMs": 1308.8250007629395,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12228.835000038147,
+              "rowsMs": 11084.289999961853,
+              "fetchMs": 1054.170000076294,
+              "inToDrawnMs": 90.375,
+              "presented": "0.50 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9782.380000114441,
+            "ms": 1325.670000076294,
+            "filledMarkMs": 1325.670000076294,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12251.689999580383,
+              "rowsMs": 11108.050000190735,
+              "fetchMs": 1051.9449996948242,
+              "inToDrawnMs": 91.69499969482422,
+              "presented": "0.07 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9782.789999961853,
+            "ms": 1315.755000114441,
+            "filledMarkMs": 1315.755000114441,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12245.204999923706,
+              "rowsMs": 11098.545000076294,
+              "fetchMs": 1056.590000152588,
+              "inToDrawnMs": 90.06999969482422,
+              "presented": "0.07 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9783.650000572205,
+            "ms": 1310.2599992752075,
+            "filledMarkMs": 1310.2599992752075,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12225.685000419617,
+              "rowsMs": 11093.909999847412,
+              "fetchMs": 1039.784999847412,
+              "inToDrawnMs": 91.99000072479248,
+              "presented": "0.07 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9795.079999923706,
+            "ms": 1303.6350002288818,
+            "filledMarkMs": 1303.6350002288818,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12242.444999694824,
+              "rowsMs": 11098.715000152588,
+              "fetchMs": 1049.8599996566772,
+              "inToDrawnMs": 93.86999988555908,
+              "presented": "0.07 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9805.829999923706,
+            "ms": 1325.2249994277954,
+            "filledMarkMs": 1325.2249994277954,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12270.789999961853,
+              "rowsMs": 11131.054999351501,
+              "fetchMs": 1047.5700006484985,
+              "inToDrawnMs": 92.16499996185303,
+              "presented": "0.49 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9782.865000724792,
+            "ms": 1314.329999923706,
+            "filledMarkMs": 1314.329999923706,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12231.435000419617,
+              "rowsMs": 11097.195000648499,
+              "fetchMs": 1042.619999885559,
+              "inToDrawnMs": 91.61999988555908,
+              "presented": "0.43 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9777.015000343323,
+            "ms": 1317.585000038147,
+            "filledMarkMs": 1317.585000038147,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12241.005000114441,
+              "rowsMs": 11094.60000038147,
+              "fetchMs": 1054.625,
+              "inToDrawnMs": 91.77999973297119,
+              "presented": "0.08 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          },
+          {
+            "openMs": 9778.079999923706,
+            "ms": 1314.994999885559,
+            "filledMarkMs": 1314.994999885559,
+            "rows": 28,
+            "fonts": {
+              "scriptsDrawnMs": 12240.095000267029,
+              "rowsMs": 11093.074999809265,
+              "fetchMs": 1057.920000076294,
+              "inToDrawnMs": 89.10000038146973,
+              "presented": "0.08 ms after its last GPU call, same task",
+              "faceBytes": {
+                "NotoSansArabic-Regular-2.013-bd86ca02.ttf": 55327,
+                "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": 9387,
+                "NotoSansBengali-Regular-3.011-5dceda02.ttf": 47169,
+                "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": 61601,
+                "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": 79356,
+                "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": 17992,
+                "NotoSansHebrew-Regular-3.001-04272f56.ttf": 8194,
+                "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": 22173,
+                "NotoSansLao-Regular-2.003-d3976b0a.ttf": 10385,
+                "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": 56757,
+                "NotoSansSinhala-Regular-3.000-46d5b549.ttf": 34066,
+                "NotoSansThai-Regular-2.002-d4303fe9.ttf": 11019,
+                "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": 186730
+              },
+              "bytes": 600156
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}
