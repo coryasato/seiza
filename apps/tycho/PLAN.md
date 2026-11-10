@@ -50,6 +50,11 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 
 None: M10, `trim-paths`, closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Tycho's own milestones after it come out of the research for a long-term goal below.
 
+**Carried over from the gpui-kit 0.9.1 bump** (2026-11-10, [its note](perf/results/2026-11-10-gpui-kit-0.9.1.md)), for the next milestone that adopts a table feature, which runs these anyway; on their own if a deploy comes first:
+- [ ] `just tycho table --reference-only` on both samples: the fling's and steady scroll's frame work under gpui-pre 0.3.12's cursor reset on every mouse and scroll event (a `document.body.style.cursor` write each), against `2026-10-13-m9-suite.json`'s, and an interleaved look against a 0.9.0 build if it moved.
+- [ ] `just tycho jump --reference-only`: the context menu's Paste on 0.9.1 (gpui-component 0.9.1 sizes the menu's items in rems; `perf/jump.ts`'s `MENU_PASTE_DY` is unchecked on it), then the version in that comment.
+- [ ] `just tycho lint`'s TypeScript step fails on `shared-web/perf/protocol.ts(67,11)`: `Cannot find name 'ResizeObserverEntry'` (`tsc -p shared-web/perf` from Tycho's host; the same project passes from the tall table's `lint`). Not the bump's: neither file changed with it. Fix before the next `check`, which runs `lint` first.
+
 ---
 
 ## Long-term goals

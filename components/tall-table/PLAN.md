@@ -73,7 +73,7 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 | Feature (Cargo) | What it adds | In `DataTable` | Depends on | Data | TanStack |
 |---|---|---|---|---|---|
 | `resize` | Drag a header edge to set a column's width, within a min and max; a double-click fits it; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged`; `fit_col` (0.8.0) | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
-| `pin` | The first *n* columns fixed at the left while the rest scroll sideways (M9's research) | `ColumnFixed::Left` (left only), `fixed_left` | — (`resize` moves its edge) | No | Column pinning (left and right), with the first *n* ids |
+| `pin` | The first *n* columns fixed at the left while the rest scroll sideways (M9's research) | `ColumnFixed::Left`, `fixed_left` (`ColumnFixed::Right`, `fixed_right`, since 0.9.1: "Right-pinned columns", below) | — (`resize` moves its edge) | No | Column pinning (left and right), with the first *n* ids |
 | `reorder` | Drag a header to move its column; with `pin`, a drag across the run's edge pins or unpins it (the count by one), for its research to settle | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
 | `group-headers` | Header rows spanning column groups | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group must move and pin whole) | No | Header groups |
 
@@ -112,7 +112,7 @@ Candidates, not plans: features of TanStack Table (v8) that `DataTable` lacks or
 | Global filtering and search | One query across every column | — | Yes: as filtering, over every text column | Also a route to closing Ctrl+F (README, "Canvas tradeoffs"): a find of the table's own |
 | Faceting | Each column's distinct values, or its min and max, for a filter's UI | — | Yes: one aggregate query per column, cacheable | Only with filtering |
 | Multi-column sort | Sort by several columns, Shift-click to add | `sort` is one column | Yes: `ORDER BY a, b` | An extension of `sort`, not a feature of its own |
-| Right-pinned columns | Columns fixed at the right | `pin` is left only | No | An extension of `pin` |
+| Right-pinned columns | Columns fixed at the right | `ColumnFixed::Right`, `fixed_right` (since gpui-kit 0.9.1) | No | An extension of `pin`, which is left only; how `DataTable` does it: [the 0.9.1 note](perf/results/2026-11-10-gpui-kit-0.9.1.md) |
 | Row pinning | Rows kept at the top or bottom while the rest scroll | — | Yes: the pinned rows are read apart from the pages | Fits the f64 scroll model awkwardly; research first |
 | Grouping and aggregation | Rows grouped by a column's values, with sums and counts, collapsible | — | Yes: `GROUP BY`; the row count becomes the groups' | Changes what a row is; the largest of these |
 | Expanding | A row opens to show a detail row or sub-rows | — | Depends on what's shown | Variable row heights break the uniform f64 row index; research first |
@@ -185,6 +185,8 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
 M14's (`reorder`) is written after its research, which opens it; until then its spec is its row under "Features".
+
+**Carried into M14's cost check, from the gpui-kit 0.9.1 bump** (2026-11-10, [its note](perf/results/2026-11-10-gpui-kit-0.9.1.md)): gpui-pre 0.3.12 resets the cursor on every mouse and scroll event, a `document.body.style.cursor` write each on the web, and the base's frame work wasn't measured after it. M14's `perf` on the base (both shapes, reference and throttled, median of 10) also runs against a gpui-kit 0.9.0 build of the base (the commit before the bump, in a worktree with its own `target/`), with the `resize` and `select` drags (a pointer move every 8 ms) among the segments read, so the bump's cost is told apart from `reorder`'s, in M14's results note; a milestone of its own only if it moved.
 
 ---
 

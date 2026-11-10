@@ -1,0 +1,237 @@
+{
+  "date": "2026-11-10",
+  "label": "gpui-kit-0.9.1-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13287.8,
+    "optKiB": 9809.1,
+    "brotliKiB": 2753.6
+  },
+  "homePaths": {
+    "host": 0,
+    "untrimmedControl": 995
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13299.7,
+      "optKiB": 9818.9,
+      "brotliKiB": 2756.8,
+      "moreOptKiB": 9.8,
+      "moreBrotliKiB": 3.2
+    },
+    "live": {
+      "rawKiB": 13303.9,
+      "optKiB": 9822.9,
+      "brotliKiB": 2758.1,
+      "moreOptKiB": 13.8,
+      "moreBrotliKiB": 4.5
+    },
+    "live,custom-cells": {
+      "rawKiB": 13330,
+      "optKiB": 9843.2,
+      "brotliKiB": 2764.4,
+      "moreOptKiB": 34.1,
+      "moreBrotliKiB": 10.8,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.3,
+          "moreBrotliKiB": 6.3
+        },
+        "custom-cells": {
+          "moreOptKiB": 24.3,
+          "moreBrotliKiB": 7.6
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13318.9,
+      "optKiB": 9835.9,
+      "brotliKiB": 2761.1,
+      "moreOptKiB": 26.8,
+      "moreBrotliKiB": 7.5,
+      "against": {
+        "live": {
+          "moreOptKiB": 13,
+          "moreBrotliKiB": 3
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13293.7,
+      "optKiB": 9813.8,
+      "brotliKiB": 2754.6,
+      "moreOptKiB": 4.7,
+      "moreBrotliKiB": 1
+    },
+    "select": {
+      "rawKiB": 13327.2,
+      "optKiB": 9831.4,
+      "brotliKiB": 2758.3,
+      "moreOptKiB": 22.3,
+      "moreBrotliKiB": 4.7
+    },
+    "copy": {
+      "rawKiB": 13369.8,
+      "optKiB": 9865.1,
+      "brotliKiB": 2771.1,
+      "moreOptKiB": 56,
+      "moreBrotliKiB": 17.5,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.7,
+          "moreBrotliKiB": 12.8
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13382.8,
+      "optKiB": 9893.4,
+      "brotliKiB": 2774.2,
+      "moreOptKiB": 84.3,
+      "moreBrotliKiB": 20.6
+    },
+    "pin": {
+      "rawKiB": 13299.9,
+      "optKiB": 9819.1,
+      "brotliKiB": 2756.1,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 2.5
+    },
+    "density": {
+      "rawKiB": 13295.1,
+      "optKiB": 9814.9,
+      "brotliKiB": 2754.7,
+      "moreOptKiB": 5.8,
+      "moreBrotliKiB": 1.1
+    },
+    "format": {
+      "rawKiB": 13298.5,
+      "optKiB": 9817.2,
+      "brotliKiB": 2756.6,
+      "moreOptKiB": 8.1,
+      "moreBrotliKiB": 3
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 27
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 27,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 24,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 10
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 206
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 15
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    },
+    "density": {
+      "markers": {
+        "seiza_tall_table7density": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state7density": {
+          "base": 0,
+          "feature": 4
+        }
+      }
+    },
+    "format": {
+      "base": 0,
+      "feature": 19
+    }
+  },
+  "against": null,
+  "contender": {
+    "file": "tall_table_gpui_bg-CsWRz_iG.wasm",
+    "optKiB": 9875.3,
+    "brotliKiB": 2773.5,
+    "moreBrotliKiB": 19.9
+  },
+  "failures": []
+}
