@@ -38,7 +38,7 @@ function isChecked(file: string): boolean {
   return CODE_EXTENSIONS.has(extname(name));
 }
 
-const MILESTONE = /\bM\d+\b|\bpart [A-G]\b/;
+const MILESTONE = /\bM\d+\b|\bpart [A-G]\d*\b/;
 // Text that looks like a milestone but isn't, removed before matching.
 const EXCEPTIONS = [/\bApple M\d+\b/g, /\bd="[^"]*"/g];
 

@@ -1,42 +1,41 @@
 //! The feed spike's Rust fold: each tick of a batch (feed-worker.ts's
 //! layout) folded into the store's columns in place, as the GPUI contender's
-//! store would hold them. No allocation after `init`.
+//! store would hold them. The store is sized by `size` (market watch's 50, or
+//! the wall's desks of 50) before the first `init`; no allocation after it.
 
 const HEADER: usize = 24;
 const TICK: usize = 40;
-const N: usize = 50;
 /// Twice the largest batch the feed sends (5,000 ticks: 100 ms at 50k/s).
 const BATCH_CAPACITY: usize = HEADER + 10_000 * TICK;
 
-#[derive(Clone, Copy)]
 struct Store {
-    open: [f64; N],
-    last: [f64; N],
-    change: [f64; N],
-    change_pct: [f64; N],
-    bid: [f64; N],
-    ask: [f64; N],
-    bid_size: [f64; N],
-    ask_size: [f64; N],
-    volume: [f64; N],
-    high: [f64; N],
-    low: [f64; N],
-    changed: [u8; N],
+    open: Vec<f64>,
+    last: Vec<f64>,
+    change: Vec<f64>,
+    change_pct: Vec<f64>,
+    bid: Vec<f64>,
+    ask: Vec<f64>,
+    bid_size: Vec<f64>,
+    ask_size: Vec<f64>,
+    volume: Vec<f64>,
+    high: Vec<f64>,
+    low: Vec<f64>,
+    changed: Vec<u8>,
 }
 
 static mut STORE: Store = Store {
-    open: [0.0; N],
-    last: [0.0; N],
-    change: [0.0; N],
-    change_pct: [0.0; N],
-    bid: [0.0; N],
-    ask: [0.0; N],
-    bid_size: [0.0; N],
-    ask_size: [0.0; N],
-    volume: [0.0; N],
-    high: [0.0; N],
-    low: [0.0; N],
-    changed: [0; N],
+    open: Vec::new(),
+    last: Vec::new(),
+    change: Vec::new(),
+    change_pct: Vec::new(),
+    bid: Vec::new(),
+    ask: Vec::new(),
+    bid_size: Vec::new(),
+    ask_size: Vec::new(),
+    volume: Vec::new(),
+    high: Vec::new(),
+    low: Vec::new(),
+    changed: Vec::new(),
 };
 static mut BATCH: [u8; BATCH_CAPACITY] = [0; BATCH_CAPACITY];
 
@@ -58,6 +57,27 @@ pub extern "C" fn batch_ptr() -> *mut u8 {
 #[unsafe(no_mangle)]
 pub extern "C" fn batch_capacity() -> usize {
     BATCH_CAPACITY
+}
+
+/// The store's instruments: `n` rows in every column, all zero.
+#[unsafe(no_mangle)]
+pub extern "C" fn size(n: usize) {
+    let s = unsafe { &mut *(&raw mut STORE) };
+    let zeros = || vec![0.0; n];
+    *s = Store {
+        open: zeros(),
+        last: zeros(),
+        change: zeros(),
+        change_pct: zeros(),
+        bid: zeros(),
+        ask: zeros(),
+        bid_size: zeros(),
+        ask_size: zeros(),
+        volume: zeros(),
+        high: zeros(),
+        low: zeros(),
+        changed: vec![0; n],
+    };
 }
 
 /// The opening prices, one at a time.

@@ -1,4 +1,4 @@
-// Live tail's spike runs (throwaway; part A2 of the live tail milestone):
+// Live tail's spike runs (throwaway; the live tail's spike):
 // both sides on the NASA logs' file, read whole and registered as a `File`,
 // read a page at a time through DuckDB-Wasm, the rows growing by the clock
 // worker's counts, following from the open (tail/gpui.html: the tall table

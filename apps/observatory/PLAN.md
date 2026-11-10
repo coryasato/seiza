@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall | Planned |
+| M13 | Scenario: monitoring wall (parts A1–A3, B–F) | Active (part A2) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -48,23 +48,128 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-None: M12 closed 2026-11-10 (its spec and evidence in [`docs/milestones.md`](docs/milestones.md)). M13 opens next, with its research and spec as part A.
+### M13: Scenario: monitoring wall
+
+Opened 2026-11-10. An ops screen: a NOC wall, a trading floor's desks, live sports. Several small tables in one frame, all updating at once ([the research](docs/research/scenarios.md), "Monitoring wall"). Mechanisms: cost per cell (A) and allocation and garbage collection (B), in the canvas's terms one canvas against N DOM trees. It's the last scenario. Every feature it uses is built; it waits on nothing. M12's spec and evidence are in [`docs/milestones.md`](docs/milestones.md).
+
+**The design is M8's canvas** (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK: its "Wall" board, dark, GPUI, eight tables, and the main board's `wall` scenario), followed as drawn ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page"):
+- **The lead:** "Several live tables in one frame. Turn up the tables."
+- **The dial:** "Tables", stops 4, 6, and 8, laid out 2×2, 3×2, and 4×2 (one column on a phone), each table at 2k updates/s. The canvas's default is 6.
+- **The grid:** tables 8 px apart, padded 8 px, on the sidebar's color. Each table has a 26 px title (its desk: Energy, Rail and freight, Banks, Chips, Health, Retail, Materials, Utilities), then 4 columns at 24 px rows and 12 px text: Symbol 64, Last 76, Chg % 72, Volume 80 px. Last flashes and Chg % is drawn by its sign, as market watch's are.
+- **The status bar:** Ready in, Shown in, Smooth, Memory (on a phone, Shown in and Smooth); the data "Simulated stock prices", 400 rows; a "Synthetic data" tag.
+- **The panel:** the keeps-up chart over the three stops, both devices; then three cards at the chosen stop: Smoothness, Update shown in (p50), and Collection pauses in 10 s; then Ready in and Download.
+- **The gallery card:** a mosaic of eight small tables; the mechanisms A and B.
+
+Every number on the canvas is a sketch (its verdict "GPUI keeps up at 8 tables, TanStack at 4" included). The canvas doesn't draw a phone board for the wall, or what a table shows past its tenth row. Part A3 draws both, decided with the user, never built silently.
+
+**The level: `wall`, a build of its own** (decided with the user 2026-11-10, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"). It is market watch's features plus `density` (`custom-cells`, `live`, `format`, `density`). Without `density`, the table sizes its columns by kind: Symbol 200 px and each number 120, about 560 px a table, against ~280 px for a table in a 4-across grid at 1440 × 900. Market watch's level stays as it is, so its builds and its numbers are unchanged. The wall gets one more build per side, with budgets of its own.
+
+**The data: 400 fictional instruments in 8 desks of 50** (decided with the user 2026-11-10, the same entry). A file of their own: each instrument's desk, symbol, and reference price (no name: the wall draws none; A1-1), written by `prep.ts` from one home in the feed's module and checked against US listings, as market watch's 50 are. It is labelled synthetic and credited as the observatory's own. Market watch's file and feed are unchanged. One seeded feed sends every desk's ticks in a worker per frame, in market watch's tick format (its u16 instrument holds 0–399), so each side's store and fold are market watch's, widened to 400 rows.
+
+**On each side:**
+- **GPUI:** N `TallTableState`s in one window, each a desk's 50 rows, laid out by the host in the stop's grid.
+- **TanStack:** N tables in one React tree, each its own virtualizer over its desk.
+
+Both take the same feed, the same desks, the same widths, and the same flash. The marks a stop's readings need with N tables are A1's: "filled" once every table has its rows, and Shown in pooled across the tables or per table.
+
+**Parts** (each one session; A3 confirms B–F):
+- **A1: the data, the feed, and the level's shape.**
+  - The instruments: 400 fictional symbols and price levels by desk, the US-listing check, a draft `prep-wall` (rows, bytes).
+  - The feed: market watch's module widened, or a module of its own over the same format, and which. Its rate sustained in its worker at 4, 6, and 8 desks × 2k (8k–16k ticks a second, inside the 50k market watch's worker held, [M10 A1](perf/results/2026-11-04-m10-a1.md)), and each side's fold at 16k.
+  - The per-table rate kept at the canvas's 2k or moved: at 2k a desk gets ~33 ticks a frame over 50 rows, so a third of its visible rows change a drawn cell each frame (A1-3).
+  - The level's build shape on each side: the Cargo feature `wall`, `contenders/level.ts`, `BUILT`, the staging.
+  - The contract with N tables: which marks, and how Shown in and "filled" read across tables.
+  - The fixtures: the feed fixture's fold at 400 rows, and `cells.json`'s section if the wall's text isn't market watch's.
+- **A2: the spike on both sides and the stops.** N tables at each stop on each side, on A1's feed: the GPUI bare host (or the contender) with N table entities in a grid, and the TanStack spike with N virtualizers. Measured at each stop, both devices: Smooth, work per frame, Shown in, and collection pauses.
+  - The verdict's measure: market watch's "keeps up" (≥ 90% of batches shown in a frame of their own) taken across N tables, or changed.
+  - The stops kept at 4/6/8 or moved to where the edges fall, decided with the user.
+  - The suite's time.
+- **A3: the measures, the boards, and B–F confirmed.**
+  - The measures made exact: Ready in, Shown in, Smooth, Memory, Download, collection pauses.
+  - The boards on M8's canvas, decided with the user before anything is built: the phone's one column (the frame scrolls, or the tables shrink), a table's rows past its tenth (each table scrolls on its own, or the desk shows its top rows), light and dark, desktop and phone.
+- **B: the data, the feed, and the GPUI contender at the level:** `prep-wall` and its `MANIFEST.json` entry, the feed and its fixture, the scenario in `scenarios.ts`, the build `wall` with its wasm and TTFP budgets.
+- **C: the TanStack contender at the level:** N tables, the fold, the flash, and the marks; its first-paint JS and data-layer budgets; `tanstack-parity` and `tanstack-contract` at the level.
+- **D: the numbers.** The cold suite once, on the final build (a long run: a code review first), and beside it the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 ("Open questions"). Likely split as market watch's D was: the metrics at the level first, then the runs.
+- **E: the page,** as the canvas and A3's boards draw it, and the Overview's rule if the wall changes it.
+- **F: shipped.** The README's section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+
+**Done when** (draft; the measures made exact in A1–A3):
+- [ ] **Its builds:** the level `wall` on both sides carries market watch's features and `density` (and their counterparts), and nothing else; every other level byte-identical to before. Its budgets (`gpui-wall-*`, `tanstack-wall-*`) are against baselines of their own, gated by `check`, with each feature's added bytes in a results note.
+- [ ] **Its data credited:** the instruments' file in `MANIFEST.json` (rows, bytes, SHA-256, credited as the observatory's own, synthetic); the page and the README say the feed is synthetic and seeded.
+- [ ] **The same on both sides:**
+  - One feed module sends the same bytes to either side, and every tick reaches its table's store.
+  - The feed fixture at 400 rows passes on both sides' stores, with its control.
+  - The cells shown after a fixed run of ticks are byte-identical on both sides, every table.
+  - Both sides draw the tables in the same grid and at the same widths.
+  - `tanstack-parity` covers the grid, the flash, and the sign colors in Chromium, Firefox, and WebKit.
+- [ ] **Its runs:** `check` gates the level's budgets and runs its smoke, fixtures, and contract checks. The full cold protocol (its stops × both sides × both devices × 10 runs) runs once, in part D, each results file labelled `monitoring-wall-<stop>` with its versions.
+- [ ] **Its numbers:** at each stop, both sides, both devices: whether it keeps up, Shown in p50, collection pauses in 10 s, late frames, work per frame. Once a scenario: usable, data, memory. A results note, which also holds the 0.9.0 against 0.9.1 A/B and its verdict.
+- [ ] **The page:** the route, the dial, the grid, the status bar, the panel, and the description as the canvas and A3's boards draw them, "Measured with …" from the results; `page --check` covers them.
+- [ ] **Shipped:** the README's monitoring wall section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+
+### Part A1: the data, the feed, and the level's shape
+
+**Done when:**
+- [x] **A1-1, the instruments:** 400 fictional instruments in the canvas's 8 desks of 50 (desk, symbol, reference price), none listed on a US exchange (the check market watch's prep runs) and none repeating market watch's 50 symbols; a draft `prep-wall` with native DuckDB (rows, bytes, row groups).
+  *Evidence* ([results](perf/results/2026-11-10-m13-a1.md)): 400 symbols generated once (`spike/wall/gen.ts`, seed `0x3a11`) and pinned as text in `spike/wall/instruments.ts`, 110 listed candidates rejected (NASDAQ Trader's directories, 14,246 symbols, with the AAPL and IBM control), none repeating market watch's or each other. Prices are log-uniform in a range per desk (Materials 4–85 up to Chips 25–480). No name column: the wall draws none. The draft file (`spike/wall/prep-wall.sql`, native DuckDB 1.4.5) is `Desk`, `Symbol`, `Last`, `Change %`, `Volume`: 400 rows in the feed's order, 3,646 B, one row group.
+- [x] **A1-2, the feed:** where its module lives and how it's shared with market watch's (same tick format, the instrument a u16 over 400); its rate held in its worker at 8k, 12k, and 16k ticks a second (every tick delivered, the worker's busy ms a second), each side's fold of a batch at 16k, and the first 2,000 ticks' digest the same across runs.
+  *Evidence* ([results](perf/results/2026-11-10-m13-a1.md)), reference, median of 3:
+  - **Delivered:** 100% at 8k, 12k, and 16k (4, 6, 8 desks × 2k), ~52 batches a second, post → handler ~0.2 ms p50, the worker busy 16–23 ms a second.
+  - **The fold of a batch at 16k:** `objects` 0.37 µs a tick (5.9 ms a second, 17 collections in 10 s, longest 0.94 ms), `typed` 0.08, `wasm` 0.15, neither making garbage.
+  - **The same ticks:** each stop's digest the same in every run (`8c545d85` at 8 desks), and the three folds agree after 20,000 ticks, over the 400 and over market watch's 50, the dropped-tick control differing. The spike's feed writes the contender's bytes (`spike/wall/same-feed.ts`, with another seed as its control): the first runs, on a stale copy, are superseded (the note says how).
+  - **Throttled:** reads faster than the reference on this idle page, as in M10 A1, so only its counts are read (100% delivered at every stop).
+  - **The module:** market watch's `Feed`, taking its instruments' prices (market watch's 50 the default, its fixture to regenerate byte-identical in B). The worker's start names the instruments and the stop's desks; the 400's home is `contenders/wall/`.
+- [x] **A1-3, the per-table rate:** the canvas's 2k a table kept or moved, from the share of each desk's visible rows changed a frame at 1k, 2k, and 5k. *Kept for A2's spike, which moves it if no edge falls inside the dial.*
+  - **What changes a drawn cell:** the wall draws Last, Chg %, and Volume. A quote tick (40%) changes none of them, only Bid and Ask, which market watch draws and the wall doesn't. A trade always adds to Volume, and moves Last half the time.
+  - **What a frame redraws, counted from the store's values** (`spike/wall/changed.ts`: the feed's own ticks, 3,000 frames at 60 Hz, the visible rows only). Cells changed counts only columns whose value moved, and cells flashing counts those within 400 ms of a change. The wall has 8 desks × 16 rows on screen (a bare page's 900 px in two rows of tables); market watch has 29 of its 50.
+
+    | | Rows changed a frame | Cells changed a frame | Cells flashing |
+    |---|---|---|---|
+    | Wall, 1k a desk | 23 (18%) | 47 | 116 of 128 |
+    | Wall, 2k a desk | 42 (33%) | 87 | 127 of 128 |
+    | Wall, 5k a desk | 81 (63%) | 172 | 128 of 128 |
+    | Market watch, 1k | 8 (28%) | 39 | 83 of 87 |
+    | Market watch, 5k | 24 (81%) | 125 | 87 of 87 |
+
+  - **At 2k:** the wall changes 87 cells a frame, between market watch's 1k and 5k (39 and 125), where its edges fell (TanStack on the slow device kept up to 1k). Nearly every Last on screen is flashing at any moment, more flashing cells than market watch ever has. The share of rows changed doesn't depend on how many show, since the feed spreads a desk's ticks evenly over its 50.
+  - **A2 settles it:** the spike runs 2k a desk, and 5k a desk too if neither side's edge falls between 4 and 8 tables on either device. A rate that moves is decided with the user, as market watch's stops were.
+- [x] **A1-4, the level's shape:** the `wall` level in `LEVEL_FEATURES`, `BUILT`, `contenders/level.ts`, the GPUI crate's feature, and the staging; what each touches, listed for parts B and C.
+  - **Unchanged, and driven by the lists:** the recipes, `sizes`, `cold`, `tanstack-sizes`, `placeholder`, the page's servers, and `worker/scripts/stage.ts` all loop over `BUILT` (`contenders/built.ts`), and `level.ts`'s `levelOf`, `gpuiCargoFeatures` (`[level]`), and `levelOutDir` (`dist-wall/`) take any level. Adding `wall` to `BUILT` builds, sizes, stages, and gates it. `perf/budgets.json` and `baseline.json` gain `gpui-wall-*` and `tanstack-wall-*`, written by each side's first `--level wall` run.
+  - **`contenders/scenarios.ts` (part B):** `Level` gains `wall`, and `LEVEL_FEATURES.wall` is `custom-cells`, `live`, `format`, `density`. A `WallScenario` holds its stops (`{ id, label, tables }`: 4, 6, 8), the rate a desk, the desks' names, the seed, and market watch's signs and flash (shared, not copied). `MONITORING_WALL` joins `ALL_SCENARIOS`, then `BUILT.gpui` in B and `BUILT.tanstack` in C, then `SCENARIOS` in E.
+  - **The GPUI crate (B):** a feature `wall`, market watch's six features plus `seiza-tall-table/density` and `tall-table-bridge/density`.
+    - The market code it shares is the feed's receiver (`feed.rs`), the store (`market.rs`), and the market source (`scene/market.rs`). It goes under `cfg(any(feature = "market", feature = "wall"))`, not a `wall` that turns on `market`: market watch's file check and single-table host stay market's.
+    - The host's `Load::Open` holds N tables (a wall of entities over one store), and `Host::feed` folds once, then invalidates each ticked row in its own table. A grid view lays them out at the stop's columns. `scene/wall.rs` holds the 4 columns, their widths, and the title row.
+    - Market watch's wasm stays byte-identical: `sizes` at the market level against its file of record.
+  - **The TanStack contender (C):** `__LEVEL__ === 'wall'` branches. `App` renders N table components in a grid, each with its own virtualizer, over market watch's store widened to 400 rows (`data/quotes.ts`, `data/market.ts`), with a `wall.css`. Market watch's bundle is unchanged: `tanstack-sizes` at the market level.
+  - **The data (B):** `prep.ts --only wall`, its SQL (`prep-wall.sql`, from A1-1's draft), and a `MANIFEST.json` entry; `stage.ts` stages every file `MANIFEST.json` names, so the entry is all it needs.
+  - **Later parts:** the page's lists (`web/src/components.ts`, `gallery.ts`, `slot.ts`) in E; `metric-feed` and the once-a-scenario metrics at the level in D; `tanstack-contract` and `tanstack-parity` at the level in C; `burst` in F.
+- [x] **A1-5, the contract and the fixtures with N tables:** the marks (filled, usable, Shown in's stamps) and how each reads across tables, `docs/contender-contract.md`'s changes listed; the fixtures the wall adds (the feed fixture at 400 rows, a cells section if its text differs from market watch's).
+  - **Unchanged:** `first-pixels`, `usable`, `open` (one open of the file; a desk's 50 rows are one page, read once and then answered from the store, as market watch's are), and `input` (the window's first key; on GPUI the first table holds the focus).
+  - **`filled`, across the tables:** set once every table's visible rows hold real data, and again each time that becomes true. On GPUI, the host marks when the last table's `Filled` arrives; on TanStack, in the commit that makes every table's rows real. Time to data is the open → all N filled.
+  - **`refreshed` and Shown in, per table, then pooled:**
+    - Each table keeps its own generation (GPUI's `invalidate_rows` already counts per table). `__contenderRefreshed` becomes an array, the highest generation drawn per table, and `contender:refreshed` is set after each frame that draws any table's re-read.
+    - A batch's entry in `__contender.batches` becomes `[seq, ticks, sent, generations: number[] (per table, 0 for none), visible: number (a bitmask of the tables whose on-screen rows it ticked)]`.
+    - A batch is shown in the first frame at whose `refreshed` mark every table in its mask has drawn its generation: one reading per batch, pooled across the wall. Why: a batch is what the wall shows at once. One canvas draws every table in one frame, while N DOM trees may not, and that's the scenario's question. Keeps up is market watch's `feedFrames` over those pairs. The readout's ring takes the pooled reading.
+  - **`state`:** the first table's, as today, plus `tables: N`. The wall's measures don't scroll; A3 confirms none needs more.
+  - **Replay hooks and targets:** `load` only. The fling and the jump to 90% have no meaning on a 50-row desk; A3 confirms on the boards that the page offers none.
+  - **`failed`:** as market watch's, its file check being the wall's instruments (400 rows, the five columns).
+  - **The fixtures:**
+    - The feed fixture at 400 rows: `contenders/wall/fixtures/feed.json`, the first 2,000 ticks over the 8 desks and the store after them, written by market watch's `write.ts` widened. It's run by both stores with the control (a dropped tick), beside market watch's, which must regenerate byte-identical.
+    - No `cells.json` section: the wall draws market watch's formats (Last at its decimals, Chg % as "+1.23%", Volume grouped) through the same code, and its flash is `paint.json`'s. The done-when's cross-side check (the cells after a fixed run of ticks, every table) covers the wall's own text.
+    - The paging fixtures are unchanged: a desk is one page.
+  - **`docs/contender-contract.md`'s changes, for B and C:** the marks table's `filled` and `refreshed` rows, the state's `batches` and `__contenderRefreshed`, "Reading the metrics"'s Shown in and keeps up, and the feed's paragraph (one worker, the stop's desks of 50 from the 400).
 
 ---
 
 ## Next milestones
 
-The "done when" checks are drafts until their milestone becomes active. The scenarios (M9–M13) are in the research's build order ([`docs/research/scenarios.md`](docs/research/scenarios.md), where each one's workload, measures, dial, and needs are); each scenario's research and spec open its milestone as part A, as the table's features do, and its later parts are split there.
+The "done when" checks are drafts until their milestone becomes active. The scenarios (M9–M13; M13 now active, above) are in the research's build order ([`docs/research/scenarios.md`](docs/research/scenarios.md), where each one's workload, measures, dial, and needs are); each scenario's research and spec open its milestone as part A, as the table's features do, and its later parts are split there.
 
 **Every scenario milestone** (decided 2026-10-30, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"), each item a "done when" check of its own:
-- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall market watch's, if its features match).
+- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall has a level of its own, `wall`, since it needs `density`, which market watch's lacks).
 - **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
 - **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
 - **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
-
-### M13: Scenario: monitoring wall
-
-4–8 small tables updating at once: one canvas against N DOM trees. Market watch's updates N times, in the layout M8 decides. The last scenario.
 
 ### M14: The wide sheet's later steps: a resize drag, a range copied
 

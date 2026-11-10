@@ -525,3 +525,14 @@ One entry per milestone, written before starting the next one: what surprised us
 **Surprises:**
 - `burst` didn't know the admin table: a scenario joining the page doesn't join `burst` by itself, and the fonts toggle's 13 faces were a new kind of request. Measured, the admin table is the lightest scenario on the wire (55 in its busiest 10 s, the toggle on and off included), since its file is one page.
 - gpui-kit 0.9.1's budget gate, deferred from the bump to this deploy, held on every level with TTFP within a couple of ms of each level's baseline: the per-event cursor write the bump's note flagged doesn't touch first paint.
+
+## M13 part A1: the monitoring wall's instruments, its feed, and its rate (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-a1.md`](../perf/results/2026-11-10-m13-a1.md).
+
+**Surprises:**
+- The canvas assumed the wall could share market watch's build, but its column widths need `density`, which market watch's level lacks: at the table's widths by kind, one of its tables is twice as wide as its grid cell. A design's sizes are worth checking against the level before planning the build.
+- The wall's new values are lighter than its tick rate suggests, but its flash isn't. It draws Last, Chg %, and Volume, which a quote tick never changes, so at the canvas's 2k a desk only a third of each desk's visible rows get a new value a frame. But a Last that moved flashes for 400 ms, so nearly every Last on screen is flashing at any moment, from 1k a desk up.
+- The spike's copy of the feed had kept the upward drift that market watch's contender fixed on 2026-11-05, and its first runs measured that walk; the code review found it. The spike now checks its copy writes the contender's bytes (`spike/wall/same-feed.ts`). A spike's copy of shipped code drifts unless something compares them.
+- The term check's `part [A-G]\b` never matched "part A1", so milestone IDs in code passed lint; its pattern takes a number after the letter now.
+- 16k ticks a second costs the feed's worker no more than 8k did: the stops' cost is all in the drawing, as at market watch.

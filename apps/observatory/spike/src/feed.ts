@@ -13,7 +13,8 @@
 // the worker's generation ms go on `__feed`; `__feedStore()` gives the
 // store's fields per instrument, the same for either fold.
 
-import { HEADER, INSTRUMENTS, TICK } from './feed-worker.ts';
+import { HEADER, INSTRUMENTS as MARKET, TICK } from './feed-worker.ts';
+import { DESKS, WALL_INSTRUMENTS } from '../wall/instruments.ts';
 
 const params = new URLSearchParams(location.search);
 const rate = Number(params.get('rate') ?? 5000);
@@ -24,6 +25,12 @@ const limit = Number(params.get('ticks') ?? 0);
 const drop = params.has('drop') ? Number(params.get('drop')) : -1;
 let folded = 0;
 const fold = (params.get('fold') ?? 'objects') as 'none' | 'objects' | 'typed' | 'wasm';
+/** `?desks=<n>`: the monitoring wall's first n desks of 50, else market watch's 50. */
+const desks = Number(params.get('desks') ?? 0);
+if (!Number.isInteger(desks) || desks < 0 || desks > DESKS.length) throw new Error(`?desks=${params.get('desks')}: a whole number of desks, 0 to ${DESKS.length}`);
+const INSTRUMENTS: [string, string, number][] = desks
+  ? WALL_INSTRUMENTS.slice(0, desks * 50).map(([d, s, p]) => [s, DESKS[d]!, p])
+  : MARKET;
 
 interface Quote {
   symbol: string;
@@ -59,6 +66,7 @@ interface FoldExports {
   memory: WebAssembly.Memory;
   batch_ptr(): number;
   batch_capacity(): number;
+  size(n: number): void;
   init(i: number, price: number): void;
   fold(len: number): number;
   field(f: number, i: number): number;
@@ -69,6 +77,7 @@ if (fold === 'wasm') {
   const { instance } = await WebAssembly.instantiateStreaming(fetch(new URL('/fold/fold.wasm', location.href)));
   wasm = instance.exports as unknown as FoldExports;
   wasmPtr = wasm.batch_ptr();
+  wasm.size(n);
   for (let i = 0; i < n; i++) wasm.init(i, open[i]!);
 }
 
@@ -168,7 +177,7 @@ worker.onmessage = ({ data }: MessageEvent<ArrayBuffer>) => {
   record.gen.push(view.getFloat64(16, true));
   record.seq.push(view.getUint32(0, true));
 };
-(globalThis as any).__feedStart = () => worker.postMessage({ rate, seed, send, limit });
+(globalThis as any).__feedStart = () => worker.postMessage({ rate, seed, send, limit, prices: INSTRUMENTS.map(([, , p]) => p) });
 (globalThis as any).__feedFolded = () => folded;
 (globalThis as any).__feedSink = () => sink;
-document.body.textContent = `feed ${rate}/s ${send} ${fold}`;
+document.body.textContent = `feed ${rate}/s ${send} ${fold} over ${n}`;

@@ -12,7 +12,7 @@
 //
 // Usage: node apps/observatory/spike/feed-run.ts [--runs 3] [--rates 1000,5000,20000,50000]
 //          [--folds none,objects,typed,wasm] [--send batch|tick] [--profiles reference,throttled]
-//          [--no-build] [--label m10-a1-feed] [--agree]
+//          [--no-build] [--label m10-a1-feed] [--agree] [--desks <n>: the wall's first n desks]
 // Writes perf/results/<date>-<label>.json.
 
 import { execFileSync } from 'node:child_process';
@@ -32,6 +32,10 @@ const FOLDS = (option('folds') ?? 'none,objects,typed').split(',');
 const SEND = option('send') ?? 'batch';
 const PROFILE_NAMES = (option('profiles') ?? 'reference,throttled').split(',');
 const LABEL = option('label') ?? 'm10-a1-feed';
+/** --desks <n>: the monitoring wall's first n desks (50 instruments each), else market watch's 50. */
+const DESKS = Number(option('desks') ?? 0);
+if (!Number.isInteger(DESKS) || DESKS < 0 || DESKS > 8) throw new Error(`--desks ${option('desks')}: a whole number of desks, 0 (market watch's 50) to 8`);
+const DESK_PARAM: Record<string, string> = DESKS ? { desks: String(DESKS) } : {};
 const PORT = 4355;
 const SETTLE_MS = 1000;
 const WINDOW_MS = 10_000;
@@ -78,7 +82,7 @@ function busy(events: readonly TraceEvent[], thread: { pid: number; tid: number 
 
 async function once(url: string, rate: number, fold: string, profileName: string) {
   const profile = PROFILES.find((p) => p.name === profileName)!;
-  const session = await open(chromium, `${url}feed.html`, { profile, params: { rate: String(rate), fold, send: SEND } });
+  const session = await open(chromium, `${url}feed.html`, { profile, params: { rate: String(rate), fold, send: SEND, ...DESK_PARAM } });
   const { page } = session;
   // --cdp-rate <n>: a CDP session setting that CPU rate (1: none), to tell
   // the session's effect from the slowdown's.
@@ -146,7 +150,7 @@ async function agree(url: string): Promise<{ ok: boolean; lines: string[] }> {
   const TICKS = 20_000;
   const lines: string[] = [];
   const storeOf = async (fold: string, extra: Record<string, string> = {}) => {
-    const session = await open(chromium, `${url}feed.html`, { params: { rate: '50000', fold, send: 'batch', ticks: String(TICKS), ...extra } });
+    const session = await open(chromium, `${url}feed.html`, { params: { rate: '50000', fold, send: 'batch', ticks: String(TICKS), ...DESK_PARAM, ...extra } });
     try {
       await session.page.waitForFunction(() => typeof (globalThis as any).__feedStart === 'function');
       await session.page.evaluate(() => (globalThis as any).__feedStart());
@@ -200,7 +204,7 @@ try {
         for (let r = 0; r < RUNS; r++) runs.push(await once(server.url, rate, fold, profile));
         const pick = (f: (run: (typeof runs)[number]) => number) => round(median(runs.map(f)), 3);
         const summary = {
-          profile, rate, fold, send: SEND, runs: runs.length,
+          profile, rate, fold, send: SEND, desks: DESKS, runs: runs.length,
           ticksPerSecond: pick((r) => r.ticksPerSecond),
           deliveredShare: pick((r) => r.deliveredShare),
           batchesPerSecond: pick((r) => r.batchesPerSecond),

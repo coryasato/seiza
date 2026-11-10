@@ -55,9 +55,10 @@ export class Feed {
   private readonly next: () => number;
   private readonly state: State[];
 
-  constructor(seed: number) {
+  /** `prices`: the reference prices, market watch's 50 unless given (the monitoring wall's 400). */
+  constructor(seed: number, prices: readonly number[] = INSTRUMENTS.map(([, , price]) => price)) {
     this.next = rng(seed);
-    this.state = INSTRUMENTS.map(([, , price]) => {
+    this.state = prices.map((price) => {
       const scale = price < 10 ? 1000 : 100;
       const ticks = Math.round(price * scale);
       return { last: ticks, ref: ticks, scale, spread: 1 };
@@ -70,10 +71,12 @@ export class Feed {
     const s = this.state[instrument]!;
     const trade = this.next() < 0.6;
     if (trade) {
-      // A step of one tick, leaning back toward the reference price.
+      // A step of one tick: up and down even at the reference, leaning back
+      // toward it as the last strays (the contender's, `contenders/market/
+      // feed.ts`; `wall/same-feed.ts` checks the two write the same bytes).
       const lean = Math.max(-0.2, Math.min(0.2, ((s.last - s.ref) / s.ref) * 20));
       const r = this.next();
-      if (r < 0.5 - lean) s.last += 1;
+      if (r < 0.25 - lean / 2) s.last += 1;
       else if (r > 0.75 - lean / 2) s.last -= 1;
     }
     s.spread = 1 + Math.floor(this.next() * 3);
@@ -102,11 +105,13 @@ interface Start {
   send: 'batch' | 'tick';
   /** Stop after this many ticks (0: never). */
   limit: number;
+  /** The instruments' reference prices (default market watch's 50). */
+  prices?: number[];
 }
 
 if (typeof self !== 'undefined' && typeof (self as unknown as { importScripts?: unknown }).importScripts === 'function') {
   self.onmessage = ({ data }: MessageEvent<Start>) => {
-    const feed = new Feed(data.seed);
+    const feed = new Feed(data.seed, data.prices);
     let seq = 0;
     let sent = 0;
     let owed = 0;
