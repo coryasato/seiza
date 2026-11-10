@@ -1,0 +1,257 @@
+{
+  "date": "2026-11-10",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "settleMs": 1000,
+  "rate": 2000,
+  "results": [
+    {
+      "summary": {
+        "profile": "reference",
+        "tables": 8,
+        "rate": 2000,
+        "side": "gpui",
+        "runs": 3,
+        "keepsUpPct": 99.8,
+        "keepsUpPctRuns": [
+          99.8,
+          99.8,
+          99.6
+        ],
+        "shownInP50Ms": 24.25,
+        "shownInP95Ms": 32.3,
+        "anyShownInP50Ms": 24.25,
+        "splitPct": 0,
+        "toMarkP50Ms": 14.64,
+        "toPresentP50MsRuns": [
+          0.88,
+          9.98,
+          9.98
+        ],
+        "latePct": 0,
+        "workP50Ms": 6.84,
+        "workP95Ms": 7.31,
+        "busyMsPerSecond": 420.2,
+        "collectionsIn10s": 3,
+        "collectionLongestMs": 1,
+        "collectionsInLateFrame": 0,
+        "visiblePerSecond": 51.8,
+        "batchesPerSecond": 51.8,
+        "spinMs": 116.1,
+        "failures": []
+      },
+      "runs": [
+        {
+          "batchesPerSecond": 51.6,
+          "visiblePerSecond": 51.6,
+          "shownPerSecond": 51.5,
+          "keepsUpPct": 99.8,
+          "shownInP50Ms": 15.58,
+          "shownInP95Ms": 23.62,
+          "anyShownInP50Ms": 15.58,
+          "splitPct": 0,
+          "toMarkP50Ms": 14.64,
+          "toPresentP50Ms": 0.88,
+          "unpaired": 2,
+          "latePct": 0,
+          "workP50Ms": 6.84,
+          "workP95Ms": 7.52,
+          "busyMsPerSecond": 421,
+          "collections": {
+            "count": 3,
+            "minor": 1,
+            "major": 2,
+            "totalMs": 2.44,
+            "longestMs": 0.97,
+            "inLateFrame": 0
+          },
+          "spinMs": 116,
+          "failures": []
+        },
+        {
+          "batchesPerSecond": 51.8,
+          "visiblePerSecond": 51.8,
+          "shownPerSecond": 51.7,
+          "keepsUpPct": 99.8,
+          "shownInP50Ms": 24.71,
+          "shownInP95Ms": 32.48,
+          "anyShownInP50Ms": 24.71,
+          "splitPct": 0,
+          "toMarkP50Ms": 14.9,
+          "toPresentP50Ms": 9.98,
+          "unpaired": 2,
+          "latePct": 0,
+          "workP50Ms": 6.83,
+          "workP95Ms": 7.31,
+          "busyMsPerSecond": 420.2,
+          "collections": {
+            "count": 4,
+            "minor": 2,
+            "major": 2,
+            "totalMs": 2.77,
+            "longestMs": 1.03,
+            "inLateFrame": 0
+          },
+          "spinMs": 118.6,
+          "failures": []
+        },
+        {
+          "batchesPerSecond": 52.1,
+          "visiblePerSecond": 52.1,
+          "shownPerSecond": 51.9,
+          "keepsUpPct": 99.6,
+          "shownInP50Ms": 24.25,
+          "shownInP95Ms": 32.3,
+          "anyShownInP50Ms": 24.25,
+          "splitPct": 0,
+          "toMarkP50Ms": 14.23,
+          "toPresentP50Ms": 9.98,
+          "unpaired": 3,
+          "latePct": 0,
+          "workP50Ms": 6.84,
+          "workP95Ms": 7.26,
+          "busyMsPerSecond": 419.6,
+          "collections": {
+            "count": 3,
+            "minor": 1,
+            "major": 2,
+            "totalMs": 2.61,
+            "longestMs": 1,
+            "inLateFrame": 0
+          },
+          "spinMs": 116.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "reference",
+        "tables": 8,
+        "rate": 2000,
+        "side": "gpui-hold",
+        "runs": 3,
+        "keepsUpPct": 99.6,
+        "keepsUpPctRuns": [
+          99.6,
+          99.6,
+          99.6
+        ],
+        "shownInP50Ms": 42.06,
+        "shownInP95Ms": 50.11,
+        "anyShownInP50Ms": 42.06,
+        "splitPct": 0,
+        "toMarkP50Ms": 32.03,
+        "toPresentP50MsRuns": [
+          10.09,
+          10.04,
+          10.02
+        ],
+        "latePct": 0,
+        "workP50Ms": 6.78,
+        "workP95Ms": 7.25,
+        "busyMsPerSecond": 422.6,
+        "collectionsIn10s": 4,
+        "collectionLongestMs": 1.05,
+        "collectionsInLateFrame": 0,
+        "visiblePerSecond": 52.6,
+        "batchesPerSecond": 52.6,
+        "spinMs": 116.8,
+        "failures": []
+      },
+      "runs": [
+        {
+          "batchesPerSecond": 52.6,
+          "visiblePerSecond": 52.6,
+          "shownPerSecond": 52.4,
+          "keepsUpPct": 99.6,
+          "shownInP50Ms": 42.06,
+          "shownInP95Ms": 49.95,
+          "anyShownInP50Ms": 42.06,
+          "splitPct": 0,
+          "toMarkP50Ms": 32.03,
+          "toPresentP50Ms": 10.09,
+          "unpaired": 3,
+          "latePct": 0,
+          "workP50Ms": 6.72,
+          "workP95Ms": 7.11,
+          "busyMsPerSecond": 417.2,
+          "collections": {
+            "count": 4,
+            "minor": 2,
+            "major": 2,
+            "totalMs": 3.31,
+            "longestMs": 1.05,
+            "inLateFrame": 0
+          },
+          "spinMs": 117.3,
+          "failures": []
+        },
+        {
+          "batchesPerSecond": 53.3,
+          "visiblePerSecond": 53.3,
+          "shownPerSecond": 53.1,
+          "keepsUpPct": 99.6,
+          "shownInP50Ms": 41.82,
+          "shownInP95Ms": 50.11,
+          "anyShownInP50Ms": 41.82,
+          "splitPct": 0,
+          "toMarkP50Ms": 31.85,
+          "toPresentP50Ms": 10.04,
+          "unpaired": 4,
+          "latePct": 0,
+          "workP50Ms": 6.78,
+          "workP95Ms": 7.25,
+          "busyMsPerSecond": 422.6,
+          "collections": {
+            "count": 4,
+            "minor": 2,
+            "major": 2,
+            "totalMs": 3.12,
+            "longestMs": 0.99,
+            "inLateFrame": 0
+          },
+          "spinMs": 115.5,
+          "failures": []
+        },
+        {
+          "batchesPerSecond": 52.5,
+          "visiblePerSecond": 52.5,
+          "shownPerSecond": 52.3,
+          "keepsUpPct": 99.6,
+          "shownInP50Ms": 42.18,
+          "shownInP95Ms": 50.14,
+          "anyShownInP50Ms": 42.18,
+          "splitPct": 0,
+          "toMarkP50Ms": 32.33,
+          "toPresentP50Ms": 10.02,
+          "unpaired": 4,
+          "latePct": 0,
+          "workP50Ms": 6.81,
+          "workP95Ms": 7.29,
+          "busyMsPerSecond": 424.5,
+          "collections": {
+            "count": 4,
+            "minor": 2,
+            "major": 2,
+            "totalMs": 3.26,
+            "longestMs": 1.09,
+            "inLateFrame": 0
+          },
+          "spinMs": 116.8,
+          "failures": []
+        }
+      ]
+    }
+  ]
+}

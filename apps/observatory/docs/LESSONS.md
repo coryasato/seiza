@@ -536,3 +536,16 @@ One entry per milestone, written before starting the next one: what surprised us
 - The spike's copy of the feed had kept the upward drift that market watch's contender fixed on 2026-11-05, and its first runs measured that walk; the code review found it. The spike now checks its copy writes the contender's bytes (`spike/wall/same-feed.ts`). A spike's copy of shipped code drifts unless something compares them.
 - The term check's `part [A-G]\b` never matched "part A1", so milestone IDs in code passed lint; its pattern takes a number after the letter now.
 - 16k ticks a second costs the feed's worker no more than 8k did: the stops' cost is all in the drawing, as at market watch.
+
+## M13 part A2: the monitoring wall's spike, its stops, and its measure (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-a2.md`](../perf/results/2026-11-10-m13-a2.md).
+
+**Surprises:**
+- The scenario's premise, one canvas against N DOM trees, didn't show as tables drawn apart: one React root committing every table in one `flushSync` draws them all in one frame, as one canvas does. The difference is each frame's cost and its collections, not how many frames a batch is spread across.
+- The canvas's sketch was a stop too generous to GPUI: on the slow device it keeps up at 6 tables only just (90.0% over 6 runs) and not at 8. TanStack's edge is where the canvas put it (4).
+- The stop where both main threads first saturate (6 tables, slow device) is the only one whose runs spread widely: 13 points on GPUI, 7 on TanStack, across two sweeps at different loads. Every other stop held within a point or two. A verdict on the line there needs its spread read beside its median.
+- The spike's runs didn't check that every batch reached the side, and GPUI's fold could drop half a batch in silence; the code review found both. The rerun with a gap check (and its control, a dropped batch) lost none, but only the rerun can say so.
+- `check-terms` read only the files git tracks, so a session's new files went unchecked until they were added; and it missed a part's bare ID ("A1's").
+- A frame-late control that commits "a frame later" has to commit the frame's snapshot. The first one rendered the store as it was at the commit, which the next frame's own data had already reached, so nothing was held and the control read the free run's numbers. It passed only once it committed what the frame had taken, as market watch's A2 had to learn for its own hold.
+- GPUI's tables show about half a row less than the DOM's at the same box: the tall table's frame keeps some room at the bottom that the DOM's scroller doesn't.

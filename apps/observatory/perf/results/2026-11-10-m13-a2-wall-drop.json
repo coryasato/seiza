@@ -1,0 +1,151 @@
+{
+  "date": "2026-11-10",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "windowMs": 10000,
+  "settleMs": 1000,
+  "rate": 2000,
+  "results": [
+    {
+      "summary": {
+        "profile": "reference",
+        "tables": 4,
+        "rate": 2000,
+        "side": "gpui",
+        "runs": 1,
+        "keepsUpPct": 99.2,
+        "keepsUpPctRuns": [
+          99.2
+        ],
+        "shownInP50Ms": 12.59,
+        "shownInP95Ms": 20.7,
+        "anyShownInP50Ms": 12.59,
+        "splitPct": 0,
+        "toMarkP50Ms": 11.69,
+        "toPresentP50MsRuns": [
+          0.88
+        ],
+        "latePct": 0,
+        "workP50Ms": 4.15,
+        "workP95Ms": 4.51,
+        "busyMsPerSecond": 257.7,
+        "collectionsIn10s": 3,
+        "collectionLongestMs": 0.67,
+        "collectionsInLateFrame": 0,
+        "visiblePerSecond": 52.6,
+        "batchesPerSecond": 52.6,
+        "spinMs": 119.5,
+        "failures": [
+          "the log's batch 30 is sequence 31: a batch is missing or out of order"
+        ]
+      },
+      "runs": [
+        {
+          "batchesPerSecond": 52.6,
+          "visiblePerSecond": 52.6,
+          "shownPerSecond": 52.2,
+          "keepsUpPct": 99.2,
+          "shownInP50Ms": 12.59,
+          "shownInP95Ms": 20.7,
+          "anyShownInP50Ms": 12.59,
+          "splitPct": 0,
+          "toMarkP50Ms": 11.69,
+          "toPresentP50Ms": 0.88,
+          "unpaired": 2,
+          "latePct": 0,
+          "workP50Ms": 4.15,
+          "workP95Ms": 4.51,
+          "busyMsPerSecond": 257.7,
+          "collections": {
+            "count": 3,
+            "minor": 3,
+            "major": 0,
+            "totalMs": 1.48,
+            "longestMs": 0.67,
+            "inLateFrame": 0
+          },
+          "spinMs": 119.5,
+          "logged": 693,
+          "failures": [
+            "the log's batch 30 is sequence 31: a batch is missing or out of order"
+          ]
+        }
+      ]
+    },
+    {
+      "summary": {
+        "profile": "reference",
+        "tables": 4,
+        "rate": 2000,
+        "side": "tanstack",
+        "runs": 1,
+        "keepsUpPct": 99.8,
+        "keepsUpPctRuns": [
+          99.8
+        ],
+        "shownInP50Ms": 26.04,
+        "shownInP95Ms": 33.41,
+        "anyShownInP50Ms": 26.04,
+        "splitPct": 0,
+        "toMarkP50Ms": 9.24,
+        "toPresentP50MsRuns": [
+          16.9
+        ],
+        "latePct": 0,
+        "workP50Ms": 4.42,
+        "workP95Ms": 5.26,
+        "busyMsPerSecond": 264.2,
+        "collectionsIn10s": 26,
+        "collectionLongestMs": 2.66,
+        "collectionsInLateFrame": 0,
+        "visiblePerSecond": 51.4,
+        "batchesPerSecond": 51.4,
+        "spinMs": 115.8,
+        "failures": [
+          "the log's batch 30 is sequence 31: a batch is missing or out of order"
+        ]
+      },
+      "runs": [
+        {
+          "batchesPerSecond": 51.4,
+          "visiblePerSecond": 51.4,
+          "shownPerSecond": 51.3,
+          "keepsUpPct": 99.8,
+          "shownInP50Ms": 26.04,
+          "shownInP95Ms": 33.41,
+          "anyShownInP50Ms": 26.04,
+          "splitPct": 0,
+          "toMarkP50Ms": 9.24,
+          "toPresentP50Ms": 16.9,
+          "unpaired": 1,
+          "latePct": 0,
+          "workP50Ms": 4.42,
+          "workP95Ms": 5.26,
+          "busyMsPerSecond": 264.2,
+          "collections": {
+            "count": 26,
+            "minor": 13,
+            "major": 13,
+            "totalMs": 26.87,
+            "longestMs": 2.66,
+            "inLateFrame": 0
+          },
+          "spinMs": 115.8,
+          "logged": 810,
+          "failures": [
+            "the log's batch 30 is sequence 31: a batch is missing or out of order"
+          ]
+        }
+      ]
+    }
+  ]
+}

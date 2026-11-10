@@ -1,7 +1,7 @@
 // The market watch spike's runs (throwaway; market watch's stops): both
 // sides under a feed at each rate, cold, a few runs each (sizing, not the
 // protocol).
-// - tanstack: market.html, A1's feed worker into an idiomatic store, React
+// - tanstack: market.html, the feed spike's worker into an idiomatic store, React
 //   and TanStack Virtual over 50 instruments × 12 columns, Last, Bid, and
 //   Ask flashing (the cell's background by keyframes; `--mode`).
 // - gpui: the tall table's bare host built `live,custom-cells`,

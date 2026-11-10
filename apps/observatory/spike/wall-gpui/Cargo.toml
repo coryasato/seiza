@@ -1,0 +1,20 @@
+[package]
+name = "wall-spike"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Throwaway: the monitoring wall's GPUI spike (N tall tables in one window, each a desk of 50 over one store, under the feed worker). Deleted with the spike."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gpui-kit.workspace = true
+# The wall level's features (market watch's and `density`).
+seiza-tall-table = { workspace = true, features = ["custom-cells", "live", "format", "density"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+seiza.workspace = true
+wasm-bindgen.workspace = true
+js-sys.workspace = true

@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B–F) | Active (part A2) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B–F) | Active (part A3) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -158,6 +158,20 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
     - No `cells.json` section: the wall draws market watch's formats (Last at its decimals, Chg % as "+1.23%", Volume grouped) through the same code, and its flash is `paint.json`'s. The done-when's cross-side check (the cells after a fixed run of ticks, every table) covers the wall's own text.
     - The paging fixtures are unchanged: a desk is one page.
   - **`docs/contender-contract.md`'s changes, for B and C:** the marks table's `filled` and `refreshed` rows, the state's `batches` and `__contenderRefreshed`, "Reading the metrics"'s Shown in and keeps up, and the feed's paragraph (one worker, the stop's desks of 50 from the 400).
+
+### Part A2: the spike on both sides and the stops
+
+**Done when:**
+- [x] **A2-1, the spike on both sides:** N tables at 4, 6, and 8 on each side under A1's feed at 2k a desk, the same wall drawn (screenshots), and each stop measured on both devices: keeps up, Shown in, late frames, work a frame, the busy time, and collection pauses.
+  *Evidence* ([results](perf/results/2026-11-10-m13-a2.md)), median of 3, after the code review's fixes (each run checked that every batch reached the side; none was lost):
+  - **The sides:** GPUI is N tall tables in one window (`spike/wall-gpui/`, crate `wall-spike`). TanStack is N virtualizers in one React tree with one `flushSync` commit a frame (`spike/wall/`). Both have the canvas's columns, 24 px rows, 12 px text, Last's flash, and Chg % by sign, over the store in hand (no engine).
+  - **Fast device:** both keep up at every stop (≥ 99.4%), with no late frames. Work a frame is 4.6 → 6.8 ms on GPUI and 3.8 → 6.9 on TanStack.
+  - **Slow device:** at 4 tables both keep up (98.9%, 98.5%). At 6, over both sweeps' 6 runs, GPUI reads 90.0% (79.4–92.4) and TanStack 81.0% (77.6–85.0): the one stop where runs spread 8–13 points. At 8, GPUI reads 71.6% and TanStack 52.6%, with late frames at 54% and 94%. Both main threads are saturated from 6 tables; GPUI's frames are the cheaper at 8 (24.5 against 33.6 ms).
+  - **Collections in 10 s:** GPUI 2–4, TanStack 18–27. Throttled at 6 and 8 tables, 13 and 18 of TanStack's land in a late frame, against 2 and 2 of GPUI's.
+  - **Shown in's control** (a frame late, 8 tables, reference) moves send → mark by +16.8 ms on GPUI and +17.1 on TanStack, keeps up unchanged. The gap check's control (one batch dropped) fails both sides.
+- [x] **A2-2, the verdict's measure:** market watch's "keeps up" (≥ 90% of visible batches shown in a frame of their own) across N tables, kept or changed. *Kept, with A1-5's pooled pairing* (decided with the user): every batch's tables drew it in one frame on both sides (one canvas; one React root committing every table at once), so pooled and per-table read the same. The split share stays a diagnostic.
+- [x] **A2-3, the stops:** kept at 4/6/8 or moved to where the edges fall, decided with the user. *Kept at 4, 6, and 8 tables at 2k a desk:* on the slow device TanStack's edge falls between 4 and 6 and GPUI's between 6 and 8, its 6 on the line (90.0% over 6 runs, 79.4–92.4), so the dial holds both edges. The canvas's sketch ("GPUI keeps up at 8 tables") is a stop too generous to GPUI.
+- [x] **A2-4, the suite's time:** the spike's 36 runs took 11–13.5 minutes, 18–23 s a run. Part D is the feed at 3 stops × 2 sides × 2 devices × 10 runs (~40 min), usable, data, and memory once (~25 min), and the 0.9.0 against 0.9.1 A/B (~20 min): **about 1.5 h, one sitting.**
 
 ---
 

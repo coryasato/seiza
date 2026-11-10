@@ -5,13 +5,16 @@
 // milestone built it.
 //
 // Usage: node shared-web/scripts/check-terms.ts   (from anywhere in the repo)
-// Checks every tracked file of these kinds: *.rs, *.ts, *.sql, *.toml, *.py,
+// Checks every file git tracks or would track (untracked but not ignored:
+// new files are checked before they're added) of these kinds: *.rs, *.ts, *.sql, *.toml, *.py,
 // *.html, *.css, justfiles, CLAUDE.md, README.md, apps/<app>/perf/
 // budgets.json, and the reference docs in any docs/ directory, its
 // subdirectories included (data.md, research/<goal>.md, …). Skips
 // docs/templates/ (their M<n> placeholders are on purpose) and docs/private/. PLAN.md, milestones.md, LESSONS.md,
 // DECISIONS.md, and perf/results/ are never checked: they are history.
-// Exceptions: CPU names ("Apple M1") and SVG path data (d="M12 2v2").
+// A part's ID alone (a letter A-G and a number, or a check's, with "-n")
+// counts too. Exceptions: CPU names ("Apple M1"), SVG path data
+// (d="M12 2v2"), and the root CLAUDE.md's naming of parts' checks.
 // Prints each hit as file:line: text and exits 1.
 
 import { execFileSync } from 'node:child_process';
@@ -19,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
+const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' })
   .split('\0')
   .filter(Boolean);
 
@@ -38,9 +41,9 @@ function isChecked(file: string): boolean {
   return CODE_EXTENSIONS.has(extname(name));
 }
 
-const MILESTONE = /\bM\d+\b|\bpart [A-G]\d*\b/;
+const MILESTONE = /\bM\d+\b|\bpart [A-G]\d*\b|\b[A-G]\d{1,2}(?:-\d+)?\b/;
 // Text that looks like a milestone but isn't, removed before matching.
-const EXCEPTIONS = [/\bApple M\d+\b/g, /\bd="[^"]*"/g];
+const EXCEPTIONS = [/\bApple M\d+\b/g, /\bd="[^"]*"/g, /\(A\d, B\d, …\)/g];
 
 const hits: string[] = [];
 for (const file of files.filter(isChecked)) {
