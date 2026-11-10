@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B–F) | Active (part A3) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part B1) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -60,7 +60,7 @@ Opened 2026-11-10. An ops screen: a NOC wall, a trading floor's desks, live spor
 - **The panel:** the keeps-up chart over the three stops, both devices; then three cards at the chosen stop: Smoothness, Update shown in (p50), and Collection pauses in 10 s; then Ready in and Download.
 - **The gallery card:** a mosaic of eight small tables; the mechanisms A and B.
 
-Every number on the canvas is a sketch (its verdict "GPUI keeps up at 8 tables, TanStack at 4" included). The canvas doesn't draw a phone board for the wall, or what a table shows past its tenth row. Part A3 draws both, decided with the user, never built silently.
+Every number on the canvas is a sketch. Its curves and verdict now follow A2's spike ("On a slow device, GPUI keeps up to 6 tables, TanStack to 4"). Part A3 drew what the canvas lacked, decided with the user ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-10; the canvas's wall row): each table scrolls on its own; a phone's frame scrolls one column of tables, each a title, a header, and 6 rows; each table draws the tall table's row-number gutter (33 px), so at 8 tables with the sidebar open Volume is cut and the table scrolls sideways.
 
 **The level: `wall`, a build of its own** (decided with the user 2026-11-10, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"). It is market watch's features plus `density` (`custom-cells`, `live`, `format`, `density`). Without `density`, the table sizes its columns by kind: Symbol 200 px and each number 120, about 560 px a table, against ~280 px for a table in a 4-across grid at 1440 × 900. Market watch's level stays as it is, so its builds and its numbers are unchanged. The wall gets one more build per side, with budgets of its own.
 
@@ -86,12 +86,19 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
   - The suite's time.
 - **A3: the measures, the boards, and B–F confirmed.**
   - The measures made exact: Ready in, Shown in, Smooth, Memory, Download, collection pauses.
-  - The boards on M8's canvas, decided with the user before anything is built: the phone's one column (the frame scrolls, or the tables shrink), a table's rows past its tenth (each table scrolls on its own, or the desk shows its top rows), light and dark, desktop and phone.
-- **B: the data, the feed, and the GPUI contender at the level:** `prep-wall` and its `MANIFEST.json` entry, the feed and its fixture, the scenario in `scenarios.ts`, the build `wall` with its wasm and TTFP budgets.
-- **C: the TanStack contender at the level:** N tables, the fold, the flash, and the marks; its first-paint JS and data-layer budgets; `tanstack-parity` and `tanstack-contract` at the level.
-- **D: the numbers.** The cold suite once, on the final build (a long run: a code review first), and beside it the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 ("Open questions"). Likely split as market watch's D was: the metrics at the level first, then the runs.
-- **E: the page,** as the canvas and A3's boards draw it, and the Overview's rule if the wall changes it.
-- **F: shipped.** The README's section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+  - The boards on M8's canvas, decided with the user before anything is built: the phone's one column, a table's rows past its tenth, light and dark, desktop and phone.
+- **B1: the data, the scenario, and the feed fixture** (split in A3, as were C and D).
+  - The data: `prep-wall` in `prep.ts` (`--only wall`, from A1-1's draft and `contenders/wall/`'s 400), its `MANIFEST.json` entry, credited as the observatory's own and synthetic.
+  - The scenario: `MONITORING_WALL` and `LEVEL_FEATURES.wall` in `contenders/scenarios.ts` (A1-4), on neither side's `BUILT` yet.
+  - The feed fixture at 400 rows (`contenders/wall/fixtures/`, market watch's `write.ts` widened), run by GPUI's native store and TanStack's `QuoteStore` with the dropped-tick control; market watch's fixture regenerated byte-identical.
+  - `docs/contender-contract.md`'s changes for N tables (A1-5's list).
+- **B2: the GPUI contender at the level:** the crate's feature `wall` (market watch's code under `cfg(any(feature = "market", feature = "wall"))`), N tables in the stop's grid (two rows; a phone's one column of 196 px tables, its frame scrolled from a title or a gap), one fold a batch and each table's ticked rows invalidated, the marks across tables (`filled`, `refreshed` per table, the batches' generations and mask, the readout's ring pooled); `wall` in `BUILT.gpui`; its wasm and TTFP budgets (`gpui-wall-*`); market watch's wasm byte-identical; a check script's GPUI half (`perf/wall.ts`: the fixture's ticks drawn, each table's cells, the marks right after presented frames, every batch reached, an unknown stop failing).
+- **C1: the TanStack contender at the level:** N tables in one React tree, each its own virtualizer over its desk (a phone's one column, the frame scrolling, its nested scrollers chaining), market watch's store widened to 400 rows, the fold, the flash, and the marks; `wall.css`; `wall` in `BUILT.tanstack`; its first-paint JS and data-layer budgets; market watch's bundle unchanged.
+- **C2: the same on both sides:** `perf/wall.ts` on both sides (each table's cells byte-identical after a fixed run of ticks, the same grid, widths, and gutter), `tanstack-contract` and `tanstack-parity` at the level (the grid, the flash, the sign colors, light and dark; Chromium, Firefox, WebKit), and all of it in `check`.
+- **D1: the metrics at the level:** A3's measures in the metric scripts at `--scenario monitoring-wall`: `metric-feed`'s pairing across the tables (the batches' generations and mask), `usable`, `data` (every table filled), and `memory` (`?ticks=60000`, Download); smoke runs only, then the code review.
+- **D2: the runs** (~1.5 h, one sitting on a quiet machine: A2-4): the feed at each stop, both sides, both devices, 10 runs, each file labelled `monitoring-wall-<stop>` with its versions; usable, data, and memory once; and the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 ("Open questions"); a results note.
+- **E: the page,** as the canvas and A3's boards draw it (the dial, the grid, the status bar, the panel, the description, the gallery card), and the Overview's rule if the wall changes it; split at its start if it's over a session.
+- **F: shipped.** The README's section by `report` (its canvas tradeoffs too: the phone's scrolling differs between the sides), `burst` under the zone's limit, the deploy, `worker-check`.
 
 **Done when** (draft; the measures made exact in A1–A3):
 - [ ] **Its builds:** the level `wall` on both sides carries market watch's features and `density` (and their counterparts), and nothing else; every other level byte-identical to before. Its budgets (`gpui-wall-*`, `tanstack-wall-*`) are against baselines of their own, gated by `check`, with each feature's added bytes in a results note.
@@ -172,6 +179,13 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
 - [x] **A2-2, the verdict's measure:** market watch's "keeps up" (≥ 90% of visible batches shown in a frame of their own) across N tables, kept or changed. *Kept, with A1-5's pooled pairing* (decided with the user): every batch's tables drew it in one frame on both sides (one canvas; one React root committing every table at once), so pooled and per-table read the same. The split share stays a diagnostic.
 - [x] **A2-3, the stops:** kept at 4/6/8 or moved to where the edges fall, decided with the user. *Kept at 4, 6, and 8 tables at 2k a desk:* on the slow device TanStack's edge falls between 4 and 6 and GPUI's between 6 and 8, its 6 on the line (90.0% over 6 runs, 79.4–92.4), so the dial holds both edges. The canvas's sketch ("GPUI keeps up at 8 tables") is a stop too generous to GPUI.
 - [x] **A2-4, the suite's time:** the spike's 36 runs took 11–13.5 minutes, 18–23 s a run. Part D is the feed at 3 stops × 2 sides × 2 devices × 10 runs (~40 min), usable, data, and memory once (~25 min), and the 0.9.0 against 0.9.1 A/B (~20 min): **about 1.5 h, one sitting.**
+
+### Part A3: the measures, the boards, and B–F confirmed
+
+**Done when:**
+- [x] **A3-1, the measures:** Ready in, Shown in, Smooth, Memory, Download, and collection pauses made exact; the suite's time. *Evidence:* [`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-10, "The monitoring wall's measures": market watch's at each stop (keeps up, Shown in paired across the tables, Smooth, the pauses' time, late frames, work), and once at 6 tables Ready in, time to data (every table filled), Memory after `?ticks=60000` (10,000 a desk), and Download by kind from the memory run. The runs use the bare pages at 1440 × 900, nothing scrolled. The suite: A2-4's ~1.5 h.
+- [x] **A3-2, the boards,** decided with the user and drawn on M8's canvas. *Evidence:* the canvas's wall row (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK: WallLight, six tables with Banks scrolled to rows 21–30; WallTanstack, dark, four tables; WallPanel, the keeps-up charts at the 90% line and the cards at 6; PhoneWall, light; PhoneWallDark, the frame scrolled; Wall, eight tables with Volume cut, retitled); [`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-10. The three layout calls were the user's; the boards as drawn wait on the user's look, which part E starts from.
+- [x] **A3-3, A1-5's two open points and B–F:** `state` needs nothing more (no measure scrolls) and the replay hooks are `load` alone (no board draws a fling or a jump); B–F split as listed under "Parts": B1 and B2, C1 and C2, D1 (code, reviewed before the runs) and D2 (the ~1.5 h runs), E, F.
 
 ---
 

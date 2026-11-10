@@ -549,3 +549,12 @@ One entry per milestone, written before starting the next one: what surprised us
 - `check-terms` read only the files git tracks, so a session's new files went unchecked until they were added; and it missed a part's bare ID ("A1's").
 - A frame-late control that commits "a frame later" has to commit the frame's snapshot. The first one rendered the store as it was at the commit, which the next frame's own data had already reached, so nothing was held and the control read the free run's numbers. It passed only once it committed what the frame had taken, as market watch's A2 had to learn for its own hold.
 - GPUI's tables show about half a row less than the DOM's at the same box: the tall table's frame keeps some room at the bottom that the DOM's scroller doesn't.
+
+## M13 part A3: the monitoring wall's measures and boards (2026-11-10)
+
+No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.md`](DECISIONS.md) ("Measurement" and "Page", 2026-11-10).
+
+**Surprises:**
+- The canvas's wall tables have no row-number gutter, but the tall table always draws one, and the spike's TanStack side copied it. The 33 px it adds is what pushes 4 tables across past the page's frame with the sidebar open. Every other scenario's board leaves out the gutter too; the wall is the first where it changes the layout.
+- A GPUI scroller doesn't nest the way a DOM one does. A `div`'s `overflow_y_scroll` scrolls on any wheel or swipe whose hit test reaches it, and the tall table doesn't stop the event, so a frame that scrolls around tables would move together with the table under the finger. The phone's layout had to say where the GPUI frame takes its scroll, which the DOM side never has to.
+- The canvas's keeps-up chart drew every scenario's threshold at 95%, while market watch's and the wall's measure is 90%. GPUI's slow-device 6 tables (90.0%) reads as kept up only at the measure's own line, so the wall's sketch draws it there.
