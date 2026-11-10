@@ -462,3 +462,14 @@ One entry per milestone, written before starting the next one: what surprised us
 **Surprises:**
 - The wide sheet's Smooth reading can't see the admin table's DOM side. Rendering every row (A1's decision) leaves TanStack's scroll with no main-thread frames, so `domDrawn` would count none. `compositorFrames` looked like the answer and isn't: it counts without times and skips the frames that wanted no update. The compositor's scroll deltas (`Scroll Delta This Frame`) are timed per frame, so both sides divide by the same total.
 - A gesture longer than the table's 6,810 px of scroll reaches the last row and stops there, before its input ends: the view rests early, the timed window is cut short, and the moved-distance check fails. So the read-through is 6,000 px, inside the table.
+
+## M12 part B1: the countries file, the scenario, and the TanStack contender's roles (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m12-b1.md`](../perf/results/2026-11-09-m12-b1.md).
+
+**Surprises:**
+- Part A1 pinned the Wikidata result but didn't write down its query. A live query's pin is only half a pin: without its text the next `--repin` can't ask the same question. Rebuilt from the result's shape and the A1 note's description, it gave the same 271 bindings in another order, so other bytes: the query is now `prep.ts`'s.
+- The cell fixture had only ever seen floats, in the native runner and the TS one alike, and the admin table's file has none. Its float controls (JS's own text, a budget a character off) can't fail a text, so the text section needed a control of its own: the same text decoded wrong.
+- The TanStack contender's first-paint JS had grown since its sizes were last written down (wide by 0.8 KiB), all of it under the limits, so `check` stayed quiet. A results file is "now" for `report` only when someone writes one.
+- `data/` can't import `contenders/scenarios.ts`: its type import of `contract.ts` drags DOM globals into a tsconfig with no DOM. Prep names the file itself, as it does the others'.
+

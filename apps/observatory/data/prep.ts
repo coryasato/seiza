@@ -22,10 +22,17 @@
 //   pins; its rows and span checked against the replay's constants
 //   (contenders/tail/data.ts), and the replay's page SQL (sql.json's
 //   `live-tail`) run against it.
+// - countries.parquet, the admin table's, from CLDR's region names and
+//   populations and Wikidata's capitals (countries.ts, the rules;
+//   prep-countries.sql, the file), its three sources kept in
+//   data/raw/countries/ (gitignored, downloaded when missing) and checked
+//   against their pins: CLDR's two npm tarballs by version (they don't
+//   change), the Wikidata query's result by MANIFEST.json (a live query, so
+//   a new download differs: only `--repin` takes one).
 //
 // Each is checked to fit a Workers static asset.
 //
-// Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market|nasa] [--repin]
+// Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market|nasa|countries] [--repin]
 //        (`just observatory data`). The asteroids need Tycho's file first:
 //        `just tycho data`.
 
@@ -37,6 +44,7 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { INSTRUMENTS } from '../contenders/market/feed.ts';
+import { countries as countryRows, untar } from './countries.ts';
 import { DATA_FILE as NASA, FILE_ROWS as NASA_ROWS, SPAN_S as NASA_SPAN_S, WHOLE_FILE as NASA_WHOLE } from '../contenders/tail/data.ts';
 
 /** Cloudflare's per-file limit for Workers static assets. */
@@ -83,6 +91,8 @@ interface ManifestFile {
   spanSeconds?: number;
   writer: string;
   notes?: string[];
+  /** A notice the source's license asks to appear with the data or its documentation, verbatim. */
+  notice?: string;
 }
 
 /** The asteroids' credit and terms, for MANIFEST.json (the page and the README show the credit). */
@@ -137,6 +147,32 @@ const NASA_CREDIT = 'NASA-HTTP: Jim Dumoulin, NASA Kennedy Space Center; contrib
 const NASA_TERMS =
   'The Internet Traffic Archive\'s NASA-HTTP page (ita.ee.lbl.gov/html/contrib/NASA-HTTP.html): Restrictions, "The traces may be freely redistributed."; Privacy, "The logs fully preserve the originating host and HTTP request. Please do not however attempt any analysis beyond general traffic patterns."; Acknowledgements, "The logs was collected by Jim Dumoulin of the Kennedy Space Center, and contributed by Martin Arlitt [an address] and Carey Williamson [an address] of the University of Saskatchewan." (their addresses left out here). No named license: the data rule admits an explicit grant to redistribute (docs/DECISIONS.md, "Scenarios", 2026-11-06). Checked 2026-11-07.';
 
+/** The admin table's file (`contenders/scenarios.ts`'s `ADMIN_TABLE`). */
+const COUNTRIES = 'countries.parquet';
+/** CLDR's JSON release on npm: a version's tarball never changes, so each is pinned here, and another download fails. */
+const CLDR_VERSION = '49.0.0';
+const CLDR_SOURCES = [
+  { file: `cldr-core-${CLDR_VERSION}.tgz`, url: `https://registry.npmjs.org/cldr-core/-/cldr-core-${CLDR_VERSION}.tgz`, sha256: '085b1c7d83f00692505c79d575c21eea89534466eb3e70b455688851a45c87bc' },
+  { file: `cldr-localenames-full-${CLDR_VERSION}.tgz`, url: `https://registry.npmjs.org/cldr-localenames-full/-/cldr-localenames-full-${CLDR_VERSION}.tgz`, sha256: 'd00bafb534848f142b3645d6046be81a1094fb00e809cd2c519f5e031198ba11' },
+];
+/** Every item with an ISO 3166-1 alpha-2 code (P297), its best-rank
+ *  capitals (P36), their labels in English, else Wikidata's
+ *  language-neutral `mul` (Antigua's St. John's has only that). */
+const WIKIDATA_QUERY = `SELECT ?code ?item ?capital ?capitalLabel WHERE {
+  ?item wdt:P297 ?code .
+  OPTIONAL { ?item wdt:P36 ?capital . }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul" . }
+}
+ORDER BY ?code ?item ?capital`;
+const WIKIDATA = { file: 'wikidata-capitals.json', url: `https://query.wikidata.org/sparql?query=${encodeURIComponent(WIKIDATA_QUERY)}` };
+/** The Query Service asks clients to name themselves (Wikimedia's User-Agent policy). */
+const WIKIDATA_AGENT = 'seiza-observatory-prep/0.1 (the admin table\'s data build)';
+/** The rows the rules give (docs/DECISIONS.md, "Scenarios", "The countries file's rules"): another count is a changed source or rule. */
+const COUNTRY_ROWS = 250;
+const COUNTRIES_CREDIT = 'Unicode CLDR 49 (the names in each region\'s language and in English, the populations; Unicode License v3) and Wikidata (the capitals; CC0)';
+const COUNTRIES_TERMS =
+  'CLDR: the Unicode License v3 grants the right "to use, copy, modify, merge, publish, distribute, and/or sell copies of the Data Files ... provided that either (a) this copyright and permission notice appear with all copies of the Data Files or Software, or (b) this copyright and permission notice appear in associated Documentation": the notice is `notice` here, and the README\'s data credits carry it. Wikidata: its structured data is CC0 1.0 (wikidata.org/wiki/Wikidata:Licensing). Checked 2026-11-09.';
+
 const sqlText = (value: string) => value.replaceAll("'", "''");
 
 async function sha256(path: string): Promise<string> {
@@ -151,7 +187,8 @@ async function value(conn: DuckDBConnection, sql: string): Promise<unknown> {
 
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : undefined;
-if (only !== undefined && only !== 'asteroids' && only !== 'ghcn' && only !== 'market' && only !== 'nasa') throw new Error(`--only takes asteroids, ghcn, market, or nasa, not ${only}`);
+const ONLY = ['asteroids', 'ghcn', 'market', 'nasa', 'countries'];
+if (only !== undefined && !ONLY.includes(only)) throw new Error(`--only takes ${ONLY.join(', ')}, not ${only}`);
 const repin = args.includes('--repin');
 
 const manifest: Record<string, ManifestFile> = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
@@ -161,7 +198,7 @@ process.chdir(dataDir);
 /** MANIFEST.json as it stands, in a fixed order: written after each file,
  *  so one that fails (the market's fetch) keeps the others' entries. */
 function writeManifest(): void {
-  const ordered = Object.fromEntries([ASTEROIDS, GHCN, MARKET, NASA].filter((name) => manifest[name]).map((name) => [name, manifest[name]]));
+  const ordered = Object.fromEntries([ASTEROIDS, GHCN, MARKET, NASA, COUNTRIES].filter((name) => manifest[name]).map((name) => [name, manifest[name]]));
   writeFileSync(manifestPath, `${JSON.stringify(ordered, null, 2)}\n`);
 }
 if (only === undefined || only === 'asteroids') {
@@ -180,11 +217,17 @@ if (only === undefined || only === 'nasa') {
   manifest[NASA] = await nasa();
   writeManifest();
 }
+if (only === undefined || only === 'countries') {
+  manifest[COUNTRIES] = await countries(manifest[COUNTRIES]);
+  writeManifest();
+}
 
 /** Runs `file` (a SQL script in data/) with its `${…}` substituted. */
 async function runSql(file: string, vars: Record<string, string>): Promise<void> {
   let sql = readFileSync(join(dataDir, file), 'utf8');
-  for (const [name, text] of Object.entries(vars)) sql = sql.replaceAll(`\${${name}}`, text);
+  // One pass, each value by a function: a value is never searched again for
+  // another's `${…}`, and its `$&` or `$'` (a source's text) is taken as text.
+  sql = sql.replace(/\$\{(\w+)\}/g, (found, name: string) => (Object.hasOwn(vars, name) ? vars[name]! : found));
   const started = performance.now();
   await conn.run(sql);
   console.log(`${file}: ${((performance.now() - started) / 1000).toFixed(1)} s`);
@@ -234,8 +277,8 @@ async function columns(name: string): Promise<string> {
   return (await conn.runAndReadAll(`DESCRIBE SELECT * FROM '${name}'`)).getRows().map((r) => `${r[0]} ${r[1]}`).join(', ');
 }
 
-async function download(url: string, to: string): Promise<void> {
-  const response = await fetch(url);
+async function download(url: string, to: string, headers?: Record<string, string>): Promise<void> {
+  const response = await fetch(url, { headers });
   if (!response.ok || !response.body) throw new Error(`${url}: ${response.status}`);
   const partial = `${to}.partial`;
   await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream), createWriteStream(partial));
@@ -436,4 +479,70 @@ async function nasaLoop(): Promise<void> {
   }
   if (!laps) throw new Error("sql.json's live-tail has no page past a lap");
   console.log(`sql.json's live-tail: ${sql.pages.length} pages, each the file's rows looped (${laps} past a lap, each failing with no shift)`);
+}
+
+async function countries(previous: ManifestFile | undefined): Promise<ManifestFile> {
+  const raw = join(dataDir, 'raw/countries');
+  mkdirSync(raw, { recursive: true });
+  // CLDR's tarballs: downloaded when missing, never repinned.
+  for (const { file, url, sha256: pin } of CLDR_SOURCES) {
+    const path = join(raw, file);
+    if (!existsSync(path)) await download(url, path);
+    const found = await sha256(path);
+    if (found !== pin) throw new Error(`data/raw/countries/${file}: SHA-256 ${found}, but the pin is ${pin} (an npm version doesn't change): delete it and download again`);
+  }
+  // The Wikidata query's result: a live query, pinned by MANIFEST.json; a
+  // missing one is downloaded, and with --repin taken whatever it is.
+  const wikidataPath = join(raw, WIKIDATA.file);
+  if (repin || !existsSync(wikidataPath)) await download(WIKIDATA.url, wikidataPath, { Accept: 'application/sparql-results+json', 'User-Agent': WIKIDATA_AGENT });
+  const wikidata = { file: WIKIDATA.file, url: WIKIDATA.url, bytes: statSync(wikidataPath).size, sha256: await sha256(wikidataPath) };
+  const pin = repin ? undefined : previous?.sources?.find((source) => source.file === WIKIDATA.file);
+  if (pin && wikidata.sha256 !== pin.sha256)
+    throw new Error(
+      `data/raw/countries/${WIKIDATA.file}: SHA-256 ${wikidata.sha256}, but MANIFEST.json pins ${pin.sha256}. The query is live, so a new download differs ` +
+        '(the pinned copy is the data/raw/countries/ it was pinned in; raw/ is gitignored): take this one with `--only countries --repin` ' +
+        '(a new file: regenerate cells.json with `just observatory cell-fixture`; `--repin` without `--only` repins GHCN too).',
+    );
+  const fetched = repin || !previous?.fetched ? new Date().toISOString().slice(0, 10) : previous.fetched;
+
+  const [core, names] = CLDR_SOURCES.map(({ file }) => readFileSync(join(raw, file)));
+  // The license's notice, verbatim: the same in both tarballs.
+  const notices = [core!, names!].map((tgz) => untar(tgz).get('package/LICENSE')?.toString('utf8'));
+  if (!notices[0] || notices[0] !== notices[1]) throw new Error("CLDR's tarballs carry no LICENSE, or different ones");
+  const rows = countryRows(core!, names!, readFileSync(wikidataPath, 'utf8'));
+  if (rows.length !== COUNTRY_ROWS) throw new Error(`countries.ts gives ${rows.length} regions, not ${COUNTRY_ROWS}: a source or a rule changed (docs/DECISIONS.md, "Scenarios", "The countries file's rules")`);
+  const text = (value: string) => `'${sqlText(value)}'`;
+  const values = rows.map((row) => `(${[row.code, row.flag, row.name, row.english, row.capital, row.populationText].map(text).join(', ')})`).join(',\n');
+  await runSql('prep-countries.sql', { values, out: sqlText(COUNTRIES), credit: sqlText(COUNTRIES_CREDIT), source: sqlText(`CLDR ${CLDR_VERSION} (npm cldr-core, cldr-localenames-full); Wikidata Query Service, ${fetched}`) });
+  const bytes = fits(COUNTRIES, 'it is 250 rows');
+  // The file holds the rows as written: each English name once, every cell text, none NULL.
+  const [count, english, nulls] = (
+    await conn.runAndReadAll(
+      `SELECT count(*), count(DISTINCT "in English"), count(*) FILTER (WHERE flag IS NULL OR name IS NULL OR "in English" IS NULL OR capital IS NULL OR population IS NULL) FROM '${COUNTRIES}'`,
+    )
+  )
+    .getRows()[0]!
+    .map(Number);
+  if (count !== rows.length || english !== rows.length || nulls !== 0) throw new Error(`${COUNTRIES}: ${count} rows, ${english} English names, ${nulls} with a NULL; want ${rows.length}, ${rows.length}, 0`);
+  const entry: ManifestFile = {
+    rows: count!,
+    bytes,
+    sha256: await sha256(join(dataDir, COUNTRIES)),
+    source: `CLDR ${CLDR_VERSION}'s JSON (npm cldr-core and cldr-localenames-full: likelySubtags, territoryInfo, each locale's territories) and the Wikidata Query Service (each ISO 3166-1 code's capitals)`,
+    credit: COUNTRIES_CREDIT,
+    license: 'Unicode License v3 (CLDR); CC0 1.0 (Wikidata)',
+    terms: COUNTRIES_TERMS,
+    fetched,
+    sources: [...CLDR_SOURCES.map(({ file, url, sha256: hash }) => ({ file, url, bytes: statSync(join(raw, file)).size, sha256: hash })), wikidata],
+    version: `CLDR ${CLDR_VERSION}`,
+    rowGroups: Number(await value(conn, `SELECT num_row_groups FROM parquet_file_metadata('${COUNTRIES}')`)),
+    writer: `DuckDB ${await value(conn, 'SELECT version()')}, ZSTD, one row group, sorted by the English name (accents and case aside), the region code breaking ties`,
+    notes: [
+      'the regions, the name\'s language, the capitals\' and the population\'s text by data/countries.ts\'s rules (docs/DECISIONS.md, "Scenarios", "The countries file\'s rules")',
+      `columns: ${await columns(COUNTRIES)}`,
+    ],
+    notice: notices[0],
+  };
+  console.log(`${COUNTRIES}: ${count} rows, ${bytes} B, ${entry.rowGroups} row group, sha256 ${entry.sha256}`);
+  return entry;
 }

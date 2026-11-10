@@ -356,9 +356,9 @@ export const SOAK_MEMORY: Card = {
 /** A scenario's status bar cards. */
 export const cardsOf = (scenario: Scenario): Card[] => numbersOf(scenario).cards;
 
-/** A scenario's metrics' prefix in `perf/budgets.json`: none for the base
- *  level's, whose results are Big file's (`resultLabel`). */
-export const metricPrefix = (scenario: Scenario): string => (scenario.level === 'base' ? '' : `${scenario.id}-`);
+/** A scenario's metrics' prefix in `perf/budgets.json`: none for Big
+ *  file's, whose results are unlabelled (`resultLabel`). */
+export const metricPrefix = (scenario: Scenario): string => (scenario.id === BIG_FILE.id ? '' : `${scenario.id}-`);
 
 /** A cold value's key in a scenario's numbers: its metric less the
  *  scenario's prefix, its stop's first when measured per stop. */

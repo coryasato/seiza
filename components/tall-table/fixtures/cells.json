@@ -1,5 +1,5 @@
 {
-  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); a TIMESTAMP's text as live tail draws it (timestamp_text, hand-written, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
+  "about": "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); a TIMESTAMP's text as live tail draws it (timestamp_text, hand-written, kept by it); and each scenario but the asteroids its own columns and cells, drawn at its default stop (scenarios; a file of text alone, every column as text). See README.md.",
   "source": {
     "file": "apps/observatory/data/asteroids.parquet",
     "sha256": "805f18fafcd1f299fbf9ca488d85076a0600a36ba01892f401dd40db6dda0528",
@@ -3971,6 +3971,1588 @@
           "value": "-40.8",
           "exact": "-40.8",
           "shown": "-40.8"
+        }
+      ]
+    },
+    "admin-table": {
+      "source": {
+        "file": "apps/observatory/data/countries.parquet",
+        "sha256": "a4fa4aa0f38dd6a59132f7667bf31f90525ec57a19c3721c4b0bc10f0f64710f",
+        "stop": "all",
+        "contender": "tall-table-gpui at the base level, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)"
+      },
+      "columns": [
+        {
+          "name": "flag",
+          "kind": "text",
+          "width": 200,
+          "budget": 21
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "width": 200,
+          "budget": 21
+        },
+        {
+          "name": "in English",
+          "kind": "text",
+          "width": 200,
+          "budget": 21
+        },
+        {
+          "name": "capital",
+          "kind": "text",
+          "width": 200,
+          "budget": 21
+        },
+        {
+          "name": "population",
+          "kind": "text",
+          "width": 200,
+          "budget": 21
+        }
+      ],
+      "cells": [
+        {
+          "column": "flag",
+          "row": 0,
+          "value": "🇦🇫",
+          "exact": "🇦🇫",
+          "shown": "🇦🇫"
+        },
+        {
+          "column": "flag",
+          "row": 1,
+          "value": "🇦🇽",
+          "exact": "🇦🇽",
+          "shown": "🇦🇽"
+        },
+        {
+          "column": "flag",
+          "row": 2,
+          "value": "🇦🇱",
+          "exact": "🇦🇱",
+          "shown": "🇦🇱"
+        },
+        {
+          "column": "flag",
+          "row": 8,
+          "value": "🇦🇶",
+          "exact": "🇦🇶",
+          "shown": "🇦🇶"
+        },
+        {
+          "column": "flag",
+          "row": 11,
+          "value": "🇦🇲",
+          "exact": "🇦🇲",
+          "shown": "🇦🇲"
+        },
+        {
+          "column": "flag",
+          "row": 15,
+          "value": "🇦🇿",
+          "exact": "🇦🇿",
+          "shown": "🇦🇿"
+        },
+        {
+          "column": "flag",
+          "row": 18,
+          "value": "🇧🇩",
+          "exact": "🇧🇩",
+          "shown": "🇧🇩"
+        },
+        {
+          "column": "flag",
+          "row": 20,
+          "value": "🇧🇾",
+          "exact": "🇧🇾",
+          "shown": "🇧🇾"
+        },
+        {
+          "column": "flag",
+          "row": 25,
+          "value": "🇧🇹",
+          "exact": "🇧🇹",
+          "shown": "🇧🇹"
+        },
+        {
+          "column": "flag",
+          "row": 37,
+          "value": "🇰🇭",
+          "exact": "🇰🇭",
+          "shown": "🇰🇭"
+        },
+        {
+          "column": "flag",
+          "row": 44,
+          "value": "🇹🇩",
+          "exact": "🇹🇩",
+          "shown": "🇹🇩"
+        },
+        {
+          "column": "flag",
+          "row": 46,
+          "value": "🇨🇳",
+          "exact": "🇨🇳",
+          "shown": "🇨🇳"
+        },
+        {
+          "column": "flag",
+          "row": 50,
+          "value": "🇰🇲",
+          "exact": "🇰🇲",
+          "shown": "🇰🇲"
+        },
+        {
+          "column": "flag",
+          "row": 55,
+          "value": "🇨🇮",
+          "exact": "🇨🇮",
+          "shown": "🇨🇮"
+        },
+        {
+          "column": "flag",
+          "row": 59,
+          "value": "🇨🇾",
+          "exact": "🇨🇾",
+          "shown": "🇨🇾"
+        },
+        {
+          "column": "flag",
+          "row": 60,
+          "value": "🇨🇿",
+          "exact": "🇨🇿",
+          "shown": "🇨🇿"
+        },
+        {
+          "column": "flag",
+          "row": 69,
+          "value": "🇪🇷",
+          "exact": "🇪🇷",
+          "shown": "🇪🇷"
+        },
+        {
+          "column": "flag",
+          "row": 72,
+          "value": "🇪🇹",
+          "exact": "🇪🇹",
+          "shown": "🇪🇹"
+        },
+        {
+          "column": "flag",
+          "row": 75,
+          "value": "🇫🇯",
+          "exact": "🇫🇯",
+          "shown": "🇫🇯"
+        },
+        {
+          "column": "flag",
+          "row": 83,
+          "value": "🇬🇪",
+          "exact": "🇬🇪",
+          "shown": "🇬🇪"
+        },
+        {
+          "column": "flag",
+          "row": 100,
+          "value": "🇭🇰",
+          "exact": "🇭🇰",
+          "shown": "🇭🇰"
+        },
+        {
+          "column": "flag",
+          "row": 103,
+          "value": "🇮🇳",
+          "exact": "🇮🇳",
+          "shown": "🇮🇳"
+        },
+        {
+          "column": "flag",
+          "row": 105,
+          "value": "🇮🇷",
+          "exact": "🇮🇷",
+          "shown": "🇮🇷"
+        },
+        {
+          "column": "flag",
+          "row": 109,
+          "value": "🇮🇱",
+          "exact": "🇮🇱",
+          "shown": "🇮🇱"
+        },
+        {
+          "column": "flag",
+          "row": 112,
+          "value": "🇯🇵",
+          "exact": "🇯🇵",
+          "shown": "🇯🇵"
+        },
+        {
+          "column": "flag",
+          "row": 121,
+          "value": "🇱🇦",
+          "exact": "🇱🇦",
+          "shown": "🇱🇦"
+        },
+        {
+          "column": "flag",
+          "row": 125,
+          "value": "🇱🇷",
+          "exact": "🇱🇷",
+          "shown": "🇱🇷"
+        },
+        {
+          "column": "flag",
+          "row": 130,
+          "value": "🇲🇴",
+          "exact": "🇲🇴",
+          "shown": "🇲🇴"
+        },
+        {
+          "column": "flag",
+          "row": 144,
+          "value": "🇲🇩",
+          "exact": "🇲🇩",
+          "shown": "🇲🇩"
+        },
+        {
+          "column": "flag",
+          "row": 150,
+          "value": "🇲🇿",
+          "exact": "🇲🇿",
+          "shown": "🇲🇿"
+        },
+        {
+          "column": "flag",
+          "row": 151,
+          "value": "🇲🇲",
+          "exact": "🇲🇲",
+          "shown": "🇲🇲"
+        },
+        {
+          "column": "flag",
+          "row": 163,
+          "value": "🇰🇵",
+          "exact": "🇰🇵",
+          "shown": "🇰🇵"
+        },
+        {
+          "column": "flag",
+          "row": 175,
+          "value": "🇵🇭",
+          "exact": "🇵🇭",
+          "shown": "🇵🇭"
+        },
+        {
+          "column": "flag",
+          "row": 200,
+          "value": "🇬🇸",
+          "exact": "🇬🇸",
+          "shown": "🇬🇸"
+        },
+        {
+          "column": "flag",
+          "row": 201,
+          "value": "🇰🇷",
+          "exact": "🇰🇷",
+          "shown": "🇰🇷"
+        },
+        {
+          "column": "flag",
+          "row": 204,
+          "value": "🇱🇰",
+          "exact": "🇱🇰",
+          "shown": "🇱🇰"
+        },
+        {
+          "column": "flag",
+          "row": 206,
+          "value": "🇸🇭",
+          "exact": "🇸🇭",
+          "shown": "🇸🇭"
+        },
+        {
+          "column": "flag",
+          "row": 218,
+          "value": "🇹🇼",
+          "exact": "🇹🇼",
+          "shown": "🇹🇼"
+        },
+        {
+          "column": "flag",
+          "row": 219,
+          "value": "🇹🇯",
+          "exact": "🇹🇯",
+          "shown": "🇹🇯"
+        },
+        {
+          "column": "flag",
+          "row": 221,
+          "value": "🇹🇭",
+          "exact": "🇹🇭",
+          "shown": "🇹🇭"
+        },
+        {
+          "column": "flag",
+          "row": 225,
+          "value": "🇹🇴",
+          "exact": "🇹🇴",
+          "shown": "🇹🇴"
+        },
+        {
+          "column": "flag",
+          "row": 242,
+          "value": "🇻🇦",
+          "exact": "🇻🇦",
+          "shown": "🇻🇦"
+        },
+        {
+          "column": "flag",
+          "row": 244,
+          "value": "🇻🇳",
+          "exact": "🇻🇳",
+          "shown": "🇻🇳"
+        },
+        {
+          "column": "flag",
+          "row": 249,
+          "value": "🇿🇼",
+          "exact": "🇿🇼",
+          "shown": "🇿🇼"
+        },
+        {
+          "column": "name",
+          "row": 0,
+          "value": "افغانستان",
+          "exact": "افغانستان",
+          "shown": "افغانستان"
+        },
+        {
+          "column": "name",
+          "row": 1,
+          "value": "Åland",
+          "exact": "Åland",
+          "shown": "Åland"
+        },
+        {
+          "column": "name",
+          "row": 2,
+          "value": "Shqipëri",
+          "exact": "Shqipëri",
+          "shown": "Shqipëri"
+        },
+        {
+          "column": "name",
+          "row": 8,
+          "value": "Antarctica",
+          "exact": "Antarctica",
+          "shown": "Antarctica"
+        },
+        {
+          "column": "name",
+          "row": 11,
+          "value": "Հայաստան",
+          "exact": "Հայաստան",
+          "shown": "Հայաստան"
+        },
+        {
+          "column": "name",
+          "row": 15,
+          "value": "Azərbaycan",
+          "exact": "Azərbaycan",
+          "shown": "Azərbaycan"
+        },
+        {
+          "column": "name",
+          "row": 18,
+          "value": "বাংলাদেশ",
+          "exact": "বাংলাদেশ",
+          "shown": "বাংলাদেশ"
+        },
+        {
+          "column": "name",
+          "row": 20,
+          "value": "Беларусь",
+          "exact": "Беларусь",
+          "shown": "Беларусь"
+        },
+        {
+          "column": "name",
+          "row": 25,
+          "value": "འབྲུག",
+          "exact": "འབྲུག",
+          "shown": "འབྲུག"
+        },
+        {
+          "column": "name",
+          "row": 37,
+          "value": "កម្ពុជា",
+          "exact": "កម្ពុជា",
+          "shown": "កម្ពុជា"
+        },
+        {
+          "column": "name",
+          "row": 44,
+          "value": "تشاد",
+          "exact": "تشاد",
+          "shown": "تشاد"
+        },
+        {
+          "column": "name",
+          "row": 46,
+          "value": "中国",
+          "exact": "中国",
+          "shown": "中国"
+        },
+        {
+          "column": "name",
+          "row": 50,
+          "value": "جزر القمر",
+          "exact": "جزر القمر",
+          "shown": "جزر القمر"
+        },
+        {
+          "column": "name",
+          "row": 55,
+          "value": "Côte d’Ivoire",
+          "exact": "Côte d’Ivoire",
+          "shown": "Côte d’Ivoire"
+        },
+        {
+          "column": "name",
+          "row": 59,
+          "value": "Κύπρος",
+          "exact": "Κύπρος",
+          "shown": "Κύπρος"
+        },
+        {
+          "column": "name",
+          "row": 60,
+          "value": "Česko",
+          "exact": "Česko",
+          "shown": "Česko"
+        },
+        {
+          "column": "name",
+          "row": 69,
+          "value": "ኤርትራ",
+          "exact": "ኤርትራ",
+          "shown": "ኤርትራ"
+        },
+        {
+          "column": "name",
+          "row": 72,
+          "value": "ኢትዮጵያ",
+          "exact": "ኢትዮጵያ",
+          "shown": "ኢትዮጵያ"
+        },
+        {
+          "column": "name",
+          "row": 75,
+          "value": "Fiji",
+          "exact": "Fiji",
+          "shown": "Fiji"
+        },
+        {
+          "column": "name",
+          "row": 83,
+          "value": "საქართველო",
+          "exact": "საქართველო",
+          "shown": "საქართველო"
+        },
+        {
+          "column": "name",
+          "row": 100,
+          "value": "中國香港特別行政區",
+          "exact": "中國香港特別行政區",
+          "shown": "中國香港特別行政區"
+        },
+        {
+          "column": "name",
+          "row": 103,
+          "value": "भारत",
+          "exact": "भारत",
+          "shown": "भारत"
+        },
+        {
+          "column": "name",
+          "row": 105,
+          "value": "ایران",
+          "exact": "ایران",
+          "shown": "ایران"
+        },
+        {
+          "column": "name",
+          "row": 109,
+          "value": "ישראל",
+          "exact": "ישראל",
+          "shown": "ישראל"
+        },
+        {
+          "column": "name",
+          "row": 112,
+          "value": "日本",
+          "exact": "日本",
+          "shown": "日本"
+        },
+        {
+          "column": "name",
+          "row": 121,
+          "value": "ລາວ",
+          "exact": "ລາວ",
+          "shown": "ລາວ"
+        },
+        {
+          "column": "name",
+          "row": 125,
+          "value": "Liberia",
+          "exact": "Liberia",
+          "shown": "Liberia"
+        },
+        {
+          "column": "name",
+          "row": 130,
+          "value": "中國澳門特別行政區",
+          "exact": "中國澳門特別行政區",
+          "shown": "中國澳門特別行政區"
+        },
+        {
+          "column": "name",
+          "row": 144,
+          "value": "Republica Moldova",
+          "exact": "Republica Moldova",
+          "shown": "Republica Moldova"
+        },
+        {
+          "column": "name",
+          "row": 150,
+          "value": "Moçambique",
+          "exact": "Moçambique",
+          "shown": "Moçambique"
+        },
+        {
+          "column": "name",
+          "row": 151,
+          "value": "မြန်မာ",
+          "exact": "မြန်မာ",
+          "shown": "မြန်မာ"
+        },
+        {
+          "column": "name",
+          "row": 163,
+          "value": "북한",
+          "exact": "북한",
+          "shown": "북한"
+        },
+        {
+          "column": "name",
+          "row": 175,
+          "value": "Pilipinas",
+          "exact": "Pilipinas",
+          "shown": "Pilipinas"
+        },
+        {
+          "column": "name",
+          "row": 200,
+          "value": "South Georgia & South Sandwich Islands",
+          "exact": "South Georgia & South Sandwich Islands",
+          "shown": "South Georgia & South Sandwich Islands"
+        },
+        {
+          "column": "name",
+          "row": 201,
+          "value": "대한민국",
+          "exact": "대한민국",
+          "shown": "대한민국"
+        },
+        {
+          "column": "name",
+          "row": 204,
+          "value": "ශ්‍රී ලංකාව",
+          "exact": "ශ්‍රී ලංකාව",
+          "shown": "ශ්‍රී ලංකාව"
+        },
+        {
+          "column": "name",
+          "row": 206,
+          "value": "St. Helena, Ascension & Tristan da Cunha",
+          "exact": "St. Helena, Ascension & Tristan da Cunha",
+          "shown": "St. Helena, Ascension & Tristan da Cunha"
+        },
+        {
+          "column": "name",
+          "row": 218,
+          "value": "台灣",
+          "exact": "台灣",
+          "shown": "台灣"
+        },
+        {
+          "column": "name",
+          "row": 219,
+          "value": "Тоҷикистон",
+          "exact": "Тоҷикистон",
+          "shown": "Тоҷикистон"
+        },
+        {
+          "column": "name",
+          "row": 221,
+          "value": "ไทย",
+          "exact": "ไทย",
+          "shown": "ไทย"
+        },
+        {
+          "column": "name",
+          "row": 225,
+          "value": "Tonga",
+          "exact": "Tonga",
+          "shown": "Tonga"
+        },
+        {
+          "column": "name",
+          "row": 242,
+          "value": "Città del Vaticano",
+          "exact": "Città del Vaticano",
+          "shown": "Città del Vaticano"
+        },
+        {
+          "column": "name",
+          "row": 244,
+          "value": "Việt Nam",
+          "exact": "Việt Nam",
+          "shown": "Việt Nam"
+        },
+        {
+          "column": "name",
+          "row": 249,
+          "value": "Zimbabwe",
+          "exact": "Zimbabwe",
+          "shown": "Zimbabwe"
+        },
+        {
+          "column": "in English",
+          "row": 0,
+          "value": "Afghanistan",
+          "exact": "Afghanistan",
+          "shown": "Afghanistan"
+        },
+        {
+          "column": "in English",
+          "row": 1,
+          "value": "Åland Islands",
+          "exact": "Åland Islands",
+          "shown": "Åland Islands"
+        },
+        {
+          "column": "in English",
+          "row": 2,
+          "value": "Albania",
+          "exact": "Albania",
+          "shown": "Albania"
+        },
+        {
+          "column": "in English",
+          "row": 8,
+          "value": "Antarctica",
+          "exact": "Antarctica",
+          "shown": "Antarctica"
+        },
+        {
+          "column": "in English",
+          "row": 11,
+          "value": "Armenia",
+          "exact": "Armenia",
+          "shown": "Armenia"
+        },
+        {
+          "column": "in English",
+          "row": 15,
+          "value": "Azerbaijan",
+          "exact": "Azerbaijan",
+          "shown": "Azerbaijan"
+        },
+        {
+          "column": "in English",
+          "row": 18,
+          "value": "Bangladesh",
+          "exact": "Bangladesh",
+          "shown": "Bangladesh"
+        },
+        {
+          "column": "in English",
+          "row": 20,
+          "value": "Belarus",
+          "exact": "Belarus",
+          "shown": "Belarus"
+        },
+        {
+          "column": "in English",
+          "row": 25,
+          "value": "Bhutan",
+          "exact": "Bhutan",
+          "shown": "Bhutan"
+        },
+        {
+          "column": "in English",
+          "row": 37,
+          "value": "Cambodia",
+          "exact": "Cambodia",
+          "shown": "Cambodia"
+        },
+        {
+          "column": "in English",
+          "row": 44,
+          "value": "Chad",
+          "exact": "Chad",
+          "shown": "Chad"
+        },
+        {
+          "column": "in English",
+          "row": 46,
+          "value": "China",
+          "exact": "China",
+          "shown": "China"
+        },
+        {
+          "column": "in English",
+          "row": 50,
+          "value": "Comoros",
+          "exact": "Comoros",
+          "shown": "Comoros"
+        },
+        {
+          "column": "in English",
+          "row": 55,
+          "value": "Côte d’Ivoire",
+          "exact": "Côte d’Ivoire",
+          "shown": "Côte d’Ivoire"
+        },
+        {
+          "column": "in English",
+          "row": 59,
+          "value": "Cyprus",
+          "exact": "Cyprus",
+          "shown": "Cyprus"
+        },
+        {
+          "column": "in English",
+          "row": 60,
+          "value": "Czechia",
+          "exact": "Czechia",
+          "shown": "Czechia"
+        },
+        {
+          "column": "in English",
+          "row": 69,
+          "value": "Eritrea",
+          "exact": "Eritrea",
+          "shown": "Eritrea"
+        },
+        {
+          "column": "in English",
+          "row": 72,
+          "value": "Ethiopia",
+          "exact": "Ethiopia",
+          "shown": "Ethiopia"
+        },
+        {
+          "column": "in English",
+          "row": 75,
+          "value": "Fiji",
+          "exact": "Fiji",
+          "shown": "Fiji"
+        },
+        {
+          "column": "in English",
+          "row": 83,
+          "value": "Georgia",
+          "exact": "Georgia",
+          "shown": "Georgia"
+        },
+        {
+          "column": "in English",
+          "row": 100,
+          "value": "Hong Kong SAR China",
+          "exact": "Hong Kong SAR China",
+          "shown": "Hong Kong SAR China"
+        },
+        {
+          "column": "in English",
+          "row": 103,
+          "value": "India",
+          "exact": "India",
+          "shown": "India"
+        },
+        {
+          "column": "in English",
+          "row": 105,
+          "value": "Iran",
+          "exact": "Iran",
+          "shown": "Iran"
+        },
+        {
+          "column": "in English",
+          "row": 109,
+          "value": "Israel",
+          "exact": "Israel",
+          "shown": "Israel"
+        },
+        {
+          "column": "in English",
+          "row": 112,
+          "value": "Japan",
+          "exact": "Japan",
+          "shown": "Japan"
+        },
+        {
+          "column": "in English",
+          "row": 121,
+          "value": "Laos",
+          "exact": "Laos",
+          "shown": "Laos"
+        },
+        {
+          "column": "in English",
+          "row": 125,
+          "value": "Liberia",
+          "exact": "Liberia",
+          "shown": "Liberia"
+        },
+        {
+          "column": "in English",
+          "row": 130,
+          "value": "Macao SAR China",
+          "exact": "Macao SAR China",
+          "shown": "Macao SAR China"
+        },
+        {
+          "column": "in English",
+          "row": 144,
+          "value": "Moldova",
+          "exact": "Moldova",
+          "shown": "Moldova"
+        },
+        {
+          "column": "in English",
+          "row": 150,
+          "value": "Mozambique",
+          "exact": "Mozambique",
+          "shown": "Mozambique"
+        },
+        {
+          "column": "in English",
+          "row": 151,
+          "value": "Myanmar (Burma)",
+          "exact": "Myanmar (Burma)",
+          "shown": "Myanmar (Burma)"
+        },
+        {
+          "column": "in English",
+          "row": 163,
+          "value": "North Korea",
+          "exact": "North Korea",
+          "shown": "North Korea"
+        },
+        {
+          "column": "in English",
+          "row": 175,
+          "value": "Philippines",
+          "exact": "Philippines",
+          "shown": "Philippines"
+        },
+        {
+          "column": "in English",
+          "row": 200,
+          "value": "South Georgia & South Sandwich Islands",
+          "exact": "South Georgia & South Sandwich Islands",
+          "shown": "South Georgia & South Sandwich Islands"
+        },
+        {
+          "column": "in English",
+          "row": 201,
+          "value": "South Korea",
+          "exact": "South Korea",
+          "shown": "South Korea"
+        },
+        {
+          "column": "in English",
+          "row": 204,
+          "value": "Sri Lanka",
+          "exact": "Sri Lanka",
+          "shown": "Sri Lanka"
+        },
+        {
+          "column": "in English",
+          "row": 206,
+          "value": "St. Helena, Ascension & Tristan da Cunha",
+          "exact": "St. Helena, Ascension & Tristan da Cunha",
+          "shown": "St. Helena, Ascension & Tristan da Cunha"
+        },
+        {
+          "column": "in English",
+          "row": 218,
+          "value": "Taiwan",
+          "exact": "Taiwan",
+          "shown": "Taiwan"
+        },
+        {
+          "column": "in English",
+          "row": 219,
+          "value": "Tajikistan",
+          "exact": "Tajikistan",
+          "shown": "Tajikistan"
+        },
+        {
+          "column": "in English",
+          "row": 221,
+          "value": "Thailand",
+          "exact": "Thailand",
+          "shown": "Thailand"
+        },
+        {
+          "column": "in English",
+          "row": 225,
+          "value": "Tonga",
+          "exact": "Tonga",
+          "shown": "Tonga"
+        },
+        {
+          "column": "in English",
+          "row": 242,
+          "value": "Vatican City",
+          "exact": "Vatican City",
+          "shown": "Vatican City"
+        },
+        {
+          "column": "in English",
+          "row": 244,
+          "value": "Vietnam",
+          "exact": "Vietnam",
+          "shown": "Vietnam"
+        },
+        {
+          "column": "in English",
+          "row": 249,
+          "value": "Zimbabwe",
+          "exact": "Zimbabwe",
+          "shown": "Zimbabwe"
+        },
+        {
+          "column": "capital",
+          "row": 0,
+          "value": "Kabul",
+          "exact": "Kabul",
+          "shown": "Kabul"
+        },
+        {
+          "column": "capital",
+          "row": 1,
+          "value": "Mariehamn",
+          "exact": "Mariehamn",
+          "shown": "Mariehamn"
+        },
+        {
+          "column": "capital",
+          "row": 2,
+          "value": "Tirana",
+          "exact": "Tirana",
+          "shown": "Tirana"
+        },
+        {
+          "column": "capital",
+          "row": 8,
+          "value": "",
+          "exact": "",
+          "shown": ""
+        },
+        {
+          "column": "capital",
+          "row": 11,
+          "value": "Yerevan",
+          "exact": "Yerevan",
+          "shown": "Yerevan"
+        },
+        {
+          "column": "capital",
+          "row": 15,
+          "value": "Baku",
+          "exact": "Baku",
+          "shown": "Baku"
+        },
+        {
+          "column": "capital",
+          "row": 18,
+          "value": "Dhaka",
+          "exact": "Dhaka",
+          "shown": "Dhaka"
+        },
+        {
+          "column": "capital",
+          "row": 20,
+          "value": "Minsk",
+          "exact": "Minsk",
+          "shown": "Minsk"
+        },
+        {
+          "column": "capital",
+          "row": 25,
+          "value": "Thimphu",
+          "exact": "Thimphu",
+          "shown": "Thimphu"
+        },
+        {
+          "column": "capital",
+          "row": 37,
+          "value": "Phnom Penh",
+          "exact": "Phnom Penh",
+          "shown": "Phnom Penh"
+        },
+        {
+          "column": "capital",
+          "row": 44,
+          "value": "N'Djamena",
+          "exact": "N'Djamena",
+          "shown": "N'Djamena"
+        },
+        {
+          "column": "capital",
+          "row": 46,
+          "value": "Beijing",
+          "exact": "Beijing",
+          "shown": "Beijing"
+        },
+        {
+          "column": "capital",
+          "row": 50,
+          "value": "Moroni",
+          "exact": "Moroni",
+          "shown": "Moroni"
+        },
+        {
+          "column": "capital",
+          "row": 55,
+          "value": "Yamoussoukro",
+          "exact": "Yamoussoukro",
+          "shown": "Yamoussoukro"
+        },
+        {
+          "column": "capital",
+          "row": 59,
+          "value": "Nicosia",
+          "exact": "Nicosia",
+          "shown": "Nicosia"
+        },
+        {
+          "column": "capital",
+          "row": 60,
+          "value": "Prague",
+          "exact": "Prague",
+          "shown": "Prague"
+        },
+        {
+          "column": "capital",
+          "row": 69,
+          "value": "Asmara",
+          "exact": "Asmara",
+          "shown": "Asmara"
+        },
+        {
+          "column": "capital",
+          "row": 72,
+          "value": "Addis Ababa",
+          "exact": "Addis Ababa",
+          "shown": "Addis Ababa"
+        },
+        {
+          "column": "capital",
+          "row": 75,
+          "value": "Suva",
+          "exact": "Suva",
+          "shown": "Suva"
+        },
+        {
+          "column": "capital",
+          "row": 83,
+          "value": "Tbilisi",
+          "exact": "Tbilisi",
+          "shown": "Tbilisi"
+        },
+        {
+          "column": "capital",
+          "row": 100,
+          "value": "",
+          "exact": "",
+          "shown": ""
+        },
+        {
+          "column": "capital",
+          "row": 103,
+          "value": "New Delhi",
+          "exact": "New Delhi",
+          "shown": "New Delhi"
+        },
+        {
+          "column": "capital",
+          "row": 105,
+          "value": "Tehran",
+          "exact": "Tehran",
+          "shown": "Tehran"
+        },
+        {
+          "column": "capital",
+          "row": 109,
+          "value": "Jerusalem",
+          "exact": "Jerusalem",
+          "shown": "Jerusalem"
+        },
+        {
+          "column": "capital",
+          "row": 112,
+          "value": "Tokyo",
+          "exact": "Tokyo",
+          "shown": "Tokyo"
+        },
+        {
+          "column": "capital",
+          "row": 121,
+          "value": "Vientiane",
+          "exact": "Vientiane",
+          "shown": "Vientiane"
+        },
+        {
+          "column": "capital",
+          "row": 125,
+          "value": "Monrovia",
+          "exact": "Monrovia",
+          "shown": "Monrovia"
+        },
+        {
+          "column": "capital",
+          "row": 130,
+          "value": "",
+          "exact": "",
+          "shown": ""
+        },
+        {
+          "column": "capital",
+          "row": 144,
+          "value": "Chișinău",
+          "exact": "Chișinău",
+          "shown": "Chișinău"
+        },
+        {
+          "column": "capital",
+          "row": 150,
+          "value": "Maputo",
+          "exact": "Maputo",
+          "shown": "Maputo"
+        },
+        {
+          "column": "capital",
+          "row": 151,
+          "value": "Naypyidaw",
+          "exact": "Naypyidaw",
+          "shown": "Naypyidaw"
+        },
+        {
+          "column": "capital",
+          "row": 163,
+          "value": "Pyongyang",
+          "exact": "Pyongyang",
+          "shown": "Pyongyang"
+        },
+        {
+          "column": "capital",
+          "row": 175,
+          "value": "Manila",
+          "exact": "Manila",
+          "shown": "Manila"
+        },
+        {
+          "column": "capital",
+          "row": 200,
+          "value": "King Edward Point",
+          "exact": "King Edward Point",
+          "shown": "King Edward Point"
+        },
+        {
+          "column": "capital",
+          "row": 201,
+          "value": "Seoul",
+          "exact": "Seoul",
+          "shown": "Seoul"
+        },
+        {
+          "column": "capital",
+          "row": 204,
+          "value": "Colombo, Sri Jayawardenepura Kotte",
+          "exact": "Colombo, Sri Jayawardenepura Kotte",
+          "shown": "Colombo, Sri Jayawardenepura Kotte"
+        },
+        {
+          "column": "capital",
+          "row": 206,
+          "value": "Jamestown",
+          "exact": "Jamestown",
+          "shown": "Jamestown"
+        },
+        {
+          "column": "capital",
+          "row": 218,
+          "value": "Taipei",
+          "exact": "Taipei",
+          "shown": "Taipei"
+        },
+        {
+          "column": "capital",
+          "row": 219,
+          "value": "Dushanbe",
+          "exact": "Dushanbe",
+          "shown": "Dushanbe"
+        },
+        {
+          "column": "capital",
+          "row": 221,
+          "value": "Bangkok",
+          "exact": "Bangkok",
+          "shown": "Bangkok"
+        },
+        {
+          "column": "capital",
+          "row": 225,
+          "value": "Nukuʻalofa",
+          "exact": "Nukuʻalofa",
+          "shown": "Nukuʻalofa"
+        },
+        {
+          "column": "capital",
+          "row": 242,
+          "value": "Vatican City",
+          "exact": "Vatican City",
+          "shown": "Vatican City"
+        },
+        {
+          "column": "capital",
+          "row": 244,
+          "value": "Hanoi",
+          "exact": "Hanoi",
+          "shown": "Hanoi"
+        },
+        {
+          "column": "capital",
+          "row": 249,
+          "value": "Harare",
+          "exact": "Harare",
+          "shown": "Harare"
+        },
+        {
+          "column": "population",
+          "row": 0,
+          "value": "40.1 M",
+          "exact": "40.1 M",
+          "shown": "40.1 M"
+        },
+        {
+          "column": "population",
+          "row": 1,
+          "value": "0.03 M",
+          "exact": "0.03 M",
+          "shown": "0.03 M"
+        },
+        {
+          "column": "population",
+          "row": 2,
+          "value": "3.1 M",
+          "exact": "3.1 M",
+          "shown": "3.1 M"
+        },
+        {
+          "column": "population",
+          "row": 8,
+          "value": "< 0.01 M",
+          "exact": "< 0.01 M",
+          "shown": "< 0.01 M"
+        },
+        {
+          "column": "population",
+          "row": 11,
+          "value": "3.0 M",
+          "exact": "3.0 M",
+          "shown": "3.0 M"
+        },
+        {
+          "column": "population",
+          "row": 15,
+          "value": "10.7 M",
+          "exact": "10.7 M",
+          "shown": "10.7 M"
+        },
+        {
+          "column": "population",
+          "row": 18,
+          "value": "169 M",
+          "exact": "169 M",
+          "shown": "169 M"
+        },
+        {
+          "column": "population",
+          "row": 20,
+          "value": "9.5 M",
+          "exact": "9.5 M",
+          "shown": "9.5 M"
+        },
+        {
+          "column": "population",
+          "row": 25,
+          "value": "0.88 M",
+          "exact": "0.88 M",
+          "shown": "0.88 M"
+        },
+        {
+          "column": "population",
+          "row": 37,
+          "value": "17.1 M",
+          "exact": "17.1 M",
+          "shown": "17.1 M"
+        },
+        {
+          "column": "population",
+          "row": 44,
+          "value": "19.1 M",
+          "exact": "19.1 M",
+          "shown": "19.1 M"
+        },
+        {
+          "column": "population",
+          "row": 46,
+          "value": "1.42 B",
+          "exact": "1.42 B",
+          "shown": "1.42 B"
+        },
+        {
+          "column": "population",
+          "row": 50,
+          "value": "0.90 M",
+          "exact": "0.90 M",
+          "shown": "0.90 M"
+        },
+        {
+          "column": "population",
+          "row": 55,
+          "value": "30.0 M",
+          "exact": "30.0 M",
+          "shown": "30.0 M"
+        },
+        {
+          "column": "population",
+          "row": 59,
+          "value": "1.3 M",
+          "exact": "1.3 M",
+          "shown": "1.3 M"
+        },
+        {
+          "column": "population",
+          "row": 60,
+          "value": "10.8 M",
+          "exact": "10.8 M",
+          "shown": "10.8 M"
+        },
+        {
+          "column": "population",
+          "row": 69,
+          "value": "6.3 M",
+          "exact": "6.3 M",
+          "shown": "6.3 M"
+        },
+        {
+          "column": "population",
+          "row": 72,
+          "value": "119 M",
+          "exact": "119 M",
+          "shown": "119 M"
+        },
+        {
+          "column": "population",
+          "row": 75,
+          "value": "0.95 M",
+          "exact": "0.95 M",
+          "shown": "0.95 M"
+        },
+        {
+          "column": "population",
+          "row": 83,
+          "value": "4.9 M",
+          "exact": "4.9 M",
+          "shown": "4.9 M"
+        },
+        {
+          "column": "population",
+          "row": 100,
+          "value": "7.3 M",
+          "exact": "7.3 M",
+          "shown": "7.3 M"
+        },
+        {
+          "column": "population",
+          "row": 103,
+          "value": "1.41 B",
+          "exact": "1.41 B",
+          "shown": "1.41 B"
+        },
+        {
+          "column": "population",
+          "row": 105,
+          "value": "88.4 M",
+          "exact": "88.4 M",
+          "shown": "88.4 M"
+        },
+        {
+          "column": "population",
+          "row": 109,
+          "value": "9.4 M",
+          "exact": "9.4 M",
+          "shown": "9.4 M"
+        },
+        {
+          "column": "population",
+          "row": 112,
+          "value": "123 M",
+          "exact": "123 M",
+          "shown": "123 M"
+        },
+        {
+          "column": "population",
+          "row": 121,
+          "value": "8.0 M",
+          "exact": "8.0 M",
+          "shown": "8.0 M"
+        },
+        {
+          "column": "population",
+          "row": 125,
+          "value": "5.4 M",
+          "exact": "5.4 M",
+          "shown": "5.4 M"
+        },
+        {
+          "column": "population",
+          "row": 130,
+          "value": "0.64 M",
+          "exact": "0.64 M",
+          "shown": "0.64 M"
+        },
+        {
+          "column": "population",
+          "row": 144,
+          "value": "3.6 M",
+          "exact": "3.6 M",
+          "shown": "3.6 M"
+        },
+        {
+          "column": "population",
+          "row": 150,
+          "value": "33.4 M",
+          "exact": "33.4 M",
+          "shown": "33.4 M"
+        },
+        {
+          "column": "population",
+          "row": 151,
+          "value": "57.5 M",
+          "exact": "57.5 M",
+          "shown": "57.5 M"
+        },
+        {
+          "column": "population",
+          "row": 163,
+          "value": "26.3 M",
+          "exact": "26.3 M",
+          "shown": "26.3 M"
+        },
+        {
+          "column": "population",
+          "row": 175,
+          "value": "118 M",
+          "exact": "118 M",
+          "shown": "118 M"
+        },
+        {
+          "column": "population",
+          "row": 200,
+          "value": "< 0.01 M",
+          "exact": "< 0.01 M",
+          "shown": "< 0.01 M"
+        },
+        {
+          "column": "population",
+          "row": 201,
+          "value": "52.1 M",
+          "exact": "52.1 M",
+          "shown": "52.1 M"
+        },
+        {
+          "column": "population",
+          "row": 204,
+          "value": "22.0 M",
+          "exact": "22.0 M",
+          "shown": "22.0 M"
+        },
+        {
+          "column": "population",
+          "row": 206,
+          "value": "0.01 M",
+          "exact": "0.01 M",
+          "shown": "0.01 M"
+        },
+        {
+          "column": "population",
+          "row": 218,
+          "value": "23.6 M",
+          "exact": "23.6 M",
+          "shown": "23.6 M"
+        },
+        {
+          "column": "population",
+          "row": 219,
+          "value": "10.4 M",
+          "exact": "10.4 M",
+          "shown": "10.4 M"
+        },
+        {
+          "column": "population",
+          "row": 221,
+          "value": "69.9 M",
+          "exact": "69.9 M",
+          "shown": "69.9 M"
+        },
+        {
+          "column": "population",
+          "row": 225,
+          "value": "0.10 M",
+          "exact": "0.10 M",
+          "shown": "0.10 M"
+        },
+        {
+          "column": "population",
+          "row": 242,
+          "value": "< 0.01 M",
+          "exact": "< 0.01 M",
+          "shown": "< 0.01 M"
+        },
+        {
+          "column": "population",
+          "row": 244,
+          "value": "106 M",
+          "exact": "106 M",
+          "shown": "106 M"
+        },
+        {
+          "column": "population",
+          "row": 249,
+          "value": "17.2 M",
+          "exact": "17.2 M",
+          "shown": "17.2 M"
         }
       ]
     }

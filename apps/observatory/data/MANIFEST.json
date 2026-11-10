@@ -100,5 +100,43 @@
       "time is the log's wall time (-0400) as a zoneless TIMESTAMP; bytes NULL where the log has \"-\"",
       "columns: time TIMESTAMP, request VARCHAR, status USMALLINT, bytes UINTEGER"
     ]
+  },
+  "countries.parquet": {
+    "rows": 250,
+    "bytes": 8392,
+    "sha256": "a4fa4aa0f38dd6a59132f7667bf31f90525ec57a19c3721c4b0bc10f0f64710f",
+    "source": "CLDR 49.0.0's JSON (npm cldr-core and cldr-localenames-full: likelySubtags, territoryInfo, each locale's territories) and the Wikidata Query Service (each ISO 3166-1 code's capitals)",
+    "credit": "Unicode CLDR 49 (the names in each region's language and in English, the populations; Unicode License v3) and Wikidata (the capitals; CC0)",
+    "license": "Unicode License v3 (CLDR); CC0 1.0 (Wikidata)",
+    "terms": "CLDR: the Unicode License v3 grants the right \"to use, copy, modify, merge, publish, distribute, and/or sell copies of the Data Files ... provided that either (a) this copyright and permission notice appear with all copies of the Data Files or Software, or (b) this copyright and permission notice appear in associated Documentation\": the notice is `notice` here, and the README's data credits carry it. Wikidata: its structured data is CC0 1.0 (wikidata.org/wiki/Wikidata:Licensing). Checked 2026-11-09.",
+    "fetched": "2026-11-10",
+    "sources": [
+      {
+        "file": "cldr-core-49.0.0.tgz",
+        "url": "https://registry.npmjs.org/cldr-core/-/cldr-core-49.0.0.tgz",
+        "bytes": 288152,
+        "sha256": "085b1c7d83f00692505c79d575c21eea89534466eb3e70b455688851a45c87bc"
+      },
+      {
+        "file": "cldr-localenames-full-49.0.0.tgz",
+        "url": "https://registry.npmjs.org/cldr-localenames-full/-/cldr-localenames-full-49.0.0.tgz",
+        "bytes": 2105680,
+        "sha256": "d00bafb534848f142b3645d6046be81a1094fb00e809cd2c519f5e031198ba11"
+      },
+      {
+        "file": "wikidata-capitals.json",
+        "url": "https://query.wikidata.org/sparql?query=SELECT%20%3Fcode%20%3Fitem%20%3Fcapital%20%3FcapitalLabel%20WHERE%20%7B%0A%20%20%3Fitem%20wdt%3AP297%20%3Fcode%20.%0A%20%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP36%20%3Fcapital%20.%20%7D%0A%20%20SERVICE%20wikibase%3Alabel%20%7B%20bd%3AserviceParam%20wikibase%3Alanguage%20%22en%2Cmul%22%20.%20%7D%0A%7D%0AORDER%20BY%20%3Fcode%20%3Fitem%20%3Fcapital",
+        "bytes": 110809,
+        "sha256": "b7cc2309dc2ad45e4ff2f96b97d48e4c05fc0b8120fea52086899b1dc5398cbf"
+      }
+    ],
+    "version": "CLDR 49.0.0",
+    "rowGroups": 1,
+    "writer": "DuckDB v1.4.5, ZSTD, one row group, sorted by the English name (accents and case aside), the region code breaking ties",
+    "notes": [
+      "the regions, the name's language, the capitals' and the population's text by data/countries.ts's rules (docs/DECISIONS.md, \"Scenarios\", \"The countries file's rules\")",
+      "columns: flag VARCHAR, name VARCHAR, in English VARCHAR, capital VARCHAR, population VARCHAR"
+    ],
+    "notice": "COPYRIGHT AND PERMISSION NOTICE\n\nCopyright © 2001–2026 Unicode, Inc.\n\nUnicode Technical Standard #35, Unicode Locale Data Markup Language\n(LDML) made available in this repository is protected by copyright, and\npermission must be obtained from Unicode, Inc. prior to any\nreproduction, modification, or other use not permitted by the Unicode\nTerms of Use <https://www.unicode.org/copyright.html>. Specifically, you\nmay make copies of this publication and may annotate and translate it\nsolely for personal or internal business purposes and not for public\ndistribution, provided that any such permitted copies and modifications\nfully reproduce all copyright and other legal notices contained in the\noriginal. You may not make copies of or modifications to this\npublication for public distribution, or incorporate it in whole or in\npart into any product or publication without the express written\npermission of Unicode. Notwithstanding the foregoing, you may within\nthis repository provide comments and propose changes to this standard\nand may make copies/forks solely for such purposes provided that you\nreproduce this copyright notice and these terms of use in any such\ncopy/fork.\n\nAll other content in this repo is released under UNICODE LICENSE V3\n\nNOTICE TO USER: Carefully read the following legal agreement. BY\nDOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR\nSOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE\nTERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT\nDOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.\n\nPermission is hereby granted, free of charge, to any person obtaining a\ncopy of data files and any associated documentation (the \"Data Files\") or\nsoftware and any associated documentation (the \"Software\") to deal in the\nData Files or Software without restriction, including without limitation\nthe rights to use, copy, modify, merge, publish, distribute, and/or sell\ncopies of the Data Files or Software, and to permit persons to whom the\nData Files or Software are furnished to do so, provided that either (a)\nthis copyright and permission notice appear with all copies of the Data\nFiles or Software, or (b) this copyright and permission notice appear in\nassociated Documentation.\n\nTHE DATA FILES AND SOFTWARE ARE PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY\nKIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF\nTHIRD PARTY RIGHTS.\n\nIN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE\nBE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,\nOR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,\nWHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,\nARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA\nFILES OR SOFTWARE.\n\nExcept as contained in this notice, the name of a copyright holder shall\nnot be used in advertising or otherwise to promote the sale, use or other\ndealings in these Data Files or Software without prior written\nauthorization of the copyright holder.\n\nSPDX-License-Identifier: Unicode-3.0\n"
   }
 }

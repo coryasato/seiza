@@ -169,10 +169,10 @@ export async function openSide(
 }
 
 /** A measured page's query: `measure`, and a scenario's `scenario` and
- *  `stop` (the base level's Big file loads without them). */
+ *  `stop` (Big file, the base level's first, loads without them). */
 export function measureQuery(picked?: Picked | null): string {
   const params = new URLSearchParams({ measure: '' });
-  if (picked && picked.scenario.level !== 'base') {
+  if (picked && picked.scenario.id !== BIG_FILE.id) {
     params.set(SCENARIO_PARAM, picked.scenario.id);
     params.set(STOP_PARAM, picked.stop.id);
   }
@@ -496,7 +496,8 @@ export async function runMetric<R extends RunResult>(
     if (sides.includes('gpui')) servers.gpui = await serveGpui(gpuiPort, undefined, level);
     if (sides.includes('tanstack')) servers.tanstack = await serveTanstack(tanstackPort, undefined, level);
     for (const pick of picks) {
-      const picked = level === 'base' ? null : pick;
+      // Big file's runs are unlabelled; every other scenario's, the base level's admin table too, carry its label.
+      const picked = pick.scenario.id === BIG_FILE.id ? null : pick;
       const name = picked ? ` ${resultLabel(picked)}` : '';
       const output: Record<string, unknown> = {
         date: new Date().toISOString().slice(0, 10),

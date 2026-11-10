@@ -14,10 +14,12 @@
 // 3. Each drawn value must be DuckDB's (its exact text parses to the same
 //    double, or both are NULL), so the fixture pins the file's values.
 //
-// Then the same for each scenario on a feature level (`scenarios`: the wide
+// Then the same for each scenario but Big file (`scenarios`: the wide
 // sheet's file on the `wide` build at its default stop, a few of its float
 // columns: the ones on screen at the sideways scroll's 0), each section its
-// own columns, budgets, and cells.
+// own columns, budgets, and cells. A file of text alone (the admin
+// table's, on the base build) is sampled as text: every column, its rows
+// picked by their characters, each drawn text DuckDB's to the byte.
 //
 // The component's native test (`cargo test -p seiza-tall-table`) checks
 // the table still draws this text; the TanStack contender's tests check
@@ -33,13 +35,14 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Browser } from '@playwright/test';
 import { flag, hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
-import { ALL_SCENARIOS, type Level } from '../contenders/scenarios.ts';
+import { ALL_SCENARIOS, BIG_FILE, type Level } from '../contenders/scenarios.ts';
 import { MARKS, dataFile, problems, serveGpui, nativeDuckDB } from './harness.ts';
 
 const PORT = 4313;
-/** What each scenario on a feature level samples, by its id: the port its
+/** What each scenario but Big file samples, by its id: the port its
  *  level's build is served on and the float columns picked (`undefined`:
- *  every one), or `null` for one that isn't sampled. The wide sheet's are
+ *  every one), or `null` for one that isn't sampled; `text`, a file of
+ *  text alone, every column sampled as text. The wide sheet's are
  *  the float columns on screen at the sideways scroll's 0 (the first
  *  painted ones), so a jump draws them. Market watch isn't: its cells are
  *  its formats', which `cells.json`'s `format` section pins, and the feed
@@ -47,10 +50,13 @@ const PORT = 4313;
  *  is live tail: it has no float column, its time's text is
  *  `timestamp_text`'s, and `perf/tail.ts` checks its cells against native
  *  DuckDB's rows through the replay. */
-const SAMPLED: Record<string, { port: number; only?: string[] } | null> = {
+const SAMPLED: Record<string, { port: number; only?: string[]; text?: true } | null> = {
   'wide-sheet': { port: 4348, only: ['Latitude', 'Jan 1', 'Jan 2', 'Jan 15'] },
   'market-watch': null,
   'live-tail': null,
+  // Its five columns are text; its names hold 18 scripts and its flags
+  // regional indicators, which both sides must draw as the file has them.
+  'admin-table': { port: PORT, text: true },
 };
 const fixturePath = fileURLToPath(new URL('../../../components/tall-table/fixtures/cells.json', import.meta.url));
 /** The fixture's synthetic values, which this script keeps as they are: no
@@ -118,6 +124,11 @@ interface FixtureCell {
   shown: string;
 }
 
+/** A text cell's picks: the row's non-ASCII characters by their 128-code-point
+ *  block, sorted, so each script (and each mix of them) is one key. */
+const blocksOf = (text: string): string =>
+  [...new Set([...text].map((ch) => ch.codePointAt(0)!).filter((cp) => cp > 0x7f).map((cp) => cp >> 7))].sort((a, b) => a - b).join(',');
+
 /** What one file's section holds, and what a run found wrong. */
 interface Sampled {
   columns: { name: string; kind: string; width: number; budget: number }[];
@@ -131,10 +142,11 @@ interface Sampled {
  * `query`) draws them, and every drawn value must be DuckDB's.
  * `budgetRule`: check the base's budget rule (`column.rs`) at `number_px`.
  */
-async function sample(browser: Browser, spec: { path: string; level: Level; port: number; query: string; only?: string[]; budgetRule: boolean }, failures: string[]): Promise<Sampled> {
+async function sample(browser: Browser, spec: { path: string; level: Level; port: number; query: string; only?: string[]; budgetRule: boolean; text?: true }, failures: string[]): Promise<Sampled> {
   const file = `read_parquet('${spec.path.replaceAll("'", "''")}', file_row_number = true)`;
   const count = Number((await rowsOf(`SELECT count(*) FROM ${file}`))[0]![0]);
   const described = await rowsOf(`DESCRIBE SELECT * FROM read_parquet('${spec.path.replaceAll("'", "''")}')`);
+  if (spec.text) return sampleText(browser, spec, file, count, described, failures);
   // The fixture's values are f64 (`CellValue::Float`); a FLOAT column's
   // exact text is an f32's, which this script and the native test don't read.
   if (described.some((row) => row[1] === 'FLOAT')) throw new Error(`${spec.path} has a FLOAT column: the cell fixture holds DOUBLEs only`);
@@ -190,38 +202,7 @@ async function sample(browser: Browser, spec: { path: string; level: Level; port
 
   // --- what the contender draws ---
 
-  /** The contender's columns at `dpr`, and, with `rows`, the cells it drew
-   *  for the picked columns. Wide enough to show every base column. */
-  async function drawn(url: string, dpr: number, rows: number[]) {
-    const context = await browser.newContext({ viewport: { width: 2560, height: 900 }, deviceScaleFactor: dpr });
-    if (dpr !== 1) await context.addInitScript(hideDevicePixelContentBox);
-    const page = await context.newPage();
-    const found = problems(page);
-    await page.goto(`${url}?measure&cells${spec.query}`);
-    await waitMark(page, MARKS.filled, 0);
-    const columns = await page
-      .waitForFunction(() => (globalThis as Global).__contender?.columns ?? false, null, { timeout: 60_000 })
-      .then(async (handle) => (await handle.jsonValue()) as ColumnProbe[]);
-    const indices = floats.map((name) => columns.findIndex((column) => column.name === name));
-    const cells: CellProbe[] = [];
-    for (const row of rows) {
-      await page.evaluate((fraction) => (globalThis as Global).__contender!.replay.jump(fraction), (row + 0.5) / count);
-      // The jump resolves once the view is filled; its frame's cells hold the row.
-      const drawnRow = await page
-        .waitForFunction(
-          ({ row, indices }) => {
-            const cells = ((globalThis as Global).__contender?.cells ?? []).filter((cell) => cell.row === row && indices.includes(cell.column));
-            return cells.length === indices.length ? cells : false;
-          },
-          { row, indices },
-          { timeout: 30_000, polling: 20 },
-        )
-        .then(async (handle) => (await handle.jsonValue()) as CellProbe[]);
-      cells.push(...drawnRow);
-    }
-    await context.close();
-    return { columns, cells, problems: found };
-  }
+  const drawn = (url: string, dpr: number, rows: number[]) => drawnCells(browser, spec, count, floats, url, dpr, rows);
 
   const server = await serveGpui(spec.port, undefined, spec.level);
   try {
@@ -275,20 +256,127 @@ async function sample(browser: Browser, spec: { path: string; level: Level; port
   }
 }
 
+/**
+ * A file of text alone (the admin table's): every column, the rows picked
+ * by their characters (each column's longest and shortest text, the first
+ * row of each set of non-ASCII blocks any column holds, so every script
+ * and the flags, and every tenth of the file), and every drawn text must
+ * be DuckDB's to the byte, exact and shown (no text in it has a line
+ * break, the one thing the table rewrites). Its columns: each one's
+ * width as laid out by kind, which both sides must match.
+ */
+async function sampleText(browser: Browser, spec: { path: string; level: Level; port: number; query: string }, file: string, count: number, described: unknown[][], failures: string[]): Promise<Sampled> {
+  const names = described.map((row) => String(row[0]));
+  const notText = described.filter((row) => row[1] !== 'VARCHAR');
+  if (notText.length) throw new Error(`${spec.path}: sampled as text, but ${notText.map((row) => `${row[0]} is ${row[1]}`).join(', ')}`);
+  const quoted = names.map((name) => `"${name.replaceAll('"', '""')}"`).join(', ');
+  const all = new Map<number, (string | null)[]>();
+  for (const row of await rowsOf(`SELECT file_row_number, ${quoted} FROM ${file} ORDER BY file_row_number`)) all.set(Number(row[0]), row.slice(1).map((value) => (value === null ? null : String(value))));
+  const wanted = new Set<number>();
+  const blocks = new Set<string>();
+  const chars = (text: string | null) => (text === null ? -1 : [...text].length);
+  for (const [at] of names.entries()) {
+    const byLength = [...all].sort(([a, x], [b, y]) => chars(x[at]!) - chars(y[at]!) || a - b);
+    wanted.add(byLength[0]![0]);
+    wanted.add(byLength.at(-1)![0]);
+  }
+  for (const [row, values] of all) {
+    for (const value of values) {
+      const key = blocksOf(value ?? '');
+      if (key === '' || blocks.has(key)) continue;
+      blocks.add(key);
+      wanted.add(row);
+    }
+    if (row % Math.max(1, Math.floor(count / 10)) === 0) wanted.add(row);
+  }
+  const targets = [...wanted].sort((a, b) => a - b);
+  console.log(`${spec.path.slice(spec.path.lastIndexOf('/') + 1)}: native DuckDB: ${count} rows; text columns ${names.join(', ')}; ${targets.length} rows picked (${blocks.size} sets of non-ASCII blocks)`);
+
+  const server = await serveGpui(spec.port, undefined, spec.level);
+  try {
+    const atTwo = await drawnCells(browser, spec, count, names, server.url, 2, targets);
+    const atOne = await drawnCells(browser, spec, count, names, server.url, 1, []);
+    failures.push(...atTwo.problems, ...atOne.problems);
+    const layout = (columns: ColumnProbe[]) => JSON.stringify(columns.map(({ name, kind, width, budget }) => ({ name, kind, width, budget })));
+    if (layout(atTwo.columns) !== layout(atOne.columns)) failures.push(`${spec.level}: the columns differ by DPR: ${layout(atTwo.columns)} vs ${layout(atOne.columns)}`);
+    const columns = names.map((name) => {
+      const index = atTwo.columns.findIndex((column) => column.name === name);
+      const column = atTwo.columns[index];
+      if (!column || column.kind !== 'text') throw new Error(`the contender lays ${name} out as ${column?.kind ?? 'nothing'}`);
+      return { index, ...column };
+    });
+    const cells: FixtureCell[] = [];
+    for (const [position, column] of columns.entries()) {
+      for (const cell of atTwo.cells.filter((cell) => cell.column === column.index).sort((a, b) => a.row - b.row)) {
+        const value = all.get(cell.row)?.[position];
+        if (value === undefined) {
+          failures.push(`row ${cell.row} wasn't picked`);
+          continue;
+        }
+        const exact = value ?? 'NULL';
+        if (cell.exact !== exact || cell.shown !== exact) failures.push(`${column.name} row ${cell.row}: drawn ${JSON.stringify(cell.exact)} (shown ${JSON.stringify(cell.shown)}), DuckDB ${JSON.stringify(value)}`);
+        cells.push({ column: column.name, row: cell.row, value, exact: cell.exact, shown: cell.shown });
+      }
+    }
+    const missing = targets.filter((row) => !cells.some((cell) => cell.row === row));
+    if (missing.length) failures.push(`rows ${missing.join(', ')}: not drawn`);
+    console.log(`  columns: ${columns.map((column) => `${column.name} ${column.width} px`).join(', ')}; ${cells.length} cells`);
+    return { columns: columns.map(({ name, kind, width, budget }) => ({ name, kind, width, budget })), cells, rounded: 0 };
+  } finally {
+    await server.close();
+  }
+}
+
+/** The contender's columns at `dpr`, and, with `rows`, the cells it drew
+ *  in the columns `names` for each (jumped to one at a time). Wide enough
+ *  to show every base column. */
+async function drawnCells(browser: Browser, spec: { query: string }, count: number, names: string[], url: string, dpr: number, rows: number[]) {
+  const context = await browser.newContext({ viewport: { width: 2560, height: 900 }, deviceScaleFactor: dpr });
+  if (dpr !== 1) await context.addInitScript(hideDevicePixelContentBox);
+  const page = await context.newPage();
+  const found = problems(page);
+  await page.goto(`${url}?measure&cells${spec.query}`);
+  await waitMark(page, MARKS.filled, 0);
+  const columns = await page
+    .waitForFunction(() => (globalThis as Global).__contender?.columns ?? false, null, { timeout: 60_000 })
+    .then(async (handle) => (await handle.jsonValue()) as ColumnProbe[]);
+  const indices = names.map((name) => columns.findIndex((column) => column.name === name));
+  const missing = names.filter((_, at) => indices[at] === -1);
+  if (missing.length) throw new Error(`the contender lays out no ${missing.join(', ')} (its columns: ${columns.map((column) => column.name).join(', ')})`);
+  const cells: CellProbe[] = [];
+  for (const row of rows) {
+    await page.evaluate((fraction) => (globalThis as Global).__contender!.replay.jump(fraction), (row + 0.5) / count);
+    // The jump resolves once the view is filled; its frame's cells hold the row.
+    const drawnRow = await page
+      .waitForFunction(
+        ({ row, indices }) => {
+          const cells = ((globalThis as Global).__contender?.cells ?? []).filter((cell) => cell.row === row && indices.includes(cell.column));
+          return cells.length === indices.length ? cells : false;
+        },
+        { row, indices },
+        { timeout: 30_000, polling: 20 },
+      )
+      .then(async (handle) => (await handle.jsonValue()) as CellProbe[]);
+    cells.push(...drawnRow);
+  }
+  await context.close();
+  return { columns, cells, problems: found };
+}
+
 const failures: string[] = [];
 const browser = await chromium.launch({ channel: 'chromium' });
 let fixture: unknown;
 try {
   const base = await sample(browser, { path: dataFile, level: 'base', port: PORT, query: '', budgetRule: true }, failures);
-  // Each scenario on a feature level, at its default stop, as `SAMPLED` says.
+  // Each scenario but Big file (the top section's), at its default stop, as `SAMPLED` says.
   const scenarios: Record<string, unknown> = {};
-  for (const scenario of ALL_SCENARIOS.filter((scenario) => scenario.level !== 'base')) {
+  for (const scenario of ALL_SCENARIOS.filter((scenario) => scenario.id !== BIG_FILE.id)) {
     if (!Object.hasOwn(SAMPLED, scenario.id)) throw new Error(`${scenario.id}: not in SAMPLED (sampled or not)`);
     const sampled = SAMPLED[scenario.id];
     if (!sampled) continue;
     const stop = scenario.stops.find((stop) => stop.id === scenario.defaultStop)!;
     const path = fileURLToPath(new URL(`../data/${scenario.data}`, import.meta.url));
-    const section = await sample(browser, { path, level: scenario.level, port: sampled.port, query: `&scenario=${scenario.id}&stop=${stop.id}`, only: sampled.only, budgetRule: false }, failures);
+    const section = await sample(browser, { path, level: scenario.level, port: sampled.port, query: `&scenario=${scenario.id}&stop=${stop.id}`, only: sampled.only, budgetRule: false, text: sampled.text }, failures);
     scenarios[scenario.id] = {
       source: { file: `apps/observatory/data/${scenario.data}`, sha256: manifest[scenario.data]!.sha256, stop: stop.id, contender: `tall-table-gpui at the ${scenario.level} level, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)` },
       ...section,
@@ -297,7 +385,7 @@ try {
   }
   fixture = {
     about:
-      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); a TIMESTAMP's text as live tail draws it (timestamp_text, hand-written, kept by it); and each scenario on a feature level its own columns and cells, drawn at its default stop (scenarios). See README.md.",
+      "Cell text: each float column's budget as the GPUI contender laid it out (its ColumnProbe); values from the data file with the exact text and the shown text the contender drew (cells, written by apps/observatory/perf/cell-fixture.ts); synthetic values the same columns round (rounding, kept by it); with resize, GPUI's widest number advance (number_px) and widths with the budgets they give (resize, both kept by it); with format, the characters' advances and formatted cases (format, kept by it); a TIMESTAMP's text as live tail draws it (timestamp_text, hand-written, kept by it); and each scenario but the asteroids its own columns and cells, drawn at its default stop (scenarios; a file of text alone, every column as text). See README.md.",
     source: { file: 'apps/observatory/data/asteroids.parquet', sha256: manifest['asteroids.parquet']!.sha256, contender: 'tall-table-gpui, release build, Chromium, 2560x900 at DPR 2 (budgets the same at DPR 1)' },
     number_px: numberPx,
     columns: base.columns,

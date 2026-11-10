@@ -133,6 +133,23 @@ export const BIG_FILE: BaseScenario = {
   defaultStop: 'all',
 };
 
+/**
+ * The admin table (`docs/DECISIONS.md`, "Scenarios"): the world's regions,
+ * each named in its own script, in a table a few hundred rows long. The
+ * DOM's scenario, shown as capabilities (find, select, a screen reader,
+ * every script drawn, Translate), not speed; no dial, so one stop. On the
+ * base level: its file is text alone, the base's kinds.
+ */
+export const ADMIN_TABLE: BaseScenario = {
+  id: 'admin-table',
+  label: 'Admin table',
+  use: 'The table in almost every app: a few hundred rows of text in many languages',
+  level: 'base',
+  data: 'countries.parquet',
+  stops: [{ id: 'all', label: 'All rows' }],
+  defaultStop: 'all',
+};
+
 /** A wide sheet's stop, its label from its count. */
 const densityStop = (id: string, cells: number, rowHeight: number, textSize: number, columnWidth: number): DensityStop => ({ id, label: `~${cells} cells`, cells, rowHeight, textSize, columnWidth });
 
@@ -221,7 +238,7 @@ export const LIVE_TAIL: TailScenario = {
 /** Every scenario, each level's first its default: what a frame can load
  *  (`pickScenario`) and what the scripts measure, on whichever sides build
  *  its level (`BUILT`). */
-export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL];
+export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE];
 
 /** The scenarios the page shows: a scenario joins once both sides build its
  *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The
@@ -266,5 +283,6 @@ export function pickScenario(level: Level, params: URLSearchParams): Picked | Er
   return { scenario, stop } as Picked;
 }
 
-/** A cold result's label: `<scenario>-<stop>`; the base level's are Big file's, unlabelled. */
-export const resultLabel = ({ scenario, stop }: Picked): string => (scenario.level === 'base' ? '' : `${scenario.id}-${stop.id}`);
+/** A cold result's label: `<scenario>-<stop>`, a scenario with one stop
+ *  (no dial) its id alone; Big file's, the first, unlabelled. */
+export const resultLabel = ({ scenario, stop }: Picked): string => (scenario.id === BIG_FILE.id ? '' : scenario.stops.length === 1 ? scenario.id : `${scenario.id}-${stop.id}`);

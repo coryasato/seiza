@@ -331,9 +331,13 @@ readout-cost *args:
 # exchange, NASDAQ Trader's directories fetched), and
 # nasa-http-jul95.parquet from NASA-HTTP's July 1995 log, kept in
 # data/raw/nasa/ and checked against its pin (downloaded when missing), with
-# the replay's pages run against it. Installs data/'s native DuckDB (its own
-# lockfile). Flags: --only asteroids|ghcn|market|nasa; --repin (download
-# GHCN's sources again and pin them: a new file, so regenerate cells.json).
+# the replay's pages run against it, and countries.parquet from CLDR's
+# region names and populations and Wikidata's capitals, kept in
+# data/raw/countries/ and checked against their pins (downloaded when
+# missing). Installs data/'s native DuckDB (its own lockfile). Flags:
+# --only asteroids|ghcn|market|nasa|countries; --repin (download GHCN's
+# sources and the Wikidata query's result again and pin them: a new file,
+# so regenerate cells.json).
 data *args:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
     node {{app_dir}}/data/prep.ts {{args}}

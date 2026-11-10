@@ -16,6 +16,7 @@ import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import type { Contender } from '../../../../contract.ts';
 import { exactText, shownText } from './data/format.ts';
 import type { TablePage } from './data/table.ts';
+import { GUTTER_ARIA, HEAD_ARIA, rowAria } from './aria.ts';
 import { barInset } from './density.ts';
 import { formatCount, padOf, type LaidOutColumn, type Sizes } from './layout.ts';
 import { FramePaint, documentTheme, fromOklab, rampAt, rampCss, resolveRamp, type Oklab } from './paint.ts';
@@ -143,14 +144,14 @@ export function WideHead({ columns, sheet, gutter, width, sizes }: { columns: re
   const cells: ReactNode[] = [];
   for (let index = 0; index < sheet.pin.columns; index++) {
     const column = columns[index]!;
-    cells.push(h('div', { key: column.name, className: `cell pin ${column.align}${index === sheet.pin.columns - 1 ? ' last' : ''}`, style: pinnedStyle(column, gutter) }, column.name));
+    cells.push(h('div', { key: column.name, className: `cell pin ${column.align}${index === sheet.pin.columns - 1 ? ' last' : ''}`, style: pinnedStyle(column, gutter), role: 'columnheader', 'aria-colindex': index + 1 }, column.name));
   }
   cells.push(h('div', { key: ' gap', className: 'gap', style: { width: sheet.gap } }));
   for (let index = sheet.first; index <= sheet.last; index++) {
     const column = columns[index]!;
-    cells.push(h('div', { key: column.name, className: `cell ${column.align}`, style: { width: column.width } }, column.name));
+    cells.push(h('div', { key: column.name, className: `cell ${column.align}`, style: { width: column.width }, role: 'columnheader', 'aria-colindex': index + 1 }, column.name));
   }
-  return h('div', { className: 'head', style: { width, height: sizes.row } }, h('div', { className: 'num', style: { width: gutter } }), cells);
+  return h('div', { className: 'head', style: { width, height: sizes.row }, ...HEAD_ARIA }, h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }), cells);
 }
 
 /** A row, by its page and its index in it (null and no failure: not loaded
@@ -201,10 +202,10 @@ export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps
     if (failed !== null) return null;
     if (!page) {
       // Keyed apart from the loaded cells, so a row that loads gets new cells (Element Timing).
-      return h('div', { key: `pending:${column}`, className: `${base} pending`, style, 'data-column': column }, h('div', { className: 'bar' }));
+      return h('div', { key: `pending:${column}`, className: `${base} pending`, style, 'data-column': column, role: 'cell', 'aria-colindex': column + 1 }, h('div', { className: 'bar' }));
     }
     const value = page.value(index, column);
-    if (value === undefined) return h('div', { key: column, className: base, style, 'data-column': column });
+    if (value === undefined) return h('div', { key: column, className: base, style, 'data-column': column, role: 'cell', 'aria-colindex': column + 1 });
     let className = base;
     if (value === null) className += ' null';
     else if (column >= scene.heatFrom && typeof value === 'number') {
@@ -218,16 +219,16 @@ export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps
     }
     return h(
       'div',
-      { key: column, className, style, 'data-column': column, elementtiming: measured && timedColumn(column) ? `row:${row}` : undefined },
+      { key: column, className, style, 'data-column': column, role: 'cell', 'aria-colindex': column + 1, elementtiming: measured && timedColumn(column) ? `row:${row}` : undefined },
       shownText(laidOut.kind, value, laidOut.budget),
     );
   };
   const pinnedCells = drawn.slice(0, pinned).map(cell);
-  const scrolled = failed !== null ? [h('div', { key: 'failed', className: 'failed', style: { left: gutter } }, `Couldn't load these rows: ${failed}`)] : drawn.slice(pinned).map(cell);
+  const scrolled = failed !== null ? [h('div', { key: 'failed', className: 'failed', style: { left: gutter }, role: 'cell' }, `Couldn't load these rows: ${failed}`)] : drawn.slice(pinned).map(cell);
   return h(
     'div',
-    { className: `row ${kind}`, 'data-row': row, style: { transform: `translateY(${top}px)` } },
-    h('div', { className: 'num', style: { width: gutter } }, formatCount(row + 1)),
+    { className: `row ${kind}`, 'data-row': row, style: { transform: `translateY(${top}px)` }, ...rowAria(row) },
+    h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }, formatCount(row + 1)),
     pinnedCells,
     h('div', { key: ' gap', className: 'gap', style: { width: gap } }),
     scrolled,

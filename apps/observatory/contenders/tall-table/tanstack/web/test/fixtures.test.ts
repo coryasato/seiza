@@ -366,22 +366,38 @@ describe('paging.json', () => {
 
 // --- cells ---
 
+/** A text value as the source hands it: the fixture's, unchanged. */
+const asRead = (text: string): string => text;
+/** The control's text: its UTF-8 read as Latin-1, as a source decoding the
+ *  wrong charset would hand it. */
+const asLatin1 = (text: string): string => Buffer.from(text, 'utf8').toString('latin1');
+
 /** The fixture's cells whose text `shown` (the column, the value) or
  *  `exact` (the value) doesn't give, at each column's budget plus `skew`:
- *  the top section's (its `rounding` too), or a scenario's (`scenarios`). */
-function cellMismatches(skew: number, exact: (value: number) => string, scenario?: string): string[] {
+ *  the top section's (its `rounding` too), or a scenario's (`scenarios`).
+ *  A text column's value is handed over as `text` makes it from the
+ *  fixture's (the source's decoding), its exact text the value's own. */
+function cellMismatches(skew: number, exact: (value: number) => string, scenario?: string, text: (value: string) => string = asRead): string[] {
   const top = fixture('cells.json');
   const cells = scenario ? top.scenarios[scenario] : top;
   assert.ok(cells, `cells.json has no scenario ${scenario}`);
-  const budgets = new Map<string, number>();
+  const budgets = new Map<string, { kind: 'float' | 'text'; budget: number }>();
   for (const column of cells.columns) {
-    assert.equal(column.kind, 'float', "the fixture's columns are floats");
-    budgets.set(column.name, Math.max(1, column.budget + skew));
+    assert.ok(column.kind === 'float' || column.kind === 'text', "the fixture's columns are floats or text");
+    budgets.set(column.name, { kind: column.kind, budget: Math.max(1, column.budget + skew) });
   }
   const mismatches: string[] = [];
   for (const cell of [...cells.cells, ...(cells.rounding ?? [])]) {
-    const budget = budgets.get(cell.column);
-    assert.ok(budget, "the cell's column is listed");
+    const column = budgets.get(cell.column);
+    assert.ok(column, "the cell's column is listed");
+    const { kind, budget } = column;
+    if (kind === 'text') {
+      const value = cell.value === null ? null : text(cell.value);
+      const exactText = value ?? 'NULL';
+      const shown = shownText('text', value, budget);
+      if (exactText !== cell.exact || shown !== cell.shown) mismatches.push(`${cell.column} ${JSON.stringify(cell.value)}: exact ${exactText}, shown ${shown}; the fixture's ${cell.exact} ${cell.shown}`);
+      continue;
+    }
     const value = cell.value === null ? null : Number(cell.value);
     const exactText = value === null ? 'NULL' : exact(value);
     const shown = shownText('float', value, budget);
@@ -473,11 +489,15 @@ describe('cells.json', () => {
       assert.ok(fixture('cells.json').scenarios[scenario].cells.length > 0);
       assert.deepEqual(cellMismatches(0, exactText, scenario), []);
     });
-    // No value in the file is long enough for a budget a character off to
-    // round it (the budgets are `view.test.ts`'s), but whole numbers are
-    // there, which JS's own text writes without the `.0`.
+    // A file of floats: no value in it is long enough for a budget a
+    // character off to round it (the budgets are `view.test.ts`'s), but
+    // whole numbers are there, which JS's own text writes without the `.0`.
+    // A file of text: its characters past ASCII, which a source decoding
+    // Latin-1 wouldn't hand over as they are.
     test(`the ${scenario} scenario's control fails`, () => {
-      assert.notDeepEqual(cellMismatches(0, String, scenario), [], `String's text passed ${scenario}'s cells`);
+      const text = fixture('cells.json').scenarios[scenario].columns.every((column: { kind: string }) => column.kind === 'text');
+      if (text) assert.notDeepEqual(cellMismatches(0, exactText, scenario, asLatin1), [], `Latin-1 text passed ${scenario}'s cells`);
+      else assert.notDeepEqual(cellMismatches(0, String, scenario), [], `String's text passed ${scenario}'s cells`);
     });
   }
 });

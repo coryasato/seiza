@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-09",
+  "label": "m12-b1-tanstack-sizes-tail",
+  "level": "tail",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "firstPaintJsBrotliKiB": 76.9,
+  "dataLayerJsBrotliKiB": 39.2,
+  "engineJsBrotliKiB": 7.5,
+  "cssBrotliKiB": 1,
+  "htmlBrotliKiB": 0.5,
+  "workerJsBrotliKiB": 1.3,
+  "chunks": {
+    "firstPaint": {
+      "index-CgwxrHYv.js": 78763
+    },
+    "dataLayer": {
+      "paging-Bmtcp9W4.js": 3169,
+      "replay-C32Y-O20.js": 3169,
+      "serialization-DpDKJQCF.js": 32707,
+      "table-BXvUAqp3.js": 1077
+    },
+    "engine": {
+      "engine-CXaZkx3A.js": 7713
+    }
+  }
+}

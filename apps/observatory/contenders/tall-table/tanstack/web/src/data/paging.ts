@@ -148,6 +148,11 @@ export class TablePaging<P extends Page> {
     return this.cache.row(row);
   }
 
+  /** The rows a page holds. */
+  get pageRows(): number {
+    return this.paging.pageRows;
+  }
+
   /** How long a scrollbar drag rests before its position loads, ms. */
   get dragSettleMs(): number {
     return this.paging.dragSettleMs;

@@ -24,6 +24,7 @@ import { EdgeLine, WideHead, WideRow, cellElement, cellRect, publishCells, sheet
 import { FlashTurns, MarketRow, publishMarketCells, type MarketCells } from './market.ts';
 import { TailReader, TailRow, drawnRows, publishTailCells, renotify, setContractGutter, setModelRows, type TailCells } from './tail.ts';
 import { isFollowing, noteTailDrawn } from './data/follow.ts';
+import { BODY_ARIA, GUTTER_ARIA, HEAD_ARIA, NONE_ARIA, rowAria, tableAria } from './aria.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -382,11 +383,16 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     return Math.max(0, Math.min((__LEVEL__ === 'tail' ? paging.rows : rows) - WINDOW_ROWS, model.base - WINDOW_ROWS / 2));
   };
 
+  // On the base level, a table that fits in one page renders every row, as
+  // a DOM table of a few hundred rows does, so the browser's find, Translate,
+  // and a screen reader reach them all (`docs/DECISIONS.md`, "Scenarios");
+  // a larger one is virtualized.
+  const everyRow = __LEVEL__ === 'base' && rows <= paging.pageRows;
   const virtualizer = useVirtualizer({
     count: Math.min(rows, WINDOW_ROWS),
     getScrollElement: () => scrollerRef.current,
     estimateSize: () => rowHeight,
-    overscan: 4,
+    overscan: everyRow ? rows : 4,
     observeElementOffset: (_instance, notify) =>
       modelRef.current?.subscribe((v, scrolling) => {
         const base = windowBase();
@@ -479,9 +485,9 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       { className: 'frame wide', style: sheetStyle(sizes) },
       h(
         'div',
-        { ref: scrollerRef, className: 'scroller', tabIndex: 0 },
+        { ref: scrollerRef, className: 'scroller', tabIndex: 0, ...tableAria(rows), 'aria-colcount': columns.length },
         h(WideHead, { columns, sheet, gutter, width, sizes }),
-        h('div', { ref: spacerRef, className: 'spacer', style: { width } }, h('div', { ref: contentRef, className: 'content' }, shown)),
+        h('div', { ref: spacerRef, className: 'spacer', style: { width }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
       ),
       h(EdgeLine, { sheet, gutter }),
     );
@@ -490,9 +496,9 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     { className: 'frame' },
     h(
       'div',
-      { ref: scrollerRef, className: 'scroller', tabIndex: 0 },
+      { ref: scrollerRef, className: 'scroller', tabIndex: 0, ...tableAria(rows) },
       h(Head, { columns, gutter, width }),
-      h('div', { ref: spacerRef, className: 'spacer', style: { width } }, h('div', { ref: contentRef, className: 'content' }, shown)),
+      h('div', { ref: spacerRef, className: 'spacer', style: { width }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
     ),
   );
 }
@@ -510,9 +516,9 @@ function isCut(cell: Element): boolean {
 function Head({ columns, gutter, width }: { columns: LaidOutColumn[]; gutter: number; width: number }): ReactNode {
   return h(
     'div',
-    { className: 'head', style: { width } },
-    h('div', { className: 'num', style: { width: gutter } }),
-    columns.map((column) => h('div', { key: column.name, className: `cell ${column.align}`, style: { width: column.width } }, column.name)),
+    { className: 'head', style: { width }, ...HEAD_ARIA },
+    h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }),
+    columns.map((column) => h('div', { key: column.name, className: `cell ${column.align}`, style: { width: column.width }, role: 'columnheader' }, column.name)),
   );
 }
 
@@ -536,27 +542,27 @@ const Row = memo(function Row({ row, top, page, index, failed, columns, gutter, 
   const shown = shownRow(page ? { kind: 'loaded', page, index } : failed !== null ? { kind: 'failed', message: failed } : { kind: 'pending' }, columns);
   let cells: ReactNode;
   if (shown.kind === 'failed') {
-    cells = h('div', { className: 'failed', style: { left: gutter } }, `Couldn't load these rows: ${shown.message}`);
+    cells = h('div', { className: 'failed', style: { left: gutter }, role: 'cell' }, `Couldn't load these rows: ${shown.message}`);
   } else if (shown.kind === 'pending') {
     // Keyed apart from the loaded cells, so a row that loads gets new cells,
     // which Element Timing reports: it never reports a cell changed in place.
     cells = columns.map((column) =>
-      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width } }, h('div', { className: 'bar' })),
+      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width }, role: 'cell' }, h('div', { className: 'bar' })),
     );
   } else {
     cells = columns.map((column, index) => {
       const cell = shown.cells[index] ?? null;
       return h(
         'div',
-        { key: column.name, className: `cell ${column.align}${cell?.muted ? ' null' : ''}`, style: { width: column.width }, elementtiming: measured ? `row:${row}` : undefined },
+        { key: column.name, className: `cell ${column.align}${cell?.muted ? ' null' : ''}`, style: { width: column.width }, role: 'cell', elementtiming: measured ? `row:${row}` : undefined },
         cell?.text,
       );
     });
   }
   return h(
     'div',
-    { className: row % 2 === 1 ? 'row odd' : 'row', 'data-row': row, style: { transform: `translateY(${top}px)` } },
-    h('div', { className: 'num', style: { width: gutter } }, formatCount(row + 1)),
+    { className: row % 2 === 1 ? 'row odd' : 'row', 'data-row': row, style: { transform: `translateY(${top}px)` }, ...rowAria(row) },
+    h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }, formatCount(row + 1)),
     cells,
   );
 });

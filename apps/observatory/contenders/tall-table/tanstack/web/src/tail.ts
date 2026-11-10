@@ -21,6 +21,7 @@ import { readerMoved } from './data/follow.ts';
 import type { TablePaging } from './data/paging.ts';
 import type { TablePage } from './data/table.ts';
 import type { TableContract } from './contract.ts';
+import { GUTTER_ARIA, rowAria } from './aria.ts';
 import { formatCount, type LaidOutColumn } from './layout.ts';
 import { fromOklch, parseComputed } from './paint.ts';
 import { hex, themeCss } from './scene.ts';
@@ -81,10 +82,10 @@ export const TailRow = /* @__PURE__ */ memo(function TailRow({ row, top, page, i
   let cells: ReactNode;
   const value = (column: number) => page?.value(index, column);
   if (failed !== null) {
-    cells = h('div', { className: 'failed', style: { left: gutter } }, `Couldn't load these rows: ${failed}`);
+    cells = h('div', { className: 'failed', style: { left: gutter }, role: 'cell' }, `Couldn't load these rows: ${failed}`);
   } else if (!page || value(0) === undefined) {
     cells = columns.map((column) =>
-      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width } }, h('div', { className: 'bar' })),
+      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width }, role: 'cell' }, h('div', { className: 'bar' })),
     );
   } else {
     cells = columns.map((column, at) => {
@@ -102,13 +103,13 @@ export const TailRow = /* @__PURE__ */ memo(function TailRow({ row, top, page, i
       // The value's exact text: the time's is its text, as the GPUI side's
       // page gives it.
       const exact = !probed || cell === undefined ? undefined : cell === null ? 'NULL' : tail.muted(at) ? text : String(cell);
-      return h('div', { key: column.name, className, style: { width: column.width }, elementtiming: measured ? `row:${row}` : undefined, 'data-exact': exact }, text);
+      return h('div', { key: column.name, className, style: { width: column.width }, role: 'cell', elementtiming: measured ? `row:${row}` : undefined, 'data-exact': exact }, text);
     });
   }
   return h(
     'div',
-    { className: row % 2 === 1 ? 'row odd' : 'row', 'data-row': row, style: { transform: `translateY(${top}px)` } },
-    h('div', { className: 'num', style: { width: gutter } }, formatCount(row + 1)),
+    { className: row % 2 === 1 ? 'row odd' : 'row', 'data-row': row, style: { transform: `translateY(${top}px)` }, ...rowAria(row) },
+    h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }, formatCount(row + 1)),
     cells,
   );
 });

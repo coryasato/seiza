@@ -687,8 +687,10 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
 /// The fixture's cells whose text `shown` (the column, the value) or `exact`
 /// (the value) doesn't give, at each column's pinned budget plus `skew`:
 /// the top section's (with its `rounding`) and each scenario's
-/// (`scenarios`, its own columns at its stop's budgets).
-fn cell_mismatches(skew: isize, exact: fn(f64) -> String) -> Vec<String> {
+/// (`scenarios`, its own columns at its stop's budgets). A text column's
+/// value is handed to the table as `text` makes it from the fixture's (the
+/// source's decoding), and its exact text is the value's own.
+fn cell_mismatches(skew: isize, exact: fn(f64) -> String, text: fn(&str) -> String) -> Vec<String> {
     let fixture: Value = serde_json::from_str(CELLS).expect("cells.json");
     let mut sections = vec![(
         "cells",
@@ -704,15 +706,20 @@ fn cell_mismatches(skew: isize, exact: fn(f64) -> String) -> Vec<String> {
     }
     let mut mismatches = Vec::new();
     for (section_name, section, rounding) in sections {
-        let budgets: Vec<(String, usize)> = section["columns"]
+        let budgets: Vec<(String, CellKind, usize)> = section["columns"]
             .as_array()
             .expect("columns")
             .iter()
             .map(|column| {
-                assert_eq!(column["kind"], "float", "the fixture's columns are floats");
+                let kind = match column["kind"].as_str() {
+                    Some("float") => CellKind::Float,
+                    Some("text") => CellKind::Text,
+                    other => panic!("the fixture's columns are floats or text, not {other:?}"),
+                };
                 let budget = column["budget"].as_u64().expect("budget") as isize + skew;
                 (
                     column["name"].as_str().expect("name").to_string(),
+                    kind,
                     budget.max(1) as usize,
                 )
             })
@@ -721,26 +728,31 @@ fn cell_mismatches(skew: isize, exact: fn(f64) -> String) -> Vec<String> {
         assert!(!drawn.is_empty(), "{section_name}: no cells");
         for cell in drawn.iter().chain(rounding) {
             let name = cell["column"].as_str().expect("column");
-            let budget = budgets
+            let (kind, budget) = budgets
                 .iter()
-                .find(|(column, _)| column == name)
-                .map(|(_, budget)| *budget)
+                .find(|(column, _, _)| column == name)
+                .map(|(_, kind, budget)| (*kind, *budget))
                 .expect("the cell's column is listed");
             let column = LaidOutColumn {
                 name: name.to_string().into(),
                 x: 0.0,
                 width: 0.0,
-                kind: CellKind::Float,
+                kind,
                 budget,
                 #[cfg(feature = "format")]
                 format: None,
             };
-            let (value, exact_text) = match cell["value"].as_str() {
-                Some(text) => {
-                    let value: f64 = text.parse().expect("a value");
+            let (value, exact_text) = match (kind, cell["value"].as_str()) {
+                (_, None) => (CellValue::Null, CellValue::Null.to_string()),
+                (CellKind::Text, Some(value)) => {
+                    let value = CellValue::Text(text(value).into());
+                    let exact_text = value.to_string();
+                    (value, exact_text)
+                }
+                (_, Some(value)) => {
+                    let value: f64 = value.parse().expect("a value");
                     (CellValue::Float(value), exact(value))
                 }
-                None => (CellValue::Null, CellValue::Null.to_string()),
             };
             let shown = shown_text(&column, value);
             if exact_text != cell["exact"] || shown != cell["shown"] {
@@ -760,9 +772,20 @@ fn table_exact(value: f64) -> String {
     CellValue::Float(value).to_string()
 }
 
+/// A text value as the source hands it: the fixture's, unchanged.
+fn as_read(text: &str) -> String {
+    text.to_string()
+}
+
+/// The control's text: its UTF-8 read as Latin-1, as a source decoding the
+/// wrong charset would hand it.
+fn as_latin1(text: &str) -> String {
+    text.bytes().map(char::from).collect()
+}
+
 #[test]
 fn cell_text() {
-    let mismatches = cell_mismatches(0, table_exact);
+    let mismatches = cell_mismatches(0, table_exact, as_read);
     assert!(mismatches.is_empty(), "{mismatches:#?}");
 }
 
@@ -770,12 +793,16 @@ fn cell_text() {
 fn cell_controls_fail() {
     // A float's `Display` writes what JS's `toString` writes for these
     // (`15` for 15.0), not the table's text.
-    let display = cell_mismatches(0, |value| format!("{value}"));
+    let display = cell_mismatches(0, |value| format!("{value}"), as_read);
     assert!(!display.is_empty(), "Display text passed the cell fixture");
+    // Text decoded as Latin-1 isn't the file's (every scenario of text has
+    // characters past ASCII).
+    let latin1 = cell_mismatches(0, table_exact, as_latin1);
+    assert!(!latin1.is_empty(), "Latin-1 text passed the cell fixture");
     // A character more or less of room rounds differently.
     for skew in [-1, 1] {
         assert!(
-            !cell_mismatches(skew, table_exact).is_empty(),
+            !cell_mismatches(skew, table_exact, as_read).is_empty(),
             "a budget {skew:+} passed the cell fixture"
         );
     }

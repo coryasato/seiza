@@ -112,6 +112,22 @@
         "DESCRIBE SELECT * FROM read_parquet('nasa-http-jul95.parquet')",
         "SELECT num_rows, num_row_groups FROM parquet_file_metadata('nasa-http-jul95.parquet')"
       ]
+    },
+    "admin-table": {
+      "file": "countries.parquet",
+      "pages": [
+        {
+          "rows": [
+            0,
+            250
+          ],
+          "sql": "SELECT * EXCLUDE (file_row_number) FROM read_parquet('countries.parquet', file_row_number = true) WHERE file_row_number >= 0 AND file_row_number < 250 ORDER BY file_row_number"
+        }
+      ],
+      "summary": [
+        "DESCRIBE SELECT * FROM read_parquet('countries.parquet')",
+        "SELECT num_rows, num_row_groups FROM parquet_file_metadata('countries.parquet')"
+      ]
     }
   },
   "controls": [

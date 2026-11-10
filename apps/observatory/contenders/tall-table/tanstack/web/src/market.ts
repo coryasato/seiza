@@ -18,6 +18,7 @@ import type { MarketScenario, Oklch } from '../../../../scenarios.ts';
 import type { Contender } from '../../../../contract.ts';
 import { exactText, type CellValue } from './data/format.ts';
 import type { TablePage } from './data/table.ts';
+import { GUTTER_ARIA, rowAria } from './aria.ts';
 import { formatCount, type LaidOutColumn } from './layout.ts';
 import { fromOklab, fromOklch, oklab, parseComputed, type Rgba } from './paint.ts';
 import { hex, themeCss } from './scene.ts';
@@ -137,11 +138,11 @@ const flashName = (at: number): string => (at === 1 ? 'up' : at === 0 ? 'down' :
 export const MarketRow = /* @__PURE__ */ memo(function MarketRow({ row, top, page, index, failed, columns, gutter, measured, probed, market, turns }: MarketRowProps): ReactNode {
   let cells: ReactNode;
   if (failed !== null) {
-    cells = h('div', { className: 'failed', style: { left: gutter } }, `Couldn't load these rows: ${failed}`);
+    cells = h('div', { className: 'failed', style: { left: gutter }, role: 'cell' }, `Couldn't load these rows: ${failed}`);
   } else if (!page) {
     // Keyed apart from the loaded cells, as the base's.
     cells = columns.map((column) =>
-      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width } }, h('div', { className: 'bar' })),
+      h('div', { key: `pending:${column.name}`, className: `cell pending ${column.align}`, style: { width: column.width }, role: 'cell' }, h('div', { className: 'bar' })),
     );
   } else {
     const now = performance.now();
@@ -160,13 +161,13 @@ export const MarketRow = /* @__PURE__ */ memo(function MarketRow({ row, top, pag
         if (flash) className += ` f-${flashName(flash.at)}-${turns.turn(row, at, flash.start)}`;
       }
       const exact = !probed || value === undefined ? undefined : value === null ? 'NULL' : typeof value === 'number' && column.kind === 'float' ? exactText(value) : String(value);
-      return h('div', { key: column.name, className, style: { width: column.width }, elementtiming: measured ? `row:${row}` : undefined, 'data-exact': exact }, text);
+      return h('div', { key: column.name, className, style: { width: column.width }, role: 'cell', elementtiming: measured ? `row:${row}` : undefined, 'data-exact': exact }, text);
     });
   }
   return h(
     'div',
-    { className: row % 2 === 1 ? 'row odd' : 'row', 'data-row': row, style: { transform: `translateY(${top}px)` } },
-    h('div', { className: 'num', style: { width: gutter } }, formatCount(row + 1)),
+    { className: row % 2 === 1 ? 'row odd' : 'row', 'data-row': row, style: { transform: `translateY(${top}px)` }, ...rowAria(row) },
+    h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }, formatCount(row + 1)),
     cells,
   );
 }, sameRow);

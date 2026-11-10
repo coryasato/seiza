@@ -10,9 +10,9 @@ import { test } from 'node:test';
 import { tableFromArrays, tableToIPC } from 'apache-arrow';
 import { cellTooltip, shownRow } from '../src/cells.ts';
 import { ArrowPage, columnKind } from '../src/data/table.ts';
-import { gutterWidth, layOut } from '../src/layout.ts';
+import { gutterWidth, layOut, layOutAll } from '../src/layout.ts';
 import { sceneColumns, wideScene } from '../src/scene.ts';
-import { WIDE_SHEET } from '../../../../scenarios.ts';
+import { ADMIN_TABLE, WIDE_SHEET } from '../../../../scenarios.ts';
 
 interface PinnedColumn {
   name: string;
@@ -114,4 +114,19 @@ test("the wide sheet's columns at the GPUI contender's widths and budgets, at it
   assert.equal(gutterWidth(10_632, scene.sizes), 54);
   // Control: the days laid out by kind, not at the stop's width, fail.
   assert.notEqual(sceneColumns(specs, { ...scene, heatFrom: specs.length }).at(-1)!.width, days.at(-1)!.width);
+});
+
+test("the admin table's text columns at the GPUI contender's x, widths, and budgets", () => {
+  const section = cells.scenarios[ADMIN_TABLE.id];
+  assert.ok(section, 'cells.json has the admin table');
+  assert.equal(section.columns.length, 5);
+  const laidOut = layOutAll(section.columns.map((column) => ({ name: column.name, type: 'VARCHAR', kind: columnKind('VARCHAR') })));
+  let x = 0;
+  for (const [index, pinned] of section.columns.entries()) {
+    const column = laidOut[index]!;
+    assert.deepEqual({ name: column.name, kind: column.kind, x: column.x, width: column.width, budget: column.budget }, { name: pinned.name, kind: pinned.kind, x, width: pinned.width, budget: pinned.budget }, pinned.name);
+    x += pinned.width;
+  }
+  // Control: the same columns laid out as floats aren't at its widths.
+  assert.notEqual(layOut({ name: 'name', type: 'DOUBLE', kind: columnKind('DOUBLE') }).width, section.columns[1]!.width);
 });

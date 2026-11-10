@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-09",
+  "label": "m12-b1-tanstack-sizes-market",
+  "level": "market",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "firstPaintJsBrotliKiB": 75.9,
+  "dataLayerJsBrotliKiB": 40.9,
+  "engineJsBrotliKiB": 7.5,
+  "cssBrotliKiB": 1.2,
+  "htmlBrotliKiB": 0.5,
+  "workerJsBrotliKiB": 1.7,
+  "chunks": {
+    "firstPaint": {
+      "index-ffu5zf9G.js": 77709
+    },
+    "dataLayer": {
+      "paging-sQAKEC5l.js": 3314,
+      "quotes-Ct_EmIXG.js": 4833,
+      "serialization-DpDKJQCF.js": 32707,
+      "table-DiMHUDUB.js": 1069
+    },
+    "engine": {
+      "engine-vcdXg9Cp.js": 7713
+    }
+  }
+}
