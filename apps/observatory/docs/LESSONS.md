@@ -454,3 +454,11 @@ One entry per milestone, written before starting the next one: what surprised us
 - A ZWJ inside a cluster looked like the cause and wasn't. The first guess, a run split across two faces at the joiner, was ruled out by logging the shaped runs: one cluster, one face.
 - A 23-byte change in Tycho's wasm costs 1.3 KiB brotli: the option moves code, and the compressor's matches move with it. The bytes on the wire, not the raw change, are what count.
 - The notdef box, not an empty cell, is GPUI's default for a missing glyph, one per character. The gap is visible at a glance.
+
+## M12 part A3: the measures and the boards (2026-11-09)
+
+**Results:** none measured; the measures and the suite's time are in [`docs/DECISIONS.md`](DECISIONS.md), "Measurement", 2026-11-09. The boards are on M8's canvas (its admin row), awaiting the user's review.
+
+**Surprises:**
+- The wide sheet's Smooth reading can't see the admin table's DOM side. Rendering every row (A1's decision) leaves TanStack's scroll with no main-thread frames, so `domDrawn` would count none. `compositorFrames` looked like the answer and isn't: it counts without times and skips the frames that wanted no update. The compositor's scroll deltas (`Scroll Delta This Frame`) are timed per frame, so both sides divide by the same total.
+- A gesture longer than the table's 6,810 px of scroll reaches the last row and stops there, before its input ends: the view rests early, the timed window is cut short, and the moved-distance check fails. So the read-through is 6,000 px, inside the table.

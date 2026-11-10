@@ -1,4 +1,4 @@
-// M12 A2's fonts spike: the GPUI base build on the draft countries file,
+// The fonts spike: the GPUI base build on the draft countries file,
 // fonts added after first paint (and `?cjk`), each script's names cropped
 // beside the DOM's drawing of the same names in the same faces.
 //   node fonts-spike.ts [--state default|fonts] [--routeless]

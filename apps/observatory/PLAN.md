@@ -26,7 +26,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M9 | Scenario: wide sheet (parts A1–E4) | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
-| M12 | Scenario: admin table (the control) (parts A1–A3, B–E, split in A3) | Active (opened 2026-11-09) |
+| M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Active (opened 2026-11-09) |
 | M13 | Scenario: monitoring wall | Planned |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
@@ -86,7 +86,7 @@ If neither 1 nor 2 works, the cells would have to name a family per script: a ch
 
 The file is ~250 rows, in the base level's column kinds (text only), so `cells.json` gains a scenario section and no new kind.
 
-**Parts** (each one session; A3 confirms B–E and splits any that's over a session):
+**Parts** (each one session; B–E confirmed by A3, which split B and C):
 - **A1: the data, the capabilities, and their checks.**
   - The sources pinned (CLDR's JSON release and the Wikidata query's result, each a SHA-256 in `MANIFEST.json`'s `sources`), their terms quoted.
   - Which regions count (CLDR's two-letter regions; the macro-regions, `EU`, `UN`, `EZ`, `QO`, `ZZ`, and the deprecated codes out), and the native name's rule.
@@ -103,13 +103,17 @@ The file is ~250 rows, in the base level's column kinds (text only), so `cells.j
   - The measures made exact: Ready in, Rows in, Smooth (which scroll), Memory, Download, and the toggle's own (the fonts' bytes, fonts in → drawn, memory with them).
   - The suite's time.
   - The boards on M8's canvas, decided with the user before anything is built: the toggle in the window (where the dial would be), what the frame says while fonts load, the per-script verdicts in the panel, the flags row corrected, light and dark, desktop and phone.
-- **B: the data and the scenario on both sides.**
+- **B: the data and the scenario on both sides** (split in A3: the TanStack contender's changes at every level and the fonts path are a session each).
+- **B1: the data, the scenario, and the TanStack contender's two changes.**
   - The data: `prep-countries` in `prep.ts` (`--only countries`, the sources' pins), its `MANIFEST.json` entry with credit and terms.
   - The scenario in `contenders/scenarios.ts` on the base level (both sides' `pickScenario`), and `cells.json`'s scenario section by `cell-fixture`.
   - The TanStack contender's two changes at every level (decided 2026-11-09): ARIA table semantics (`table`, `row`, `columnheader`, `cell`, `aria-rowcount`, each row's `aria-rowindex`), and, on the base level, every row rendered when the rows fit in one page (1,024; market watch and live tail stay virtualized). Each level's first-paint JS against its baseline, `tanstack-contract` and `tanstack-parity` unchanged at every level, and each scenario's README section saying its numbers predate them.
-  - The fonts path on the GPUI side, as A2 decided (a runtime parameter on the base build; automatic fallback): the `Bootstrap` option, shaped so Tycho's wasm doesn't change, else its effect recorded in Tycho's `perf/results/`; the export that adds the faces after first paint; Big file's wasm bytes recorded against its budgets; the Noto faces pinned to a release and staged under `/observatory/`, their OFL credited.
+- **B2: the fonts path and the capabilities' check.**
+  - The fonts path on the GPUI side, as A2 decided (a runtime parameter on the base build; automatic fallback): the `Bootstrap` option, shaped so Tycho's wasm doesn't change, else its effect recorded in Tycho's `perf/results/`; the export that adds the faces after first paint; Big file's wasm bytes recorded against its budgets; the Noto faces pinned to a release and staged under `/observatory/`, their OFL credited; the faces fetched once the rows are in (A3), and the mark after the first frame drawn with them, checked against its GPU work.
   - A check script (`perf/admin.ts`, in `check`) proving each capability's yes and no on both sides, with its controls.
-- **C: the numbers.** The cold suite at the base level on the countries file, both sides, both devices, median of 10, the toggle's runs beside it, each results file labelled `admin-table`, with its versions, and a results note. A long run, so ask about a code review first if the session changed code.
+- **C: the numbers** (split in A3, as live tail's D was: the metrics at the level are code, reviewed before the long run).
+- **C1: the metrics at the level.** A3's measures in the metric scripts on `--scenario admin-table`: Smooth's read-through gesture (GPUI's presented frames, TanStack's compositor scroll deltas, one total), memory's equal work, and `?fonts` on GPUI (each face's bytes, Scripts drawn in and its split, memory with them); smoke runs only, then the code review.
+- **C2: the runs.** The cold suite at the base level on the countries file, both sides, both devices, median of 10, the toggle's runs beside it (~1 h, A3), each results file labelled `admin-table`, with its versions, and a results note.
 - **D: the page,** as the canvas draws it and A3's boards add: the route, the status bar, the panel (capabilities, verdict, cards, the shaping verdicts), the toggle, the description, the gallery card, and the Overview's rule's DOM half ("text-heavy", which M9 E3 left waiting on these numbers).
 - **E: shipped.** The README's admin table section by `report` (its canvas tradeoffs too: root rule 4), `burst` under the zone's limit, the deploy, `worker-check`.
 
@@ -144,9 +148,9 @@ The file is ~250 rows, in the base level's column kinds (text only), so `cells.j
 #### Part A3: the measures, the suite's time, the boards, and B–E confirmed
 
 **Done when:**
-- [ ] **A3-1, the measures and the suite's time.**
+- [x] **A3-1, the measures and the suite's time.** *Evidence:* [`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-09, "The admin table's measures": Ready in and Rows in as defined; Smooth a read-through gesture (6,000 px at 3,000 px/s, inside the table's 6,810 px), the share of the display's frames that moved the view, one total on both sides (GPUI's presented frames, TanStack's compositor scroll deltas: every row rendered, no main-thread frame to count), the scroll decided with the user; Memory at equal work (the one page read at the open, the scroll down and back), less the canvas, with fonts the scripts drawn before the scroll; Download by kind from the memory run; the toggle's bytes per face, Scripts drawn in (`timeOrigin` → the first frame drawn with the faces, split), and memory with them; Ready in and Rows in with `?fonts` within 5% of the default's (the user's tolerance); GPUI's Rows in with fonts states its boxes, Scripts drawn in the like-for-like number (decided with the user after the code review). The suite: 220 runs, ~46 minutes, about 1 h with the builds. The faces fetched once the rows are in ("Scenarios", 2026-11-09, with the user).
 - [ ] **A3-2, the boards,** drawn on M8's canvas and decided with the user.
-- [ ] **A3-3, B–E confirmed** (split where a part is over a session).
+- [x] **A3-3, B–E confirmed** (split where a part is over a session). *Evidence:* the parts above: B split as B1 (the data, the scenario, the TanStack contender's two changes at every level) and B2 (the fonts path and `perf/admin.ts`); C as C1 (the metrics at the level, smoke runs, then the code review) and C2 (the runs, ~1 h); D and E as written.
 
 ---
 

@@ -7,7 +7,7 @@ index 9a7f1e5..4ef1a40 100644
      vec![frames.into(), if filled { 1.0 } else { 0.0 }]
  }
 +
-+// SPIKE (M12 A2, removed before the part closes): fonts added after first
++// SPIKE (the fonts spike, deleted with spike/): fonts added after first
 +// paint, then the window redrawn; `spike:fonts-drawn` right after the frame
 +// that draws with them.
 +thread_local! {
@@ -84,7 +84,7 @@ index 3bf0b85..3035817 100644
      use gpui_kit::{AppContext as _, SharedString};
  
      seiza::Bootstrap::new(host::TITLE, ui_font)
-+        // SPIKE (M12 A2): `?cjk` draws Han and Hangul through the browser.
++        // SPIKE (the fonts spike): `?cjk` draws Han and Hangul through the browser.
 +        .canvas_font_fallback(if spike_cjk {
 +            gpui_kit::web::CanvasFontFallback::EmojiAndCjk
 +        } else {
@@ -111,7 +111,7 @@ index 4476eb7..3ca66e3 100644
  // doesn't have is a failure the window shows (`contender:failed`).
  const picked = pickScenario(__LEVEL__, new URLSearchParams(location.search));
 -const file = picked instanceof Error ? '' : picked.scenario.data;
-+// SPIKE (M12 A2): `?file=` opens another data file on this build.
++// SPIKE (the fonts spike): `?file=` opens another data file on this build.
 +const spikeParams = new URLSearchParams(location.search);
 +const file = spikeParams.get('file') ?? (picked instanceof Error ? '' : picked.scenario.data);
 +(globalThis as { __spikeAddFonts?: (fonts: Uint8Array[], fallbacks: string[]) => void }).__spikeAddFonts = spikeAddFonts;
