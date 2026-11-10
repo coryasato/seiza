@@ -13,7 +13,9 @@
  *   deploy stages one build's copy there. `perf/engine-files.ts` checks it.
  * - **The site's font and the data at their fixed paths** in dev and
  *   preview: `/fonts/` (from `shared-web/fonts/`) and `/observatory/data/`
- *   (`data.ts`).
+ *   (`data.ts`); with `scriptFonts` (the GPUI base build), the admin
+ *   table's script faces at `/observatory/fonts/` (`fonts/faces/`, which
+ *   `just observatory script-fonts` fills).
  * - **The page's theme before first paint:** `THEME_SCRIPT` (`contract.ts`)
  *   inline in the `<head>`.
  * - **Nothing heavy before first paint.** The build fails if a module of
@@ -26,7 +28,8 @@ import type { Plugin, Rolldown } from 'vite';
 import { serveDirs, serveFonts } from '../../../shared-web/src/vite.ts';
 import { THEME_SCRIPT } from './contract.ts';
 import { observatoryData } from './data.ts';
-import { ENGINE, ENGINE_DIR } from './paths.ts';
+import { FACES_DIR } from './fonts/files.ts';
+import { ENGINE, ENGINE_DIR, SCRIPT_FONTS } from './paths.ts';
 
 /** Where an asset of DuckDB-Wasm's own comes from. */
 const ENGINE_ASSET = /[\\/]@duckdb[\\/]duckdb-wasm[\\/]dist[\\/]/;
@@ -37,9 +40,13 @@ const AFTER_PAINT = [/[\\/]node_modules[\\/]apache-arrow[\\/]/, /[\\/]node_modul
 /** The message the build fails with; the control looks for it. */
 export const FIRST_PAINT_ERROR = 'loads before first paint';
 
-export function contenderBuild(outDir = 'dist'): Plugin[] {
+export function contenderBuild(outDir = 'dist', { scriptFonts = false } = {}): Plugin[] {
   return [
-    serveDirs([{ at: ENGINE, dir: `public/${ENGINE_DIR}`, preview: `${outDir}/${ENGINE_DIR}` }]),
+    serveDirs([
+      { at: ENGINE, dir: `public/${ENGINE_DIR}`, preview: `${outDir}/${ENGINE_DIR}` },
+      // The admin table's script faces, for the GPUI base build alone (`?fonts`).
+      ...(scriptFonts ? [{ at: SCRIPT_FONTS, dir: FACES_DIR }] : []),
+    ]),
     serveFonts(),
     observatoryData(),
     {

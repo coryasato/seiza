@@ -37,6 +37,7 @@ import { minifySync } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { gpuiWebDir, perfDir } from './harness.ts';
+import { gpuiCargoFeatures } from '../contenders/level.ts';
 
 const repo = join(perfDir, '../../..');
 const WASM_OPT = ['-Oz', '--enable-bulk-memory', '--enable-nontrapping-float-to-int', '--enable-sign-ext', '--enable-mutable-globals', '--enable-reference-types', '--enable-multivalue', '--enable-threads'];
@@ -202,7 +203,7 @@ const shippedName = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-
 if (!shippedName) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build\` first`);
 const shipped = readFileSync(join(assets, shippedName));
 
-run('cargo', ['build', '-p', 'tall-table-gpui', '--target', 'wasm32-unknown-unknown', '--release'], { ...process.env, CARGO_PROFILE_RELEASE_STRIP: 'none' });
+run('cargo', ['build', '-p', 'tall-table-gpui', '--target', 'wasm32-unknown-unknown', '--release', '--features', gpuiCargoFeatures('base').join(',')], { ...process.env, CARGO_PROFILE_RELEASE_STRIP: 'none' });
 const out = mkdtempSync(join(tmpdir(), 'seiza-gpui-parts-'));
 // No --keep-debug: wasm-opt can't read the DWARF std's objects carry.
 run('wasm-bindgen', [join(repo, 'target/wasm32-unknown-unknown/release/tall_table_gpui.wasm'), '--out-dir', out, '--target', 'web']);

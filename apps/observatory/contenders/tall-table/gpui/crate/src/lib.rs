@@ -48,7 +48,7 @@ pub fn start(
 ) {
     use gpui_kit::{AppContext as _, SharedString};
 
-    seiza::Bootstrap::new(host::TITLE, ui_font)
+    bootstrap(ui_font)
         // The host opens the file once the engine is ready (`Host::new`).
         .after_first_paint(|_, cx| seiza_duckdb::start(cx, |_, _| {}))
         .run(move |window, cx| {
@@ -68,4 +68,22 @@ pub fn start(
             };
             cx.new(|cx| Host::new(data_url, scene, window, cx)).into()
         });
+}
+
+// The base level's own, below everything another level builds: a line
+// added above a panic moves its location's bytes, and another level's
+// wasm would change (`seiza`'s `bootstrap.rs` does the same).
+
+/// The admin table's fonts toggle: the base level's alone.
+#[cfg(all(target_family = "wasm", feature = "fonts"))]
+mod fonts;
+
+/// The bootstrap; with the fonts toggle on, the browser draws Han and
+/// Hangul too (`fonts.rs`).
+#[cfg(target_family = "wasm")]
+fn bootstrap(ui_font: Vec<u8>) -> seiza::Bootstrap {
+    let bootstrap = seiza::Bootstrap::new(host::TITLE, ui_font);
+    #[cfg(feature = "fonts")]
+    let bootstrap = bootstrap.canvas_font_fallback(fonts::canvas_font_fallback());
+    bootstrap
 }

@@ -31,6 +31,7 @@ import { brotli } from '../../../shared-web/src/brotli.ts';
 import { homePaths, untrimmedControl } from '../../../shared-web/perf/home-paths.ts';
 import { flag, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { BUILT, LEVEL_FEATURES, featureLevels, type Level } from '../contenders/scenarios.ts';
+import { gpuiCargoFeatures } from '../contenders/level.ts';
 import { distDir, gpuiWebDir, perfDir } from './harness.ts';
 
 const repo = join(perfDir, '../../..');
@@ -43,16 +44,16 @@ const run = (command: string, args: string[]) => execFileSync(command, args, { c
 const panelEnabled = (packages: string[], features: string[] = []) =>
   run('cargo', ['tree', '-e', 'features', '-i', 'seiza', '--target', 'wasm32-unknown-unknown', ...packages.flatMap((name) => ['-p', name]), ...(features.length ? ['--features', features.join(',')] : [])]).includes('seiza feature "panel"');
 
-const alone = panelEnabled(['tall-table-gpui']) || panelEnabled(['tall-table-gpui'], [...featureLevels('gpui')]);
+const alone = panelEnabled(['tall-table-gpui'], gpuiCargoFeatures('base')) || panelEnabled(['tall-table-gpui'], [...featureLevels('gpui')]);
 const unified = panelEnabled(['tall-table-gpui', 'tycho']);
 if (alone) failures.push('cargo enables seiza\'s panel for the contender built alone');
 if (!unified) failures.push('control: cargo should enable seiza\'s panel for the contender built with Tycho, and didn\'t');
 console.log(`cargo: panel built alone ${alone}, with Tycho ${unified} (control)`);
 
 /** The features Cargo turns on for `crate` in the contender built at
- *  `level` (its feature of the level's name). */
+ *  `level` (its features, `gpuiCargoFeatures`). */
 const featuresOf = (crate: string, level: Level) =>
-  [...run('cargo', ['tree', '-e', 'features', '-i', crate, '--target', 'wasm32-unknown-unknown', '-p', 'tall-table-gpui', ...(level === 'base' ? [] : ['--features', level])]).matchAll(new RegExp(`${crate} feature "([\\w-]+)"`, 'g'))]
+  [...run('cargo', ['tree', '-e', 'features', '-i', crate, '--target', 'wasm32-unknown-unknown', '-p', 'tall-table-gpui', '--features', gpuiCargoFeatures(level).join(',')]).matchAll(new RegExp(`${crate} feature "([\\w-]+)"`, 'g'))]
     .map(([, feature]) => feature!)
     .filter((feature) => feature !== 'default')
     .sort();
@@ -64,18 +65,22 @@ for (const level of BUILT.gpui) {
     if (JSON.stringify(found) !== JSON.stringify(want)) failures.push(`the ${level} level turns on ${crate}'s ${found.join(', ') || 'none'}, not ${want.join(', ') || 'none'}`);
     console.log(`${level}: ${crate} features ${found.join(', ') || 'none'}`);
   }
+  // `seiza`'s `canvas-font-fallback`: the base's fonts toggle, no other level's.
+  const fallback = featuresOf('seiza', level).includes('canvas-font-fallback');
+  if (fallback !== (level === 'base')) failures.push(`the ${level} level ${fallback ? 'turns on' : "doesn't turn on"} seiza's canvas-font-fallback`);
+  console.log(`${level}: seiza canvas-font-fallback ${fallback}`);
 }
 
 const sizes = (bytes: Buffer) => ({ rawKiB: Number((bytes.length / 1024).toFixed(1)), brotliKiB: Number((brotli(bytes).length / 1024).toFixed(1)), panel: bytes.includes(PANEL_MARKER) });
 /** Each level's shipped wasm: no panel, no home path. */
-const shippedLevels: Record<string, { file: string; features: readonly string[]; rawKiB: number; brotliKiB: number; panel: boolean; homePaths: number }> = {};
+const shippedLevels: Record<string, { file: string; features: readonly string[]; cargoFeatures: string[]; rawKiB: number; brotliKiB: number; panel: boolean; homePaths: number }> = {};
 for (const level of BUILT.gpui) {
   const assets = join(distDir(gpuiWebDir, level), 'assets');
   const file = readdirSync(assets).find((name) => /^tall_table_gpui_bg-[\w-]+\.wasm$/.test(name));
   if (!file) throw new Error(`no contender wasm in ${assets}; run \`just observatory gpui-build${level === 'base' ? '' : ` ${level}`}\` first`);
   const bytes = readFileSync(join(assets, file));
   const home = homePaths(`the shipped wasm (${level})`, bytes);
-  shippedLevels[level] = { file, features: LEVEL_FEATURES[level], ...sizes(bytes), homePaths: home.total };
+  shippedLevels[level] = { file, features: LEVEL_FEATURES[level], cargoFeatures: gpuiCargoFeatures(level), ...sizes(bytes), homePaths: home.total };
   if (shippedLevels[level].panel) failures.push(`the shipped wasm (${level}) holds ${PANEL_MARKER}: the panel linked`);
   if (home.failure) failures.push(home.failure);
   console.log(`shipped (${level}): ${shippedLevels[level].rawKiB} KiB raw, ${shippedLevels[level].brotliKiB} KiB brotli, panel ${shippedLevels[level].panel}, ${shippedLevels[level].homePaths} home paths`);
@@ -95,12 +100,13 @@ function build(features: string[]): Buffer {
 let variants: { withPanel: ReturnType<typeof sizes>; withoutPanel: ReturnType<typeof sizes> } | null = null;
 let untrimmed: number | null = null;
 if (!flag('check')) {
-  const control = untrimmedControl('tall-table-gpui');
+  const control = untrimmedControl('tall-table-gpui', gpuiCargoFeatures('base'));
   untrimmed = control.total;
   if (control.failure) failures.push(control.failure);
   console.log(`without trim-paths (control): ${control.total} home paths`);
-  const withPanel = sizes(build(['--features', 'seiza/panel']));
-  const withoutPanel = sizes(build([]));
+  const base = gpuiCargoFeatures('base');
+  const withPanel = sizes(build(['--features', [...base, 'seiza/panel'].join(',')]));
+  const withoutPanel = sizes(build(['--features', base.join(',')]));
   variants = { withPanel, withoutPanel };
   if (!withPanel.panel) failures.push(`control: the build with seiza/panel should hold ${PANEL_MARKER}, and doesn't`);
   if (withoutPanel.panel) failures.push(`the build without the panel holds ${PANEL_MARKER}`);

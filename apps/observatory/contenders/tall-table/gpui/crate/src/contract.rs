@@ -438,3 +438,26 @@ pub fn replay_view() -> Vec<f64> {
     let (frames, filled) = VIEW.get();
     vec![frames.into(), if filled { 1.0 } else { 0.0 }]
 }
+
+// The base level's fonts toggle's, below everything another level builds
+// (`lib.rs` says why).
+
+/// Called from the host's render: the probe key's mark, and on the base
+/// level the fonts toggle's (`fonts::drew`).
+pub fn drew() {
+    drew_probe_key();
+    #[cfg(feature = "fonts")]
+    crate::fonts::drew();
+}
+
+/// Runs `update` in the window now, from a JS task outside GPUI's: GPUI's
+/// effects flush at its end. False before the host is installed.
+#[cfg(feature = "fonts")]
+pub fn with_window_now(update: impl FnOnce(&mut Window, &mut App)) -> bool {
+    let Some((_, window, mut cx)) = HOST.with_borrow(Clone::clone) else {
+        return false;
+    };
+    window
+        .update(&mut cx, |_, window, cx| update(window, cx))
+        .is_ok()
+}

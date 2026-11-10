@@ -29,6 +29,7 @@
 // wasm (brotli) by more than limits.gpui.wasmOverBaseline. --write-baseline
 // records this run (both profiles) as the baseline.
 
+import { gpuiCargoFeatures } from '../contenders/level.ts';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Request } from '@playwright/test';
@@ -214,6 +215,7 @@ const summary = {
   contender: 'gpui',
   level,
   features: LEVEL_FEATURES[level],
+  cargoFeatures: gpuiCargoFeatures(level),
   versions,
   url: given ?? 'local',
   protocol: { viewport: '1440x900', deviceScaleFactor: 2, runs, throttled: { cpuSlowdown: 4, network: 'Fast 4G', ...FAST_4G } },

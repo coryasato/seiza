@@ -69,7 +69,18 @@ export const MARKS = {
   /** The view shows a failure (the engine didn't load or stopped, the file
    *  didn't open): no `filled` is coming. */
   failed: 'contender:failed',
+  /** With `?fonts` (the GPUI side, the base level): the script faces'
+   *  bytes are all in hand, right before they're added. */
+  fontsIn: 'contender:fonts-in',
+  /** With `?fonts`: right after the first frame drawn with the faces. */
+  fonts: 'contender:fonts',
+  /** With `?fonts`: a face didn't load or parse; no `fonts` is coming. */
+  fontsFailed: 'contender:fonts-failed',
 } as const;
+
+/** The admin table's fonts toggle (`docs/DECISIONS.md`, "Scenarios"): the
+ *  GPUI side opened with it adds the script faces once its rows are in. */
+export const FONTS_PARAM = 'fonts';
 
 /** Whether the page was opened for measuring (`?measure`). */
 export const measuring = (): boolean => new URLSearchParams(location.search).has('measure');

@@ -35,10 +35,15 @@ js-sys.workspace = true
 wasm-bindgen-futures = { workspace = true, optional = true }
 web-sys = { workspace = true, features = ["File"], optional = true }
 
+# The base level's own: the admin table's fonts toggle (`src/fonts.rs`),
+# `seiza`'s `canvas-font-fallback` for Han and Hangul drawn by the browser.
+# The base build turns it on (the recipes, `contenders/level.ts`'s
+# `gpuiCargoFeatures`); no other level's build carries it.
 # A feature level is a build of its own (`contenders/scenarios.ts`,
 # `LEVEL_FEATURES`): built alone (`-p`), at a base of its own. Off, the
 # build is the base level's and carries none of it.
 [features]
+fonts = ["seiza/canvas-font-fallback"]
 # The wide sheet's level: heat on the days (`custom-cells`), the key
 # columns pinned (`pin`), and the stop's rows, text, and widths (`density`).
 wide = [

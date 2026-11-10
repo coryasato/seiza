@@ -473,3 +473,16 @@ One entry per milestone, written before starting the next one: what surprised us
 - The TanStack contender's first-paint JS had grown since its sizes were last written down (wide by 0.8 KiB), all of it under the limits, so `check` stayed quiet. A results file is "now" for `report` only when someone writes one.
 - `data/` can't import `contenders/scenarios.ts`: its type import of `contract.ts` drags DOM globals into a tsconfig with no DOM. Prep names the file itself, as it does the others'.
 
+
+## M12 part B2: the fonts path and the capabilities' check (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m12-b2.md`](../perf/results/2026-11-09-m12-b2.md).
+
+**Surprises:**
+- A feature that Tycho never turns on still changed Tycho's wasm. The code was compiled out, but the lines it added sat above three `expect`s in `bootstrap.rs`, whose panic locations carry their line numbers: 3 bytes changed, and brotli grew 2.1 KiB. Code for one host goes at the end of the file, and the check is a byte comparison, not a size.
+- `window.find` selects its match but doesn't scroll to it. A1's "the row lands in view" was the find bar's behavior, so a script can prove the text is findable but not that the view moves.
+- Chromium reports a missing character as drawn by the first face in the stack (its notdef), never as a last-resort face, so the obvious control ("a private-use character falls to LastResort") fails. IBM Plex Sans lacking all 15 scripts is what makes the face check mean something.
+- The notdef boxes can be within half a pixel of the real text's width (Lao), so width alone can't say a script is drawn. The ink's shape can: boxes correlate at 0.15 at most, the faces at 0.29 or more.
+- The faces at the pin are newer than the spike's: notofonts republished several that day (Sinhala to 3.000). A face pinned only by name and branch would have moved under the numbers.
+- gpui-pre-wgpu's `add_fonts` returns `Ok` for bytes it can't parse: fontdb skips them. The spike never fed it a bad face, so "a face that doesn't parse fails" was a promise the code couldn't keep until the host checked each face's hash itself (the code review's catch).
+- The panic-location lesson held inside the contender too: with the toggle behind the base's own feature, the wide, market, and tail wasm were still 12 bytes larger until the base's code moved to the end of `lib.rs` and `contract.rs` and `host.rs`'s call stayed on its line. Then all three matched HEAD's bytes.

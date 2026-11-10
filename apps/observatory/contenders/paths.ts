@@ -22,6 +22,9 @@ export const ENGINE = '/observatory/duckdb/';
 export const ENGINE_DIR = 'duckdb';
 /** The data, served by range (`worker/src/index.ts`, `contenders/data.ts`). */
 export const DATA = '/observatory/data/';
+/** The admin table's script faces and their license (`fonts/faces.ts`),
+ *  which the GPUI base build fetches with `?fonts`. */
+export const SCRIPT_FONTS = '/observatory/fonts/';
 
 /** A contender's bare page: its build's base. A feature level's build sits
  *  under the base level's (`/observatory/contenders/tall-table/gpui/wide/`),

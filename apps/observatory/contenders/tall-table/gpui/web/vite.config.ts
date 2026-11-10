@@ -35,14 +35,16 @@ export default defineConfig(({ mode }) => {
     },
     {
       base: contenderBase('tall-table', 'gpui', level),
-      plugins: [contenderBuild(outDir), levelConstants(level)],
+      // The admin table's script faces: the base level's fonts toggle's alone.
+      plugins: [contenderBuild(outDir, { scriptFonts: level === 'base' }), levelConstants(level)],
       build: { outDir },
-      // The level's wasm and its bindings (`pkg-<level>/`), and on the market
-      // and tail levels their hosts (`src/market.ts`, `src/tail.ts`, for
-      // `src/level.ts`).
+      // The level's wasm and its bindings (`pkg-<level>/`), and on the base,
+      // market, and tail levels their hosts (`src/base.ts`, `src/market.ts`,
+      // `src/tail.ts`, for `src/level.ts`).
       resolve: {
         alias: [
           ...(suffix ? [{ find: /^\.\.\/pkg\//, replacement: `../pkg${suffix}/` }] : []),
+          ...(level === 'base' ? [{ find: /^\.\/level\.ts$/, replacement: './base.ts' }] : []),
           ...(level === 'market' ? [{ find: /^\.\/level\.ts$/, replacement: './market.ts' }] : []),
           ...(level === 'tail' ? [{ find: /^\.\/level\.ts$/, replacement: './tail.ts' }] : []),
         ],

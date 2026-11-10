@@ -1,0 +1,418 @@
+{
+  "date": "2026-11-09",
+  "machine": {
+    "machine": "local",
+    "cpu": "Apple M1",
+    "os": "Darwin 25.6.0 arm64",
+    "versions": {
+      "gpui-kit": "0.9.0",
+      "react": "19.3.1",
+      "@tanstack/react-virtual": "3.14.19",
+      "apache-arrow": "17.0.0",
+      "@duckdb/duckdb-wasm": "1.32.0",
+      "chromium": "153.0.8010.12"
+    }
+  },
+  "failures": [],
+  "results": {
+    "gpui": {
+      "flags": {
+        "flag": 195,
+        "text": 13
+      },
+      "scriptsDefault": {
+        "Latin": {
+          "row": 102,
+          "text": "Ísland",
+          "widthPx": 0.5,
+          "correlation": 0.97,
+          "match": true
+        },
+        "Arabic": {
+          "row": 0,
+          "text": "افغانستان",
+          "widthPx": 4,
+          "correlation": -0.05,
+          "match": false,
+          "againstOther": false
+        },
+        "Armenian": {
+          "row": 11,
+          "text": "Հայաստան",
+          "widthPx": 25.5,
+          "correlation": -0.02,
+          "match": false,
+          "againstOther": false
+        },
+        "Bengali": {
+          "row": 18,
+          "text": "বাংলাদেশ",
+          "widthPx": 3,
+          "correlation": -0.09,
+          "match": false,
+          "againstOther": false
+        },
+        "Devanagari": {
+          "row": 103,
+          "text": "भारत",
+          "widthPx": 1,
+          "correlation": 0.14,
+          "match": false,
+          "againstOther": false
+        },
+        "Ethiopic": {
+          "row": 69,
+          "text": "ኤርትራ",
+          "widthPx": 9,
+          "correlation": 0.11,
+          "match": false,
+          "againstOther": false
+        },
+        "Georgian": {
+          "row": 83,
+          "text": "საქართველო",
+          "widthPx": 30.5,
+          "correlation": 0.07,
+          "match": false,
+          "againstOther": false
+        },
+        "Hebrew": {
+          "row": 109,
+          "text": "ישראל",
+          "widthPx": 4.5,
+          "correlation": 0.15,
+          "match": false,
+          "againstOther": false
+        },
+        "Khmer": {
+          "row": 37,
+          "text": "កម្ពុជា",
+          "widthPx": 17.5,
+          "correlation": 0.12,
+          "match": false,
+          "againstOther": false
+        },
+        "Lao": {
+          "row": 121,
+          "text": "ລາວ",
+          "widthPx": 0.5,
+          "correlation": 0.03,
+          "match": false,
+          "againstOther": false
+        },
+        "Myanmar": {
+          "row": 151,
+          "text": "မြန်မာ",
+          "widthPx": 4.5,
+          "correlation": 0.04,
+          "match": false,
+          "againstOther": false
+        },
+        "Sinhala": {
+          "row": 204,
+          "text": "ශ්‍රී ලංකාව",
+          "widthPx": 2,
+          "correlation": -0.03,
+          "match": false,
+          "againstOther": false
+        },
+        "Thai": {
+          "row": 221,
+          "text": "ไทย",
+          "widthPx": 1,
+          "correlation": -0.3,
+          "match": false,
+          "againstOther": false
+        },
+        "Tibetan": {
+          "row": 25,
+          "text": "འབྲུག",
+          "widthPx": 6,
+          "correlation": 0,
+          "match": false,
+          "againstOther": false
+        },
+        "Han": {
+          "row": 46,
+          "text": "中国",
+          "widthPx": 13,
+          "correlation": -0.03,
+          "match": false,
+          "againstOther": false
+        },
+        "Hangul": {
+          "row": 163,
+          "text": "북한",
+          "widthPx": 10.5,
+          "correlation": -0.18,
+          "match": false,
+          "againstOther": false
+        }
+      },
+      "fonts": {
+        "filled": 3656.7249994277954,
+        "fontsIn": 4704.809999465942,
+        "fonts": 4737.125,
+        "inToDrawnMs": 32.31500053405762,
+        "presented": "0.73 ms after its last GPU call, same task",
+        "faces": {
+          "NotoSansArabic-Regular-2.013-bd86ca02.ttf": {
+            "transferSize": 55327,
+            "encodedBodySize": 55027,
+            "decodedBodySize": 142140
+          },
+          "NotoSansArmenian-Regular-2.008-73bde9f3.ttf": {
+            "transferSize": 9387,
+            "encodedBodySize": 9087,
+            "decodedBodySize": 18772
+          },
+          "NotoSansBengali-Regular-3.011-5dceda02.ttf": {
+            "transferSize": 47169,
+            "encodedBodySize": 46869,
+            "decodedBodySize": 103704
+          },
+          "NotoSansDevanagari-Regular-2.007-9c7d9351.ttf": {
+            "transferSize": 61601,
+            "encodedBodySize": 61301,
+            "decodedBodySize": 184228
+          },
+          "NotoSansEthiopic-Regular-2.102-86b9c07c.ttf": {
+            "transferSize": 79356,
+            "encodedBodySize": 79056,
+            "decodedBodySize": 289244
+          },
+          "NotoSansGeorgian-Regular-2.005-f4b229b1.ttf": {
+            "transferSize": 17992,
+            "encodedBodySize": 17692,
+            "decodedBodySize": 35300
+          },
+          "NotoSansHebrew-Regular-3.001-04272f56.ttf": {
+            "transferSize": 8194,
+            "encodedBodySize": 7894,
+            "decodedBodySize": 16836
+          },
+          "NotoSansKhmer-Regular-2.004-60c10dbf.ttf": {
+            "transferSize": 22173,
+            "encodedBodySize": 21873,
+            "decodedBodySize": 67784
+          },
+          "NotoSansLao-Regular-2.003-d3976b0a.ttf": {
+            "transferSize": 10385,
+            "encodedBodySize": 10085,
+            "decodedBodySize": 21720
+          },
+          "NotoSansMyanmar-Regular-2.107-f4be6ef4.ttf": {
+            "transferSize": 56757,
+            "encodedBodySize": 56457,
+            "decodedBodySize": 148628
+          },
+          "NotoSansSinhala-Regular-3.000-46d5b549.ttf": {
+            "transferSize": 34066,
+            "encodedBodySize": 33766,
+            "decodedBodySize": 90296
+          },
+          "NotoSansThai-Regular-2.002-d4303fe9.ttf": {
+            "transferSize": 11019,
+            "encodedBodySize": 10719,
+            "decodedBodySize": 20960
+          },
+          "NotoSerifTibetan-Regular-2.103-7292b2c7.ttf": {
+            "transferSize": 186730,
+            "encodedBodySize": 186430,
+            "decodedBodySize": 609640
+          }
+        }
+      },
+      "scriptsFonts": {
+        "Latin": {
+          "row": 102,
+          "text": "Ísland",
+          "widthPx": 0.5,
+          "correlation": 0.97,
+          "match": true
+        },
+        "Arabic": {
+          "row": 0,
+          "text": "افغانستان",
+          "widthPx": 0.5,
+          "correlation": 0.94,
+          "match": true,
+          "againstOther": false
+        },
+        "Armenian": {
+          "row": 11,
+          "text": "Հայաստան",
+          "widthPx": 0,
+          "correlation": 0.96,
+          "match": true,
+          "againstOther": false
+        },
+        "Bengali": {
+          "row": 18,
+          "text": "বাংলাদেশ",
+          "widthPx": 0,
+          "correlation": 0.94,
+          "match": true,
+          "againstOther": false
+        },
+        "Devanagari": {
+          "row": 103,
+          "text": "भारत",
+          "widthPx": 0,
+          "correlation": 0.95,
+          "match": true,
+          "againstOther": false
+        },
+        "Ethiopic": {
+          "row": 69,
+          "text": "ኤርትራ",
+          "widthPx": 0.5,
+          "correlation": 0.97,
+          "match": true,
+          "againstOther": false
+        },
+        "Georgian": {
+          "row": 83,
+          "text": "საქართველო",
+          "widthPx": 0,
+          "correlation": 0.96,
+          "match": true,
+          "againstOther": false
+        },
+        "Hebrew": {
+          "row": 109,
+          "text": "ישראל",
+          "widthPx": 0.5,
+          "correlation": 0.54,
+          "match": true,
+          "againstOther": false
+        },
+        "Khmer": {
+          "row": 37,
+          "text": "កម្ពុជា",
+          "widthPx": 0,
+          "correlation": 0.96,
+          "match": true,
+          "againstOther": false
+        },
+        "Lao": {
+          "row": 121,
+          "text": "ລາວ",
+          "widthPx": 0,
+          "correlation": 0.97,
+          "match": true,
+          "againstOther": false
+        },
+        "Myanmar": {
+          "row": 151,
+          "text": "မြန်မာ",
+          "widthPx": 0,
+          "correlation": 0.98,
+          "match": true,
+          "againstOther": false
+        },
+        "Sinhala": {
+          "row": 204,
+          "text": "ශ්‍රී ලංකාව",
+          "widthPx": 0.5,
+          "correlation": 0.29,
+          "match": true,
+          "againstOther": false
+        },
+        "Thai": {
+          "row": 221,
+          "text": "ไทย",
+          "widthPx": 0,
+          "correlation": 0.97,
+          "match": true,
+          "againstOther": false
+        },
+        "Tibetan": {
+          "row": 25,
+          "text": "འབྲུག",
+          "widthPx": 0,
+          "correlation": 0.91,
+          "match": true,
+          "againstOther": false
+        },
+        "Han": {
+          "row": 46,
+          "text": "中国",
+          "widthPx": 0,
+          "correlation": 0.98,
+          "match": true,
+          "againstOther": false
+        },
+        "Hangul": {
+          "row": 163,
+          "text": "북한",
+          "widthPx": 0.5,
+          "correlation": 0.65,
+          "match": true,
+          "againstOther": false
+        }
+      }
+    },
+    "tanstack": {
+      "ax": {
+        "table": 1,
+        "row": 251,
+        "columnheader": 5,
+        "cell": 1250,
+        "rowcount": 251
+      },
+      "scripts": {
+        "Arabic": [
+          "Geeza Pro"
+        ],
+        "Armenian": [
+          "Noto Sans Armenian"
+        ],
+        "Bengali": [
+          "Kohinoor Bangla"
+        ],
+        "Devanagari": [
+          "Kohinoor Devanagari"
+        ],
+        "Ethiopic": [
+          "Kefa III"
+        ],
+        "Georgian": [
+          "Helvetica"
+        ],
+        "Hebrew": [
+          "Lucida Grande"
+        ],
+        "Khmer": [
+          "Khmer Sangam MN"
+        ],
+        "Lao": [
+          "Lao Sangam MN"
+        ],
+        "Myanmar": [
+          "Noto Sans Myanmar"
+        ],
+        "Sinhala": [
+          "Sinhala Sangam MN",
+          "IBM Plex Sans"
+        ],
+        "Thai": [
+          "Thonburi"
+        ],
+        "Tibetan": [
+          "Kailasa"
+        ],
+        "Han": [
+          "Hiragino Sans"
+        ],
+        "Hangul": [
+          "Apple SD Gothic Neo"
+        ]
+      },
+      "flags": {
+        "flag": 195,
+        "text": 0
+      }
+    }
+  }
+}

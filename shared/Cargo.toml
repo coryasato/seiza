@@ -12,6 +12,10 @@ default = ["panel"]
 # `perf` API. A host that shows only its own view (the observatory's GPUI
 # contender) turns it off, and none of it links.
 panel = []
+# `Bootstrap::canvas_font_fallback`: which missing characters the browser
+# draws. Off, the bootstrap passes `Emoji` as a constant and an app's wasm
+# is as it was before the option (Tycho's, checked byte for byte).
+canvas-font-fallback = []
 
 [dependencies]
 gpui-kit.workspace = true

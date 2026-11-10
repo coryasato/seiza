@@ -29,11 +29,13 @@ export const BUILD_PREFIXES = ['/observatory/', '/fonts/'];
  * hash). The engine's extensions (`duckdb/v<version>/…`, pinned by version,
  * not content) revalidate. The font has a stable name shared by every build
  * on the apex: a day, so a repeat visit's first paint doesn't wait on a
- * revalidation.
+ * revalidation. The admin table's script faces (`/observatory/fonts/*.ttf`)
+ * carry their version and hash in their names (`contenders/fonts/faces.ts`):
+ * immutable. Their license beside them revalidates.
  */
 export function cacheControl(path: string): string {
   if (path.endsWith('.html')) return 'no-cache, no-transform';
   if (path.startsWith('/fonts/')) return 'public, max-age=86400';
-  if (/\/assets\/[^/]+$/.test(path) || /^\/observatory\/duckdb\/[^/]+$/.test(path)) return 'public, max-age=31536000, immutable';
+  if (/\/assets\/[^/]+$/.test(path) || /^\/observatory\/duckdb\/[^/]+$/.test(path) || /^\/observatory\/fonts\/[^/]+\.ttf$/.test(path)) return 'public, max-age=31536000, immutable';
   return 'no-cache';
 }

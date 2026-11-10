@@ -37,12 +37,12 @@ export function homePaths(name: string, bytes: Buffer): { total: number; failure
   return { total, failure: total ? `${name} holds ${total} home-directory paths (the root release profile's trim-paths off?)` : null };
 }
 
-/** `pkg`'s release wasm built without `trim-paths` (in target/untrimmed/ so
+/** `pkg`'s release wasm, with `features`, built without `trim-paths` (in target/untrimmed/ so
  *  the release cache stays put; cold, about 2 min), through wasm-bindgen and
  *  wasm-opt as the apps ship it: its home paths, which must be some. */
-export function untrimmedControl(pkg: string): { total: number; failure: string | null } {
+export function untrimmedControl(pkg: string, features: string[] = []): { total: number; failure: string | null } {
   const run = (command: string, args: string[], env = process.env) => execFileSync(command, args, { cwd: repo, env, stdio: ['ignore', 'ignore', 'inherit'] });
-  run('cargo', ['build', '-p', pkg, '--target', 'wasm32-unknown-unknown', '--release', '--target-dir', join(repo, 'target/untrimmed')], { ...process.env, CARGO_PROFILE_RELEASE_TRIM_PATHS: 'none' });
+  run('cargo', ['build', '-p', pkg, '--target', 'wasm32-unknown-unknown', '--release', ...(features.length ? ['--features', features.join(',')] : []), '--target-dir', join(repo, 'target/untrimmed')], { ...process.env, CARGO_PROFILE_RELEASE_TRIM_PATHS: 'none' });
   const name = pkg.replaceAll('-', '_');
   const out = mkdtempSync(join(tmpdir(), 'seiza-untrimmed-'));
   try {

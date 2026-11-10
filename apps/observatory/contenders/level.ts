@@ -20,6 +20,11 @@ export function levelOf(side: Side, mode: string): Level {
   return 'base';
 }
 
+/** The GPUI contender's Cargo features for `level`'s build: the level's
+ *  own (`crate/Cargo.toml`), and on the base the admin table's fonts toggle
+ *  (`fonts`), which no other level carries. The recipes spell it too. */
+export const gpuiCargoFeatures = (level: Level): string[] => (level === 'base' ? ['fonts'] : [level]);
+
 /** The build's directory for `level`: `dist` or `dist-<level>`. */
 export const levelOutDir = (level: Level): string => `dist${level === 'base' ? '' : `-${level}`}`;
 

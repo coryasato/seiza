@@ -8,7 +8,9 @@
 //   checking every other build's is the same files and bytes;
 // - the data at /observatory/data/: every file data/MANIFEST.json names,
 //   each checked against its SHA-256 there;
-// - the UI font at /fonts/, shared by every build on the apex.
+// - the UI font at /fonts/, shared by every build on the apex;
+// - the admin table's script faces and their license at /observatory/fonts/,
+//   each checked against its pin (contenders/fonts/faces.ts).
 //
 // Beside each build file a quality-11 `<file>.br` (shared-web's brotli,
 // cached by content: the bytes the budgets measure), which the Worker serves
@@ -28,8 +30,9 @@ import { constants, gzipSync } from 'node:zlib';
 import { walk } from '../../../../shared-web/scripts/walk.ts';
 import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { levelOutDir } from '../../contenders/level.ts';
-import { DATA, ENGINE, ENGINE_DIR, OBSERVATORY, UI_FONT, contenderBase } from '../../contenders/paths.ts';
+import { DATA, ENGINE, ENGINE_DIR, OBSERVATORY, SCRIPT_FONTS, UI_FONT, contenderBase } from '../../contenders/paths.ts';
 import { BUILT } from '../../contenders/scenarios.ts';
+import { FACES_DIR, facesProblem } from '../../contenders/fonts/files.ts';
 import { PRECOMPRESSED } from '../src/files.ts';
 import { ASSET_LIMIT, dataFiles, dist } from './staged.ts';
 
@@ -67,6 +70,9 @@ function stage(): void {
     return { name, path };
   });
 
+  const faces = facesProblem();
+  if (faces) throw new Error(`the script faces: ${faces}: run \`just observatory script-fonts\``);
+
   // The engine: both builds emit the same files (`engine-files` checks it
   // too); one copy is served.
   const engineFiles = (build: string) =>
@@ -103,6 +109,7 @@ function stage(): void {
   for (const { name, path } of data) copyFileSync(path, join(dist, DATA, name));
   mkdirSync(join(dist, dirname(UI_FONT)), { recursive: true });
   copyFileSync(join(root, 'shared-web/fonts', UI_FONT.slice(UI_FONT.lastIndexOf('/') + 1)), join(dist, UI_FONT));
+  place(FACES_DIR, SCRIPT_FONTS);
 
   const oversize: string[] = [];
   let files = 0;

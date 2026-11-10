@@ -334,7 +334,7 @@ impl Host {
 impl Render for Host {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(target_family = "wasm")]
-        crate::contract::drew_probe_key();
+        crate::contract::drew();
         let body = div().size_full().p_4();
         if let Load::Open(table) = &self.load {
             return body.child(TallTable::new(table));

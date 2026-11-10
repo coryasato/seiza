@@ -163,11 +163,18 @@ impl<A: AssetSource> Bootstrap<A> {
 /// 173.5 ms vs forced WebGL2 291.0 ms. WebKit: 296 vs 412 ms. Firefox, whose
 /// headless adapter is blocklisted, falls back to WebGL2 at no measurable cost
 /// (550 vs 551 ms). See Tycho's `perf/results/2026-09-23-m1.md`.
+///
+/// The browser draws the characters no loaded face has: emoji, unless the
+/// app asked for more ([`Bootstrap::canvas_font_fallback`]).
 fn web_application(assets: impl AssetSource) -> Application {
+    #[cfg(feature = "canvas-font-fallback")]
+    let canvas_font_fallback = CANVAS_FONT_FALLBACK.get();
+    #[cfg(not(feature = "canvas-font-fallback"))]
+    let canvas_font_fallback = CanvasFontFallback::Emoji;
     let platform = Rc::new(WebPlatform::new_with_backend_and_font_fallback(
         false,
         WebBackendPreference::Auto,
-        CanvasFontFallback::Emoji,
+        canvas_font_fallback,
     ));
     let http_client = Arc::new(platform.fetch_http_client());
     Application::with_platform(platform)
@@ -244,4 +251,28 @@ fn bind_mac_input_keys(cx: &mut App) {
         KeyBinding::new("alt-backspace", DeleteToPreviousWordStart, INPUT),
         KeyBinding::new("alt-delete", DeleteToNextWordEnd, INPUT),
     ]);
+}
+
+#[cfg(feature = "canvas-font-fallback")]
+thread_local! {
+    /// What [`Bootstrap::canvas_font_fallback`] asked for. Kept outside the
+    /// builder, and this code below everything an app without the feature
+    /// builds, so that app's wasm is byte for byte what it was: a line moved
+    /// above a panic changes its location's bytes, and brotli's output by
+    /// kilobytes (`docs/DECISIONS.md`, "Shell and input").
+    static CANVAS_FONT_FALLBACK: std::cell::Cell<CanvasFontFallback> =
+        const { std::cell::Cell::new(CanvasFontFallback::Emoji) };
+}
+
+#[cfg(feature = "canvas-font-fallback")]
+impl<A: AssetSource> Bootstrap<A> {
+    /// Which characters the loaded faces lack that the browser draws,
+    /// through a Canvas 2D context, one grapheme at a time: emoji
+    /// (`Emoji`, the default), or emoji and Han, kana, and Hangul
+    /// (`EmojiAndCjk`). Fixed when the window opens. Behind the
+    /// `canvas-font-fallback` feature.
+    pub fn canvas_font_fallback(self, fallback: CanvasFontFallback) -> Self {
+        CANVAS_FONT_FALLBACK.set(fallback);
+        self
+    }
 }

@@ -483,4 +483,8 @@ SPDX-License-Identifier: Unicode-3.0
 
 </details>
 
+## Font credits
+
+The admin table's fonts toggle loads 13 Noto faces on the GPUI side (Arabic, Armenian, Bengali, Devanagari, Ethiopic, Georgian, Hebrew, Khmer, Lao, Myanmar, Sinhala, Thai, Tibetan), copyright The Noto Project Authors, under the SIL Open Font License 1.1, served unmodified at `/observatory/fonts/` beside [their license](contenders/fonts/OFL.txt) with each face's copyright line. Each is pinned by version and SHA-256 in [`contenders/fonts/faces.ts`](contenders/fonts/faces.ts). The UI face, IBM Plex Sans, is the site's (`shared-web/fonts/`).
+
 The rules are the root [`CLAUDE.md`](../../CLAUDE.md)'s "Comparison protocol", and the decisions behind them are in the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md). What's next is in [`PLAN.md`](PLAN.md).

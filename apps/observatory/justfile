@@ -7,6 +7,10 @@ tanstack_web := app_dir / "contenders/tall-table/tanstack/web"
 target_dir := root / "target/wasm32-unknown-unknown"
 
 page_web := app_dir / "web"
+# The admin table's script faces, fetched by their pins (`script-fonts`).
+fetch_fonts := "node " + app_dir / "contenders/fonts/fetch.ts"
+# The GPUI contender's Cargo features at a level (`contenders/level.ts`'s `gpuiCargoFeatures`).
+gpui_features := "node " + app_dir / "contenders/built.ts --cargo"
 
 # The page's Vite dev server, with COOP/COEP, at /observatory/, the
 # component's page, and each scenario's route. Its frames load the contenders' release builds
@@ -47,6 +51,7 @@ page *args:
 # `level`: the feature level (contenders/scenarios.ts; `wide` at
 # /observatory/contenders/tall-table/gpui/wide/).
 gpui-dev level="base": (gpui-wasm "debug" level) gpui-extensions
+    {{ if level == "base" { fetch_fonts } else { "true" } }}
     npm run dev --workspace @seiza/observatory-tall-table-gpui -- --mode {{ if level == "base" { "development" } else { level } }}
 
 # The GPUI contender's release build at a feature level (`base`, `wide`, `market`):
@@ -60,15 +65,25 @@ gpui-build level="base": (gpui-wasm "release" level) gpui-extensions
 
 # Serve the GPUI contender's release build at a level (brotli, as production will), with the data files.
 gpui-preview level="base":
+    {{ if level == "base" { fetch_fonts } else { "true" } }}
     npm run preview --workspace @seiza/observatory-tall-table-gpui {{ if level == "base" { "" } else { "-- --mode " + level } }}
 
 # Compile the GPUI contender alone (`-p`: Cargo unifies features across the
-# packages in one build), with the level's feature (none for the base), and
+# packages in one build), with the level's feature (the base's: `fonts`,
+# the admin table's toggle; `contenders/level.ts`'s `gpuiCargoFeatures`), and
 # generate its JS bindings into web/pkg/ (the base) or web/pkg-<level>/.
 gpui-wasm profile="debug" level="base":
-    cargo build -p tall-table-gpui --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }} {{ if level == "base" { "" } else { "--features " + level } }}
+    cargo build -p tall-table-gpui --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }} --features $({{gpui_features}} {{level}})
     wasm-bindgen {{target_dir}}/{{profile}}/tall_table_gpui.wasm --out-dir {{gpui_web}}/pkg{{ if level == "base" { "" } else { "-" + level } }} --target web
     {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + gpui_web + "/pkg" + (if level == "base" { "" } else { "-" + level }) + "/tall_table_gpui_bg.wasm -o " + gpui_web + "/pkg" + (if level == "base" { "" } else { "-" + level }) + "/tall_table_gpui_bg.wasm" } else { "true" } }}
+
+# The admin table's script faces into contenders/fonts/faces/ (gitignored),
+# served at /observatory/fonts/: each fetched by its pin and checked
+# (contenders/fonts/faces.ts), with their license; anything else there
+# removed. Only what serves or checks them runs it: the base level's
+# gpui-dev and gpui-preview, admin, check, and deploy; no build needs them.
+script-fonts:
+    {{fetch_fonts}}
 
 # Download the DuckDB extensions the engine pins into the GPUI contender's
 # public/duckdb/ (served at /observatory/duckdb/), checking each SHA-256.
@@ -212,13 +227,14 @@ builds:
 # tall table's input, tooltip, and focus. Then the page's build: its
 # first paint and first-paint JS against the baseline, and how it hosts
 # the contenders.
-check: lint builds && fixtures
+check: lint builds script-fonts && fixtures
     node {{app_dir}}/perf/sizes.ts --check
     levels=$(node {{app_dir}}/contenders/built.ts tanstack) && for level in $levels; do node {{app_dir}}/perf/tanstack-sizes.ts --level $level --check || exit 1; done
     levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/cold.ts --level $level --check || exit 1; done
     node {{app_dir}}/perf/wide.ts
     node {{app_dir}}/perf/market.ts
     node {{app_dir}}/perf/tail.ts
+    node {{app_dir}}/perf/admin.ts
     levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/placeholder.ts --level $level || exit 1; done
     node {{app_dir}}/perf/reach.ts
     node {{app_dir}}/perf/engine-files.ts --controls
@@ -351,7 +367,7 @@ data *args:
 # changes only the Worker's code can't be told apart that way, so rerun
 # `worker-check` if that check fails). Needs `wrangler login`. Flags pass to
 # the check, e.g. `--resolve-via 1.1.1.1`, `--behind-waf`.
-deploy *args: builds
+deploy *args: builds script-fonts
     #!/usr/bin/env bash
     set -euo pipefail
     node {{app_dir}}/worker/scripts/stage.ts
@@ -413,6 +429,16 @@ market *args:
 # the same, and their columns. --side, --label. Run `builds` first.
 tail *args:
     node {{app_dir}}/perf/tail.ts {{args}}
+
+# The admin table's capabilities on both contenders' base builds, each with
+# its control: find, a drag's selection and the copy, the accessibility
+# tree, every script drawn (TanStack's platform faces; GPUI's pixels against
+# the DOM's drawing in the same face, by default and with `?fonts`), the
+# flags, Translate's precondition; the fonts path's fetches and marks; the
+# TanStack side's drawn text against cells.json's (--side, --label, --shots
+# <dir>). Run `gpui-build` and `tanstack-build` first.
+admin *args: script-fonts
+    node {{app_dir}}/perf/admin.ts {{args}}
 
 # Request bursts on the page's release build: the most requests one visitor
 # sends in any 10 s (the zone's rate limit's window), counted at the server
@@ -478,6 +504,7 @@ lint:
     cargo fmt --all --check
     cargo run -q -p tall-table-gpui --example theme_css -- --check
     cargo clippy -p tall-table-gpui --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-gpui --features $({{gpui_features}} base) --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --all-targets -- -D warnings
     cargo clippy -p tall-table-gpui --features wide --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --features wide --all-targets -- -D warnings
@@ -487,6 +514,7 @@ lint:
     cargo clippy -p tall-table-gpui --features tail --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
+    cargo clippy -p seiza --no-default-features --features canvas-font-fallback --target wasm32-unknown-unknown -- -D warnings
     node {{page_web}}/scripts/grays.ts
     npm run typecheck --workspace @seiza/site-ui
     npm run typecheck --workspace @seiza/observatory-web
