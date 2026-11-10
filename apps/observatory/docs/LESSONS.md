@@ -517,3 +517,11 @@ One entry per milestone, written before starting the next one: what surprised us
 - The canvas's sketch names aren't the file's: Thailand is ไทย in CLDR's likely-language name, not ประเทศไทย.
 - The page's `--check` measures first paint right after its own checks, so its first runs read the load those checks leave (154.9 ms against an A/B's 65): a first paint failure there needs the A/B before it means anything.
 - The page's own servers didn't serve the script faces (only the GPUI contender's did), so GPUI's frame inside the page failed to fetch them until the page's Vite config served `/observatory/fonts/` too.
+
+## M12 part E: shipped (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m12-e.md`](../perf/results/2026-11-10-m12-e.md).
+
+**Surprises:**
+- `burst` didn't know the admin table: a scenario joining the page doesn't join `burst` by itself, and the fonts toggle's 13 faces were a new kind of request. Measured, the admin table is the lightest scenario on the wire (55 in its busiest 10 s, the toggle on and off included), since its file is one page.
+- gpui-kit 0.9.1's budget gate, deferred from the bump to this deploy, held on every level with TTFP within a couple of ms of each level's baseline: the per-event cursor write the bump's note flagged doesn't touch first paint.

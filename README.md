@@ -7,7 +7,7 @@ The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than th
 The repo holds four kinds of thing:
 
 - **Utility apps:** tools meant to be used, each on its own subdomain and named for an astronomer. They grow into real tools.
-- **The observatory:** one comparison page, at seiza.io/observatory. It runs each component against a 1:1 DOM equivalent (first GPUI | TanStack: React + TanStack Virtual), one at a time, on the same engine and data, in scenarios of real use (a big file, a wide sheet, a market watch, a live tail), measures what each costs over a session of use, and shows where each side wins.
+- **The observatory:** one comparison page, at seiza.io/observatory. It runs each component against a 1:1 DOM equivalent (first GPUI | TanStack: React + TanStack Virtual), one at a time, on the same engine and data, in scenarios of real use (a big file, a wide sheet, a market watch, a live tail, an admin table), measures what each costs over a session of use, and shows where each side wins.
 - **Components:** generic UI libraries in the style of GPUI Kit's components (a table, later others). A minimal base, plus capabilities like sorting as features a build turns on.
 - **Engines:** the data layers both sides of a comparison share (DuckDB-Wasm today).
 
@@ -16,7 +16,7 @@ The repo holds four kinds of thing:
 | App | What it is | Status |
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
-| [**Observatory**](apps/observatory/) | The comparison page: a component in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): four scenarios (Big file, Wide sheet, Market watch, Live tail), both contenders, the window's numbers, the meter; next, the admin table |
+| [**Observatory**](apps/observatory/) | The comparison page: a component in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): five scenarios (Big file, Wide sheet, Market watch, Live tail, Admin table), both contenders, the window's numbers, the meter; next, the monitoring wall |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 

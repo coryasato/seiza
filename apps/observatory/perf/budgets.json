@@ -6421,7 +6421,7 @@
           "path": "profiles.reference.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-usable-throttled",
@@ -6438,7 +6438,7 @@
           "path": "profiles.throttled.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-data-reference",
@@ -6455,7 +6455,7 @@
           "path": "profiles.reference.tanstack.summary.ms"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-data-throttled",
@@ -6472,7 +6472,7 @@
           "path": "profiles.throttled.tanstack.summary.ms"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-smooth-reference",
@@ -6489,7 +6489,7 @@
           "path": "profiles.reference.tanstack.summary.readThrough.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-smooth-throttled",
@@ -6506,7 +6506,7 @@
           "path": "profiles.throttled.tanstack.summary.readThrough.drewPct"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-memory-reference",
@@ -6523,7 +6523,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcLessCanvas"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-memory-throttled",
@@ -6540,7 +6540,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcLessCanvas"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-memory-second-reference",
@@ -6556,7 +6556,7 @@
           "path": "profiles.reference.tanstack.summary.secondCanvasRunsEnd"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-memory-second-throttled",
@@ -6572,7 +6572,7 @@
           "path": "profiles.throttled.tanstack.summary.secondCanvasRunsEnd"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-canvas-buffer-reference",
@@ -6619,7 +6619,7 @@
           "path": "profiles.reference.gpui.summary.fonts.bytesKiB"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-fonts-bytes-throttled",
@@ -6645,7 +6645,7 @@
           "path": "profiles.reference.gpui.summary.fonts.scriptsDrawnMs"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-fonts-drawn-throttled",
@@ -6658,7 +6658,7 @@
           "path": "profiles.throttled.gpui.summary.fonts.scriptsDrawnMs"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-fonts-memory-reference",
@@ -6671,7 +6671,7 @@
           "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcLessCanvas"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-fonts-memory-throttled",
@@ -6684,7 +6684,7 @@
           "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcLessCanvas"
         }
       ],
-      "show": []
+      "show": ["readme:admin-table"]
     },
     {
       "id": "admin-table-fonts-second-reference",

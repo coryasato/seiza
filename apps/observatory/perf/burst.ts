@@ -27,6 +27,11 @@
 //   through every other stop, the same at each; a flip to TanStack, the same
 //   from there: each side at every stop.
 // - tail-reloads: live tail's route reloaded 5 times, 1 s apart.
+// - admin: the admin table's route; GPUI fills, flings, jumps to 90%; the
+//   fonts toggle pressed (the side reloaded with its 13 script faces,
+//   fetched once the rows are in), a fling with them; pressed again (a
+//   reload without them); a flip to TanStack, a fling and a jump.
+// - admin-reloads: the admin table's route reloaded 5 times, 1 s apart.
 //
 // Every request counts, at the server: the page is served through a counting
 // proxy (shared-web/perf/serve.ts), since Playwright doesn't see the sync
@@ -36,7 +41,7 @@
 // production's: the safe side for a limit. A peak, not a timing, so one run
 // per scenario.
 //
-// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,market,market-reloads,tail,tail-reloads]
+// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,market,market-reloads,tail,tail-reloads,admin,admin-reloads]
 // Run gpui-build, tanstack-build, and build first. Writes
 // perf/results/<date>-<label>.json.
 
@@ -47,7 +52,7 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { startCountingProxy } from '../../../shared-web/perf/serve.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { BIG_FILE, type Level, LIVE_TAIL, MARKET_WATCH, type Scenario, WIDE_SHEET } from '../contenders/scenarios.ts';
+import { ADMIN_TABLE, BIG_FILE, type Level, LIVE_TAIL, MARKET_WATCH, type Scenario, WIDE_SHEET } from '../contenders/scenarios.ts';
 import { COMPONENTS, SCENARIO_LINK, scenarioPath } from '../web/src/components.ts';
 import { perfDir, protocolContext, servePage } from './harness.ts';
 
@@ -61,6 +66,7 @@ const BIG_ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
 const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
 const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
 const TAIL_ROUTE = scenarioPath(TALL_TABLE, LIVE_TAIL);
+const ADMIN_ROUTE = scenarioPath(TALL_TABLE, ADMIN_TABLE);
 /** How long a market watch or live tail frame runs under its feed at each stop. */
 const FEED_MS = 2_000;
 
@@ -146,6 +152,15 @@ async function dial(page: Page, side: 'gpui' | 'tanstack', scenario: Scenario): 
   }
 }
 
+/** The admin table's fonts toggle pressed once the window has settled; with
+ *  `drawn`, waits for the frame drawn with the faces (`contender:fonts`). */
+async function fonts(page: Page, drawn: boolean): Promise<void> {
+  await settle(page);
+  await page.waitForFunction(() => !(document.querySelector('[data-fonts]') as HTMLButtonElement | null)?.disabled, null, { timeout: 60_000 });
+  await page.locator('[data-fonts]').click();
+  if (drawn) await page.waitForFunction(() => document.querySelector('[data-fonts-state]')?.getAttribute('data-fonts-state') === 'on', null, { timeout: 60_000 });
+}
+
 async function reloads(page: Page): Promise<void> {
   for (let reload = 0; reload < 5; reload++) {
     await page.reload();
@@ -207,6 +222,20 @@ const scenarios: Record<string, { route: string; run: (page: Page) => Promise<vo
     },
   },
   'tail-reloads': { route: TAIL_ROUTE, run: reloads },
+  admin: {
+    route: ADMIN_ROUTE,
+    run: async (page) => {
+      await play(page, 'gpui', ['fling', 'jump']);
+      await fonts(page, true);
+      await play(page, 'gpui', ['fling']);
+      await fonts(page, false);
+      await play(page, 'gpui', ['fling']);
+      await flip(page, 'TanStack');
+      await play(page, 'tanstack', ['fling', 'jump']);
+      await page.waitForTimeout(2_000);
+    },
+  },
+  'admin-reloads': { route: ADMIN_ROUTE, run: reloads },
 };
 
 const unknown = only?.filter((name) => !(name in scenarios)) ?? [];
