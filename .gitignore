@@ -37,6 +37,9 @@ apps/*/data/bench/
 apps/observatory/spike/public/wide/
 # The feed spike's Rust fold, built from spike/fold/ (feed-run.ts builds it)
 apps/observatory/spike/public/fold/
+# The fonts spike's faces and output (spike/fonts/fetch-faces.sh, fonts-spike.ts)
+apps/observatory/spike/fonts/faces/
+apps/observatory/spike/fonts/out-*/
 
 # DuckDB extensions, downloaded and checked against pinned hashes (engines/duckdb/web/duckdb-extensions.json)
 apps/*/web/public/duckdb-ext/

@@ -26,7 +26,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M9 | Scenario: wide sheet (parts A1–E4) | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
-| M12 | Scenario: admin table (the control) (parts A1–A2, B–F, split in A2) | Active (opened 2026-11-09) |
+| M12 | Scenario: admin table (the control) (parts A1–A3, B–E, split in A3) | Active (opened 2026-11-09) |
 | M13 | Scenario: monitoring wall | Planned |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
@@ -86,7 +86,7 @@ If neither 1 nor 2 works, the cells would have to name a family per script: a ch
 
 The file is ~250 rows, in the base level's column kinds (text only), so `cells.json` gains a scenario section and no new kind.
 
-**Parts** (each one session; A2 confirms B–F and splits any that's over a session):
+**Parts** (each one session; A3 confirms B–E and splits any that's over a session):
 - **A1: the data, the capabilities, and their checks.**
   - The sources pinned (CLDR's JSON release and the Wikidata query's result, each a SHA-256 in `MANIFEST.json`'s `sources`), their terms quoted.
   - Which regions count (CLDR's two-letter regions; the macro-regions, `EU`, `UN`, `EZ`, `QO`, `ZZ`, and the deprecated codes out), and the native name's rule.
@@ -96,9 +96,10 @@ The file is ~250 rows, in the base level's column kinds (text only), so `cells.j
   - The scripts the file holds, counted, each with its Noto face and that face's size.
   - Each capability's check on both sides, scripted where a script can see it, with the control each needs (a Ctrl+F proxy, `window.find`; a drag and `getSelection()`; the accessibility tree by CDP; the flags' and scripts' pixels; Translate, a manual check, its text nodes scripted), and what's left to the manual cross-browser check.
   - No `lang` on the DOM side (decided 2026-11-09, below).
-- **A2: the fonts spike, the measures, and the boards.**
+- **A2: the fonts spike and the toggle's build shape** (split from A3, 2026-11-09: the spike is engineering, the boards a design session that needs its verdicts).
   - The bare host (or the GPUI contender's base build) on A1's draft file, at its default (the gap; the flags confirmed drawn) and with Noto faces added after first paint and `EmojiAndCjk`: which route reaches them (automatic fallback, else `FontFallbacks` on the host's root style), each script's shaping against the DOM's drawing of the same names in the same face (screenshots side by side, and a scripted check where one exists: an Arabic name's drawn width against its isolated forms', RTL order), the bytes per script, and the time from the fonts' load to the frame drawn with them.
   - The toggle's build shape: a runtime parameter on the base build (its bytes in Big file's wasm, recorded) or a GPUI level of its own (the base untouched). The `Bootstrap` option's effect on Tycho.
+- **A3: the measures, the suite's time, the boards, and B–E confirmed.**
   - The measures made exact: Ready in, Rows in, Smooth (which scroll), Memory, Download, and the toggle's own (the fonts' bytes, fonts in → drawn, memory with them).
   - The suite's time.
   - The boards on M8's canvas, decided with the user before anything is built: the toggle in the window (where the dial would be), what the frame says while fonts load, the per-script verdicts in the panel, the flags row corrected, light and dark, desktop and phone.
@@ -106,19 +107,19 @@ The file is ~250 rows, in the base level's column kinds (text only), so `cells.j
   - The data: `prep-countries` in `prep.ts` (`--only countries`, the sources' pins), its `MANIFEST.json` entry with credit and terms.
   - The scenario in `contenders/scenarios.ts` on the base level (both sides' `pickScenario`), and `cells.json`'s scenario section by `cell-fixture`.
   - The TanStack contender's two changes at every level (decided 2026-11-09): ARIA table semantics (`table`, `row`, `columnheader`, `cell`, `aria-rowcount`, each row's `aria-rowindex`), and, on the base level, every row rendered when the rows fit in one page (1,024; market watch and live tail stay virtualized). Each level's first-paint JS against its baseline, `tanstack-contract` and `tanstack-parity` unchanged at every level, and each scenario's README section saying its numbers predate them.
-  - The fonts path on the GPUI side, as A2 decides: the `Bootstrap` option, its effect on Tycho recorded; the Noto faces staged under `/observatory/`, their OFL credited; budgets.
+  - The fonts path on the GPUI side, as A2 decided (a runtime parameter on the base build; automatic fallback): the `Bootstrap` option, shaped so Tycho's wasm doesn't change, else its effect recorded in Tycho's `perf/results/`; the export that adds the faces after first paint; Big file's wasm bytes recorded against its budgets; the Noto faces pinned to a release and staged under `/observatory/`, their OFL credited.
   - A check script (`perf/admin.ts`, in `check`) proving each capability's yes and no on both sides, with its controls.
 - **C: the numbers.** The cold suite at the base level on the countries file, both sides, both devices, median of 10, the toggle's runs beside it, each results file labelled `admin-table`, with its versions, and a results note. A long run, so ask about a code review first if the session changed code.
-- **D: the page,** as the canvas draws it and A2's boards add: the route, the status bar, the panel (capabilities, verdict, cards, the shaping verdicts), the toggle, the description, the gallery card, and the Overview's rule's DOM half ("text-heavy", which M9 E3 left waiting on these numbers).
+- **D: the page,** as the canvas draws it and A3's boards add: the route, the status bar, the panel (capabilities, verdict, cards, the shaping verdicts), the toggle, the description, the gallery card, and the Overview's rule's DOM half ("text-heavy", which M9 E3 left waiting on these numbers).
 - **E: shipped.** The README's admin table section by `report` (its canvas tradeoffs too: root rule 4), `burst` under the zone's limit, the deploy, `worker-check`.
 
-**Done when** (the measures made exact in A1 and A2):
-- [ ] **Its builds:** the admin table on the base level on both sides; the TanStack contender's ARIA roles at every level and its rendering of a one-page table on the base level, each level's bytes recorded against its budget; Big file's builds byte-identical unless A2 puts the toggle in the base (then its bytes recorded, and the base's budgets hold); the fonts path's bytes after first paint recorded per script; `shared/`'s `Bootstrap` option with its effect on Tycho recorded.
+**Done when** (the measures made exact in A1 and A3):
+- [ ] **Its builds:** the admin table on the base level on both sides; the TanStack contender's ARIA roles at every level and its rendering of a one-page table on the base level, each level's bytes recorded against its budget; Big file's wasm with the fonts toggle (a runtime parameter on the base build), its bytes recorded and the base's budgets holding; the fonts path's bytes after first paint recorded per script; `shared/`'s `Bootstrap` option with its effect on Tycho recorded.
 - [ ] **Its data credited:** the countries file in `MANIFEST.json` (rows, bytes, SHA-256, its pinned sources, credit, terms); the page and the README credit CLDR (Unicode License v3) and Wikidata (CC0), and the Noto faces (OFL).
 - [ ] **The same on both sides:** `cells.json`'s scenario section passes on both sides with its controls; both sides' columns at the same x and width.
 - [ ] **Its capabilities proven:** each of the panel's yes and no checked by `perf/admin.ts` on both sides (and with fonts), with its control, in `check`; the rest by the manual cross-browser check, written down; each script's shaping verdict with its evidence (screenshots against the DOM's) in a results note.
 - [ ] **Its runs and numbers:** the cold suite once, in part C, both sides, both devices, median of 10, the toggle's runs beside it, each file labelled `admin-table` with its versions; a results note.
-- [ ] **The page:** as the canvas and A2's boards draw it; `page --check` covers it.
+- [ ] **The page:** as the canvas and A3's boards draw it; `page --check` covers it.
 - [ ] **Shipped:** the README's section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
 
 #### Part A1: the data, the capabilities, and their checks
@@ -134,14 +135,18 @@ The file is ~250 rows, in the base level's column kinds (text only), so `cells.j
   - *Translate:* scripted only as its precondition, every name in the TanStack page's text (`innerText`) with no `translate="no"`, and none on GPUI's. Manual: Chrome's Translate on both.
 - [x] **A1-4, `lang` on the DOM side,** decided with the user. *Evidence:* [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios", 2026-11-09: no language column, so no `lang` on the TanStack side's cells.
 
-#### Part A2: the fonts spike, the measures, and the boards
+#### Part A2: the fonts spike and the toggle's build shape
 
 **Done when:**
-- [ ] **A2-1, the spike:** the default (the gap; the flags drawn) and the fonts (Noto faces after first paint, `EmojiAndCjk`) on A1's file: which route reaches them (automatic, else `FontFallbacks`); each script's shaping against the DOM's, with screenshots; bytes per script; fonts in → drawn.
-- [ ] **A2-2, the toggle's build shape** and the `Bootstrap` option's effect on Tycho, decided with the user.
-- [ ] **A2-3, the measures and the suite's time.**
-- [ ] **A2-4, the boards,** drawn on M8's canvas and decided with the user.
-- [ ] **A2-5, B–E confirmed** (split where a part is over a session).
+- [x] **A2-1, the spike:** the default (the gap; the flags drawn) and the fonts (Noto faces after first paint, `EmojiAndCjk`) on A1's file: which route reaches them (automatic, else `FontFallbacks`); each script's shaping against the DOM's, with screenshots; bytes per script; fonts in → drawn. *Evidence:* [`perf/results/2026-11-09-m12-a2.md`](perf/results/2026-11-09-m12-a2.md): by default every missing glyph is a notdef box and every flag draws in color (the canvas's flags row is wrong); automatic fallback reaches all 13 faces with nothing else set (`FontFallbacks` drew the same glyphs, so the host sets none), each name's width the DOM's within 1 px, Arabic joined and right to left; gpui-pre-wgpu 0.3.11 drops the marks' GPOS offsets, so 29 of the file's 733 texts draw a mark off its place, Sri Lanka's Sinhala name and Palestinian Territories' Arabic misread, Cambodia's Khmer and some Arabic dots visibly off; 601.6 KiB brotli for the 13 faces (Noto Serif Tibetan 192.7); fonts in → drawn 24.5 ms median (n = 7, reference).
+- [x] **A2-2, the toggle's build shape** and the `Bootstrap` option's effect on Tycho, decided with the user. *Evidence:* [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios", 2026-11-09: a runtime parameter on the base build (+487 B brotli in Big file's wasm, a minimal toggle), automatic fallback with no list on the host; the option's cost to Tycho (+23 B raw, +1,378 B brotli, unset) to zero in part B, else recorded there; the lost mark offsets stated in the verdicts, the issue to be filed upstream by the user.
+
+#### Part A3: the measures, the suite's time, the boards, and B–E confirmed
+
+**Done when:**
+- [ ] **A3-1, the measures and the suite's time.**
+- [ ] **A3-2, the boards,** drawn on M8's canvas and decided with the user.
+- [ ] **A3-3, B–E confirmed** (split where a part is over a session).
 
 ---
 
@@ -239,4 +244,5 @@ Not milestones. Each starts with research.
 
 - **The pill's compositor frames.** Throttled, the meter as a pill dropped more compositor frames than hidden on both sides (TanStack 7.98% against 3.5%, GPUI 4.21% against 0), while the open meter dropped none more (`perf/results/2026-10-21-m5-d4.md`). The pill isn't the default, so nothing gates it; whether it should get a layer of its own (`will-change: transform`, as the open meter has), and whether that's the cause, is untested.
 - **A spread for a short mark.** The quiet-machine gate is (max − min) / median under 6% of each variant's open mark. TanStack's reference mark is ~500 ms, so one 15–30 ms stray fails it (7.0–7.7% in both D4 runs, while its gates read 0 against 0). Whether short marks get a floor in ms, or the gate uses the interquartile range over the median, is open.
+- **GPUI's lost mark offsets upstream.** gpui-pre-wgpu 0.3.11 drops cosmic-text's `x_offset` and `y_offset` (`perf/results/2026-11-09-m12-a2.md`). The user files the issue; whether a fix lands before part C, so the shaping verdicts are measured on it, is open.
 - **The landing page.** The observatory's Worker holds the apex `seiza.io` (everything outside `/observatory/` a 404). The page is basic (a title, a catchy line, a link to the observatory), built in `site/landing/` on `site/ui/`'s shell (root `docs/DECISIONS.md`, "Repo structure"); when it ships is open. Shipping it moves the Worker to `site/worker/` and adds `/`, `/index.html`, and `/assets/` to the seiza.io WAF rule (`/fonts/` is in it already).

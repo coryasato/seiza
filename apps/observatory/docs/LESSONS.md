@@ -443,3 +443,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - CLDR leaves out a region's likely language when it's English (`und-US` isn't listed; `und` → `en-Latn` covers it), and ten languages have no region names at all, Dhivehi among them, so the Maldives' Thaana name can't come from CLDR.
 - CLDR gives uninhabited Bouvet and Heard Islands a population of 1, and Wikidata gives eight regions several capitals; mechanical rules handle both, each written down.
 - IBM Plex Sans covers every Latin, Greek, and Cyrillic character in the names (Vietnamese and Tajik included): the gap is exactly the 15 scripts outside those three. Noto has no sans Tibetan, and Noto Serif Tibetan is a third of the 13 faces' 582 KiB.
+
+## M12 part A2: the fonts spike (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m12-a2.md`](../perf/results/2026-11-09-m12-a2.md).
+
+**Surprises:**
+- Automatic fallback was enough: faces added after first paint draw every script with nothing else set, and a `FontFallbacks` list on the host's root drew the same glyphs. The route the PLAN expected to need never changed a pixel.
+- The shaping is right, and the drawing isn't. harfrust gives HarfBuzz's glyphs, but gpui-pre-wgpu places each glyph at cosmic-text's hitbox `x` and `y` and drops the mark offsets, so 29 of the file's 733 texts draw a mark off its place. Most offsets are under a pixel. Sri Lanka's Sinhala and one Arabic letter's dots are wrong enough to misread. A width check alone would never catch it: every name's width matched the DOM's within a pixel, since a mark has no advance.
+- A ZWJ inside a cluster looked like the cause and wasn't. The first guess, a run split across two faces at the joiner, was ruled out by logging the shaped runs: one cluster, one face.
+- A 23-byte change in Tycho's wasm costs 1.3 KiB brotli: the option moves code, and the compressor's matches move with it. The bytes on the wire, not the raw change, are what count.
+- The notdef box, not an empty cell, is GPUI's default for a missing glyph, one per character. The gap is visible at a glance.
