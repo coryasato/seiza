@@ -12,7 +12,7 @@
  */
 
 import type { ContenderState, Side } from '../contenders/contract.ts';
-import { FRAME_MS, LATE_FACTOR, Trace, lateFrames, spans, type FrameWork, type TraceEvent } from '../../../shared-web/perf/trace.ts';
+import { FRAME_MS, LATE_FACTOR, LATENCY_CATEGORIES, Trace, WORK_CATEGORIES, lateFrames, spans, type FrameWork, type TraceEvent } from '../../../shared-web/perf/trace.ts';
 
 // The trace and frame math every app's scripts share, re-exported so the
 // observatory reads every metric through this module.
@@ -292,7 +292,7 @@ export function readInputs(trace: Trace, side: Side, kind: InputKind, settled: r
   const latencies = spans(trace.events, 'EventLatency');
   const moved = trace.marks(new RegExp(`^${MOVED_MARK}(:\\d+)?$`));
   const filled = trace.marks(/^contender:filled$/);
-  const deltas = trace.events.filter((event) => event.name === 'Scroll Delta This Frame' && event.pid === trace.main.pid && event.tid !== trace.main.tid && (event.args?.x || event.args?.y));
+  const deltas = scrollDeltas(trace);
   const submits = spans(trace.events, 'SubmitCompositorFrameToPresentationCompositorFrame').filter(({ begin }) => begin.pid === trace.main.pid);
   const by = guardFor(side, kind);
   return [...windows.keys()].sort((a, b) => a - b).map((index) => {
@@ -477,6 +477,57 @@ export function drewShare(drawn: readonly number[], refreshMs = FRAME_MS): DrewS
 /** Keeps up at a stop: both steady scrolls' shares (each a median of the
  *  runs) at or over `KEEPS_UP_SHARE`; the slower sets it. */
 export const keepsUp = (down: number, sideways: number): boolean => Math.min(down, sideways) >= KEEPS_UP_SHARE;
+
+// ---------------------------------------------------------------- the admin table's Smooth
+
+/** The admin table's read-through scroll, on Chromium's gesture from the
+ *  top: 2 s inside its 6,810 px of scroll (250 rows of 30 px, less the
+ *  view), so the end's clamp never ends it early (`docs/DECISIONS.md`,
+ *  "Measurement", the admin table's measures). Its Smooth is `drewShare`
+ *  over the frames that moved the view. */
+export const READ_THROUGH = { y: -6_000, speed: 3_000 } as const;
+
+/** Trace categories for the admin table's Smooth: the work's, and the
+ *  compositor's scrolls (`cc`, `LATENCY_CATEGORIES`'), for `compositorScrolls`. */
+export const SCROLL_CATEGORIES = [...new Set([...WORK_CATEGORIES, ...LATENCY_CATEGORIES])];
+
+/** A vsync's frame reporter states that put a frame on screen. */
+const PRESENTED = new Set(['STATE_PRESENTED_ALL', 'STATE_PRESENTED_PARTIAL']);
+
+/**
+ * The frames a native scroller's compositor applied a scroll in and
+ * presented, from `from` to `to` (page ms): each `Scroll Delta This Frame`
+ * with a delta, off the main thread, paired with the vsync it was applied
+ * in (the page's latest frame reporter, `PipelineReporter`, begun at or
+ * before it, on the compositor's thread), counted once per vsync and only
+ * when a reporter of that vsync presented it, timed at the delta. The DOM
+ * side's Smooth when every row is rendered and a scroll runs no main-thread
+ * frame (`domDrawn` counts none); `compositorFrames` can't stand in: it
+ * counts without times and leaves out the frames that wanted no update.
+ * Needs `SCROLL_CATEGORIES`.
+ */
+export function compositorScrolls(trace: Trace, from: number, to: number): number[] {
+  const [start, end] = [trace.toTrace(from), trace.toTrace(to)];
+  const reporters = trace.events.filter((event) => event.name === 'PipelineReporter' && event.ph === 'b' && event.pid === trace.main.pid && event.args?.frame_reporter?.state).sort((a, b) => a.ts - b.ts);
+  // A vsync can have reporters on more than one thread (`compositorFrames`): keyed without it.
+  const vsyncOf = (event: TraceEvent) => `${event.args!.frame_reporter.frame_source}:${event.args!.frame_reporter.frame_sequence}`;
+  const presented = new Set(reporters.filter((event) => PRESENTED.has(event.args!.frame_reporter.state)).map(vsyncOf));
+  const seen = new Set<string>();
+  const times: number[] = [];
+  for (const delta of scrollDeltas(trace).filter((event) => event.ts >= start && event.ts <= end).sort((a, b) => a.ts - b.ts)) {
+    const reporter = reporters.findLast((event) => event.tid === delta.tid && event.ts <= delta.ts);
+    if (!reporter) continue;
+    const vsync = vsyncOf(reporter);
+    if (seen.has(vsync) || !presented.has(vsync)) continue;
+    seen.add(vsync);
+    times.push(trace.toPage(delta.ts));
+  }
+  return times;
+}
+
+/** The page's compositor's frames that applied a scroll (`Scroll Delta
+ *  This Frame` with a delta, off the main thread; category `cc`). */
+const scrollDeltas = (trace: Trace): TraceEvent[] => trace.events.filter((event) => event.name === 'Scroll Delta This Frame' && event.pid === trace.main.pid && event.tid !== trace.main.tid && (event.args?.x || event.args?.y));
 
 // ---------------------------------------------------------------- under a feed (market watch's stops)
 

@@ -486,3 +486,13 @@ One entry per milestone, written before starting the next one: what surprised us
 - The faces at the pin are newer than the spike's: notofonts republished several that day (Sinhala to 3.000). A face pinned only by name and branch would have moved under the numbers.
 - gpui-pre-wgpu's `add_fonts` returns `Ok` for bytes it can't parse: fontdb skips them. The spike never fed it a bad face, so "a face that doesn't parse fails" was a promise the code couldn't keep until the host checked each face's hash itself (the code review's catch).
 - The panic-location lesson held inside the contender too: with the toggle behind the base's own feature, the wide, market, and tail wasm were still 12 bytes larger until the base's code moved to the end of `lib.rs` and `contract.rs` and `host.rs`'s call stayed on its line. Then all three matched HEAD's bytes.
+
+## M12 part C1: the metrics at the level (2026-11-09)
+
+**Results:** smoke runs only (reference, 1–6 runs a side, no results file); the numbers come in part C2.
+
+**Surprises:**
+- TanStack's read-through still runs a main-thread frame every vsync (120 in 2 s, ~2.6 ms each) though no row renders: the scroll event and the contract's state write with `?measure`. The compositor's deltas are still the right witness for what moved; the main frames are its work.
+- GPUI's `top` comes back from a gesture down and up as 3e-12, not 0: it sums the wheel's float deltas. A wait for `top === 0` timed out in four runs of six; "back at the top" is within a pixel.
+- With fonts, GPUI's "Canvas" memory doubles (19.8 → 39.6 MiB) on the scroll back, in every run, though no second canvas exists: the browser fallback draws each glyph in a 33×33 OffscreenCanvas and reads it back. Chromium counts a second buffer for the window's canvas, and does so in about one default run in five too, from the open. A first guess, "the CJK fallback's own canvas", was wrong; listing every canvas the page creates settled it.
+- `compositorScrolls` as first written counted every delta; paired with the frame reporter's vsyncs (the latest begun before each delta, on the compositor's thread), the read-through's 121 deltas were 121 distinct vsyncs, all presented, so the reading kept its value and gained its guard (the code review's catch).

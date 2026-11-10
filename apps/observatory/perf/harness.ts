@@ -10,7 +10,8 @@ import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts'
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
 import { levelOutDir } from '../contenders/level.ts';
-import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
+import { contenderBase, OBSERVATORY, SCRIPT_FONTS } from '../contenders/paths.ts';
+import { SCRIPT_FACES, faceFile } from '../contenders/fonts/faces.ts';
 import { ALL_SCENARIOS, LIVE_TAIL, type Level, type Oklch } from '../contenders/scenarios.ts';
 import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 
@@ -130,6 +131,24 @@ export function problems(page: Page): string[] {
 /** The last `performance.mark` named `name`, or null. */
 export const lastMark = (page: Page, name: string): Promise<number | null> =>
   page.evaluate((name) => performance.getEntriesByName(name, 'mark').at(-1)?.startTime ?? null, name);
+
+/** The admin table's script faces the page fetched (`/observatory/fonts/`,
+ *  GPUI with `?fonts`), from its Resource Timing: each one's start, page ms,
+ *  and its bytes (`transferSize`: on the wire, headers included). */
+export async function facesFetched(page: Page): Promise<{ name: string; fetchStart: number; transferSize: number; encodedBodySize: number; decodedBodySize: number }[]> {
+  return page.evaluate((path) => performance.getEntriesByType('resource').filter((entry) => new URL(entry.name).pathname.startsWith(path) && entry.name.endsWith('.ttf')).map((entry) => {
+    const resource = entry as PerformanceResourceTiming;
+    return { name: resource.name, fetchStart: resource.fetchStart, transferSize: resource.transferSize, encodedBodySize: resource.encodedBodySize, decodedBodySize: resource.decodedBodySize };
+  }), SCRIPT_FONTS);
+}
+
+/** The faces fetched as the fonts path promises: each of the pinned faces
+ *  exactly once (by its served name), and every fetch after the rows were
+ *  in (`filled`, page ms). */
+export function facesChecked(faces: readonly { name: string; fetchStart: number }[], filled: number): { once: boolean; afterRows: boolean } {
+  const once = faces.length === SCRIPT_FACES.length && SCRIPT_FACES.every((face) => faces.filter((entry) => entry.name.endsWith(`${SCRIPT_FONTS}${faceFile(face)}`)).length === 1);
+  return { once, afterRows: faces.every((entry) => entry.fetchStart >= filled) };
+}
 
 /** A connection to data/'s native DuckDB (`just observatory data` installs
  *  it): the file's facts, independent of the pages' engine. */

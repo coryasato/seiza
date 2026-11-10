@@ -24,19 +24,41 @@
 // each stop. GPUI's gesture is scaled by the device pixel ratio
 // (`gesture`), so both sides move as far in the same time.
 //
-// Usage: node apps/observatory/perf/metric-scroll.ts --scenario wide-sheet
+// The admin table's Smooth (`--scenario admin-table`, the base level's
+// builds): one scroll, the read-through (`READ_THROUGH`, 6,000 px at
+// 3,000 px/s from the top, inside the table), after the open's one page is
+// in and quiet. TanStack renders every row there, so its scroll runs no
+// main-thread frame for `domDrawn` to count: its frames that moved the view
+// are the presented vsyncs its compositor applied a scroll delta in, each
+// once (`compositorScrolls`, timed); its work the main thread's frames over
+// the span, if any. The trace adds `cc` on both sides, GPUI's too, so both
+// carry the same tracing (its cost mostly off the main thread); these work
+// readings aren't compared with the wide sheet's, traced without it. GPUI's are its
+// presented frames, as above. The share is `drewShare`'s, one total on both
+// sides; no "keeps up" verdict (`docs/DECISIONS.md`, "Measurement", the
+// admin table's measures).
+//
+// Usage: node apps/observatory/perf/metric-scroll.ts --scenario wide-sheet|admin-table
 //          [--stop <id,…|all>] [--side gpui|tanstack] [--runs 10]
 //          [--profile reference|throttled] [--label <name>]
-// Run `just observatory gpui-build wide` and `tanstack-build wide` first.
+// Run `just observatory gpui-build wide` and `tanstack-build wide` (the
+// admin table: `gpui-build` and `tanstack-build`) first.
 
 import type { Page } from '@playwright/test';
 import { workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
 import { percentiles } from '../../../shared-web/perf/protocol.ts';
-import { KEEPS_UP_SHARE, ORIGIN_MARK, SCROLLS, Trace, WORK_CATEGORIES, compositorFrames, domDrawn, drewShare, frameWork, keepsUp, type CompositorFrames, type DrewShare } from '../metrics/metrics.ts';
-import { dataReads, gesture, jump, medianOf, opened, openSide, readWhole, restPoint, runMetric, state, type RunResult, type Session } from './contender.ts';
+import { KEEPS_UP_SHARE, ORIGIN_MARK, READ_THROUGH, SCROLLS, SCROLL_CATEGORIES, Trace, WORK_CATEGORIES, compositorFrames, compositorScrolls, domDrawn, drewShare, frameWork, keepsUp, type CompositorFrames, type DrewShare } from '../metrics/metrics.ts';
+import { ADMIN_TABLE } from '../contenders/scenarios.ts';
+import { dataReads, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, restPoint, runMetric, state, type Gesture, type RunResult, type Session } from './contender.ts';
 
-type Scroll = keyof typeof SCROLLS;
-const NAMES = Object.keys(SCROLLS) as Scroll[];
+/** The admin table's read-through, else the wide sheet's three scrolls. */
+const ADMIN = flaggedScenario().id === ADMIN_TABLE.id;
+if (flaggedScenario().level === 'base' && !ADMIN) throw new Error(`metric scroll on the base level: the ${ADMIN_TABLE.id} scenario alone`);
+const PLAN: Record<string, Gesture> = ADMIN ? { readThrough: READ_THROUGH } : SCROLLS;
+type Scroll = string;
+const NAMES = Object.keys(PLAN);
+/** The admin table's trace adds the compositor's scrolls, on both sides. */
+const CATEGORIES = ADMIN ? SCROLL_CATEGORIES : WORK_CATEGORIES;
 
 /** A vertical scroll moves the view its distance to within a row (the
  *  stops' rows are 18–26 px). */
@@ -54,6 +76,9 @@ interface Reading extends DrewShare {
   movedPx: number;
   /** The frames that drew, a second, from the first to the last. */
   drewPerSecond: number;
+  /** The main thread's frames over the span (the admin table's TanStack
+   *  side: its work, often none). */
+  mainFrames: number;
   /** Their work, ms. */
   workP50Ms: number;
   workP95Ms: number;
@@ -115,29 +140,34 @@ const left = (page: Page, side: Session['side']): Promise<number> =>
 async function traced(session: Session, scroll: Scroll): Promise<Reading> {
   const { page, browser, side } = session;
   const [top, x] = [(await state(page))!.top, await left(page, side)];
-  await browser.startTracing(page, { categories: WORK_CATEGORIES });
+  await browser.startTracing(page, { categories: CATEGORIES });
   const from = await page.evaluate((name) => (performance.mark(name), performance.now()), ORIGIN_MARK);
-  await gesture(session, SCROLLS[scroll]);
+  await gesture(session, PLAN[scroll]!);
   const rested = (await rest(page, side, from)) + 100;
   const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
-  const drawn = side === 'gpui' ? (await workBetween(page, from, rested)).map((sample) => ({ at: sample.t, ms: sample.ms })) : domDrawn(frameWork(trace, from, rested));
+  // The frames that moved the view: GPUI's presented; the DOM's that
+  // rendered rows, or on the admin table (every row rendered) those its
+  // compositor scrolled in, whose work is the main frames' over the span.
+  const compositor = side === 'tanstack' && ADMIN;
+  const drawn = side === 'gpui' ? (await workBetween(page, from, rested)).map((sample) => ({ at: sample.t, ms: sample.ms })) : compositor ? compositorScrolls(trace, from, rested).map((at) => ({ at, ms: 0 })) : domDrawn(frameWork(trace, from, rested));
   // How far it went: down by the state, sideways by each side's own reading.
-  const gestured: { x?: number; y?: number; speed: number } = SCROLLS[scroll];
+  const gestured: { x?: number; y?: number; speed: number } = PLAN[scroll]!;
   const sideways = gestured.x !== undefined;
   const movedPx = sideways ? (await left(page, side)) - x : (await state(page))!.top - top;
   const asked = -(gestured.x ?? gestured.y ?? 0);
   if (movedPx < asked - MOVED_TOLERANCE_PX || movedPx > asked * (1 + OVERSHOOT_SHARE)) throw new Error(`${scroll}: the view moved ${movedPx.toFixed(0)} px ${sideways ? 'right' : 'down'}, ${asked} asked`);
   const share = drewShare(drawn.map((frame) => frame.at));
   if (!share) throw new Error(`${scroll}: ${drawn.length} frame${drawn.length === 1 ? '' : 's'} drew new cells`);
-  const p = percentiles(drawn.map((frame) => frame.ms));
   const [first, last] = [drawn[0]!.at, drawn.at(-1)!.at];
   // The main thread's time over the frames that drew, the first one's start
   // to the last one's end: the rest's wait and the gesture's setup in neither.
   const work = frameWork(trace, first, last + drawn.at(-1)!.ms);
+  const p = percentiles(compositor ? work.frames.map((frame) => frame.ms) : drawn.map((frame) => frame.ms));
   return {
     ...share,
     movedPx,
     drewPerSecond: share.spanMs ? ((share.drew - 1) * 1000) / share.spanMs : 0,
+    mainFrames: work.frames.length,
     workP50Ms: p.p50,
     workP95Ms: p.p95,
     busyShare: work.busyMs / work.windowMs,
@@ -163,14 +193,15 @@ await runMetric<Run>(
     let reads: ReturnType<typeof dataReads> | undefined;
     const session = await openSide(side, url, profile, {
       picked,
-      init: side === 'gpui' ? [workRecorder, wheelXRecorder] : [],
+      init: side === 'gpui' ? (ADMIN ? [workRecorder] : [workRecorder, wheelXRecorder]) : [],
       before: async (page) => void (reads = dataReads(page)),
     });
     const { page } = session;
     try {
       await opened(session);
       const failures = [...session.problems];
-      const cacheBytes = await readWhole(session, reads!.inFlight);
+      // The admin table's one page is in at the open: quiet is enough.
+      const cacheBytes = ADMIN ? await quiet(page, reads!.inFlight) : await readWhole(session, reads!.inFlight);
       const seen = expected.get(side);
       if (seen === undefined) expected.set(side, cacheBytes);
       else if (seen !== cacheBytes) failures.push(`the file read whole came to ${cacheBytes} cache bytes, the side's first run ${seen}`);
@@ -180,7 +211,7 @@ await runMetric<Run>(
       const scrolls = {} as Record<Scroll, Reading>;
       for (const scroll of NAMES) {
         scrolls[scroll] = await traced(session, scroll);
-        await home(session, scroll);
+        if (!ADMIN) await home(session, scroll);
       }
       return { cacheBytes, scrolls, failures };
     } finally {
@@ -188,32 +219,37 @@ await runMetric<Run>(
     }
   },
   (runs) => {
-    const of = (scroll: Scroll) => ({
-      drewPct: medianOf(runs, (run) => run.scrolls[scroll].share * 100),
-      drewPctRuns: runs.map((run) => Number((run.scrolls[scroll].share * 100).toFixed(1))),
-      drewPerSecond: medianOf(runs, (run) => run.scrolls[scroll].drewPerSecond),
-      workP50Ms: medianOf(runs, (run) => run.scrolls[scroll].workP50Ms, 2),
-      workP95Ms: medianOf(runs, (run) => run.scrolls[scroll].workP95Ms, 2),
-      busyPct: medianOf(runs, (run) => run.scrolls[scroll].busyShare * 100),
-      movedPx: medianOf(runs, (run) => run.scrolls[scroll].movedPx, 0),
-      ...(runs[0]?.scrolls[scroll].compositor
+    const of = (scroll: Scroll) => {
+      const read = (run: Run) => run.scrolls[scroll]!;
+      return {
+      drewPct: medianOf(runs, (run) => read(run).share * 100),
+      drewPctRuns: runs.map((run) => Number((read(run).share * 100).toFixed(1))),
+      drewPerSecond: medianOf(runs, (run) => read(run).drewPerSecond),
+      mainFrames: medianOf(runs, (run) => read(run).mainFrames, 0),
+      workP50Ms: medianOf(runs, (run) => read(run).workP50Ms, 2),
+      workP95Ms: medianOf(runs, (run) => read(run).workP95Ms, 2),
+      busyPct: medianOf(runs, (run) => read(run).busyShare * 100),
+      movedPx: medianOf(runs, (run) => read(run).movedPx, 0),
+      ...(runs[0] && read(runs[0]).compositor
         ? {
             compositorPerSecond: {
-              whole: medianOf(runs, (run) => (run.scrolls[scroll].compositor!.whole * 1000) / run.scrolls[scroll].spanMs),
-              partial: medianOf(runs, (run) => (run.scrolls[scroll].compositor!.partial * 1000) / run.scrolls[scroll].spanMs),
-              dropped: medianOf(runs, (run) => (run.scrolls[scroll].compositor!.dropped * 1000) / run.scrolls[scroll].spanMs),
+              whole: medianOf(runs, (run) => (read(run).compositor!.whole * 1000) / read(run).spanMs),
+              partial: medianOf(runs, (run) => (read(run).compositor!.partial * 1000) / read(run).spanMs),
+              dropped: medianOf(runs, (run) => (read(run).compositor!.dropped * 1000) / read(run).spanMs),
             },
           }
         : {}),
-    });
+      };
+    };
     const scrolls = Object.fromEntries(NAMES.map((scroll) => [scroll, of(scroll)])) as Record<Scroll, ReturnType<typeof of>>;
-    const [down, sideways] = [scrolls.down.drewPct, scrolls.sideways.drewPct];
+    if (ADMIN) return { cacheBytes: [...new Set(runs.map((run) => run.cacheBytes))], ...scrolls };
+    const [down, sideways] = [scrolls.down!.drewPct, scrolls.sideways!.drewPct];
     return {
       keepsUp: down === null || sideways === null ? null : keepsUp(down / 100, sideways / 100),
       cacheBytes: [...new Set(runs.map((run) => run.cacheBytes))],
       ...scrolls,
     };
   },
-  { scrolls: SCROLLS, keepsUpShare: KEEPS_UP_SHARE, restMs: REST_MS },
-  { levels: ['wide'], allStops: true },
+  ADMIN ? { scrolls: PLAN, frames: { gpui: 'presented', tanstack: 'compositor scroll deltas' }, restMs: REST_MS } : { scrolls: SCROLLS, keepsUpShare: KEEPS_UP_SHARE, restMs: REST_MS },
+  { levels: ['wide', 'base'], allStops: true },
 );

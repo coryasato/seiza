@@ -381,9 +381,11 @@ type PresentingGlobal = { __seizaPresentingTasks?: PresentingTask[] };
  * the presenting task's own microtask checkpoint: after its last GPU call,
  * before anything else could run or render. Install with
  * `context.addInitScript` (before the app's scripts). It wraps every GPU
- * call, so keep it out of timing runs.
+ * call, so keep it out of timing runs; or pass `after`, a mark's name
+ * (`addInitScript(presentingTaskRecorder, name)`), and it wraps nothing
+ * until that mark is first set, so what's timed before it runs unwrapped.
  */
-export function presentingTaskRecorder(): void {
+export function presentingTaskRecorder(after?: string): void {
   const tasks: PresentingTask[] = [];
   (globalThis as PresentingGlobal).__seizaPresentingTasks = tasks;
   const channel = new MessageChannel();
@@ -415,8 +417,21 @@ export function presentingTaskRecorder(): void {
       };
     }
   };
-  hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']);
-  hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit']);
+  const install = () => {
+    hook(globalThis.WebGL2RenderingContext?.prototype, ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']);
+    hook((globalThis as { GPUQueue?: { prototype: object } }).GPUQueue?.prototype, ['submit']);
+  };
+  if (!after) return install();
+  // Installed in the mark's own call, so the next frame's GPU calls are seen.
+  const mark = Performance.prototype.mark;
+  let installed = false;
+  Performance.prototype.mark = function (this: Performance, ...args: Parameters<Performance['mark']>) {
+    if (!installed && args[0] === after) {
+      installed = true;
+      install();
+    }
+    return mark.apply(this, args);
+  };
 }
 
 /** Whether a mark at `at` (page time) landed right after a presented frame

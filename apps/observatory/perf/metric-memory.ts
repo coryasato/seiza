@@ -37,6 +37,13 @@
 // fetched whole and nothing in flight for `QUIET_MS`; then the clock
 // resumes.
 //
+// On the admin table (the base level's, 250 rows: one page), the equal work
+// is the file read at the open (its one page, every run's cache bytes the
+// same), then the read-through scroll (`READ_THROUGH`, metrics/metrics.ts)
+// down and back, each landing filled. With `--fonts` (GPUI only, `?fonts`),
+// the scripts are drawn first (`contender:fonts`), so the open's reading
+// holds the faces and both readings are at equal work with the default's.
+//
 // Memory once open and at the end, each as measured and again after a
 // forced garbage collection (what the page holds, not what it hasn't yet
 // collected): `performance.measureUserAgentSpecificMemory`, the page's own
@@ -48,17 +55,18 @@
 //
 // Usage: node apps/observatory/perf/metric-memory.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
-//          [--scenario <id> [--stop <id,…>]] (contender.ts)
+//          [--scenario <id> [--stop <id,…>]] [--fonts] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import type { Page, Request } from '@playwright/test';
-import { SCROLLS } from '../metrics/metrics.ts';
-import { PAGE_ROWS, dataReads, state, fedTicks, fileFacts, filledState, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
+import { READ_THROUGH, SCROLLS } from '../metrics/metrics.ts';
+import { PAGE_ROWS, ROW_HEIGHT, dataReads, state, fedTicks, fileFacts, filledState, flaggedScenario, fontsParams, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
 import { ENGINE_CHUNK, MARKS } from './harness.ts';
 import { wholeFileWatch } from './tail-metric.ts';
 import { MEMORY_ARGS, collectGarbage, pageMemory, unknownTypes, wasmRecorder, type PageMemory } from './memory-reading.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
-import type { RateStop, RowsStop } from '../contenders/scenarios.ts';
+import { ADMIN_TABLE, type RateStop, type RowsStop } from '../contenders/scenarios.ts';
+import { SCRIPT_FONTS } from '../contenders/paths.ts';
 
 /** The walk: its length, and each step, in pages (a step within the even prefetch's reach). */
 const WALK_PAGES = 144;
@@ -73,13 +81,17 @@ const FEED_TICKS = 10_000;
 /** Live tail's session: the rows the clock counts, then stops (10 s at the
  *  default stop's 10k a second, ~98 pages). */
 const TAIL_ROWS = 100_000;
+/** The admin table's scroll back, as a share of the read-through's distance. */
+const BACK_PAST = 1.1;
 /** After the last tick is drawn: its flash fades (the scenario's 400 ms). */
 const FLASH_WAIT_MS = 1000;
 
-type Kind = 'html' | 'js' | 'wasm' | 'css' | 'font' | 'engine' | 'data' | 'other';
+type Kind = 'html' | 'js' | 'wasm' | 'css' | 'font' | 'faces' | 'engine' | 'data' | 'other';
 function kindOf(url: string): Kind {
   const path = new URL(url).pathname;
   if (path.startsWith('/observatory/data/')) return 'data';
+  // The admin table's script faces, with `?fonts`.
+  if (path.startsWith(SCRIPT_FONTS)) return 'faces';
   if (path.startsWith('/observatory/duckdb/') || ENGINE_CHUNK.test(path)) return 'engine';
   if (path.startsWith('/fonts/')) return 'font';
   if (path.endsWith('/') || path.endsWith('.html')) return 'html';
@@ -94,6 +106,11 @@ const fileOf = (url: string) => new URL(url).pathname.replace(/-[\w-]{8}(\.\w+)$
 interface Reading extends PageMemory {
   jsHeapBytes: number;
   nodes: number;
+  /** The window's canvas's backing store (the page's largest canvas element,
+   *  width × height × 4; 0 on the DOM side): what "less the canvas" takes
+   *  away, at most the "Canvas" bytes measured (`lessWindow`). Any other
+   *  canvas stays in: it's the side's cost. */
+  windowCanvasBytes: number;
 }
 
 async function reading(page: Page, session: Session): Promise<Reading> {
@@ -103,8 +120,13 @@ async function reading(page: Page, session: Session): Promise<Reading> {
   const { metrics } = await cdp.send('Performance.getMetrics');
   await cdp.detach();
   const metric = (name: string) => metrics.find((entry) => entry.name === name)?.value ?? 0;
-  return { ...memory, jsHeapBytes: metric('JSHeapUsedSize'), nodes: metric('Nodes') };
+  const windowCanvasBytes = await page.evaluate(() => Math.max(0, ...[...document.querySelectorAll('canvas')].map((canvas) => canvas.width * canvas.height * 4)));
+  return { ...memory, jsHeapBytes: metric('JSHeapUsedSize'), nodes: metric('Nodes'), windowCanvasBytes };
 }
+
+/** The page's bytes less the window's canvas, never more than the browser
+ *  counted as "Canvas". */
+const lessWindow = (taken: Reading): number => taken.pageBytes - Math.min(taken.windowCanvasBytes, taken.pageByType.Canvas ?? 0);
 
 /** As measured, then after a forced garbage collection (the page's: the
  *  engine's worker isn't collected, so its reading is the measured one). */
@@ -138,15 +160,16 @@ const fileColumns = (): Promise<number> => (columns ??= fileFacts(flaggedScenari
 
 await runMetric<Run>(
   'memory',
-  async ({ side, profile, url, picked }) => {
+  async ({ side, profile, url, picked, fonts }) => {
     const requests: Request[] = [];
     const market = picked?.scenario.level === 'market';
     const tail = picked?.scenario.level === 'tail';
+    const admin = picked?.scenario.id === ADMIN_TABLE.id;
     let reads: ReturnType<typeof dataReads> | undefined;
     let whole: ReturnType<typeof wholeFileWatch> | undefined;
     const session = await openSide(side, url, profile, {
       picked,
-      params: market ? { ticks: String(FEED_TICKS) } : tail ? { rows: String(TAIL_ROWS) } : {},
+      params: market ? { ticks: String(FEED_TICKS) } : tail ? { rows: String(TAIL_ROWS) } : fontsParams(fonts),
       init: [wasmRecorder],
       // Without it, the measurement waits for a garbage collection (up to 20 s).
       args: MEMORY_ARGS,
@@ -181,6 +204,11 @@ await runMetric<Run>(
       // before the devices' different waits fold different counts of ticks
       // (its one page is read by then).
       const open = market || tail ? await both(page, session) : null;
+      // With fonts, the scripts drawn before the open's reading.
+      if (fonts) {
+        const done = await page.waitForFunction((names) => names.find((name) => performance.getEntriesByName(name, 'mark').length) ?? false, [MARKS.fonts, MARKS.fontsFailed], { timeout: 120_000, polling: 10 });
+        if ((await done.jsonValue()) === MARKS.fontsFailed) throw new Error("contender:fonts-failed: a face didn't load or match its pin");
+      }
       // The tail's clock, held for the open's reading, runs to its limit.
       if (tail) await page.evaluate(() => (globalThis as { __contender?: { pause?(on: boolean): void } }).__contender?.pause?.(false));
       const cacheBytesOpen = tail ? ((await state(page))?.cacheBytes ?? 0) : await quiet(page, inFlight, QUIET_MS);
@@ -195,6 +223,20 @@ await runMetric<Run>(
           await gesture(session, { x: -days, speed: SCROLLS.sideways.speed });
           await gesture(session, { x: days, speed: SCROLLS.sideways.speed });
         }
+      } else if (admin) {
+        if (start!.rows > PAGE_ROWS) throw new Error(`the admin table's ${start!.rows} rows are over one page`);
+        // Down, then back to the top, each landing filled (to within a row).
+        const landed = (test: string, where: string) =>
+          filledState(page, test, 30_000).catch(async () => {
+            throw new Error(`the read-through ${where} never landed filled: ${JSON.stringify(await state(page))}`);
+          });
+        await gesture(session, READ_THROUGH);
+        await landed(`s.top >= ${-READ_THROUGH.y - ROW_HEIGHT}`, 'down');
+        // Back past the top (the top stops it), so a down scroll a little past
+        // its distance still lands there; GPUI's top sums the wheel's float
+        // deltas: at 0 to within a pixel.
+        await gesture(session, { y: -READ_THROUGH.y * BACK_PAST, speed: READ_THROUGH.speed });
+        await landed('s.first === 0 && s.top < 1', 'back');
       } else if (market) {
         // The feed's time at the stop's rate, twice over, and a minute.
         await fedTicks(page, FEED_TICKS, (2 * FEED_TICKS * 1000) / (picked!.stop as RateStop).rate + 60_000);
@@ -222,7 +264,7 @@ await runMetric<Run>(
       if (seen === undefined) expected.set(side, cacheBytesEnd);
       else if (seen !== cacheBytesEnd) failures.push(`unequal work: the cache ended at ${cacheBytesEnd} bytes, the side's first run at ${seen}`);
       const files: Run['files'] = {};
-      const bytes: Record<Kind, number> = { html: 0, js: 0, wasm: 0, css: 0, font: 0, engine: 0, data: 0, other: 0 };
+      const bytes: Record<Kind, number> = { html: 0, js: 0, wasm: 0, css: 0, font: 0, faces: 0, engine: 0, data: 0, other: 0 };
       for (const request of requests) {
         const sizes = await request.sizes().catch(() => null);
         if (!sizes) continue;
@@ -253,6 +295,8 @@ await runMetric<Run>(
       dataReads: medianOf(runs, (run) => run.dataReads, 0),
       pageMiBOpen: mib((run) => run.open.measured.pageBytes),
       pageMiBOpenAfterGc: mib((run) => run.open.afterGc.pageBytes),
+      pageMiBOpenAfterGcLessWindow: mib((run) => lessWindow(run.open.afterGc)),
+      pageMiBOpenAfterGcByType: Object.fromEntries(types.map((type) => [type, mib((run) => run.open.afterGc.pageByType[type])])),
       ...(runs[0]?.read
         ? {
             pageMiBRead: mib((run) => run.read?.measured.pageBytes),
@@ -264,16 +308,17 @@ await runMetric<Run>(
         : {}),
       pageMiBEnd: mib((run) => run.atEnd.measured.pageBytes),
       pageMiBEndAfterGc: mib((run) => run.atEnd.afterGc.pageBytes),
+      pageMiBEndAfterGcLessWindow: mib((run) => lessWindow(run.atEnd.afterGc)),
       pageMiBEndAfterGcByType: Object.fromEntries(types.map((type) => [type, mib((run) => run.atEnd.afterGc.pageByType[type])])),
       wasmMiBOpen: mib((run) => run.open.measured.wasmBytes),
       wasmMiBEnd: mib((run) => run.atEnd.measured.wasmBytes),
       jsHeapMiBEndAfterGc: mib((run) => run.atEnd.afterGc.jsHeapBytes),
       nodesEnd: medianOf(runs, (run) => run.atEnd.afterGc.nodes, 0),
       workerMiBEnd: mib((run) => run.atEnd.measured.workerBytes),
-      bytesKiB: Object.fromEntries((['html', 'js', 'wasm', 'css', 'font', 'other', 'engine', 'data'] as Kind[]).map((kind) => [kind, medianOf(runs, (run) => run.bytes[kind] / 1024)])),
+      bytesKiB: Object.fromEntries((['html', 'js', 'wasm', 'css', 'font', 'faces', 'other', 'engine', 'data'] as Kind[]).map((kind) => [kind, medianOf(runs, (run) => run.bytes[kind] / 1024)])),
       filesKiB: Object.fromEntries(files.map((file) => [file, { kind: runs.find((run) => run.files[file])!.files[file]!.kind, encoding: runs.find((run) => run.files[file])!.files[file]!.encoding, kib: medianOf(runs, (run) => (run.files[file]?.bytes ?? 0) / 1024) }])),
     };
   },
-  (picked) => (picked?.scenario.level === 'tail' ? { session: 'the replay to its row limit', tailRows: TAIL_ROWS, quietMs: QUIET_MS } : picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
-  { levels: ['base', 'wide', 'market', 'tail'] },
+  (picked) => (picked?.scenario.level === 'tail' ? { session: 'the replay to its row limit', tailRows: TAIL_ROWS, quietMs: QUIET_MS } : picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked?.scenario.id === ADMIN_TABLE.id ? { session: 'the one page at the open, then the read-through down and back', readThrough: READ_THROUGH, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
+  { levels: ['base', 'wide', 'market', 'tail'], fontsToggle: true },
 );

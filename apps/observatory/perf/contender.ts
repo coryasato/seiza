@@ -14,6 +14,9 @@
 //                          default: the base level's Big file), at
 //   --stop <id,…|all>      its stops (default: its default stop; `scroll`: all),
 //                          each written to <date>-<label>-<scenario>-<stop>.json
+//   --fonts                the admin table's fonts toggle (`?fonts`), GPUI only
+//                          (`usable`, `data`, `memory`), written to
+//                          <date>-<label>-admin-table-fonts.json
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -23,10 +26,11 @@ import { chromium, type Browser, type BrowserContext, type Page, type Request } 
  *  the observatory page's frame). */
 export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { FLING_FRAMES, FRAME_MS, PAGE_ROWS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
-import { ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
+import { ADMIN_TABLE, ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
+import { FONTS_PARAM } from '../contenders/contract.ts';
 import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 export const SIDES: Side[] = ['gpui', 'tanstack'];
@@ -444,7 +448,12 @@ export interface RunContext {
   run: number;
   /** The scenario and stop under test (`--scenario`, `--stop`); null: the base level's Big file. */
   picked: Picked | null;
+  /** The admin table's fonts toggle on (`--fonts`, GPUI only). */
+  fonts: boolean;
 }
+
+/** A run's query for the fonts toggle (`openSide`'s `params`). */
+export const fontsParams = (fonts: boolean): Record<string, string> => (fonts ? { [FONTS_PARAM]: '' } : {});
 
 /** The wide sheet's stop under test, or null on the base level. */
 export const wideStop = (picked: Picked | null): { scenario: WideScenario; stop: WideScenario['stops'][number] } | null =>
@@ -478,10 +487,15 @@ export async function runMetric<R extends RunResult>(
   measure: (context: RunContext) => Promise<R>,
   summarize: (runs: R[]) => Record<string, unknown>,
   extra: Record<string, unknown> | ((picked: Picked | null) => Record<string, unknown>) = {},
-  { levels = ['base', 'wide'], allStops = false, defaultStop, defaultRuns = 10 }: { levels?: Scenario['level'][]; allStops?: boolean; defaultStop?: string; defaultRuns?: number } = {},
+  { levels = ['base', 'wide'], allStops = false, defaultStop, defaultRuns = 10, fontsToggle = false }: { levels?: Scenario['level'][]; allStops?: boolean; defaultStop?: string; defaultRuns?: number; fontsToggle?: boolean } = {},
 ): Promise<void> {
-  const sides = option('side') ? [option('side') as Side] : SIDES;
+  // The fonts toggle: the admin table's, on the GPUI side alone.
+  const fonts = flag('fonts');
+  if (fonts && !fontsToggle) throw new Error(`metric ${metric} doesn't run with --fonts`);
+  if (fonts && flaggedScenario().id !== ADMIN_TABLE.id) throw new Error(`--fonts: the ${ADMIN_TABLE.id} scenario's toggle (--scenario ${ADMIN_TABLE.id})`);
+  const sides = option('side') ? [option('side') as Side] : fonts ? (['gpui'] as Side[]) : SIDES;
   if (!sides.every((side) => SIDES.includes(side))) throw new Error(`--side ${option('side')}: gpui or tanstack`);
+  if (fonts && sides.includes('tanstack')) throw new Error('--fonts: the GPUI side alone (the DOM side has the system\'s fonts)');
   const runs = Number(option('runs') ?? defaultRuns);
   const profiles = option('profile') ? PROFILES.filter((profile) => profile.name === option('profile')) : PROFILES;
   if (!profiles.length) throw new Error(`--profile ${option('profile')}: reference or throttled`);
@@ -498,12 +512,14 @@ export async function runMetric<R extends RunResult>(
     for (const pick of picks) {
       // Big file's runs are unlabelled; every other scenario's, the base level's admin table too, carry its label.
       const picked = pick.scenario.id === BIG_FILE.id ? null : pick;
-      const name = picked ? ` ${resultLabel(picked)}` : '';
+      const suffix = picked ? `-${resultLabel(picked)}${fonts ? '-fonts' : ''}` : '';
+      const name = picked ? ` ${resultLabel(picked)}${fonts ? ' fonts' : ''}` : '';
       const output: Record<string, unknown> = {
         date: new Date().toISOString().slice(0, 10),
         label,
         metric,
         ...(picked ? { scenario: picked.scenario.id, stop: picked.stop } : {}),
+        ...(fonts ? { fonts: true } : {}),
         ...machineInfo(),
         runs,
         ...(typeof extra === 'function' ? extra(picked) : extra),
@@ -517,7 +533,7 @@ export async function runMetric<R extends RunResult>(
             const where = `${metric}${name} ${profile.name} ${side} run ${run + 1}/${runs}`;
             let result: R;
             try {
-              result = await measure({ side, profile, url: servers[side]!.url, run, picked });
+              result = await measure({ side, profile, url: servers[side]!.url, run, picked, fonts });
             } catch (error) {
               failures.push(`${where}: ${(error as Error).message.split('\n')[0]}`);
               console.log(`${where}: FAILED: ${(error as Error).message.split('\n')[0]}`);
@@ -533,7 +549,7 @@ export async function runMetric<R extends RunResult>(
       }
       output.failures = failures.filter((failure) => failure.startsWith(`${metric}${name} `));
       if (label) {
-        const out = join(perfDir, 'results', `${output.date}-${label}${picked ? `-${resultLabel(picked)}` : ''}.json`);
+        const out = join(perfDir, 'results', `${output.date}-${label}${suffix}.json`);
         mkdirSync(join(perfDir, 'results'), { recursive: true });
         writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`);
         console.log(`wrote ${out}`);

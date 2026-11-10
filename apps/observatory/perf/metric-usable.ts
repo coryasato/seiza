@@ -7,16 +7,18 @@
 // that frame; the DOM's probe changes nothing visible (a hidden element),
 // so no frame presents it and its frame is the first after the commit,
 // unguarded. First pixels (`contender:first-pixels`) is
-// recorded beside it, a footnote.
+// recorded beside it, a footnote. With `--fonts` (the admin table's toggle,
+// GPUI only), the same with `?fonts`: the toggle's startup setting is all
+// that can move it, since the faces load after the rows.
 //
 // Usage: node apps/observatory/perf/metric-usable.ts [--side gpui|tanstack]
 //          [--runs 10] [--profile reference|throttled] [--label <name>]
-//          [--scenario <id> [--stop <id,…>]] (contender.ts)
+//          [--scenario <id> [--stop <id,…>]] [--fonts] (contender.ts)
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { PROBE_CATEGORIES, PROBE_KEY, Trace, firstUsable, probeLatency, probePresented, type FirstUsable } from '../metrics/metrics.ts';
-import { inputRecorder, keys, medianOf, now, openSide, originMark, runMetric, type RunResult } from './contender.ts';
+import { fontsParams, inputRecorder, keys, medianOf, now, openSide, originMark, runMetric, type RunResult } from './contender.ts';
 import { MARKS, lastMark } from './harness.ts';
 
 interface Run extends RunResult, FirstUsable {
@@ -33,9 +35,10 @@ interface Run extends RunResult, FirstUsable {
 
 await runMetric<Run>(
   'usable',
-  async ({ side, profile, url, picked }) => {
+  async ({ side, profile, url, picked, fonts }) => {
     const session = await openSide(side, url, profile, {
       picked,
+      params: fontsParams(fonts),
       init: [originMark, inputRecorder],
       before: (page, browser) => browser.startTracing(page, { categories: PROBE_CATEGORIES }),
     });
@@ -71,5 +74,5 @@ await runMetric<Run>(
     firstPixelsMs: medianOf(runs, (run) => run.firstPixelsMs),
   }),
   {},
-  { levels: ['base', 'wide', 'market', 'tail'] },
+  { levels: ['base', 'wide', 'market', 'tail'], fontsToggle: true },
 );

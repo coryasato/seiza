@@ -63,7 +63,7 @@ import { SCRIPT_FACES, faceFile } from '../contenders/fonts/faces.ts';
 import { SCRIPT_FONTS, UI_FONT } from '../contenders/paths.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import type { Contender, Side } from '../contenders/contract.ts';
-import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
+import { MARKS, dataPath, facesChecked, facesFetched, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 const label = option('label');
 const shots = option('shots');
@@ -118,7 +118,6 @@ const scriptRows = Object.fromEntries(
 ) as Record<string, number>;
 /** Every text a screen reader or Translate should reach: names, English names, capitals. */
 const texts = [...new Set(rows.flatMap((row) => [row[1]!, row[2]!, row[3]!]).filter((text) => text.length > 0))];
-
 
 // ---------------------------------------------------------------------------
 
@@ -462,8 +461,7 @@ async function gpui(browser: Browser, server: AppServer): Promise<void> {
       const fontsIn = (await page.evaluate((name) => performance.getEntriesByName(name).at(-1)?.startTime ?? NaN, MARKS.fontsIn)) as number;
       const presented = await presentedMark(page, fontsAt);
       const faces = await facesFetched(page);
-      const fetchedOnce = SCRIPT_FACES.every((face) => faces.filter((entry) => entry.name.endsWith(`${SCRIPT_FONTS}${faceFile(face)}`)).length === 1);
-      const afterRows = faces.every((entry) => entry.fetchStart >= filled);
+      const { once: fetchedOnce, afterRows } = facesChecked(faces, filled);
       side.fonts = {
         filled,
         fontsIn,
@@ -472,7 +470,7 @@ async function gpui(browser: Browser, server: AppServer): Promise<void> {
         presented: presented.detail,
         faces: Object.fromEntries(faces.map((entry) => [entry.name.slice(entry.name.lastIndexOf('/') + 1), { transferSize: entry.transferSize, encodedBodySize: entry.encodedBodySize, decodedBodySize: entry.decodedBodySize }])),
       };
-      check(faces.length === SCRIPT_FACES.length && fetchedOnce && afterRows, `GPUI with ?fonts: each of the ${SCRIPT_FACES.length} faces fetched once from ${SCRIPT_FONTS}, after the rows were in (${faces.length} fetched)`);
+      check(fetchedOnce && afterRows, `GPUI with ?fonts: each of the ${SCRIPT_FACES.length} faces fetched once from ${SCRIPT_FONTS}, after the rows were in (${faces.length} fetched)`);
       check(filled < fontsIn && fontsIn < fontsAt, `GPUI with ?fonts: filled (${filled.toFixed(0)}) → fonts in (${fontsIn.toFixed(0)}) → drawn (${fontsAt.toFixed(0)} ms)`);
       check(presented.ok, `GPUI with ?fonts: contender:fonts right after a presented frame (${presented.detail})`);
 
@@ -608,13 +606,6 @@ async function referencePixels(page: Page, text: string, face: string, cellBox: 
   const shot = await pixels(page, cellBox);
   await page.evaluate(() => document.getElementById('seiza-reference')?.remove());
   return shot;
-}
-
-async function facesFetched(page: Page): Promise<{ name: string; fetchStart: number; transferSize: number; encodedBodySize: number; decodedBodySize: number }[]> {
-  return page.evaluate((path) => performance.getEntriesByType('resource').filter((entry) => new URL(entry.name).pathname.startsWith(path) && entry.name.endsWith('.ttf')).map((entry) => {
-    const resource = entry as PerformanceResourceTiming;
-    return { name: resource.name, fetchStart: resource.fetchStart, transferSize: resource.transferSize, encodedBodySize: resource.encodedBodySize, decodedBodySize: resource.decodedBodySize };
-  }), SCRIPT_FONTS);
 }
 
 // ---------------------------------------------------------------------------
