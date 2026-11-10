@@ -16,14 +16,17 @@
  * main thread (the readout's cost, "Page").
  */
 
-import { ChevronDown, ChevronUp, Database, Ellipsis, Info, Pause, Play, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Contrast, Database, Ellipsis, Info, Pause, Play, Type, X } from 'lucide-react';
 import { createElement as h, Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import cold from 'virtual:cold-numbers';
 import type { Side } from '../../contenders/contract.ts';
 import type { FollowMessage, FollowingMessage } from '../../contenders/follow.ts';
-import type { Scenario, Stop } from '../../contenders/scenarios.ts';
-import { millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
+import { FONTS_LICENSE, SCRIPT_FACES } from '../../contenders/fonts/faces.ts';
+import { SCRIPTS, SCRIPT_ROWS } from './scripts.ts';
+import { SCRIPT_FONTS } from '../../contenders/paths.ts';
+import { ADMIN_TABLE, MARKET_WATCH, oklchCss, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { listOf, millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
 import { toggleMeter, useMeter } from './meter.ts';
@@ -60,7 +63,7 @@ import {
   type Profile,
   type ScenarioCold,
 } from './readouts.ts';
-import { ICON_BUTTON, PANEL_ID, seriesDot, stopSets } from './slot.ts';
+import { ICON_BUTTON, PANEL_ID, seriesDot, stopSets, type FontsState } from './slot.ts';
 
 const other = (side: Side): Side => (side === 'gpui' ? 'tanstack' : 'gpui');
 const sideIndex = (side: Side) => (side === 'gpui' ? 0 : 1);
@@ -311,10 +314,12 @@ interface PanelProps {
   /** The window's scenario, and its stop: a scenario with stops' cards start at it. */
   scenario: Scenario;
   stop: Stop;
+  /** The admin table's fonts toggle on the shown side: its scripts row. */
+  fonts: FontsState;
   onClose: () => void;
 }
 
-export function Panel({ id, contenders, scenario, stop, onClose }: PanelProps) {
+export function Panel({ id, contenders, scenario, stop, fonts, onClose }: PanelProps) {
   const numbers = coldOf(scenario);
   const runs = runsOf(scenario);
   const live = useLive();
@@ -330,20 +335,22 @@ export function Panel({ id, contenders, scenario, stop, onClose }: PanelProps) {
     return () => removeEventListener('keydown', key);
   }, []);
   const cpus = numbers.cpus.join(', ');
+  // Not a speed test: what each side can do, then the numbers the DOM wins.
+  const capabilities = !!scenarioCopy(scenario).capabilities;
   return h(
     'section',
-    { ref, id, tabIndex: -1, 'aria-label': 'How they compare', className: 'absolute inset-0 z-10 flex flex-col overflow-hidden bg-background outline-none' },
+    { ref, id, tabIndex: -1, 'aria-label': capabilities ? 'What each side can do' : 'How they compare', className: 'absolute inset-0 z-10 flex flex-col overflow-hidden bg-background outline-none' },
     h(
       'div',
       { 'data-panel-header': '', 'data-edge': edge ? '' : undefined, className: 'relative z-[1] flex shrink-0 items-center gap-4 border-b border-transparent bg-background py-2.5 pr-3 pl-4 data-edge:border-border data-edge:shadow-[0_4px_12px_oklch(0_0_0/8%)] max-md:pr-2' },
       h(
         'div',
         { className: 'min-w-0 flex-1' },
-        h('h2', { className: 'text-[15px]' }, `How they compare: ${scenario.label}`),
+        h('h2', { className: 'text-[15px]' }, capabilities ? `What each side can do: ${scenario.label}` : `How they compare: ${scenario.label}`),
         h(
           'p',
           { className: 'flex items-center gap-1 text-[13px] text-muted-foreground' },
-          `The middle of ${runs} cold loads per side, on two devices`,
+          capabilities ? `The DOM’s scenario. Try each on both sides; the numbers below are cold, the middle of ${runs} loads.` : `The middle of ${runs} cold loads per side, on two devices`,
           info(
             'About the devices',
             h(
@@ -363,7 +370,9 @@ export function Panel({ id, contenders, scenario, stop, onClose }: PanelProps) {
       numbersOf(scenario).stopCards
         ? // A new stop in the window starts the cards at it again.
           h(StopsBody, { key: stop.id, scenario, numbers, stop, live, contenders })
-        : h(
+        : capabilities
+          ? h(CapabilitiesBody, { scenario, numbers, live, contenders, fonts })
+          : h(
             Fragment,
             null,
             h(
@@ -477,12 +486,12 @@ function StatCard({ card, values, stop, note, live, contenders }: StatCardProps)
   );
 }
 
-function DownloadCard({ scenario, numbers, contenders }: { scenario: Scenario; numbers: ScenarioCold; contenders: [Contender, Contender] }) {
+function DownloadCard({ scenario, numbers, contenders, span = true }: { scenario: Scenario; numbers: ScenarioCold; contenders: [Contender, Contender]; span?: boolean }) {
   const totals = contenders.map((contender) => downloadTotal(contender.side, numbers.parts, scenario)) as [number, number];
   const fast = outcome(totals, 'lower');
   return h(
     'div',
-    { 'data-card': 'download', className: `${CARD} @3xl:col-span-2` },
+    { 'data-card': 'download', className: `${CARD} ${span ? '@3xl:col-span-2' : ''}` },
     h(CardHead, { label: 'Download', explain: 'What each side’s page fetches, compressed as sent. The database engine and the data are the same files on both sides, so they’re left out.', note: 'lower is better' }),
     h('span', { 'data-verdict': '', className: 'text-sm leading-snug' }, verdict(fast, null, 'smaller', true)),
     h(
@@ -566,6 +575,222 @@ function Chart({ values, contenders }: { values: ScenarioCold['values']; contend
     ),
     h('p', { className: 'text-xs text-muted-foreground' }, wheelNote(values)),
     h('p', { className: 'text-xs text-muted-foreground' }, '† The slow device slows the processor for page code, not the browser’s own scrolling, so these rows flatter native scrolling. A real slow phone is slower here too.'),
+  );
+}
+
+// ---------------------------------------------------------------- what each side can do
+
+/** A capability's answer on a side: yes, partly, or no. */
+type Answer = 'yes' | 'partly' | 'no';
+
+interface Capability {
+  key: string;
+  what: string;
+  /** What to try, on both sides. */
+  how: string;
+  gpui: Answer;
+  /** Why, per side. */
+  whyGpui: string;
+  whyTanstack: string;
+}
+
+/** The six capabilities (the design canvas's), each one's answer as
+ *  `perf/admin.ts` proves it; the scripts' with fonts loaded on GPUI. */
+export function capabilities(fonts: FontsState): Capability[] {
+  const right = SCRIPT_ROWS.filter((row) => row.right).length;
+  const wrong = SCRIPT_ROWS.filter((row) => !row.right).map((row) => row.script);
+  return [
+    { key: 'find', what: 'Find a country with Ctrl+F', how: 'Search the page for “Ísland”.', gpui: 'no', whyGpui: 'The canvas holds no text the browser can search.', whyTanstack: 'The browser finds it and scrolls to it: every row is on the page.' },
+    { key: 'select', what: 'Select and copy a capital', how: 'Drag across “Reykjavík”, then copy.', gpui: 'no', whyGpui: 'No text selection in this build.', whyTanstack: 'Native selection.' },
+    { key: 'reader', what: 'Hear it with a screen reader', how: 'VoiceOver: Ctrl+Option+arrows through a row.', gpui: 'no', whyGpui: 'One image to the screen reader: no cell is named.', whyTanstack: 'A table, read cell by cell with its headers.' },
+    fonts === 'on'
+      ? { key: 'scripts', what: 'Every script drawn', how: 'Scroll to Sri Lanka, Thailand, Egypt.', gpui: 'partly', whyGpui: `With fonts: ${right} of ${SCRIPT_ROWS.length} scripts right. ${listOf(wrong, 'and')} draw a mark out of place (below).`, whyTanstack: 'The system’s fonts, shaped by the browser.' }
+      : { key: 'scripts', what: 'Every script drawn', how: 'Scroll to Thailand, India, Egypt.', gpui: 'no', whyGpui: `One bundled face: ${SCRIPTS.length} scripts draw as boxes. Load fonts to see them shaped (below).`, whyTanstack: 'The system’s fonts, shaped by the browser.' },
+    { key: 'flags', what: 'The flags', how: 'Look at the first column.', gpui: 'yes', whyGpui: 'The browser draws each flag into the canvas.', whyTanstack: 'The system’s emoji.' },
+    { key: 'translate', what: 'Translate the page', how: 'Your browser’s Translate.', gpui: 'no', whyGpui: 'Nothing to translate.', whyTanstack: 'The names and headers translate.' },
+  ];
+}
+
+const answer = (said: Answer) =>
+  h(
+    'span',
+    { 'data-answer': said, className: `inline-flex items-center gap-1.5 ${said === 'no' ? 'text-muted-foreground' : ''} [&_svg]:size-3.5 [&_svg]:shrink-0` },
+    h(said === 'yes' ? Check : said === 'partly' ? Contrast : X, { 'aria-hidden': true }),
+    said === 'yes' ? 'Yes' : said === 'partly' ? 'Partly' : 'No',
+  );
+
+/** "The three": a count of the scripts drawn wrong, as the footnote says it. */
+const capitalWord = (count: number) => `The ${['no script', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][count] ?? count}`;
+
+/** A table's cell, a rule above it but the first row's. */
+const CELL = 'flex min-w-0 flex-col justify-center gap-0.5 border-t px-3.5 py-2.5';
+const HEAD = 'flex items-center gap-1.5 px-3.5 py-2.5 text-xs text-muted-foreground';
+
+/**
+ * The admin table's panel (the design canvas's "What each side can do"):
+ * its verdict, the six capabilities, each script with fonts loaded, then
+ * the cards the DOM wins and the fonts' own.
+ */
+function CapabilitiesBody({ scenario, numbers, live, contenders, fonts }: { scenario: Scenario; numbers: ScenarioCold; live: Live; contenders: [Contender, Contender]; fonts: FontsState }) {
+  const cards = numbersOf(scenario).cards;
+  const ready = cards.find((card) => card.key === 'usable')!;
+  const memory = cards.find((card) => card.key === 'memory')!;
+  const [buffer] = numbers.values[coldKey('canvas-buffer', 'reference')]!;
+  // Of the runs each device measured (`runsMeasured`), not those asked for.
+  const [fast, slow] = PROFILES.map((profile) => `${numbers.values[coldKey('memory-second', profile)]![0]} of ${numbers.values[coldKey('memory-runs', profile)]![0]}`);
+  const secondLine = `Beyond the card: Chromium counted a second ${number(buffer!)} MiB buffer for GPUI’s canvas in ${fast} runs on a fast device and ${slow} on a slow one.`;
+  const rows = capabilities(fonts);
+  return h(
+    'div',
+    { 'data-capabilities': '', className: 'flex flex-col gap-4' },
+    h('p', { 'data-verdict': '', className: 'text-sm leading-snug' }, 'Use the DOM for this. A few hundred rows of text need the browser’s own tools more than speed.'),
+    h(
+      'div',
+      { role: 'table', 'aria-label': 'Capabilities', className: 'grid grid-cols-[minmax(0,1fr)_minmax(0,9rem)_minmax(0,9rem)] overflow-hidden rounded-[10px] border text-[13px] @2xl:grid-cols-[minmax(0,1fr)_160px_160px]' },
+      h('div', { role: 'row', className: 'contents' }, h('span', { role: 'columnheader', className: HEAD }, 'Try it'), ...contenders.map((contender) => h('span', { key: contender.side, role: 'columnheader', className: HEAD }, seriesDot(contender.side), contender.label))),
+      ...rows.map((row) =>
+        h(
+          'div',
+          { key: row.key, role: 'row', 'data-capability': row.key, className: 'contents' },
+          h('span', { role: 'cell', className: CELL }, h('span', null, row.what), h('small', { className: 'text-xs leading-snug text-muted-foreground' }, row.how)),
+          h('span', { role: 'cell', 'data-side': 'gpui', className: CELL }, answer(row.gpui), h('small', { className: 'text-xs leading-snug text-muted-foreground' }, row.whyGpui)),
+          h('span', { role: 'cell', 'data-side': 'tanstack', className: CELL }, answer('yes'), h('small', { className: 'text-xs leading-snug text-muted-foreground' }, row.whyTanstack)),
+        ),
+      ),
+    ),
+    h(
+      'div',
+      { className: 'flex flex-col gap-0.5' },
+      h('h3', { className: 'text-sm' }, 'Every script, with fonts loaded'),
+      h('p', { className: 'text-xs leading-snug text-muted-foreground' }, `GPUI with a Noto face for each of ${SCRIPT_FACES.length} scripts and the browser drawing Chinese and Korean, against the DOM’s drawing of the same names in the same faces. Load fonts in the window to see it.`),
+    ),
+    h(
+      'div',
+      {
+        role: 'table',
+        'aria-label': 'Each script on GPUI, with fonts loaded',
+        'data-scripts': '',
+        // "Drawn wrong" in the design canvas's red, market watch's fall per theme.
+        style: Object.fromEntries((['light', 'dark'] as const).map((theme) => [`--wrong-${theme}`, oklchCss(MARKET_WATCH.signs[theme].down)])),
+        className: 'grid grid-cols-[96px_minmax(0,1fr)_96px] overflow-hidden rounded-[10px] border text-[13px] @2xl:grid-cols-[110px_150px_120px_minmax(0,1fr)]',
+      },
+      h(
+        'div',
+        { role: 'row', className: 'contents' },
+        h('span', { role: 'columnheader', className: HEAD }, 'Script'),
+        h('span', { role: 'columnheader', className: HEAD }, 'A name in it'),
+        h('span', { role: 'columnheader', className: HEAD }, seriesDot('gpui'), 'GPUI draws it'),
+        h('span', { role: 'columnheader', className: `${HEAD} max-@2xl:hidden` }, 'Why'),
+      ),
+      ...SCRIPT_ROWS.map((row) =>
+        h(
+          'div',
+          { key: row.script, role: 'row', 'data-script': row.script, className: 'contents' },
+          h('span', { role: 'cell', className: CELL }, row.script),
+          h('span', { role: 'cell', className: CELL }, row.name),
+          h('span', { role: 'cell', 'data-right': row.right ? 'yes' : 'no', className: `${CELL} ${row.right ? '' : 'observatory-wrong'}` }, row.right ? 'Right' : 'Drawn wrong'),
+          h('span', { role: 'cell', className: `${CELL} col-span-3 border-t-0 pt-0 text-xs leading-snug text-muted-foreground @2xl:col-span-1 @2xl:border-t @2xl:pt-2.5` }, row.why ?? 'The same shapes as the DOM’s.'),
+        ),
+      ),
+    ),
+    h(
+      'p',
+      { className: 'text-xs leading-snug text-muted-foreground' },
+      `GPUI’s text system shapes every script here right. ${capitalWord(SCRIPT_ROWS.filter((row) => !row.right).length)} drawn wrong ${SCRIPT_ROWS.filter((row) => !row.right).length === 1 ? 'is' : 'are'} its glyph placement: the text renderer in gpui-kit ${numbers.versions.find(([name]) => name === 'gpui-kit')?.[1].join(' and ') ?? ''} drops the font’s mark offsets, so a mark the font moves draws where the pen is. Latin, Greek, and Cyrillic draw in the bundled face, unaffected.`,
+    ),
+    h(
+      'div',
+      { className: 'grid gap-3 @3xl:grid-cols-2 @5xl:grid-cols-4' },
+      h(StatCard, { key: 'usable', card: ready, values: numbers.values, live, contenders }),
+      h(DownloadCard, { key: 'download', scenario, numbers, contenders, span: false }),
+      h(StatCard, { key: 'memory', card: memory, values: numbers.values, note: secondLine, live, contenders }),
+      h(FontsCard, { key: 'fonts', numbers, contenders }),
+    ),
+  );
+}
+
+/** The fonts toggle's card: the faces' bytes against TanStack's none, with
+ *  Scripts drawn in and memory with them in its note (GPUI's alone). */
+function FontsCard({ numbers, contenders }: { numbers: ScenarioCold; contenders: [Contender, Contender] }) {
+  const gpui = (metric: string, profile: Profile = 'reference') => numbers.gpui[coldKey(metric, profile)]!;
+  const seconds = (ms: number) => `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
+  const [bytes, unit] = size(gpui('fonts-bytes')).split(' ') as [string, string];
+  const ofRuns = (profile: Profile) => `${gpui('fonts-second', profile)} of ${gpui('fonts-runs', profile)}`;
+  return h(
+    'div',
+    { 'data-card': 'fonts', className: CARD },
+    h(CardHead, {
+      label: 'Fonts for these scripts',
+      explain: `What GPUI fetches to draw every script in the file: a Noto face for each of ${SCRIPT_FACES.length}, whole, brotli as sent, once its rows are in. TanStack has the system’s fonts. Scripts drawn in: from the page starting to load to the first frame on screen drawn with the faces. Memory with them: after the same scroll down and back as the Memory card, less every canvas buffer.`,
+      note: 'lower is better',
+    }),
+    h('span', { 'data-verdict': '', className: 'text-sm leading-snug' }, 'TanStack needs none'),
+    h(
+      'div',
+      { className: 'grid grid-cols-2 items-baseline gap-x-2.5' },
+      ...sideHeads(contenders),
+      h('span', { className: CAPTION }, 'Either device'),
+      ...contenders.map((contender) =>
+        h(Fragment, { key: contender.side }, contender.side === 'gpui' ? big(bytes, unit, false, { 'data-cold-reference': 'gpui' }) : big('none', '', true, { 'data-cold-reference': 'tanstack' })),
+      ),
+    ),
+    h(
+      'span',
+      { 'data-card-note': '', className: 'text-[11px] leading-snug text-muted-foreground' },
+      `GPUI’s ${SCRIPT_FACES.length} faces, fetched once the rows are in: every script drawn ${seconds(gpui('fonts-drawn'))} after the page starts (${seconds(gpui('fonts-drawn', 'throttled'))} on a slow device); memory with them ${number(gpui('fonts-memory'))} MiB (${number(gpui('fonts-memory', 'throttled'))} on a slow device). The canvas held a second buffer in ${ofRuns('reference')} runs with them on a fast device, ${ofRuns('throttled')} on a slow one.`,
+    ),
+  );
+}
+
+/**
+ * The admin table's fonts toggle (`docs/DECISIONS.md`, "Page", 2026-11-09),
+ * where a dial would be, after first paint (as live tail's follow toggle):
+ * on GPUI a pressed or unpressed button that reloads its side with the
+ * script faces, or without them again; disabled while a load or the faces
+ * are coming. On TanStack it stays, disabled, so the title bar doesn't
+ * shift on a flip: the browser draws every script with the system's fonts.
+ * The window keeps its state (`slot.ts`).
+ */
+export function FontsToggle({ gpui, state, busy, faces, toggle }: { gpui: boolean; state: FontsState; busy: boolean; faces: number; toggle: () => void }) {
+  const [long, short] = !gpui || state === 'off' ? ['Load fonts for these scripts', gpui ? 'Load fonts' : 'Fonts'] : state === 'loading' ? ['Loading fonts…', 'Loading fonts…'] : state === 'on' ? ['Fonts loaded', 'Fonts on'] : ['The fonts didn’t load', 'Fonts failed'];
+  return h(
+    'span',
+    { className: 'flex shrink-0 items-center gap-0.5' },
+    h(
+      'button',
+      {
+        type: 'button',
+        'data-fonts': state,
+        'aria-pressed': gpui && state !== 'off',
+        disabled: !gpui || busy || state === 'loading',
+        onClick: toggle,
+        className: 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-[13px] whitespace-nowrap hover:bg-accent aria-pressed:bg-accent disabled:opacity-50 disabled:hover:bg-background max-md:h-8 max-md:px-2 [&_svg]:size-3.5 [&_svg]:text-muted-foreground',
+      },
+      h(Type, { 'aria-hidden': true }),
+      h('span', { className: 'max-md:hidden' }, long),
+      h('span', { className: 'md:hidden' }, short),
+    ),
+    info('About the fonts', h(FontsAbout, { gpui, faces })),
+  );
+}
+
+/** The fonts toggle's explainer: what it loads, its cold bytes. */
+function FontsAbout({ gpui, faces }: { gpui: boolean; faces: number }) {
+  const numbers = cold.scenarios[ADMIN_TABLE.id];
+  const bytes = numbers?.gpui[coldKey('fonts-bytes', 'reference')];
+  const rows: [string, string][] = [
+    [`${faces} Noto faces, whole`, bytes === undefined ? '—' : size(bytes)],
+    ['Chinese, Japanese, Korean', 'drawn by the browser'],
+    ['Fetched', 'after the rows are in'],
+  ];
+  return h(
+    Fragment,
+    null,
+    gpui
+      ? `GPUI’s app ships one face, IBM Plex Sans: Latin, Greek, and Cyrillic. Loading fonts reloads this side; once the rows are in, it fetches a Noto face for each of the ${faces} other scripts in the file and draws the table again. Press again to reload without them.`
+      : 'TanStack has nothing to load: the browser draws every script with your system’s fonts. Flip to GPUI to try it.',
+    h('span', { 'data-fonts-rows': '', className: 'mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-muted-foreground' }, ...rows.flatMap(([what, how]) => [h('span', { key: what }, what), h('span', { key: `${what}:how`, className: 'text-right text-foreground' }, how)])),
+    h('span', { className: 'mt-2 block text-muted-foreground' }, 'As an app loads a face when its text needs one. The faces are under the SIL Open Font License.'),
   );
 }
 
@@ -818,6 +1043,8 @@ interface Story {
   after?: (numbers: ScenarioCold, component: Component) => Block[];
   /** The data's terms, after its credit, where it has no license. */
   terms?: string;
+  /** More to credit beside the data (the admin table's script faces). */
+  credits?: ReactNode[];
 }
 
 const STORIES: Record<string, Story> = {
@@ -883,6 +1110,31 @@ const STORIES: Record<string, Story> = {
     ],
     terms: 'The Internet Traffic Archive’s terms: “The traces may be freely redistributed.” The visitors’ hosts are left out, every query string is cut, and a request naming a person is dropped.',
   },
+  'admin-table': {
+    shows: (numbers) =>
+      `The table in almost every app: a few hundred rows of text. Here it’s the world’s ${numbers.rows} countries and territories, each named in its own language and script, then in English, with its capital and its population. Both sides read it from one small file through the same database engine, and both scroll it smoothly: this scenario isn’t about speed. Try the browser’s own tools on each side (find, select and copy, a screen reader, Translate), and look at the scripts. GPUI draws its text itself, from the one face it bundles; “Load fonts for these scripts” loads a face for each script the file holds, as an app would, and the window’s Compare says which it draws right.`,
+    after: (_, component) => [
+      {
+        title: 'Why',
+        body: h(
+          'p',
+          null,
+          'The platform’s tools: the DOM’s text is the page’s own, so the browser can find it, select it, translate it, and hand it to a screen reader, and it draws every script with the system’s fonts. A canvas’s text is pixels: GPUI shapes and draws it itself, from the faces it has, and shows the browser none of it. The platform’s tools also give the DOM fewer bytes and a sooner start. Scrolling off the main thread is the DOM’s too, though a few hundred rows are light enough that both keep up. ',
+          h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
+          '.',
+        ),
+      },
+    ],
+    credits: [
+      h(
+        'p',
+        { key: 'faces', 'data-credit-faces': '', className: 'mt-1 text-muted-foreground' },
+        `The fonts toggle’s ${SCRIPT_FACES.length} faces: Noto, by the Noto Project Authors, under the SIL Open Font License 1.1 (`,
+        h('a', { href: `${SCRIPT_FONTS}${FONTS_LICENSE}`, className: 'text-foreground underline underline-offset-4' }, 'their license'),
+        ').',
+      ),
+    ],
+  },
 };
 
 /** A scenario's story: one without fails its description by name. */
@@ -909,6 +1161,7 @@ export function Description({ component, scenario }: { component: Component; sce
   const data = [
     h('p', { key: 'credit', 'data-credit': '', className: 'text-muted-foreground' }, `Data: ${numbers.credit}.${numbers.license ? ` ${numbers.license}.` : story.terms ? ` ${story.terms}` : ''}`),
     numbers.citation ? h('p', { key: 'citation', 'data-citation': '', className: 'mt-1 text-muted-foreground' }, `Its citation: ${numbers.citation}`) : null,
+    ...(story.credits ?? []),
     measured ? h('p', { key: 'measured', 'data-measured': '', className: 'mt-1 text-muted-foreground' }, measured) : null,
   ];
   return h(
@@ -937,7 +1190,11 @@ export function Description({ component, scenario }: { component: Component; sce
       h(
         'p',
         { className: 'mt-2 text-muted-foreground' },
-        stops ? `How far each keeps up is read on both devices; the cards, at ${byDefault.label}, the default stop. Every number is under Compare, in the window’s status bar.` : 'The inputs are read on the fast device. Every number is under Compare, in the window’s status bar.',
+        stops
+          ? `How far each keeps up is read on both devices; the cards, at ${byDefault.label}, the default stop. Every number is under Compare, in the window’s status bar.`
+          : scenarioCopy(scenario).capabilities
+            ? 'What each side can do is checked by a script on both sides; the numbers are read on both devices. All of it is under Compare, in the window’s status bar.'
+            : 'The inputs are read on the fast device. Every number is under Compare, in the window’s status bar.',
       ),
     ),
     ...(story.after?.(numbers, component) ?? []).map(({ title, body }) => block(title, body)),

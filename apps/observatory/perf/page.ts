@@ -85,17 +85,21 @@ import { basename, join } from 'node:path';
 import { chromium, type Browser, type Frame, type Page } from '@playwright/test';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
-import { MARKS } from '../contenders/contract.ts';
-import { contenderBase, OBSERVATORY, UI_FONT } from '../contenders/paths.ts';
-import { BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
+import { FONTS_PARAM, MARKS } from '../contenders/contract.ts';
+import { FONTS_LICENSE, SCRIPT_FACES } from '../contenders/fonts/faces.ts';
+import { contenderBase, OBSERVATORY, SCRIPT_FONTS, UI_FONT } from '../contenders/paths.ts';
+import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
 import { COLUMNS as MARKET_COLUMNS, INSTRUMENTS } from '../contenders/market/feed.ts';
 import { COMPARE_HASH, COMPONENTS, isDensity, listOf, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
 import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
+import { SCRIPT_ROWS, unjudged } from '../web/src/scripts.ts';
 import { KEEPS_UP_SHARE, TAIL_KEEPS_UP_MS } from '../metrics/metrics.ts';
 import { wheel } from '../../../shared-web/perf/harness.ts';
 import { dataRows, resolveCold, resolveGallery } from '../web/cold.ts';
 import {
+  ADMIN_CARDS,
   BARS,
+  CAPABILITIES,
   CARDS,
   CHROME_MEMORY,
   MARKET_CARDS,
@@ -144,6 +148,7 @@ const ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
 const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
 const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
 const TAIL_ROUTE = scenarioPath(TALL_TABLE, LIVE_TAIL);
+const ADMIN_ROUTE = scenarioPath(TALL_TABLE, ADMIN_TABLE);
 /** Every route's HTML file, from the build's root. */
 const HTML_FILES = ROUTES.map((route) => route.html.slice(1));
 /** A frame's URL as the page makes it: its level's base, the scenario, the stop, the theme. */
@@ -861,7 +866,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-segment="data"] > span:last-child')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("GPUI's Rows in didn't show within 2 s of its filled mark"));
     out.file = { [BIG_FILE.id]: await fileInStatus(page, BIG_FILE) };
     // Every Memory explainer says what Chrome leaves out.
-    expect([BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL].every((scenario) => cardsOf(scenario).find((card) => card.key === 'memory')?.explain.endsWith(CHROME_MEMORY)), "a Memory card's explainer lacks Chrome's line");
+    expect([BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE].every((scenario) => cardsOf(scenario).find((card) => card.key === 'memory')?.explain.endsWith(CHROME_MEMORY)), "a Memory card's explainer lacks Chrome's line");
     const marks = await page.frameLocator('iframe').locator(':root').evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').map((mark) => [mark.name, mark.startTime])));
     // As shown: whole milliseconds from 100, else one decimal.
     const near = (text: string | null, ms: number) => Math.abs(parseFloat(text ?? '') - ms) <= (ms >= 100 ? 0.51 : 0.051);
@@ -1016,7 +1021,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids (Big file):** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
     console.log(`credit: ${credit} (the page's and the README's)`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
     const blocks = await page.locator('[data-description] h2').allTextContents();
     const order = ['What you’re looking at', `Why ${millions(cold.rows)} rows`, 'Where each side wins', 'Where the canvas falls short', 'Other scenarios'];
     expect(JSON.stringify(blocks) === JSON.stringify(order), `Big file's description's blocks: ${JSON.stringify(blocks)}`);
@@ -1212,7 +1217,7 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions) && cold.versions.every(([, list]) => list.length === 1), `"measured with": ${JSON.stringify(measured)}, the results say ${JSON.stringify(cold.versions)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE, TAIL_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     out.measured = measured;
     // The other scenarios carry the route's `?side=`, as the sidebar's and the crumb's links do.
@@ -1272,7 +1277,7 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     await waitEnabled(page, 'market watch');
     await page.waitForSelector('[data-status-ready]');
     out.file = await fileInStatus(page, MARKET_WATCH);
-    const theme = await page.evaluate(() => document.documentElement.dataset.theme ?? 'light');
+    const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
     const src = await frameSrc(page);
     expect(src === `${frameUrl('gpui', MARKET_WATCH, MARKET_WATCH.defaultStop, theme)}&${READOUT_PARAM}=`, `market watch's first frame: ${src}`);
 
@@ -1393,7 +1398,7 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, TAIL_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
     const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
@@ -1450,7 +1455,7 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     await waitEnabled(page, 'live tail');
     await page.waitForSelector('[data-status-ready]');
     out.file = await fileInStatus(page, LIVE_TAIL);
-    const theme = await page.evaluate(() => document.documentElement.dataset.theme ?? 'light');
+    const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
     const src = await frameSrc(page);
     expect(src === `${frameUrl('gpui', LIVE_TAIL, LIVE_TAIL.defaultStop, theme)}&${READOUT_PARAM}=`, `live tail's first frame: ${src}`);
 
@@ -1663,7 +1668,7 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE]), `live tail's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, ADMIN_ROUTE]), `live tail's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
     const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
@@ -1706,6 +1711,241 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     out.phoneFollow = phoneToggle;
     await phone.close();
     console.log(`phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow; the follow toggle ${JSON.stringify(phoneToggle)}`);
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/**
+ * The admin table's route (the design canvas's admin boards): its frame on
+ * the base build, no dial and no tag; the fonts toggle where a dial would
+ * be (GPUI's side reloaded with `?fonts`, the faces fetched once its rows
+ * are in, the title bar's states and the load's row; pressed again, a
+ * reload without them; disabled on TanStack, its explainer saying why, and
+ * a flip coming back without them; the control: no face fetched without
+ * it); the status bar's cold values; the panel ("What each side can do":
+ * the verdict, the six capabilities and the scripts row by the toggle's
+ * state, each script's verdict, the four cards and the second buffer's
+ * line); the description (its wins, the data's and the faces' credits);
+ * and a phone's two segments and its short toggle.
+ */
+async function adminReadouts(url: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const cold = resolveCold().numbers.scenarios[ADMIN_TABLE.id]!;
+  const { values } = cold;
+  const gpuiBase = contenderBase('tall-table', 'gpui');
+  const tanstackBase = contenderBase('tall-table', 'tanstack');
+  /** The faces the shown frame has fetched, by its Resource Timing. */
+  const facesFetched = (page: Page) => contenderFrame(page).evaluate((prefix) => performance.getEntriesByType('resource').filter((entry) => new URL(entry.name).pathname.startsWith(prefix)).length, SCRIPT_FONTS);
+  const fontsState = (page: Page) => page.locator('[data-fonts-state]').getAttribute('data-fonts-state');
+  const stateText = async (page: Page) => (await page.locator('[data-state]').textContent()) ?? '';
+  const button = (page: Page) => page.locator('[data-fonts]');
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    await context.addInitScript(stateRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, gpuiBase);
+    await waitEnabled(page, 'the admin table');
+    await page.waitForSelector('[data-status-ready]');
+    out.file = await fileInStatus(page, ADMIN_TABLE);
+    const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
+    const src = await frameSrc(page);
+    expect(src === frameUrl('gpui', ADMIN_TABLE, ADMIN_TABLE.defaultStop, theme), `the admin table's first frame: ${src}`);
+
+    // The title bar: no dial, no tag, the lead; the toggle where a dial would be.
+    expect((await page.locator('[data-dial]').count()) === 0 && (await page.locator('[data-synthetic]').count()) === 0, 'the admin table has a dial or a "Synthetic data" tag');
+    const lead = scenarioCopy(ADMIN_TABLE).lead(cold.rows);
+    expect(lead === 'The world’s countries in their own scripts. Try finding one.' && (await page.getByText(lead).count()) === 1, `the lead "${lead}" isn't in the title bar`);
+    await button(page).waitFor({ timeout: 10_000 });
+    const off = await button(page).evaluate((element) => ({ text: element.querySelector('span')?.textContent, pressed: element.getAttribute('aria-pressed'), disabled: (element as HTMLButtonElement).disabled }));
+    expect(off.text === 'Load fonts for these scripts' && off.pressed === 'false' && !off.disabled, `GPUI's fonts toggle, off: ${JSON.stringify(off)}`);
+    // Its explainer: what it loads, the faces' cold bytes.
+    await page.getByRole('button', { name: 'About the fonts' }).click();
+    const about = (await popovers(page).textContent()) ?? '';
+    const faceBytes = size(cold.gpui[coldKey('fonts-bytes', 'reference')]!);
+    expect(about.startsWith('GPUI’s app ships one face') && about.includes(`${SCRIPT_FACES.length} Noto faces, whole${faceBytes}`) && /SIL Open Font License/.test(about), `the fonts' explainer on GPUI: ${about}`);
+    await page.keyboard.press('Escape');
+    // The control: without the toggle, the frame fetches no face.
+    expect((await facesFetched(page)) === 0, 'GPUI fetched script faces without the toggle');
+    console.log(`admin table: GPUI's base build, no dial, no tag, the lead; the toggle off, its explainer (${faceBytes}); no face fetched without it`);
+
+    // The status bar: its segments, their cold values.
+    const segments = await page.locator('[data-segment]').evaluateAll((items) => items.map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(segments) === JSON.stringify(ADMIN_CARDS.map((card) => card.key)), `the status bar's segments ${JSON.stringify(segments)}`);
+    const seen: Record<string, string> = {};
+    for (const card of ADMIN_CARDS) {
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await page.locator(`[data-segment="${card.key}"]`).hover();
+      const text = (await popovers(page).textContent()) ?? '';
+      const [gpui, tanstack] = cardValues(card, values, 'reference');
+      const want = [`Cold, GPUI${withUnit(gpui, card.unit)}`, `Cold, TanStack${withUnit(tanstack, card.unit)}`];
+      expect(want.every((line) => text.includes(line)), `${card.key}'s explainer: ${JSON.stringify(text)}, the numbers say ${JSON.stringify(want)}`);
+      seen[card.key] = want.join(', ');
+    }
+    await page.mouse.move(0, 0);
+    out.statusBar = seen;
+
+    // The panel by default: the scripts row a no.
+    const capabilityRows = async () =>
+      page.locator('[data-capability]').evaluateAll((rows) =>
+        rows.map((row) => [row.getAttribute('data-capability'), row.querySelector('[data-side="gpui"] [data-answer]')?.getAttribute('data-answer'), row.querySelector('[data-side="tanstack"] [data-answer]')?.getAttribute('data-answer')]),
+      );
+    const capabilitiesWant = (scripts: string) => [['find', 'no'], ['select', 'no'], ['reader', 'no'], ['scripts', scripts], ['flags', 'yes'], ['translate', 'no']].map(([key, gpui]) => [key, gpui, 'yes']);
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-capabilities]').waitFor({ timeout: 10_000 });
+    expect((await page.locator('[data-panel-header] h2').textContent()) === `What each side can do: ${ADMIN_TABLE.label}`, "the panel's title doesn't say what each side can do");
+    const verdictText = await page.locator('[data-capabilities] > [data-verdict]').textContent();
+    expect(verdictText === 'Use the DOM for this. A few hundred rows of text need the browser’s own tools more than speed.', `the panel's verdict: ${verdictText}`);
+    const byDefault = await capabilityRows();
+    expect(JSON.stringify(byDefault) === JSON.stringify(capabilitiesWant('no')), `the capabilities without fonts: ${JSON.stringify(byDefault)}`);
+    const missing = SCRIPT_FACES.length + 2;
+    const scriptsWhy = await page.locator('[data-capability="scripts"] [data-side="gpui"] small').textContent();
+    expect(scriptsWhy === `One bundled face: ${missing} scripts draw as boxes. Load fonts to see them shaped (below).`, `the scripts row without fonts: ${scriptsWhy}`);
+    // Each script's verdict: every face's script, then the two the browser draws.
+    const scripts = await page.locator('[data-script]').evaluateAll((rows) => rows.map((row) => [row.getAttribute('data-script'), row.querySelector('[data-right]')?.getAttribute('data-right')]));
+    expect(JSON.stringify(scripts.map(([script]) => script)) === JSON.stringify([...SCRIPT_FACES.map((face) => face.script), 'Chinese, Japanese', 'Korean']), `the scripts' rows: ${JSON.stringify(scripts)}`);
+    const wrong = scripts.filter(([, right]) => right === 'no').map(([script]) => script ?? '');
+    const wrongWant = SCRIPT_ROWS.filter((row) => !row.right).map((row) => row.script);
+    expect(unjudged().length === 0 && JSON.stringify(wrong) === JSON.stringify(wrongWant), `the scripts drawn wrong: ${JSON.stringify(wrong)}, the shaping verdicts' ${JSON.stringify(wrongWant)}; without one: ${JSON.stringify(unjudged())}`);
+    // The four cards: Ready in and Memory as their status bar's, Download, the fonts'.
+    out.ready = await checkCard(page, ADMIN_CARDS.find((card) => card.key === 'usable')!, values, ADMIN_TABLE.defaultStop, 'the admin panel');
+    const memoryCard = await checkCard(page, ADMIN_CARDS.find((card) => card.key === 'memory')!, values, ADMIN_TABLE.defaultStop, 'the admin panel');
+    // Of the runs each device measured, not those asked for.
+    const [fast, slow] = DEVICE_PROFILES.map((profile) => `${values[coldKey('memory-second', profile)]![0]} of ${values[coldKey('memory-runs', profile)]![0]}`);
+    const buffer = number(values[coldKey('canvas-buffer', 'reference')]![0]!);
+    expect(memoryCard.note === `Beyond the card: Chromium counted a second ${buffer} MiB buffer for GPUI’s canvas in ${fast} runs on a fast device and ${slow} on a slow one.`, `the Memory card's second buffer: ${memoryCard.note}`);
+    const download = await panelCard(page, 'download');
+    const totals = (['gpui', 'tanstack'] as const).map((side) => downloadTotal(side, cold.parts, ADMIN_TABLE)) as [number, number];
+    const downloadWant = verdict(outcome(totals, 'lower'), null, 'smaller', true);
+    expect(download.verdict === downloadWant && JSON.stringify(download.cold.reference!.map((value) => value.text)) === JSON.stringify(totals.map((total) => size(total).split(' ')[0])), `the Download card: ${JSON.stringify(download)}, the numbers say ${downloadWant} ${totals}`);
+    const fontsCard = await panelCard(page, 'fonts');
+    const drawn = (profile: 'reference' | 'throttled') => cold.gpui[coldKey('fonts-drawn', profile)]!;
+    expect(
+      fontsCard.verdict === 'TanStack needs none' && fontsCard.cold.reference![0]!.text === faceBytes.split(' ')[0] && fontsCard.cold.reference![1]!.text === 'none' && fontsCard.cold.reference![1]!.best && (fontsCard.note ?? '').includes(`every script drawn ${(drawn('reference') / 1000).toFixed(1)} s after the page starts`),
+      `the fonts card: ${JSON.stringify(fontsCard)}`,
+    );
+    out.panel = { capabilities: byDefault, wrong, memoryNote: memoryCard.note, download: download.verdict, fonts: fontsCard.note };
+    console.log(`panel: the verdict, ${byDefault.length} capabilities, ${scripts.length} scripts (${wrong.join(', ')} drawn wrong), Ready in "${out.ready && (out.ready as { verdict: string }).verdict}", Download "${download.verdict}", Memory with its second buffer's line, the fonts card`);
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+
+    // The toggle: GPUI's side reloads with ?fonts; the title bar says the faces load, then their bytes.
+    await states(page);
+    await button(page).click();
+    await page.waitForFunction(() => document.querySelector('[data-fonts]')?.getAttribute('data-fonts') === 'loading', null, { timeout: 5_000 }).catch(() => fail("the fonts toggle didn't say the faces are loading"));
+    expect(await button(page).isDisabled(), "the fonts toggle isn't disabled while the faces load");
+    expect((await frameSrc(page)) === `${frameUrl('gpui', ADMIN_TABLE, ADMIN_TABLE.defaultStop, theme)}&${FONTS_PARAM}=`, `the fonts' frame: ${await frameSrc(page)}`);
+    await page.waitForFunction(() => document.querySelector('[data-fonts-state]')?.getAttribute('data-fonts-state') === 'on', null, { timeout: 60_000 }).catch(() => fail("the faces didn't draw: no contender:fonts"));
+    const fontsOn = await stateText(page);
+    const shownKiB = Number(/: (\d+) KiB\./.exec(fontsOn)?.[1]);
+    expect(/^Ready · (warm|cold load) · Fonts loaded after first paint: \d+ KiB\. CJK drawn by the browser\.$/.test(fontsOn) && Math.abs(shownKiB - cold.gpui[coldKey('fonts-bytes', 'reference')]!) < 15, `the title bar with fonts: "${fontsOn}" (the cold faces ${faceBytes})`);
+    const sequence = await states(page);
+    const loading = sequence.findIndex((text) => new RegExp(`^Ready · (warm|cold load) · loading fonts for ${SCRIPT_FACES.length} scripts…$`).test(text));
+    expect(loading >= 0 && loading < sequence.indexOf(fontsOn), `the title bar's states with fonts: ${JSON.stringify(sequence)}`);
+    // The faces: each once, after the rows.
+    const marks = (await relayed(page)).filter((mark) => mark.source.includes(`${FONTS_PARAM}=`)).map((mark) => mark.name);
+    const at = (name: string) => marks.indexOf(name);
+    expect(at(MARKS.filled) >= 0 && at(MARKS.filled) < at(MARKS.fontsIn) && at(MARKS.fontsIn) < at(MARKS.fonts), `the fonts frame's marks: ${JSON.stringify(marks)}`);
+    expect((await facesFetched(page)) === SCRIPT_FACES.length, `the frame fetched ${await facesFetched(page)} faces, not ${SCRIPT_FACES.length}`);
+    const on = await button(page).evaluate((element) => ({ text: element.querySelector('span')?.textContent, pressed: element.getAttribute('aria-pressed'), disabled: (element as HTMLButtonElement).disabled }));
+    expect(on.text === 'Fonts loaded' && on.pressed === 'true' && !on.disabled, `GPUI's fonts toggle, on: ${JSON.stringify(on)}`);
+    await page.getByRole('button', { name: 'About this load' }).click();
+    const loadText = (await popovers(page).textContent()) ?? '';
+    expect(new RegExp(`Fonts for ${SCRIPT_FACES.length} scripts(fetched|from your cache)`).test(loadText), `the load's fonts row: ${loadText}`);
+    await page.keyboard.press('Escape');
+    // The panel with fonts: the scripts row partly, its count from the verdicts.
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-capabilities]').waitFor({ timeout: 10_000 });
+    const withFonts = await capabilityRows();
+    expect(JSON.stringify(withFonts) === JSON.stringify(capabilitiesWant('partly')), `the capabilities with fonts: ${JSON.stringify(withFonts)}`);
+    const partly = await page.locator('[data-capability="scripts"] [data-side="gpui"] small').textContent();
+    expect(partly === `With fonts: ${scripts.length - wrong.length} of ${scripts.length} scripts right. ${listOf(wrong, 'and')} draw a mark out of place (below).`, `the scripts row with fonts: ${partly}`);
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+    out.fonts = { states: sequence, marks, faces: SCRIPT_FACES.length, shownKiB };
+    console.log(`fonts: ${JSON.stringify(sequence)}; marks ${JSON.stringify(marks)}; ${SCRIPT_FACES.length} faces fetched once, after the rows; the panel's scripts row partly`);
+
+    // Pressed again: a reload without them.
+    await button(page).click();
+    await waitFilled(page, gpuiBase);
+    await page.waitForTimeout(500);
+    expect((await frameSrc(page)) === frameUrl('gpui', ADMIN_TABLE, ADMIN_TABLE.defaultStop, theme) && (await fontsState(page)) === 'off' && (await facesFetched(page)) === 0, `pressed again: ${await frameSrc(page)}, ${await fontsState(page)}`);
+    // A frame that fails with fonts asked for (its data refused) leaves the toggle usable, saying they failed.
+    const data = `**${ADMIN_TABLE.data}`;
+    const beforeRefusal = found.length;
+    await page.route(data, (route) => route.abort());
+    await button(page).click();
+    await page.waitForFunction(() => document.querySelector('[data-state]')?.getAttribute('data-state') === 'failed', null, { timeout: 60_000 }).catch(() => fail("the fonts frame with its data refused didn't fail"));
+    const failedToggle = await button(page).evaluate((element) => ({ state: element.getAttribute('data-fonts'), disabled: (element as HTMLButtonElement).disabled }));
+    expect(failedToggle.state === 'failed' && !failedToggle.disabled && (await fontsState(page)) === 'failed', `the fonts toggle after a failed frame: ${JSON.stringify(failedToggle)}`);
+    await page.unroute(data);
+    // The refusal's own console errors are this step's to expect; anything else stays a problem.
+    const refused = found.splice(beforeRefusal);
+    expect(refused.every((problem) => problem.includes(ADMIN_TABLE.data) || /net::ERR_FAILED/.test(problem)), `problems while the data was refused: ${refused.join('; ')}`);
+    await button(page).click();
+    await waitFilled(page, gpuiBase);
+    expect((await fontsState(page)) === 'off', `pressed after a failed frame: ${await fontsState(page)}`);
+    console.log(`a fonts frame that fails leaves the toggle usable (${JSON.stringify(failedToggle)}); pressed, a reload without the faces`);
+    // On again, then a flip: TanStack's toggle disabled, its explainer why; back on GPUI, no faces.
+    await button(page).click();
+    await page.waitForFunction(() => document.querySelector('[data-fonts-state]')?.getAttribute('data-fonts-state') === 'on', null, { timeout: 60_000 }).catch(() => fail("the faces didn't draw the second time"));
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, tanstackBase);
+    await waitEnabled(page, 'TanStack at the admin table');
+    const tanstack = await button(page).evaluate((element) => ({ text: element.querySelector('span')?.textContent, pressed: element.getAttribute('aria-pressed'), disabled: (element as HTMLButtonElement).disabled }));
+    expect(tanstack.text === 'Load fonts for these scripts' && tanstack.pressed === 'false' && tanstack.disabled, `TanStack's fonts toggle: ${JSON.stringify(tanstack)}`);
+    await page.getByRole('button', { name: 'About the fonts' }).click();
+    const tanstackAbout = (await popovers(page).textContent()) ?? '';
+    expect(tanstackAbout.startsWith('TanStack has nothing to load'), `the fonts' explainer on TanStack: ${tanstackAbout}`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'GPUI' }).click();
+    await waitFilled(page, gpuiBase);
+    expect(!(await frameSrc(page)).includes(`${FONTS_PARAM}=`) && (await fontsState(page)) === 'off', `back on GPUI after a flip: ${await frameSrc(page)}`);
+    console.log('the toggle pressed again reloads without the faces; TanStack\'s is disabled, its explainer why; a flip back comes without them');
+
+    // The description.
+    await page.locator('[data-description]').waitFor();
+    const won = winsOf(ADMIN_TABLE, cold);
+    const sentences = await page.locator('[data-wins] li').allTextContents();
+    const want = [...(['gpui', 'tanstack'] as const).filter((side) => won[side].length).map((side) => winsSentence(side, won[side])), ...(won.even.length ? [evenSentence(won.even)] : [])];
+    expect(JSON.stringify(sentences) === JSON.stringify(want), `the admin table's wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
+    const credit = (await page.locator('[data-credit]').textContent()) ?? '';
+    expect(credit.startsWith(`Data: ${cold.credit}.`) && /CLDR/.test(credit) && /Wikidata/.test(credit) && /CC0/.test(credit), `the admin table's credit: ${JSON.stringify(credit)}`);
+    const faces = page.locator('[data-credit-faces]');
+    expect(/Noto/.test((await faces.textContent()) ?? '') && /SIL Open Font License/.test((await faces.textContent()) ?? '') && (await faces.locator('a').getAttribute('href')) === `${SCRIPT_FONTS}${FONTS_LICENSE}`, `the faces' credit: ${await faces.textContent()}`);
+    const license = await page.request.get(new URL(`${SCRIPT_FONTS}${FONTS_LICENSE}`, url).href);
+    expect(license.ok() && /SIL OPEN FONT LICENSE/i.test(await license.text()), `the faces' license at ${SCRIPT_FONTS}${FONTS_LICENSE}: ${license.status()}`);
+    const measured = await page.locator('[data-measured]').textContent();
+    expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
+    const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE]), `the admin table's other scenarios: ${JSON.stringify(others)}`);
+    out.wins = sentences;
+    console.log(`description: ${sentences.join(' ')} ${credit} ${await faces.textContent()}`);
+    expect(found.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: Ready in and Memory; the toggle a short button; nothing wider than it.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForSelector('[data-status-ready]');
+    const visible = await small.locator('[data-segment]').evaluateAll((items) => items.filter((item) => (item as HTMLElement).offsetParent !== null).map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(visible) === JSON.stringify(['usable', 'memory']), `a phone's segments: ${JSON.stringify(visible)}`);
+    await small.getByRole('button', { name: 'More numbers' }).tap();
+    const more = (await popovers(small).textContent()) ?? '';
+    expect(more.includes('Rows in') && more.includes('Smooth'), `a phone's overflow: ${more}`);
+    await small.keyboard.press('Escape');
+    await small.locator('[data-fonts]').waitFor({ timeout: 10_000 });
+    const short = await small.locator('[data-fonts]').evaluate((element) => [...element.querySelectorAll('span')].find((span) => span.getBoundingClientRect().width > 0)?.textContent);
+    const wider = await small.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    expect(short === 'Load fonts' && wider === 0, `a phone's fonts toggle "${short}", the page ${wider} px wider than the screen`);
+    out.phone = { segments: visible, toggle: short };
+    await phone.close();
+    console.log(`phone: Ready in and Memory in the bar, Rows in and Smooth in the overflow; the toggle "${short}"`);
   } finally {
     await browser.close();
   }
@@ -2175,15 +2415,23 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     clauses.push(`${n < 0 ? `from ${stopShort(scenario.stops[0]!)}` : `past ${stopShort(scenario.stops[n]!)}`} ${unit}${profile === 'throttled' ? ' on a slow device' : ''}`);
   }
   const clause = clauses.length ? listOf(clauses, 'or') : null;
-  const rule = !clause ? 'Verdict after the scenarios run.' : `${dom ? 'Use the DOM for small tables.' : ''}Use GPUI ${clause}.`;
+  // The DOM's half: small tables where it keeps up at a density dial's
+  // smaller stops; text-heavy ones once the admin table, a scenario of
+  // capabilities whose verdict is the DOM's, has its numbers.
+  const text = !!cold.numbers.scenarios[ADMIN_TABLE.id];
+  const tables = dom && text ? 'small, text-heavy' : dom ? 'small' : 'text-heavy';
+  const rule = !clause && !dom && !text ? 'Verdict after the scenarios run.' : `${dom || text ? `Use the DOM for ${tables} tables.` : ''}${clause ? `Use GPUI ${clause}.` : ''}`;
 
   // The code: its own chunk, after first paint.
   expect(Object.keys(manifest).some((key) => key.endsWith('src/gallery.ts')), 'the build has no gallery chunk');
   expect(![...firstPaintKeys].some((key) => key.endsWith('src/gallery.ts')), "the galleries' code is in the first-paint JS");
   // The control: no numbers, no rule.
   const none = galleryOf(COMPONENTS, { scenarios: {} }).rules[TALL_TABLE.id]!;
-  expect(!none.dom && none.gpui.length === 0, 'the rule says something with no cold numbers');
-  expect(readFileSync(join(dist, 'index.html'), 'utf8').includes(clause ?? 'Verdict after the scenarios run.'), "the Overview's prerendered HTML lacks the rule");
+  expect(!none.dom && !none.text && none.gpui.length === 0, 'the rule says something with no cold numbers');
+  // The rule's text in the prerendered HTML, a half at a time (each side's name is markup of its own).
+  const overviewHtml = readFileSync(join(dist, 'index.html'), 'utf8');
+  const halves = [...(dom || text ? [`for ${tables} tables.`] : []), ...(clause ? [clause] : []), ...(!dom && !text && !clause ? ['Verdict after the scenarios run.'] : [])];
+  expect(halves.every((half) => overviewHtml.includes(half)), `the Overview's prerendered HTML lacks the rule: ${JSON.stringify(halves)}`);
 
   const browser = await chromium.launch({ channel: 'chromium' });
   try {
@@ -2228,6 +2476,14 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     }
     const synthetic = await page.locator('[data-scenario-card] [data-synthetic]').evaluateAll((tags) => tags.map((tag) => tag.closest('[data-scenario-card]')!.getAttribute('data-scenario-card')));
     expect(JSON.stringify(synthetic) === JSON.stringify([MARKET_WATCH.id]), `the "Synthetic data" tags: ${JSON.stringify(synthetic)}`);
+    // The admin table's card: what each side can do, the DOM's; its drawing the find bar on "Ísland".
+    const admin = gallery.verdicts[ADMIN_TABLE.id]!;
+    expect(admin.text === CAPABILITIES.text && admin.lean === 'tanstack', `the admin table's card "${admin.text}" (${admin.lean})`);
+    const findBar = await page.locator(`[data-scenario-card="${ADMIN_TABLE.id}"] .observatory-find`).textContent();
+    const lit = await page.locator(`[data-scenario-card="${ADMIN_TABLE.id}"] .observatory-found mark`).textContent();
+    expect(findBar?.startsWith('Ísland') === true && lit === 'Ísland', `the admin table's drawing: find bar "${findBar}", lit "${lit}"`);
+    const notSpeed = await page.locator(`[data-session="${ADMIN_TABLE.id}"]`).textContent();
+    expect(notSpeed === 'The admin table isn’t a speed test: its Compare is what each side can do.', `the keeps-up section on the admin table: ${notSpeed}`);
     const rows = await page.locator('[data-reach-row]').evaluateAll((rows) =>
       rows.map((row) => ({
         id: row.getAttribute('data-reach-row'),
@@ -2320,6 +2576,7 @@ try {
     readOut.wide = await wideReadouts(new URL(WIDE_ROUTE, url).href);
     readOut.market = await marketReadouts(new URL(MARKET_ROUTE, url).href, server.url);
     readOut.tail = await tailReadouts(new URL(TAIL_ROUTE, url).href, server.url);
+    readOut.admin = await adminReadouts(new URL(ADMIN_ROUTE, url).href);
     readOut.galleries = await galleries(server.url);
   }
   const shots = option('shots');

@@ -506,3 +506,14 @@ One entry per milestone, written before starting the next one: what surprised us
 - On a slow device, Chromium counted a second buffer for GPUI's canvas in every default run, not the occasional one C1 saw at the reference. What C1 read as the fonts toggle's memory was mostly that buffer, which a slow frame brings on too; it now has its own line, outside the card.
 - TanStack's work per frame in the read-through didn't grow under the CPU throttle, though the wide sheet's did. With no row to render, `BeginMainFrame` is likely mostly the commit's wait on the compositor thread, which the throttle doesn't slow.
 - Rows in (open → rows) favors GPUI, but TanStack opens sooner, so its rows appear first from the page's start. Neither card shows that alone.
+
+## M12 part D: the page (2026-11-09)
+
+**Results:** [`perf/results/2026-11-09-m12-d.md`](../perf/results/2026-11-09-m12-d.md).
+
+**Surprises:**
+- The page's first-paint JS was at its limit already (86.0 of 86.0 KiB): any route added crosses it. Its baseline, from part A of M5, had drifted 10% in eight scenarios' worth of work without a re-baseline.
+- Importing one value from a module the first-paint chunk also holds moves code between chunks: the numbers' chunk importing `scenarios.ts` values moved it into the shared chunk with React, and the two compress apart, so the total moved even where the code didn't.
+- The canvas's sketch names aren't the file's: Thailand is ไทย in CLDR's likely-language name, not ประเทศไทย.
+- The page's `--check` measures first paint right after its own checks, so its first runs read the load those checks leave (154.9 ms against an A/B's 65): a first paint failure there needs the A/B before it means anything.
+- The page's own servers didn't serve the script faces (only the GPUI contender's did), so GPUI's frame inside the page failed to fetch them until the page's Vite config served `/observatory/fonts/` too.

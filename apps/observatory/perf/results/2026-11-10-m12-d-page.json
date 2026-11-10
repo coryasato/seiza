@@ -1,0 +1,752 @@
+{
+  "date": "2026-11-10",
+  "label": "m12-d-page",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "page": "/observatory/tall-table/big-file/",
+  "url": "local",
+  "protocol": {
+    "viewport": "1440x900",
+    "deviceScaleFactor": 2,
+    "runs": 10,
+    "throttled": {
+      "cpuSlowdown": 4,
+      "network": "Fast 4G",
+      "download": 1012500,
+      "upload": 168750,
+      "latency": 165
+    }
+  },
+  "firstPaintJsBrotliKiB": 86.8,
+  "firstPaintMs": {
+    "reference": 60.4,
+    "throttled": 439.3
+  },
+  "fcpMs": {
+    "reference": 60.4,
+    "throttled": 439.3
+  },
+  "hosting": {
+    "theme": {
+      "from": "light",
+      "to": "dark",
+      "gpuiBrightness": [
+        243,
+        22
+      ]
+    },
+    "crossOriginIsolated": {
+      "page": true,
+      "gpui": true,
+      "tanstack": true
+    },
+    "relayed": 1
+  },
+  "layout": {
+    "collapsedReload": {
+      "inset": {
+        "x": 8,
+        "y": 64,
+        "width": 1424,
+        "height": 837
+      },
+      "control": {
+        "atPaint": 240,
+        "hydrated": 8
+      }
+    },
+    "desktop": {
+      "sidebar": {
+        "x": 0,
+        "y": 56,
+        "width": 240,
+        "height": 844
+      },
+      "inset": 240,
+      "card": {
+        "bottom": 884
+      },
+      "frame": 683
+    },
+    "cursors": {
+      "the contender toggle": [
+        "pointer",
+        "pointer"
+      ],
+      "the theme toggle": [
+        "pointer"
+      ],
+      "the sidebar toggle": [
+        "pointer"
+      ],
+      "the sidebar's items and its chevron": [
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer"
+      ],
+      "the crumb's menu": [
+        "pointer"
+      ],
+      "the status bar's segments and Compare": [
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer"
+      ],
+      "the explainers": [
+        "pointer",
+        "pointer"
+      ]
+    }
+  },
+  "readouts": {
+    "noShift": {
+      "stage": {
+        "x": 254,
+        "y": 170,
+        "width": 1164,
+        "height": 683
+      },
+      "control": {
+        "atPaint": 713,
+        "filled": 697
+      }
+    },
+    "file": {
+      "big-file": "Asteroid catalog, NASA/JPL1,567,523 rows"
+    },
+    "scrollRefreshes": {
+      "bursts": 1,
+      "seconds": 1
+    },
+    "gpui": {
+      "usable": "130 ms",
+      "data": "222 ms",
+      "smooth": "100 %",
+      "memory": "11 MiB"
+    },
+    "verdicts": {
+      "usable": "TanStack 3.4× faster · 7.1× on a slow device",
+      "data": "Even",
+      "smooth": "GPUI smoother on a slow device",
+      "memory": "TanStack 1.6× less · 1.6× on a slow device",
+      "download": "TanStack 15.5× smaller"
+    },
+    "wins": [
+      "GPUI stays smoother on a slow device, moves the table sooner after a key or a scrollbar press, and fills the rows sooner after a scrollbar press or a wheel.",
+      "TanStack downloads less, is ready sooner, holds less memory, and moves the table sooner after a wheel.",
+      "Even: rows on screen after opening."
+    ],
+    "meter": {
+      "sides": {
+        "GPUI": {
+          "reached": [
+            "pointerdown",
+            "wheel"
+          ],
+          "fps": "57 fps",
+          "late": "1 late",
+          "pixels": {
+            "drawn": 3406,
+            "amber": 468
+          }
+        },
+        "TanStack": {
+          "reached": [
+            "pointerdown",
+            "wheel"
+          ],
+          "fps": "57 fps",
+          "late": "1 late",
+          "pixels": {
+            "drawn": 2808,
+            "amber": 468
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "firstLoad": [
+        "Loading the app…",
+        "Loading the engine…",
+        "Loading the data…",
+        "Ready · cold load"
+      ],
+      "loadRows": [
+        "GPUI’s app at this level",
+        "fetched",
+        "The engine (DuckDB-Wasm)",
+        "in its own worker, not timed here",
+        "The data (ghcn-2025-tmax.parquet)",
+        "read a page at a time",
+        "The font",
+        "fetched",
+        "Cold: nothing came from your cache."
+      ],
+      "abortedReadsLogged": 4
+    },
+    "wide": {
+      "file": "Daily highs by weather station, 2025 (NOAA)10,632 rows",
+      "statusBar": {
+        "usable": "Cold, GPUI153 ms, Cold, TanStack44.8 ms",
+        "data": "Cold, GPUI399 ms, Cold, TanStack433 ms",
+        "smooth": "Cold, GPUI at ~710 cells100 %, Cold, TanStack at ~710 cells50.4 %",
+        "memory": "Cold, GPUI53.6 MiB, Cold, TanStack37.9 MiB"
+      },
+      "keeps": "TanStack keeps up to ~380 cells; GPUI keeps up at every stop, to ~940 · on a slow device, neither keeps up at any stop",
+      "atDefault": {
+        "fling": "GPUI smoother on both devices",
+        "work": "GPUI 1.4× less work · 1.6× on a slow device",
+        "memory": "TanStack 1.4× less · 1.4× on a slow device"
+      },
+      "once": "Ready in: TanStack 3.4× faster · 7.3× on a slow device. Download: TanStack 15.6× smaller.",
+      "atPicked": {
+        "fling": "GPUI smoother on both devices",
+        "work": "GPUI 1.9× less work on a slow device",
+        "memory": "TanStack 1.4× less · 1.4× on a slow device"
+      },
+      "statusBarAt18": {
+        "usable": "Cold, GPUI153 ms, Cold, TanStack44.8 ms",
+        "data": "Cold, GPUI399 ms, Cold, TanStack433 ms",
+        "smooth": "Cold, GPUI at ~940 cells99.2 %, Cold, TanStack at ~940 cells48.6 %",
+        "memory": "Cold, GPUI53.6 MiB, Cold, TanStack37.9 MiB"
+      },
+      "wins": [
+        "GPUI keeps up with more cells on screen on a fast device, stays smoother in a fast fling, and spends less time on each frame.",
+        "TanStack holds less memory, is ready sooner, and downloads less."
+      ],
+      "measured": "Measured with gpui-kit 0.9.0 · React 19.3.1 · TanStack Virtual 3.14.19 · Apache Arrow 17.0.0 · DuckDB-Wasm 1.32.0 · Chromium 153.0.8010.12."
+    },
+    "market": {
+      "file": "Simulated stock prices50 rows",
+      "statusBar": {
+        "usable": "Cold, GPUI149 ms, Cold, TanStack43.7 ms",
+        "shown": "Cold, GPUI at 500 updates/s13.8 ms, Cold, TanStack at 500 updates/s15 ms",
+        "smooth": "Cold, GPUI at 500 updates/s100 %, Cold, TanStack at 500 updates/s100 %",
+        "memory": "Cold, GPUI12.6 MiB, Cold, TanStack4.7 MiB"
+      },
+      "liveGpui": {
+        "shownIn": "20.9 ms",
+        "smooth": "100 %"
+      },
+      "liveTanstack": {
+        "shownIn": "11.5 ms",
+        "smooth": "100 %"
+      },
+      "keeps": "Both keep up at every stop, to 5k updates/s · on a slow device, TanStack keeps up to 1k; GPUI keeps up at every stop, to 5k",
+      "atDefault": {
+        "smooth": "Even",
+        "shown": "Even",
+        "collections": "GPUI 5.2× less · 6.3× on a slow device"
+      },
+      "at5k": {
+        "smooth": "GPUI smoother on a slow device",
+        "shown": "GPUI 1.2× faster · 1.7× on a slow device",
+        "collections": "GPUI 14.8× less · 12.8× on a slow device"
+      },
+      "wins": [
+        "GPUI keeps up with more updates a second on a slow device and spends less time paused collecting garbage.",
+        "TanStack is ready sooner, holds less memory, and downloads less.",
+        "Even: smoothness under the feed and how soon an update shows."
+      ]
+    },
+    "tail": {
+      "file": "NASA web server log, July 19951,890,983 rows",
+      "statusBar": {
+        "usable": "Cold, GPUI145 ms, Cold, TanStack43.6 ms",
+        "shown": "Cold, GPUI at 10k rows/s20.8 ms, Cold, TanStack at 10k rows/s21.6 ms",
+        "smooth": "Cold, GPUI at 10k rows/s100 %, Cold, TanStack at 10k rows/s100 %",
+        "memory": "Cold, GPUI19.2 MiB, Cold, TanStack10.9 MiB"
+      },
+      "liveGpui": {
+        "shownIn": "32.1 ms",
+        "smooth": "100 %"
+      },
+      "followGpui": {
+        "paused": {
+          "held": true,
+          "count": [
+            0,
+            12758
+          ],
+          "label": "Follow· 12,758 new rows"
+        },
+        "followed": {
+          "drawing": true,
+          "moving": true
+        },
+        "scrolledUp": [
+          2534,
+          10098
+        ]
+      },
+      "liveTanstack": {
+        "shownIn": "16.8 ms",
+        "smooth": "100 %"
+      },
+      "followTanstack": {
+        "paused": {
+          "held": true,
+          "count": [
+            0,
+            12563
+          ],
+          "label": "Follow· 12,563 new rows"
+        },
+        "followed": {
+          "drawing": true,
+          "moving": true
+        },
+        "scrolledUp": [
+          2514,
+          9961
+        ]
+      },
+      "followControl": {
+        "gpui": {
+          "following": true,
+          "heard": 0,
+          "last": null
+        },
+        "gpui:readout": {
+          "following": false,
+          "heard": 6,
+          "last": {
+            "seiza": "following",
+            "on": false,
+            "rows": 32609
+          }
+        },
+        "tanstack": {
+          "following": true,
+          "heard": 0,
+          "last": null
+        },
+        "tanstack:readout": {
+          "following": false,
+          "heard": 6,
+          "last": {
+            "seiza": "following",
+            "on": false,
+            "rows": 33200
+          }
+        }
+      },
+      "keeps": "Both keep up at every stop, to 100k rows/s · on a slow device, TanStack keeps up to 10k; GPUI keeps up to 50k",
+      "atDefault": {
+        "smooth": "TanStack smoother on a slow device",
+        "shown": "GPUI 1.1× faster on a slow device",
+        "collections": "GPUI 5.0× less · 3.5× on a slow device",
+        "back": "TanStack 1.5× faster · 2.8× on a slow device",
+        "note": null
+      },
+      "atLast": {
+        "smooth": "GPUI smoother on a slow device",
+        "shown": "Even",
+        "collections": "GPUI 4.4× less · 2.6× on a slow device",
+        "back": "TanStack 1.6× faster · even on a slow device",
+        "note": "On a slow device these are the replay’s first seconds, as a turn of the dial starts them. The lag shrinks over minutes: after 10 minutes, Row shown in’s 95th percentile is 142 ms on GPUI and 192 ms on TanStack, so neither keeps up even then."
+      },
+      "wins": [
+        "GPUI keeps up with more rows a second on a slow device, shows new rows sooner on a slow device, and spends less time paused collecting garbage.",
+        "TanStack stays smoother under the replay on a slow device, answers a scroll back sooner, is ready sooner, holds less memory (after 10 minutes at 100k rows/s too), and downloads less."
+      ],
+      "phoneFollow": {
+        "state": "off",
+        "width": 72.75,
+        "icon": true,
+        "shown": "4,945",
+        "count": "· 4,945 new rows"
+      }
+    },
+    "admin": {
+      "file": "The world’s countries (CLDR, Wikidata)250 rows",
+      "statusBar": {
+        "usable": "Cold, GPUI145 ms, Cold, TanStack42.4 ms",
+        "data": "Cold, GPUI194 ms, Cold, TanStack252 ms",
+        "smooth": "Cold, GPUI100 %, Cold, TanStack100 %",
+        "memory": "Cold, GPUI11.8 MiB, Cold, TanStack4.8 MiB"
+      },
+      "ready": {
+        "verdict": "TanStack 3.4× faster · 7.4× on a slow device",
+        "note": null,
+        "cold": {
+          "reference": [
+            {
+              "text": "145",
+              "best": false
+            },
+            {
+              "text": "42.4",
+              "best": true
+            }
+          ],
+          "throttled": [
+            {
+              "text": "3563",
+              "best": false
+            },
+            {
+              "text": "482",
+              "best": true
+            }
+          ]
+        }
+      },
+      "panel": {
+        "capabilities": [
+          [
+            "find",
+            "no",
+            "yes"
+          ],
+          [
+            "select",
+            "no",
+            "yes"
+          ],
+          [
+            "reader",
+            "no",
+            "yes"
+          ],
+          [
+            "scripts",
+            "no",
+            "yes"
+          ],
+          [
+            "flags",
+            "yes",
+            "yes"
+          ],
+          [
+            "translate",
+            "no",
+            "yes"
+          ]
+        ],
+        "wrong": [
+          "Arabic",
+          "Khmer",
+          "Sinhala"
+        ],
+        "memoryNote": "Beyond the card: Chromium counted a second 19.8 MiB buffer for GPUI’s canvas in 2 of 10 runs on a fast device and 10 of 10 on a slow one.",
+        "download": "TanStack 15.8× smaller",
+        "fonts": "GPUI’s 13 faces, fetched once the rows are in: every script drawn 0.8 s after the page starts (12 s on a slow device); memory with them 14.1 MiB (14.2 on a slow device). The canvas held a second buffer in 10 of 10 runs with them on a fast device, 10 of 10 on a slow one."
+      },
+      "fonts": {
+        "states": [
+          "Loading the app…",
+          "Loading the engine…",
+          "Loading the data…",
+          "Ready · warm · loading fonts for 13 scripts…",
+          "Fonts loaded after first paint: 582 KiB. CJK drawn by the browser."
+        ],
+        "marks": [
+          "contender:first-pixels",
+          "contender:usable",
+          "contender:open",
+          "contender:filled",
+          "contender:fonts-in",
+          "contender:fonts"
+        ],
+        "faces": 13,
+        "shownKiB": 582
+      },
+      "wins": [
+        "GPUI puts rows on screen sooner after opening.",
+        "TanStack lets the browser find, select, translate, and read out the table’s text, and draws every script with the system’s fonts, is ready sooner, holds less memory, and downloads less.",
+        "Even: smoothness in a read-through scroll."
+      ],
+      "phone": {
+        "segments": [
+          "usable",
+          "memory"
+        ],
+        "toggle": "Load fonts"
+      }
+    },
+    "galleries": {
+      "overview": {
+        "rule": "Use the DOM for small, text-heavy tables.Use GPUI past ~380 cells on screen, past 1k updates a second on a slow device, or past 10k rows a second on a slow device.",
+        "cardBottom": 633.25
+      },
+      "component": {
+        "verdicts": [
+          [
+            "big-file",
+            "TanStack ready 3.4× sooner; GPUI smoother on a slow device"
+          ],
+          [
+            "wide-sheet",
+            "TanStack keeps up to ~380 cells; GPUI keeps up at every stop, to ~940"
+          ],
+          [
+            "market-watch",
+            "Both keep up at every stop, to 5k updates/s · on a slow device, TanStack keeps up to 1k; GPUI keeps up at every stop, to 5k"
+          ],
+          [
+            "live-tail",
+            "Both keep up at every stop, to 100k rows/s · on a slow device, TanStack keeps up to 10k; GPUI keeps up to 50k"
+          ],
+          [
+            "admin-table",
+            "Use the DOM: search, selection, screen readers, every script"
+          ]
+        ],
+        "reach": [
+          [
+            "~940 cells",
+            "~380 cells"
+          ],
+          [
+            "none",
+            "none"
+          ]
+        ],
+        "fedReach": {
+          "market-watch": [
+            [
+              "5k updates/s",
+              "5k updates/s"
+            ],
+            [
+              "5k updates/s",
+              "1k updates/s"
+            ]
+          ],
+          "live-tail": [
+            [
+              "100k rows/s",
+              "100k rows/s"
+            ],
+            [
+              "50k rows/s",
+              "10k rows/s"
+            ]
+          ]
+        },
+        "leans": [
+          [
+            "big-file",
+            [
+              "gpui",
+              "gpui",
+              "",
+              "tanstack",
+              "tanstack"
+            ]
+          ],
+          [
+            "wide-sheet",
+            [
+              "gpui",
+              "",
+              "gpui",
+              "",
+              "tanstack"
+            ]
+          ],
+          [
+            "market-watch",
+            [
+              "gpui",
+              "gpui",
+              "gpui",
+              "",
+              "tanstack"
+            ]
+          ],
+          [
+            "live-tail",
+            [
+              "gpui",
+              "gpui",
+              "",
+              "tanstack",
+              "tanstack"
+            ]
+          ],
+          [
+            "admin-table",
+            [
+              "",
+              "",
+              "",
+              "tanstack",
+              "tanstack"
+            ]
+          ]
+        ]
+      },
+      "phoneOverflow": {
+        "/observatory/": 0,
+        "/observatory/tall-table/": 0
+      }
+    }
+  },
+  "runs": {
+    "reference": [
+      {
+        "firstPaintMs": 61.02499961853027,
+        "fcpMs": 61.02499961853027,
+        "frameCreatedMs": 73.86499977111816,
+        "metricsRequestedMs": 70.24499988555908,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 63.40500068664551,
+        "fcpMs": 63.40500068664551,
+        "frameCreatedMs": 82.93000030517578,
+        "metricsRequestedMs": 79.28000068664551,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 59.80999946594238,
+        "fcpMs": 59.80999946594238,
+        "frameCreatedMs": 77.44999980926514,
+        "metricsRequestedMs": 72.75999927520752,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 53.59500026702881,
+        "fcpMs": 53.59500026702881,
+        "frameCreatedMs": 75.38000011444092,
+        "metricsRequestedMs": 71.51500034332275,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 59.704999923706055,
+        "fcpMs": 59.704999923706055,
+        "frameCreatedMs": 77.41499996185303,
+        "metricsRequestedMs": 73.50500011444092,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 63.50500011444092,
+        "fcpMs": 63.50500011444092,
+        "frameCreatedMs": 76.33500003814697,
+        "metricsRequestedMs": 72.71000003814697,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 57.61999988555908,
+        "fcpMs": 57.61999988555908,
+        "frameCreatedMs": 73.58500003814697,
+        "metricsRequestedMs": 69.80000019073486,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 65.42000007629395,
+        "fcpMs": 65.42000007629395,
+        "frameCreatedMs": 75.1850004196167,
+        "metricsRequestedMs": 70.125,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 54.15999984741211,
+        "fcpMs": 54.15999984741211,
+        "frameCreatedMs": 75.18000030517578,
+        "metricsRequestedMs": 71.38000011444092,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 73.92499923706055,
+        "fcpMs": 73.92499923706055,
+        "frameCreatedMs": 88.3149995803833,
+        "metricsRequestedMs": 84.69999980926514,
+        "problems": []
+      }
+    ],
+    "throttled": [
+      {
+        "firstPaintMs": 440.3149995803833,
+        "fcpMs": 440.3149995803833,
+        "frameCreatedMs": 556.4799995422363,
+        "metricsRequestedMs": 544.7649993896484,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 437.55000019073486,
+        "fcpMs": 437.55000019073486,
+        "frameCreatedMs": 556.3900003433228,
+        "metricsRequestedMs": 540.1500005722046,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 437.3700008392334,
+        "fcpMs": 437.3700008392334,
+        "frameCreatedMs": 553.8250007629395,
+        "metricsRequestedMs": 541.4050006866455,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 441.2200002670288,
+        "fcpMs": 441.2200002670288,
+        "frameCreatedMs": 552.914999961853,
+        "metricsRequestedMs": 539.9949998855591,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 435.6499996185303,
+        "fcpMs": 435.6499996185303,
+        "frameCreatedMs": 555.7799997329712,
+        "metricsRequestedMs": 539.7799997329712,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 438.2449998855591,
+        "fcpMs": 438.2449998855591,
+        "frameCreatedMs": 557.5950002670288,
+        "metricsRequestedMs": 540.4899997711182,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 440.585000038147,
+        "fcpMs": 440.585000038147,
+        "frameCreatedMs": 560.6750001907349,
+        "metricsRequestedMs": 544.7749996185303,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 442.8050003051758,
+        "fcpMs": 442.8050003051758,
+        "frameCreatedMs": 561.9800004959106,
+        "metricsRequestedMs": 545.6949996948242,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 435.4300003051758,
+        "fcpMs": 435.4300003051758,
+        "frameCreatedMs": 553.9899997711182,
+        "metricsRequestedMs": 537.914999961853,
+        "problems": []
+      },
+      {
+        "firstPaintMs": 443.5599994659424,
+        "fcpMs": 443.5599994659424,
+        "frameCreatedMs": 561.454999923706,
+        "metricsRequestedMs": 545.1799993515015,
+        "problems": []
+      }
+    ]
+  },
+  "failures": []
+}

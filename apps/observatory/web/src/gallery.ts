@@ -10,6 +10,7 @@
  * when the chunk arrives (`main.ts`), so none of it is first-paint JS.
  */
 
+import { Search } from 'lucide-react';
 import { createElement as h, type ReactNode } from 'react';
 import gallery from 'virtual:gallery';
 import type { Side } from '../../contenders/contract.ts';
@@ -116,11 +117,48 @@ const tailDrawing = (rows: number) =>
     ),
   );
 
+/** The admin table's rows drawn small (the design canvas's, chosen): a
+ *  flag, the name in its own script as the file has it, then bars; Japan's
+ *  first, then Iceland's, which the browser's find bar has found. */
+const ADMIN_ROWS: [flag: string, name: string, width: number][] = [
+  ['🇯🇵', '日本', 16],
+  ['🇮🇸', 'Ísland', 12],
+  ['🇪🇬', 'مصر', 18],
+  ['🇮🇳', 'भारत', 14],
+  ['🇹🇭', 'ไทย', 17],
+  ['🇬🇷', 'Ελλάδα', 13],
+];
+const FOUND = 'Ísland';
+
+/** The admin table drawn small: real names in their scripts, the browser's
+ *  find bar on "Ísland" and its row lit. A card's holds the header and five
+ *  rows; the mosaic's tile six rows and no header, so each fits whole. */
+const adminDrawing = (where: 'card' | 'mosaic') =>
+  h(
+    'span',
+    { className: 'observatory-drawing observatory-admin' },
+    where === 'card' ? h('span', { className: 'observatory-head' }, ...[8, 26, 22, 16].map((width) => h('i', { key: width, style: { width: `${width}%` } }))) : null,
+    ...ADMIN_ROWS.slice(0, where === 'card' ? 5 : 6).map(([flag, name, width]) =>
+      h(
+        'span',
+        { key: name, className: name === FOUND ? 'observatory-found' : undefined },
+        h('b', null, flag),
+        h('em', null, name === FOUND ? h('mark', null, name) : name),
+        h('i', { style: { width: '22%' } }),
+        h('i', { style: { width: `${width}%` } }),
+      ),
+    ),
+    h('span', { className: 'observatory-find' }, h(Search, { 'aria-hidden': true }), FOUND, where === 'card' ? h('small', null, '1/1') : null),
+  );
+
 /** A scenario's frame, drawn small: its level's shape, in `rows` rows (the
  *  header's included) that fit its box whole, the newest of live tail's last.
- *  The heat's rows are its latitudes, whatever the box. */
+ *  The heat's rows are its latitudes, whatever the box; the admin table's
+ *  its own (`adminDrawing`). */
 const drawing = (scenario: Scenario, rows: number) =>
-  scenario.level === 'wide'
+  scenarioCopy(scenario).capabilities
+    ? adminDrawing(rows === MOSAIC_ROWS ? 'mosaic' : 'card')
+    : scenario.level === 'wide'
     ? heatDrawing(scenario)
     : scenario.level === 'market'
       ? marketDrawing(scenario, rows)
@@ -154,12 +192,14 @@ const THUMB = 'block shrink-0 overflow-hidden border-b bg-sidebar p-3';
  *  only where its numbers back it, or that it waits for them. */
 function Rule({ component }: { component: Component }) {
   const rule = gallery.rules[component.id];
-  if (!rule || (!rule.dom && !rule.gpui.length)) return h('span', { 'data-rule': '', className: 'text-muted-foreground' }, 'Verdict after the scenarios run.');
+  if (!rule || (!rule.dom && !rule.text && !rule.gpui.length)) return h('span', { 'data-rule': '', className: 'text-muted-foreground' }, 'Verdict after the scenarios run.');
+  // The DOM's half: small tables (a density dial), text-heavy ones (the admin table), or both.
+  const tables = rule.dom && rule.text ? 'small, text-heavy' : rule.dom ? 'small' : 'text-heavy';
   const [gpui, dom] = (['gpui', 'tanstack'] as const).map((side) => h('span', { className: seriesClass(side, 'text') }, side === 'gpui' ? labelOf(component, side) : 'the DOM'));
   return h(
     'span',
     { 'data-rule': '', className: 'flex flex-col gap-0.5' },
-    rule.dom ? h('span', null, 'Use ', dom, ' for small tables.') : null,
+    rule.dom || rule.text ? h('span', null, 'Use ', dom, ` for ${tables} tables.`) : null,
     rule.gpui.length ? h('span', null, 'Use ', gpui, ` ${listOf(rule.gpui, 'or')}.`) : null,
   );
 }
@@ -262,7 +302,7 @@ const DEVICE_NAMES = { reference: 'Fast device', throttled: 'Slow device' } as c
  *  its Compare; no verdicts (its card has them), nothing at a single stop. */
 function KeepsUp({ component }: { component: Component }) {
   const dialled = component.scenarios.filter((scenario) => gallery.reach[scenario.id]);
-  const single = component.scenarios.filter((scenario) => scenario.stops.length < 2 && scenarioCopy(scenario).session);
+  const single = component.scenarios.filter((scenario) => scenario.stops.length < 2 && (scenarioCopy(scenario).session || scenarioCopy(scenario).capabilities));
   if (!dialled.length) return null;
   const columns = 'md:grid md:grid-cols-[minmax(200px,1fr)_minmax(220px,1fr)_minmax(220px,1fr)] md:gap-4';
   return section(
@@ -301,7 +341,10 @@ function KeepsUp({ component }: { component: Component }) {
         }),
       ),
     ),
-    ...single.map((scenario) => h('p', { key: scenario.id, 'data-session': scenario.id, className: 'text-xs text-muted-foreground' }, `${scenario.label} has no dial: ${scenarioCopy(scenario).session}.`)),
+    ...single.map((scenario) => {
+      const copy = scenarioCopy(scenario);
+      return h('p', { key: scenario.id, 'data-session': scenario.id, className: 'text-xs text-muted-foreground' }, copy.capabilities ? `The ${scenario.label.toLowerCase()} isn’t a speed test: its Compare is what each side can do.` : `${scenario.label} has no dial: ${copy.session}.`);
+    }),
   );
 }
 

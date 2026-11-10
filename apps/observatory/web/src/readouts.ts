@@ -10,11 +10,11 @@
  * it too.
  */
 
-import { KEEPS_UP_SHARE, SCROLLS, TAIL_KEEPS_UP_MS, type LiveReadings } from '../../metrics/metrics.ts';
+import { KEEPS_UP_SHARE, READ_THROUGH, SCROLLS, TAIL_KEEPS_UP_MS, type LiveReadings } from '../../metrics/metrics.ts';
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
-import { BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { listOf, stopShort } from './components.ts';
+import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, resultLabel, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { listOf, scenarioCopy, stopShort } from './components.ts';
 
 export type Profile = 'reference' | 'throttled';
 export const PROFILES: Profile[] = ['reference', 'throttled'];
@@ -353,6 +353,34 @@ export const SOAK_MEMORY: Card = {
   explain: 'What the table’s page holds after 10 minutes of the replay at 100k rows/s (60 million rows), less GPUI’s canvas, the engine’s workers apart. Neither side’s collected it back: a forced collection frees none of it.',
 };
 
+/** The admin table's Memory: the page less every canvas buffer, the runs
+ *  that held a second one on a line of their own (`docs/DECISIONS.md`,
+ *  "Measurement", 2026-11-09). */
+const ADMIN_MEMORY_HOLDS = 'What the table’s page holds, the database engine’s workers apart (Chrome only), less every image GPUI’s canvas holds: one window-sized buffer, and in some runs a second (the line under the card). GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s.';
+
+/** The admin table's status bar (the design canvas's): Big file's four,
+ *  its Smooth a read-through scroll, its Memory less every canvas buffer.
+ *  Its panel's Ready in and Memory are these. */
+export const ADMIN_CARDS: Card[] = [
+  { ...card('usable'), metric: 'usable' },
+  { ...card('data'), metric: 'data' },
+  {
+    ...card('smooth'),
+    metric: 'smooth',
+    shown: (cold) => cold,
+    judged: drawn,
+    caption: 'A read-through scroll',
+    said: ['stays smoother in a read-through scroll', 'smoothness in a read-through scroll'],
+    explain: `The share of frames on time while you scroll: a frame is late when it takes longer than one and a half of your display’s frames. Counted on the page’s own thread. Cold: the share of the display’s frames that moved the table in a steady scroll from the top, as a reader skims it (${px(READ_THROUGH.y)} px at ${px(READ_THROUGH.speed)} px/s). GPUI’s frames are those it presents; TanStack’s, those its compositor scrolled in, since it renders every row.`,
+  },
+  {
+    ...card('memory'),
+    metric: 'memory',
+    caption: 'After a scroll down and back',
+    explain: `${ADMIN_MEMORY_HOLDS} Cold: after both read the file at the open, then scroll down and back; this tab’s is now. ${CHROME_MEMORY}`,
+  },
+];
+
 /** A scenario's status bar cards. */
 export const cardsOf = (scenario: Scenario): Card[] => numbersOf(scenario).cards;
 
@@ -388,10 +416,11 @@ export const CHART_MS = 50;
 
 /** Every budgets.json metric a scenario's page shows, each with its key
  *  in the scenario's numbers (`coldKey`). */
-export function metricsOf(scenario: Scenario): { id: string; key: string }[] {
-  const { once, perStop } = numbersOf(scenario);
+export function metricsOf(scenario: Scenario): { id: string; key: string; gpuiOnly?: boolean }[] {
+  const { once, perStop, gpuiOnce = [] } = numbersOf(scenario);
   const keys = [...once.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile))), ...scenario.stops.flatMap((stop) => perStop.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile, stop.id))))];
-  return keys.map((key) => ({ id: `${metricPrefix(scenario)}${key}`, key }));
+  const gpuiKeys = gpuiOnce.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile)));
+  return [...keys.map((key) => ({ id: `${metricPrefix(scenario)}${key}`, key })), ...gpuiKeys.map((key) => ({ id: `${metricPrefix(scenario)}${key}`, key, gpuiOnly: true }))];
 }
 
 /** The values a scenario's numbers derive from the measured ones: at each
@@ -463,7 +492,7 @@ export const PARTS: Record<Side, Part[]> = {
  *  their parts within them left out, which only Big file's builds are split
  *  into. */
 const filesOf = (scenario: Scenario): { parts: Record<Side, Part[]>; sources: Record<string, Source> } => {
-  const glob = `*-memory-${scenario.id}-${scenario.defaultStop}.json`;
+  const glob = `*-memory-${resultLabel({ scenario, stop: scenario.stops.find((stop) => stop.id === scenario.defaultStop)! })}.json`;
   const parts = Object.fromEntries((['gpui', 'tanstack'] as const).map((side) => [side, PARTS[side].filter((part) => !part.within)])) as Record<Side, Part[]>;
   const sources = Object.fromEntries(Object.values(parts).flatMap((list) => list.map((part) => { const [side, kind] = part.id.split('.') as [Side, string]; return [part.id, wire(side, kind, glob)]; })));
   return { parts, sources };
@@ -492,6 +521,9 @@ interface ScenarioNumbers {
   /** A line under the stop's heading in the panel, where a stop's numbers
    *  need one. */
   stopNote?: (stop: Stop, values: ScenarioCold['values']) => string | null;
+  /** Metrics measured on GPUI alone, once (the admin table's fonts toggle):
+   *  `ScenarioCold.gpui`'s keys. */
+  gpuiOnce?: string[];
 }
 
 /** What "keeps up" reads at a stop: a share of frames at or over its line
@@ -555,6 +587,15 @@ const NUMBERS: Record<string, ScenarioNumbers> = {
       rule: 'updates a second',
     },
   },
+  [ADMIN_TABLE.id]: {
+    cards: ADMIN_CARDS,
+    // The design canvas's phone: Ready in and Memory.
+    phone: ['usable', 'memory'],
+    once: ['usable', 'data', 'smooth', 'memory', 'memory-second', 'memory-runs', 'canvas-buffer'],
+    perStop: [],
+    gpuiOnce: ['fonts-bytes', 'fonts-drawn', 'fonts-memory', 'fonts-second', 'fonts-runs'],
+    ...filesOf(ADMIN_TABLE),
+  },
   [LIVE_TAIL.id]: {
     cards: TAIL_CARDS,
     // The design canvas's phone: Shown in and Smooth.
@@ -608,6 +649,8 @@ export interface ScenarioCold {
   /** Each metric's GPUI and TanStack medians, by `coldKey`, with the
    *  values `derive` adds. */
   values: Record<string, [number, number]>;
+  /** Each GPUI-only metric's median, by `coldKey` (`gpuiOnce`). */
+  gpui: Record<string, number>;
   /** The Download card's parts, KiB. */
   parts: Record<string, number>;
   /** The data file's rows (`data/MANIFEST.json`). */
@@ -736,10 +779,13 @@ const creditor = (out: Wins) => (fast: Outcome, slow: Outcome | null, won: strin
   else out[fast.winner].push(won);
 };
 
-export function wins(cold: ScenarioCold): Wins {
+export function wins(cold: ScenarioCold, scenario: Scenario = BIG_FILE): Wins {
   const out: Wins = { gpui: [], tanstack: [], even: [] };
   const credit = creditor(out);
-  const download = outcome([downloadTotal('gpui', cold.parts, BIG_FILE), downloadTotal('tanstack', cold.parts, BIG_FILE)], 'lower');
+  // A scenario of capabilities (the admin table): what `perf/admin.ts`
+  // proves TanStack's side lets the browser do, before its numbers.
+  if (scenarioCopy(scenario).capabilities) out.tanstack.push('lets the browser find, select, translate, and read out the table’s text, and draws every script with the system’s fonts');
+  const download = outcome([downloadTotal('gpui', cold.parts, scenario), downloadTotal('tanstack', cold.parts, scenario)], 'lower');
   credit(download, null, 'downloads less', 'the download');
   const said: Record<string, [string, string]> = {
     usable: ['is ready sooner', 'ready'],
@@ -747,12 +793,12 @@ export function wins(cold: ScenarioCold): Wins {
     smooth: ['stays smoother', 'smoothness'],
     memory: ['holds less memory', 'memory'],
   };
-  for (const card of CARDS) {
-    const [won, even] = said[card.key]!;
+  for (const card of numbersOf(scenario).cards) {
+    const [won, even] = card.said ?? said[card.key]!;
     credit(cardOutcome(card, cold.values, 'reference'), cardOutcome(card, cold.values, 'throttled'), won, even);
   }
-  // The chart: per side, the inputs after which it moves the table, or fills its rows, sooner.
-  for (const reading of ['moves', 'fills'] as const) {
+  // Big file's chart alone: per side, the inputs after which it moves the table, or fills its rows, sooner.
+  for (const reading of scenario.id === BIG_FILE.id ? (['moves', 'fills'] as const) : []) {
     const bySide: Record<Side, Input[]> = { gpui: [], tanstack: [] };
     const even: Input[] = [];
     for (const bar of BARS.filter((bar) => bar.reading === reading)) {
@@ -891,7 +937,8 @@ export function stopWins(scenario: Scenario, cold: ScenarioCold): Wins {
 }
 
 /** Where each side wins in a scenario. */
-export const winsOf = (scenario: Scenario, cold: ScenarioCold): Wins => (numbersOf(scenario).stopCards ? stopWins(scenario, cold) : wins(cold));
+export const winsOf = (scenario: Scenario, cold: ScenarioCold): Wins =>
+  numbersOf(scenario).stopCards ? stopWins(scenario, cold) : wins(cold, scenario);
 
 // ---------------------------------------------------------------- measured with
 
@@ -927,6 +974,10 @@ export interface ScenarioVerdict {
   lean: Lean;
 }
 
+/** A scenario of capabilities' verdict (the admin table's, the design
+ *  canvas's): what `perf/admin.ts` proves each side can do. */
+export const CAPABILITIES: ScenarioVerdict = { text: 'Use the DOM: search, selection, screen readers, every script', lean: 'tanstack' };
+
 const leanOf = (winners: (Side | null)[]): Lean => {
   const sides = new Set(winners.filter((side) => side !== null));
   return sides.size === 2 ? 'split' : sides.size === 1 ? [...sides][0]! : null;
@@ -946,6 +997,8 @@ const HEADLINE: { key: string; says: (o: Outcome) => string }[] = [
  * side wins of Ready in and Smoothness.
  */
 export function scenarioVerdict(scenario: Scenario, cold: ScenarioCold): ScenarioVerdict {
+  // Not a speed test: what each side can do, which `perf/admin.ts` proves.
+  if (scenarioCopy(scenario).capabilities) return CAPABILITIES;
   if (numbersOf(scenario).stopCards) {
     // The fast device, and the slow one too where the fast shows no edge.
     const reach = reachesOf(scenario, cold);
@@ -982,6 +1035,9 @@ export interface Rule {
   /** "Use the DOM for small tables.": the DOM keeps up at a density
    *  dial's smaller stops, where GPUI keeps up further. */
   dom: boolean;
+  /** "… text-heavy tables.": a scenario of capabilities (the admin table)
+   *  has its numbers, and its verdict is the DOM's. */
+  text: boolean;
   /** "Use GPUI past ~380 cells on screen.": a clause per scenario with a
    *  density or a rate dial where GPUI keeps up further than the DOM. */
   gpui: string[];
@@ -996,9 +1052,14 @@ export interface Rule {
  * scenario with a density or a rate dial has numbers.
  */
 export function ruleOf(scenarios: readonly Scenario[], numbers: ColdNumbers): Rule {
-  const rule: Rule = { dom: false, gpui: [] };
+  const rule: Rule = { dom: false, text: false, gpui: [] };
   for (const scenario of scenarios) {
     const cold = numbers.scenarios[scenario.id];
+    if (scenarioCopy(scenario).capabilities) {
+      // Its verdict is the DOM's (`CAPABILITIES`).
+      if (cold) rule.text = true;
+      continue;
+    }
     const stops = scenario.stops as readonly Stop[];
     const keeps = numbersOf(scenario).keeps;
     if (!cold || stops.length < 2 || !numbersOf(scenario).stopCards || !keeps) continue;

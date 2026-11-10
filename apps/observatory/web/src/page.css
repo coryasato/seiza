@@ -543,3 +543,127 @@
 .observatory-split {
   background: linear-gradient(90deg, var(--series-gpui) 50%, var(--series-tanstack) 50%);
 }
+
+/* The admin table drawn small (the design canvas's, chosen): real names in
+   their scripts, a row's flag, name, and bars; the browser's find bar on
+   "Ísland" and its row lit. The rows fit whole: a card's header and five,
+   the mosaic's six (`gallery.ts`'s `adminDrawing`). */
+.observatory-admin {
+  --find: oklch(0.9 0.16 98);
+  --find-on: oklch(0.82 0.15 70);
+  position: relative;
+}
+
+.observatory-admin > span:not(.observatory-head, .observatory-find) {
+  align-items: center;
+  height: 13px;
+  border-radius: 2px;
+  overflow: hidden;
+  font-size: 10.5px;
+  line-height: 13px;
+  white-space: nowrap;
+}
+
+.observatory-admin > span:not(.observatory-head, .observatory-find) > i {
+  height: 9px;
+}
+
+.observatory-admin b {
+  flex: none;
+  width: 14px;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.observatory-admin em {
+  flex: none;
+  width: 30%;
+  overflow: hidden;
+  font-style: normal;
+}
+
+.observatory-admin .observatory-found {
+  background: color-mix(in oklab, var(--find) 30%, transparent);
+}
+
+.observatory-admin mark {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: var(--find-on);
+  color: oklch(0.145 0 0);
+}
+
+.observatory-drawing > .observatory-find {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: auto;
+  height: 20px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 12%);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.observatory-find svg {
+  width: 11px;
+  height: 11px;
+  color: var(--muted-foreground);
+}
+
+.observatory-find small {
+  margin-left: 4px;
+  font-size: inherit;
+  color: var(--muted-foreground);
+}
+
+.observatory-mosaic .observatory-admin > span:not(.observatory-head, .observatory-find) {
+  gap: 3px;
+  height: 10px;
+  font-size: 8px;
+  line-height: 10px;
+}
+
+.observatory-mosaic .observatory-admin > span:not(.observatory-head, .observatory-find) > i {
+  height: 6px;
+}
+
+.observatory-mosaic .observatory-admin b {
+  width: 10px;
+  font-size: 7.5px;
+}
+
+.observatory-mosaic .observatory-admin em {
+  width: 42%;
+}
+
+.observatory-mosaic .observatory-drawing > .observatory-find {
+  top: 3px;
+  right: 3px;
+  height: 14px;
+  gap: 3px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 8px;
+}
+
+.observatory-mosaic .observatory-find svg {
+  width: 8px;
+  height: 8px;
+}
+
+/* The admin table's panel: a script drawn wrong, in the design canvas's
+   red (market watch's fall, set per theme on its table from `scenarios.ts`,
+   `--wrong-<theme>`). */
+.observatory-wrong {
+  color: var(--wrong-light);
+}
+
+.dark .observatory-wrong {
+  color: var(--wrong-dark);
+}

@@ -7,7 +7,8 @@ import { observatoryData } from '../contenders/data.ts';
 import { levelOutDir } from '../contenders/level.ts';
 import { featureLevels, type Level } from '../contenders/scenarios.ts';
 import { coldNumbers } from './cold.ts';
-import { contenderBase, ENGINE, ENGINE_DIR, OBSERVATORY } from '../contenders/paths.ts';
+import { FACES_DIR } from '../contenders/fonts/files.ts';
+import { contenderBase, ENGINE, ENGINE_DIR, OBSERVATORY, SCRIPT_FONTS } from '../contenders/paths.ts';
 import { ROUTES } from './src/components.ts';
 import type * as Prerender from './src/prerender.ts';
 import { SIDEBAR_SCRIPT } from './src/sidebar.ts';
@@ -22,7 +23,8 @@ const sides = ['gpui', 'tanstack'] as const;
 // contenders' release builds at their bases, each level's under its
 // contender's (`just observatory gpui-build [level]`, `tanstack-build
 // [level]` first), the engine at /observatory/duckdb/ (the GPUI
-// build's copy: `engine-files` checks both are the same bytes), and the data.
+// build's copy: `engine-files` checks both are the same bytes), the admin
+// table's script faces (`just observatory script-fonts`), and the data.
 export default defineConfig(
   seizaViteConfig(
     // The first screen is the page's own HTML: nothing to preload.
@@ -41,6 +43,8 @@ export default defineConfig(
           { at: contenderBase('tall-table', 'gpui'), dir: contender('gpui') },
           { at: contenderBase('tall-table', 'tanstack'), dir: contender('tanstack') },
           { at: ENGINE, dir: `${contender('gpui')}${ENGINE_DIR}` },
+          // The admin table's script faces, which GPUI's frame fetches with `?fonts`.
+          { at: SCRIPT_FONTS, dir: FACES_DIR },
         ]),
         observatoryData(),
       ],

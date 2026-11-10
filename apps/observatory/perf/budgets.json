@@ -6405,6 +6405,366 @@
         }
       ],
       "show": ["readme:live-tail"]
+    },
+    {
+      "id": "admin-table-usable-reference",
+      "label": "Admin table: time to first usable, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-admin-table.json",
+          "path": "profiles.reference.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-usable-throttled",
+      "label": "Admin table: time to first usable, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-data-reference",
+      "label": "Admin table: time to data, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-admin-table.json",
+          "path": "profiles.reference.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-data-throttled",
+      "label": "Admin table: time to data, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-smooth-reference",
+      "label": "Admin table: the read-through scroll, frames that moved the view, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-admin-table.json",
+          "path": "profiles.reference.gpui.summary.readThrough.drewPct"
+        },
+        {
+          "glob": "*-scroll-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.readThrough.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-smooth-throttled",
+      "label": "Admin table: the read-through scroll, frames that moved the view, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-scroll-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.readThrough.drewPct"
+        },
+        {
+          "glob": "*-scroll-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.readThrough.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-memory-reference",
+      "label": "Admin table: memory after the scroll down and back, less every canvas buffer (after GC), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcLessCanvas"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcLessCanvas"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-memory-throttled",
+      "label": "Admin table: memory after the scroll down and back, less every canvas buffer (after GC), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcLessCanvas"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcLessCanvas"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-memory-second-reference",
+      "label": "Admin table: runs whose canvas held a second buffer at the end, reference",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.gpui.summary.secondCanvasRunsEnd"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.secondCanvasRunsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-memory-second-throttled",
+      "label": "Admin table: runs whose canvas held a second buffer at the end, throttled",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.secondCanvasRunsEnd"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.secondCanvasRunsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-canvas-buffer-reference",
+      "label": "Admin table: one canvas buffer, reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.gpui.summary.canvasBufferMiB"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.canvasBufferMiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-canvas-buffer-throttled",
+      "label": "Admin table: one canvas buffer, throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.canvasBufferMiB"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.canvasBufferMiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-bytes-reference",
+      "label": "Admin table: the fonts toggle’s faces (13, brotli), GPUI, reference",
+      "unit": "KiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-admin-table-fonts.json",
+          "path": "profiles.reference.gpui.summary.fonts.bytesKiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-bytes-throttled",
+      "label": "Admin table: the fonts toggle’s faces (13, brotli), GPUI, throttled",
+      "unit": "KiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-admin-table-fonts.json",
+          "path": "profiles.throttled.gpui.summary.fonts.bytesKiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-drawn-reference",
+      "label": "Admin table: scripts drawn in (the fonts toggle), GPUI, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-admin-table-fonts.json",
+          "path": "profiles.reference.gpui.summary.fonts.scriptsDrawnMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-drawn-throttled",
+      "label": "Admin table: scripts drawn in (the fonts toggle), GPUI, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-admin-table-fonts.json",
+          "path": "profiles.throttled.gpui.summary.fonts.scriptsDrawnMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-memory-reference",
+      "label": "Admin table: memory with the fonts toggle’s faces, less every canvas buffer (after GC), GPUI, reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table-fonts.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcLessCanvas"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-memory-throttled",
+      "label": "Admin table: memory with the fonts toggle’s faces, less every canvas buffer (after GC), GPUI, throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table-fonts.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcLessCanvas"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-second-reference",
+      "label": "Admin table: runs whose canvas held a second buffer at the end, with fonts, GPUI, reference",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table-fonts.json",
+          "path": "profiles.reference.gpui.summary.secondCanvasRunsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-second-throttled",
+      "label": "Admin table: runs whose canvas held a second buffer at the end, with fonts, GPUI, throttled",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table-fonts.json",
+          "path": "profiles.throttled.gpui.summary.secondCanvasRunsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-memory-runs-reference",
+      "label": "Admin table: memory runs measured, reference",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.gpui.summary.runsMeasured"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.reference.tanstack.summary.runsMeasured"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-memory-runs-throttled",
+      "label": "Admin table: memory runs measured, throttled",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.gpui.summary.runsMeasured"
+        },
+        {
+          "glob": "*-memory-admin-table.json",
+          "path": "profiles.throttled.tanstack.summary.runsMeasured"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-runs-reference",
+      "label": "Admin table: memory runs measured with fonts, GPUI, reference",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table-fonts.json",
+          "path": "profiles.reference.gpui.summary.runsMeasured"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "admin-table-fonts-runs-throttled",
+      "label": "Admin table: memory runs measured with fonts, GPUI, throttled",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-admin-table-fonts.json",
+          "path": "profiles.throttled.gpui.summary.runsMeasured"
+        }
+      ],
+      "show": []
     }
   ]
 }

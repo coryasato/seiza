@@ -7,6 +7,8 @@ declare module 'virtual:data-rows' {
   /** Each data file's rows, by its name in `data/`. */
   const rows: Record<string, number>;
   export default rows;
+  /** The admin table's fonts toggle's faces, counted (`contenders/fonts/faces.ts`). */
+  export const scriptFaces: number;
 }
 
 declare module 'virtual:gallery' {

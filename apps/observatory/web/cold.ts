@@ -14,8 +14,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { format, Reporter } from '../../../shared-web/scripts/results.ts';
+import { SCRIPT_FACES } from '../contenders/fonts/faces.ts';
 import { SCENARIOS, type Scenario } from '../contenders/scenarios.ts';
 import { COMPONENTS, hasCold } from './src/components.ts';
+import { unjudged } from './src/scripts.ts';
 import { derive, galleryOf, metricsOf, partSourcesOf, type ColdNumbers, type Gallery, type ScenarioCold } from './src/readouts.ts';
 
 const ID = 'virtual:cold-numbers';
@@ -60,14 +62,16 @@ const strip = (from: string) => from.replace(/^results\//, '');
 /** One scenario's cold numbers, and the results files they came from. */
 function resolveScenario(reporter: Reporter, scenario: Scenario, files: Record<string, DataEntry>): { cold: ScenarioCold; sources: string[] } {
   const values: ScenarioCold['values'] = {};
+  const gpui: ScenarioCold['gpui'] = {};
   const used = new Set<string>();
-  for (const { id, key } of metricsOf(scenario)) {
+  for (const { id, key, gpuiOnly } of metricsOf(scenario)) {
     const entry = reporter.budgets.metrics.find((candidate) => candidate.id === id);
     const found = entry && reporter.values(entry, 'local');
-    const pair = found?.map((value) => value.value);
-    if (!found || pair?.length !== 2 || !pair.every((value) => typeof value === 'number'))
-      throw new Error(`${id}: no GPUI and TanStack values in perf/results/ (perf/budgets.json)`);
-    values[key] = [Number(format(pair[0])), Number(format(pair[1]))];
+    const got = found?.map((value) => value.value);
+    if (!found || got?.length !== (gpuiOnly ? 1 : 2) || !got.every((value) => typeof value === 'number'))
+      throw new Error(`${id}: no ${gpuiOnly ? 'GPUI value' : 'GPUI and TanStack values'} in perf/results/ (perf/budgets.json)`);
+    if (gpuiOnly) gpui[key] = Number(format(got[0]));
+    else values[key] = [Number(format(got[0])), Number(format(got[1]))];
     for (const value of found) used.add(strip(value.from));
   }
   const parts: ScenarioCold['parts'] = {};
@@ -88,6 +92,7 @@ function resolveScenario(reporter: Reporter, scenario: Scenario, files: Record<s
       for (const [name, version] of Object.entries(json.versions as Record<string, unknown>)) if (typeof version === 'string') versions.set(name, (versions.get(name) ?? new Set()).add(version));
   const cold: ScenarioCold = {
     values: derive(scenario, values),
+    gpui,
     parts,
     ...dataFile(scenario.data, files),
     runs: unique(meta.map((json) => Number(json.runs))).sort((a, b) => a - b),
@@ -100,6 +105,9 @@ function resolveScenario(reporter: Reporter, scenario: Scenario, files: Record<s
 /** The cold numbers, and the files they came from: the page's module, and
  *  `perf/page.ts`'s reference for what the page must show. */
 export function resolveCold(): { numbers: ColdNumbers; sources: string[] } {
+  // Every script face the admin table's panel lists has its shaping verdict.
+  const missing = unjudged();
+  if (missing.length) throw new Error(`no shaping verdict for ${missing.join(', ')} (web/src/scripts.ts)`);
   const reporter = new Reporter(app);
   const files = readManifest();
   const numbers: ColdNumbers = { scenarios: {} };
@@ -142,7 +150,9 @@ export function coldNumbers(): Plugin {
       }
       if (id === ROWS_RESOLVED) {
         this.addWatchFile(manifest);
-        return `export default ${JSON.stringify(dataRows())};`;
+        // The fonts toggle's faces, counted (the title bar says it), so the
+        // first-paint JS carries no copy of their pins.
+        return `export default ${JSON.stringify(dataRows())};\nexport const scriptFaces = ${SCRIPT_FACES.length};`;
       }
       if (id !== RESOLVED) return;
       const { numbers, sources } = cold();

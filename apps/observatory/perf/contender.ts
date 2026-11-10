@@ -18,8 +18,8 @@
 //                          (`usable`, `data`, `memory`), written to
 //                          <date>-<label>-admin-table-fonts.json
 
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test';
 
 /** A page or a frame in one: where a contender runs (the bare page, or
@@ -489,6 +489,35 @@ export async function runMetric<R extends RunResult>(
   extra: Record<string, unknown> | ((picked: Picked | null) => Record<string, unknown>) = {},
   { levels = ['base', 'wide'], allStops = false, defaultStop, defaultRuns = 10, fontsToggle = false }: { levels?: Scenario['level'][]; allStops?: boolean; defaultStop?: string; defaultRuns?: number; fontsToggle?: boolean } = {},
 ): Promise<void> {
+  // `--summarize <file,…> --label <name>`: each results file's summaries
+  // computed again from its runs by the script as it is now, never measured
+  // again, written as a new file under the label (results are append-only),
+  // which names the file it came from (`summarizedFrom`).
+  const again = option('summarize');
+  if (again) {
+    const label = option('label');
+    if (!label) throw new Error('--summarize writes a new results file: give it a --label');
+    for (const file of again.split(',')) {
+      const json = JSON.parse(readFileSync(file, 'utf8')) as { metric?: string; scenario?: string; stop?: { id: string }; fonts?: boolean; label?: string; profiles: Record<string, Record<string, { summary: unknown; runs: R[] }>> } & Record<string, unknown>;
+      if (json.metric !== metric) throw new Error(`--summarize ${file}: a ${json.metric} file, not ${metric}`);
+      for (const [profile, sides] of Object.entries(json.profiles))
+        for (const [side, entry] of Object.entries(sides)) {
+          try {
+            entry.summary = summarize(entry.runs);
+          } catch (error) {
+            throw new Error(`--summarize ${file}, ${profile} ${side}: ${(error as Error).message}`);
+          }
+        }
+      const scenario = ALL_SCENARIOS.find((candidate) => candidate.id === json.scenario);
+      const stop = scenario?.stops.find((candidate) => candidate.id === json.stop?.id);
+      const suffix = scenario && stop && scenario.id !== BIG_FILE.id ? `-${resultLabel({ scenario, stop } as Picked)}${json.fonts ? '-fonts' : ''}` : '';
+      const date = new Date().toISOString().slice(0, 10);
+      const out = join(perfDir, 'results', `${date}-${label}${suffix}.json`);
+      writeFileSync(out, `${JSON.stringify({ ...json, date, label, summarizedFrom: basename(file) }, null, 2)}\n`);
+      console.log(`summarized ${file} again from its runs: wrote ${out}`);
+    }
+    return;
+  }
   // The fonts toggle: the admin table's, on the GPUI side alone.
   const fonts = flag('fonts');
   if (fonts && !fontsToggle) throw new Error(`metric ${metric} doesn't run with --fonts`);

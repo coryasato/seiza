@@ -1,0 +1,3973 @@
+{
+  "date": "2026-11-10",
+  "label": "m12-d-memory",
+  "metric": "memory",
+  "scenario": "admin-table",
+  "stop": {
+    "id": "all",
+    "label": "All rows"
+  },
+  "fonts": true,
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "session": "the one page at the open, then the read-through down and back",
+  "readThrough": {
+    "y": -6000,
+    "speed": 3000
+  },
+  "quietMs": 1000,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "cacheMiBOpen": 0,
+          "cacheMiBEnd": 0,
+          "cacheBytesEndAllEqual": true,
+          "dataReads": 3,
+          "pageMiBOpen": 33.3,
+          "pageMiBOpenAfterGc": 33.4,
+          "pageMiBOpenAfterGcLessWindow": 13.6,
+          "pageMiBOpenAfterGcByType": {
+            "JavaScript": 13.6,
+            "Canvas": 19.8
+          },
+          "pageMiBEnd": 53.7,
+          "pageMiBEndAfterGc": 53.7,
+          "pageMiBEndAfterGcLessWindow": 33.9,
+          "pageMiBEndAfterGcByType": {
+            "JavaScript": 14.1,
+            "Canvas": 39.6
+          },
+          "pageMiBOpenAfterGcLessCanvas": 13.6,
+          "pageMiBEndAfterGcLessCanvas": 14.1,
+          "secondCanvasRunsOpen": 1,
+          "secondCanvasRunsEnd": 10,
+          "canvasBufferMiB": 19.8,
+          "runsMeasured": 10,
+          "wasmMiBOpen": 10.6,
+          "wasmMiBEnd": 11.1,
+          "jsHeapMiBEndAfterGc": 3.5,
+          "nodesEnd": 54,
+          "workerMiBEnd": 56.6,
+          "bytesKiB": {
+            "html": 11.4,
+            "js": 25.5,
+            "wasm": 2771.5,
+            "css": 0,
+            "font": 69.7,
+            "faces": 586.7,
+            "other": 0,
+            "engine": 5744.9,
+            "data": 9
+          },
+          "filesKiB": {
+            "/fonts/IBMPlexSans-Regular.ttf": {
+              "kind": "font",
+              "encoding": "br",
+              "kib": 69.7
+            },
+            "/observatory/contenders/tall-table/gpui/": {
+              "kind": "html",
+              "encoding": "br",
+              "kib": 11.4
+            },
+            "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 39.3
+            },
+            "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 1.5
+            },
+            "/observatory/contenders/tall-table/gpui/assets/index.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 24
+            },
+            "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+              "kind": "wasm",
+              "encoding": "br",
+              "kib": 2771.5
+            },
+            "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 152.5
+            },
+            "/observatory/duckdb/duckdb-eh.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 5065.5
+            },
+            "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 487.6
+            },
+            "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 54.1
+            },
+            "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 9.2
+            },
+            "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 46.1
+            },
+            "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 60.2
+            },
+            "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 77.5
+            },
+            "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 17.6
+            },
+            "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 8
+            },
+            "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 21.7
+            },
+            "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 10.2
+            },
+            "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 55.5
+            },
+            "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 33.3
+            },
+            "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 10.8
+            },
+            "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 182.4
+            }
+          }
+        },
+        "runs": [
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34811819,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14071463
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564072,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34931001,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14190645
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507220,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56361608,
+                "pageByType": {
+                  "JavaScript": 14885252,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3666976,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56277584,
+                "pageByType": {
+                  "JavaScript": 14801228,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620788,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34927107,
+                "pageByType": {
+                  "JavaScript": 14186751,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564200,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 35003917,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14263561
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507348,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56371625,
+                "pageByType": {
+                  "JavaScript": 14895269,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3667212,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56291816,
+                "pageByType": {
+                  "JavaScript": 14815460,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620848,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 55767600,
+                "pageByType": {
+                  "JavaScript": 14291244,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59349734,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3558716,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 55665778,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14189422
+                },
+                "workerBytes": 59343966,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507372,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56325720,
+                "pageByType": {
+                  "JavaScript": 14849364,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343978,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3667096,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56294352,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14817996
+                },
+                "workerBytes": 59343990,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620908,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34943838,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14203482
+                },
+                "workerBytes": 59348894,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564196,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34972955,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14232599
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507380,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56353689,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14877333
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3667268,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56281851,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14805495
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620904,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34934745,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14194389
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564444,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34960922,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14220566
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3508016,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56333841,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14857485
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3668400,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56284742,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14808386
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622212,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34952639,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14212283
+                },
+                "workerBytes": 59349814,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564280,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34979757,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14239401
+                },
+                "workerBytes": 59344046,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507364,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56339910,
+                "pageByType": {
+                  "JavaScript": 14863554,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59344058,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3666784,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56279217,
+                "pageByType": {
+                  "JavaScript": 14802861,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59344070,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620420,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34926734,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14186378
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564280,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34923352,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14182996
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507364,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56350813,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14874457
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3667296,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56294532,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14818176
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620932,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 35040117,
+                "pageByType": {
+                  "JavaScript": 14299761,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3563820,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34913726,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14173370
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3506920,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56344745,
+                "pageByType": {
+                  "JavaScript": 14868389,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3666784,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56293888,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14817532
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620596,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34446635,
+                "pageByType": {
+                  "JavaScript": 13706279,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564200,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34971743,
+                "pageByType": {
+                  "JavaScript": 14231387,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507348,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56336037,
+                "pageByType": {
+                  "JavaScript": 14859681,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3667280,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56298225,
+                "pageByType": {
+                  "JavaScript": 14821869,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620916,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34925645,
+                "pageByType": {
+                  "JavaScript": 14185289,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59349694,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3564248,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34975758,
+                "pageByType": {
+                  "JavaScript": 14235402,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59343926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3507348,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56336984,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14860628
+                },
+                "workerBytes": 59343938,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3667248,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56292308,
+                "pageByType": {
+                  "JavaScript": 14815952,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59343950,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3620884,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "cacheMiBOpen": 0,
+          "cacheMiBEnd": 0,
+          "cacheBytesEndAllEqual": true,
+          "dataReads": 3,
+          "pageMiBOpen": 33.3,
+          "pageMiBOpenAfterGc": 33.4,
+          "pageMiBOpenAfterGcLessWindow": 13.6,
+          "pageMiBOpenAfterGcByType": {
+            "JavaScript": 13.6,
+            "Canvas": 19.8
+          },
+          "pageMiBEnd": 53.8,
+          "pageMiBEndAfterGc": 53.8,
+          "pageMiBEndAfterGcLessWindow": 34,
+          "pageMiBEndAfterGcByType": {
+            "JavaScript": 14.2,
+            "Canvas": 39.6
+          },
+          "pageMiBOpenAfterGcLessCanvas": 13.6,
+          "pageMiBEndAfterGcLessCanvas": 14.2,
+          "secondCanvasRunsOpen": 0,
+          "secondCanvasRunsEnd": 10,
+          "canvasBufferMiB": 19.8,
+          "runsMeasured": 10,
+          "wasmMiBOpen": 10.6,
+          "wasmMiBEnd": 11.1,
+          "jsHeapMiBEndAfterGc": 3.5,
+          "nodesEnd": 54,
+          "workerMiBEnd": 56.6,
+          "bytesKiB": {
+            "html": 11.4,
+            "js": 25.5,
+            "wasm": 2771.5,
+            "css": 0,
+            "font": 69.7,
+            "faces": 586.7,
+            "other": 0,
+            "engine": 5744.9,
+            "data": 9
+          },
+          "filesKiB": {
+            "/fonts/IBMPlexSans-Regular.ttf": {
+              "kind": "font",
+              "encoding": "br",
+              "kib": 69.7
+            },
+            "/observatory/contenders/tall-table/gpui/": {
+              "kind": "html",
+              "encoding": "br",
+              "kib": 11.4
+            },
+            "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 39.3
+            },
+            "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 1.5
+            },
+            "/observatory/contenders/tall-table/gpui/assets/index.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 24
+            },
+            "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+              "kind": "wasm",
+              "encoding": "br",
+              "kib": 2771.5
+            },
+            "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 152.5
+            },
+            "/observatory/duckdb/duckdb-eh.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 5065.5
+            },
+            "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 487.6
+            },
+            "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 54.1
+            },
+            "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 9.2
+            },
+            "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 46.1
+            },
+            "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 60.2
+            },
+            "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 77.5
+            },
+            "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 17.6
+            },
+            "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 8
+            },
+            "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 21.7
+            },
+            "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 10.2
+            },
+            "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 55.5
+            },
+            "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 33.3
+            },
+            "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 10.8
+            },
+            "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+              "kind": "faces",
+              "encoding": "br",
+              "kib": 182.4
+            }
+          }
+        },
+        "runs": [
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34962919,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14222563
+                },
+                "workerBytes": 59358926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567276,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 35072677,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14332321
+                },
+                "workerBytes": 59353190,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509072,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56400596,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14924240
+                },
+                "workerBytes": 59353202,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669288,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56307512,
+                "pageByType": {
+                  "JavaScript": 14831156,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353214,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622496,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34876475,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14136119
+                },
+                "workerBytes": 59359078,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567536,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34973674,
+                "pageByType": {
+                  "JavaScript": 14233318,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59353310,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509308,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56367798,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14891442
+                },
+                "workerBytes": 59353322,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669384,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56339228,
+                "pageByType": {
+                  "JavaScript": 14862872,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353334,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622592,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 35053226,
+                "pageByType": {
+                  "JavaScript": 14312870,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59358902,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567372,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34973269,
+                "pageByType": {
+                  "JavaScript": 14232913,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59353166,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509132,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56480174,
+                "pageByType": {
+                  "JavaScript": 15003818,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353178,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669256,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56293493,
+                "pageByType": {
+                  "JavaScript": 14817137,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353190,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622464,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34927816,
+                "pageByType": {
+                  "JavaScript": 14187460,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59358902,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567400,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 35051372,
+                "pageByType": {
+                  "JavaScript": 14311016,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59353166,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509164,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56472375,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14996019
+                },
+                "workerBytes": 59353178,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669296,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56444419,
+                "pageByType": {
+                  "JavaScript": 14968063,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353190,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622504,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34927256,
+                "pageByType": {
+                  "JavaScript": 14186900,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59359006,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567308,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 35072008,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14331652
+                },
+                "workerBytes": 59353302,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509104,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56471334,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14994978
+                },
+                "workerBytes": 59353314,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669320,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56371321,
+                "pageByType": {
+                  "JavaScript": 14894965,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353326,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622528,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34927108,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14186752
+                },
+                "workerBytes": 59358650,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567368,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34952166,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14211810
+                },
+                "workerBytes": 59352882,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509132,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56321567,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14845211
+                },
+                "workerBytes": 59352894,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669288,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56372392,
+                "pageByType": {
+                  "JavaScript": 14896036,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59352906,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622496,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 35018714,
+                "pageByType": {
+                  "JavaScript": 14278358,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59359018,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567344,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34930016,
+                "pageByType": {
+                  "JavaScript": 14189660,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59353314,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509104,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56470903,
+                "pageByType": {
+                  "JavaScript": 14994547,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353326,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3668808,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56442855,
+                "pageByType": {
+                  "Canvas": 41476356,
+                  "JavaScript": 14966499
+                },
+                "workerBytes": 59353338,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622016,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34969925,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14229569
+                },
+                "workerBytes": 59358982,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567344,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 35072861,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14332505
+                },
+                "workerBytes": 59353278,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509104,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56321163,
+                "pageByType": {
+                  "JavaScript": 14844807,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353290,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669320,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56444424,
+                "pageByType": {
+                  "JavaScript": 14968068,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353302,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622528,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34927092,
+                "pageByType": {
+                  "JavaScript": 14186736,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59358926,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567404,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34994766,
+                "pageByType": {
+                  "JavaScript": 14254410,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59353190,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509164,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56457571,
+                "pageByType": {
+                  "JavaScript": 14981215,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353202,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669508,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56444607,
+                "pageByType": {
+                  "JavaScript": 14968251,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353214,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622540,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          },
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 34913836,
+                "pageByType": {
+                  "Canvas": 20740356,
+                  "JavaScript": 14173480
+                },
+                "workerBytes": 59359178,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3567340,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 34928120,
+                "pageByType": {
+                  "JavaScript": 14187764,
+                  "Canvas": 20740356
+                },
+                "workerBytes": 59353474,
+                "wasmBytes": 11141120,
+                "jsHeapBytes": 3509104,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56375516,
+                "pageByType": {
+                  "JavaScript": 14899160,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353486,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3669288,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56295467,
+                "pageByType": {
+                  "JavaScript": 14819111,
+                  "Canvas": 41476356
+                },
+                "workerBytes": 59353498,
+                "wasmBytes": 11665408,
+                "jsHeapBytes": 3622496,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 16776,
+            "cacheBytesEnd": 16776,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/": {
+                "kind": "html",
+                "bytes": 11670,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/index.js": {
+                "kind": "js",
+                "bytes": 24579,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2837969,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40260,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/assets/fonts.js": {
+                "kind": "js",
+                "bytes": 1544,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArmenian-Regular-2.008.ttf": {
+                "kind": "faces",
+                "bytes": 9434,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansGeorgian-Regular-2.005.ttf": {
+                "kind": "faces",
+                "bytes": 18040,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansBengali-Regular-3.011.ttf": {
+                "kind": "faces",
+                "bytes": 47217,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansArabic-Regular-2.013.ttf": {
+                "kind": "faces",
+                "bytes": 55375,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansHebrew-Regular-3.001.ttf": {
+                "kind": "faces",
+                "bytes": 8241,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansDevanagari-Regular-2.007.ttf": {
+                "kind": "faces",
+                "bytes": 61649,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansEthiopic-Regular-2.102.ttf": {
+                "kind": "faces",
+                "bytes": 79404,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansKhmer-Regular-2.004.ttf": {
+                "kind": "faces",
+                "bytes": 22221,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansLao-Regular-2.003.ttf": {
+                "kind": "faces",
+                "bytes": 10433,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansThai-Regular-2.002.ttf": {
+                "kind": "faces",
+                "bytes": 11067,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansSinhala-Regular-3.000.ttf": {
+                "kind": "faces",
+                "bytes": 34114,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSansMyanmar-Regular-2.107.ttf": {
+                "kind": "faces",
+                "bytes": 56805,
+                "encoding": "br"
+              },
+              "/observatory/fonts/NotoSerifTibetan-Regular-2.103.ttf": {
+                "kind": "faces",
+                "bytes": 186779,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11670,
+              "js": 26123,
+              "wasm": 2837969,
+              "css": 0,
+              "font": 71333,
+              "faces": 600779,
+              "engine": 5882778,
+              "data": 9234,
+              "other": 0
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": [],
+  "summarizedFrom": "2026-11-10-m12-c2-memory-admin-table-fonts.json"
+}

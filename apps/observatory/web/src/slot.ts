@@ -34,9 +34,9 @@ import { ChevronDown, Info } from 'lucide-react';
 import { createElement as h, lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { ToggleGroup, ToggleGroupItem } from '@seiza/site-ui/components/toggle-group';
 import { currentTheme, onThemeChange } from '@seiza/site-ui/theme';
-import rows from 'virtual:data-rows';
-import { MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
-import { FONTS } from '../../contenders/paths.ts';
+import rows, { scriptFaces } from 'virtual:data-rows';
+import { FONTS_PARAM, MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
+import { FONTS, SCRIPT_FONTS } from '../../contenders/paths.ts';
 import { SCENARIO_PARAM, type DensityStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 import { COMPARE_HASH, feeds, hasCold, seriesDot, isDensity, READOUT_PARAM, scenarioCopy, SIDE_PARAM, stopSets, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
@@ -105,6 +105,20 @@ export { seriesDot } from './components.ts';
 type FrameState = 'app' | 'engine' | 'data' | 'filled' | 'failed';
 const loading = (state: FrameState) => state === 'app' || state === 'engine' || state === 'data';
 
+/** The admin table's fonts toggle on the shown side: off, the faces
+ *  coming (the frame reloading with `?fonts`, then fetching them once its
+ *  rows are in), drawn (`contender:fonts`), or failed
+ *  (`contender:fonts-failed`). TanStack's is always off: it has the
+ *  system's fonts. */
+export type FontsState = 'off' | 'loading' | 'on' | 'failed';
+
+/** The faces' bytes this load fetched or took from the cache, compressed
+ *  as sent (the frame's Resource Timing), KiB; null before they're in. */
+function facesKiB(frame: HTMLIFrameElement | null): number | null {
+  const entries = (frame?.contentWindow?.performance.getEntriesByType('resource') ?? []).filter((entry) => new URL(entry.name, location.href).pathname.startsWith(SCRIPT_FONTS)) as PerformanceResourceTiming[];
+  return entries.length ? entries.reduce((total, entry) => total + entry.encodedBodySize, 0) / 1024 : null;
+}
+
 /** The panel's id, for the status bar's Compare (`aria-controls`). */
 export const PANEL_ID = 'observatory-panel';
 
@@ -113,6 +127,7 @@ const StatusBar = lazy(() => import('./numbers.ts').then(({ StatusBar }) => ({ d
 const Panel = lazy(() => import('./numbers.ts').then(({ Panel }) => ({ default: Panel })));
 const Meter = lazy(() => import('./numbers.ts').then(({ Meter }) => ({ default: Meter })));
 const Follow = lazy(() => import('./numbers.ts').then(({ FollowToggle }) => ({ default: FollowToggle })));
+const Fonts = lazy(() => import('./numbers.ts').then(({ FontsToggle }) => ({ default: FontsToggle })));
 
 /** Sends the page's theme to a contender's frame. */
 function sendTheme(frame: HTMLIFrameElement | null, theme = currentTheme()): void {
@@ -133,6 +148,11 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   /** The shown frame marked a failure: after its first rows, a feed that stopped. */
   const [stopped, setStopped] = useState(false);
   const [panel, setPanel] = useState(false);
+  /** The admin table's fonts toggle: GPUI's frame asks for the faces, and
+   *  what its marks have said of them since. */
+  const [fonts, setFonts] = useState(false);
+  const [fontsMark, setFontsMark] = useState<'waiting' | 'on' | 'failed'>('waiting');
+  const [fontsKiB, setFontsKiB] = useState<number | null>(null);
   const ref = useRef<HTMLIFrameElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const copy = scenarioCopy(scenario);
@@ -165,6 +185,10 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
       if (event.data.name === MARKS.filled) setState('filled');
       else if (event.data.name === MARKS.usable) setState((state) => (state === 'app' ? 'engine' : state));
       else if (event.data.name === MARKS.open) setState((state) => (state === 'app' || state === 'engine' ? 'data' : state));
+      else if (event.data.name === MARKS.fonts) {
+        setFontsKiB(facesKiB(ref.current));
+        setFontsMark('on');
+      } else if (event.data.name === MARKS.fontsFailed) setFontsMark('failed');
       else if (event.data.name === MARKS.failed) {
         // After the first rows the state stays filled; the feed's row says it stopped.
         setStopped(true);
@@ -187,8 +211,10 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
     const params = new URLSearchParams({ [SCENARIO_PARAM]: scenario.id, [STOP_PARAM]: stop.id, theme: currentTheme() });
     // A feed's frame keeps what this tab's Shown in reads (`live.ts`).
     if (feeds(scenario)) params.set(READOUT_PARAM, '');
+    // The admin table's fonts toggle, on GPUI's side alone.
+    if (fonts && shown?.side === 'gpui') params.set(FONTS_PARAM, '');
     return `${base}?${params}`;
-  }, [base, painted, frame, stop, scenario]);
+  }, [base, painted, frame, stop, scenario, fonts]);
   // This tab's readouts follow each frame from its creation (`live.ts`).
   useEffect(() => {
     if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base, feeds(scenario));
@@ -198,6 +224,8 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   const reload = (params: Record<string, string | null>) => {
     setState('app');
     setStopped(false);
+    setFontsMark('waiting');
+    setFontsKiB(null);
     setFrame((frame) => frame + 1);
     const url = new URL(location.href);
     for (const [name, value] of Object.entries(params)) {
@@ -209,6 +237,8 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   const flip = (next: Side) => {
     if (next === side || busy) return;
     setSide(next);
+    // A flip is a load: GPUI's side comes back without the faces.
+    setFonts(false);
     reload({ [SIDE_PARAM]: next === component.contenders[0].side ? null : next });
   };
   const pick = (next: Stop) => {
@@ -222,7 +252,19 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
     ref.current?.focus();
   };
 
-  const text = status(shown, state);
+  // The fonts toggle's state on the shown side.
+  // A frame that failed sends no fonts mark: its faces failed with it, and the toggle stays usable.
+  const fontsState: FontsState = !fonts || shown?.side !== 'gpui' ? 'off' : fontsMark === 'on' ? 'on' : fontsMark === 'failed' || state === 'failed' ? 'failed' : 'loading';
+  const toggleFonts = () => {
+    if (busy || shown?.side !== 'gpui' || fontsState === 'loading') return;
+    setFonts(!fonts);
+    reload({});
+  };
+  // The title bar's second control, a dial or the fonts toggle: the state
+  // beside it is cut on a phone.
+  const compact = !!dial || !!copy.fonts;
+  const text = status(shown, state, fontsState, fontsKiB);
+  const short = state === 'filled' ? (fontsState === 'loading' ? 'Fonts…' : fontsState === 'on' ? 'Fonts on' : 'Ready') : state === 'failed' ? 'Failed' : 'Loading…';
   return h(
     'section',
     { className: 'observatory-window flex flex-1 flex-col overflow-hidden border-b bg-card md:rounded-xl md:border md:shadow-xs', 'aria-label': `${component.label}, ${scenario.label}: the contenders` },
@@ -244,20 +286,22 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
         ...component.contenders.map((contender) => h(ToggleGroupItem, { key: contender.side, value: contender.side, className: 'h-7 gap-2 px-3 text-[13px]' }, seriesDot(contender.side), contender.label)),
       ),
       dial ? h(Dial, { scenario, dial, stop, pick, busy, stage, rows: fileRows }) : null,
+      // The admin table's fonts toggle, after first paint, as live tail's follow toggle.
+      painted && copy.fonts ? h(Suspense, { fallback: null }, h(Fonts, { gpui: shown?.side === 'gpui', state: fontsState, busy, faces: scriptFaces, toggle: toggleFonts })) : null,
       // Live tail's follow toggle, after first paint, each frame's its own.
       painted && scenario.level === 'tail' ? h(Suspense, { fallback: null }, h(Follow, { key: frame, frame: ref, disabled: state !== 'filled' || stopped })) : null,
-      dial ? h('span', { className: 'h-5 w-px shrink-0 bg-border max-md:hidden', 'aria-hidden': true }) : null,
+      compact ? h('span', { className: 'h-5 w-px shrink-0 bg-border max-md:hidden', 'aria-hidden': true }) : null,
       h(
         'span',
         { className: 'flex shrink-0 items-center gap-0.5' },
         // The full text is the live region; a phone shows it cut, to fit beside the dial.
-        h('span', { 'data-state': state, className: `whitespace-nowrap text-[13px] text-muted-foreground ${dial ? 'max-md:sr-only' : ''}`, 'aria-live': 'polite' }, text),
-        dial ? h('span', { className: 'text-[13px] text-muted-foreground md:hidden', 'aria-hidden': true }, state === 'filled' ? 'Ready' : state === 'failed' ? 'Failed' : 'Loading…') : null,
+        h('span', { 'data-state': state, 'data-fonts-state': copy.fonts ? fontsState : undefined, className: `whitespace-nowrap text-[13px] text-muted-foreground ${compact ? 'max-md:sr-only' : ''}`, 'aria-live': 'polite' }, text),
+        compact ? h('span', { className: 'text-[13px] text-muted-foreground md:hidden', 'aria-hidden': true }, short) : null,
         h(
           Explainer,
           { trigger: h(Info, { 'aria-hidden': true }), triggerProps: { 'aria-label': 'About this load', className: ICON_BUTTON }, width: 320 },
           'One side runs at a time, alone in this frame, so the two never share the processor. Each scenario is a build of its own, so another scenario loads its app; a flip or a stop reloads this frame, from your cache where it can.',
-          painted && shown ? h(LoadRows, { shown, scenario, state, stopped, frame: ref }) : null,
+          painted && shown ? h(LoadRows, { shown, scenario, state, stopped, frame: ref, fonts: fontsState }) : null,
         ),
       ),
       copy.synthetic ? h('span', { 'data-synthetic': '', className: 'shrink-0 rounded-sm border px-1.5 text-[11px] leading-[18px] whitespace-nowrap text-muted-foreground max-md:hidden' }, 'Synthetic data') : null,
@@ -277,7 +321,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
           })
         : null,
       painted && shown ? h(Suspense, { fallback: null }, h(Meter, { side: shown.side, panel })) : null,
-      panel ? h(Suspense, { fallback: null }, h(Panel, { id: PANEL_ID, contenders: component.contenders, scenario, stop, onClose: closePanel })) : null,
+      panel ? h(Suspense, { fallback: null }, h(Panel, { id: PANEL_ID, contenders: component.contenders, scenario, stop, fonts: fontsState, onClose: closePanel })) : null,
     ),
     h(
       'div',
@@ -298,7 +342,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
  *  loads its bundles and reads the data, and a worker's requests aren't
  *  in the frame's timing: those rows say so rather than guess. A failed
  *  load claims nothing past the app. */
-function LoadRows({ shown, scenario, state, stopped, frame }: { shown: Contender; scenario: Scenario; state: FrameState; stopped: boolean; frame: RefObject<HTMLIFrameElement | null> }) {
+function LoadRows({ shown, scenario, state, stopped, frame, fonts }: { shown: Contender; scenario: Scenario; state: FrameState; stopped: boolean; frame: RefObject<HTMLIFrameElement | null>; fonts: FontsState }) {
   const failed = state === 'failed';
   const copy = scenarioCopy(scenario);
   const step = { app: 0, engine: 1, data: 2, filled: 3, failed: 3 }[state];
@@ -311,6 +355,10 @@ function LoadRows({ shown, scenario, state, stopped, frame }: { shown: Contender
     // A feed's (market watch's prices, live tail's clock): made in the frame once it fills.
     ...(copy.made ? ([[copy.made.what, failed ? 'not started' : stopped ? 'stopped: its frame says why' : state === 'filled' ? copy.made.filled : 'next']] as [string, string][]) : []),
     ['The font', at(0, read(FONTS))],
+    // The admin table's fonts toggle: the faces, once the rows are in.
+    ...(fonts === 'off'
+      ? []
+      : ([[`Fonts for ${scriptFaces} scripts`, failed ? 'not fetched' : state !== 'filled' ? 'next' : fonts === 'loading' ? 'loading…' : fonts === 'failed' ? 'failed: its frame’s console says why' : read(SCRIPT_FONTS)]] as [string, string][])),
   ];
   const why = warmth(shown.side);
   return h(
@@ -426,8 +474,16 @@ function Dial({ scenario, dial, stop, pick, busy, stage, rows }: DialProps) {
 /** The icon button an explainer's (i) is. */
 export const ICON_BUTTON = 'inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground [&_svg]:size-3.5';
 
-function status(shown: Contender | null, state: FrameState): string {
+function status(shown: Contender | null, state: FrameState, fonts: FontsState, fontsKiB: number | null): string {
   if (state === 'failed' && shown) return `${shown.label} didn't load its data: its frame says why.`;
-  if (state === 'filled' && shown) return `Ready · ${isWarm(shown.side) ? 'warm' : 'cold load'}`;
+  if (state === 'filled' && shown) {
+    const ready = `Ready · ${isWarm(shown.side) ? 'warm' : 'cold load'}`;
+    // The fonts toggle's faces: a load of their own, after the rows.
+    if (fonts === 'loading') return `${ready} · loading fonts for ${scriptFaces} scripts…`;
+    // Still "Ready · warm" first: this tab's numbers stay labelled warm.
+    if (fonts === 'on') return `${ready} · Fonts loaded after first paint${fontsKiB === null ? '' : `: ${Math.round(fontsKiB)} KiB`}. CJK drawn by the browser.`;
+    if (fonts === 'failed') return `${ready} · the fonts didn’t load`;
+    return ready;
+  }
   return state === 'app' ? 'Loading the app…' : state === 'data' ? 'Loading the data…' : 'Loading the engine…';
 }

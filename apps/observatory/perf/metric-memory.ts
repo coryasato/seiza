@@ -128,6 +128,16 @@ async function reading(page: Page, session: Session): Promise<Reading> {
  *  counted as "Canvas". */
 const lessWindow = (taken: Reading): number => taken.pageBytes - Math.min(taken.windowCanvasBytes, taken.pageByType.Canvas ?? 0);
 
+/** The page's bytes less every canvas buffer the browser counted ("Canvas"):
+ *  the side's own memory, the card's reading (`docs/DECISIONS.md`,
+ *  "Measurement", 2026-11-09). Never the `JavaScript` type, which equals it
+ *  only while the page reports no other type. */
+const lessCanvas = (taken: Reading): number => taken.pageBytes - (taken.pageByType.Canvas ?? 0);
+
+/** Whether the browser counted a second window-sized buffer for the
+ *  window's canvas: "Canvas" past one and a half windows. */
+const secondBuffer = (taken: Reading): boolean => taken.windowCanvasBytes > 0 && (taken.pageByType.Canvas ?? 0) > 1.5 * taken.windowCanvasBytes;
+
 /** As measured, then after a forced garbage collection (the page's: the
  *  engine's worker isn't collected, so its reading is the measured one). */
 async function both(page: Page, session: Session): Promise<{ measured: Reading; afterGc: Reading }> {
@@ -281,6 +291,12 @@ await runMetric<Run>(
     }
   },
   (runs) => {
+    // Every reading this summary reads: a run from before one of them (a
+    // file summarized again) fails rather than reading as none.
+    for (const [index, run] of runs.entries())
+      for (const [at, taken] of [['open', run.open?.afterGc], ['end', run.atEnd?.afterGc]] as const)
+        if (typeof taken?.pageBytes !== 'number' || typeof taken.windowCanvasBytes !== 'number' || typeof taken.pageByType !== 'object')
+          throw new Error(`run ${index + 1}'s ${at} reading lacks the page's bytes, their types, or the window's canvas`);
     // A value a run lacks (`undefined`) is left out of the median, not counted as 0.
     const mib = (pick: (run: Run) => number | undefined) => medianOf(runs, (run) => {
       const value = pick(run);
@@ -310,6 +326,14 @@ await runMetric<Run>(
       pageMiBEndAfterGc: mib((run) => run.atEnd.afterGc.pageBytes),
       pageMiBEndAfterGcLessWindow: mib((run) => lessWindow(run.atEnd.afterGc)),
       pageMiBEndAfterGcByType: Object.fromEntries(types.map((type) => [type, mib((run) => run.atEnd.afterGc.pageByType[type])])),
+      // The card: the page less every canvas buffer; beside it, the runs in
+      // which the browser counted a second one, and one buffer's size.
+      pageMiBOpenAfterGcLessCanvas: mib((run) => lessCanvas(run.open.afterGc)),
+      pageMiBEndAfterGcLessCanvas: mib((run) => lessCanvas(run.atEnd.afterGc)),
+      secondCanvasRunsOpen: runs.filter((run) => secondBuffer(run.open.afterGc)).length,
+      secondCanvasRunsEnd: runs.filter((run) => secondBuffer(run.atEnd.afterGc)).length,
+      canvasBufferMiB: mib((run) => run.atEnd.afterGc.windowCanvasBytes),
+      runsMeasured: runs.length,
       wasmMiBOpen: mib((run) => run.open.measured.wasmBytes),
       wasmMiBEnd: mib((run) => run.atEnd.measured.wasmBytes),
       jsHeapMiBEndAfterGc: mib((run) => run.atEnd.afterGc.jsHeapBytes),

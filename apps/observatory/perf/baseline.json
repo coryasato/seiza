@@ -15,13 +15,13 @@
     "dataLayer": 34.7
   },
   "page": {
-    "date": "2026-10-19",
+    "date": "2026-11-10",
     "machine": "local",
     "firstPaintMs": {
-      "reference": 70.8,
-      "throttled": 437.4
+      "reference": 60.4,
+      "throttled": 439.3
     },
-    "firstPaintJsBrotliKiB": 78.2
+    "firstPaintJsBrotliKiB": 86.8
   },
   "levels": {
     "wide": {

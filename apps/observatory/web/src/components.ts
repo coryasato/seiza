@@ -16,7 +16,7 @@
 import { createElement as h } from 'react';
 import type { Side } from '../../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../../contenders/paths.ts';
-import { BIG_FILE, LIVE_TAIL, MARKET_WATCH, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 
 export interface Contender {
   side: Side;
@@ -47,6 +47,13 @@ export interface ScenarioCopy {
   /** For a scenario without a dial: what its numbers are instead, for the
    *  component's page's "How far each side keeps up". */
   session?: string;
+  /** Not a speed test (the admin table): its Compare is what each side can
+   *  do, and its card's verdict says so (`readouts.ts`'s `CAPABILITIES`). */
+  capabilities?: boolean;
+  /** The admin table's fonts toggle in the title bar, where a dial would be
+   *  (`docs/DECISIONS.md`, "Page", 2026-11-09): GPUI's side reloads with
+   *  `?fonts`. */
+  fonts?: boolean;
   /** Its data is made up (the design canvas's "Synthetic data" tag, in the
    *  title bar and on its card). */
   synthetic?: boolean;
@@ -135,6 +142,14 @@ const COPY: Record<string, ScenarioCopy> = {
     // rows: the page can't see that moment, so the row says the order.
     made: { what: 'The replay’s clock (generated here)', filled: 'once the file is whole' },
   },
+  'admin-table': {
+    dataLabel: 'The world’s countries (CLDR, Wikidata)',
+    lead: () => 'The world’s countries in their own scripts. Try finding one.',
+    // The design canvas's: scrolling off the main thread and the platform's tools.
+    leans: ['compositor', 'platform'],
+    capabilities: true,
+    fonts: true,
+  },
 };
 
 export const scenarioCopy = (scenario: Scenario): ScenarioCopy => {
@@ -165,7 +180,7 @@ export const COMPONENTS: Component[] = [
 /** The scenarios whose cold numbers the page shows: `cold.ts` resolves
  *  each one's, and fails the build on a missing value. A scenario joins
  *  once its numbers part has run. */
-const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id, LIVE_TAIL.id];
+const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id, LIVE_TAIL.id, ADMIN_TABLE.id];
 
 /** Whether the page has a scenario's cold numbers: without them its status
  *  bar has no cold rows, its Compare is off, and it has no description. */
