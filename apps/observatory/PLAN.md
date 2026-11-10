@@ -26,7 +26,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M9 | Scenario: wide sheet (parts A1–E4) | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
-| M12 | Scenario: admin table (the control) | Planned |
+| M12 | Scenario: admin table (the control) (parts A1–A2, B–F, split in A2) | Active (opened 2026-11-09) |
 | M13 | Scenario: monitoring wall | Planned |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
@@ -48,7 +48,94 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 ## Active milestone
 
-None: M11 closed 2026-11-09 (its spec and evidence in [`docs/milestones.md`](docs/milestones.md)). M12 opens next, with its research and spec as part A.
+### M12: Scenario: admin table (the control)
+
+Opened 2026-11-09. The table in almost every app: a few hundred rows of text in many languages, used with Ctrl+F, text selection, and screen readers ([the research](docs/research/scenarios.md), "Admin table"). Mechanisms: scrolling off the main thread (D) and the platform's tools (E). **The DOM's scenario:** shown as capabilities, not speed; its verdict is "Use the DOM for this". No dial. No feature is waited on: its level is the base. M11's spec and evidence are in [`docs/milestones.md`](docs/milestones.md).
+
+**The design is M8's canvas** (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK, its main board's `admin` scenario and its "Admin" board), followed as drawn ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page"):
+- The lead: "The world's countries in their own scripts. Try finding one."
+- Five columns: `flag`, `name` (the native name), `in English`, `capital`, `population` (`212 M`).
+- The status bar: Ready in, Rows in, Smooth, Memory (on a phone, Ready in and Memory).
+- The panel, "What each side can do": six capabilities, each with a prompt to try on both sides and yes or no per side with why (Ctrl+F "Ísland", select and copy "Reykjavík", VoiceOver through a row, every script drawn, the flags, the browser's Translate). Its verdict is "Use the DOM for this. A few hundred rows of text need the browser's own tools more than speed.", then three cards: Ready in, Download, Memory.
+- The gallery card: the scripts drawn small, "Not a speed test"; the mechanisms D and E.
+
+Every number on the canvas is a sketch. The canvas is wrong on one point, and two things aren't drawn:
+- **The flags draw on GPUI too:** gpui-pre-web's Canvas fallback for emoji, which `shared/` turns on. The canvas drew them missing; A2 confirms it.
+- **The fonts toggle** (decided below) has no board yet.
+- **The shaping verdicts** have no board either.
+
+Each is specced here and decided with the user, never built silently.
+
+**The fonts** (decided 2026-11-09, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"): the GPUI side opens with its font gap as it is. Latin, Greek, and Cyrillic draw in IBM Plex Sans, every other script's glyphs are missing, and the flags draw through the browser. A control in the window, "Load fonts for these scripts", reloads the GPUI side with fonts:
+- Each non-CJK script in the file gets its whole Noto face, loaded after first paint, its bytes recorded per script.
+- CJK is drawn by the browser (`CanvasFontFallback::EmojiAndCjk`, a `Bootstrap` option set at startup from a URL parameter).
+- With fonts loaded, the page says "Fonts loaded after first paint: N KB. CJK drawn by the browser.", then a shaping verdict per script, stated plainly, including any script drawn wrong.
+
+The DOM side has no toggle: it has the system's fonts. **How GPUI reaches a loaded face**, read from the pinned sources, which A2's spike tries in this order:
+1. **Automatic fallback by coverage.** gpui-pre-web lays text out through gpui-pre-wgpu's cosmic text system, created without system fonts. It shapes with cosmic-text 0.19 (`Shaping::Advanced`, bidi included). When the requested face lacks a glyph, cosmic-text's fallback, after its platform lists (empty on wasm), tries every face in its database (`FontFallbackIter`'s last pass). The text system maps the face it picked back to a GPUI font. So a Noto face added with `add_fonts` should be used where IBM Plex Sans has no glyph, with nothing else changed.
+2. **A fallback list on the text style.** If 1 falls short, gpui-pre 0.3.11 has `FontFallbacks`: `TextStyle::font_fallbacks`, which the cosmic text system honors by each character's coverage (`compute_run_spans`). The tall table's cells take the window's text style, so the host sets the list once on its root. That's a style the host sets, not a change to the table, and the scenario stays on the base level.
+3. **Widening the browser's Canvas fallback to other scripts** (rejected). It draws each grapheme on its own, so Arabic's joining, Indic conjuncts across clusters, and bidi order would break. It would also change gpui-pre-web itself.
+
+If neither 1 nor 2 works, the cells would have to name a family per script: a change to the table or a GPUI level of its own, which would bring the spec back to the user.
+
+**The data** (decided 2026-11-09, the same entry): the world's regions from CLDR (the Unicode License v3), with:
+- each region's name in its likely language (`likelySubtags`' `und-<region>`), and its English name;
+- its population, written by prep as text in the canvas's form;
+- its flag, from the region code;
+- its capital, from a pinned Wikidata query (CC0).
+
+The file is ~250 rows, in the base level's column kinds (text only), so `cells.json` gains a scenario section and no new kind.
+
+**Parts** (each one session; A2 confirms B–F and splits any that's over a session):
+- **A1: the data, the capabilities, and their checks.**
+  - The sources pinned (CLDR's JSON release and the Wikidata query's result, each a SHA-256 in `MANIFEST.json`'s `sources`), their terms quoted.
+  - Which regions count (CLDR's two-letter regions; the macro-regions, `EU`, `UN`, `EZ`, `QO`, `ZZ`, and the deprecated codes out), and the native name's rule.
+  - The population text's rule (the canvas's `3.0 M`, `0.39 M`, `1.41 B`: its significant figures and units written down).
+  - The regions without a capital (Antarctica, …) and what their cell holds.
+  - A draft `prep-countries` with native DuckDB: rows, bytes, row groups.
+  - The scripts the file holds, counted, each with its Noto face and that face's size.
+  - Each capability's check on both sides, scripted where a script can see it, with the control each needs (a Ctrl+F proxy, `window.find`; a drag and `getSelection()`; the accessibility tree by CDP; the flags' and scripts' pixels; Translate, a manual check, its text nodes scripted), and what's left to the manual cross-browser check.
+  - No `lang` on the DOM side (decided 2026-11-09, below).
+- **A2: the fonts spike, the measures, and the boards.**
+  - The bare host (or the GPUI contender's base build) on A1's draft file, at its default (the gap; the flags confirmed drawn) and with Noto faces added after first paint and `EmojiAndCjk`: which route reaches them (automatic fallback, else `FontFallbacks` on the host's root style), each script's shaping against the DOM's drawing of the same names in the same face (screenshots side by side, and a scripted check where one exists: an Arabic name's drawn width against its isolated forms', RTL order), the bytes per script, and the time from the fonts' load to the frame drawn with them.
+  - The toggle's build shape: a runtime parameter on the base build (its bytes in Big file's wasm, recorded) or a GPUI level of its own (the base untouched). The `Bootstrap` option's effect on Tycho.
+  - The measures made exact: Ready in, Rows in, Smooth (which scroll), Memory, Download, and the toggle's own (the fonts' bytes, fonts in → drawn, memory with them).
+  - The suite's time.
+  - The boards on M8's canvas, decided with the user before anything is built: the toggle in the window (where the dial would be), what the frame says while fonts load, the per-script verdicts in the panel, the flags row corrected, light and dark, desktop and phone.
+- **B: the data and the scenario on both sides.**
+  - The data: `prep-countries` in `prep.ts` (`--only countries`, the sources' pins), its `MANIFEST.json` entry with credit and terms.
+  - The scenario in `contenders/scenarios.ts` on the base level (both sides' `pickScenario`), and `cells.json`'s scenario section by `cell-fixture`.
+  - The fonts path on the GPUI side, as A2 decides: the `Bootstrap` option, its effect on Tycho recorded; the Noto faces staged under `/observatory/`, their OFL credited; budgets.
+  - A check script (`perf/admin.ts`, in `check`) proving each capability's yes and no on both sides, with its controls.
+- **C: the numbers.** The cold suite at the base level on the countries file, both sides, both devices, median of 10, the toggle's runs beside it, each results file labelled `admin-table`, with its versions, and a results note. A long run, so ask about a code review first if the session changed code.
+- **D: the page,** as the canvas draws it and A2's boards add: the route, the status bar, the panel (capabilities, verdict, cards, the shaping verdicts), the toggle, the description, the gallery card, and the Overview's rule's DOM half ("text-heavy", which M9 E3 left waiting on these numbers).
+- **E: shipped.** The README's admin table section by `report` (its canvas tradeoffs too: root rule 4), `burst` under the zone's limit, the deploy, `worker-check`.
+
+**Done when** (the measures made exact in A1 and A2):
+- [ ] **Its builds:** the admin table on the base level on both sides, Big file's builds byte-identical unless A2 puts the toggle in the base (then its bytes recorded, and the base's budgets hold); the fonts path's bytes after first paint recorded per script; `shared/`'s `Bootstrap` option with its effect on Tycho recorded.
+- [ ] **Its data credited:** the countries file in `MANIFEST.json` (rows, bytes, SHA-256, its pinned sources, credit, terms); the page and the README credit CLDR (Unicode License v3) and Wikidata (CC0), and the Noto faces (OFL).
+- [ ] **The same on both sides:** `cells.json`'s scenario section passes on both sides with its controls; both sides' columns at the same x and width.
+- [ ] **Its capabilities proven:** each of the panel's yes and no checked by `perf/admin.ts` on both sides (and with fonts), with its control, in `check`; the rest by the manual cross-browser check, written down; each script's shaping verdict with its evidence (screenshots against the DOM's) in a results note.
+- [ ] **Its runs and numbers:** the cold suite once, in part C, both sides, both devices, median of 10, the toggle's runs beside it, each file labelled `admin-table` with its versions; a results note.
+- [ ] **The page:** as the canvas and A2's boards draw it; `page --check` covers it.
+- [ ] **Shipped:** the README's section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+
+#### Part A1: the data, the capabilities, and their checks
+
+**Done when:**
+- [ ] **A1-1, the sources and their terms:** CLDR's JSON release and the Wikidata query's result downloaded into `data/raw/countries/` (gitignored), each SHA-256 recorded, their terms quoted.
+- [ ] **A1-2, what's kept:** the regions and the rules (native name, population text, no capital), a draft `prep-countries` with native DuckDB (rows, bytes, row groups, byte-identical across two builds), the scripts the file holds and each one's Noto face and size.
+- [ ] **A1-3, the capabilities' checks:** each capability's yes or no on each side, how a script proves it and its control, and what stays manual.
+- [x] **A1-4, `lang` on the DOM side,** decided with the user. *Evidence:* [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios", 2026-11-09: no language column, so no `lang` on the TanStack side's cells.
+
+#### Part A2: the fonts spike, the measures, and the boards
+
+**Done when:**
+- [ ] **A2-1, the spike:** the default (the gap; the flags drawn) and the fonts (Noto faces after first paint, `EmojiAndCjk`) on A1's file: which route reaches them (automatic, else `FontFallbacks`); each script's shaping against the DOM's, with screenshots; bytes per script; fonts in → drawn.
+- [ ] **A2-2, the toggle's build shape** and the `Bootstrap` option's effect on Tycho, decided with the user.
+- [ ] **A2-3, the measures and the suite's time.**
+- [ ] **A2-4, the boards,** drawn on M8's canvas and decided with the user.
+- [ ] **A2-5, B–E confirmed** (split where a part is over a session).
 
 ---
 
@@ -61,10 +148,6 @@ The "done when" checks are drafts until their milestone becomes active. The scen
 - **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
 - **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
 - **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
-
-### M12: Scenario: admin table (the control)
-
-The DOM's scenario: 50–500 rows of multilingual text, shown as capabilities (Ctrl+F, text selection, a screen reader, every script drawn), not speed. The base level and the world's countries (~250), each name in its own script, with a flag emoji, from CLDR or Wikidata ([the research](docs/research/scenarios.md), "Data"). GPUI bundles one face, so scripts outside it have no glyphs there, missing rather than shaped badly: part A decides whether the page shows that gap as it is or loads script fonts on the GPUI side after first paint (bytes, root rule 1) to test its shaping, and the page says which. Cheap: it moves ahead of M10 if the page needs its counterweight sooner.
 
 ### M13: Scenario: monitoring wall
 
