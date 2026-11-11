@@ -576,3 +576,13 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - A byte-identical level is a question of which files carry panic locations, and they're few. Market watch's wasm names only four of the crate's files in its strings, so the wall could change `lib.rs`, `scene.rs`, `feed.rs`, and `readout.rs` freely and keep those four's lines in place. The wide level, whose heat has a panic site in `scene.rs`, moved by one byte for it.
 - Keeping lines in place isn't enough: a semantically neutral wrapper changed the codegen. Passing the state's `Object` through a by-value `fn(Object) -> Object`, even `#[inline(always)]` and returning it untouched, made market watch's wasm 10 bytes larger. A move of a type with `Drop` isn't free after LTO. The by-reference wrapper compiled to nothing.
 - The phone's 196 px tables, counted from the canvas in A3, showed 5⅓ rows: the tall table keeps its horizontal scrollbar's 16 px whether or not it scrolls sideways. A board's height for a GPUI table has to count the room the table keeps, not only what it draws.
+
+## M13 part C1: the TanStack contender at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-c1.md`](../perf/results/2026-11-10-m13-c1.md).
+
+**Surprises:**
+- Widening the build constant's branches (`'market' || 'tail'` to `|| 'wall'`) in 20 places, adding a `Load` variant, and adding branches to `App`, `Table`, `TableContract`, and `main.ts` left every other level's bundle byte-identical. The minifier folds a constant comparison and drops its branch whole, so on the DOM side the habits were enough: no line-keeping as on the GPUI side, where panic locations carry line numbers.
+- One generated color would have moved every level. The sidebar's color isn't in `theme.css`, and regenerating it with one more variable changes every level's CSS. A second generated file, which only the wall's CSS imports, kept them all.
+- The tall table draws its header and rows to the frame's edge, past its last column, and the DOM side didn't. No earlier level showed it, since their columns overflow the frame. Live tail's (about 880 px of columns in a 1,408 px frame) likely differs the same way, unchecked.
+- The pooled pairing is the shape of a React tree, not a choice: one `flushSync` over every table's state commits them all, so a batch's tables draw it in one frame by construction. Each table's own frame callback (market watch's way, copied N times) would make N commits a frame, and the wall's question would read React's scheduling.

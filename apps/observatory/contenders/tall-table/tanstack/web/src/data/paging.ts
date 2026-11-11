@@ -10,9 +10,9 @@
  * model's V) and when the scrollbar is held (`startDrag`, `endDrag`); it
  * reads rows back with `row` and hears `onChange` when a page lands.
  *
- * On market watch's and live tail's levels, `live` too (`live.ts`:
- * `invalidateRows` and the rest), its branches here behind the build
- * constant, as `pages.ts`'s are, reaching the paging's private members
+ * On market watch's, live tail's, and the monitoring wall's levels, `live`
+ * too (`live.ts`: `invalidateRows` and the rest), its branches here behind
+ * the build constant, as `pages.ts`'s are, reaching the paging's private members
  * through a typed view of them (`live.ts`'s `PagingInside`). On live
  * tail's alone, the rows grow and the view follows them (`follow.ts`:
  * `setRows`, `follow`, the reader's moves deciding following, the tail
@@ -117,7 +117,7 @@ export class TablePaging<P extends Page> {
     this.source = source;
     this.clock = clock;
     this.cache = new PageCache(rows, paging.pageRows, paging.budgetBytes, paging.maxInFlight);
-    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') {
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') {
       this.dragResting = true;
       this.loadDeferred = false;
     }
@@ -217,7 +217,7 @@ export class TablePaging<P extends Page> {
     // were.
     const pinned = __LEVEL__ === 'tail' && releaseDrag(this);
     this.dragging = false;
-    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') this.dragResting = true;
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') this.dragResting = true;
     if (this.dragSettle !== null) {
       this.clock.clearTimeout(this.dragSettle);
       this.dragSettle = null;
@@ -256,9 +256,9 @@ export class TablePaging<P extends Page> {
       // can't take a read back once it starts: load once the pointer rests,
       // or on release.
       if (this.dragSettle !== null) this.clock.clearTimeout(this.dragSettle);
-      if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') this.dragResting = false;
+      if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') this.dragResting = false;
       // `live`: the settle is the drag resting (only it: never the scroll's).
-      this.dragSettle = this.clock.setTimeout((__LEVEL__ === 'market' || __LEVEL__ === 'tail') ? () => dragRested(this) : () => this.loadPages(), this.paging.dragSettleMs);
+      this.dragSettle = this.clock.setTimeout((__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') ? () => dragRested(this) : () => this.loadPages(), this.paging.dragSettleMs);
     } else {
       this.loadPages();
     }
@@ -276,7 +276,7 @@ export class TablePaging<P extends Page> {
 
   /** Sends the reads the viewport needs and cancels the ones it doesn't. */
   private loadWanted(wanted: readonly number[]): void {
-    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') return loadWantedLive(this, wanted);
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') return loadWantedLive(this, wanted);
     if (this.closed) return;
     const plan = this.cache.plan(wanted, this.cache.visiblePages(this.visible()));
     for (const request of plan.cancel) this.source.cancel(request);
@@ -291,7 +291,7 @@ export class TablePaging<P extends Page> {
   }
 
   private pageDone(page: number, request: number, answer: { data: P } | { error: unknown }): void {
-    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail') return pageDoneLive(this, page, request, answer);
+    if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') return pageDoneLive(this, page, request, answer);
     if (this.closed) return;
     const wanted = this.wanted();
     if ('data' in answer) {

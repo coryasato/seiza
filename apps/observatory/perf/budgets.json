@@ -496,6 +496,30 @@
       ]
     },
     {
+      "id": "tanstack-wall-first-paint-js",
+      "label": "TanStack contender at the wall level: first-paint JS (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.firstPaintJsOverBaseline",
+        "baseline": "levels.wall.tanstackJsBrotliKiB.firstPaint"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes-wall.json",
+            "path": "firstPaintJsBrotliKiB"
+          },
+          {
+            "baseline": "levels.wall.tanstackJsBrotliKiB.firstPaint"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
       "id": "tanstack-data-layer-js",
       "label": "TanStack contender: data layer and Arrow, after first paint (brotli)",
       "unit": "KiB",
@@ -584,6 +608,30 @@
           },
           {
             "baseline": "levels.tail.tanstackJsBrotliKiB.dataLayer"
+          }
+        ]
+      ],
+      "show": [
+        "plan"
+      ]
+    },
+    {
+      "id": "tanstack-wall-data-layer-js",
+      "label": "TanStack contender at the wall level: data layer and Arrow, after first paint (brotli)",
+      "unit": "KiB",
+      "budget": {
+        "overBaseline": "tanstack.dataLayerJsOverBaseline",
+        "baseline": "levels.wall.tanstackJsBrotliKiB.dataLayer"
+      },
+      "gate": "`check`",
+      "local": [
+        [
+          {
+            "glob": "*-tanstack-sizes-wall.json",
+            "path": "dataLayerJsBrotliKiB"
+          },
+          {
+            "baseline": "levels.wall.tanstackJsBrotliKiB.dataLayer"
           }
         ]
       ],
