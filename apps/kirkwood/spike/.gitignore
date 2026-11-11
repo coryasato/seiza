@@ -1,0 +1,7 @@
+node_modules/
+pkg/
+dist/
+# The elements file, exported from the asteroid sample (data.ts)
+public/elements.bin
+# Screenshots and traces (run.ts)
+out/

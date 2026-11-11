@@ -2,7 +2,7 @@
 
 Kirkwood is a showcase: the asteroid belt as a scene to fly through, drawn from the asteroid table's own rows, with the table of those rows beside it, each moving the other. Named for Daniel Kirkwood, who found the gaps in the belt in a catalog of orbits, not through a telescope.
 
-**Nothing is built yet.** This directory holds its plan and its decisions; the first code is a throwaway spike (`PLAN.md`, the active milestone).
+**The app isn't built yet.** This directory holds its plan, its decisions, and a throwaway spike (`spike/`: a Three.js scene under a transparent GPUI canvas with the tall table), which is never deployed and whose code isn't carried forward (`PLAN.md`, the active milestone).
 
 ---
 
@@ -35,14 +35,26 @@ Leaning, not decided; the spike decides (`PLAN.md`), and this section is rewritt
 
 ```
 apps/kirkwood/
-  docs/             # DECISIONS.md, LESSONS.md, milestones.md
+  docs/             # DECISIONS.md, LESSONS.md, milestones.md; spike/ (the spike's screenshots)
+  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the scene's input surface, the panel and its table), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js), data.ts (the elements file from the asteroid sample), run.ts (screenshots, input checks, frame times, bytes); not an npm workspace
   README.md         # for visitors
   CLAUDE.md         # this file
   PLAN.md           # what's next
 ```
 
-No `perf/`: a showcase has no budgets and no results. `spike/` arrives with the spike, and `crate/`, `web/`, and a `just` module with the first milestone that builds the app.
+No `perf/`: a showcase has no budgets and no results. `crate/`, `web/`, and a `just` module arrive with the first milestone that builds the app.
 
 ## Commands
 
-None yet.
+The spike's only (no `just` module until there's an app), from the repo root:
+
+```
+npm install --prefix apps/kirkwood/spike                 # its own deps (Three.js, DuckDB's Node client)
+node apps/kirkwood/spike/data.ts <asteroids.parquet>     # public/elements.bin (gitignored): each row's a, e, i from Tycho's sample
+node apps/kirkwood/spike/run.ts [flags]                  # builds the wasm and the page, then: the scene through GPUI's canvas (screenshots in out/), input routing, frame times with both canvases drawing, the build's bytes (--only shots,input,frames,bytes; --browser firefox|webkit; --params scale=0.5; --segments; --runs; --no-build)
+```
+
+## Spike gotchas
+
+- **GPUI's canvas is transparent only because of two things on the host's side:** `spike/src/alpha.ts` (the WebGPU context's alpha mode, set before the wasm starts) and the theme's `tokens.background` set transparent after `Theme::change`. `?opaque` turns the first off; in a browser on WebGL2 (headless Firefox) it changes nothing, so `run.ts`'s control fails there. Why: `docs/DECISIONS.md`, "Table".
+- **An element over the scene must `occlude()`,** or a press on it also starts a shape on the surface under it (`docs/DECISIONS.md`, "Input").

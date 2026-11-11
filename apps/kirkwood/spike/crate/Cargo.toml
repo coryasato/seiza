@@ -1,0 +1,18 @@
+[package]
+name = "kirkwood-spike"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Throwaway: Kirkwood's two-canvas spike (a transparent GPUI window over a Three.js scene, the tall table over orbital elements held here). Deleted with the spike."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gpui-kit.workspace = true
+seiza-tall-table = { workspace = true, features = ["select"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+seiza.workspace = true
+wasm-bindgen.workspace = true

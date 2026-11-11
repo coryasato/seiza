@@ -21,7 +21,7 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | The two canvases: a spike | Not started |
+| M0 | The two canvases: a spike | In progress: part A done, part B next |
 | M1 | The orbits' data | Planned |
 | M2 | The belt in space | Planned |
 | M3 | The reveal: sort by orbit size | Planned |
@@ -58,10 +58,14 @@ The spike lives in `spike/` and is never deployed. What it proves is written dow
 
 **Done when:**
 
-- [ ] **A1. GPUI over the scene.** Whether GPUI's canvas can sit over the Three.js canvas with the scene showing through around a panel (boards 1 and 7: the handle tab on the right edge, the table panel on the right), and whether the table's menus and tooltips draw over the scene. Shown in a screenshot. If it can't, the layout that replaces it is decided (weighed already: the table as a layer under the scene that toggles front and back).
-- [ ] **A2. Input reaches the right canvas.** A drag on the scene draws a freehand shape; a wheel over the scene zooms it and a wheel over the table scrolls it; the table's hover, selection, and scrollbar work with the scene behind. How it's routed is written down.
-- [ ] **A3. Frame time with both drawing,** recorded at rest, with time running, and while the table flings. A number for each, in `docs/DECISIONS.md`.
-- [ ] **A4. What Three.js adds in bytes** (brotli), as the spike imports it, recorded with the decision to keep or replace it.
+- [x] **A1. GPUI over the scene.** Whether GPUI's canvas can sit over the Three.js canvas with the scene showing through around a panel (boards 1 and 7: the handle tab on the right edge, the table panel on the right), and whether the table's menus and tooltips draw over the scene. Shown in a screenshot. If it can't, the layout that replaces it is decided (weighed already: the table as a layer under the scene that toggles front and back).
+  *It can, with the canvas's alpha mode set on the page and the window's background token transparent: [on load](docs/spike/on-load.jpg), [the panel and a menu](docs/spike/menu.jpg), [a tooltip](docs/spike/tooltip.jpg), and the control, [the canvas as GPUI configures it](docs/spike/opaque.jpg). Chromium, WebKit, and Firefox, headless. `docs/DECISIONS.md`, "Table".*
+- [x] **A2. Input reaches the right canvas.** A drag on the scene draws a freehand shape; a wheel over the scene zooms it and a wheel over the table scrolls it; the table's hover, selection, and scrollbar work with the scene behind. How it's routed is written down.
+  *GPUI's hit test routes it; all ten input checks pass in the three browsers (`spike/run.ts --only input`), and [the shape](docs/spike/shape.jpg). `docs/DECISIONS.md`, "Input".*
+- [x] **A3. Frame time with both drawing,** recorded at rest, with time running, and while the table flings. A number for each, in `docs/DECISIONS.md`.
+  *At rest 16.7 ms a frame, none late; time running, 32% of frames late (the GPU: about 45 frames a second, the main thread idle); the table flinging over a still scene, none late; both, 37%. Half the scene's resolution, or three quarters of its rows, holds 60. `docs/DECISIONS.md`, "Scene".*
+- [x] **A4. What Three.js adds in bytes** (brotli), as the spike imports it, recorded with the decision to keep or replace it.
+  *104.3 KiB (523.1 raw), after first paint; kept for now. `docs/DECISIONS.md`, "Scene".*
 - [ ] **B1. The sort transition moves:** 1.57 M points fly from space to a against e and back, with the frame time during the flight recorded.
 - [ ] **B2. The fly-in:** after a shape closes, the camera flies in to the group while the table comes in beside it, filtered to the group's rows. Decides whether the table arrives with the zoom or after it.
 - [ ] **B3. A live column a person can read:** the distance from the Sun, recomputed as time runs, at a refresh rate chosen by looking at it. Decides which columns are live and how often they refresh; the cells never change faster than someone can follow.
@@ -119,4 +123,7 @@ None committed (the research's "Extras"):
 - **The epoch's spread:** whether JPL's elements share one epoch for most objects, or each needs propagating from its own. *M1.*
 - **The a against e furniture:** how much of board 4 is kept as drawn (liked on review, not yet specced). *M3.*
 - **A Worker of its own on the path:** whether a second Worker can take `/kirkwood/*` on a hostname bound to Tycho's as a custom domain. *M6.*
+- **The scene's resolution:** all 1.57 M points at the display's full resolution ran past a frame on an M1 in headless Chromium; half resolution held 60. Which resolution ships, chosen by eye in a real browser. *M0 part B looks; M2 decides.*
+- **A shape drawn across the panel:** a drag that leaves the scene's surface for the panel stops adding points until it comes back (a release there still closes the shape). Whether the panel should let it through. *M0, B2; M5.*
+- **Rows with no ellipse:** 5 rows have e at or past 1 and aren't drawn. What the scene and the row count say about them. *M2.*
 - **A phone:** whether the scene and a summoned table work at phone width, or the app says it's for a larger screen. *M6; M0 can show whether they fit.*
