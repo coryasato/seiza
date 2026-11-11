@@ -14,7 +14,8 @@
 // store's fields per instrument, the same for either fold.
 
 import { HEADER, INSTRUMENTS as MARKET, TICK } from './feed-worker.ts';
-import { DESKS, WALL_INSTRUMENTS } from '../wall/instruments.ts';
+import { WALL_INSTRUMENTS } from '../../contenders/wall/instruments.ts';
+import { DESKS } from '../../contenders/wall/names.ts';
 
 const params = new URLSearchParams(location.search);
 const rate = Number(params.get('rate') ?? 5000);

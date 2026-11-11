@@ -1,8 +1,11 @@
-//! Market watch's store on the GPUI side: every tick of the feed's batches
+//! The feed's store on the GPUI side, market watch's and the monitoring
+//! wall's: every tick of the feed's batches
 //! (`apps/observatory/contenders/market/feed.ts`, which says what a batch
 //! holds and what a store does with a tick) folded into plain buffers in
-//! place, nothing allocated after the open. `fixtures/feed.json` pins it, as
-//! it pins the TanStack contender's (`tests` below).
+//! place, nothing allocated after the open. Both scenarios' feed fixtures pin
+//! it (`contenders/market/fixtures/feed.json`, and
+//! `contenders/wall/fixtures/feed.json` over the wall's 400 instruments), as
+//! they pin the TanStack contender's (`tests` below).
 
 /// A batch's header: u32 sequence, u32 tick count, f64 send time (epoch
 /// ms), f64 the generation's ms.
@@ -192,16 +195,30 @@ impl Quotes {
 
 #[cfg(test)]
 mod tests {
-    //! The feed fixture (`contenders/market/fixtures/feed.json`; its writer,
-    //! `write.ts`, says what it holds) and its controls, which must fail it.
+    //! The feed fixtures (`contenders/market/fixtures/feed.json`, market
+    //! watch's, and `contenders/wall/fixtures/feed.json`, the monitoring
+    //! wall's 400 instruments; their writer, `write.ts`, says what each
+    //! holds) and their controls, which must fail each.
 
     use super::*;
     use serde_json::Value;
 
-    const FIXTURE: &str = include_str!("../../../../market/fixtures/feed.json");
-    const BYTES: &[u8] = include_bytes!("../../../../market/fixtures/feed.bin");
+    /// Each fixture: its name, its JSON, and its batches' bytes.
+    const FIXTURES: [(&str, &str, &[u8]); 2] = [
+        (
+            "market watch",
+            include_str!("../../../../market/fixtures/feed.json"),
+            include_bytes!("../../../../market/fixtures/feed.bin"),
+        ),
+        (
+            "monitoring wall",
+            include_str!("../../../../wall/fixtures/feed.json"),
+            include_bytes!("../../../../wall/fixtures/feed.bin"),
+        ),
+    ];
 
     struct Fixture {
+        name: &'static str,
         open: Vec<f64>,
         batches: Vec<Vec<u8>>,
         folded: u64,
@@ -209,9 +226,14 @@ mod tests {
         expect: Vec<Value>,
     }
 
-    fn fixture() -> Fixture {
-        let json: Value = serde_json::from_str(FIXTURE).unwrap();
-        let bytes = BYTES;
+    fn fixtures() -> impl Iterator<Item = Fixture> {
+        FIXTURES
+            .into_iter()
+            .map(|(name, json, bytes)| fixture(name, json, bytes))
+    }
+
+    fn fixture(name: &'static str, json: &str, bytes: &[u8]) -> Fixture {
+        let json: Value = serde_json::from_str(json).unwrap();
         let mut at = 0;
         let batches = json["batches"]
             .as_array()
@@ -223,8 +245,9 @@ mod tests {
                 bytes[at - len..at].to_vec()
             })
             .collect();
-        assert_eq!(at, bytes.len(), "the batches cover the bytes");
+        assert_eq!(at, bytes.len(), "{name}: the batches cover the bytes");
         Fixture {
+            name,
             open: json["open"]
                 .as_array()
                 .unwrap()
@@ -299,18 +322,26 @@ mod tests {
 
     #[test]
     fn feed_fixture() {
-        let f = fixture();
-        let quotes = run(&f, |batch, _| batch.to_vec());
-        assert_eq!(
-            differences(&f, quotes.rows(), quotes.folded()),
-            Vec::<String>::new()
-        );
+        for f in fixtures() {
+            let quotes = run(&f, |batch, _| batch.to_vec());
+            assert_eq!(
+                differences(&f, quotes.rows(), quotes.folded()),
+                Vec::<String>::new(),
+                "{}",
+                f.name
+            );
+        }
     }
 
     #[test]
     fn feed_fixture_skipped_trade_fails() {
-        let f = fixture();
-        let quotes = run(&f, |batch, first| {
+        for f in fixtures() {
+            skipped_trade_fails(&f);
+        }
+    }
+
+    fn skipped_trade_fails(f: &Fixture) {
+        let quotes = run(f, |batch, first| {
             let count = u32_at(batch, 4) as usize;
             if !(first..first + count).contains(&f.drop) {
                 return batch.to_vec();
@@ -319,20 +350,29 @@ mod tests {
             with_count([&batch[..at], &batch[at + TICK..]].concat(), count - 1)
         });
         assert_ne!(
-            differences(&f, quotes.rows(), quotes.folded()),
-            Vec::<String>::new()
+            differences(f, quotes.rows(), quotes.folded()),
+            Vec::<String>::new(),
+            "{}",
+            f.name
         );
         // Its fields differ too, not only the count.
         assert_ne!(
-            differences(&f, quotes.rows(), f.folded),
-            Vec::<String>::new()
+            differences(f, quotes.rows(), f.folded),
+            Vec::<String>::new(),
+            "{}",
+            f.name
         );
     }
 
     #[test]
     fn feed_fixture_conflated_fails() {
-        let f = fixture();
-        let quotes = run(&f, |batch, _| {
+        for f in fixtures() {
+            conflated_fails(&f);
+        }
+    }
+
+    fn conflated_fails(f: &Fixture) {
+        let quotes = run(f, |batch, _| {
             let count = u32_at(batch, 4) as usize;
             let mut last_of = std::collections::BTreeMap::new();
             for k in 0..count {
@@ -347,15 +387,22 @@ mod tests {
             with_count(out, keep.len())
         });
         assert_ne!(
-            differences(&f, quotes.rows(), f.folded),
-            Vec::<String>::new()
+            differences(f, quotes.rows(), f.folded),
+            Vec::<String>::new(),
+            "{}",
+            f.name
         );
     }
 
     #[test]
     fn feed_fixture_other_change_pct_fails() {
-        let f = fixture();
-        let quotes = run(&f, |batch, _| batch.to_vec());
+        for f in fixtures() {
+            other_change_pct_fails(&f);
+        }
+    }
+
+    fn other_change_pct_fails(f: &Fixture) {
+        let quotes = run(f, |batch, _| batch.to_vec());
         let other: Vec<Quote> = quotes
             .rows()
             .iter()
@@ -365,14 +412,35 @@ mod tests {
             })
             .collect();
         assert_ne!(
-            differences(&f, &other, quotes.folded()),
-            Vec::<String>::new()
+            differences(f, &other, quotes.folded()),
+            Vec::<String>::new(),
+            "{}",
+            f.name
+        );
+    }
+
+    #[test]
+    fn the_walls_ticks_are_refused_by_market_watchs_store() {
+        // The wall's batches name instruments up to 399: a store of market
+        // watch's 50 refuses them rather than fold them into the wrong rows.
+        let [(_, market, market_bytes), (name, wall, wall_bytes)] = FIXTURES;
+        let market = fixture("market watch", market, market_bytes);
+        let wall = fixture(name, wall, wall_bytes);
+        let mut quotes = Quotes::new(market.open.iter().copied());
+        let refused = wall
+            .batches
+            .iter()
+            .find_map(|batch| quotes.fold(batch).err());
+        assert!(
+            matches!(refused, Some(BatchError::Instrument { of: 50, .. })),
+            "{refused:?}"
         );
     }
 
     #[test]
     fn a_batch_that_isnt_one_is_refused_whole() {
-        let f = fixture();
+        let (name, json, bytes) = FIXTURES[0];
+        let f = fixture(name, json, bytes);
         let mut quotes = Quotes::new(f.open.iter().copied());
         let second = &f.batches[1];
         assert_eq!(

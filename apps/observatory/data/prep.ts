@@ -15,7 +15,10 @@
 //   instruments (contenders/market/feed.ts, their one home), by
 //   prep-market.sql, after checking that no symbol is listed on a US
 //   exchange (NASDAQ Trader's symbol directories, fetched at each build).
-//
+// - wall-instruments.parquet, the monitoring wall's, from its 400
+//   instruments in 8 desks (contenders/wall/instruments.ts, their one home),
+//   by prep-wall.sql, after the same check, and that none repeats market
+//   watch's symbols or another of its own.
 // - nasa-http-jul95.parquet, live tail's, from NASA-HTTP's July 1995 log
 //   (prep-nasa.sql), the source kept in data/raw/nasa/ (gitignored,
 //   downloaded when missing) and checked against the SHA-256 MANIFEST.json
@@ -32,7 +35,7 @@
 //
 // Each is checked to fit a Workers static asset.
 //
-// Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market|nasa|countries] [--repin]
+// Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market|wall|nasa|countries] [--repin]
 //        (`just observatory data`). The asteroids need Tycho's file first:
 //        `just tycho data`.
 
@@ -44,6 +47,9 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { INSTRUMENTS } from '../contenders/market/feed.ts';
+import { DESK_ROWS } from '../contenders/wall/desks.ts';
+import { WALL_INSTRUMENTS } from '../contenders/wall/instruments.ts';
+import { DESKS } from '../contenders/wall/names.ts';
 import { countries as countryRows, untar } from './countries.ts';
 import { DATA_FILE as NASA, FILE_ROWS as NASA_ROWS, SPAN_S as NASA_SPAN_S, WHOLE_FILE as NASA_WHOLE } from '../contenders/tail/data.ts';
 
@@ -57,6 +63,7 @@ const manifestPath = join(dataDir, 'MANIFEST.json');
 const ASTEROIDS = 'asteroids.parquet';
 const GHCN = 'ghcn-2025-tmax.parquet';
 const MARKET = 'market-instruments.parquet';
+const WALL = 'wall-instruments.parquet';
 
 /** A source file prep downloaded, as pinned. */
 interface PinnedSource {
@@ -130,6 +137,8 @@ const LISTED_CONTROLS = ['AAPL', 'IBM'];
 const MARKET_CREDIT = "Fictional instruments, the observatory's own: synthetic";
 const MARKET_TERMS =
   "The observatory's own, made up for market watch and dedicated to the public domain (CC0 1.0). The names and symbols are fictional: prep fails if a symbol is listed on a US exchange (NASDAQ Trader's nasdaqlisted.txt and otherlisted.txt, fetched at each build).";
+const WALL_TERMS =
+  "The observatory's own, made up for the monitoring wall and dedicated to the public domain (CC0 1.0). The symbols are fictional: prep fails if one is listed on a US exchange (NASDAQ Trader's nasdaqlisted.txt and otherlisted.txt, fetched at each build) or repeats market watch's.";
 
 /** NASA-HTTP's July 1995 log, from the Internet Traffic Archive. A 1995
  *  file that doesn't change: the pin is its first download's, and another
@@ -187,9 +196,13 @@ async function value(conn: DuckDBConnection, sql: string): Promise<unknown> {
 
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : undefined;
-const ONLY = ['asteroids', 'ghcn', 'market', 'nasa', 'countries'];
+const ONLY = ['asteroids', 'ghcn', 'market', 'wall', 'nasa', 'countries'];
 if (only !== undefined && !ONLY.includes(only)) throw new Error(`--only takes ${ONLY.join(', ')}, not ${only}`);
 const repin = args.includes('--repin');
+
+/** The US listings, fetched once a run for the market's file and the wall's
+ *  (`listedSymbols`): declared above the builds, which run at top level. */
+let listedOnce: Promise<Set<string>> | undefined;
 
 const manifest: Record<string, ManifestFile> = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
 const conn = await (await DuckDBInstance.create()).connect();
@@ -198,7 +211,7 @@ process.chdir(dataDir);
 /** MANIFEST.json as it stands, in a fixed order: written after each file,
  *  so one that fails (the market's fetch) keeps the others' entries. */
 function writeManifest(): void {
-  const ordered = Object.fromEntries([ASTEROIDS, GHCN, MARKET, NASA, COUNTRIES].filter((name) => manifest[name]).map((name) => [name, manifest[name]]));
+  const ordered = Object.fromEntries([ASTEROIDS, GHCN, MARKET, WALL, NASA, COUNTRIES].filter((name) => manifest[name]).map((name) => [name, manifest[name]]));
   writeFileSync(manifestPath, `${JSON.stringify(ordered, null, 2)}\n`);
 }
 if (only === undefined || only === 'asteroids') {
@@ -211,6 +224,10 @@ if (only === undefined || only === 'ghcn') {
 }
 if (only === undefined || only === 'market') {
   manifest[MARKET] = await market();
+  writeManifest();
+}
+if (only === undefined || only === 'wall') {
+  manifest[WALL] = await wall();
   writeManifest();
 }
 if (only === undefined || only === 'nasa') {
@@ -353,12 +370,17 @@ async function ghcn(previous: ManifestFile | undefined): Promise<ManifestFile> {
   return entry;
 }
 
-/** Every symbol listed on a US exchange today, after checking the control's are among them. */
-async function listedSymbols(): Promise<Set<string>> {
+/** Every symbol listed on a US exchange today, after checking the control's
+ *  are among them: fetched once a run, for the market's file and the wall's. */
+function listedSymbols(): Promise<Set<string>> {
+  return (listedOnce ??= fetchListedSymbols());
+}
+
+async function fetchListedSymbols(): Promise<Set<string>> {
   const listed = new Set<string>();
   for (const { url, columns } of SYMBOL_DIRECTORIES) {
     const response = await fetch(url, { signal: AbortSignal.timeout(DIRECTORY_TIMEOUT_MS) }).catch((error: unknown) => {
-      throw new Error(`${url}: ${error instanceof Error ? error.message : error}; the market file needs NASDAQ Trader's directories (\`--only asteroids\` or \`--only ghcn\` builds the others)`);
+      throw new Error(`${url}: ${error instanceof Error ? error.message : error}; the market's and the wall's files need NASDAQ Trader's directories (\`--only\` another builds the others)`);
     });
     if (!response.ok) throw new Error(`${url}: ${response.status}`);
     const [header, ...lines] = (await response.text()).trim().split(/\r?\n/);
@@ -411,6 +433,52 @@ async function market(): Promise<ManifestFile> {
     ],
   };
   console.log(`${MARKET}: ${rows} rows, ${bytes} B, sha256 ${entry.sha256}`);
+  return entry;
+}
+
+async function wall(): Promise<ManifestFile> {
+  const listed = await listedSymbols();
+  const real = WALL_INSTRUMENTS.filter(([, symbol]) => listed.has(symbol));
+  if (real.length)
+    throw new Error(`${real.map(([, symbol]) => symbol).join(', ')}: listed on a US exchange; give them fictional symbols in contenders/wall/instruments.ts (a symbol isn't in the feed's ticks, so its bytes don't change)`);
+  const market = new Set(INSTRUMENTS.map(({ symbol }) => symbol));
+  const repeated = WALL_INSTRUMENTS.filter(([, symbol]) => market.has(symbol));
+  if (repeated.length) throw new Error(`${repeated.map(([, symbol]) => symbol).join(', ')}: market watch's symbols too; the wall's are its own`);
+  if (new Set(WALL_INSTRUMENTS.map(([, symbol]) => symbol)).size !== WALL_INSTRUMENTS.length) throw new Error('contenders/wall/instruments.ts lists a symbol twice');
+  // Each desk is DESK_ROWS rows in a run, in DESKS' order: a stop's tables are the first desks.
+  if (WALL_INSTRUMENTS.length !== DESKS.length * DESK_ROWS)
+    throw new Error(`contenders/wall/instruments.ts: ${WALL_INSTRUMENTS.length} rows; want ${DESKS.length} desks of ${DESK_ROWS}`);
+  const misplaced = WALL_INSTRUMENTS.findIndex(([desk], i) => desk !== Math.floor(i / DESK_ROWS));
+  if (misplaced >= 0) throw new Error(`contenders/wall/instruments.ts: row ${misplaced} is in desk ${WALL_INSTRUMENTS[misplaced]![0]}; want each desk's ${DESK_ROWS} in a run, in desk order`);
+
+  const values = WALL_INSTRUMENTS.map(([desk, symbol, price], i) => `(${i}, '${sqlText(DESKS[desk]!)}', '${sqlText(symbol)}', '${String(price)}'::DOUBLE)`).join(',\n');
+  await runSql('prep-wall.sql', { values });
+  const bytes = fits(WALL, 'it is 400 rows');
+  const rows = Number(await value(conn, `SELECT count(*) FROM '${WALL}'`));
+  if (rows !== WALL_INSTRUMENTS.length) throw new Error(`${WALL} has ${rows} rows; the wall has ${WALL_INSTRUMENTS.length} instruments`);
+  // Each row is its instrument, in the feed's order, in its desk, at its reference price.
+  const read = (await conn.runAndReadAll(`SELECT "Desk", "Symbol", "Last" FROM '${WALL}'`)).getRows();
+  read.forEach(([desk, symbol, last], i) => {
+    const [wantDesk, wantSymbol, wantPrice] = WALL_INSTRUMENTS[i]!;
+    if (desk !== DESKS[wantDesk] || symbol !== wantSymbol || last !== wantPrice) throw new Error(`${WALL} row ${i}: ${desk} ${symbol} at ${last}, want ${DESKS[wantDesk]} ${wantSymbol} at ${wantPrice}`);
+  });
+  const entry: ManifestFile = {
+    rows,
+    bytes,
+    sha256: await sha256(join(dataDir, WALL)),
+    source: "apps/observatory/contenders/wall/instruments.ts (WALL_INSTRUMENTS), the wall's instruments",
+    credit: MARKET_CREDIT,
+    license: 'CC0 1.0',
+    terms: WALL_TERMS,
+    rowGroups: Number(await value(conn, `SELECT num_row_groups FROM parquet_file_metadata('${WALL}')`)),
+    writer: `DuckDB ${await value(conn, 'SELECT version()')}, ZSTD, one row group, in the feed's order`,
+    notes: [
+      `${DESKS.length} desks of ${DESK_ROWS} in a run each (${DESKS.join(', ')}); a stop of N tables shows the first N`,
+      "the open as the tables draw it: each price the instrument's reference, no change, volume 0; the feed (seeded, synthetic) moves them",
+      `columns: ${await columns(WALL)}`,
+    ],
+  };
+  console.log(`${WALL}: ${rows} rows, ${bytes} B, sha256 ${entry.sha256}`);
   return entry;
 }
 

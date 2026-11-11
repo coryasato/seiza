@@ -17,7 +17,7 @@
 import { INSTRUMENTS, Feed as MarketFeed } from '../../contenders/market/feed.ts';
 import { Feed, HEADER, TICK } from '../src/feed-worker.ts';
 import { option } from '../../../../shared-web/perf/protocol.ts';
-import { WALL_INSTRUMENTS } from './instruments.ts';
+import { WALL_INSTRUMENTS } from '../../contenders/wall/instruments.ts';
 
 const FRAMES = 3000;
 const FLASH_FRAMES = Math.round(0.4 * 60);

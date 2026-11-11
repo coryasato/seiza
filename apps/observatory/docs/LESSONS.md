@@ -558,3 +558,12 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - The canvas's wall tables have no row-number gutter, but the tall table always draws one, and the spike's TanStack side copied it. The 33 px it adds is what pushes 4 tables across past the page's frame with the sidebar open. Every other scenario's board leaves out the gutter too; the wall is the first where it changes the layout.
 - A GPUI scroller doesn't nest the way a DOM one does. A `div`'s `overflow_y_scroll` scrolls on any wheel or swipe whose hit test reaches it, and the tall table doesn't stop the event, so a frame that scrolls around tables would move together with the table under the finger. The phone's layout had to say where the GPUI frame takes its scroll, which the DOM side never has to.
 - The canvas's keeps-up chart drew every scenario's threshold at 95%, while market watch's and the wall's measure is 90%. GPUI's slow-device 6 tables (90.0%) reads as kept up only at the measure's own line, so the wall's sketch draws it there.
+
+## M13 part B1: the monitoring wall's data, scenario, and feed fixture (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-b1.md`](../perf/results/2026-11-10-m13-b1.md).
+
+**Surprises:**
+- A scenario that no side builds yet still costs every contender bytes. `pickScenario` reads `ALL_SCENARIOS`, so the wall's entry rides in every level's first-paint JS (141–185 B brotli) from the day it joins the list, before any build of its own.
+- "Market watch's feed unchanged" holds for its ticks, not its worker's bytes. Widening `Feed` adds 33 B to the market level's worker, while `write.ts --check` proves its output byte-identical. A check that a level is unchanged has to say which: its wasm, its JS, or what it sends.
+- In `prep.ts`, a cache declared below the top-level `await`s isn't initialized yet when they run: `let` and `const` there are in their temporal dead zone. A memo shared by two builds has to live above them, or on the function itself.

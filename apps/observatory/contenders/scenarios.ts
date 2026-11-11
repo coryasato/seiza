@@ -13,10 +13,11 @@
 
 import type { Side } from './contract.ts';
 import { DATA_FILE } from './tail/data.ts';
+import { DESKS } from './wall/names.ts';
 
 /** A build of each contender: the base, or the base with a set of features
  *  built the same on both sides. */
-export type Level = 'base' | 'wide' | 'market' | 'tail';
+export type Level = 'base' | 'wide' | 'market' | 'tail' | 'wall';
 
 /** The features each level turns on (the GPUI contender's Cargo feature of
  *  the level's name turns on the table's), every level's, built or not:
@@ -27,6 +28,7 @@ export const LEVEL_FEATURES: Record<Level, readonly string[]> = {
   wide: ['custom-cells', 'pin', 'density'],
   market: ['custom-cells', 'live', 'format'],
   tail: ['custom-cells', 'follow', 'live', 'format', 'density'],
+  wall: ['custom-cells', 'live', 'format', 'density'],
 };
 
 export interface Stop {
@@ -121,7 +123,38 @@ export interface TailScenario extends ScenarioOf<'tail', RowsStop> {
   widths: readonly [time: number, request: number, status: number, bytes: number];
 }
 
-export type Scenario = BaseScenario | WideScenario | MarketScenario | TailScenario;
+/** A monitoring wall's stop: the tables in one frame, each a desk. */
+export interface TablesStop extends Stop {
+  tables: number;
+}
+
+export interface WallScenario extends ScenarioOf<'wall', TablesStop> {
+  /** The feed's seed (`contenders/market/feed.ts`, over the stop's desks'
+   *  instruments, `contenders/wall/desks.ts`). */
+  seed: number;
+  /** Each table's updates a second: the feed's rate is this × the tables. */
+  rate: number;
+  /** Each table's title, in the order a stop takes them (the first N). */
+  desks: readonly string[];
+  /** Market watch's, shared: Chg % drawn by sign, the flash's colors. */
+  signs: MarketScenario['signs'];
+  /** Market watch's flash, shared: of its columns, the wall draws Last. */
+  flash: MarketScenario['flash'];
+  /** The grid, px (the design canvas's): the tables `gap` apart and from
+   *  the frame's edge, in rows of `tables / 2` (two rows; one column on a
+   *  phone); each table a `title` row, then its header and rows at the
+   *  table's `density` (`rowHeight`, `textSize`), its columns (Symbol,
+   *  Last, Chg %, Volume) at `widths` after the row-number gutter. */
+  grid: {
+    gap: number;
+    title: number;
+    rowHeight: number;
+    textSize: number;
+    widths: readonly [symbol: number, last: number, changePct: number, volume: number];
+  };
+}
+
+export type Scenario = BaseScenario | WideScenario | MarketScenario | TailScenario | WallScenario;
 
 export const BIG_FILE: BaseScenario = {
   id: 'big-file',
@@ -235,10 +268,38 @@ export const LIVE_TAIL: TailScenario = {
   widths: [196, 470, 72, 90],
 };
 
+/** A monitoring wall's stop, named by its tables as the dial says it ("6"),
+ *  its label with the unit ("6 tables"). */
+const tablesStop = (tables: number): TablesStop => ({ id: String(tables), label: `${tables} tables`, tables });
+
+/**
+ * The monitoring wall (`docs/DECISIONS.md`, "Scenarios"): several small
+ * live tables in one frame, a desk of 50 fictional instruments each
+ * (`contenders/wall/`), every desk ticked by one seeded feed in market
+ * watch's format at `rate` a table. Its stops are the tables, where the
+ * spike found both sides' edges on a slow device; its colors and flash are
+ * market watch's.
+ */
+export const MONITORING_WALL: WallScenario = {
+  id: 'monitoring-wall',
+  label: 'Monitoring wall',
+  use: 'An ops screen: several small live tables in one frame, all updating at once',
+  level: 'wall',
+  data: 'wall-instruments.parquet',
+  stops: [tablesStop(4), tablesStop(6), tablesStop(8)],
+  defaultStop: '6',
+  seed: 0x3a11,
+  rate: 2000,
+  desks: DESKS,
+  signs: MARKET_WATCH.signs,
+  flash: MARKET_WATCH.flash,
+  grid: { gap: 8, title: 26, rowHeight: 24, textSize: 12, widths: [64, 76, 72, 80] },
+};
+
 /** Every scenario, each level's first its default: what a frame can load
  *  (`pickScenario`) and what the scripts measure, on whichever sides build
  *  its level (`BUILT`). */
-export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE];
+export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE, MONITORING_WALL];
 
 /** The scenarios the page shows: a scenario joins once both sides build its
  *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The

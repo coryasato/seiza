@@ -1,14 +1,16 @@
 /**
- * Market watch's feed: the one module both contenders' workers run
- * (`worker.ts`), so either side gets the same bytes (root `CLAUDE.md`,
- * "Comparison protocol": a scenario's feed). Pure: nothing here touches the
- * browser, so the data's prep (`data/prep.ts`) and the fixture's writer
- * (`fixtures/write.ts`) run it in Node.
+ * Market watch's feed, and the monitoring wall's: the one module both
+ * contenders' workers run (`worker.ts`), so either side gets the same bytes
+ * (root `CLAUDE.md`, "Comparison protocol": a scenario's feed). Pure:
+ * nothing here touches the browser, so the data's prep (`data/prep.ts`) and
+ * the fixtures' writer (`fixtures/write.ts`) run it in Node.
  *
- * Fifty fictional instruments (`INSTRUMENTS`, their one home: the data file
- * is written from them, and each side's store starts from them), and a
- * seeded mulberry32 making every tick a pure function of the seed and its
- * index, whatever the batches' boundaries. A tick is a trade (60%: the last
+ * Its instruments: market watch's fifty fictional ones by default
+ * (`INSTRUMENTS`, their one home: the data file is written from them, and
+ * each side's store starts from them), or any others' reference prices (the
+ * monitoring wall's, `contenders/wall/`'s 400, its stop's desks). A seeded
+ * mulberry32 makes every tick a pure function of the seed, the
+ * instruments' prices, and its index, whatever the batches' boundaries. A tick is a trade (60%: the last
  * moves one price tick up or down, a quarter of the time each at the
  * reference, the odds leaning back toward it as the last strays, or holds)
  * or a quote (the last unmoved); either redraws the spread, so the bid and
@@ -107,9 +109,12 @@ export class Feed {
   private readonly next: () => number;
   private readonly state: State[];
 
-  constructor(seed: number) {
+  /** `prices`: each instrument's reference price, in the order its ticks
+   *  name it (a u16, so at most 65,536); market watch's 50 unless given. */
+  constructor(seed: number, prices: readonly number[] = INSTRUMENTS.map(({ price }) => price)) {
+    if (prices.length === 0 || prices.length > 0x10000) throw new Error(`${prices.length} instruments: a tick names one of 1 to 65,536`);
     this.next = rng(seed);
-    this.state = INSTRUMENTS.map(({ price }) => {
+    this.state = prices.map((price) => {
       const scale = 10 ** decimalsOf(price);
       const ticks = Math.round(price * scale);
       return { last: ticks, ref: ticks, scale, spread: 1 };

@@ -76,6 +76,22 @@
       "columns: Symbol VARCHAR, Name VARCHAR, Last DOUBLE, Change DOUBLE, Change % DOUBLE, Bid DOUBLE, Ask DOUBLE, Bid size INTEGER, Ask size INTEGER, Volume BIGINT, High DOUBLE, Low DOUBLE"
     ]
   },
+  "wall-instruments.parquet": {
+    "rows": 400,
+    "bytes": 3716,
+    "sha256": "5cbf2407d1013f5bd4f6d1003ccfddd642ead3c6e013abc89c461f54c9917671",
+    "source": "apps/observatory/contenders/wall/instruments.ts (WALL_INSTRUMENTS), the wall's instruments",
+    "credit": "Fictional instruments, the observatory's own: synthetic",
+    "license": "CC0 1.0",
+    "terms": "The observatory's own, made up for the monitoring wall and dedicated to the public domain (CC0 1.0). The symbols are fictional: prep fails if one is listed on a US exchange (NASDAQ Trader's nasdaqlisted.txt and otherlisted.txt, fetched at each build) or repeats market watch's.",
+    "rowGroups": 1,
+    "writer": "DuckDB v1.4.5, ZSTD, one row group, in the feed's order",
+    "notes": [
+      "8 desks of 50 in a run each (Energy, Rail and freight, Banks, Chips, Health, Retail, Materials, Utilities); a stop of N tables shows the first N",
+      "the open as the tables draw it: each price the instrument's reference, no change, volume 0; the feed (seeded, synthetic) moves them",
+      "columns: Desk VARCHAR, Symbol VARCHAR, Last DOUBLE, Change % DOUBLE, Volume BIGINT"
+    ]
+  },
   "nasa-http-jul95.parquet": {
     "rows": 1890983,
     "bytes": 9719404,

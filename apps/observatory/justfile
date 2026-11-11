@@ -263,9 +263,10 @@ placeholder *args:
 # (node --test), and the cell fixture against what the GPUI contender's
 # build draws: run
 # `just observatory gpui-build` first (`check` does), or it checks the last
-# build's drawing. And market watch's feed fixture
-# (contenders/market/fixtures/feed.json): the feed regenerating it, then
-# each side's store against it with its controls (the GPUI contender's
+# build's drawing. And the feed fixtures, market watch's
+# (contenders/market/fixtures/feed.json) and the monitoring wall's
+# (contenders/wall/fixtures/feed.json): the feed regenerating each, then
+# each side's store against each with its controls (the GPUI contender's
 # natively, the TanStack contender's in its `npm test`). And live tail's:
 # its clock's fixture (contenders/tail/fixtures/clock.json), then each
 # side's loop SQL and time text against sql.json and cells.json.
@@ -344,14 +345,16 @@ readout-cost *args:
 # data/raw/ghcn/ and checked against their pins (a missing one downloaded),
 # market-instruments.parquet from the feed's instruments
 # (contenders/market/feed.ts; it fails if a symbol is listed on a US
-# exchange, NASDAQ Trader's directories fetched), and
+# exchange, NASDAQ Trader's directories fetched), wall-instruments.parquet
+# from the monitoring wall's instruments (contenders/wall/instruments.ts; the
+# same check, and none repeating market watch's), and
 # nasa-http-jul95.parquet from NASA-HTTP's July 1995 log, kept in
 # data/raw/nasa/ and checked against its pin (downloaded when missing), with
 # the replay's pages run against it, and countries.parquet from CLDR's
 # region names and populations and Wikidata's capitals, kept in
 # data/raw/countries/ and checked against their pins (downloaded when
 # missing). Installs data/'s native DuckDB (its own lockfile). Flags:
-# --only asteroids|ghcn|market|nasa|countries; --repin (download GHCN's
+# --only asteroids|ghcn|market|wall|nasa|countries; --repin (download GHCN's
 # sources and the Wikidata query's result again and pin them: a new file,
 # so regenerate cells.json).
 data *args:

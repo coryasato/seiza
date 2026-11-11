@@ -2,7 +2,8 @@
  *  (the feed spike's: market watch's format over the shown desks'
  *  instruments), started once every table has filled, and the logs. */
 
-import { DESKS, WALL_INSTRUMENTS } from '../instruments.ts';
+import { WALL_INSTRUMENTS } from '../../../contenders/wall/instruments.ts';
+import { DESKS } from '../../../contenders/wall/names.ts';
 
 export const params = new URLSearchParams(location.search);
 /** `?tables=<n>`: the stop, 4, 6, or 8 desks. */

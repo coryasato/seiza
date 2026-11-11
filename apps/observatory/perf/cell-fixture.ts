@@ -49,11 +49,15 @@ const PORT = 4313;
  *  moves them (`perf/market.ts` checks them against the feed's fold). Nor
  *  is live tail: it has no float column, its time's text is
  *  `timestamp_text`'s, and `perf/tail.ts` checks its cells against native
- *  DuckDB's rows through the replay. */
+ *  DuckDB's rows through the replay. Nor is the monitoring wall: its
+ *  formats are market watch's (`format`). No check of its cells exists yet:
+ *  each table's on both sides after a fixed run of ticks is the wall
+ *  level's own check script's to do, once both sides build it. */
 const SAMPLED: Record<string, { port: number; only?: string[]; text?: true } | null> = {
   'wide-sheet': { port: 4348, only: ['Latitude', 'Jan 1', 'Jan 2', 'Jan 15'] },
   'market-watch': null,
   'live-tail': null,
+  'monitoring-wall': null,
   // Its five columns are text; its names hold 18 scripts and its flags
   // regional indicators, which both sides must draw as the file has them.
   'admin-table': { port: PORT, text: true },
