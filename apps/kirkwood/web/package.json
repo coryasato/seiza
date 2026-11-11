@@ -1,0 +1,15 @@
+{
+  "name": "@seiza/kirkwood-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p . && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p . && tsc -p ../checks && tsc -p ../data && tsc -p ../../../shared-web/perf"
+  },
+  "dependencies": {
+    "@seiza/web": "*"
+  }
+}

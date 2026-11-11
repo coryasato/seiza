@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Kirkwood</title>
+    <!-- No favicon yet; an empty one saves a 404 on every load. -->
+    <link rel="icon" href="data:," />
+    <meta name="description" content="The asteroid belt, drawn from a table of 1.58 million orbits: every dot is a row." />
+    <style>
+      /* GPUI appends its canvas to <body> and sizes it to 100%. The page is
+         dark whatever the system is, in the color the window is filled with
+         (the crate's `PAGE`), so nothing flashes before the first frame. */
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #05060a; color: #fafafa; }
+      body > canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <noscript>Kirkwood needs JavaScript and WebAssembly.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

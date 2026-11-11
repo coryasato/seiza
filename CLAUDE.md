@@ -9,7 +9,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
 - `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). The page (the contender's window, its numbers, and its meter) and both contenders, live at seiza.io/observatory.
-- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it. Planned (its docs and a throwaway spike; no app yet), for tycho.seiza.io/kirkwood.
+- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it. Being built (the table over every row; no scene yet, and a throwaway spike), for tycho.seiza.io/kirkwood.
 
 The apex site (seiza.io: the observatory's page now, a landing page later) shares one shell, `site/ui/` ("The apex site" below).
 
@@ -31,7 +31,7 @@ The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 - **Utility apps** (`apps/<star>/`): tools people use, star-named, each on its own subdomain. They turn on component features as they need them, and usually get a feature first.
 - **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 DOM equivalent, under the comparison protocol below. It only consumes components and engines: it may ask one to expose what its metrics need, but never to change how a utility app behaves, and a change to a component's internals for it stays small, defaults unchanged.
 - **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. The first engine is `engines/duckdb/` and the first component `components/tall-table/`, both from Tycho.
-- **A showcase** (`apps/kirkwood/`, planned: its docs and a throwaway spike, no app yet): an app for fun around the tall table, not a tool and not a comparison. The first is Kirkwood, the asteroid belt as a scene whose every dot is a row of the table beside it (its `PLAN.md`; the research, `docs/research/asteroid-belt.md`). It lives at a path on Tycho's subdomain (`docs/DECISIONS.md`, "Hosting"). A showcase is exempt from rule 1's budgets, rule 3, and the measurement protocol; it still paints something first and loads its heavy parts after (rule 2). Its scene may be JS (Three.js) with Rust as its engine. The decision: `docs/DECISIONS.md`, "Repo structure".
+- **A showcase** (`apps/kirkwood/`, being built: the table over its rows, no scene yet, and a throwaway spike): an app for fun around the tall table, not a tool and not a comparison. The first is Kirkwood, the asteroid belt as a scene whose every dot is a row of the table beside it (its `PLAN.md`; the research, `docs/research/asteroid-belt.md`). It lives at a path on Tycho's subdomain (`docs/DECISIONS.md`, "Hosting"). A showcase is exempt from rule 1's budgets, rule 3, and the measurement protocol; it still paints something first and loads its heavy parts after (rule 2). Its scene may be JS (Three.js) with Rust as its engine. The decision: `docs/DECISIONS.md`, "Repo structure".
 - **Build each wasm on its own** (`cargo build -p <crate>`). Cargo unifies features across the packages in one build, so a workspace-wide build would compile one app's features into another's. Clippy and tests may run workspace-wide.
 
 ## Stack and pins
@@ -95,7 +95,7 @@ seiza/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
     observatory/        # the comparison page: web/ (the page, under /observatory/, in the site's shell), contenders/ (the bare contender pages, under /observatory/contenders/: tall-table/gpui/, crate `tall-table-gpui`; tall-table/tanstack/, React + TanStack Virtual; market/, market watch's seeded feed and its fixture), metrics/, worker/ (seiza.io; the data by range), data/, perf/, spike/ (throwaway scroll spike), docs/, README.md, CLAUDE.md, PLAN.md, justfile
-    kirkwood/           # the showcase, planned: README.md, CLAUDE.md, PLAN.md, docs/, data/ (the asteroid catalog's fetch from JPL, the prep of the two files the app holds, pinned by MANIFEST.json, Jupiter's orbit, and the files' places checked against JPL Horizons), spike/ (throwaway: the two canvases; crate `kirkwood-spike`); no app yet, and no perf/: a showcase has no budgets
+    kirkwood/           # the showcase, being built: crate/ (`kirkwood`: the two files' bytes read where they lie, the table's source over them, the clock, the interface), web/ (its Vite host: each file's response written into the wasm's memory), checks/ (see.ts: what the release build shows), data/ (the asteroid catalog's fetch from JPL, the prep of the two files the app holds, pinned by MANIFEST.json, the fixture its readers are tested against, Jupiter's orbit, and the files' places checked against JPL Horizons), spike/ (throwaway: the two canvases; crate `kirkwood-spike`), docs/, README.md, CLAUDE.md, PLAN.md, justfile; no scene yet, and no perf/: a showcase has no budgets
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts
@@ -140,9 +140,10 @@ Each app has its own justfile, loaded as a `just` module from the root, and so d
 ```
 just <app> <recipe>        # e.g. just tycho dev, just tycho perf
 just tall-table <recipe>   # the tall table's bare host: build, size, perf (its CLAUDE.md)
+just kirkwood <recipe>     # the showcase: dev, build, test, see, lint (no check, perf, or report)
 ```
 
-Each app's recipes are listed in its CLAUDE.md. Every app has `just <app> report`, which regenerates the numbers in its README, its PLAN.md, and the root README's apps table from `perf/budgets.json` and `perf/results/`.
+Each app's recipes are listed in its CLAUDE.md. Every app but a showcase has `just <app> report`, which regenerates the numbers in its README, its PLAN.md, and the root README's apps table from `perf/budgets.json` and `perf/results/`.
 
 ## Measurement protocol
 

@@ -2,6 +2,7 @@
 
 mod tycho 'apps/tycho/justfile'
 mod observatory 'apps/observatory/justfile'
+mod kirkwood 'apps/kirkwood/justfile'
 mod tall-table 'components/tall-table/justfile'
 
 default:

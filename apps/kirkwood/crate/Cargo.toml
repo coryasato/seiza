@@ -1,0 +1,28 @@
+[package]
+name = "kirkwood"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Kirkwood: the asteroid belt as a scene whose every dot is a row of the table beside it. The engine (the two files' bytes, read where they lie, and the clock) and the interface."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gpui-kit.workspace = true
+# No observation panel: a showcase has no budgets to watch.
+seiza.workspace = true
+seiza-tall-table.workspace = true
+# The table's events as marks, targets, and probes, for the checks' scripts.
+tall-table-bridge.workspace = true
+
+# The entry point and the files' arrival are web-only; the readers and the
+# views compile natively for clippy and tests.
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm-bindgen.workspace = true
+js-sys.workspace = true
+
+[dev-dependencies]
+# The readers' test: data/fixture.json and data/MANIFEST.json.
+serde_json.workspace = true

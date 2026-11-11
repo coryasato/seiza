@@ -1,0 +1,53 @@
+# Kirkwood's recipes. Run from the repo root: `just kirkwood <recipe>`.
+# A showcase: no check, perf, or report (root CLAUDE.md, "Tiers"). The data's
+# own commands are in docs/data.md.
+
+app_dir := source_directory()
+root := source_directory() / "../.."
+web := app_dir / "web"
+pkg := web / "pkg"
+target_dir := root / "target/wasm32-unknown-unknown"
+
+# Build the wasm (debug) and start the Vite dev server with COOP/COEP. The
+# two files come from data/ (data/prep.ts builds them).
+dev: (wasm "debug")
+    npm run dev --workspace @seiza/kirkwood-web
+
+# Release wasm (+ wasm-opt), Vite build, then the asset sizes.
+build: (wasm "release")
+    npm run build --workspace @seiza/kirkwood-web
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist
+
+# Serve the release build with the same headers, and the two files.
+preview:
+    npm run preview --workspace @seiza/kirkwood-web
+
+# Compile the crate alone (`-p`: Cargo unifies features across the packages
+# in one build) and generate its JS bindings into web/pkg/.
+wasm profile="debug":
+    cargo build -p kirkwood --target wasm32-unknown-unknown {{ if profile == "release" { "--release" } else { "" } }}
+    wasm-bindgen {{target_dir}}/{{profile}}/kirkwood.wasm --out-dir {{pkg}} --target web
+    {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + pkg + "/kirkwood_bg.wasm -o " + pkg + "/kirkwood_bg.wasm" } else { "true" } }}
+
+# Native tests: the clock and the files' rules, and (ignored in a plain
+# `cargo test`, run here) the files' readers against data/fixture.json: they
+# read data/elements.bin and data/rows.bin, and fail without them.
+test:
+    cargo test -p kirkwood -- --include-ignored
+
+# What the release build shows, in headless Chromium (checks/see.ts): the
+# first frame before either file is asked for, the table over the rows
+# file, and the wasm's memory against the files' bytes. Screenshots and
+# seen.json in checks/out/ (gitignored). --only paint,table,memory; --runs.
+# Run `just kirkwood build` first.
+see *args:
+    node {{app_dir}}/checks/see.ts {{args}}
+
+# check-terms, fmt, clippy (wasm target and native), TypeScript (the host,
+# the checks, the data's scripts).
+lint:
+    cd {{root}} && node shared-web/scripts/check-terms.ts
+    cargo fmt --all --check
+    cargo clippy -p kirkwood --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p kirkwood --all-targets -- -D warnings
+    npm run typecheck --workspace @seiza/kirkwood-web

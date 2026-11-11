@@ -89,3 +89,16 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data"; the files: [`data
 - **The spike's moves didn't notice the real orbits.** All 34 of its input and move checks passed unchanged, and a drawn group shears apart at the rate the seeded angles had said (1.5 au to 3.6 in three years).
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene"; the check: [`data.md`](data.md), "Checked against Horizons".
+
+## M2, part A: the app stands (2026-11-11)
+
+**Surprises:**
+- **Holding a file once took no `unsafe`.** Every section of both files starts on a 4-byte boundary, so the bytes are kept as 32-bit words and a float is a word's bits. The alignment the scene's views will need and the safe read came from the same choice, made at prep a milestone ago for another reason.
+- **The memory came out to the files' bytes and a tenth of a megabyte.** 90.64 MB for 90.52. A stream written straight to its place leaves nothing to free, where a response read whole would have been a second 44 MB on the page's side for a moment.
+- **The first row with `A/` is also a row with no ellipse.** Asteroids on comets' orbits are where the hyperbolas are, so two of the fixture's rules landed on rows of the same kind, and both have no period.
+- **A published target sat 10 px off, and the script's test of it was right to refuse.** An absolutely placed child with no inset starts inside its parent's padding, so the handle's bounds reached past the window's edge. The harness waits for bounds inside the viewport, and waited a minute.
+- **The check read where the cells were while the panel was still sliding.** A press aimed with those places landed on nothing, and the key after it did nothing; the time went on the table's focus, which was fine. Places are read once what they're on has stopped moving.
+- **Nothing gives the table the keys but its host.** A press on it does, but a panel opened by its handle had no focus until pressed; Tycho and the bare host both focus it themselves, and now this host does.
+- **The spike's surface colors were the theme's.** Its hex constants for the handle and the panel were gpui-kit's dark `popover`, `border`, and `muted_foreground`; the app names the tokens.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table", "Data", "Scene", "Planning"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.

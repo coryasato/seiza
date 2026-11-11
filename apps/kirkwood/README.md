@@ -2,7 +2,7 @@
 
 > *Daniel Kirkwood found the gaps in the asteroid belt in the 1860s without a telescope: certain orbit sizes were missing from the catalog.*
 
-**Planned; nothing is built yet.**
+**Being built.** What runs today is the table: 1,580,272 asteroids, every row held in the page's memory, in a panel behind a handle. The scene, the belt itself, isn't drawn yet.
 
 Kirkwood is the asteroid belt as a scene to fly through, drawn from a table of 1.58 million asteroids (NASA/JPL), with that table beside it. **Every dot is a row:** click a row and the camera flies to it; draw around a group of dots and the table shows their rows.
 
@@ -22,8 +22,8 @@ It's a showcase: an app for fun around the table that [Tycho](../tycho/) is buil
 
 ## Canvas tradeoffs
 
-To be written with the app: what a canvas-drawn scene and table give up against the DOM (accessibility, text selection, find-in-page, bundle size), and what Kirkwood does about each.
+To be written as the app is built: what a canvas-drawn scene and table give up against the DOM (accessibility, text selection, find-in-page, bundle size), and what Kirkwood does about each. As it stands: the table is drawn on a canvas, so a screen reader finds nothing in it, its text can't be selected, and the browser's find-in-page doesn't see it.
 
 ## For contributors
 
-What's next: [`PLAN.md`](PLAN.md). Why it's built this way: [`docs/DECISIONS.md`](docs/DECISIONS.md) and the research, [`docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md).
+Run it: build the two data files once ([`docs/data.md`](docs/data.md), "Commands": the fetch, then prep), then `just kirkwood dev` from the repo root. What's next: [`PLAN.md`](PLAN.md). Why it's built this way: [`docs/DECISIONS.md`](docs/DECISIONS.md) and the research, [`docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md).

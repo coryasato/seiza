@@ -1,6 +1,6 @@
 # The orbits' data
 
-Where Kirkwood's rows come from, what the fetch holds, the two files built from it that the app holds in memory, Jupiter's orbit, and what the files' places were checked against. Paths are relative to `apps/kirkwood/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Data".
+Where Kirkwood's rows come from, what the fetch holds, the two files built from it that the app holds in memory, the fixture its readers are tested against, Jupiter's orbit, and what the files' places were checked against. Paths are relative to `apps/kirkwood/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Data".
 
 ## The fetch
 
@@ -106,6 +106,27 @@ What the file leaves out, and where each cell comes from instead:
 
 Held in memory they cost their raw size, 90.5 MB together. The elements' six orbit columns are 5.0 to 5.7 MB each at brotli 11 (their digits are noise to a compressor) and H is 2.0. Of the rows file: `spkid` 2.4 MB, `designation` 2.1, the dates 2.2 and 1.9, `n_obs_used` 1.7, and everything else 1.0.
 
+## The fixture
+
+`data/fixture.json` (committed), written by prep with the manifest and compared by `prep.ts --check`: a row for each of the files' rules, the first of the catalog that shows it, with the fetch's own 18 cells (`full_name` trimmed, the rest as the API wrote them) and its six elements at the files' epoch in 64-bit floats.
+
+| Rule | The row |
+|---|---|
+| numbered and named | 1 Ceres (A801 AA), the first row |
+| numbered, no name | 4596 (1981 QB) |
+| not numbered | (1927 LA), the first after the numbered |
+| a designation with `A/` | (A/2010 LN135), which has no ellipse either |
+| a survey's designation | (6344 P-L), the last row |
+| a first observation with only its year | (1999 TC81) |
+| no H | (1935 UZ) |
+| no diameter | 682 Hagar (A909 MA) |
+| a diameter and an albedo | 2 Pallas (A802 FA) |
+| a near-Earth asteroid | 433 Eros (A898 PA) |
+| the circle with no mean anomaly | (2002 PD153) |
+| no ellipse | 'Oumuamua (A/2017 U1) |
+
+The app's crate reads these rows from the two built files through the readers its table uses and compares each cell (`crate/src/catalog.rs`'s tests, run by `just kirkwood test`; a plain `cargo test` skips them, since the files aren't in the repo): text exactly; H, the diameter, and the albedo as the fetch's number at the float's shortest; a, e, i, and the three angles as the nearest float; q and the period within a part in 1,000 of JPL's columns. Why it reads the real files: `DECISIONS.md`, "Data".
+
 ## Jupiter
 
 Jupiter isn't a row, so it isn't in the files. `data/jupiter.ts` holds its six osculating elements at the files' epoch and its mean motion, from JPL Horizons (body 599 about the Sun's center, the ecliptic of J2000; the same numbers are in `data/horizons.json`), and places it as a row is placed (`data/orbit.ts`'s `place`), with one difference: its mean motion is its own, 0.0830846 degrees a day, which counts its mass (`DECISIONS.md`, "Scene"). Both modules are free of Node, so a page can import them.
@@ -125,7 +146,7 @@ From the repo root:
 ```
 node apps/kirkwood/data/fetch.ts [--refresh] [--page-size 100000]   # the catalog into data/raw/asteroids/ (~3 min, once)
 node --max-old-space-size=12000 apps/kirkwood/data/survey.ts [<tycho's data/raw/asteroids>]   # the numbers above as JSON; with Tycho's raw pages, the sample against the fetch
-node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's, writes nothing; --sizes: each file and section raw and at brotli 11 (~2 min more)
+node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json, data/fixture.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's and the fixture is the same, writes nothing; --sizes: each file and section raw and at brotli 11 (~2 min more)
 node --max-old-space-size=12000 apps/kirkwood/data/precision.ts [--only error,bytes]   # the elements file's precision, weighed: each way of storing the elements, its error against 64-bit floats and its bytes (~7 min; DECISIONS.md, "Data")
 node apps/kirkwood/data/horizons.ts   # data/horizons.json again from JPL Horizons (7 requests; a refetch changes the pinned reference, so not without a reason)
 node apps/kirkwood/data/places.ts [--date 2026-06-09] [--only bodies,jupiter,trojans,hildas]   # the built files' places against Horizons', and the Trojans and Hildas against Jupiter (a few seconds; DECISIONS.md, "Scene")

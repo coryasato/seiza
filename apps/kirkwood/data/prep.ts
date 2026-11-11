@@ -1,13 +1,15 @@
 // Builds the two files the app holds in memory from the fetch in data/raw/:
 // elements.bin, what the scene draws from, and rows.bin, the table's other
 // columns. Both are gitignored; data/MANIFEST.json (committed) names them by
-// their bytes. Their layout, and how to read it: docs/data.md.
+// their bytes. Their layout, and how to read it: docs/data.md. And
+// data/fixture.json (committed): a row for each of the files' rules, with
+// the fetch's cells, which the app's readers are tested against.
 //
 // Usage: node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]
 //
-//   (nothing)  writes the files and the manifest
-//   --check    builds them again and fails unless they're the manifest's and
-//              the disk's, byte for byte; writes nothing
+//   (nothing)  writes the files, the manifest, and the fixture
+//   --check    builds them again and fails unless they're the manifest's, the
+//              fixture's, and the disk's, byte for byte; writes nothing
 //   --sizes    also prints each file and each of its sections raw and at
 //              brotli 11 (a few minutes)
 //
@@ -24,6 +26,7 @@ import { EPOCH_JD, GAUSS, GAUSS_YEAR_DAYS, field, fullName, isBound, nearestTurn
 
 const dataDir = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(dataDir, 'MANIFEST.json');
+const fixturePath = join(dataDir, 'fixture.json');
 
 type Values = Float32Array | Uint32Array | Int32Array | Uint16Array | Uint8Array;
 type Kind = 'f32' | 'u32' | 'i32' | 'u16' | 'u8';
@@ -244,6 +247,59 @@ function verify(catalog: Catalog, elements: Built, rowsBuilt: Built): Record<str
   return { rows, numbered, named, classes, yearOnlyDates, noH, meanAnomalyAgainstJplDegrees: anomaly, computedAgainstJpl: { qWorstShare: worst.q, periodWorstShare: worst.per_y } };
 }
 
+// --- The fixture: a row for each of the files' rules, with the fetch's own
+// cells, for the app's readers to read back (its crate's native test). The
+// rows are the first the catalog has of each kind, so the same fetch picks
+// the same ones.
+
+const SAMPLE = ['spkid', 'full_name', 'pdes', 'name', 'neo', 'pha', 'class', 'H', 'diameter', 'albedo', 'a', 'e', 'i', 'q', 'per_y', 'first_obs', 'last_obs', 'n_obs_used'];
+
+function fixture(catalog: Catalog): string {
+  const { cells, numbered, rows } = catalog;
+  const at = Object.fromEntries(SAMPLE.map((name) => [name, field(name)])) as Record<string, number>;
+  const text = (row: number, name: string) => String(cells[row]![at[name]!]);
+  const none = (row: number, name: string) => cells[row]![at[name]!] == null;
+  const picked = new Set<number>();
+  /** The first row `holds` is true of, from `from`, that no rule before took. */
+  const first = (rule: string, holds: (row: number) => boolean, from = 0): { rule: string; row: number } => {
+    for (let row = from; row < rows; row++) {
+      if (!picked.has(row) && holds(row)) {
+        picked.add(row);
+        return { rule, row };
+      }
+    }
+    throw new Error(`the fetch has no row for the fixture's rule: ${rule}`);
+  };
+  const rules = [
+    first('numbered and named', (row) => row === 0),
+    first('numbered, no name', (row) => row < numbered && none(row, 'name')),
+    first('not numbered', () => true, numbered),
+    first('a designation with A/', (row) => catalog.designation[row]! >>> 31 === 0 && (catalog.designation[row]! & 1) === 1),
+    first("a survey's designation, the last row", (row) => row === rows - 1 && catalog.designation[row]! >>> 31 === 1),
+    first('a first observation with only its year', (row) => /-\?\?-\?\?$/.test(text(row, 'first_obs'))),
+    first('no H', (row) => none(row, 'H')),
+    first('no diameter', (row) => none(row, 'diameter')),
+    first('a diameter and an albedo', (row) => !none(row, 'diameter') && !none(row, 'albedo'), 1),
+    first('a near-Earth asteroid', (row) => text(row, 'neo') === 'Y'),
+    first('the circle with no mean anomaly', (row) => none(row, 'e') === false && cells[row]![field('ma')] == null),
+    first('no ellipse', (row) => !isBound(catalog.a[row]!, catalog.e[row]!)),
+  ];
+  return `${JSON.stringify(
+    {
+      about: 'Written by data/prep.ts: a row of the two files for each of their rules (docs/data.md), with the fetch\'s own cells and its elements at the files\' epoch, in 64-bit floats.',
+      fetched: catalog.info.fetched,
+      rows: rules.map(({ rule, row }) => ({
+        rule,
+        row,
+        cells: Object.fromEntries(SAMPLE.map((name) => [name, name === 'full_name' ? text(row, name).trim() : cells[row]![at[name]!]])),
+        elements: { a: catalog.a[row], e: catalog.e[row], i: catalog.i[row], om: catalog.om[row], w: catalog.w[row], ma: catalog.ma[row] },
+      })),
+    },
+    null,
+    1,
+  )}\n`;
+}
+
 // --- Main.
 
 const check = process.argv.includes('--check');
@@ -287,6 +343,7 @@ const manifest = {
   },
 };
 const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+const fixtureText = fixture(catalog);
 const files = [['elements.bin', elements], ['rows.bin', rowsBuilt]] as const;
 
 if (check) {
@@ -294,6 +351,10 @@ if (check) {
   if (readFileSync(manifestPath, 'utf8') !== manifestText) {
     same = false;
     console.error('MANIFEST.json isn\'t what this run would write');
+  }
+  if (readFileSync(fixturePath, 'utf8') !== fixtureText) {
+    same = false;
+    console.error('fixture.json isn\'t what this run would write');
   }
   for (const [name, built] of files) {
     const onDisk = sha256(readFileSync(join(dataDir, name)));
@@ -306,6 +367,7 @@ if (check) {
 } else {
   for (const [name, built] of files) writeFileSync(join(dataDir, name), built.bytes);
   writeFileSync(manifestPath, manifestText);
+  writeFileSync(fixturePath, fixtureText);
   for (const [name, built] of files) console.log(`${name}: ${built.bytes.length} bytes, sha256 ${sha256(built.bytes)}`);
 }
 
