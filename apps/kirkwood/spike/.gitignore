@@ -3,5 +3,8 @@ pkg/
 dist/
 # The elements file, exported from the asteroid sample (data.ts)
 public/elements.bin
+# Each row's H, and the Gaia sample's bright stars (data.ts)
+public/h.bin
+public/stars.bin
 # Screenshots and traces (run.ts)
 out/

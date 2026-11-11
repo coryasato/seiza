@@ -119,6 +119,7 @@ struct Motion {
 
 thread_local! {
     static ELEMENTS: RefCell<Rc<Vec<f32>>> = RefCell::new(Rc::new(Vec::new()));
+    static MAGNITUDES: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static CLOCK: Cell<Clock> = const { Cell::new(Clock { years: 0.0, running: true, held: false, last_ms: f64::NAN }) };
     static MOTION: Cell<Motion> = const { Cell::new(Motion { flight: 0.0, to: 0.0, last_ms: f64::NAN, inset: 0.0 }) };
     /// The clock's time the live column shows: moved on at its refresh rate.
@@ -1256,6 +1257,23 @@ pub fn load_elements(bytes: &[u8]) -> usize {
 #[wasm_bindgen]
 pub fn elements_ptr() -> *const f32 {
     ELEMENTS.with_borrow(|elements| elements.as_ptr())
+}
+
+/// Each row's absolute magnitude H (one f32 a row, little-endian, the
+/// elements' order), for the look: held here beside the elements, and read
+/// by the scene where it is.
+#[wasm_bindgen]
+pub fn load_magnitudes(bytes: &[u8]) -> usize {
+    let magnitudes: Vec<f32> = bytes.as_chunks::<4>().0.iter().map(|value| f32::from_le_bytes(*value)).collect();
+    let rows = magnitudes.len();
+    MAGNITUDES.set(magnitudes);
+    rows
+}
+
+/// Where the magnitudes are in this module's memory, for the scene's view.
+#[wasm_bindgen]
+pub fn magnitudes_ptr() -> *const f32 {
+    MAGNITUDES.with_borrow(|magnitudes| magnitudes.as_ptr())
 }
 
 /// The clock, in years since its start, moved on to `now_ms` (the page

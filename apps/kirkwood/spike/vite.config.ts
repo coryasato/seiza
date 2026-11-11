@@ -14,7 +14,8 @@ export default defineConfig(
           output: {
             // Three.js in a chunk of its own, so its bytes are read off the
             // build (`run.ts`), apart from the scene's own code.
-            manualChunks: (id: string) => (id.includes('node_modules/three') ? 'three' : undefined),
+            // Its add-ons (the look's bloom) in another, for the same reason.
+            manualChunks: (id: string) => (id.includes('node_modules/three/examples') ? 'three-addons' : id.includes('node_modules/three') ? 'three' : undefined),
           },
         },
       },

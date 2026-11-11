@@ -36,7 +36,7 @@ Leaning, not decided; the spike decides (`PLAN.md`), and this section is rewritt
 ```
 apps/kirkwood/
   docs/             # DECISIONS.md, LESSONS.md, milestones.md; spike/ (the spike's screenshots)
-  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the sort flight's progress, the scene's input surface, a drawn group's pick, the panel and its table with its filter and live column), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js: the flight between space and a against e, the group's colors and outline, the camera's fly-in), data.ts (the elements file from the asteroid sample), run.ts (screenshots, input checks, the moves' checks, frame times, bytes); not an npm workspace
+  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the sort flight's progress, the scene's input surface, a drawn group's pick, the panel and its table with its filter and live column), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js: the flight between space and a against e, the group's colors and outline, the camera's fly-in; look.ts, the look's knobs and its pipeline: the half-float buffer, haze, bloom, tone mapping, the floor; stars.ts, the Gaia sky; colors.ts, the color mappings), data.ts (the elements and H from the asteroid sample, the bright stars from the Gaia sample), run.ts (screenshots, input checks, the moves' checks, frame times, bytes), lookdev.ts (the look: before and after from three cameras, each part's frame cost, first paint); not an npm workspace
   README.md         # for visitors
   CLAUDE.md         # this file
   PLAN.md           # what's next
@@ -50,10 +50,13 @@ The spike's only (no `just` module until there's an app), from the repo root:
 
 ```
 npm install --prefix apps/kirkwood/spike                 # its own deps (Three.js, DuckDB's Node client)
-node apps/kirkwood/spike/data.ts <asteroids.parquet>     # public/elements.bin (gitignored): each row's a, e, i from Tycho's sample
+node apps/kirkwood/spike/data.ts <asteroids.parquet> [<gaia-dr3-bright.parquet>] [--cut 10.5]   # public/ (gitignored): elements.bin (each row's a, e, i from Tycho's sample), h.bin (its H), and with the Gaia sample, stars.bin (its stars brighter than the cut)
 node apps/kirkwood/spike/run.ts [flags]                  # builds the wasm and the page, then: the scene through GPUI's canvas (screenshots in out/), input routing, frame times with both canvases drawing, the build's bytes, the three moves (the sort flight, a drawn group's fly-in with the table arriving, the live column), and frame times during each (--only shots,input,frames,bytes,moves,moveframes; --browser firefox|webkit; --params scale=0.5; --segments; --runs; --no-build)
-node apps/kirkwood/spike/run.ts --serve                  # builds, then serves the page to look at (?arrive=after, ?slide=<ms>, ?live=<refreshes a second>, ?decimals=<n>, ?scale=<0..1>)
+node apps/kirkwood/spike/run.ts --serve                  # builds, then serves the page to look at (?arrive=after, ?slide=<ms>, ?live=<refreshes a second>, ?decimals=<n>, ?scale=<0..1>; ?look for the look, below)
+node apps/kirkwood/spike/lookdev.ts [flags]              # the look (needs h.bin and stars.bin): the scene as it was and with the look from three cameras (out/look-*.png, and out/look.html beside any out/ref-*.png), each part's frame cost, first paint (--only shots,cost,paint; --cameras opening,top,group; --sides before,after; --tag; --params tone=agx; --configs; --runs; --no-build)
 ```
+
+The look's knobs, on the page's query: `?look` turns all of it on with its opening camera; each part alone is `?hdr`, `?mag`, `?bloom`, `?haze`, `?floor`, `?sun` (`=0` turns one off under `?look`), and `?stars=<G cut>`. The camera: `?az`, `?elev`, `?roll`, `?dist`. Tuning: `?tone=neutral|agx|aces|none`, `?exposure`, `?alpha`, `?hazeGain`, `?bloomGain`, `?bloomScale`, `?starGain`, `?grain`, and the rest in `spike/src/look.ts`, `stars.ts`, and `scene.ts`. With none of them the scene draws as it did before the look (`docs/DECISIONS.md`, "Look").
 
 ## Spike gotchas
 
@@ -62,4 +65,6 @@ node apps/kirkwood/spike/run.ts --serve                  # builds, then serves t
 - **The clock is moved by whoever reads it** (`advance_clock`: the scene each frame it draws, the date and the live column at their own rates), never by the scene's frames alone: landed in a against e the scene draws nothing, and time still runs (`docs/DECISIONS.md`, "Scene").
 - **The scene never calls into GPUI from a call Rust made.** Rust calls the scene inside a GPUI update (the pick's camera, the group's bytes, the outline, the fly-in), so what the scene reads back there are plain cells (`scene_years`, `scene_flight`, `scene_inset`); `fly_done`, which updates the host, is called only from the scene's own frame.
 - **What Rust hands the scene is a view over the wasm's memory:** copied or uploaded before the call returns (`setPicked`, `setOutline`, `setElements`), since the memory growing detaches it.
+- **H alone is the wrong brightness:** it's a body's brightness at 1 au, so the far, large bodies outshine the belt. The look divides by the squares of the distance from the Sun and from the eye (`docs/DECISIONS.md`, "Look").
+- **The look's haze is taken before the bodies are drawn** (the Sun, Jupiter, the lines), so only rows and stars glow; keep that order.
 - **A dot's size and opacity follow the camera's nearness** (`docs/DECISIONS.md`, "Look"); change one without the other and a flown-to group fades out or burns white.
