@@ -246,3 +246,16 @@ M7 is split into five parts, one session each (`milestones.md`, M7). Part E writ
 **Surprises:**
 - **The paths were nearly free on the wire.** 1,015 of them came to 42.9 KiB after wasm-opt but only 0.4 KiB brotli, so the wasm budget could never have caught them; only a search of the bytes does.
 - **A home path in a check's search term needs its trailing `/`.** Without it, a builder whose home is `/root` would match every trimmed `src/root.rs` (gpui-kit has one) and fail a clean wasm (code review).
+
+## Research: a density plot linked to the table (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-plot-research.md`](../perf/results/2026-11-10-plot-research.md)
+
+**Surprises:**
+- **"The cost is the grid's, not the rows'" was half right.** It's true of the drawing and false of the query: a bin reads two columns of every row, 165 MB of Gaia's file. The columns' sizes are in the footer, a one-line query that would have said so before any design was written.
+- **DuckDB kept the asteroids' bytes and not Gaia's.** After one scan of the 38 MB file every later query read nothing from the server; on the 1.5 GB file every query read its 281 MB again. A design tried only on the default sample would have looked finished.
+- **A column scan costs about three requests per column chunk,** because the readahead starts over at each chunk: 155 requests for the asteroids' two columns and 2,448 for Gaia's. The row groups sized for the table's paging are what a scan pays for; the same two columns in a file with large row groups read in 5 and 15.
+- **A sparse box is the sorted page again.** One page of 1,652 selected stars read 945 MB: its rows fall in every row group. The `sort` research had already measured this shape, from the other side.
+- **The image was free.** `paint_image` on a held grid, cropped and scaled differently every frame, cost what an empty frame does within a few tenths of a millisecond, and +2 KiB of wasm: everything it needs already links.
+- **Half of the spike's first "new grid" number was the test data.** The grid was seeded inside the frame (two `exp` a bin): 10.2 ms at 512², 4.9 once the grids were made before the first frame. Time the thing, not its fixture.
+- **A worktree with no `node_modules` and no local R2 could still measure:** a copy of the main checkout's built `web/dist`, a 60-line server answering ranges with the two headers, and the bridge through `?bench`. No `wrangler dev`, so nothing shared with the other checkout was written.

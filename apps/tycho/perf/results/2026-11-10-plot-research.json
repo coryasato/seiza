@@ -1,0 +1,1732 @@
+{
+ "date": "2026-11-10",
+ "what": "Research for Tycho's density plot: one run each of a throwaway spike, not protocol runs. Bytes and request counts are exact; times are hints (load average 6-7, a cargo build beside some).",
+ "machine": {
+  "label": "local",
+  "cpu": "Apple M1",
+  "os": "macOS 26.6.2"
+ },
+ "versions": {
+  "gpui-kit": "0.9.1",
+  "duckdb-wasm": "1.32.0 (DuckDB v1.4.3)",
+  "duckdb native": "1.4.5",
+  "chromium": "153.0.8010.12",
+  "playwright": "1.63.0"
+ },
+ "native": {
+  "what": "Native DuckDB over the files on a local disk, 3 runs each: ms",
+  "columnBytes": {
+   "asteroids": {
+    "a": 2560867,
+    "e": 3138725,
+    "file": 37692103,
+    "rowGroups": 52
+   },
+   "gaia": {
+    "bp_rp": 82899317,
+    "phot_g_mean_mag": 82499772,
+    "file": 1572736231,
+    "rowGroups": 409
+   }
+  },
+  "extents": {
+   "asteroids": {
+    "a": [
+     -15680,
+     14510
+    ],
+    "e": [
+     0,
+     1.2011
+    ],
+    "aQuantiles_0_1_to_99_9": [
+     0.9107,
+     64.238
+    ],
+    "eQuantiles_0_1_to_99_9": [
+     0.0058,
+     0.7664
+    ]
+   },
+   "gaia": {
+    "bp_rp": [
+     -2.974,
+     8.845
+    ],
+    "phot_g_mean_mag": [
+     1.732,
+     14.5
+    ],
+    "bp_rpNulls": 86203
+   }
+  },
+  "bin": {
+   "asteroids": {
+    "1 thread": {
+     "256": [
+      53.2,
+      55.4,
+      52.5
+     ],
+     "512": [
+      60.8,
+      67.6,
+      55.6
+     ],
+     "1024": [
+      87.9,
+      70.4,
+      68.2
+     ]
+    },
+    "8 threads": {
+     "256": [
+      17.2,
+      16.6,
+      15
+     ],
+     "512": [
+      33,
+      31.8,
+      53.7
+     ],
+     "1024": [
+      36.3,
+      34.7,
+      40.9
+     ]
+    },
+    "nonEmpty": {
+     "256": 30639,
+     "512": 83859,
+     "1024": 215028
+    }
+   },
+   "gaia": {
+    "1 thread": {
+     "256": [
+      1088,
+      1085.6,
+      1135.2
+     ],
+     "512": [
+      1111.1,
+      1161.5,
+      1119.4
+     ],
+     "1024": [
+      1337.5,
+      1353.7,
+      1354
+     ]
+    },
+    "8 threads": {
+     "256": [
+      243.7,
+      266.5,
+      256.1
+     ],
+     "512": [
+      329.2,
+      317.6,
+      325.6
+     ],
+     "1024": [
+      400.6,
+      412,
+      426
+     ]
+    },
+    "nonEmpty": {
+     "256": 44076,
+     "512": 147240,
+     "1024": 468618
+    }
+   }
+  }
+ },
+ "bridge": {
+  "what": "Through Tycho's bridge (DuckDB-Wasm, one thread), the files served by range from a local server, unthrottled; dataMB and requests are per run, counted at the server",
+  "asteroids": [
+   {
+    "label": "duckdb",
+    "value": "v1.4.3"
+   },
+   {
+    "label": "threads",
+    "value": "1"
+   },
+   {
+    "label": "footer",
+    "ms": [
+     31
+    ],
+    "resultBytes": 288,
+    "dataMB": 0.09,
+    "requests": 3
+   },
+   {
+    "label": "extent: min/max",
+    "ms": [
+     295
+    ],
+    "resultBytes": 592,
+    "dataMB": 17.63,
+    "requests": 155
+   },
+   {
+    "label": "extent: quantiles 0.1%..99.9%",
+    "ms": [
+     226.9
+    ],
+    "resultBytes": 680,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "parquet bin 512² full",
+    "ms": [
+     114.5,
+     82.3,
+     86.2
+    ],
+    "resultBytes": 678928,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "parquet bin 512² full, two keys",
+    "ms": [
+     80.7
+    ],
+    "resultBytes": 1016384,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "parquet bin 512² zoomed",
+    "ms": [
+     35.1,
+     37.8,
+     40
+    ],
+    "resultBytes": 524944,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "parquet count in a box",
+    "ms": [
+     24.7,
+     22.3
+    ],
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "rows in the box",
+    "value": "501"
+   },
+   {
+    "label": "rows in the zoom",
+    "value": "130540"
+   },
+   {
+    "label": "parquet bin, 16 row groups from 0",
+    "ms": [
+     35.8
+    ],
+    "resultBytes": 386192,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "parquet bin, 16 row groups from 491520",
+    "ms": [
+     36.5
+    ],
+    "resultBytes": 487840,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "parquet bin, 16 row groups from 983040",
+    "ms": [
+     44.8
+    ],
+    "resultBytes": 507920,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "columns as FLOAT, 16 row groups from 0",
+    "ms": [
+     30.3
+    ],
+    "resultBytes": 3978408,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "columns as FLOAT, 16 row groups from 491520",
+    "ms": [
+     26.2
+    ],
+    "resultBytes": 3978408,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "0.9"
+   },
+   {
+    "label": "attach compressed memory db",
+    "ms": [
+     0.7
+    ],
+    "resultBytes": 120,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "copy the two columns (FLOAT) into memory",
+    "ms": [
+     60.2
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "20.4"
+   },
+   {
+    "label": "pts rows",
+    "value": "1567523"
+   },
+   {
+    "label": "rowid ≡ file_row_number at 0",
+    "value": "5"
+   },
+   {
+    "label": "rowid ≡ file_row_number at 783761",
+    "value": "5"
+   },
+   {
+    "label": "rowid ≡ file_row_number at 1567518",
+    "value": "5"
+   },
+   {
+    "label": "memory bin 512² full",
+    "ms": [
+     54.4,
+     49.8,
+     52
+    ],
+    "resultBytes": 678896,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory bin 512² zoomed",
+    "ms": [
+     14.4,
+     14.4,
+     19.1
+    ],
+    "resultBytes": 524976,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory bin 1024² full",
+    "ms": [
+     69.3,
+     74.1
+    ],
+    "resultBytes": 1740560,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory extent quantiles",
+    "ms": [
+     191.6
+    ],
+    "resultBytes": 664,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory count in a box",
+    "ms": [
+     5.9,
+     6.1,
+     5.8
+    ],
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory count in the zoom",
+    "ms": [
+     6.8,
+     6.5,
+     6.7
+    ],
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory nearest row to a click",
+    "ms": [
+     16.5,
+     7.4,
+     7.9
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "fine grid 4096² from memory",
+    "ms": [
+     215
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "fine grid cells",
+    "value": "1015265"
+   },
+   {
+    "label": "fine → 512² full",
+    "ms": [
+     28.2,
+     24.8,
+     26.2
+    ],
+    "resultBytes": 678896,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "11.4"
+   },
+   {
+    "label": "selection index (zoom box)",
+    "ms": [
+     19.8
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "selected rows",
+    "value": "130540"
+   },
+   {
+    "label": "filtered page 0 from the file (semi-join)",
+    "ms": [
+     30.4
+    ],
+    "resultBytes": 142856,
+    "dataMB": 1.39,
+    "requests": 4
+   },
+   {
+    "label": "filtered page at the middle from the file",
+    "ms": [
+     25.1
+    ],
+    "resultBytes": 133032,
+    "dataMB": 0.69,
+    "requests": 6
+   },
+   {
+    "label": "filtered page 0, bounded by the slice",
+    "ms": [
+     22
+    ],
+    "resultBytes": 142856,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "span of page 0 in file rows",
+    "value": "11355"
+   },
+   {
+    "label": "selected rows copied into memory",
+    "ms": [
+     907.1
+    ],
+    "resultBytes": 288,
+    "dataMB": 43.64,
+    "requests": 7
+   },
+   {
+    "label": "page of the copy",
+    "ms": [
+     3.9,
+     2.7,
+     3.1
+    ],
+    "resultBytes": 139616,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "21.1"
+   },
+   {
+    "label": "JS loop: 1567523 float32 pairs → 512²",
+    "ms": [
+     12.6,
+     11.5,
+     11.2,
+     9.9,
+     9.6
+    ]
+   }
+  ],
+  "gaia": [
+   {
+    "label": "duckdb",
+    "value": "v1.4.3"
+   },
+   {
+    "label": "threads",
+    "value": "1"
+   },
+   {
+    "label": "footer",
+    "ms": [
+     57.2
+    ],
+    "resultBytes": 288,
+    "dataMB": 0.38,
+    "requests": 5
+   },
+   {
+    "label": "extent: min/max",
+    "ms": [
+     4323.1
+    ],
+    "resultBytes": 632,
+    "dataMB": 280.77,
+    "requests": 2449
+   },
+   {
+    "label": "extent: quantiles 0.1%..99.9%",
+    "ms": [
+     7153.5
+    ],
+    "resultBytes": 680,
+    "dataMB": 280.76,
+    "requests": 2448
+   },
+   {
+    "label": "parquet bin 512² full",
+    "ms": [
+     6362.6,
+     7652,
+     7429.5
+    ],
+    "resultBytes": 1191920,
+    "dataMB": 280.76,
+    "requests": 2448
+   },
+   {
+    "label": "parquet bin 512² full, two keys",
+    "ms": [
+     5716.5
+    ],
+    "resultBytes": 1784384,
+    "dataMB": 280.76,
+    "requests": 2448
+   },
+   {
+    "label": "parquet bin 512² zoomed",
+    "ms": [
+     3711.2,
+     3327.2,
+     3665.3
+    ],
+    "resultBytes": 2121456,
+    "dataMB": 280.76,
+    "requests": 2448
+   },
+   {
+    "label": "parquet count in a box",
+    "ms": [
+     3087.2,
+     3325.2
+    ],
+    "resultBytes": 296,
+    "dataMB": 280.76,
+    "requests": 2448
+   },
+   {
+    "label": "rows in the box",
+    "value": "1652"
+   },
+   {
+    "label": "rows in the zoom",
+    "value": "3799001"
+   },
+   {
+    "label": "parquet bin, 16 row groups from 0",
+    "ms": [
+     263
+    ],
+    "resultBytes": 592256,
+    "dataMB": 11.01,
+    "requests": 96
+   },
+   {
+    "label": "parquet bin, 16 row groups from 983040",
+    "ms": [
+     197.9
+    ],
+    "resultBytes": 617120,
+    "dataMB": 11.01,
+    "requests": 96
+   },
+   {
+    "label": "parquet bin, 16 row groups from 1966080",
+    "ms": [
+     191.2
+    ],
+    "resultBytes": 507040,
+    "dataMB": 11.01,
+    "requests": 96
+   },
+   {
+    "label": "columns as FLOAT, 16 row groups from 0",
+    "ms": [
+     65.5
+    ],
+    "resultBytes": 8079272,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "columns as FLOAT, 16 row groups from 983040",
+    "ms": [
+     66.1
+    ],
+    "resultBytes": 8079528,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "3.6"
+   },
+   {
+    "label": "attach compressed memory db",
+    "ms": [
+     0.9
+    ],
+    "resultBytes": 120,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "copy the two columns (FLOAT) into memory",
+    "ms": [
+     4700.4
+    ],
+    "resultBytes": 288,
+    "dataMB": 247.73,
+    "requests": 2160
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "156.8"
+   },
+   {
+    "label": "pts rows",
+    "value": "25067889"
+   },
+   {
+    "label": "rowid ≡ file_row_number at 0",
+    "value": "5"
+   },
+   {
+    "label": "rowid ≡ file_row_number at 12533944",
+    "value": "5"
+   },
+   {
+    "label": "rowid ≡ file_row_number at 25067884",
+    "value": "5"
+   },
+   {
+    "label": "memory bin 512² full",
+    "ms": [
+     990.9,
+     973.7,
+     958.4
+    ],
+    "resultBytes": 1191920,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory bin 512² zoomed",
+    "ms": [
+     422.8,
+     429.6,
+     439.9
+    ],
+    "resultBytes": 2121456,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory bin 1024² full",
+    "ms": [
+     1191.2,
+     1392.4
+    ],
+    "resultBytes": 3793088,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory extent quantiles",
+    "ms": [
+     3065.2
+    ],
+    "resultBytes": 680,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory count in a box",
+    "ms": [
+     168.2,
+     169.2,
+     170.1
+    ],
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory count in the zoom",
+    "ms": [
+     247.3,
+     215.4,
+     212.4
+    ],
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "memory nearest row to a click",
+    "ms": [
+     212.7,
+     179.2,
+     175.7
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "fine grid 4096² from memory",
+    "ms": [
+     1981.9
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "fine grid cells",
+    "value": "3680727"
+   },
+   {
+    "label": "fine → 512² full",
+    "ms": [
+     100.3,
+     100.6,
+     102.8
+    ],
+    "resultBytes": 1191920,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "duckdb memory MiB",
+    "value": "173.8"
+   },
+   {
+    "label": "selection index (zoom box)",
+    "ms": [
+     403
+    ],
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "selected rows",
+    "value": "3799001"
+   },
+   {
+    "label": "filtered page 0 from the file (semi-join)",
+    "ms": [
+     79.1
+    ],
+    "resultBytes": 75768,
+    "dataMB": 5.59,
+    "requests": 5
+   },
+   {
+    "label": "filtered page at the middle from the file",
+    "ms": [
+     69.4
+    ],
+    "resultBytes": 75768,
+    "dataMB": 5.59,
+    "requests": 5
+   },
+   {
+    "label": "filtered page 0, bounded by the slice",
+    "ms": [
+     57.1
+    ],
+    "resultBytes": 75768,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "span of page 0 in file rows",
+    "value": "4016"
+   },
+   {
+    "label": "JS loop: 25067889 float32 pairs → 512²",
+    "ms": [
+     171.4,
+     159.2,
+     161.1,
+     156.8,
+     153.1
+    ]
+   }
+  ]
+ },
+ "boxAsSource": {
+  "what": "A box as the table source: its rows numbered in an index, a page of 1,024 joined back to the file; boxes from dense to sparse",
+  "asteroids": [
+   {
+    "label": "footer",
+    "ms": 39.2,
+    "resultBytes": 288,
+    "dataMB": 0.09,
+    "requests": 3
+   },
+   {
+    "label": "attach",
+    "ms": 1.2,
+    "resultBytes": 120,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "copy the two columns",
+    "ms": 1019.5,
+    "resultBytes": 288,
+    "dataMB": 17.63,
+    "requests": 155
+   },
+   {
+    "label": "box [2.2,3.2,0.05,0.25]: selection index",
+    "ms": 169.1,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "1135118"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "1380"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 51.7,
+    "resultBytes": 139920,
+    "dataMB": 1.39,
+    "requests": 4
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 17.1,
+    "resultBytes": 139920,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  middle page from the file",
+    "ms": 45.1,
+    "resultBytes": 133352,
+    "dataMB": 0.69,
+    "requests": 6
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 8,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "box [2.4,2.6,0.1,0.2]: selection index",
+    "ms": 21.2,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "130540"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "11356"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 20.1,
+    "resultBytes": 142856,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 19.2,
+    "resultBytes": 142856,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  middle page from the file",
+    "ms": 37.8,
+    "resultBytes": 133032,
+    "dataMB": 0.69,
+    "requests": 6
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 2.1,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "box [2.5,2.52,0.1,0.12]: selection index",
+    "ms": 12.5,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "501"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "1560196"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 1040.8,
+    "resultBytes": 65720,
+    "dataMB": 40.49,
+    "requests": 7
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 789.8,
+    "resultBytes": 65720,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 1.9,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "box [3.9,4,0.1,0.3]: selection index",
+    "ms": 12.6,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "6148"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "281607"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 124.8,
+    "resultBytes": 134416,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 133.9,
+    "resultBytes": 134416,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  middle page from the file",
+    "ms": 110.3,
+    "resultBytes": 130160,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 1.8,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   }
+  ],
+  "gaia": [
+   {
+    "label": "footer",
+    "ms": 87.3,
+    "resultBytes": 288,
+    "dataMB": 0.38,
+    "requests": 5
+   },
+   {
+    "label": "attach",
+    "ms": 1.2,
+    "resultBytes": 120,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "copy the two columns",
+    "ms": 13598,
+    "resultBytes": 288,
+    "dataMB": 280.77,
+    "requests": 2449
+   },
+   {
+    "label": "box [0.8,1.2,13,14]: selection index",
+    "ms": 470.5,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "3799001"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "4017"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 127.4,
+    "resultBytes": 75768,
+    "dataMB": 5.59,
+    "requests": 5
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 59.3,
+    "resultBytes": 75768,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  middle page from the file",
+    "ms": 199.4,
+    "resultBytes": 75768,
+    "dataMB": 5.59,
+    "requests": 5
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 11.5,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "box [1,1.05,13.5,13.6]: selection index",
+    "ms": 207,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "40753"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "412777"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 541.5,
+    "resultBytes": 75768,
+    "dataMB": 33.55,
+    "requests": 2
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 159.7,
+    "resultBytes": 75768,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  middle page from the file",
+    "ms": 681,
+    "resultBytes": 75768,
+    "dataMB": 55.92,
+    "requests": 8
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 9.6,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "box [1,1.01,13.5,13.52]: selection index",
+    "ms": 306.2,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "1652"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "15466627"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 10459.5,
+    "resultBytes": 75768,
+    "dataMB": 945.11,
+    "requests": 61
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 8496.4,
+    "resultBytes": 75768,
+    "dataMB": 929.71,
+    "requests": 78
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 388.8,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "box [0,0.2,6,8]: selection index",
+    "ms": 244.7,
+    "resultBytes": 288,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "label": "  selected rows",
+    "value": "4863"
+   },
+   {
+    "label": "  span of page 0 in file rows",
+    "value": "3411806"
+   },
+   {
+    "label": "  page 0 from the file",
+    "ms": 1381.2,
+    "resultBytes": 75768,
+    "dataMB": 178.95,
+    "requests": 20
+   },
+   {
+    "label": "  page 0 again",
+    "ms": 1375.6,
+    "resultBytes": 75768,
+    "dataMB": 145.39,
+    "requests": 18
+   },
+   {
+    "label": "  middle page from the file",
+    "ms": 3635.5,
+    "resultBytes": 75768,
+    "dataMB": 408.22,
+    "requests": 43
+   },
+   {
+    "label": "  position of a file row in the selection",
+    "ms": 4.7,
+    "resultBytes": 296,
+    "dataMB": 0,
+    "requests": 0
+   }
+  ]
+ },
+ "plotShapedFile": {
+  "what": "The two columns as FLOAT in the file's row order, ZSTD, few large row groups, copied into memory through the bridge",
+  "results": [
+   {
+    "file": "asteroids-xy-rg1m.parquet",
+    "fileMB": 5.2,
+    "groups": 2,
+    "label": "footer",
+    "ms": 19.3,
+    "dataMB": 0,
+    "requests": 1
+   },
+   {
+    "file": "asteroids-xy-rg1m.parquet",
+    "fileMB": 5.2,
+    "groups": 2,
+    "label": "attach",
+    "ms": 0.9,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "file": "asteroids-xy-rg1m.parquet",
+    "fileMB": 5.2,
+    "groups": 2,
+    "label": "copy both columns into memory",
+    "ms": 101.3,
+    "dataMB": 5.16,
+    "requests": 5
+   },
+   {
+    "file": "asteroids-xy-rg2m.parquet",
+    "fileMB": 5.3,
+    "groups": 1,
+    "label": "footer",
+    "ms": 17.8,
+    "dataMB": 0.01,
+    "requests": 1
+   },
+   {
+    "file": "asteroids-xy-rg2m.parquet",
+    "fileMB": 5.3,
+    "groups": 1,
+    "label": "attach",
+    "ms": 0.8,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "file": "asteroids-xy-rg2m.parquet",
+    "fileMB": 5.3,
+    "groups": 1,
+    "label": "copy both columns into memory",
+    "ms": 105.5,
+    "dataMB": 5.28,
+    "requests": 5
+   },
+   {
+    "file": "gaia-xy-rg1m.parquet",
+    "fileMB": 165.3,
+    "groups": 24,
+    "label": "footer",
+    "ms": 19.3,
+    "dataMB": 0.02,
+    "requests": 2
+   },
+   {
+    "file": "gaia-xy-rg1m.parquet",
+    "fileMB": 165.3,
+    "groups": 24,
+    "label": "attach",
+    "ms": 0.8,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "file": "gaia-xy-rg1m.parquet",
+    "fileMB": 165.3,
+    "groups": 24,
+    "label": "copy both columns into memory",
+    "ms": 2424.3,
+    "dataMB": 165.33,
+    "requests": 15
+   },
+   {
+    "file": "gaia-xy-rg8m.parquet",
+    "fileMB": 165.3,
+    "groups": 3,
+    "label": "footer",
+    "ms": 18,
+    "dataMB": 0.01,
+    "requests": 1
+   },
+   {
+    "file": "gaia-xy-rg8m.parquet",
+    "fileMB": 165.3,
+    "groups": 3,
+    "label": "attach",
+    "ms": 0.8,
+    "dataMB": 0,
+    "requests": 0
+   },
+   {
+    "file": "gaia-xy-rg8m.parquet",
+    "fileMB": 165.3,
+    "groups": 3,
+    "label": "copy both columns into memory",
+    "ms": 2357.9,
+    "dataMB": 165.31,
+    "requests": 15
+   }
+  ]
+ },
+ "frames": {
+  "what": "The GPUI spike, 1440x900 at DPR 2, each rAF callback timed for 4 s, median of 3 runs: ms. throttle 4 is CPU 4x. replace: a new n-squared grid colored and uploaded every frame; quads: one quad per non-empty bin",
+  "gpu": "WebGPU adapter",
+  "results": [
+   {
+    "throttle": 1,
+    "mode": "static",
+    "n": 256,
+    "p50": 1.05,
+    "p95": 2.01,
+    "max": 2.84,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "static",
+    "n": 512,
+    "p50": 1.23,
+    "p95": 2.74,
+    "max": 3.54,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "static",
+    "n": 1024,
+    "p50": 1.32,
+    "p95": 2.1,
+    "max": 3.61,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "static",
+    "n": 2048,
+    "p50": 1.36,
+    "p95": 2.34,
+    "max": 3.07,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "pan",
+    "n": 512,
+    "p50": 1.14,
+    "p95": 1.93,
+    "max": 3.09,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "pan",
+    "n": 1024,
+    "p50": 1.19,
+    "p95": 2.02,
+    "max": 3.3,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "quads",
+    "n": 64,
+    "p50": 5.24,
+    "p95": 5.75,
+    "max": 6.9,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "quads",
+    "n": 128,
+    "p50": 29.47,
+    "p95": 31.49,
+    "max": 35.91,
+    "frames": 135,
+    "late": 106,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "quads",
+    "n": 256,
+    "p50": 173.7,
+    "p95": 184.53,
+    "max": 186.03,
+    "frames": 23,
+    "late": 22,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "static",
+    "n": 256,
+    "p50": 2.24,
+    "p95": 3.52,
+    "max": 5.66,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "static",
+    "n": 512,
+    "p50": 2.27,
+    "p95": 3.37,
+    "max": 7.06,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "static",
+    "n": 1024,
+    "p50": 2.24,
+    "p95": 3.84,
+    "max": 4.53,
+    "frames": 241,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "static",
+    "n": 2048,
+    "p50": 2.35,
+    "p95": 3.65,
+    "max": 5.52,
+    "frames": 241,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "pan",
+    "n": 512,
+    "p50": 2.19,
+    "p95": 3.5,
+    "max": 6.26,
+    "frames": 241,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "pan",
+    "n": 1024,
+    "p50": 2.28,
+    "p95": 3.59,
+    "max": 5.72,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "quads",
+    "n": 64,
+    "p50": 18.7,
+    "p95": 22.55,
+    "max": 35.87,
+    "frames": 201,
+    "late": 40,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "quads",
+    "n": 128,
+    "p50": 119.53,
+    "p95": 125.95,
+    "max": 136.93,
+    "frames": 33,
+    "late": 32,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "quads",
+    "n": 256,
+    "p50": 799.26,
+    "p95": 859.52,
+    "max": 859.52,
+    "frames": 6,
+    "late": 5,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "base",
+    "n": 512,
+    "p50": 0.72,
+    "p95": 1.85,
+    "max": 2.86,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "replace",
+    "n": 256,
+    "p50": 1.63,
+    "p95": 3.22,
+    "max": 4.89,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "replace",
+    "n": 512,
+    "p50": 4.9,
+    "p95": 5.51,
+    "max": 6.86,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 1,
+    "mode": "replace",
+    "n": 1024,
+    "p50": 13.62,
+    "p95": 16.04,
+    "max": 46.66,
+    "frames": 234,
+    "late": 4,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "base",
+    "n": 512,
+    "p50": 2.26,
+    "p95": 4.32,
+    "max": 9.31,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "replace",
+    "n": 256,
+    "p50": 5.05,
+    "p95": 5.99,
+    "max": 7.42,
+    "frames": 240,
+    "late": 0,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "replace",
+    "n": 512,
+    "p50": 16.74,
+    "p95": 18.12,
+    "max": 24.39,
+    "frames": 227,
+    "late": 14,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   },
+   {
+    "throttle": 4,
+    "mode": "replace",
+    "n": 1024,
+    "p50": 56.16,
+    "p95": 59.76,
+    "max": 71.46,
+    "frames": 70,
+    "late": 69,
+    "backing": [
+     2880,
+     1800
+    ],
+    "errors": []
+   }
+  ]
+ },
+ "wasm": {
+  "what": "The spike's wasm with and without the image (paint_image, RenderImage, the image crate's buffer): bytes",
+  "base": {
+   "wasmOpt": 9965538,
+   "brotli": 2809144
+  },
+  "withImage": {
+   "wasmOpt": 9967914,
+   "brotli": 2810477
+  }
+ }
+}

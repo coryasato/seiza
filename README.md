@@ -57,6 +57,7 @@ seiza/
   shared-web/           # app-agnostic JS host pieces, fonts, the shared perf harness
   components/
     tall-table/         # the table for tens of millions of rows (seiza-tall-table)
+    kirkwood/           # planned: a plot of two columns as a grid of counts (seiza-kirkwood)
   site/
     ui/                 # the apex site's shell (seiza.io): navbar, theme toggle, footer, tokens, Tailwind, shadcn on Base UI
   engines/

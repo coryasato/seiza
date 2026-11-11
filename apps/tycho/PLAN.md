@@ -32,7 +32,7 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
 | Later | Table features: column resizing, selection, sorting | Planned in [the table's `PLAN.md`](../../components/tall-table/PLAN.md); adopted here one at a time |
 | Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
-| Later | A density plot linked to the table | Not started; research first |
+| Later | A density plot linked to the table | Researched 2026-11-10: worth building. Planned in [the plot's `PLAN.md`](../../components/kirkwood/PLAN.md); adopted here once its base is ready |
 
 The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)), which builds on M9's component and engine.
 
@@ -43,6 +43,7 @@ The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.
 | Needs | For | Status |
 |---|---|---|
 | Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3), `follow` (2026-10-25, tall-table M4; its `let_go` 2026-11-09, M13), `resize` (2026-10-26, tall-table M5), `select` (2026-10-26, tall-table M6), `copy` (2026-10-27, tall-table M7), `sort` (2026-10-29, tall-table M8: adopting it builds the DuckDB source's order, one of the research's options by source, an index for a CSV in memory, a sorted copy for a Parquet file within the memory budget, a refusal past it ([the research](../../docs/research/tall-table-features.md), "`sort`"), measured against Tycho's budgets), `pin` (2026-10-29, tall-table M9), `density` (2026-11-01, tall-table M10), `format` (2026-11-05, tall-table M12) |
+| The density plot's base, then its `select` ([its PLAN](../../components/kirkwood/PLAN.md)) | "A density plot linked to the table" (below): the plot beside the table and a click jumping to its row (the base); a box filtering the table (`select`) | *Not ready* (kirkwood M1 specced, not started; M2 planned) |
 
 ---
 
@@ -69,11 +70,22 @@ The table's features (resizing, selection and copy, sorting, and the rest of `Da
 
 Plot any two numeric columns of the open file, every row, linked to the table: a box drawn on the plot filters the table to the rows inside it, and a click on a point jumps the table to its row. On the asteroids, semi-major axis against eccentricity shows the Kirkwood gaps; on Gaia, color against magnitude is the Hertzsprung–Russell diagram, from 25 M stars.
 
-**How (to research):** DuckDB bins the rows into a grid of counts (`GROUP BY` the two columns scaled to the plot's pixels), and the plot draws the grid as one image: no custom GPU shader (GPUI has no public API for one), and the cost is the grid's, not the rows', so 25 M rows cost what 1.57 M do. Zoom re-bins the visible extent. A box becomes a `WHERE` on the two columns: the host gives the table that query and its `count(*)` as a new source (the delegate takes any query); a click becomes the nearest row's index, then `jump_to`.
+**Researched 2026-11-10: worth building** ([the research](../../docs/research/density-plot.md); its numbers, [`perf/results/2026-11-10-plot-research.md`](perf/results/2026-11-10-plot-research.md); the decisions, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Density plot"). DuckDB bins the rows into a grid of counts and the plot draws the grid as one image, which costs a frame next to nothing. What changed from the first design: the cost of the data is the rows', so the two plotted columns are copied once into DuckDB's memory, a slice at a time with the plot filling in, and every zoom, box, and click is answered from the copy.
 
-**Where it lives:** a new component (a plot, the view, its state, a delegate for the bins), with its own `PLAN.md` (root `CLAUDE.md`, "Docs: one home per fact"); Tycho waits on it in "Waiting on" and adopts it. The asteroid-belt showcase builds on the same component ([`../../docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md)).
+**Where it lives:** the plot is a component, [`components/kirkwood/`](../../components/kirkwood/), with its own `PLAN.md`, which builds its base (the drawing, zoom and pan, the click) and then `select` (the box). Tycho waits on both ("Waiting on", above). The asteroid-belt showcase builds on the same component ([`../../docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md)).
 
-**Research first:** the binning query's time on both samples (at the open and per zoom), the image's cost per frame, the plot's added wasm, and the canvas tradeoffs (a plot has no accessibility tree either). Record the decision with its numbers in `docs/DECISIONS.md`, then create the component.
+**What Tycho builds when it adopts it** (a milestone here, specced when the plot's base is *Ready*; the engine's part can start before, since it needs only the delegate's shape):
+- **The plot's source, in the engine** (`seiza-duckdb`'s `kirkwood` feature, as the table's source is its `tall-table`): the copy in slices, the bin query, a box's count and its index of rows, the row nearest a click, and the Arrow answer turned into the plot's counts, pinned against the plot's bins fixture. A CSV's chunk tables are binned as they are.
+- **The panel in the workbench:** the plot beside the table, a picker for each axis (the open file's numeric columns), a default extent from each column's 0.1%–99.9% quantiles (the asteroids' `a` runs from −15,680 to 14,510), what a plot will read said before it reads (the columns' bytes are in the footer), and the rows binned so far while it fills.
+- **The link:** a click jumps the table to the nearest row (`jump_to`); a box gives the table the box's rows as its source and its count as its rows, and clearing it gives the file back.
+- **Its measurements** against Tycho's budgets: the wasm, the fling with a plot open, a table page read during a re-bin, memory with Gaia's copy held.
+
+**To settle in that milestone's spec** (each has numbers in the research to start from):
+- **The hosted samples need a file laid out for the plot.** Their row groups are sized for paging, so the copy's first read is 155 requests for the asteroids and 2,448 for Gaia (an estimated 9–19 s and 2–5 min at R2's read times, and past the 93 requests in 10 s the WAF's rate limit was set from). The plotted columns as `FLOAT` in large row groups read in 5 and 15. **Decided 2026-11-10:** each sample gets such a file (every numeric column, the sample's row order). Still to settle: its row-group size and what it costs to host, with a production measurement, and with "Production performance" below, which owns the data's layout; and the limit: `just tycho burst` gets a plot scenario, and the WAF's rate limit may rise slightly if the plot files' read still passes it, never by the 155 or 2,448 requests the samples' own layout would need.
+- **A sparse box as the table's source.** A page of a box reads every row group its rows fall in: one row group (5.6 MB) for a box holding 15% of Gaia, 945 MB for one holding 1,652 stars. The ladder is `sort`'s (pages joined from the file when dense, the box's rows copied into memory when sparse and small, the size said and asked, or refused, past a limit), and `sort`'s adoption builds the same machinery: one source for both, and which milestone builds it first.
+- **Gaia's 165 MB.** Even in 15 requests, the plot of the big sample downloads 165 MB. **Decided 2026-11-10:** the big sample's plot waits behind a button that says the size; the asteroids' starts on its own. Still to settle: the size past which any file's plot asks first (a dropped file reads from disk, so its limit is time, not bytes).
+- **What the table does when a box is applied:** its scroll position, its selection, the jump highlight, and whether the swap is `set_rows` with `live`'s `invalidate_rows` or a new table state.
+- **The plot's place in the workbench** and its controls, on a design canvas first.
 
 ### Production performance: servers, edge, and data layout
 
