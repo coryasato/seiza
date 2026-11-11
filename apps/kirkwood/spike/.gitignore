@@ -6,5 +6,9 @@ public/elements.bin
 # Each row's H, and the Gaia sample's bright stars (data.ts)
 public/h.bin
 public/stars.bin
+# The sample's other columns and their layout (data.ts), and gzipped (sizing.ts)
+public/rows.bin
+public/rows.json
+public/rows.bin.gz
 # Screenshots and traces (run.ts)
 out/

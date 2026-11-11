@@ -36,3 +36,17 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Table", "Input"
 - **A script's own screenshot reader showed up as a page problem** (Chromium's canvas readback warning, from the page the pixels were counted in).
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Table".
+
+## M0, part C: the rows' source, and the close (2026-11-11)
+
+**Surprises:**
+- **On a fast link the two sources tie.** The table's first rows came as soon from 113 MB held in Rust as from DuckDB reading one page: the engine's own download and start cost about what the whole rows file does. The choice was made by everything else: what a filter and a sort are, and what the page already has to hold.
+- **The scene had already decided most of it.** Every dot needs its row's elements in memory before the belt is drawn, and a pick answers in row numbers. A table over DuckDB would have fetched the same rows a second time, in a second format, to a second place.
+- **A drawn group isn't a scattered read.** The research expected a group's rows, spread through the file, to be DuckDB's hard case. In the file's own order a page of a group's rows covers a narrow run of the file (a tenth of the rows: a page spans about 10,000 of them, one row group). It's a sort that scatters them.
+- **Held as it arrives, the file costs its own size and nothing more:** the wasm's memory grew by the file's bytes to the megabyte, and holding it took the time of one copy. The elements, parsed into a second buffer, leave their first copy's space behind.
+- **A sort's time was mostly how it was written.** The first reading had a text column 17 times slower than a number; it was checking each name's UTF-8 at every comparison. Comparing bytes, the text sorts in half the time, and the number, given a tiebreak (most rows have no diameter), in three times its own. And the text's offsets weigh half as much as the text they point into.
+- **The belt waited on the table, in the measuring page.** The rows were fetched beside the elements and the belt drawn after both: on a slow link that tripled the belt's time and said nothing of the app, which loads the elements first. The review caught it.
+- **The spike's own files were the slow link's problem before the rows were:** uncompressed, the elements alone put the belt 23 s out on Fast 4G. The preview server sends a `.bin` as it is.
+- **And it inflates a `.gz` by itself.** The page inflated it a second time and the fetch failed; the script, waiting ten minutes for a mark behind a pipe that showed nothing, looked like a slow run. The wait is three minutes now, and a page error ends it at once.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table", "Stack", "Planning".

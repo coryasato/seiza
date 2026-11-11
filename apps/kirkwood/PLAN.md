@@ -21,8 +21,8 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | The two canvases: a spike | In progress: parts A and B done, part C next |
-| M1 | The orbits' data | Planned |
+| M0 | The two canvases: a spike | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
+| M1 | The orbits' data | Active: part A next |
 | M2 | The belt in space | Planned |
 | M3 | The reveal: sort by orbit size | Planned |
 | M4 | Ride with Jupiter, and a gap picked | Planned |
@@ -38,53 +38,42 @@ A *Planned* row's outline is under "Next milestones". Its spec, "done when" chec
 | Needs | For | Status |
 |---|---|---|
 
-Nothing yet. The tall table's `live`, `sort`, and `select` are built, and a filter to a drawn group's rows is the delegate's work if the rows are in memory: the spike's filter needed nothing new (`docs/DECISIONS.md`, "Table"). M0's part C says whether the rows' source changes that.
+Nothing. The tall table's `live`, `sort`, and `select` are built, and with the rows held in Rust a filter to a drawn group and a sort are both the delegate's work, an index it reads its pages through: the spike's filter needed nothing new (`docs/DECISIONS.md`, "Table"). Nothing is asked of `engines/duckdb/`: the app doesn't use it.
 
 ---
 
 ## Active milestone
 
-### M0: The two canvases: a spike
+### M1: The orbits' data
 
-Throwaway code that answers what the storyboard assumes, before anything is built to keep. The belt in a Three.js canvas, fed from a Rust-owned buffer of orbital elements, with a GPUI canvas holding the tall table over the same rows. The elements are the asteroid sample's real a, e, and i with seeded random angles, as the storyboard's were: real positions are M1's.
+Every row gets a real place. Positions need all six orbital elements and their epoch; Tycho's asteroid sample has a, e, and i, at the few digits it keeps (a to a thousandth of an au: 9,580 distinct values in 1.57 M rows). The node, the argument of perihelion, the mean anomaly, and the epoch are fetched from JPL's query API, under the pinned-file rules Tycho's samples follow (`apps/tycho/docs/data.md`), and the two files the app holds in memory are built from them and the sample (`docs/DECISIONS.md`, "Stack": the rows are held in Rust, with no DuckDB): the elements file the scene draws from, and the rows file the table reads.
 
-The spike lives in `spike/` and is never deployed. What it proves is written down as decisions; its code is not carried forward.
+No app is built here. The files are seen on the spike, which stays as their viewer until M2's scene draws the belt, its seeded angles replaced by the real ones (`docs/DECISIONS.md`, "Planning"). The scripts and the manifest are kept: they go in `data/`, with a `docs/data.md` that says how the files are made.
 
 **Split into parts,** one session each (root `CLAUDE.md`, "Working agreements"):
 
-- **Part A: the two canvases standing.** The scene (1.57 M points, each orbit solved in the shader, colored by a) and a GPUI canvas with the table over rows held in Rust. Closes A1 to A4.
-- **Part B: the moves.** The three things a still board can't show, tried on the spike: the sort transition, the fly-in with the table coming in, and a live column. Closes B1 to B3.
-- **Part C: the rows' source, and the close.** The rows sized in memory against a table over DuckDB; the stack decided; M1's spec written. Closes C1 to C3.
+- **Part A: the fetch, and what it decides.** What JPL serves (the three angles, the epoch, and a, e, and i at full precision), fetched once into `data/raw/` (gitignored). Which rows: the sample's 1,567,523, joined on `spkid`, or a fetch of Kirkwood's own with every column. What the fetch says of the epochs. Closes A1 to A3.
+- **Part B: the two files.** The elements file's layout and precision, chosen by its worst error on screen against its bytes; the rows file, from the spike's layout; the manifest; `docs/data.md`. Closes B1 to B3.
+- **Part C: seen, and the close.** The spike draws from the real elements, with Jupiter on its own orbit; the resonant groups checked by number and by eye; M2's spec written. Closes C1 to C4.
 
 **Done when:**
 
-- [x] **A1. GPUI over the scene.** Whether GPUI's canvas can sit over the Three.js canvas with the scene showing through around a panel (boards 1 and 7: the handle tab on the right edge, the table panel on the right), and whether the table's menus and tooltips draw over the scene. Shown in a screenshot. If it can't, the layout that replaces it is decided (weighed already: the table as a layer under the scene that toggles front and back).
-  *It can, with the canvas's alpha mode set on the page and the window's background token transparent: [on load](docs/spike/on-load.jpg), [the panel and a menu](docs/spike/menu.jpg), [a tooltip](docs/spike/tooltip.jpg), and the control, [the canvas as GPUI configures it](docs/spike/opaque.jpg). Chromium, WebKit, and Firefox, headless. `docs/DECISIONS.md`, "Table".*
-- [x] **A2. Input reaches the right canvas.** A drag on the scene draws a freehand shape; a wheel over the scene zooms it and a wheel over the table scrolls it; the table's hover, selection, and scrollbar work with the scene behind. How it's routed is written down.
-  *GPUI's hit test routes it; all ten input checks pass in the three browsers (`spike/run.ts --only input`), and [the shape](docs/spike/shape.jpg). `docs/DECISIONS.md`, "Input".*
-- [x] **A3. Frame time with both drawing,** recorded at rest, with time running, and while the table flings. A number for each, in `docs/DECISIONS.md`.
-  *At rest 16.7 ms a frame, none late; time running, 32% of frames late (the GPU: about 45 frames a second, the main thread idle); the table flinging over a still scene, none late; both, 37%. Half the scene's resolution, or three quarters of its rows, holds 60. `docs/DECISIONS.md`, "Scene".*
-- [x] **A4. What Three.js adds in bytes** (brotli), as the spike imports it, recorded with the decision to keep or replace it.
-  *104.3 KiB (523.1 raw), after first paint; kept for now. `docs/DECISIONS.md`, "Scene".*
-- [x] **B1. The sort transition moves:** 1.57 M points fly from space to a against e and back, with the frame time during the flight recorded.
-  *It moves, in the shader, on one number from Rust: [mid-flight](docs/spike/sort-mid.jpg), [landed, the gaps open](docs/spike/sort-landed.jpg), and back. 24% of the flight's frames late out and 17% back at the display's resolution (the GPU, as with time running), none at half the scene's; main-thread work 0.8 ms a frame. Chromium, Firefox, and WebKit (`spike/run.ts --only moves`). `docs/DECISIONS.md`, "Scene".*
-- [x] **B2. The fly-in:** after a shape closes, the camera flies in to the group while the table comes in beside it, filtered to the group's rows. Decides whether the table arrives with the zoom or after it.
-  *Built both ways and measured: [mid-flight](docs/spike/fly-mid.jpg), [flown in](docs/spike/fly-in.jpg). A shape's 150,500 rows are picked in 0.36 to 0.42 s, the rest go gray, the outline stays around the group, the table is over its rows, and time stays paused. The table arrives with the zoom: chosen on the board, the numbers (4.1 ms of main-thread work a frame against 0.8; at half resolution 10% of frames late against 3%), and the owner's look at both in a browser. `docs/DECISIONS.md`, "Scene", "Table".*
-- [x] **B3. A live column a person can read:** the distance from the Sun, recomputed as time runs, at a refresh rate chosen by looking at it. Decides which columns are live and how often they refresh; the cells never change faster than someone can follow.
-  *`sun_au`, a redraw of the table at the column's rate; no rate costs a frame. 2 a second, picked by the owner looking at 1, 2, 4, 10, and as fast as a timer goes (the panel's "Live" button). It's the one live column until M5. `docs/DECISIONS.md`, "Table".*
-- [ ] **C1. The rows in memory:** the 1.57 M rows with their text columns held in Rust: bytes in memory, bytes on the wire, and time to the table's first rows, against the same table over DuckDB. Decides the table's source, and with it how a filter to a group's rows is read.
-- [ ] **C2. The stack is decided** in `docs/DECISIONS.md`: the scene's renderer, who owns the clock and the selection, the rows' source, and how the two canvases are laid out.
-- [ ] **C3. M1's spec, checks, and parts are written** here, and `CLAUDE.md`'s stack and layout say what M0 decided.
+- [ ] **A1. The elements are fetched and pinned:** the node, the argument of perihelion, the mean anomaly, and the epoch for every row, in `data/raw/`, with the fetch's date, the API's count, and the fields it returned recorded. The frame and the units are written down (heliocentric ecliptic J2000 is expected; checked against JPL's documentation, not assumed).
+- [ ] **A2. The rows are decided:** whether Kirkwood's rows are Tycho's pinned sample (joined on `spkid`: how many of its rows the fetch no longer has, how many of their a, e, or i moved since 2026-09-24, and by how much) or a fetch of its own with every column. With it, which a, e, and i the scene draws from and which the table shows, so that a row's cells and its dot can't disagree by more than a cell shows.
+- [ ] **A3. The epoch's spread is known:** how many rows share the commonest epoch, the range of the rest, and the rule that brings every row to one epoch at prep (each row's mean anomaly moved on by its own mean motion is expected to do). A number for each.
+- [ ] **B1. The elements file:** its layout, its bytes raw and at brotli 11, and its worst error: the farthest any row's place is from its place in 64-bit floats, over 50 years either side of the epoch, in au and in pixels from the opening camera. Decides 32-bit floats against 16-bit quantities (the spike's a, e, and i compress to under half, `docs/DECISIONS.md`, "Table"; the angles won't). H rides in it (`docs/DECISIONS.md`, "Look").
+- [ ] **B2. The rows file:** the table's other columns as the app will hold them, from the spike's layout (its bytes: `docs/DECISIONS.md`, "Table"), with what it gives up for fewer bytes written down (the text's offsets are a sixth of it; `pdes` repeats most of `full_name`). Its bytes raw and at brotli 11, and whether it's one file or the first rows apart from the rest (open question, "The rows on a slow link").
+- [ ] **B3. The files are reproducible:** `data/MANIFEST.json` (committed) holds each file's rows, bytes, SHA-256, source, and fetch date; a second run of prep from `data/raw/` writes the same bytes; `docs/data.md` says how, and gives the credit line.
+- [ ] **C1. The Trojans sit ahead of and behind Jupiter, with no placement by hand:** for the rows of class TJN, their longitude from Jupiter's at one date as a histogram, its two peaks near 60° ahead and behind, and a screenshot.
+- [ ] **C2. The Hildas form their triangle,** in a screenshot from above at one date, its corners where Jupiter's place says they should be. Which rows count as Hildas is written down (the sample has no class for them: by a, 3.7 to 4.2 au, is expected).
+- [ ] **C3. A known body is where JPL says:** Ceres, Vesta, and one Trojan against JPL Horizons at two dates a decade apart, each within a distance written down beside the check.
+- [ ] **C4. M2's spec, checks, and parts are written** here, and `CLAUDE.md`'s layout has `data/`.
 
 ---
 
 ## Next milestones
 
 Outlines only. Each is specced when the one before it closes.
-
-### M1: The orbits' data
-
-Positions need all six orbital elements and their epoch; Tycho's asteroid file has a, e, and i. Refetch the node, the argument of perihelion, the mean anomaly, and the epoch from JPL, under the pinned-file rules Tycho's samples follow (`apps/tycho/docs/data.md`), and build the scene's compact binary file beside the table's rows. Answers the epoch's spread and the file's size (the research estimates 19 to 50 MB by precision). Its plainest check: with real elements and no placement by hand, the Hildas form their triangle and the Trojans sit ahead of and behind Jupiter, which the storyboard had to fake.
 
 ### M2: The belt in space
 
@@ -120,12 +109,14 @@ None committed (the research's "Extras"):
 
 ## Open questions
 
-- **The table's source:** in memory or DuckDB, and with it how a filter to a group's rows is read. *M0, C1.*
+- **The rows on a slow link:** held in memory, nothing of the table shows until its whole file is in, about half a minute on Fast 4G (`docs/DECISIONS.md`, "Table"). Whether the first rows travel apart from the rest (a page is under 0.1 MB), the text columns come after the numbers, or the handle just says the rows are loading. And the order: the elements first, so the belt never waits on the table. *M1, B2, for the files; M2 for what the handle says.*
+- **A sort's stall:** ordering every row takes a third to two thirds of a second on one thread (`docs/DECISIONS.md`, "Table"), in one task, as the pick does. Whether it runs in a worker, is spread over frames, or the orders ship in the file. *M5, with the pick's stall.*
+- **The page's memory:** every row held is most of the wasm's memory (`docs/DECISIONS.md`, "Table"). What a phone makes of it. *M6, with the phone's answer.*
 - **More live columns:** the Sun's distance is live, at 2 a second. Which others join it (the distance from Earth needs Earth's place), and how many decimals a live cell shows. *M5.*
 - **The clock's speed with the table open:** at a year a second the Sun's distance moves by up to half an au a second, so its last two decimals are never readable while time runs, at any refresh rate. Whether time slows while the table shows, the column drops decimals while it moves, or it's left as a blur that settles on pause. *M5.*
 - **The pick's stall:** placing 1.57 M rows to pick a shape's takes about 0.4 s in one task at the release. How it's taken off the frame: the rows' rotation computed once, a worker, or spread over the frames the outline closes in. *M5.*
 - **A shape drawn in a against e:** the spike takes a shape in space only. Picking a gap's edge on the landed layout is the natural next ask. *M5.*
-- **The epoch's spread:** whether JPL's elements share one epoch for most objects, or each needs propagating from its own. *M1.*
+- **The epoch's spread:** whether JPL's elements share one epoch for most objects, or each needs propagating from its own. *M1, A3.*
 - **The a against e furniture:** how much of board 4 is kept as drawn (liked on review, not yet specced). *M3.*
 - **A Worker of its own on the path:** whether a second Worker can take `/kirkwood/*` on a hostname bound to Tycho's as a custom domain. *M6.*
 - **The scene's resolution:** all 1.57 M points at the display's full resolution ran past a frame on an M1 in headless Chromium; half resolution held 60. Which resolution ships, chosen by eye in a real browser. In screenshots at the display's pixels the two read as the same dust up close, the half-resolution grain and the Sun's edge softer; at half, every move holds 60 but the fly-in with the table arriving (10% of its frames late). With the look on, half resolution is turned down by eye (`docs/DECISIONS.md`, "Look"), so what's left to choose is between the display's and three quarters of it. *M2 decides.*
@@ -133,4 +124,4 @@ None committed (the research's "Extras"):
 - **The look's frame rate:** about 29 frames a second while time runs at the display's resolution (headless Chromium, an M1), and half resolution is turned down by eye. What gets it back without halving: three quarters of the resolution (unmeasured), a smaller bloom, the belt's own draw (the cost before the look was points times pixels), or a slower default clock. *M2.*
 - **A shape drawn across the panel:** a drag that leaves the scene's surface for the panel stops adding points until it comes back (a release there still closes the shape). Whether the panel should let it through. The spike's fly-in left it as it was: a release over the panel closes the shape, and the group is what the closed shape holds. *M5.*
 - **Rows with no ellipse:** 5 rows have e at or past 1 and aren't drawn. What the scene and the row count say about them. *M2.*
-- **A phone:** whether the scene and a summoned table work at phone width, or the app says it's for a larger screen. *M6; M0 can show whether they fit.*
+- **A phone:** whether the scene and a summoned table work at phone width, or the app says it's for a larger screen. *M6.*

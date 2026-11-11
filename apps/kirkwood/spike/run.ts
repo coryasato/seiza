@@ -41,7 +41,7 @@ import { brotliCompressSync, constants } from 'node:zlib';
 import { chromium, firefox, webkit, type Browser, type Page } from '@playwright/test';
 import { build } from 'vite';
 import { clickTarget, frameIntervals, frameRecorder, gesture, open, recordedBetween, waitMark, wheel, workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
-import { flag, machineInfo, median, option, percentiles } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, flag, machineInfo, median, option, percentiles } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
 
@@ -688,6 +688,63 @@ async function moveFrames(url: string) {
   return { params: PARAMS, runs: RUNS, pickMs: picks.length ? Number(median(picks).toFixed(1)) : undefined, summary, raw: runs };
 }
 
+/** The rows in memory (`?rows=gz`: the sample's other columns, gzipped on
+ *  the wire, held in the crate, the table over them) against the spike as
+ *  it was (the elements alone), the panel open from the load (`?open`):
+ *  when the table's first rows are drawn, the wasm's memory, and what a
+ *  sort of every row takes. Reference and throttled (`--profiles`). */
+async function rows(url: string) {
+  const profiles = PROFILES.filter((profile) => (option('profiles') ?? 'reference,throttled').split(',').includes(profile.name));
+  const summary: Record<string, Record<string, number>> = {};
+  const raw: Record<string, Record<string, number>[]> = {};
+  for (const profile of profiles) {
+    for (const variant of ['elements', 'rows'] as const) {
+      const runs: Record<string, number>[] = [];
+      for (let run = 0; run < RUNS; run++) {
+        const { page, problems, close } = await open(chromium, url, { profile, params: { ...PARAMS, open: '', ...(variant === 'rows' ? { rows: 'gz' } : {}) } });
+        try {
+          // A load that fails (no rows.bin.gz, a file that isn't the
+          // elements') is the page's error: it ends the wait at once.
+          const failed = new Promise<never>((_, reject) => page.once('pageerror', reject));
+          const firstRows = await Promise.race([waitMark(page, 'kirkwood:rows', 0, 180_000), failed]);
+          await page.waitForTimeout(500);
+          const reading = await page.evaluate(async (sorts) => {
+            const k = (globalThis as unknown as { __kirkwood: Kirkwood & { wasmBytes(): number; sortMs(): number[] } }).__kirkwood;
+            const mark = (name: string) => performance.getEntriesByName(name, 'mark').at(-1)?.startTime ?? NaN;
+            const file = (name: string) => performance.getEntriesByType('resource').find((entry) => entry.name.includes(name)) as PerformanceResourceTiming | undefined;
+            // Before the sorts: their indices would grow the memory read here.
+            const wasmMB = k.wasmBytes() / 1e6;
+            const sorted = sorts ? k.sortMs() : [];
+            return {
+              firstFrame: mark('gpui:first-frame'),
+              belt: mark('kirkwood:belt'),
+              rowsIn: mark('kirkwood:rows-in'),
+              rowsHeld: mark('kirkwood:rows-held'),
+              rowsWireMB: (file('rows.bin')?.transferSize ?? 0) / 1e6,
+              rowsFetchMs: file('rows.bin')?.duration ?? NaN,
+              elementsFetchMs: file('elements.bin')?.duration ?? NaN,
+              wasmMB,
+              sortDiameterMs: sorted[0] ?? NaN,
+              sortNameMs: sorted[1] ?? NaN,
+              tableRows: k.state()[13]!,
+            };
+          }, variant === 'rows' && profile.name === 'reference');
+          runs.push({ firstRows, ...reading });
+          if (run === 0 && profile.name === 'reference') writeFileSync(join(out, `rows-${variant}.png`), await page.screenshot({ scale: 'css' }));
+          check(`${profile.name}, ${variant}, run ${run + 1}`, problems.length === 0 && reading.tableRows > 0, `first rows at ${firstRows.toFixed(0)} ms (first frame ${reading.firstFrame.toFixed(0)}, belt ${reading.belt.toFixed(0)}); wasm ${reading.wasmMB.toFixed(1)} MB; ${problems.join(' | ') || 'no problems'}`);
+        } finally {
+          await close();
+        }
+      }
+      const name = `${profile.name}, ${variant}`;
+      raw[name] = runs;
+      summary[name] = Object.fromEntries(Object.keys(runs[0]!).map((key) => [key, Number(median(runs.map((run) => run[key]!)).toFixed(1))]));
+    }
+  }
+  console.table(summary);
+  return { runs: RUNS, summary, raw };
+}
+
 if (!flag('no-build')) await buildAll();
 mkdirSync(out, { recursive: true });
 const result: Record<string, unknown> = { ...machineInfo() };
@@ -703,6 +760,7 @@ try {
   if (only.includes('frames')) result.frames = await frames(server.url);
   if (only.includes('moves')) result.moves = await moves(server.url);
   if (only.includes('moveframes')) result.moveFrames = await moveFrames(server.url);
+  if (only.includes('rows')) result.rows = await rows(server.url);
 } finally {
   await server.close();
 }

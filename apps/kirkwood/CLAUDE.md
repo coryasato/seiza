@@ -2,7 +2,7 @@
 
 Kirkwood is a showcase: the asteroid belt as a scene to fly through, drawn from the asteroid table's own rows, with the table of those rows beside it, each moving the other. Named for Daniel Kirkwood, who found the gaps in the belt in a catalog of orbits, not through a telescope.
 
-**The app isn't built yet.** This directory holds its plan, its decisions, and a throwaway spike (`spike/`: a Three.js scene under a transparent GPUI canvas with the tall table), which is never deployed and whose code isn't carried forward (`PLAN.md`, the active milestone).
+**The app isn't built yet.** This directory holds its plan, its decisions, and a throwaway spike (`spike/`: a Three.js scene under a transparent GPUI canvas with the tall table), which is never deployed and whose code isn't carried forward. It has decided the stack (below) and stays, as the viewer of the orbits' data, until the app's own scene draws the belt (`docs/DECISIONS.md`, "Planning").
 
 ---
 
@@ -24,19 +24,19 @@ These replace the measuring rules a showcase is exempt from (root `CLAUDE.md`, "
 
 ## Stack
 
-Leaning, not decided; the spike decides (`PLAN.md`), and this section is rewritten when it closes.
+Decided by the spike (`docs/DECISIONS.md`, "Stack", which points to each part's own decision). Nothing of it is built as an app yet.
 
-- **The scene:** Three.js on a canvas of its own. A deliberate exception to "logic in Rust, JS thin" (root `docs/DECISIONS.md`, "Repo structure", the showcase tier).
-- **The engine:** Rust owns the orbital elements and their buffers, the clock and reference frame, the selection, and the link to the table.
-- **The interface:** GPUI through `shared/` (crate `seiza`), with `components/tall-table/` as its center.
-- **The rows:** probably held in memory; DuckDB only if the spike says so.
+- **The scene:** Three.js on a canvas of its own, under GPUI's, loaded after GPUI's first frame. A deliberate exception to "logic in Rust, JS thin" (root `docs/DECISIONS.md`, "Repo structure", the showcase tier). It draws only when the clock, the camera, or the window changed, at a resolution of its own, and every orbit is solved in its vertex shader. The sky's stars are its own (JS): they aren't rows.
+- **The engine:** Rust owns the orbital elements and their buffers (the scene's vertex buffer is a view over them), the clock, the sort flight's progress, and the selection (a set of row indices, picked through the scene's camera). The scene asks Rust each frame it draws; Rust calls the scene to move its camera or hand it a group.
+- **The interface:** GPUI through `shared/` (crate `seiza`), its canvas over the scene's and transparent wherever it drew nothing, with `components/tall-table/` in a panel on the right behind a handle. GPUI's hit test decides which canvas an input is for.
+- **The rows:** held in Rust, as the bytes of one file read in place; the table's delegate answers every page from them, and a filter to a group is the group's indices. No DuckDB, and no `engines/duckdb/`.
 
 ## Layout
 
 ```
 apps/kirkwood/
   docs/             # DECISIONS.md, LESSONS.md, milestones.md; spike/ (the spike's screenshots)
-  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the sort flight's progress, the scene's input surface, a drawn group's pick, the panel and its table with its filter and live column), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js: the flight between space and a against e, the group's colors and outline, the camera's fly-in; look.ts, the look's knobs and its pipeline: the half-float buffer, haze, bloom, tone mapping, the floor; stars.ts, the Gaia sky; colors.ts, the color mappings), data.ts (the elements and H from the asteroid sample, the bright stars from the Gaia sample), run.ts (screenshots, input checks, the moves' checks, frame times, bytes), lookdev.ts (the look: before and after from three cameras, each part's frame cost, first paint); not an npm workspace
+  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the sort flight's progress, the scene's input surface, a drawn group's pick, the panel and its table with its filter and live column, the sample's other columns held as their file's bytes), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js: the flight between space and a against e, the group's colors and outline, the camera's fly-in; look.ts, the look's knobs and its pipeline: the half-float buffer, haze, bloom, tone mapping, the floor; stars.ts, the Gaia sky; colors.ts, the color mappings), data.ts (the elements, H, and the rows file from the asteroid sample, the bright stars from the Gaia sample), sizing.ts (the rows file on the wire, and native DuckDB on the same reads), run.ts (screenshots, input checks, the moves' checks, frame times, bytes, the rows in memory), lookdev.ts (the look: before and after from three cameras, each part's frame cost, first paint); not an npm workspace
   README.md         # for visitors
   CLAUDE.md         # this file
   PLAN.md           # what's next
@@ -49,10 +49,11 @@ No `perf/`: a showcase has no budgets and no results. `crate/`, `web/`, and a `j
 The spike's only (no `just` module until there's an app), from the repo root:
 
 ```
-npm install --prefix apps/kirkwood/spike                 # its own deps (Three.js, DuckDB's Node client)
-node apps/kirkwood/spike/data.ts <asteroids.parquet> [<gaia-dr3-bright.parquet>] [--cut 10.5]   # public/ (gitignored): elements.bin (each row's a, e, i from Tycho's sample), h.bin (its H), and with the Gaia sample, stars.bin (its stars brighter than the cut)
-node apps/kirkwood/spike/run.ts [flags]                  # builds the wasm and the page, then: the scene through GPUI's canvas (screenshots in out/), input routing, frame times with both canvases drawing, the build's bytes, the three moves (the sort flight, a drawn group's fly-in with the table arriving, the live column), and frame times during each (--only shots,input,frames,bytes,moves,moveframes; --browser firefox|webkit; --params scale=0.5; --segments; --runs; --no-build)
-node apps/kirkwood/spike/run.ts --serve                  # builds, then serves the page to look at (?arrive=after, ?slide=<ms>, ?live=<refreshes a second>, ?decimals=<n>, ?scale=<0..1>; ?look for the look, below)
+npm install --prefix apps/kirkwood/spike                 # its own deps (Three.js, DuckDB's Node client for data.ts and sizing.ts; the page uses no DuckDB)
+node apps/kirkwood/spike/data.ts <asteroids.parquet> [<gaia-dr3-bright.parquet>] [--cut 10.5]   # public/ (gitignored): elements.bin (each row's a, e, i from Tycho's sample), h.bin (its H), rows.bin (its other 15 columns, a column at a time, and rows.json, its layout), and with the Gaia sample, stars.bin (its stars brighter than the cut)
+node apps/kirkwood/spike/sizing.ts <asteroids.parquet> [--only wire,duckdb]   # the rows file raw, gzip 9, and brotli 11, by section (and public/rows.bin.gz, which `?rows=gz` fetches); native DuckDB on a page of every row, of a group's rows, and of a sort, from the file and from a table in memory (out/sizing-*.json)
+node apps/kirkwood/spike/run.ts [flags]                  # builds the wasm and the page, then: the scene through GPUI's canvas (screenshots in out/), input routing, frame times with both canvases drawing, the build's bytes, the three moves (the sort flight, a drawn group's fly-in with the table arriving, the live column), and frame times during each; `rows`, the rows in memory against the elements alone: the table's first rows, the wasm's memory, a sort, reference and throttled (--only shots,input,frames,bytes,moves,moveframes,rows; --browser firefox|webkit; --params scale=0.5; --segments; --profiles reference,throttled; --runs; --no-build; `rows` needs sizing.ts's rows.bin.gz)
+node apps/kirkwood/spike/run.ts --serve                  # builds, then serves the page to look at (?arrive=after, ?slide=<ms>, ?live=<refreshes a second>, ?decimals=<n>, ?scale=<0..1>; ?rows or ?rows=gz for the table over the sample's own columns, ?open for the panel in from the load; ?look for the look, below)
 node apps/kirkwood/spike/lookdev.ts [flags]              # the look (needs h.bin and stars.bin): the scene as it was and with the look from three cameras (out/look-*.png, and out/look.html beside any out/ref-*.png), each part's frame cost, first paint (--only shots,cost,paint; --cameras opening,top,group; --sides before,after; --tag; --params tone=agx; --configs; --runs; --no-build)
 ```
 

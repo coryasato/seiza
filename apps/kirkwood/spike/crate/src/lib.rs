@@ -18,7 +18,9 @@
 //!   shape, picked here through the scene's camera; the scene grays the
 //!   rest and flies in while the panel comes in, the table filtered to the
 //!   group), and a live column (each row's distance from the Sun at the
-//!   clock's time, redrawn at a rate a person can read).
+//!   clock's time, redrawn at a rate a person can read);
+//! - with `?rows`, the sample's other columns, held as their file's bytes,
+//!   and the table over the sample's own 18 columns.
 //!
 //! `spike_state` and the published targets are for `run.ts`.
 
@@ -120,6 +122,7 @@ struct Motion {
 thread_local! {
     static ELEMENTS: RefCell<Rc<Vec<f32>>> = RefCell::new(Rc::new(Vec::new()));
     static MAGNITUDES: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+    static SAMPLE: RefCell<Option<Rc<Sample>>> = const { RefCell::new(None) };
     static CLOCK: Cell<Clock> = const { Cell::new(Clock { years: 0.0, running: true, held: false, last_ms: f64::NAN }) };
     static MOTION: Cell<Motion> = const { Cell::new(Motion { flight: 0.0, to: 0.0, last_ms: f64::NAN, inset: 0.0 }) };
     /// The clock's time the live column shows: moved on at its refresh rate.
@@ -378,8 +381,188 @@ fn extent(places: &[[f64; 3]]) -> ([f64; 3], f64) {
 
 // ---------------------------------------------------------------- the rows
 
+/// The sample's other columns (`data.ts`'s rows.bin), held as the bytes
+/// arrived: a column at a time, each cell read where it is. Sizes the rows
+/// in memory against a table over DuckDB (`?rows`).
+struct Sample {
+    bytes: Vec<u8>,
+    rows: usize,
+    classes: Vec<String>,
+    /// Where each section starts, in `section`'s order.
+    at: [usize; 18],
+}
+
+/// `Sample::at`'s indices: the file's sections after its header.
+mod section {
+    pub const SPKID: usize = 0;
+    pub const N_OBS: usize = 1;
+    pub const FIRST_OBS: usize = 2;
+    pub const LAST_OBS: usize = 3;
+    pub const H: usize = 4;
+    pub const DIAMETER: usize = 5;
+    pub const ALBEDO: usize = 6;
+    pub const Q: usize = 7;
+    pub const PER_Y: usize = 8;
+    pub const NEO: usize = 9;
+    pub const PHA: usize = 10;
+    pub const CLASS: usize = 11;
+    /// A text column: its offsets' section, then its bytes'.
+    pub const FULL_NAME: usize = 12;
+    pub const PDES: usize = 14;
+    pub const NAME: usize = 16;
+}
+
+impl Sample {
+    fn new(bytes: Vec<u8>) -> Option<Self> {
+        let word =
+            |at: usize| Some(u32::from_le_bytes(*bytes.get(at..at + 4)?.as_array()?) as usize);
+        let (rows, count) = (word(0)?, word(4)?);
+        let mut cursor = 8;
+        let mut classes = Vec::new();
+        for _ in 0..count {
+            let length = *bytes.get(cursor)? as usize;
+            classes.push(
+                String::from_utf8(bytes.get(cursor + 1..cursor + 1 + length)?.to_vec()).ok()?,
+            );
+            cursor += 1 + length;
+        }
+        let mut at = [0; 18];
+        for (index, width) in [4, 2, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1].into_iter().enumerate() {
+            at[index] = cursor;
+            cursor += width * rows;
+        }
+        for text in [section::FULL_NAME, section::PDES, section::NAME] {
+            at[text] = cursor;
+            cursor += 4 * (rows + 1);
+            at[text + 1] = cursor;
+            cursor += word(cursor - 4)?;
+        }
+        (cursor == bytes.len()).then_some(Self {
+            bytes,
+            rows,
+            classes,
+            at,
+        })
+    }
+
+    fn word<const N: usize>(&self, section: usize, row: usize) -> [u8; N] {
+        let at = self.at[section] + row * N;
+        *self.bytes[at..at + N].as_array().expect("N bytes")
+    }
+
+    fn float(&self, section: usize, row: usize) -> CellValue<'_> {
+        let value = f32::from_le_bytes(self.word(section, row));
+        if value.is_nan() {
+            CellValue::Null
+        } else {
+            CellValue::Float32(value)
+        }
+    }
+
+    /// A text cell's bytes (UTF-8, so their order is the text's).
+    fn text_bytes(&self, section: usize, row: usize) -> &[u8] {
+        let from = u32::from_le_bytes(self.word(section, row)) as usize;
+        let to = u32::from_le_bytes(self.word(section, row + 1)) as usize;
+        let start = self.at[section + 1];
+        &self.bytes[start + from..start + to]
+    }
+
+    fn text(&self, section: usize, row: usize) -> &str {
+        std::str::from_utf8(self.text_bytes(section, row)).unwrap_or("")
+    }
+
+    /// A day count as a date; `i32::MIN` is none.
+    fn date(&self, section: usize, row: usize) -> CellValue<'_> {
+        match i32::from_le_bytes(self.word(section, row)) {
+            i32::MIN => CellValue::Null,
+            days => {
+                let (year, month, day) = civil(i64::from(days));
+                CellValue::Text(format!("{year:04}-{month:02}-{day:02}").into())
+            }
+        }
+    }
+
+    /// 0, 1, or 2 for none.
+    fn flag(&self, section: usize, row: usize) -> CellValue<'_> {
+        match self.bytes[self.at[section] + row] {
+            0 => CellValue::Text("false".into()),
+            1 => CellValue::Text("true".into()),
+            _ => CellValue::Null,
+        }
+    }
+
+    /// The sample's columns in the file's order; a, e, and i (10 to 12) are
+    /// the elements'.
+    fn value(&self, row: usize, column: usize, elements: &[f32]) -> CellValue<'_> {
+        let element = |index: usize| CellValue::Float32(elements[row * STRIDE + index]);
+        match column {
+            0 => CellValue::Text(
+                u32::from_le_bytes(self.word(section::SPKID, row))
+                    .to_string()
+                    .into(),
+            ),
+            1 => CellValue::Text(self.text(section::FULL_NAME, row).into()),
+            2 => CellValue::Text(self.text(section::PDES, row).into()),
+            3 => match self.text(section::NAME, row) {
+                "" => CellValue::Null,
+                name => CellValue::Text(name.into()),
+            },
+            4 => self.flag(section::NEO, row),
+            5 => self.flag(section::PHA, row),
+            6 => CellValue::Text(
+                self.classes[self.bytes[self.at[section::CLASS] + row] as usize]
+                    .as_str()
+                    .into(),
+            ),
+            7 => self.float(section::H, row),
+            8 => self.float(section::DIAMETER, row),
+            9 => self.float(section::ALBEDO, row),
+            10 => element(0),
+            11 => element(1),
+            12 => element(2),
+            13 => self.float(section::Q, row),
+            14 => self.float(section::PER_Y, row),
+            15 => self.date(section::FIRST_OBS, row),
+            16 => self.date(section::LAST_OBS, row),
+            _ => CellValue::Text(
+                u16::from_le_bytes(self.word(section::N_OBS, row))
+                    .to_string()
+                    .into(),
+            ),
+        }
+    }
+
+    fn columns() -> Vec<TallTableColumn> {
+        use ColumnKind::{Boolean, Date, Float, Integer, Text};
+        [
+            ("spkid", Integer { max_chars: 8 }),
+            ("full_name", Text),
+            ("pdes", Text),
+            ("name", Text),
+            ("neo", Boolean),
+            ("pha", Boolean),
+            ("class", Text),
+            ("H", Float),
+            ("diameter", Float),
+            ("albedo", Float),
+            ("a", Float),
+            ("e", Float),
+            ("i", Float),
+            ("q", Float),
+            ("per_y", Float),
+            ("first_obs", Date),
+            ("last_obs", Date),
+            ("n_obs_used", Integer { max_chars: 5 }),
+        ]
+        .into_iter()
+        .map(|(name, kind)| TallTableColumn::new(name, kind))
+        .collect()
+    }
+}
+
 struct Rows {
     elements: Rc<Vec<f32>>,
+    sample: Option<Rc<Sample>>,
     /// The drawn group's rows, while the table is filtered to them.
     group: Option<Rc<Vec<u32>>>,
     next: u64,
@@ -387,6 +570,7 @@ struct Rows {
 
 struct Page {
     elements: Rc<Vec<f32>>,
+    sample: Option<Rc<Sample>>,
     group: Option<Rc<Vec<u32>>>,
     first: usize,
     rows: usize,
@@ -399,6 +583,7 @@ impl TallTableDelegate for Rows {
     fn load_page(&mut self, rows: Range<u64>, _: &mut App) -> (u64, PageLoad<Page>) {
         let page = Page {
             elements: self.elements.clone(),
+            sample: self.sample.clone(),
             group: self.group.clone(),
             first: rows.start as usize,
             rows: (rows.end - rows.start) as usize,
@@ -419,6 +604,9 @@ impl TallTablePage for Page {
             Some(group) => *group.get(self.first + row)? as usize,
             None => self.first + row,
         };
+        if let Some(sample) = &self.sample {
+            return Some(sample.value(source, column, &self.elements));
+        }
         let at = source * STRIDE;
         let [a, e, i] = [
             self.elements[at],
@@ -579,19 +767,39 @@ impl Host {
 
     fn loaded(&mut self, elements: Rc<Vec<f32>>, cx: &mut Context<Self>) {
         self.rows = elements.len() / STRIDE;
+        // With `?rows` the table is over the sample's own columns, held
+        // here (`load_rows`, which opens it).
+        let sample = SAMPLE.with_borrow(Clone::clone);
+        let columns = if sample.is_some() {
+            Sample::columns()
+        } else {
+            columns()
+        };
         let rows = Rows {
             elements,
+            sample,
             group: None,
             next: 0,
         };
         let probe = seiza::url::param("probe").is_some();
         let count = self.rows as u64;
-        let table = cx.new(|cx| {
-            Table::new(rows, columns(), count, Paging::default(), cx).probe_frames(probe)
-        });
+        let table = cx
+            .new(|cx| Table::new(rows, columns, count, Paging::default(), cx).probe_frames(probe));
+        // `?open`: the panel in from the start, so the table's first rows
+        // are timed from the load.
+        if seiza::url::param("open").is_some() {
+            self.panel_open = true;
+            self.panel_t = 1.0;
+            set_state(state::PANEL, 1.0);
+        }
         self._subscriptions
             .push(cx.subscribe(&table, |_, _, event, _| match event {
-                TallTableEvent::Filled { .. } => add_state(state::FILLED),
+                TallTableEvent::Filled { .. } => {
+                    if STATE.with_borrow(|state| state[state::FILLED]) == 0.0 {
+                        seiza::marks::mark("kirkwood:rows");
+                    }
+                    add_state(state::FILLED);
+                }
                 TallTableEvent::Probe(probe) => {
                     set_state(state::TOP, probe.top);
                     set_state(state::TOOLTIP, f64::from(u8::from(probe.tooltip.is_some())));
@@ -654,7 +862,8 @@ impl Host {
 
     fn refresh_live(&mut self, cx: &mut Context<Self>) {
         let years = advance_clock(seiza::marks::now());
-        if years == LIVE_YEARS.get() || self.panel_t == 0.0 {
+        // The sample's own columns (`?rows`) have no live one to redraw.
+        if years == LIVE_YEARS.get() || self.panel_t == 0.0 || SAMPLE.with_borrow(Option::is_some) {
             return;
         }
         if let Some(table) = &self.table {
@@ -1187,12 +1396,10 @@ fn grouped(n: usize) -> String {
     out
 }
 
-/// The clock's date, `years` after its start (Hinnant's civil-from-days).
-fn date(years: f64) -> String {
-    const MONTHS: [&str; 12] = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    let z = (START_DAY + years * 365.25).floor() as i64 + 719_468;
+/// The year, month, and day `days` after 1970-01-01 (Hinnant's
+/// civil-from-days).
+fn civil(days: i64) -> (i64, i64, i64) {
+    let z = days + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
@@ -1200,7 +1407,15 @@ fn date(years: f64) -> String {
     let mp = (5 * doy + 2) / 153;
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
+    (yoe + era * 400 + i64::from(month <= 2), month, day)
+}
+
+/// The clock's date, `years` after its start.
+fn date(years: f64) -> String {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let (year, month, day) = civil((START_DAY + years * 365.25).floor() as i64);
     format!("{year} {} {day:02}", MONTHS[(month - 1) as usize])
 }
 
@@ -1247,10 +1462,72 @@ pub fn load_elements(bytes: &[u8]) -> usize {
     }
     let elements = Rc::new(elements);
     ELEMENTS.set(elements.clone());
+    // With `?rows` the table waits for the rows file (`load_rows`); the
+    // belt doesn't.
+    if seiza::url::param("rows").is_none() {
+        open_table(elements);
+    }
+    rows
+}
+
+fn open_table(elements: Rc<Vec<f32>>) {
     if let Some((host, mut cx)) = HOST.with_borrow(Clone::clone) {
         host.update(&mut cx, |host, cx| host.loaded(elements, cx));
     }
-    rows
+}
+
+/// The sample's other columns (`data.ts`'s rows.bin), kept as they arrive:
+/// the one copy is wasm-bindgen's, into this module's memory. Called after
+/// `load_elements`, and opens the table over both. False for a file that
+/// isn't one, or whose rows aren't the elements'.
+#[wasm_bindgen]
+pub fn load_rows(bytes: Vec<u8>) -> bool {
+    let elements = ELEMENTS.with_borrow(Clone::clone);
+    let Some(sample) = Sample::new(bytes).filter(|sample| sample.rows == elements.len() / STRIDE)
+    else {
+        return false;
+    };
+    SAMPLE.set(Some(Rc::new(sample)));
+    open_table(elements);
+    true
+}
+
+/// For `run.ts`: what the rows in memory make of a sort, in ms: every
+/// row's index ordered by diameter (largest first, none last), then by
+/// full_name (its bytes' order), ties in the file's order. A filter to a
+/// group's rows is the group's indices, as it is.
+#[wasm_bindgen]
+pub fn sort_ms() -> Vec<f64> {
+    let Some(sample) = SAMPLE.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    let rows = sample.rows as u32;
+    let timed = |sort: &dyn Fn(&mut Vec<u32>)| {
+        let mut order: Vec<u32> = (0..rows).collect();
+        let start = seiza::marks::now();
+        sort(&mut order);
+        seiza::marks::now() - start
+    };
+    let diameter = |row: u32| f32::from_le_bytes(sample.word(section::DIAMETER, row as usize));
+    vec![
+        timed(&|order| {
+            order.sort_unstable_by(|&a, &b| {
+                let (da, db) = (diameter(a), diameter(b));
+                da.is_nan()
+                    .cmp(&db.is_nan())
+                    .then(db.total_cmp(&da))
+                    .then(a.cmp(&b))
+            });
+        }),
+        timed(&|order| {
+            order.sort_unstable_by(|&a, &b| {
+                sample
+                    .text_bytes(section::FULL_NAME, a as usize)
+                    .cmp(sample.text_bytes(section::FULL_NAME, b as usize))
+                    .then(a.cmp(&b))
+            });
+        }),
+    ]
 }
 
 /// Where the elements are in this module's memory, for the scene's view.
@@ -1264,7 +1541,12 @@ pub fn elements_ptr() -> *const f32 {
 /// by the scene where it is.
 #[wasm_bindgen]
 pub fn load_magnitudes(bytes: &[u8]) -> usize {
-    let magnitudes: Vec<f32> = bytes.as_chunks::<4>().0.iter().map(|value| f32::from_le_bytes(*value)).collect();
+    let magnitudes: Vec<f32> = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|value| f32::from_le_bytes(*value))
+        .collect();
     let rows = magnitudes.len();
     MAGNITUDES.set(magnitudes);
     rows
