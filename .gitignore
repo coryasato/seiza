@@ -30,6 +30,7 @@ docs/private/
 # App data: raw fetches and generated datasets (MANIFEST.json and fixtures-src/ stay committed)
 apps/*/data/raw/
 apps/*/data/*.parquet
+apps/*/data/*.bin
 apps/*/data/fixtures/*.csv
 apps/*/data/drop/
 apps/*/data/bench/

@@ -1,0 +1,188 @@
+{
+  "elements.bin": {
+    "rows": 1580272,
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-11-11",
+    "writer": "data/prep.ts; little-endian, each section on a 4-byte boundary",
+    "bytes": 44247632,
+    "sha256": "c804184f7bd487faa218dedc18e19d7600a3a60ec4a4a0a118dac2620bc2b6a1",
+    "epoch": {
+      "jd": 2461200.5,
+      "date": "2026-06-09",
+      "scale": "TDB"
+    },
+    "frame": "heliocentric, ecliptic and equinox of J2000 (IAU76/80)",
+    "meanMotion": "0.01720209895 / a^1.5 radians a day (the Gaussian constant)",
+    "layout": [
+      {
+        "name": "header",
+        "kind": "u8",
+        "offset": 0,
+        "bytes": 16
+      },
+      {
+        "name": "a",
+        "kind": "f32",
+        "offset": 16,
+        "bytes": 6321088
+      },
+      {
+        "name": "e",
+        "kind": "f32",
+        "offset": 6321104,
+        "bytes": 6321088
+      },
+      {
+        "name": "i",
+        "kind": "f32",
+        "offset": 12642192,
+        "bytes": 6321088
+      },
+      {
+        "name": "om",
+        "kind": "f32",
+        "offset": 18963280,
+        "bytes": 6321088
+      },
+      {
+        "name": "w",
+        "kind": "f32",
+        "offset": 25284368,
+        "bytes": 6321088
+      },
+      {
+        "name": "ma",
+        "kind": "f32",
+        "offset": 31605456,
+        "bytes": 6321088
+      },
+      {
+        "name": "H",
+        "kind": "f32",
+        "offset": 37926544,
+        "bytes": 6321088
+      }
+    ],
+    "notes": [
+      "rows fetched at another epoch, their mean anomaly moved to this one by their own mean motion: 96384",
+      "rows with no mean anomaly in the source (a circle: 0 at its epoch): 1 ((2002 PD153))",
+      "rows with no ellipse (e not below 1), their mean anomaly a hyperbola's and not an angle: 7",
+      "rows with no H (NaN): 509"
+    ]
+  },
+  "rows.bin": {
+    "rows": 1580272,
+    "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
+    "fetched": "2026-11-11",
+    "writer": "data/prep.ts; little-endian, each section on a 4-byte boundary",
+    "bytes": 46274156,
+    "sha256": "f93722de0f1838aef794c5e1be15b2c63e82e134b405e640814648f7ea2e34dc",
+    "numbered": 895910,
+    "named": 26637,
+    "classes": [
+      "AMO",
+      "APO",
+      "AST",
+      "ATE",
+      "CEN",
+      "HYA",
+      "IEO",
+      "IMB",
+      "MBA",
+      "MCA",
+      "OMB",
+      "TJN",
+      "TNO"
+    ],
+    "layout": [
+      {
+        "name": "header",
+        "kind": "u8",
+        "offset": 0,
+        "bytes": 72
+      },
+      {
+        "name": "spkid",
+        "kind": "u32",
+        "offset": 72,
+        "bytes": 6321088
+      },
+      {
+        "name": "designation",
+        "kind": "u32",
+        "offset": 6321160,
+        "bytes": 6321088
+      },
+      {
+        "name": "first_obs",
+        "kind": "i32",
+        "offset": 12642248,
+        "bytes": 6321088
+      },
+      {
+        "name": "last_obs",
+        "kind": "i32",
+        "offset": 18963336,
+        "bytes": 6321088
+      },
+      {
+        "name": "diameter",
+        "kind": "f32",
+        "offset": 25284424,
+        "bytes": 6321088
+      },
+      {
+        "name": "albedo",
+        "kind": "f32",
+        "offset": 31605512,
+        "bytes": 6321088
+      },
+      {
+        "name": "n_obs_used",
+        "kind": "u16",
+        "offset": 37926600,
+        "bytes": 3160544
+      },
+      {
+        "name": "neo",
+        "kind": "u8",
+        "offset": 41087144,
+        "bytes": 1580272
+      },
+      {
+        "name": "pha",
+        "kind": "u8",
+        "offset": 42667416,
+        "bytes": 1580272
+      },
+      {
+        "name": "class",
+        "kind": "u8",
+        "offset": 44247688,
+        "bytes": 1580272
+      },
+      {
+        "name": "name rows",
+        "kind": "u32",
+        "offset": 45827960,
+        "bytes": 106548
+      },
+      {
+        "name": "name offsets",
+        "kind": "u32",
+        "offset": 45934508,
+        "bytes": 106552
+      },
+      {
+        "name": "name text",
+        "kind": "u8",
+        "offset": 46041060,
+        "bytes": 233093
+      }
+    ],
+    "notes": [
+      "rows with a year-only first_obs in the source ('YYYY-??-??'), stored as the year: 6819",
+      "full_name and pdes are rebuilt from the row's number, name, and designation; q and per_y from the elements file's a and e; H is the elements file's"
+    ]
+  }
+}

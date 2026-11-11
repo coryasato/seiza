@@ -61,3 +61,16 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table", "Stack", "Planni
 - **The raw fetch lives in the worktree.** `data/raw/` is gitignored, and this fetch's date is part of the dataset: a worktree removed takes the pinned pages with it.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data"; the fetch: [`data.md`](data.md).
+
+## M1, part B: the two files (2026-11-11)
+
+**Surprises:**
+- **Real orbits cost four times the spike's bytes, and no layout gets them back.** The spike's a, e, and i were 8.7 MB on the wire because the API had rounded them; at full precision, with three angles beside them, the elements are 34.6 MB, and the digits are noise to a compressor. Every precision tried lands between 19 and 35. The slow link's answer has to be what's drawn while the file arrives, not the file.
+- **The question wasn't 32 bits against 16, it was which elements.** Three of the six only turn the orbit and are fine in 16 bits. The other three set its size, its shape, and where the body is on it, and their error is multiplied: by the clock for a, and by up to a thousand near the perihelion of an orbit with e near 1.
+- **The worst rows are the strange ones, and there are few of them.** With e and the mean anomaly in 16 bits, the median row is a hundredth of a pixel off and 63 rows are more than a pixel off, one by 16 au. A median would have passed it.
+- **Where zero is put mattered more than a column's width.** The mean anomaly from 0 to 360, as JPL writes it, is coarsest just before perihelion; the same float from -180 to 180 is finest there, and the worst row's error fell fifty-fold for nothing.
+- **The file is already finer than the GPU.** The same floats through a 32-bit clock, as the spike's shader has it, come out about three times farther off than the file puts them. Precision past 32 bits would have shown nowhere.
+- **The text was a number all along.** Every full name in the catalog is a number, an optional name, and a designation, and every designation has one of a few shapes that fit 32 bits. Three text columns and their offsets, half the spike's rows file, became one integer column and a short list of names, with every row rebuilt and compared at prep.
+- **The catalog's order isn't its key's.** The API returns the numbered asteroids by number and the rest by designation, not by `spkid`; the files keep that order, which puts a row's number at its place.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data"; the files: [`data.md`](data.md), "The two files".

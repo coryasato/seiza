@@ -10,24 +10,10 @@
 // Prints one JSON object. Its numbers are the ones docs/data.md and
 // docs/DECISIONS.md ("Data") quote.
 
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { FIELDS, SAMPLE_FIELDS, fetchInfoPath, rawDir, type FetchInfo, type Page } from './fetch.ts';
+import { readFileSync } from 'node:fs';
+import { number, readRows, type Cell } from './catalog.ts';
+import { FIELDS, SAMPLE_FIELDS, fetchInfoPath, rawDir, type FetchInfo } from './fetch.ts';
 
-type Cell = string | number | null;
-
-/** A fetch's rows, one per spkid: a page read later wins, as prep does. */
-function readRows(dir: string, fields: string[]): Map<number, Cell[]> {
-  const rows = new Map<number, Cell[]>();
-  for (const name of readdirSync(dir).filter((name) => /^page-\d{4}\.json$/.test(name)).sort()) {
-    const page = JSON.parse(readFileSync(join(dir, name), 'utf8')) as Page;
-    if (page.fields.join(',') !== fields.join(',')) throw new Error(`${join(dir, name)}: unexpected fields ${page.fields.join(',')}`);
-    for (const row of page.data) rows.set(Number(row[0]), row);
-  }
-  return rows;
-}
-
-const number = (cell: Cell | undefined): number => (cell == null ? NaN : Number(cell));
 const quantiles = (values: number[], at: number[]): number[] => {
   // Only the numbers: a row without the value has no place in its spread. A quantile of 1 is the largest.
   const sorted = Float64Array.from(values.filter(Number.isFinite)).sort();
