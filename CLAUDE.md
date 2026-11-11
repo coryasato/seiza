@@ -95,7 +95,7 @@ seiza/
     duckdb/             # DuckDB-Wasm: crate/ (`seiza-duckdb`: engine client, Arrow reader, SQL helpers; `tall-table` feature: the table's DuckDB source), web/ (`@seiza/duckdb`: bridge, worker, Vite plugin, pinned extensions); README.md, CLAUDE.md, docs/
   apps/
     observatory/        # the comparison page: web/ (the page, under /observatory/, in the site's shell), contenders/ (the bare contender pages, under /observatory/contenders/: tall-table/gpui/, crate `tall-table-gpui`; tall-table/tanstack/, React + TanStack Virtual; market/, market watch's seeded feed and its fixture), metrics/, worker/ (seiza.io; the data by range), data/, perf/, spike/ (throwaway scroll spike), docs/, README.md, CLAUDE.md, PLAN.md, justfile
-    kirkwood/           # the showcase, planned: README.md, CLAUDE.md, PLAN.md, docs/, data/ (the asteroid catalog's fetch from JPL, and the prep of the two files the app holds, pinned by MANIFEST.json), spike/ (throwaway: the two canvases; crate `kirkwood-spike`); no app yet, and no perf/: a showcase has no budgets
+    kirkwood/           # the showcase, planned: README.md, CLAUDE.md, PLAN.md, docs/, data/ (the asteroid catalog's fetch from JPL, the prep of the two files the app holds, pinned by MANIFEST.json, Jupiter's orbit, and the files' places checked against JPL Horizons), spike/ (throwaway: the two canvases; crate `kirkwood-spike`); no app yet, and no perf/: a showcase has no budgets
     tycho/
       crate/            # Rust (cdylib)
       web/              # Vite host on @seiza/duckdb: main.ts, vite.config.ts

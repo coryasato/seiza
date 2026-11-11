@@ -16,7 +16,7 @@
 //           with the look, over cold loads.
 //
 // Usage: node apps/kirkwood/spike/lookdev.ts [--only shots,cost,paint] [--runs 3] [--no-build] [--params exposure=1.2]
-// Needs public/elements.bin, h.bin, and stars.bin (data.ts). Writes out/.
+// Needs data/elements.bin (data/prep.ts) and public/stars.bin (data.ts). Writes out/.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -196,7 +196,7 @@ async function paint(url: string) {
 
 if (!flag('no-build')) execFileSync('node', [join(dir, 'run.ts'), '--only', 'bytes'], { stdio: 'inherit' });
 mkdirSync(out, { recursive: true });
-if (!existsSync(join(dir, 'public/stars.bin')) || !existsSync(join(dir, 'public/h.bin'))) throw new Error('public/h.bin and stars.bin: run data.ts with both samples');
+if (!existsSync(join(dir, 'public/stars.bin'))) throw new Error('public/stars.bin: run data.ts with both samples');
 const result: Record<string, unknown> = { ...machineInfo(), params: PARAMS };
 const server = await serveApp(undefined, { webDir: dir, port: PORT });
 try {

@@ -1,7 +1,8 @@
 // Throwaway: the scene. The belt as one draw of points whose vertex shader
 // solves each orbit (Kepler's equation, from the six elements a row the
-// crate holds), colored by a through the storyboard's ramp; the Sun,
-// Jupiter, and Jupiter's orbit as stand-ins. The same shader flies each dot
+// crate holds), colored by a through the storyboard's ramp; the Sun as a
+// stand-in, and Jupiter on its own orbit (data/jupiter.ts: it isn't a row,
+// so it isn't in the elements file). The same shader flies each dot
 // between its place in space and a against e (the sort flight), and grays
 // every dot outside a drawn group. The camera flies in to a group and back.
 // It draws only when something changed: the clock moved, the dots or the
@@ -19,6 +20,7 @@ import {
   InterleavedBufferAttribute,
   LineBasicMaterial,
   LineLoop,
+  LineSegments,
   Matrix4,
   PerspectiveCamera,
   Points,
@@ -29,6 +31,8 @@ import {
   Vector4,
   WebGLRenderer,
 } from 'three';
+import { JUPITER, jupiterPlace } from '../../data/jupiter.ts';
+import { GAUSS_YEAR_DAYS } from '../../data/orbit.ts';
 import { ORBIT_SIZE, RAMP_GLSL, mapUniforms } from './colors.ts';
 import { createPipeline, knob, readLook } from './look.ts';
 import { PROFILE_GLSL, createStars, type Stars } from './stars.ts';
@@ -36,7 +40,8 @@ import { PROFILE_GLSL, createStars, type Stars } from './stars.ts';
 /** What the scene asks of the crate, which owns the clock, the sort
  *  flight, and the panel. */
 export interface SceneHost {
-  /** The clock in years, moved on to `now` (the page clock). */
+  /** The clock, moved on to `now` (the page clock): years since the
+   *  elements' epoch, a year being one turn of a 1 au orbit. */
   years(now: number): number;
   /** The sort flight's progress, moved on to `now`: 0 in space, 1 landed. */
   flight(now: number): number;
@@ -64,7 +69,8 @@ export interface SceneStats {
 
 export interface BeltScene {
   /** The belt's rows: six f32s each (a, e, i degrees; node, perihelion,
-   *  anomaly radians), and with the look's `mag`, each row's H. Uploaded
+   *  and the mean anomaly at the epoch, radians), and with the look's
+   *  `mag`, each row's H. Uploaded
    *  to the GPU before it returns; neither is read again. */
   setElements(elements: Float32Array, rows: number, magnitudes?: Float32Array): void;
   /** The sky: `data.ts`'s stars.bin. */
@@ -105,6 +111,11 @@ const VERTEX = /* glsl */ `
   // 1 while a group is drawn: every other dot is gray.
   uniform float uGroup;
   uniform float uGray;
+  // The page's band knob: the orbit sizes (au, x to y) that keep their
+  // color, w times as bright and the square root of it as wide (a few
+  // thousand rows are too faint to read as a shape); the rest gray and z
+  // of a dot's opacity. No band at y 0.
+  uniform vec4 uBand;
   attribute vec3 angles;
   attribute float picked;
   varying vec3 vColor;
@@ -175,11 +186,17 @@ const VERTEX = /* glsl */ `
       gain = max(uLeast, pow(10.0, flux * uMag.y));
       vGrow = clamp(pow(10.0, flux * uMag.z), 1.0, uMag.w);
     #endif
-    gl_PointSize = uSize * vGrow;
-
     float lit = mix(1.0, picked, uGroup);
-    vColor = mix(vec3(uGray), ramp(a), lit) * gain;
-    vAlpha = mix(0.3, 1.0, lit);
+    float dim = 0.3;
+    float banded = 1.0;
+    if (uBand.y > 0.0) {
+      lit *= step(uBand.x, a) * step(a, uBand.y);
+      dim = uBand.z;
+      banded = mix(1.0, uBand.w, lit);
+    }
+    gl_PointSize = uSize * vGrow * sqrt(banded);
+    vColor = mix(vec3(uGray), ramp(a), lit) * gain * banded;
+    vAlpha = mix(dim, 1.0, lit);
   }
 `;
 
@@ -218,9 +235,19 @@ const SUN_FRAGMENT = /* glsl */ `
   }
 `;
 
-const JUPITER_AU = 5.2044;
-const JUPITER_YEARS = 11.862;
 const FOV = 40;
+/** A place in the ecliptic's axes, in the scene's: the ecliptic is its xz plane. */
+const inScene = ([x, y, z]: [number, number, number]): [number, number, number] => [x, z, -y];
+
+/** `?band=<au>,<au>`: two orbit sizes, the smaller first; anything else is
+ *  the page's error, not a band that grays the belt by accident. */
+function band(): [number, number] {
+  const given = new URLSearchParams(location.search).get('band');
+  if (given === null) return [0, 0];
+  const [from, to, ...more] = given.split(',').map(Number);
+  if (more.length || !(from! >= 0) || !(to! > from!) || !Number.isFinite(to)) throw new Error(`?band wants two orbit sizes in au, the smaller first; got "${given}"`);
+  return [from!, to!];
+}
 
 const ease = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
 
@@ -299,12 +326,23 @@ export function startScene(canvas: HTMLCanvasElement, host: SceneHost): BeltScen
   };
   const sun = look.sun ? glow() : dot(14 * pixelRatio, 0xfff3d6);
   const jupiter = dot(8 * pixelRatio, 0xd9b38c, pipeline ? 1.8 : 1);
+  // Jupiter's orbit: its place at 256 times over one turn.
   const orbit = new Float32Array(256 * 3);
-  for (let k = 0; k < 256; k++) orbit.set([JUPITER_AU * Math.cos((k / 256) * 2 * Math.PI), 0, JUPITER_AU * Math.sin((k / 256) * 2 * Math.PI)], k * 3);
+  for (let k = 0; k < 256; k++) orbit.set(inScene(jupiterPlace((k / 256) * (360 / JUPITER.n))), k * 3);
   const orbitGeometry = new BufferGeometry();
   orbitGeometry.setAttribute('position', new BufferAttribute(orbit, 3));
   const orbitLine = new LineBasicMaterial({ color: pipeline ? 0x6a7594 : 0x3a4152, transparent: true });
   bodies.add(new LineLoop(orbitGeometry, orbitLine));
+  // `?marks`: lines from the Sun to Jupiter and on, and toward the points
+  // 60° ahead of it, 60° behind, and opposite, where its Trojans and the
+  // corners of the Hildas' triangle are looked for. White: the
+  // interface's, not rows.
+  const marks = new URLSearchParams(location.search).has('marks') ? new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: 0xfafafa, transparent: true, opacity: 0.55, depthTest: false })) : undefined;
+  if (marks) {
+    marks.geometry.setAttribute('position', new BufferAttribute(new Float32Array(4 * 2 * 3), 3));
+    marks.frustumCulled = false;
+    bodies.add(marks);
+  }
   // The drawn shape, once closed: white, as what the interface adds.
   const outline = new LineLoop(new BufferGeometry(), new LineBasicMaterial({ color: 0xfafafa, transparent: true, opacity: 0.85, depthTest: false }));
   outline.frustumCulled = false;
@@ -330,6 +368,7 @@ export function startScene(canvas: HTMLCanvasElement, host: SceneHost): BeltScen
       // In the look's linear light and among its stars, the unpicked dots
       // need more than the display's 0.42 to stay a visible belt.
       uGray: { value: pipeline ? 0.4 : 0.42 },
+      uBand: { value: new Vector4(...band(), knob('bandDim', 0.3), knob('bandGain', 1)) },
       uMag: { value: new Vector4(knob('magAt', 17.7), knob('magBright', 0.45), knob('magGrow', 0.2), 16) },
       uLeast: { value: knob('magLeast', 0.4) },
       uDistance: { value: HOME },
@@ -407,8 +446,20 @@ export function startScene(canvas: HTMLCanvasElement, host: SceneHost): BeltScen
     stars?.fade((1 - landed) * (material.uniforms.uGroup!.value ? 0.35 : 1));
     orbitLine.opacity = 1 - landed;
     (outline.material as LineBasicMaterial).opacity = 0.85 * (1 - landed);
-    const turn = (years / JUPITER_YEARS) * 2 * Math.PI;
-    jupiter.position.set(JUPITER_AU * Math.cos(turn), 0, -JUPITER_AU * Math.sin(turn));
+    const at = jupiterPlace(years * GAUSS_YEAR_DAYS);
+    jupiter.position.set(...inScene(at));
+    if (marks) {
+      const longitude = Math.atan2(at[1], at[0]);
+      const points = marks.geometry.getAttribute('position') as BufferAttribute;
+      [0, 60, -60, 180].forEach((ahead, ray) => {
+        const toward = longitude + (ahead * Math.PI) / 180;
+        // From 0.6 au out (clear of the Sun's glow) to past Jupiter's orbit.
+        points.setXYZ(ray * 2, ...inScene([0.6 * Math.cos(toward), 0.6 * Math.sin(toward), 0]));
+        points.setXYZ(ray * 2 + 1, ...inScene([6.2 * Math.cos(toward), 6.2 * Math.sin(toward), 0]));
+      });
+      points.needsUpdate = true;
+      (marks.material as LineBasicMaterial).opacity = 0.55 * (1 - landed);
+    }
     if (pipeline) pipeline.render(dust, bodies, camera);
     else renderer.render(dust, camera);
     stats.frames++;

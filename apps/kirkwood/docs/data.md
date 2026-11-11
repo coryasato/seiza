@@ -1,6 +1,6 @@
 # The orbits' data
 
-Where Kirkwood's rows come from, what the fetch holds, and the two files built from it that the app holds in memory. Paths are relative to `apps/kirkwood/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Data".
+Where Kirkwood's rows come from, what the fetch holds, the two files built from it that the app holds in memory, Jupiter's orbit, and what the files' places were checked against. Paths are relative to `apps/kirkwood/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Data".
 
 ## The fetch
 
@@ -106,6 +106,18 @@ What the file leaves out, and where each cell comes from instead:
 
 Held in memory they cost their raw size, 90.5 MB together. The elements' six orbit columns are 5.0 to 5.7 MB each at brotli 11 (their digits are noise to a compressor) and H is 2.0. Of the rows file: `spkid` 2.4 MB, `designation` 2.1, the dates 2.2 and 1.9, `n_obs_used` 1.7, and everything else 1.0.
 
+## Jupiter
+
+Jupiter isn't a row, so it isn't in the files. `data/jupiter.ts` holds its six osculating elements at the files' epoch and its mean motion, from JPL Horizons (body 599 about the Sun's center, the ecliptic of J2000; the same numbers are in `data/horizons.json`), and places it as a row is placed (`data/orbit.ts`'s `place`), with one difference: its mean motion is its own, 0.0830846 degrees a day, which counts its mass (`DECISIONS.md`, "Scene"). Both modules are free of Node, so a page can import them.
+
+## Checked against Horizons
+
+`data/horizons.json` (committed: 5 KB) pins what the files' places were compared with: JPL Horizons' own places for five numbered asteroids (Ceres, Vesta, 153 Hilda, and the largest Trojan of each cloud, 624 Hektor and 617 Patroclus) and for Jupiter, at eight dates from 50 years before the epoch to 50 after, with Jupiter's elements at the epoch. Every place is geometric (no light time), from the Sun's center, in the ecliptic of J2000, in au, at 0h TDB. `data/horizons.ts` fetches it, one request at a time; each body's orbit solution is recorded beside its places.
+
+`data/places.ts` reads the two built files as the app will (the manifest's bytes, each column where it lies) and prints what they give: each body's distance from Horizons' place at each date; Jupiter's place three ways against Horizons'; the rows of class TJN by their longitude from Jupiter's; and the rows from 3.7 to 4.2 au (the Hildas), by where the corners of their triangle point and by the resonance's own angle. What it found: `DECISIONS.md`, "Scene".
+
+- **Credit:** "Jupiter's orbit and the reference places: NASA/JPL Horizons, fetched 2026-11-11."
+
 ## Commands
 
 From the repo root:
@@ -115,4 +127,6 @@ node apps/kirkwood/data/fetch.ts [--refresh] [--page-size 100000]   # the catalo
 node --max-old-space-size=12000 apps/kirkwood/data/survey.ts [<tycho's data/raw/asteroids>]   # the numbers above as JSON; with Tycho's raw pages, the sample against the fetch
 node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's, writes nothing; --sizes: each file and section raw and at brotli 11 (~2 min more)
 node --max-old-space-size=12000 apps/kirkwood/data/precision.ts [--only error,bytes]   # the elements file's precision, weighed: each way of storing the elements, its error against 64-bit floats and its bytes (~7 min; DECISIONS.md, "Data")
+node apps/kirkwood/data/horizons.ts   # data/horizons.json again from JPL Horizons (7 requests; a refetch changes the pinned reference, so not without a reason)
+node apps/kirkwood/data/places.ts [--date 2026-06-09] [--only bodies,jupiter,trojans,hildas]   # the built files' places against Horizons', and the Trojans and Hildas against Jupiter (a few seconds; DECISIONS.md, "Scene")
 ```

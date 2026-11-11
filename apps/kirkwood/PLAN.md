@@ -12,7 +12,7 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 - [`../../docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md): the research: what the scene shows, what the table does, what's honest to simulate, the data it needs.
 - [The storyboard](https://claude.ai/artifact/Vpx3w9Jb6EAW5RFJbLKKoi): seven boards, reviewed 2026-11-10. Each milestone below names the boards it builds; the canvas's notes say which parts of them are placeholders.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every decision, by area. Repo-wide ones (the showcase tier, its home): the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
-- [`docs/data.md`](docs/data.md): the fetch: its source, fields, frame, and what it holds.
+- [`docs/data.md`](docs/data.md): the fetch (its source, fields, and frame), the two files built from it, Jupiter's orbit, and what the files' places were checked against.
 - [`docs/milestones.md`](docs/milestones.md): the specs, checks, and evidence of finished milestones.
 - [`docs/LESSONS.md`](docs/LESSONS.md): what each milestone taught us.
 
@@ -23,8 +23,8 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 | Milestone | Title | Status |
 |---|---|---|
 | M0 | The two canvases: a spike | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
-| M1 | The orbits' data | Active: part C next |
-| M2 | The belt in space | Planned |
+| M1 | The orbits' data | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
+| M2 | The belt in space | Active: part A next |
 | M3 | The reveal: sort by orbit size | Planned |
 | M4 | Ride with Jupiter, and a gap picked | Planned |
 | M5 | The scene and the table, each moving the other | Planned |
@@ -45,46 +45,42 @@ Nothing. The tall table's `live`, `sort`, and `select` are built, and with the r
 
 ## Active milestone
 
-### M1: The orbits' data
+### M2: The belt in space
 
-Every row gets a real place. Positions need all six orbital elements and their epoch; Tycho's asteroid sample has a, e, and i, at the few digits it keeps (a to a thousandth of an au: 9,580 distinct values in 1.57 M rows). The node, the argument of perihelion, the mean anomaly, and the epoch are fetched from JPL's query API, under the pinned-file rules Tycho's samples follow (`apps/tycho/docs/data.md`), with every other column, in one fetch of Kirkwood's own (`docs/DECISIONS.md`, "Data"; what it holds: `docs/data.md`), and the two files the app holds in memory are built from it (`docs/DECISIONS.md`, "Stack": the rows are held in Rust, with no DuckDB): the elements file the scene draws from, and the rows file the table reads.
+Board 1, as an app. The crate, the web host, and a page that paints first and loads the scene after; every row on its own Kepler orbit from the elements file, with Jupiter on its; a time control; color by orbit size with its legend; the line that says dot sizes are exaggerated; and the table behind its handle, opening as a panel over every row of the rows file. The stack is the spike's (`docs/DECISIONS.md`, "Stack") and the look is the one tried on it ("Look"), built to keep this time: nothing of the spike's code is carried over, and it's deleted when this scene draws the belt ("Planning").
 
-No app is built here. The files are seen on the spike, which stays as their viewer until M2's scene draws the belt, its seeded angles replaced by the real ones (`docs/DECISIONS.md`, "Planning"). The scripts and the manifest are kept: they go in `data/`, with a `docs/data.md` that says how the files are made.
+Not here: the three actions board 1 draws beside the time control (each arrives with its own milestone: M3, M4, M5), a drawn shape and its fly-in, a click on a dot or a row, and the live column (M5), and the deploy (M6): the dev server serves the files from `data/`.
 
 **Split into parts,** one session each (root `CLAUDE.md`, "Working agreements"):
 
-- **Part A (done 2026-11-11): the fetch, and what it decides.** What JPL serves (the three angles, the epoch, and a, e, and i at full precision), fetched once into `data/raw/` (gitignored). Which rows: the sample's 1,567,523, joined on `spkid`, or a fetch of Kirkwood's own with every column. What the fetch says of the epochs. Closes A1 to A3.
-- **Part B (done 2026-11-11): the two files.** The elements file's layout and precision, chosen by its worst error on screen against its bytes; the rows file, from the spike's layout; the manifest; `docs/data.md`. Closes B1 to B3.
-- **Part C: seen, and the close.** The spike draws from the real elements, with Jupiter on its own orbit; the resonant groups checked by number and by eye; M2's spec written. Closes C1 to C4.
+- **Part A: the app stands, and the table is the rows file.** `crate/` (the cdylib), `web/` (a Vite host on `shared-web/`, an npm workspace), and a `just kirkwood` module (dev, build, test, lint; no check, perf, or report: a showcase has no budgets). GPUI's first frame: the title, the time control, and the handle, saying its rows are loading. After it the two files, the elements first, each held as it arrives and read where it lies, and the table over every row and all 18 columns. Closes A1 to A3.
+- **Part B: the belt on its orbits.** The scene's module (Three.js, loaded after the first frame) on its own canvas under GPUI's, its attributes views over the elements' columns; the clock and the time control; the Sun, and Jupiter on its orbit; the rows with no ellipse; a wheel on each canvas. Closes B1 to B4.
+- **Part C: the look, the legend, and the sky.** The look as it was decided, part by part; color by orbit size and its legend; the sky's file, built in `data/` and pinned. Closes C1 to C3.
+- **Part D: what's left to choose, and the close.** The scene's resolution and frame rate, by eye; the slow link; the other browsers; the spike deleted; M3's spec. Closes D1 to D5.
 
 **Done when:**
 
-- [x] **A1. The elements are fetched and pinned:** the node, the argument of perihelion, the mean anomaly, and the epoch for every row, in `data/raw/`, with the fetch's date, the API's count, and the fields it returned recorded. The frame and the units are written down (heliocentric ecliptic J2000 is expected; checked against JPL's documentation, not assumed).
-  - *2026-11-11: 1,580,272 rows in `data/raw/asteroids/` at full precision, `fetch.json` beside them (the query, the 26 fields, the date, the count, the same on all 16 pages). The node, the argument of perihelion, and the epoch are on every row; one row has no mean anomaly (a circle, which takes 0). The frame is as expected, in JPL's words: "heliocentric IAU76/80 ecliptic", equinox `J2000` on every row, epochs in TDB. [`docs/data.md`](docs/data.md).*
-- [x] **A2. The rows are decided:** whether Kirkwood's rows are Tycho's pinned sample (joined on `spkid`: how many of its rows the fetch no longer has, how many of their a, e, or i moved since 2026-09-24, and by how much) or a fetch of its own with every column. With it, which a, e, and i the scene draws from and which the table shows, so that a row's cells and its dot can't disagree by more than a cell shows.
-  - *2026-11-11: a fetch of its own. The fetch still has every row of the sample and 12,749 more; 220 of the sample's rows have an a, e, or i that moved (a by up to 160 au). The scene and the table both read the elements file's a, e, and i. [`docs/DECISIONS.md`](docs/DECISIONS.md), "Data".*
-- [x] **A3. The epoch's spread is known:** how many rows share the commonest epoch, the range of the rest, and the rule that brings every row to one epoch at prep (each row's mean anomaly moved on by its own mean motion is expected to do). A number for each.
-  - *2026-11-11: 1,483,888 rows (93.9%) at JD 2461200.5 (2026-06-09); the other 96,384 from 1927-06-20 to 2026-11-11, half more than 6.6 years back. The expected rule does: the mean anomaly moved on by the row's mean motion, at most 49 turns, on rows seen for a median of 6 days. [`docs/DECISIONS.md`](docs/DECISIONS.md), "Data".*
-- [x] **B1. The elements file:** its layout, its bytes raw and at brotli 11, and its worst error: the farthest any row's place is from its place in 64-bit floats, over 50 years either side of the epoch, in au and in pixels from the opening camera. Decides 32-bit floats against 16-bit quantities (the spike's a, e, and i compress to under half, `docs/DECISIONS.md`, "Table"; the angles won't). H rides in it (`docs/DECISIONS.md`, "Look").
-  - *2026-11-11: seven columns of 32-bit floats (a, e, i, the node, the argument of perihelion, the mean anomaly from -180 to 180, H): 44.2 MB raw, 34.6 at brotli 11. Its worst row is 0.0012 au from its 64-bit place, 0.04 px from the opening camera (the median, 0.0000067 au). Floats over 16 bits: all six in 16 bits put half the belt a pixel off within 50 years, and e or the mean anomaly in 16 put 63 rows more than a pixel off, one by 16 au; the three rotations alone in 16 bits stay under a pixel and save 7.6 MB, turned down for the cells' digits. [`docs/DECISIONS.md`](docs/DECISIONS.md), "Data"; the layout, [`docs/data.md`](docs/data.md).*
-- [x] **B2. The rows file:** the table's other columns as the app will hold them, from the spike's layout (its bytes: `docs/DECISIONS.md`, "Table"), with what it gives up for fewer bytes written down (the text's offsets are a sixth of it; `pdes` repeats most of `full_name`). Its bytes raw and at brotli 11, and whether it's one file or the first rows apart from the rest (open question, "The rows on a slow link").
-  - *2026-11-11: 46.3 MB raw, 11.2 at brotli 11 (the spike's: 112.8 and 23.6). `full_name` and `pdes` aren't stored: each is rebuilt from the row's number, its name, and its designation packed into 32 bits, and prep fails on a row that doesn't rebuild. q and the period are computed from a and e; H is the elements file's. One file, the first rows not sent apart (37 KB would do it, but the table can't open before the elements are in). [`docs/DECISIONS.md`](docs/DECISIONS.md), "Data".*
-- [x] **B3. The files are reproducible:** `data/MANIFEST.json` (committed) holds each file's rows, bytes, SHA-256, source, and fetch date; a second run of prep from `data/raw/` writes the same bytes; `docs/data.md` says how, and gives the credit line.
-  - *2026-11-11: the manifest holds them, and each file's layout; `prep.ts --check` built both again to the same SHA-256 (`c804184f…` and `f93722de…`), and every run reads all 1,580,272 rows back out of the built bytes against the fetch. [`docs/data.md`](docs/data.md), "The two files".*
-- [ ] **C1. The Trojans sit ahead of and behind Jupiter, with no placement by hand:** for the rows of class TJN, their longitude from Jupiter's at one date as a histogram, its two peaks near 60° ahead and behind, and a screenshot.
-- [ ] **C2. The Hildas form their triangle,** in a screenshot from above at one date, its corners where Jupiter's place says they should be. Which rows count as Hildas is written down (the sample has no class for them: by a, 3.7 to 4.2 au, is expected).
-- [ ] **C3. A known body is where JPL says:** Ceres, Vesta, and one Trojan against JPL Horizons at two dates a decade apart, each within a distance written down beside the check.
-- [ ] **C4. M2's spec, checks, and parts are written** here, and `CLAUDE.md`'s layout has `data/`.
+- [ ] **A1. It paints first.** On a cold load, GPUI's first frame (the title, the time control, the handle) is on screen before the scene's module or either file is asked for: the order of one load's requests and marks, and a screenshot of that frame. The time to it is recorded, not gated.
+- [ ] **A2. The table is the rows file.** Behind its handle, a panel over all 1,580,272 rows and the 18 columns of Tycho's sample, in its order; the count on the handle is counted from the file, and the first row is Ceres. A native test reads cells through the crate's own readers and compares them with the fetch's, for rows prep picks to cover each of the file's rules (written by `data/` as a fixture): a numbered and named row, a numbered one with no name, an unnumbered one, a designation with `A/`, a survey's, a first observation with only its year, a row with no H, one with no diameter, the circle with no mean anomaly, and a row with no ellipse. The cells of a, e, i, and H are the elements file's floats at their shortest; q and the period are computed (`docs/data.md`).
+- [ ] **A3. Each file is held once.** The wasm's memory with both files in, against the files' own 90.5 MB: no second copy of either (the spike parsed the elements into a second buffer). A number.
+- [ ] **B1. Every row with an ellipse is a dot on its own orbit,** drawn from the columns where they lie: the scene's attributes are views over the wasm's memory, and the upload to the GPU is the only copy. From straight above at the epoch, the Trojans sit on the 60° lines and the Hildas' triangle shows, beside the spike's shots (`docs/spike/seen-*.jpg`); and three rows drawn alone (Ceres, Vesta, Hektor) are each where the crate's own 64-bit place puts them, to a pixel, at the epoch and a decade on.
+- [ ] **B2. The time control:** run and pause, the date, and the speed it says (board 1: "1 year a second"). How far the date goes each way is decided, from what a two-body orbit is worth that far out (`docs/DECISIONS.md`, "Scene") and from the shader's 32-bit clock: the worst row's error at the range's ends, in pixels from the opening camera, is written down, with what was done about it (open questions, "How far the time control goes", "The clock's arithmetic"). The clock is Rust's, and runs whether or not the scene draws.
+- [ ] **B3. The Sun and Jupiter are plainly not dots,** labeled as board 1 labels them. Jupiter is on its own orbit (a native test: within 0.01 au of `data/horizons.json` at each of its eight dates), and the orbit is drawn as a line.
+- [ ] **B4. The rows with no ellipse are accounted for on screen:** drawn on their real paths or counted apart, decided. Either way a count the page shows is counted from the rows, and says what it counts.
+- [ ] **C1. The look is the decided one** (`docs/DECISIONS.md`, "Look"): linear light and one tone map, a dot's brightness and size from its H as the eye would see it, the haze, the bloom, the floor, the Sun's glow, a dot growing with the camera's nearness, and the opening camera. Screenshots from the spike's three cameras, beside the spike's own.
+- [ ] **C2. Color is orbit size, with its legend** as board 1 draws it (1.6 to 5.2 au); the ramp is the storyboard's color note, or what replaces it, decided; and the line that says dot sizes are exaggerated is on screen.
+- [ ] **C3. The sky is one of `data/`'s files:** Gaia's stars brighter than G 10.5, built by a script in `data/` from the Gaia sample and pinned in the manifest, with its credit; loaded after the belt and never waited on; and the page's text reads over it (a scrim, or a quieter corner).
+- [ ] **D1. The scene's resolution is chosen,** the display's or three quarters of it, by eye in a real browser with the look on; the frame rate while time runs is recorded, with what was given up to reach it (the bloom's size, the belt's own draw, the default speed). At rest the scene draws nothing.
+- [ ] **D2. A slow link shows something the whole way.** On Fast 4G, what the page says and draws from its first frame to the belt (34.6 MB) and on to the table (11.2 MB more). Whether either file is cut into blocks of rows, drawn and paged as they arrive, is decided, with the times to the first dots and to the whole belt.
+- [ ] **D3. It runs in Firefox and WebKit** (headless: the first frame, the belt, the panel, a wheel over each canvas), with the differences noted.
+- [ ] **D4. The spike is deleted,** its screenshots kept in `docs/spike/` as the record; `CLAUDE.md`, `README.md`, the root's layout, and `docs/data.md` say what's built.
+- [ ] **D5. M3's spec, checks, and parts are written** here.
 
 ---
 
 ## Next milestones
 
 Outlines only. Each is specced when the one before it closes.
-
-### M2: The belt in space
-
-Board 1, as an app: the crate, the web host, and a page that paints first and loads the scene after. Every asteroid on its Kepler orbit, a time control (run, pause, the date, the speed), color by orbit size with its legend, the Sun and Jupiter, the line that says dot sizes are exaggerated, and the table behind its handle, opening as a panel over every row.
 
 ### M3: The reveal: sort by orbit size
 
@@ -120,6 +116,9 @@ None committed (the research's "Extras"):
 - **A sort's stall:** ordering every row takes a third to two thirds of a second on one thread (`docs/DECISIONS.md`, "Table"), in one task, as the pick does. Whether it runs in a worker, is spread over frames, or the orders ship in the file. *M5, with the pick's stall.*
 - **The page's memory:** every row held is most of the wasm's memory (`docs/DECISIONS.md`, "Table"): the two files are 90.5 MB held as they arrive. What a phone makes of it; the diameter and albedo as a list of the rows that have one would take 11 MB out (`docs/DECISIONS.md`, "Data"). *M6, with the phone's answer.*
 - **The clock's arithmetic far from the epoch:** the shader's 32-bit clock, not the file, is what limits a place: an estimated 0.17 au at worst 50 years out, on an orbit with e near 1 (`docs/DECISIONS.md`, "Data"). Whether the scene's clock needs more care than the spike's (the turns taken off in Rust before the shader adds the rest), or 50 years is farther than the time control goes. *M2.*
+- **How far the time control goes:** a row's place is its 2026 ellipse, within 0.13 au of JPL's a decade either side and a few degrees along its orbit half a century out; the Trojans' clouds leak on Kepler orbits (a quarter of them out of their 30° in 50 years), until they're integrated (`docs/DECISIONS.md`, "Scene"). Whether the date is held to a range, and what the page says of a date far from 2026. *M2 (B2).*
+- **The Hildas and the Trojans are faint:** 8,400 and 16,472 dots of 1.58 M. The spike's shots brightened them sixfold and twofold to show their shapes, and the storyboard's board 2 no longer brightens them. What the frame that turns with Jupiter does so the triangle reads: gray the rest (as a picked group does), brighten the two groups, or both. *M4.*
+- **Which Hildas librate:** the rows from 3.7 to 4.2 au, 8,400, of which the resonance's angle holds 8,045 at the epoch (`docs/DECISIONS.md`, "Scene"). Whether the integration moves all 8,400 or only those it finds swinging. *M4.*
 - **More live columns:** the Sun's distance is live, at 2 a second. Which others join it (the distance from Earth needs Earth's place), and how many decimals a live cell shows. *M5.*
 - **The clock's speed with the table open:** at a year a second the Sun's distance moves by up to half an au a second, so its last two decimals are never readable while time runs, at any refresh rate. Whether time slows while the table shows, the column drops decimals while it moves, or it's left as a blur that settles on pause. *M5.*
 - **The pick's stall:** placing 1.57 M rows to pick a shape's takes about 0.4 s in one task at the release. How it's taken off the frame: the rows' rotation computed once, a worker, or spread over the frames the outline closes in. *M5.*

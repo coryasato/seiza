@@ -74,3 +74,18 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data"; the fetch: [`data
 - **The catalog's order isn't its key's.** The API returns the numbered asteroids by number and the rest by designation, not by `spkid`; the files keep that order, which puts a row's number at its place.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data"; the files: [`data.md`](data.md), "The two files".
+
+## M1, part C: seen, and the close (2026-11-11)
+
+**Surprises:**
+- **The files were right the first time they were drawn.** The Trojans came up as two clouds on the 60° lines and the Hildas as a triangle with nothing adjusted: no frame turned the wrong way, no angle in the wrong order. The check that would have caught either is one number, a known body against JPL at the epoch, and it read a millionth of an au.
+- **The Hildas' corners were 5° off the lines, and it was Jupiter, not the Hildas.** The resonance ties their far points to Jupiter's mean longitude; the Trojans keep to Jupiter's place. Jupiter was 5.3° ahead of its mean that day, so one group sat on the lines and the other beside them. Measured from the mean, the corners are a third of a degree from the rule.
+- **A two-body orbit is exact for a day and a sketch for a century.** A millionth of an au at the epoch, 0.04 au for Ceres ten years on, 0.2 au at fifty. The belt as a picture doesn't change; a named body does. The research's "looks the same over decades" is true of the ring and not of Ceres.
+- **The Trojans leak.** On Kepler orbits a quarter of them have left their clouds in 50 years, and Hektor is 30° from its place in 1976. The integration planned for the resonant groups was thought of as their story; it turns out to be what keeps them where they are.
+- **Jupiter needed its own mass.** Placed with a row's mean motion it ran most of a degree slow in 50 years. One number, its own mean motion, made a single ellipse as good as JPL's table of elements with rates.
+- **The textbook rule for a Hilda would have thrown real ones out.** Adding "e under 0.3 and i under 20°" to the orbit size turns away 807 rows the resonance's own angle holds. The plain a from 3.7 to 4.2 au is the better pick: 96% of its rows are held.
+- **Eight thousand dots among 1.58 million can't be seen.** The first shot of the Hildas was an empty sky with three lines on it. Graying the rest wasn't enough; they had to be brightened sixfold. Board 2 will have the same problem.
+- **Importing a script for one constant ran it.** The check imported the fetch script's output path, and every run of the check fetched from JPL again. A script that does work at its top level exports types only.
+- **The spike's moves didn't notice the real orbits.** All 34 of its input and move checks passed unchanged, and a drawn group shears apart at the rate the seeded angles had said (1.5 au to 3.6 in three years).
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene"; the check: [`data.md`](data.md), "Checked against Horizons".

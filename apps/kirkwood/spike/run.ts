@@ -29,11 +29,19 @@
 //           flight out and back, the fly-in with the table arriving with it
 //           and after it, the way back, and the live column at 2 and 60
 //           refreshes a second. `--params` and `--segments` as for frames.
+//   seen    the orbits' data, by eye: the belt from straight above on one
+//           date (the elements' epoch), time held, with lines from the Sun
+//           to Jupiter and toward the points 60° ahead of it, 60° behind,
+//           and opposite; then with only the Trojans' orbit sizes in color,
+//           and only the Hildas'. The numbers beside them are
+//           data/places.ts's.
 //
-// Usage: node apps/kirkwood/spike/run.ts [--only shots,input,frames,bytes,moves,moveframes] [--runs 3] [--no-build]
+// Usage: node apps/kirkwood/spike/run.ts [--only shots,input,frames,bytes,moves,moveframes,rows,seen] [--runs 3] [--no-build]
 //          [--browser firefox|webkit] [--params size=1,scale=0.5] [--segments running,rest] [--serve]
 // `--serve` builds, then serves the page until interrupted, to look at.
-// Needs public/elements.bin (data.ts). Writes out/ (gitignored).
+// Needs data/elements.bin (data/prep.ts); `rows` needs the sample's files
+// in public/ (data.ts, sizing.ts), and the look public/stars.bin. Writes
+// out/ (gitignored).
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -690,7 +698,8 @@ async function moveFrames(url: string) {
 
 /** The rows in memory (`?rows=gz`: the sample's other columns, gzipped on
  *  the wire, held in the crate, the table over them) against the spike as
- *  it was (the elements alone), the panel open from the load (`?open`):
+ *  it was (`?sample`: the same rows' elements alone), the panel open from the
+ *  load (`?open`):
  *  when the table's first rows are drawn, the wasm's memory, and what a
  *  sort of every row takes. Reference and throttled (`--profiles`). */
 async function rows(url: string) {
@@ -701,7 +710,7 @@ async function rows(url: string) {
     for (const variant of ['elements', 'rows'] as const) {
       const runs: Record<string, number>[] = [];
       for (let run = 0; run < RUNS; run++) {
-        const { page, problems, close } = await open(chromium, url, { profile, params: { ...PARAMS, open: '', ...(variant === 'rows' ? { rows: 'gz' } : {}) } });
+        const { page, problems, close } = await open(chromium, url, { profile, params: { ...PARAMS, open: '', ...(variant === 'rows' ? { rows: 'gz' } : { sample: '' }) } });
         try {
           // A load that fails (no rows.bin.gz, a file that isn't the
           // elements') is the page's error: it ends the wait at once.
@@ -745,6 +754,41 @@ async function rows(url: string) {
   return { runs: RUNS, summary, raw };
 }
 
+/** The belt from straight above (ecliptic x to the right, y up, so the
+ *  orbits run counterclockwise) on the elements' epoch, time held, with
+ *  the look and the marks: all of it, the Trojans' orbit sizes alone in
+ *  color, and the Hildas'. */
+async function seen(url: string) {
+  const top = { look: '1', elev: '90', az: '0', roll: '0', dist: '15.5', date: '2026-06-09', paused: '', marks: '' };
+  const results = [];
+  const lit: Record<string, number> = {};
+  for (const [name, params] of [['seen-belt', {}], ['seen-trojans', { band: '4.6,5.5', bandDim: '0.12', bandGain: '2' }], ['seen-hildas', { band: '3.7,4.2', bandDim: '0.12', bandGain: '6' }]] as const) {
+    const { page, problems, close } = await open(ENGINE, url, { params: { ...top, ...PARAMS, ...params } });
+    try {
+      await waitMark(page, 'kirkwood:sky', 0, 120_000);
+      // Time is held, so the scene draws only what changed: the belt, then
+      // the sky over it. Both drawn, and a frame presented after the last.
+      await page.waitForFunction(() => {
+        const stats = (globalThis as unknown as { __kirkwood: Kirkwood & { scene?: { stats: { stars: number } } } }).__kirkwood.scene?.stats;
+        return !!stats && stats.rows > 0 && stats.stars > 0 && stats.frames >= 2;
+      });
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      await page.waitForTimeout(300);
+      const stats = await page.evaluate(() => (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood.scene!.stats);
+      const date = await page.evaluate(() => new URLSearchParams(location.search).get('date'));
+      lit[name] = await shot(page, name, { x: 270, y: 0, width: 900, height: 900 });
+      results.push(check(name, stats.rows > 0 && date === top.date && problems.length === 0, `${stats.rows} rows on ${date}; lit share ${lit[name]!.toFixed(3)}; ${problems.join(' | ') || 'no page problems'}`));
+    } finally {
+      await close();
+    }
+  }
+  // The bands took: with the rest of the belt gray and faint, each group's
+  // shot is darker than the whole belt's, and the two differ.
+  const [belt, trojans, hildas] = [lit['seen-belt']!, lit['seen-trojans']!, lit['seen-hildas']!];
+  results.push(check('the three shots differ', trojans < belt - 0.02 && hildas < belt - 0.02 && Math.abs(trojans - hildas) > 0.02, `lit share: the belt ${belt.toFixed(3)}, the Trojans' band ${trojans.toFixed(3)}, the Hildas' ${hildas.toFixed(3)}`));
+  return results;
+}
+
 if (!flag('no-build')) await buildAll();
 mkdirSync(out, { recursive: true });
 const result: Record<string, unknown> = { ...machineInfo() };
@@ -761,6 +805,7 @@ try {
   if (only.includes('moves')) result.moves = await moves(server.url);
   if (only.includes('moveframes')) result.moveFrames = await moveFrames(server.url);
   if (only.includes('rows')) result.rows = await rows(server.url);
+  if (only.includes('seen')) result.seen = await seen(server.url);
 } finally {
   await server.close();
 }

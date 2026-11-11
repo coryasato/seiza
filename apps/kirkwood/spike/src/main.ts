@@ -43,15 +43,27 @@ let scene: BeltScene | undefined;
 const query = new URLSearchParams(location.search);
 const wants = (part: string) => (query.has(part) ? query.get(part) !== '0' : query.has('look') && query.get('look') !== '0');
 
+// `?date=`: a real day, or the page's error. The crate starts its clock
+// there, and would otherwise start it at its own default without a word.
+const date = query.get('date');
+if (date !== null) {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : undefined;
+  if (!day || Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== date) throw new Error(`?date wants a day as YYYY-MM-DD; got "${date}"`);
+}
+
 async function afterFirstFrame(): Promise<void> {
   const file = async (name: string) => {
     const response = await fetch(name);
-    if (!response.ok) throw new Error(`${name}: ${response.status} (run data.ts)`);
+    if (!response.ok) throw new Error(`${name}: ${response.status} (data/prep.ts makes the elements file; spike/data.ts the sample's and the stars)`);
     return response.arrayBuffer();
   };
   // The sky arrives on its own: the belt doesn't wait for it.
   const sky = wants('stars') ? file('/stars.bin') : undefined;
-  const [{ startScene }, elements, magnitudes] = await Promise.all([import('./scene.ts'), file('/elements.bin'), wants('mag') ? file('/h.bin') : undefined]);
+  // The elements file (data/prep.ts): every row's six elements and its H.
+  // `?sample` (and `?rows`, whose file is the sample's) is the spike as it
+  // was: Tycho's sample, its a, e, and i with seeded angles, H beside them.
+  const seeded = query.has('sample') || query.has('rows');
+  const [{ startScene }, elements, magnitudes] = await Promise.all([import('./scene.ts'), file(seeded ? '/elements.bin' : '/data/elements.bin'), seeded && wants('mag') ? file('/h.bin') : undefined]);
   // `?rows`: the sample's other columns, held in the crate, the table over
   // them. Asked for once the elements are in, so the belt never waits on
   // the table's file or shares the link with it. `?rows=gz` fetches them
@@ -63,11 +75,13 @@ async function afterFirstFrame(): Promise<void> {
   kirkwood.scene = scene;
   performance.mark('kirkwood:scene');
   const rows = load_elements(new Uint8Array(elements));
+  if (!rows) throw new Error("the elements file isn't one, or its epoch isn't the spike's (crate/src/lib.rs, EPOCH_JD)");
+  // The elements file brought its own H.
   if (magnitudes) load_magnitudes(new Uint8Array(magnitudes));
   // Views over the crate's own buffers: no copy on this side. Made after
   // both loads returned and uploaded before anything else runs
   // (`setElements` draws), since the memory growing would detach them.
-  scene.setElements(new Float32Array(memory!.buffer, elements_ptr(), rows * 6), rows, magnitudes && new Float32Array(memory!.buffer, magnitudes_ptr(), rows));
+  scene.setElements(new Float32Array(memory!.buffer, elements_ptr(), rows * 6), rows, wants('mag') ? new Float32Array(memory!.buffer, magnitudes_ptr(), rows) : undefined);
   performance.mark('kirkwood:belt');
   // The table opens when its rows are held; a failure is the page's error.
   const table = sample?.then((rowsFile) => {

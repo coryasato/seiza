@@ -5,10 +5,15 @@
 //!
 //! What's here, as the stack leans (`apps/kirkwood/CLAUDE.md`):
 //! - the orbital elements, six f32s a row (a au, e, i degrees, then the
-//!   node, the argument of perihelion, and the mean anomaly in radians,
-//!   seeded at random: the sample has no angles), which the scene reads
-//!   through a view over this module's memory (`elements_ptr`);
-//! - the clock (`scene_years`, asked by the scene every frame);
+//!   node, the argument of perihelion, and the mean anomaly at the epoch in
+//!   radians), which the scene reads through a view over this module's
+//!   memory (`elements_ptr`). They are the elements file's
+//!   (`apps/kirkwood/data/prep.ts`: every row's real orbit, and its H); with
+//!   `?sample` they are Tycho's sample's a, e, and i with the angles seeded
+//!   at random, as the spike first had them;
+//! - the clock (`scene_years`, asked by the scene every frame), in years
+//!   since the elements' epoch (`?date=YYYY-MM-DD` starts it elsewhere,
+//!   `?paused` holds it);
 //! - the scene's input: GPUI's hit test decides. A surface under the
 //!   interface takes what nothing above it took: a drag draws a freehand
 //!   shape (drawn here, in white), a wheel is handed to the scene;
@@ -50,8 +55,16 @@ const SURFACE: u32 = 0x171717;
 const EDGE: u32 = 0x262626;
 const MUTED: u32 = 0xa3a3a3;
 const TEXT: u32 = 0xfafafa;
+/// The elements' epoch, a Julian day (2026-06-09): the elements file's
+/// header says the same, or it isn't read.
+const EPOCH_JD: f64 = 2_461_200.5;
+/// Days from 1970-01-01 to that epoch: the clock's zero.
+const EPOCH_DAY: f64 = EPOCH_JD - 2_440_587.5;
 /// Days from 1970-01-01 to 2026-11-10, where the clock starts.
 const START_DAY: f64 = 20767.0;
+/// The clock's year, in days: one turn of a 1 au orbit (the Gaussian
+/// constant's), so a row's period is its a^1.5 years.
+const YEAR_DAYS: f64 = 365.256_898_326_3;
 /// The most the clock moves after a stall (a tab back from the background).
 const MAX_STEP_MS: f64 = 100.0;
 /// A gap between two readings of the clock past this is a stall.
@@ -99,7 +112,8 @@ extern "C" {
 
 #[derive(Clone, Copy)]
 struct Clock {
-    /// One a second while it moves, as the time control says.
+    /// Since the elements' epoch. One a second while it moves, as the time
+    /// control says.
     years: f64,
     running: bool,
     /// A shape is being drawn: time holds.
@@ -1410,12 +1424,31 @@ fn civil(days: i64) -> (i64, i64, i64) {
     (yoe + era * 400 + i64::from(month <= 2), month, day)
 }
 
-/// The clock's date, `years` after its start.
+/// The days from 1970-01-01 to a `YYYY-MM-DD` (Hinnant's days-from-civil);
+/// none for anything that isn't a real day (the host fails on one first).
+fn day_of(date: &str) -> Option<f64> {
+    let mut parts = date.split('-').map(|part| part.parse::<i64>().ok());
+    let given = (parts.next()??, parts.next()??, parts.next()??);
+    if parts.next().is_some() || !(1..=12).contains(&given.1) {
+        return None;
+    }
+    let (year, month, day) = given;
+    let year = year - i64::from(month <= 2);
+    let (era, yoe) = (year.div_euclid(400), year.rem_euclid(400));
+    let doy = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    // A day that isn't one (the 31st of June) comes back as another date.
+    (civil(days) == given).then_some(days as f64)
+}
+
+/// The clock's date, `years` after the elements' epoch.
 fn date(years: f64) -> String {
     const MONTHS: [&str; 12] = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
-    let (year, month, day) = civil((START_DAY + years * 365.25).floor() as i64);
+    // A day's floor, clear of the float's last digit at a whole day.
+    let (year, month, day) = civil((EPOCH_DAY + years * YEAR_DAYS + 1e-6).floor() as i64);
     format!("{year} {} {day:02}", MONTHS[(month - 1) as usize])
 }
 
@@ -1424,6 +1457,16 @@ fn date(years: f64) -> String {
 /// Called by the JS host once the wasm and the font are in.
 #[wasm_bindgen]
 pub fn start(ui_font: Vec<u8>) {
+    // The clock starts at `?date=`, or the day the spike was last looked
+    // at; `?paused` holds it there, for a screenshot of one date.
+    let day = seiza::url::param("date")
+        .and_then(|date| day_of(&date))
+        .unwrap_or(START_DAY);
+    CLOCK.set(Clock {
+        years: (day - EPOCH_DAY) / YEAR_DAYS,
+        running: seiza::url::param("paused").is_none(),
+        ..CLOCK.get()
+    });
     seiza::Bootstrap::new("Kirkwood: the two canvases", ui_font)
         .after_first_paint(|_, _| first_frame())
         .run(move |_, cx| {
@@ -1440,11 +1483,59 @@ pub fn start(ui_font: Vec<u8>) {
         });
 }
 
-/// The sample's a, e, and i (three f32s a row, little-endian), fetched by
-/// the host after the first frame. Builds the six-float rows, the angles
-/// seeded (xorshift), and opens the table over them.
+/// The elements file (`apps/kirkwood/docs/data.md`: `KWE1`, the row count,
+/// the epoch, then a, e, i, the node, the argument of perihelion, the mean
+/// anomaly, and H, a column of f32s each, angles in degrees) as the spike's
+/// six floats a row, its H beside them. None if the bytes aren't one, or
+/// its epoch isn't the clock's zero: every dot would be drawn at a place
+/// it isn't, with nothing to say so.
+fn real_elements(bytes: &[u8]) -> Option<(Vec<f32>, Vec<f32>)> {
+    if bytes.get(..4)? != b"KWE1" || f64::from_le_bytes(*bytes.get(8..16)?.as_array()?) != EPOCH_JD
+    {
+        return None;
+    }
+    let rows = u32::from_le_bytes(*bytes.get(4..8)?.as_array()?) as usize;
+    let columns = bytes.get(16..)?.as_chunks::<4>().0;
+    if columns.len() != rows * 7 || bytes.len() != 16 + rows * 28 {
+        return None;
+    }
+    let cell = |column: usize, row: usize| f32::from_le_bytes(columns[column * rows + row]);
+    let radians = |degrees: f32| f64::from(degrees).to_radians() as f32;
+    let mut elements = Vec::with_capacity(rows * STRIDE);
+    for row in 0..rows {
+        elements.extend([
+            cell(0, row),
+            cell(1, row),
+            cell(2, row),
+            radians(cell(3, row)),
+            radians(cell(4, row)),
+            radians(cell(5, row)),
+        ]);
+    }
+    // A row with no H is drawn at its faintest, never not at all.
+    let magnitudes = (0..rows)
+        .map(|row| Some(cell(6, row)).filter(|h| !h.is_nan()).unwrap_or(99.0))
+        .collect();
+    Some((elements, magnitudes))
+}
+
+/// The elements, fetched by the host after the first frame: the elements
+/// file, or with `?sample` the sample's a, e, and i (three f32s a row,
+/// little-endian), whose six-float rows get seeded angles (xorshift).
+/// Opens the table over them. 0 for bytes that are neither.
 #[wasm_bindgen]
 pub fn load_elements(bytes: &[u8]) -> usize {
+    if bytes.starts_with(b"KWE") {
+        let Some((elements, magnitudes)) = real_elements(bytes) else {
+            return 0;
+        };
+        let rows = magnitudes.len();
+        MAGNITUDES.set(magnitudes);
+        let elements = Rc::new(elements);
+        ELEMENTS.set(elements.clone());
+        open_table(elements);
+        return rows;
+    }
     let rows = bytes.len() / 12;
     let mut elements = Vec::with_capacity(rows * STRIDE);
     let mut seed = 0x9E37_79B9_7F4A_7C15_u64;
