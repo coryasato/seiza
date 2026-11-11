@@ -50,3 +50,14 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Table".
 - **And it inflates a `.gz` by itself.** The page inflated it a second time and the fetch failed; the script, waiting ten minutes for a mark behind a pipe that showed nothing, looked like a slow run. The wait is three minutes now, and a page error ends it at once.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table", "Stack", "Planning".
+
+## M1, part A: the fetch, and what it decides (2026-11-11)
+
+**Surprises:**
+- **The sample's three decimals were the API's doing, not the catalog's.** The query API rounds every number for display unless asked not to (`full-prec=1`); asked, a comes at 16 digits. The 9,580 distinct values of a were a display setting.
+- **The join would have worked, and that wasn't the question.** Every row of the seven-week-old sample is still in the catalog under its key, with nothing renumbered. What decided against it was the 220 rows whose orbit had been refitted since: a cell from September beside a dot from November, on one row 160 au apart.
+- **The rows off the common epoch are the ones nobody saw again.** A sixteenth of the catalog sits at some other epoch, back to 1927, and bringing them forward on a Kepler orbit looked like the risky step. They were watched for a median of six days: where they are now is a guess in JPL's numbers too.
+- **Not every row has six elements.** One orbit was fitted as an exact circle and has no mean anomaly at all, and seven have no ellipse (two more than the sample had).
+- **The raw fetch lives in the worktree.** `data/raw/` is gitignored, and this fetch's date is part of the dataset: a worktree removed takes the pinned pages with it.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data"; the fetch: [`data.md`](data.md).

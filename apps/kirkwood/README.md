@@ -4,7 +4,7 @@
 
 **Planned; nothing is built yet.**
 
-Kirkwood is the asteroid belt as a scene to fly through, drawn from a table of 1.57 million asteroids (NASA/JPL), with that table beside it. **Every dot is a row:** click a row and the camera flies to it; draw around a group of dots and the table shows their rows.
+Kirkwood is the asteroid belt as a scene to fly through, drawn from a table of 1.58 million asteroids (NASA/JPL), with that table beside it. **Every dot is a row:** click a row and the camera flies to it; draw around a group of dots and the table shows their rows.
 
 What it will show:
 

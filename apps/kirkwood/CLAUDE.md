@@ -6,7 +6,7 @@ Kirkwood is a showcase: the asteroid belt as a scene to fly through, drawn from 
 
 ---
 
-This is Kirkwood's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; finished milestones, in `docs/milestones.md`; the research behind it, in the root's `docs/research/asteroid-belt.md` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here except where "Tiers" exempts a showcase. Paths below are relative to `apps/kirkwood/`.
+This is Kirkwood's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; finished milestones, in `docs/milestones.md`; the rows' source, in `docs/data.md`; the research behind it, in the root's `docs/research/asteroid-belt.md` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here except where "Tiers" exempts a showcase. Paths below are relative to `apps/kirkwood/`.
 
 Current state only: say what to do and point to the decision behind it (`docs/DECISIONS.md`, "<area>"); don't retell its reasons.
 
@@ -35,7 +35,8 @@ Decided by the spike (`docs/DECISIONS.md`, "Stack", which points to each part's 
 
 ```
 apps/kirkwood/
-  docs/             # DECISIONS.md, LESSONS.md, milestones.md; spike/ (the spike's screenshots)
+  data/             # fetch.ts (the asteroid catalog from JPL, every column at full precision, into raw/), survey.ts (what the fetch holds, and Tycho's sample against it); raw/ is gitignored; plain Node, no dependencies
+  docs/             # DECISIONS.md, LESSONS.md, milestones.md, data.md (the fetch: source, fields, frame); spike/ (the spike's screenshots)
   spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the sort flight's progress, the scene's input surface, a drawn group's pick, the panel and its table with its filter and live column, the sample's other columns held as their file's bytes), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js: the flight between space and a against e, the group's colors and outline, the camera's fly-in; look.ts, the look's knobs and its pipeline: the half-float buffer, haze, bloom, tone mapping, the floor; stars.ts, the Gaia sky; colors.ts, the color mappings), data.ts (the elements, H, and the rows file from the asteroid sample, the bright stars from the Gaia sample), sizing.ts (the rows file on the wire, and native DuckDB on the same reads), run.ts (screenshots, input checks, the moves' checks, frame times, bytes, the rows in memory), lookdev.ts (the look: before and after from three cameras, each part's frame cost, first paint); not an npm workspace
   README.md         # for visitors
   CLAUDE.md         # this file
@@ -46,9 +47,10 @@ No `perf/`: a showcase has no budgets and no results. `crate/`, `web/`, and a `j
 
 ## Commands
 
-The spike's only (no `just` module until there's an app), from the repo root:
+The data's and the spike's (no `just` module until there's an app), from the repo root. The data's are in `docs/data.md`:
 
 ```
+node apps/kirkwood/data/fetch.ts [--refresh]             # the asteroid catalog from JPL into data/raw/asteroids/ (~3 min, once; a rerun reuses it, and the fetch date is part of the dataset, so don't refresh without a reason)
 npm install --prefix apps/kirkwood/spike                 # its own deps (Three.js, DuckDB's Node client for data.ts and sizing.ts; the page uses no DuckDB)
 node apps/kirkwood/spike/data.ts <asteroids.parquet> [<gaia-dr3-bright.parquet>] [--cut 10.5]   # public/ (gitignored): elements.bin (each row's a, e, i from Tycho's sample), h.bin (its H), rows.bin (its other 15 columns, a column at a time, and rows.json, its layout), and with the Gaia sample, stars.bin (its stars brighter than the cut)
 node apps/kirkwood/spike/sizing.ts <asteroids.parquet> [--only wire,duckdb]   # the rows file raw, gzip 9, and brotli 11, by section (and public/rows.bin.gz, which `?rows=gz` fetches); native DuckDB on a page of every row, of a group's rows, and of a sort, from the file and from a table in memory (out/sizing-*.json)
