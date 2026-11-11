@@ -226,7 +226,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
           : __LEVEL__ === 'tail' && probingCells()
             ? () => publishTailCells(scroller, columns)
             : __LEVEL__ === 'wall' && wall && probingCells()
-              ? () => publishWallCells(wall.cells.desk, scroller, columns)
+              ? () => publishWallCells(wall.cells.desk, scroller, columns, gutter, rowHeight)
               : undefined;
     // On the wall, the first table publishes the state and the targets;
     // every table's filled goes to the wall's frame, which marks across them.

@@ -108,8 +108,8 @@ struct Desks {
     /// With `?measure`: `__contenderRefreshed`, `drawn` as the frames raise it.
     #[cfg(target_family = "wasm")]
     refreshed: Option<js_sys::Array>,
-    /// With `?cells`: `__contender.tables`, each table's drawn cells and
-    /// columns.
+    /// With `?cells`: `__contender.tables`, each table's drawn cells,
+    /// columns, layout, and box (`desk_of`).
     #[cfg(target_family = "wasm")]
     probes: Option<js_sys::Array>,
     _subscriptions: Vec<Subscription>,
@@ -396,6 +396,19 @@ impl Host {
                         "columns",
                         &tall_table_bridge::js::columns(&layout.columns),
                     );
+                    // Where the table's cells are in the window: the grid
+                    // the cross-side check compares (`perf/wall.ts`). Three
+                    // numbers, not the bridge's whole layout, whose
+                    // advances would ride in every load.
+                    let at = js_sys::Object::new();
+                    for (key, value) in [
+                        ("left", layout.left),
+                        ("top", layout.top),
+                        ("rowHeight", layout.row_height),
+                    ] {
+                        let _ = js_sys::Reflect::set(&at, &key.into(), &f64::from(value).into());
+                    }
+                    set_probe(probes, desk, "layout", &at);
                 }
                 Ok(())
             }
@@ -681,7 +694,7 @@ impl Host {
                         .flex_none()
                         .flex()
                         .child(side(cx))
-                        .child(desk_of(title, table))
+                        .child(desk_of(title, table, desk))
                         .child(side(cx)),
                 )
                 .child(
@@ -725,7 +738,7 @@ fn grid_of(
                     .skip(line * across)
                     .take(across)
                     .map(|(desk, table)| {
-                        desk_of(title(grid, desk, titles, theme.foreground), table)
+                        desk_of(title(grid, desk, titles, theme.foreground), table, desk)
                     }),
             )
         }))
@@ -744,8 +757,10 @@ fn title(grid: &Grid, desk: usize, titles: &[SharedString], color: Hsla) -> Div 
         .child(titles.get(desk).cloned().unwrap_or_default())
 }
 
-/// A desk: its title over its table, sharing its row's width.
-fn desk_of(title: Div, table: &Entity<Table>) -> Div {
+/// A desk: its title over its table, sharing its row's width. With
+/// `?cells`, the table's box in the window on `__contender.tables[desk]`.
+fn desk_of(title: Div, table: &Entity<Table>, desk: usize) -> Div {
+    let holder = probed(div().flex_1().min_h_0(), desk);
     div()
         .flex_1()
         .min_w_0()
@@ -753,5 +768,49 @@ fn desk_of(title: Div, table: &Entity<Table>) -> Div {
         .flex()
         .flex_col()
         .child(title)
-        .child(div().flex_1().min_h_0().child(TallTable::new(table)))
+        .child(holder.child(TallTable::new(table)))
+}
+
+/// `holder` (a desk's table's) with `?cells` reporting its table's box
+/// (`probe_box`) at each prepaint.
+#[cfg(target_family = "wasm")]
+fn probed(holder: Div, desk: usize) -> Div {
+    if !crate::contract::probing_cells() {
+        return holder;
+    }
+    holder.on_children_prepainted(move |bounds, _, _| {
+        if let Some(bounds) = bounds.first() {
+            probe_box(desk, bounds);
+        }
+    })
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn probed(holder: Div, _desk: usize) -> Div {
+    holder
+}
+
+/// Sets `__contender.tables[desk].box`, `[x, y, width, height]` in CSS px:
+/// the table's frame, which the cross-side check compares
+/// (`perf/wall.ts`).
+#[cfg(target_family = "wasm")]
+fn probe_box(desk: usize, bounds: &Bounds<Pixels>) {
+    use js_sys::Reflect;
+    let table = Reflect::get(&js_sys::global(), &"__contender".into())
+        .and_then(|contender| Reflect::get(&contender, &"tables".into()))
+        .and_then(|tables| Reflect::get_u32(&tables, desk as u32));
+    let Ok(table) = table else { return };
+    if !table.is_object() {
+        return;
+    }
+    let at: js_sys::Array = [
+        bounds.origin.x,
+        bounds.origin.y,
+        bounds.size.width,
+        bounds.size.height,
+    ]
+    .into_iter()
+    .map(|value| wasm_bindgen::JsValue::from(f64::from(f32::from(value))))
+    .collect();
+    let _ = Reflect::set(&table, &"box".into(), &at);
 }

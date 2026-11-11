@@ -36,11 +36,24 @@
 // - what fails the load (`contender:failed`, no `contender:filled`): an
 //   unknown stop or scenario, `?ticks` that isn't a count, and the wall
 //   asked of the base build; and the feed's worker failing to load fails
-//   the view (`contender:failed` after `contender:filled`).
+//   the view (`contender:failed` after `contender:filled`);
+// - the grid (`?cells`, light): at each stop at 1440×900, and a phone's
+//   column (390×844, 4 tables), each table's frame (`box`), its `layout`
+//   (its cells' left edge right of the row numbers, their top under the
+//   header, the row height), and its columns (`x`, `width`).
+//
+// Then, when both sides run, the same on both sides: after the fold (the
+// fixture's ticks, light), every table's cells' exact and shown text
+// byte-identical; and after the fold and at each grid, every table's frame
+// and cells where GPUI's are and its columns at the same x and width
+// (`wall-grid.ts`'s `gridDiffers`): the same grid, gutter, and widths. The
+// controls: TanStack's fold one tick short against GPUI's fold must
+// differ, and at each grid TanStack's tables moved 2 px must differ from
+// GPUI's in every table.
 //
 // Usage: node apps/observatory/perf/wall.ts [--side gpui|tanstack] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
-// data`; run `gpui-build` and `gpui-build wall` first.
+// data`; run `builds` first (each side's base and wall builds).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -51,11 +64,11 @@ import { formatNumber, type NumberFormat } from '../../../components/tall-table/
 import { decimalsOf } from '../contenders/market/feed.ts';
 import { DESK_ROWS } from '../contenders/wall/desks.ts';
 import { WALL_INSTRUMENTS } from '../contenders/wall/instruments.ts';
-import { BUILT, MONITORING_WALL, type Oklch } from '../contenders/scenarios.ts';
-import { fromOklch, type Rgba } from '../contenders/tall-table/tanstack/web/src/paint.ts';
+import { BUILT, MONITORING_WALL } from '../contenders/scenarios.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import type { Side } from '../contenders/contract.ts';
 import { MARKS, perfDir, problems, serveGpui, serveTanstack } from './harness.ts';
+import { PHONE, WALL_COLUMNS as COLUMNS, controlHolds, flashOff, gridDiffers, signWrong, wallTables, type WallTable as DrawnTable, type WallCell as Cell } from './wall-grid.ts';
 
 const label = option('label');
 const sideOption = option('side');
@@ -69,8 +82,7 @@ const PAIRED_MS = 50;
 const FOLD_TABLES = 8;
 /** Every table's 50 rows drawn, at 4 × 2 tables. */
 const TALL = { width: 2560, height: 2600 };
-/** The columns a table draws, the fixture's field for each, and its format. */
-const COLUMNS = ['Symbol', 'Last', 'Chg %', 'Volume'] as const;
+/** The fixture's field for each column a table draws, and its format. */
 type Field = 'last' | 'change_pct' | 'volume';
 const NUMBERS: Record<string, { field: Field; kind: 'float' | 'integer'; format: NumberFormat; priced: boolean }> = {
   Last: { field: 'last', kind: 'float', format: { decimals: 2, sign: 'negative', grouping: false, suffix: '' }, priced: true },
@@ -82,22 +94,9 @@ const fixture = JSON.parse(readFileSync(new URL('../contenders/wall/fixtures/fee
 if (fixture.seed !== MONITORING_WALL.seed) throw new Error(`the wall's feed.json's seed ${fixture.seed} isn't the scenario's ${MONITORING_WALL.seed}`);
 if (fixture.expect.length !== FOLD_TABLES * DESK_ROWS) throw new Error(`the wall's feed.json holds ${fixture.expect.length} instruments, not ${FOLD_TABLES * DESK_ROWS}`);
 
-interface Cell {
-  row: number;
-  column: number;
-  exact: string;
-  shown: string;
-  text: number[] | null;
-  flash: number[] | null;
-}
-interface ColumnBox {
-  name: string;
-  x: number;
-  width: number;
-}
 type Batch = [seq: number, ticks: number, sent: number, generations: number[], visible: number];
 type Global = {
-  __contender?: { tables?: { cells?: Cell[]; columns?: ColumnBox[] }[]; batches?: Batch[]; state?: { tables?: number; top?: number } };
+  __contender?: { tables?: DrawnTable[]; batches?: Batch[]; state?: { tables?: number; top?: number } };
   __contenderRefreshed?: number[];
   __refreshedLog?: [at: number, drawn: number[]][];
 };
@@ -105,10 +104,9 @@ type Theme = 'light' | 'dark';
 
 const failures: string[] = [];
 const results: Record<string, unknown> = {};
+/** Each side's tables after the fold (light), and at each grid. */
+const drawn: Partial<Record<Side, { fold: DrawnTable[]; foldControl: DrawnTable[]; grids: Record<string, DrawnTable[]> }>> = {};
 
-const rgb8 = (color: Rgba): number[] => [color.r, color.g, color.b].map((channel) => Math.round(channel * 255));
-const sign = (theme: Theme, rise: boolean): number[] => rgb8(fromOklch(...(MONITORING_WALL.signs[theme][rise ? 'up' : 'down'] as Oklch)));
-const near = (a: readonly number[], b: readonly number[], steps = 1) => a.every((channel, i) => Math.abs(channel - b[i]!) <= steps);
 
 /** Logs `__contenderRefreshed` at each refreshed mark, a copy as it stands
  *  then (each entry raised in the frame's task, before its mark). */
@@ -183,12 +181,8 @@ function compare(tables: { cells?: Cell[] }[], theme: Theme): string[] {
       const shown = formatNumber(number.kind, exact, number.format, number.priced ? decimalsOf(price) : number.format.decimals);
       if (cell.shown !== shown) wrong.push(`${where}: shown ${cell.shown}, the format's ${shown}`);
       if (cell.flash) wrong.push(`${where}: still flashing ${cell.flash}`);
-      if (name === 'Chg %') {
-        const value = Number(exact);
-        const color = cell.text?.slice(0, 3) ?? [];
-        if (value !== 0 && !near(color, sign(theme, value > 0))) wrong.push(`${where}: ${exact} drawn ${color}, not the ${value > 0 ? 'rise' : 'fall'}'s ${sign(theme, value > 0)}`);
-        if (value === 0 && (near(color, sign(theme, true), 8) || near(color, sign(theme, false), 8))) wrong.push(`${where}: a zero drawn in a sign's color ${color}`);
-      }
+      const signed = name === 'Chg %' ? signWrong(theme, exact, cell.text) : null;
+      if (signed) wrong.push(`${where}: ${signed}`);
     }
     for (let row = 0; row < DESK_ROWS; row++) for (let column = 0; column < COLUMNS.length; column++) if (!seen.has(`${row}:${column}`)) wrong.push(`table ${table} row ${row} ${COLUMNS[column]}: not drawn`);
   });
@@ -200,9 +194,50 @@ const browser = await chromium.launch({ channel: 'chromium' });
 try {
   if (sides.length === 0) throw new Error('no side builds the wall level yet');
   for (const side of sides) await runSide(side);
+  if (drawn.gpui && drawn.tanstack) sameOnBoth(drawn.gpui, drawn.tanstack);
 } finally {
   await browser.close();
   for (const server of servers) await server.close();
+}
+
+/** Both sides drew the same: after the fold, every table's cells' text
+ *  byte-identical; after the fold and at each grid, every table where
+ *  GPUI's is (`gridDiffers`), with its control. */
+function sameOnBoth(gpui: NonNullable<(typeof drawn)['gpui']>, tanstack: NonNullable<(typeof drawn)['tanstack']>): void {
+  const fail = (what: string) => failures.push(`both sides: ${what}`);
+  const same: Record<string, unknown> = {};
+  results.same = same;
+  console.log('\nboth sides:');
+  // The fold's cells, exact and shown text.
+  const text = (tables: DrawnTable[]) => new Map(tables.flatMap(({ cells = [] }, table) => cells.map((cell) => [`${table}:${cell.row}:${cell.column}`, `${cell.exact}\u0000${cell.shown}`] as const)));
+  const [a, b] = [text(gpui.fold), text(tanstack.fold)];
+  const differ = [...a].filter(([key, value]) => b.get(key) !== value).map(([key, value]) => `${key}: GPUI ${value.replace('\u0000', ' / ')}, TanStack ${b.get(key)?.replace('\u0000', ' / ')}`);
+  // The control: TanStack's fold one tick short must differ from GPUI's.
+  const short = text(tanstack.foldControl);
+  const controlDiffers = [...a].filter(([key, value]) => short.get(key) !== value).length;
+  const foldGrid = gridDiffers(gpui.fold, tanstack.fold);
+  same.fold = { tables: gpui.fold.length, cells: a.size, differ: differ.length, gridDiffers: foldGrid.length, controlDiffers };
+  console.log(`the fold: ${a.size} cells over ${gpui.fold.length} tables, ${differ.length} written differently; ${foldGrid.length} tables or columns placed differently; the control (TanStack's fold one tick short): ${controlDiffers} differ (some must)`);
+  if (controlDiffers === 0) fail("the fold's control: TanStack's fold one tick short matched GPUI's");
+  if (a.size === 0 || differ.length || a.size !== b.size) fail(`the fold's cells differ (${a.size} on GPUI, ${b.size} on TanStack): ${differ.slice(0, 4).join('; ')}`);
+  if (foldGrid.length) fail(`the fold's grid differs: ${foldGrid.slice(0, 4).join('; ')}`);
+  // Each grid.
+  const grids: Record<string, unknown> = {};
+  for (const key of Object.keys(gpui.grids)) {
+    const other = tanstack.grids[key];
+    if (!other) {
+      fail(`grid ${key}: none on TanStack`);
+      continue;
+    }
+    const wrong = gridDiffers(gpui.grids[key]!, other);
+    // The control: TanStack's tables moved past the tolerance differ, every one.
+    const control = controlHolds(gpui.grids[key]!, other);
+    grids[key] = { differ: wrong.length, controlTablesDiffer: control.differ };
+    console.log(`grid ${key}: ${gpui.grids[key]!.length} tables, ${wrong.length} differences; the control (TanStack's moved 2 px): ${control.differ} of ${gpui.grids[key]!.length} tables differ (all must)`);
+    if (wrong.length) fail(`grid ${key}: ${wrong.slice(0, 4).join('; ')}`);
+    if (!control.holds) fail(`grid ${key}: the control (TanStack's tables moved 2 px) differs in ${control.differ} of ${gpui.grids[key]!.length} tables`);
+  }
+  same.grids = grids;
 }
 
 async function runSide(side: Side): Promise<void> {
@@ -217,6 +252,8 @@ async function runSide(side: Side): Promise<void> {
   servers.push(base);
   const at = (stop: string) => `?scenario=${MONITORING_WALL.id}&stop=${stop}`;
   const scene = at(MONITORING_WALL.defaultStop);
+  const seen: { fold: DrawnTable[]; foldControl: DrawnTable[]; grids: Record<string, DrawnTable[]> } = { fold: [], foldControl: [], grids: {} };
+  drawn[side] = seen;
 
   // The fold on screen, every table, and its control.
   const fold: Record<string, unknown> = {};
@@ -234,7 +271,8 @@ async function runSide(side: Side): Promise<void> {
         await folded(page, ticks);
         // The last flash fades out, and the frame after it is drawn.
         await page.waitForTimeout(MONITORING_WALL.flash.ms + 300);
-        const tables = await page.evaluate(() => (globalThis as Global).__contender?.tables ?? []);
+        const tables = await wallTables(page);
+        if (theme === 'light') seen[control ? 'foldControl' : 'fold'] = tables;
         const wrong = compare(tables, theme);
         const cells = tables.reduce((total, { cells = [] }) => total + cells.length, 0);
         fold[`${ticks}-${theme}`] = { tables: tables.length, cells, wrong: wrong.length, first: wrong.slice(0, 5) };
@@ -254,17 +292,12 @@ async function runSide(side: Side): Promise<void> {
     try {
       if (end !== 'filled') fail(`flash: ${end}`);
       await page.waitForTimeout(1000);
-      const tables = await page.evaluate(() => (globalThis as Global).__contender?.tables ?? []);
+      const tables = await wallTables(page);
       const flashing = tables.flatMap(({ cells = [] }) => cells.filter((cell) => cell.flash));
       const columns = new Set(flashing.map((cell) => COLUMNS[cell.column]));
       const drawnFlashing = COLUMNS.filter((column) => MONITORING_WALL.flash.columns.includes(column));
       const wrongColumn = [...columns].filter((column) => !drawnFlashing.includes(column!));
-      const mix = Math.round(MONITORING_WALL.flash.mix * 255);
-      const signs = [sign('light', true), sign('light', false)];
-      const off = flashing.filter((cell) => {
-        const [r = 0, g = 0, b = 0, a = 0] = cell.flash!;
-        return a > mix + 1 || !signs.some((color) => near([r, g, b], color));
-      });
+      const off = flashing.filter((cell) => flashOff('light', cell.flash!));
       const tablesFlashing = tables.filter(({ cells = [] }) => cells.some((cell) => cell.flash)).length;
       out.flash = { flashing: flashing.length, tables: tablesFlashing, columns: [...columns], off: off.length };
       console.log(`flash: ${flashing.length} cells flashing in ${tablesFlashing} of ${tables.length} tables, in ${[...columns].join(', ')}; ${off.length} off the rise's or fall's color at the mix`);
@@ -393,6 +426,30 @@ async function runSide(side: Side): Promise<void> {
     if (!filled || !failed) fail(`worker 404: filled ${filled}, failed ${failed} (want both)`);
     await context.close();
   }
+
+  // The grid: each table's cells' place, row height, and columns, at each
+  // stop and on a phone.
+  const grids: Record<string, unknown> = {};
+  for (const [key, stop, viewport] of [...MONITORING_WALL.stops.map((stop) => [stop.id, stop.id, undefined] as const), ['phone', '4', PHONE] as const]) {
+    const { context, page, found, end } = await open(browser, wall.url, `${at(stop)}&cells&theme=light`, { viewport });
+    try {
+      if (end !== 'filled') {
+        fail(`grid ${key}: ${end}`);
+        continue;
+      }
+      await page.waitForTimeout(300);
+      const tables = (await wallTables(page)).map(({ columns, layout, box }) => ({ columns, layout, box }));
+      seen.grids[key] = tables;
+      const missing = tables.filter((table) => !table.layout || !table.box || !table.columns?.length).length;
+      grids[key] = tables.map(({ layout }) => layout && [layout.left, layout.top]);
+      console.log(`grid ${key}: ${tables.length} tables, cells at ${tables.map(({ layout }) => (layout ? `(${layout.left}, ${layout.top})` : '?')).join(' ')}`);
+      if (missing) fail(`grid ${key}: ${missing} tables without a layout, a box, or columns`);
+      if (found.length) fail(`grid ${key}: ${found.join('; ')}`);
+    } finally {
+      await context.close();
+    }
+  }
+  out.grids = grids;
 
   // What fails the load.
   const failing: [string, string][] = [

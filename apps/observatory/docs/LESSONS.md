@@ -586,3 +586,13 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - One generated color would have moved every level. The sidebar's color isn't in `theme.css`, and regenerating it with one more variable changes every level's CSS. A second generated file, which only the wall's CSS imports, kept them all.
 - The tall table draws its header and rows to the frame's edge, past its last column, and the DOM side didn't. No earlier level showed it, since their columns overflow the frame. Live tail's (about 880 px of columns in a 1,408 px frame) likely differs the same way, unchecked.
 - The pooled pairing is the shape of a React tree, not a choice: one `flushSync` over every table's state commits them all, so a batch's tables draw it in one frame by construction. Each table's own frame callback (market watch's way, copied N times) would make N commits a frame, and the wall's question would read React's scheduling.
+
+## M13 part C2: the same on both sides at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-c2.md`](../perf/results/2026-11-10-m13-c2.md).
+
+**Surprises:**
+- The grid can't be found in the pixels. In the light theme the table's header and its striped rows are the sidebar's color (`#fafafa`), so a scan for the gaps' color runs into the tables. The tall table already reported where its cells are (`TallTableLayout`, window coordinates), and gpui's `on_children_prepainted` gives a table's frame. The DOM side reads the same from its scroller and its `.frame`.
+- A size measured against the baseline's build isn't a change's size. The first version was reported as +1.5 KiB against B2's baseline; against HEAD built the same day it was +0.7 KiB, and this tree's wall wasm built from HEAD is 0.8 KiB over that baseline with no Rust changed since. The review's fix, which left out the bridge's layout to save bytes, came to +1.2 KiB with the frame's box. A size effect is this tree against HEAD, built and measured the same way.
+- A control has to fail for the reason the check exists. Comparing GPUI's grid at 6 tables with TanStack's at 8 always differed, on the table count, whatever the comparison of places did; the same tables moved 2 px differ only if each place is compared. The same holds for "the flash fades": it passes on a feed that never lit anything.
+- One tick short changes 3 cells' text, while each side's fixture check reports 7 differences for the same control. The fixture check counts each wrong attribute (exact text, shown text, color) on its own, the cross-side check counts cells. Neither count is the size of a change.

@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part C2) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part D1) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -224,6 +224,19 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
   *Evidence:* `perf/wall.ts` passes on both sides ([`2026-11-10-m13-c1-wall.json`](perf/results/2026-11-10-m13-c1-wall.json)): the fixture's 2,000 ticks at 8 tables drawn in all 1,600 cells as the fixture has them, light and dark, the 1,999-tick control differing in 7; Last alone flashing, at the mix; at 4, 6, and 8 tables one `filled`, every batch reached in order with a generation a table, 151–155 of 151–155 visible batches paired across their tables (send → mark p50 10.9, 11.4, 13.3 ms); each cell's Element Timing name its instrument's row, unique across the tables; none of the marks unmeasured; the worker's 404, an unknown stop or scenario, `?ticks=x`, and the wall on the base build failing. `test/wall.test.ts` (the file's check, the seed, a desk's reads in hand, a fold's generations and mask with its control, the fixture through the fold, the pooled ring) in `npm test`.
 - [x] **C1-4, its budgets:** `tanstack-wall-first-paint-js` and `-data-layer-js` against a baseline of their own.
   *Evidence:* first-paint JS 76.9 KiB and the data layer 43.4 KiB brotli ([`2026-11-10-m13-c1-tanstack-sizes-wall.json`](perf/results/2026-11-10-m13-c1-tanstack-sizes-wall.json)), written as `levels.wall`; every level's `tanstack-sizes --check`, `engine-files --controls` (the wall's `duckdb/` the base's), `lint`, and `page --check` pass.
+
+
+### Part C2: the same on both sides
+
+**Done when:**
+- [x] **C2-1, `perf/wall.ts` on both sides:** each table's cells byte-identical after a fixed run of ticks, the same grid, widths, and gutter, each with a control.
+  *Evidence* ([results](perf/results/2026-11-10-m13-c2.md), [`2026-11-10-m13-c2-wall.json`](perf/results/2026-11-10-m13-c2-wall.json)): after the fixture's 2,000 ticks at 8 tables, 1,600 cells' exact and shown text the same on both sides; the control (TanStack's fold one tick short) differs in 3. Each table's frame (its four edges) and cells within 1 px, its row height, and its columns' x and width the same at 4, 6, and 8 tables, on a phone's column, and in the fold's 2560×2600 grid (`perf/wall-grid.ts`); the control (TanStack's tables moved 2 px) differs in every table at each. Each wall table publishes its `layout` and `box` with `?cells` on both sides ([`docs/contender-contract.md`](docs/contender-contract.md)): GPUI's wall wasm +1.2 KiB brotli against HEAD, TanStack's first-paint JS +0.1 KiB, both inside their budgets; every other TanStack level byte-identical.
+- [x] **C2-2, `tanstack-contract` at the level:** the first screen hydrated in place, the marks in order, the probe key, filled presented across the tables, the batches and the generations, the replay's `open()` alone, nothing unmeasured, the relay.
+  *Evidence:* [`2026-11-10-m13-c2-tanstack-contract.json`](perf/results/2026-11-10-m13-c2-tanstack-contract.json): at 6 tables, the cells' last paint 16.2 ms after filled with every table's visible rows painted; 78 batches in order, each with 6 generations, 78 refreshed marks, each table's generation drawn its last; `open()` refilled every table and ended the feed; `fling()` and `jump()` refused; 22 marks relayed.
+- [x] **C2-3, `tanstack-parity` at the level:** the grid, the flash, and the sign colors, light and dark, in Chromium, Firefox, and WebKit.
+  *Evidence:* [`2026-11-10-m13-c2-tanstack-parity.json`](perf/results/2026-11-10-m13-c2-tanstack-parity.json): in each browser at its defaults, the grid at 4, 6, 8, and a phone's column as the GPUI contender's (its control differing in every table); Chg % in the rise's or the fall's color by sign, Last alone flashing in all 6 tables at the mix, and a 200-tick feed lighting 20 cells whose fade ends, light and dark. One full run failed in the tail level's WebKit section (the view a frame behind the clock at the instant read), which this part doesn't touch; the two WebKit runs after it and the full run above passed.
+- [x] **C2-4, all of it in `check`:** `wall`, `tanstack-contract`, and `tanstack-parity` run there with their wall sections.
+  *Evidence:* each passes on its own (above), as do `lint`, `sizes --check`, `tanstack-sizes --level wall --check`, `cold --level wall --check` (TTFP 165.6 ms, limit 176.6), and `placeholder --level wall`. The full `check` wasn't run in this session.
 
 ---
 

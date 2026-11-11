@@ -135,7 +135,9 @@ tanstack-view *args:
 # its columns, its fade ending), light and dark; at the tail level
 # following, letting go on a wheel up, coming back at End and at a wheel
 # to the end, the time muted and an error status's color, light and
-# dark. --firefox adds a headed
+# dark; at the wall level the grid where the GPUI contender's is (each
+# stop and a phone's column), Chg %'s sign colors, Last's flash in every
+# table, and a short feed's flash fading, light and dark. --firefox adds a headed
 # Firefox's track press (classic scrollbars); --browsers, --label. Needs
 # `just observatory data`; run `just observatory builds` first.
 tanstack-parity *args:
@@ -152,9 +154,11 @@ tanstack-parity *args:
 # with ?measure) and the tail level (the clock's messages in order, the
 # tail marks rising, the pause, the replay's jump letting go and its fling
 # following again, a reopen starting the replay over, only with
-# ?measure). --label writes perf/results/. Needs `just observatory data`;
-# run `just observatory tanstack-build`, `tanstack-build market`, and
-# `tanstack-build tail` first.
+# ?measure) and the wall level (filled presented across the tables, the
+# batches in order with a generation a table, the refreshed marks, the
+# replay's open alone refilling every table and ending the feed, only
+# with ?measure). --label writes perf/results/. Needs `just observatory
+# data`; run `just observatory builds` first.
 tanstack-contract *args:
     node {{app_dir}}/perf/tanstack-contract.ts {{args}}
 
@@ -455,8 +459,12 @@ admin *args: script-fonts
 # presented frames, every batch reached, each visible batch paired across
 # its tables), none unmeasured, a phone's column scrolled from a gap and
 # not from a table, and the worker 404, an unknown stop or scenario,
-# `?ticks` not a count, and the wall on the base build failing (--side,
-# --label). Run `gpui-build` and `gpui-build wall` first.
+# `?ticks` not a count, and the wall on the base build failing; each
+# table's frame, cells' place, row height, and columns at each stop and a
+# phone's column; then, with both sides, the same on both: every table's
+# cells byte-identical after the fold, and every grid's tables, gutters,
+# and columns where GPUI's are (within a pixel, perf/wall-grid.ts), with
+# their controls (--side, --label). Run `builds` first.
 wall *args:
     node {{app_dir}}/perf/wall.ts {{args}}
 

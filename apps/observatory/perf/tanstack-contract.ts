@@ -47,11 +47,25 @@
 //   from a smaller count, the rows from 0); without `?measure` none of
 //   state, batches, tail marks, the globals, the pause, or cell timing;
 //   framed, every mark relayed, the tail ones too.
+// - The wall level (the monitoring wall at its default stop, its own
+//   build): the first screen prerendered and hydrated in place; usable ≤
+//   open < filled, the probe key; filled presented across the tables (every
+//   table's visible rows' cells painted, Element Timing's `row:<50t + r>`,
+//   the last within 50 ms after the mark); with `?measure`, state (the
+//   first table's: a desk's rows, `tables` the stop's), every batch on
+//   `__contender.batches` in order from 0 with a generation a table,
+//   `contender:refreshed` marks, and `__contenderRefreshed` an entry a
+//   table, each drawn and none past its table's last generation; the
+//   replay's `open()` filling every table again (a new open mark, after it
+//   a filled one) and ending the feed (no batch after it, none to the new
+//   tables), `fling()` and `jump()` refused; without `?measure` none of
+//   state, batches, refreshed marks, the generations, or cell timing;
+//   framed, every mark relayed, the refreshed ones too.
 //
 // Usage: node apps/observatory/perf/tanstack-contract.ts [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
 // data`; run `just observatory tanstack-build`, `tanstack-build market`,
-// and `tanstack-build tail` first.
+// `tanstack-build tail`, and `tanstack-build wall` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -60,7 +74,8 @@ import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { PROBE_KEY, PROBE_MS } from '../metrics/metrics.ts';
 import { INSTRUMENTS } from '../contenders/market/feed.ts';
-import { LIVE_TAIL, MARKET_WATCH } from '../contenders/scenarios.ts';
+import { LIVE_TAIL, MARKET_WATCH, MONITORING_WALL } from '../contenders/scenarios.ts';
+import { DESK_ROWS } from '../contenders/wall/desks.ts';
 import { MARKS, dataFile, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveTanstack } from './harness.ts';
 
 const PORT = 4321;
@@ -68,6 +83,8 @@ const PORT = 4321;
 const MARKET_PORT = 4365;
 /** The tail level's build. */
 const TAIL_PORT = 4373;
+/** The wall level's build. */
+const WALL_PORT = 4390;
 /** The data layer's chunk: the engine's start imports it first. */
 const DATA_LAYER = /\/assets\/table-[\w-]+\.js$/;
 /** How long after the filled mark its cells may paint: three frames. */
@@ -148,34 +165,36 @@ const filledState = (page: Page, test: string) =>
     )
     .then(async (handle) => (await handle.jsonValue()) as State);
 
-/** The visible rows' cells painted after `since`: the latest paint, and
- *  the visible rows with none. Element Timing entries arrive after the
- *  paint, in an observer's task: waits up to 2 s for every row's. */
-async function cellsPainted(page: Page, since: number, state: State) {
-  const read = ({ since, first, end }: { since: number; first: number; end: number }) => {
-    const painted = ((globalThis as Global).__painted ?? []).filter((entry) => entry.id.startsWith('row:') && entry.renderTime >= since);
-    const rows = new Map<number, number>();
-    for (const entry of painted) {
+/** A state's visible rows. */
+const visibleRows = (state: State): number[] => Array.from({ length: Math.max(0, state.end - state.first) }, (_, i) => state.first + i);
+
+/** `rows`' cells painted after `since` (by Element Timing's `row:<row>`):
+ *  the latest paint, and the rows with none. Element Timing entries
+ *  arrive after the paint, in an observer's task: waits up to 2 s for
+ *  every row's. */
+async function cellsPainted(page: Page, since: number, rows: number[]) {
+  const read = ({ since, rows }: { since: number; rows: number[] }) => {
+    const painted = new Map<number, number>();
+    for (const entry of (globalThis as Global).__painted ?? []) {
+      if (!entry.id.startsWith('row:') || entry.renderTime < since) continue;
       const row = Number(entry.id.slice(4));
-      if (row >= first && row < end) rows.set(row, Math.max(rows.get(row) ?? 0, entry.renderTime));
+      painted.set(row, Math.max(painted.get(row) ?? 0, entry.renderTime));
     }
-    const missing: number[] = [];
-    for (let row = first; row < end; row++) if (!rows.has(row)) missing.push(row);
-    return { latest: Math.max(0, ...rows.values()), missing };
+    return { latest: Math.max(0, ...rows.map((row) => painted.get(row) ?? 0)), missing: rows.filter((row) => !painted.has(row)) };
   };
-  const args = { since, first: state.first, end: state.end };
+  const args = { since, rows };
   await page.waitForFunction(`(${read.toString()})(${JSON.stringify(args)}).missing.length === 0`, null, { timeout: 2_000, polling: 20 }).catch(() => {});
   return page.evaluate(read, args);
 }
 
-/** The filled mark after `since` is presented: the visible rows' new
- *  cells all painted, the latest within PRESENT_MS after the mark. */
-async function presented(page: Page, what: string, since: number, filled: number, state: State) {
-  const cells = await cellsPainted(page, since, state);
+/** The filled mark after `since` is presented: `rows`' new cells all
+ *  painted, the latest within PRESENT_MS after the mark. */
+async function presented(page: Page, what: string, since: number, filled: number, rows: number[]) {
+  const cells = await cellsPainted(page, since, rows);
   const late = cells.latest - filled;
   check(cells.missing.length === 0, `${what}: visible rows without a new cell's paint: ${cells.missing.slice(0, 5).join(', ')}${cells.missing.length > 5 ? '…' : ''}`);
   check(late >= 0 && late <= PRESENT_MS, `${what}: the cells' last paint ${late.toFixed(1)} ms after the filled mark (0–${PRESENT_MS})`);
-  return { latestPaintAfterFilledMs: late, missing: cells.missing.length };
+  return { latestPaintAfterFilledMs: late, missing: cells.missing.length, rows: rows.length };
 }
 
 const server = await serveTanstack(PORT);
@@ -232,7 +251,7 @@ try {
     const opened = await filledState(page, 's.first === 0');
     check(opened.rows === count, `state.rows ${opened.rows}, count(*) ${count}`);
     check(opened.cacheBytes > 0, `state.cacheBytes ${opened.cacheBytes} with rows loaded`);
-    const openPresented = await presented(page, 'open', open ?? 0, filled, opened);
+    const openPresented = await presented(page, 'open', open ?? 0, filled, visibleRows(opened));
     const targets = await page.evaluate(() => ({ ...(globalThis as Global).__seizaTargets }));
     for (const id of ['table', 'table-scroll-track', 'table-scroll-thumb']) {
       const [x = -1, y = -1, w = 0, h = 0] = targets[id] ?? [];
@@ -244,7 +263,7 @@ try {
     await page.keyboard.press('End');
     const atEnd = await filledState(page, 's.end === s.rows');
     const endFilled = await waitMark(page, MARKS.filled, endAt);
-    const endPresented = await presented(page, 'End', endAt, endFilled, atEnd);
+    const endPresented = await presented(page, 'End', endAt, endFilled, visibleRows(atEnd));
     check(atEnd.end === count, `End: end ${atEnd.end}, count(*) ${count}`);
     check(atEnd.lastCell === lastKey, `End: lastCell ${atEnd.lastCell}, the file's last spkid ${lastKey}`);
     console.log(`reach: rows ${atEnd.rows} = count(*), End → rows ${atEnd.first}–${atEnd.end}, lastCell ${atEnd.lastCell}, filled ${(endFilled - endAt).toFixed(1)} ms after the key, its cells painted ${endPresented.latestPaintAfterFilledMs.toFixed(1)} ms after the mark`);
@@ -377,6 +396,7 @@ try {
 
   await marketContract();
   await tailContract();
+  await wallContract();
 } finally {
   await browser.close();
   await server.close();
@@ -693,6 +713,155 @@ async function tailContract(): Promise<void> {
     }
   } finally {
     await tail.close();
+  }
+}
+
+/** The wall level's contract (its own build, the monitoring wall at its default stop). */
+async function wallContract(): Promise<void> {
+  const wall = await serveTanstack(WALL_PORT, undefined, 'wall');
+  const out: Record<string, unknown> = {};
+  output.wall = out;
+  type Batches = [seq: number, ticks: number, sent: number, generations: number[], visible: number][];
+  type WallGlobal = Omit<Global, '__contender'> & { __contender?: { state: (State & { tables?: number }) | null; replay: Record<string, () => Promise<unknown>>; batches?: Batches }; __contenderRefreshed?: number[] };
+  const stop = MONITORING_WALL.stops.find((candidate) => candidate.id === MONITORING_WALL.defaultStop)!;
+  const url = `${wall.url}?scenario=${MONITORING_WALL.id}&stop=${stop.id}`;
+  try {
+    {
+      const html = await (await fetch(wall.url)).text();
+      check(/<div id="root"><div class="page"><div class="frame status"[^>]*>Engine loading…<\/div><\/div><\/div>/.test(html), "wall: the served HTML doesn't hold the prerendered first screen");
+    }
+
+    // Measured.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(`${url}&measure`);
+      const usable = await waitMark(page, MARKS.usable, 0);
+      const hydratedInPlace = await page.evaluate(() => {
+        const parsed = (globalThis as Global).__firstScreen;
+        return !!parsed && parsed === document.querySelector('#root .frame.status');
+      });
+      check(hydratedInPlace, 'wall: hydration replaced the prerendered first screen');
+      await page.keyboard.press(PROBE_KEY);
+      const input = await waitMark(page, MARKS.input, usable, 5_000).catch(() => null);
+      const keyAt = await page.evaluate(() => (globalThis as Global).__keys?.[0] ?? null);
+      const probeMs = input !== null && keyAt !== null ? input - keyAt : null;
+      check(probeMs !== null && probeMs >= 0 && probeMs <= PROBE_MS, `wall: the probe key after usable: ${probeMs?.toFixed(1)} ms (0–${PROBE_MS.toFixed(1)})`);
+      const filled = await waitMark(page, MARKS.filled, 0);
+      const open = await lastMark(page, MARKS.open);
+      check(open !== null && usable <= open && open < filled, `wall: marks out of order: usable ${usable}, open ${open}, filled ${filled}`);
+      const opened = (await filledState(page, 's.first === 0')) as State & { tables?: number };
+      check(opened.rows === DESK_ROWS, `wall: state.rows ${opened.rows}, a desk's ${DESK_ROWS}`);
+      check(opened.tables === stop.tables, `wall: state.tables ${opened.tables}, the stop's ${stop.tables}`);
+      check(opened.cacheBytes > 0, `wall: state.cacheBytes ${opened.cacheBytes}`);
+      // Filled presented across the tables: each table's visible rows' cells
+      // (the first table's rows: the tables are the same height), named by
+      // the instrument's row, `row:<50t + r>`.
+      const filledPresented = await presented(page, 'wall open', open ?? 0, filled, Array.from({ length: stop.tables }, (_, table) => visibleRows(opened).map((row) => table * DESK_ROWS + row)).flat());
+
+      // Under the feed: every batch in order with a generation a table, the
+      // refreshed marks, each table's generation drawn.
+      await page.waitForTimeout(1500);
+      const feed = await page.evaluate(() => {
+        const g = globalThis as WallGlobal;
+        return { batches: g.__contender?.batches ?? [], refreshed: performance.getEntriesByName('contender:refreshed', 'mark').length, drawn: [...(g.__contenderRefreshed ?? [])] };
+      });
+      const inOrder = feed.batches.every(([seq], index) => seq === index);
+      const shaped = feed.batches.every(([, , , generations]) => generations.length === stop.tables);
+      const last = Array.from({ length: stop.tables }, (_, table) => Math.max(0, ...feed.batches.map(([, , , generations]) => generations[table] ?? 0)));
+      check(feed.batches.length > 50, `wall: ${feed.batches.length} batches in 1.5 s`);
+      check(inOrder, `wall: the batches out of order or missing: ${feed.batches.slice(0, 8).map(([seq]) => seq).join(', ')}…`);
+      check(shaped, `wall: batches without a generation a table (${stop.tables})`);
+      check(feed.refreshed > 50, `wall: ${feed.refreshed} refreshed marks in 1.5 s`);
+      check(feed.drawn.length === stop.tables && feed.drawn.every((drawn, table) => drawn > 0 && drawn <= last[table]!), `wall: __contenderRefreshed ${JSON.stringify(feed.drawn)}, each table's last generation ${JSON.stringify(last)}`);
+      console.log(`wall: usable ${usable.toFixed(1)}, open ${open?.toFixed(1)}, filled ${filled.toFixed(1)} ms (the cells' last paint ${filledPresented.latestPaintAfterFilledMs.toFixed(1)} ms after it); probe key ${probeMs?.toFixed(1)} ms; ${opened.rows} rows a table, ${opened.tables} tables; ${feed.batches.length} batches in order from 0, ${feed.refreshed} refreshed marks, generations drawn ${feed.drawn.join(', ')} of ${last.join(', ')}`);
+
+      // The replay: open() fills every table again and ends the feed;
+      // fling() and jump() are refused.
+      await page.evaluate(() => ((globalThis as WallGlobal & { __oldBatches?: Batches }).__oldBatches = (globalThis as WallGlobal).__contender?.batches));
+      const since = await now(page);
+      await page.evaluate(() => (globalThis as WallGlobal).__contender!.replay.open!());
+      const reopened = await lastMark(page, MARKS.open);
+      const refilled = await lastMark(page, MARKS.filled);
+      check(reopened !== null && reopened >= since && refilled !== null && refilled > reopened, `wall: open() resolved with open ${reopened}, filled ${refilled} (after ${since})`);
+      const lengths = () =>
+        page.evaluate(() => {
+          const g = globalThis as WallGlobal & { __oldBatches?: Batches };
+          return { old: g.__oldBatches?.length ?? -1, fresh: g.__contender?.batches?.length ?? 0, replaced: g.__oldBatches !== g.__contender?.batches };
+        });
+      const was = await lengths();
+      await page.waitForTimeout(500);
+      const then = await lengths();
+      check(was.old > 0 && was.replaced, `wall: the reopen's batches ${JSON.stringify(was)}, want the old feed's array kept apart from a new one`);
+      check(then.old === was.old && then.fresh === 0, `wall: ${then.old - was.old} batches to the old feed and ${then.fresh} to the new tables after the replay's open(), want the feed ended and none started`);
+      const refused = await page.evaluate(async () => {
+        const replay = (globalThis as WallGlobal).__contender!.replay;
+        const refuses = (call: () => Promise<unknown>) => call().then(() => false, () => true);
+        return { fling: await refuses(() => replay.fling!()), jump: await refuses(() => (replay.jump as unknown as (fraction: number) => Promise<unknown>)(0.9)) };
+      });
+      check(refused.fling && refused.jump, `wall: the replay's fling() and jump() refused: ${JSON.stringify(refused)}`);
+      out.measured = { usable, open, filled, input, probeMs, opened, filledPresented, feed: { batches: feed.batches.length, inOrder, shaped, refreshed: feed.refreshed, drawn: feed.drawn, last }, reopen: { open: reopened, filled: refilled, batchesAfterOpen: then.old - was.old }, refused };
+      console.log(`wall: open() → open ${reopened?.toFixed(1)}, filled ${refilled?.toFixed(1)} ms, the feed ended (${then.old - was.old} batches after it); fling() and jump() refused ${refused.fling && refused.jump}`);
+      failures.push(...found.map((problem) => `wall measured page: ${problem}`));
+      await context.close();
+    }
+
+    // Unmeasured: none of state, batches, refreshed marks, the generations, cell timing.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(url);
+      await waitMark(page, MARKS.filled, 0);
+      await page.waitForTimeout(1000);
+      const seen = await page.evaluate(() => {
+        const g = globalThis as WallGlobal;
+        return {
+          state: g.__contender?.state ?? null,
+          batches: g.__contender?.batches ?? null,
+          refreshed: performance.getEntriesByName('contender:refreshed', 'mark').length,
+          drawn: g.__contenderRefreshed ?? null,
+          cellTiming: document.querySelectorAll('.row [elementtiming]').length,
+        };
+      });
+      check(seen.state === null && seen.batches === null && seen.refreshed === 0 && seen.drawn === null && seen.cellTiming === 0, `wall without ?measure: ${JSON.stringify(seen)}`);
+      out.unmeasured = seen;
+      failures.push(...found.map((problem) => `wall unmeasured page: ${problem}`));
+      await context.close();
+    }
+
+    // Framed, measured: every mark relayed, the refreshed ones too.
+    {
+      const context = await protocolContext(browser);
+      const frameUrl = new URL('__frame', wall.url).href;
+      await context.route(frameUrl, (route) =>
+        route.fulfill({
+          contentType: 'text/html',
+          headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' },
+          body: `<!doctype html><body style="margin:0"><script>window.__messages = []; addEventListener('message', (event) => event.origin === location.origin && __messages.push(event.data));</script><iframe src="${url}&measure" style="border:0;width:100vw;height:100vh"></iframe></body>`,
+        }),
+      );
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(frameUrl);
+      await page.waitForFunction(() => ((globalThis as { __messages?: { name: string }[] }).__messages ?? []).some((message) => message.name === 'contender:refreshed'), null, { timeout: 60_000, polling: 50 });
+      await page.waitForTimeout(300);
+      const frame = page.frames().find((candidate) => candidate !== page.mainFrame())!;
+      const epoch = await frame.evaluate(() => performance.getEntriesByType('mark').filter((entry) => entry.name.startsWith('contender:')).map((entry) => ({ name: entry.name, at: performance.timeOrigin + entry.startTime })));
+      const all = (await page.evaluate(() => (globalThis as { __messages?: unknown[] }).__messages ?? [])) as { seiza: string; name: string; at: number }[];
+      const read = epoch.filter((mark) => mark.at <= Math.max(...all.map((message) => message.at)));
+      const missing = read.filter((mark) => !all.some((message) => message.seiza === 'mark' && message.name === mark.name && Math.abs(message.at - mark.at) < 0.01));
+      check(missing.length === 0, `wall relay: ${missing.length} marks never reached the parent, e.g. ${JSON.stringify(missing[0])}`);
+      const names = [...new Set(all.map((message) => message.name))];
+      check(names.includes(MARKS.filled) && names.includes(MARKS.refreshed), `wall relay: ${names.join(', ')}`);
+      out.framed = { messages: all.length, marks: read.length, names };
+      console.log(`wall relay: ${all.length} messages for ${read.length} marks (${names.join(', ')})`);
+      failures.push(...found.map((problem) => `wall framed page: ${problem}`));
+      await context.close();
+    }
+  } finally {
+    await wall.close();
   }
 }
 

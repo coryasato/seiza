@@ -170,16 +170,35 @@ export function wallCss(scenario: WallScenario): string {
 /**
  * `?cells` on the wall level: table `desk`'s cells on screen as drawn, on
  * `__contender.tables[desk]` (`columns`, and `cells` read from the DOM each
- * time, as market watch's: a flash fades with no render), as the GPUI
- * contender's probes publish them; the first table's on `__contender`
- * itself too.
+ * time, as market watch's: a flash fades with no render), and where it is
+ * in the window, read from the DOM each time, since a phone's column
+ * scrolls with no render (`layout`: its cells' `left`, right of the row
+ * numbers, `top`, under the header, and `rowHeight`; `box`: its frame,
+ * `[x, y, width, height]`), as the GPUI contender's probes publish them;
+ * the first table's on `__contender` itself too.
  */
-export function publishWallCells(desk: number, scroller: HTMLElement, columns: readonly LaidOutColumn[]): void {
+export function publishWallCells(desk: number, scroller: HTMLElement, columns: readonly LaidOutColumn[], gutter: number, rowHeight: number): void {
   const contender = (globalThis as { __contender?: Contender & { tables?: object[] } }).__contender;
   const table = contender?.tables?.[desk];
   if (!table) return;
   Object.assign(table, { columns: columns.map(({ name, x, width, kind }) => ({ name, x, width, kind })) });
   Object.defineProperty(table, 'cells', { configurable: true, enumerable: true, get: () => drawnCells(scroller) });
+  Object.defineProperty(table, 'layout', {
+    configurable: true,
+    enumerable: true,
+    get: () => {
+      const box = scroller.getBoundingClientRect();
+      return { left: box.left + scroller.clientLeft + gutter, top: box.top + scroller.clientTop + rowHeight, rowHeight };
+    },
+  });
+  Object.defineProperty(table, 'box', {
+    configurable: true,
+    enumerable: true,
+    get: () => {
+      const { x, y, width, height } = scroller.closest('.frame')!.getBoundingClientRect();
+      return [x, y, width, height];
+    },
+  });
   if (desk === 0) publishMarketCells(scroller, columns);
 }
 
