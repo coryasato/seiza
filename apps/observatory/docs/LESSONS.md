@@ -567,3 +567,12 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - A scenario that no side builds yet still costs every contender bytes. `pickScenario` reads `ALL_SCENARIOS`, so the wall's entry rides in every level's first-paint JS (141–185 B brotli) from the day it joins the list, before any build of its own.
 - "Market watch's feed unchanged" holds for its ticks, not its worker's bytes. Widening `Feed` adds 33 B to the market level's worker, while `write.ts --check` proves its output byte-identical. A check that a level is unchanged has to say which: its wasm, its JS, or what it sends.
 - In `prep.ts`, a cache declared below the top-level `await`s isn't initialized yet when they run: `let` and `const` there are in their temporal dead zone. A memo shared by two builds has to live above them, or on the function itself.
+
+## M13 part B2: the GPUI contender at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-b2.md`](../perf/results/2026-11-10-m13-b2.md).
+
+**Surprises:**
+- A byte-identical level is a question of which files carry panic locations, and they're few. Market watch's wasm names only four of the crate's files in its strings, so the wall could change `lib.rs`, `scene.rs`, `feed.rs`, and `readout.rs` freely and keep those four's lines in place. The wide level, whose heat has a panic site in `scene.rs`, moved by one byte for it.
+- Keeping lines in place isn't enough: a semantically neutral wrapper changed the codegen. Passing the state's `Object` through a by-value `fn(Object) -> Object`, even `#[inline(always)]` and returning it untouched, made market watch's wasm 10 bytes larger. A move of a type with `Drop` isn't free after LTO. The by-reference wrapper compiled to nothing.
+- The phone's 196 px tables, counted from the canvas in A3, showed 5⅓ rows: the tall table keeps its horizontal scrollbar's 16 px whether or not it scrolls sideways. A board's height for a GPUI table has to count the room the table keeps, not only what it draws.

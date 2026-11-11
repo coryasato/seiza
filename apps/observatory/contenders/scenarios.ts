@@ -144,13 +144,18 @@ export interface WallScenario extends ScenarioOf<'wall', TablesStop> {
    *  the frame's edge, in rows of `tables / 2` (two rows; one column on a
    *  phone); each table a `title` row, then its header and rows at the
    *  table's `density` (`rowHeight`, `textSize`), its columns (Symbol,
-   *  Last, Chg %, Volume) at `widths` after the row-number gutter. */
+   *  Last, Chg %, Volume) at `widths` after the row-number gutter. A frame
+   *  narrower than `oneColumnBelow` (the page's phone breakpoint, 48rem)
+   *  shows one column of tables, each its title, its header, and
+   *  `phoneRows` rows, the column scrolled (`docs/DECISIONS.md`, "Page"). */
   grid: {
     gap: number;
     title: number;
     rowHeight: number;
     textSize: number;
     widths: readonly [symbol: number, last: number, changePct: number, volume: number];
+    oneColumnBelow: number;
+    phoneRows: number;
   };
 }
 
@@ -293,7 +298,7 @@ export const MONITORING_WALL: WallScenario = {
   desks: DESKS,
   signs: MARKET_WATCH.signs,
   flash: MARKET_WATCH.flash,
-  grid: { gap: 8, title: 26, rowHeight: 24, textSize: 12, widths: [64, 76, 72, 80] },
+  grid: { gap: 8, title: 26, rowHeight: 24, textSize: 12, widths: [64, 76, 72, 80], oneColumnBelow: 768, phoneRows: 6 },
 };
 
 /** Every scenario, each level's first its default: what a frame can load
@@ -311,7 +316,7 @@ export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATC
  *  levels (the recipes, `sizes`, `cold`, `tanstack-sizes`, `placeholder`,
  *  the page's servers, `stage.ts`) reads it, never `LEVEL_FEATURES`. */
 export const BUILT: Record<Side, readonly Level[]> = {
-  gpui: ['base', 'wide', 'market', 'tail'],
+  gpui: ['base', 'wide', 'market', 'tail', 'wall'],
   tanstack: ['base', 'wide', 'market', 'tail'],
 };
 

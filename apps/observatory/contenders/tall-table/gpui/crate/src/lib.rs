@@ -8,19 +8,31 @@
 mod clock;
 #[cfg(target_family = "wasm")]
 mod contract;
-/// Market watch's feed: its worker's batches into the store.
-#[cfg(all(target_family = "wasm", feature = "market"))]
+/// Market watch's feed (and the monitoring wall's): its worker's batches
+/// into the store.
+#[cfg(all(target_family = "wasm", any(feature = "market", feature = "wall")))]
 mod feed;
+#[cfg(not(feature = "wall"))]
 mod host;
-/// Market watch's store, folding the feed's batches.
-#[cfg(feature = "market")]
+/// Market watch's store (and the monitoring wall's), folding the feed's
+/// batches.
+#[cfg(any(feature = "market", feature = "wall"))]
 pub mod market;
-#[cfg(all(target_family = "wasm", any(feature = "market", feature = "tail")))]
+#[cfg(all(
+    target_family = "wasm",
+    any(feature = "market", feature = "tail", feature = "wall")
+))]
 mod readout;
 mod scene;
 /// Live tail's replay: the loop's page SQL and the time's text.
 #[cfg(any(test, feature = "tail"))]
 pub mod tail;
+/// The monitoring wall's host, in the bare host's place: N tables in the
+/// stop's grid over one store.
+#[cfg(feature = "wall")]
+mod wall;
+#[cfg(feature = "wall")]
+use wall as host;
 
 pub use host::Host;
 
@@ -60,7 +72,9 @@ pub fn start(
                 let scene = scene::Scene::market(file, &level, &feed::flash());
                 #[cfg(feature = "tail")]
                 let scene = scene::Scene::tail(file, &level);
-                #[cfg(not(any(feature = "market", feature = "tail")))]
+                #[cfg(feature = "wall")]
+                let scene = scene::Scene::wall(file, &level, &feed::flash());
+                #[cfg(not(any(feature = "market", feature = "tail", feature = "wall")))]
                 let scene = scene::Scene::new(file, &level);
                 scene.map_err(SharedString::from)
             } else {

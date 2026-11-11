@@ -234,6 +234,7 @@ check: lint builds script-fonts && fixtures
     node {{app_dir}}/perf/wide.ts
     node {{app_dir}}/perf/market.ts
     node {{app_dir}}/perf/tail.ts
+    node {{app_dir}}/perf/wall.ts
     node {{app_dir}}/perf/admin.ts
     levels=$(node {{app_dir}}/contenders/built.ts gpui) && for level in $levels; do node {{app_dir}}/perf/placeholder.ts --level $level || exit 1; done
     node {{app_dir}}/perf/reach.ts
@@ -269,7 +270,8 @@ placeholder *args:
 # each side's store against each with its controls (the GPUI contender's
 # natively, the TanStack contender's in its `npm test`). And live tail's:
 # its clock's fixture (contenders/tail/fixtures/clock.json), then each
-# side's loop SQL and time text against sql.json and cells.json.
+# side's loop SQL and time text against sql.json and cells.json. And the
+# wall's level natively: its numbers, and each desk's rows of the store.
 fixtures:
     cargo test -p seiza-tall-table fixtures
     cargo test -p seiza-tall-table --features custom-cells,pin,density fixtures
@@ -278,6 +280,7 @@ fixtures:
     node --test {{app_dir}}/contenders/tail/fixtures/clock.test.ts
     cargo test -p tall-table-gpui --features market -- market:: tail::
     cargo test -p tall-table-gpui --features tail scene::tail::
+    cargo test -p tall-table-gpui --features wall -- market:: scene::wall::
     npm test --workspace @seiza/observatory-tall-table-tanstack
     node {{app_dir}}/perf/cell-fixture.ts --check
 
@@ -443,6 +446,20 @@ tail *args:
 admin *args: script-fonts
     node {{app_dir}}/perf/admin.ts {{args}}
 
+# The contenders at the wall level (the sides that build it), on their
+# release builds: the wall's feed fixture's 2,000 ticks folded and drawn in
+# every table at 8 tables (each cell's exact text the fixture's, its shown
+# text the scenario's format, Chg % by sign; light and dark; the control
+# one tick short), Last alone flashing at the mix, the marks across the
+# tables at each stop (one filled, the refreshed marks right after
+# presented frames, every batch reached, each visible batch paired across
+# its tables), none unmeasured, a phone's column scrolled from a gap and
+# not from a table, and the worker 404, an unknown stop or scenario,
+# `?ticks` not a count, and the wall on the base build failing (--side,
+# --label). Run `gpui-build` and `gpui-build wall` first.
+wall *args:
+    node {{app_dir}}/perf/wall.ts {{args}}
+
 # Request bursts on the page's release build: the most requests one visitor
 # sends in any 10 s (the zone's rate limit's window), counted at the server
 # while the replay hooks fling and jump each side (on the wide sheet, at
@@ -517,6 +534,8 @@ lint:
     cargo clippy -p tall-table-gpui --features market --all-targets -- -D warnings
     cargo clippy -p tall-table-gpui --features tail --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-gpui --features tail --all-targets -- -D warnings
+    cargo clippy -p tall-table-gpui --features wall --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p tall-table-gpui --features wall --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p seiza --no-default-features --all-targets -- -D warnings
     cargo clippy -p seiza --no-default-features --features canvas-font-fallback --target wasm32-unknown-unknown -- -D warnings

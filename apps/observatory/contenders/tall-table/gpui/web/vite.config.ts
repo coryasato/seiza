@@ -22,7 +22,8 @@ const firstFrame = `
 // The level (`contenders/level.ts`) from Vite's mode: `--mode wide`, whose
 // wasm `gpui-wasm` builds with the crate's feature of that name into
 // `pkg-wide/` (`--mode market`: `pkg-market/`, and its host `src/market.ts`;
-// `--mode tail`: `pkg-tail/` and `src/tail.ts`).
+// `--mode tail`: `pkg-tail/` and `src/tail.ts`; `--mode wall`: `pkg-wall/`
+// and `src/wall.ts`).
 export default defineConfig(({ mode }) => {
   const level = levelOf('gpui', mode);
   const suffix = level === 'base' ? '' : `-${level}`;
@@ -39,14 +40,15 @@ export default defineConfig(({ mode }) => {
       plugins: [contenderBuild(outDir, { scriptFonts: level === 'base' }), levelConstants(level)],
       build: { outDir },
       // The level's wasm and its bindings (`pkg-<level>/`), and on the base,
-      // market, and tail levels their hosts (`src/base.ts`, `src/market.ts`,
-      // `src/tail.ts`, for `src/level.ts`).
+      // market, tail, and wall levels their hosts (`src/base.ts`,
+      // `src/market.ts`, `src/tail.ts`, `src/wall.ts`, for `src/level.ts`).
       resolve: {
         alias: [
           ...(suffix ? [{ find: /^\.\.\/pkg\//, replacement: `../pkg${suffix}/` }] : []),
           ...(level === 'base' ? [{ find: /^\.\/level\.ts$/, replacement: './base.ts' }] : []),
           ...(level === 'market' ? [{ find: /^\.\/level\.ts$/, replacement: './market.ts' }] : []),
           ...(level === 'tail' ? [{ find: /^\.\/level\.ts$/, replacement: './tail.ts' }] : []),
+          ...(level === 'wall' ? [{ find: /^\.\/level\.ts$/, replacement: './wall.ts' }] : []),
         ],
       },
     },

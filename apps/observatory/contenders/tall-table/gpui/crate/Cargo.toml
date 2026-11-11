@@ -84,3 +84,18 @@ tail = [
     "dep:wasm-bindgen-futures",
     "dep:web-sys",
 ]
+# The monitoring wall's level: market watch's features (the flash, the rows
+# re-read in place, the canvas's text) and `density` (the canvas's 24 px
+# rows, 12 px text, and column widths), with market watch's store and feed
+# (`src/market.rs`, `src/feed.rs`) over N tables (`src/wall.rs`, the
+# host in the bare host's place; `src/scene/wall.rs`, its source).
+wall = [
+    "seiza-tall-table/custom-cells",
+    "seiza-tall-table/live",
+    "seiza-tall-table/format",
+    "seiza-tall-table/density",
+    "tall-table-bridge/custom-cells",
+    "tall-table-bridge/live",
+    "tall-table-bridge/format",
+    "tall-table-bridge/density",
+]

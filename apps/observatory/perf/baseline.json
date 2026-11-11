@@ -74,6 +74,17 @@
         "firstPaint": 76.5,
         "dataLayer": 38.7
       }
+    },
+    "wall": {
+      "date": "2026-11-10",
+      "machine": "local",
+      "cpu": "Apple M1",
+      "os": "Darwin 25.6.0 arm64",
+      "ttfpMs": {
+        "reference": 160.5,
+        "throttled": 3633.9
+      },
+      "wasmBrotliKiB": 2798.8
     }
   }
 }

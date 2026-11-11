@@ -1,4 +1,6 @@
-//! Market watch's feed on the web (`contenders/market/worker.ts`): the JS
+//! Market watch's feed on the web (`contenders/market/worker.ts`), and the
+//! monitoring wall's (its host starts it once every table has filled,
+//! `start_once`, and records each batch across its tables, `record_wall`): the JS
 //! host hands over how to make the frame's worker and its start message
 //! (`market`, before `start`); the worker is made and started once the
 //! open's page has seeded the store and the table first fills (`watch`:
@@ -9,12 +11,15 @@
 
 use std::cell::{Cell, RefCell};
 
+#[cfg(feature = "market")]
 use gpui_kit::*;
 use js_sys::{Array, Function, Reflect, Uint8Array};
+#[cfg(feature = "market")]
 use seiza_tall_table::TallTableEvent;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "market")]
 use crate::host::{Host, Table};
 
 struct Feed {
@@ -60,6 +65,7 @@ pub fn flash() -> Vec<String> {
 /// the host fails). Once a page: a table opened again (the replay's `open`,
 /// which ends the feed, `Host::open`) gets none, since its store starts
 /// over and would miss the ticks sent meanwhile.
+#[cfg(feature = "market")]
 pub fn watch(table: &Entity<Table>, cx: &mut Context<Host>) {
     if STARTED.get() {
         return;
@@ -157,6 +163,7 @@ pub fn stop() {
 /// ticks, sent (epoch ms), generation (the last of its invalidations, 0 for
 /// none), visible (1 if a tick reached a row on screen)]`, for Shown in
 /// (`docs/contender-contract.md`, "Reading the metrics").
+#[cfg(feature = "market")]
 pub fn record(batch: crate::market::Batch, generation: u64, visible: bool) {
     if visible {
         crate::readout::waiting(batch.sent, generation);
@@ -177,6 +184,50 @@ pub fn record(batch: crate::market::Batch, generation: u64, visible: bool) {
         &batch.sent.into(),
         &(generation as f64).into(),
         &f64::from(u8::from(visible)).into(),
+    );
+    BATCHES.with(|batches| batches.push(&entry));
+}
+
+/// The wall's: starts the feed once its every table has filled, once a
+/// page, as market watch's `watch` does for its one table.
+#[cfg(feature = "wall")]
+pub fn start_once() -> Result<(), String> {
+    if STARTED.replace(true) {
+        return Ok(());
+    }
+    start()
+}
+
+/// The wall's batch folded: with `?readout`, one with a tick on screen
+/// waits in the ring until every table in `visible` has drawn the
+/// generation it names; with `?measure`, on `__contender.batches` as
+/// `[seq, ticks, sent (epoch ms), generations (per table, its rows' last
+/// invalidation, 0 for none), visible (a bitmask, bit t for table t)]`
+/// (`docs/contender-contract.md`, "Reading the metrics").
+#[cfg(feature = "wall")]
+pub fn record_wall(batch: crate::market::Batch, generations: &[u64], visible: u32) {
+    if visible != 0 {
+        crate::readout::waiting_wall(batch.sent, generations, visible);
+    }
+    if !crate::contract::measuring() {
+        return;
+    }
+    thread_local! {
+        static BATCHES: Array = {
+            let batches = Array::new();
+            crate::contract::set_on_contender("batches", &batches);
+            batches
+        };
+    }
+    let entry = Array::of5(
+        &batch.seq.into(),
+        &batch.count.into(),
+        &batch.sent.into(),
+        &generations
+            .iter()
+            .map(|&generation| JsValue::from_f64(generation as f64))
+            .collect::<Array>(),
+        &visible.into(),
     );
     BATCHES.with(|batches| batches.push(&entry));
 }
