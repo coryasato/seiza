@@ -6897,7 +6897,7 @@
           "path": "profiles.reference.tanstack.summary.keepsUpPct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-keeps-throttled",
@@ -6914,7 +6914,7 @@
           "path": "profiles.throttled.tanstack.summary.keepsUpPct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-late-reference",
@@ -6931,7 +6931,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-late-throttled",
@@ -6948,7 +6948,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-shown-reference",
@@ -6965,7 +6965,7 @@
           "path": "profiles.reference.tanstack.summary.shownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-shown-throttled",
@@ -6982,7 +6982,7 @@
           "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-collections-reference",
@@ -6999,7 +6999,7 @@
           "path": "profiles.reference.tanstack.summary.collectionsIn10s"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-collections-throttled",
@@ -7016,7 +7016,7 @@
           "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-work-reference",
@@ -7033,7 +7033,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-work-throttled",
@@ -7050,7 +7050,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-4-shown-min-reference",
@@ -7069,7 +7069,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-4-shown-min-throttled",
@@ -7088,7 +7088,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-4-shown-max-reference",
@@ -7107,7 +7107,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-4-shown-max-throttled",
@@ -7126,7 +7126,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-4-collection-time-reference",
@@ -7245,7 +7245,7 @@
           "path": "profiles.reference.tanstack.summary.keepsUpPct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-keeps-throttled",
@@ -7262,7 +7262,7 @@
           "path": "profiles.throttled.tanstack.summary.keepsUpPct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-late-reference",
@@ -7279,7 +7279,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-late-throttled",
@@ -7296,7 +7296,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-shown-reference",
@@ -7313,7 +7313,7 @@
           "path": "profiles.reference.tanstack.summary.shownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-shown-throttled",
@@ -7330,7 +7330,7 @@
           "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-collections-reference",
@@ -7347,7 +7347,7 @@
           "path": "profiles.reference.tanstack.summary.collectionsIn10s"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-collections-throttled",
@@ -7364,7 +7364,7 @@
           "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-work-reference",
@@ -7381,7 +7381,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-work-throttled",
@@ -7398,7 +7398,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-6-shown-min-reference",
@@ -7417,7 +7417,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-6-shown-min-throttled",
@@ -7436,7 +7436,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-6-shown-max-reference",
@@ -7455,7 +7455,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-6-shown-max-throttled",
@@ -7474,7 +7474,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-6-collection-time-reference",
@@ -7593,7 +7593,7 @@
           "path": "profiles.reference.tanstack.summary.keepsUpPct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-keeps-throttled",
@@ -7610,7 +7610,7 @@
           "path": "profiles.throttled.tanstack.summary.keepsUpPct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-late-reference",
@@ -7627,7 +7627,7 @@
           "path": "profiles.reference.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-late-throttled",
@@ -7644,7 +7644,7 @@
           "path": "profiles.throttled.tanstack.summary.latePct"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-shown-reference",
@@ -7661,7 +7661,7 @@
           "path": "profiles.reference.tanstack.summary.shownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-shown-throttled",
@@ -7678,7 +7678,7 @@
           "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-collections-reference",
@@ -7695,7 +7695,7 @@
           "path": "profiles.reference.tanstack.summary.collectionsIn10s"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-collections-throttled",
@@ -7712,7 +7712,7 @@
           "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-work-reference",
@@ -7729,7 +7729,7 @@
           "path": "profiles.reference.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-work-throttled",
@@ -7746,7 +7746,7 @@
           "path": "profiles.throttled.tanstack.summary.workP95Ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-stops"]
     },
     {
       "id": "monitoring-wall-8-shown-min-reference",
@@ -7765,7 +7765,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-8-shown-min-throttled",
@@ -7784,7 +7784,7 @@
           "of": "min"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-8-shown-max-reference",
@@ -7803,7 +7803,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-8-shown-max-throttled",
@@ -7822,7 +7822,7 @@
           "of": "max"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall-shown-range"]
     },
     {
       "id": "monitoring-wall-8-collection-time-reference",
@@ -7941,7 +7941,7 @@
           "path": "profiles.reference.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-usable-throttled",
@@ -7958,7 +7958,7 @@
           "path": "profiles.throttled.tanstack.summary.usableMs"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-first-pixels-reference",
@@ -7975,7 +7975,7 @@
           "path": "profiles.reference.tanstack.summary.firstPixelsMs"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-first-pixels-throttled",
@@ -7992,7 +7992,7 @@
           "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-data-reference",
@@ -8009,7 +8009,7 @@
           "path": "profiles.reference.tanstack.summary.ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-data-throttled",
@@ -8026,7 +8026,7 @@
           "path": "profiles.throttled.tanstack.summary.ms"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-memory-open-reference",
@@ -8043,7 +8043,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-memory-open-throttled",
@@ -8060,7 +8060,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-memory-reference",
@@ -8077,7 +8077,7 @@
           "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcLessCanvas"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-memory-throttled",
@@ -8094,7 +8094,7 @@
           "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcLessCanvas"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-memory-second-reference",
@@ -8110,7 +8110,7 @@
           "path": "profiles.reference.tanstack.summary.secondCanvasRunsEnd"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-canvas-buffer-reference",
@@ -8159,7 +8159,7 @@
           "path": "profiles.throttled.tanstack.summary.secondCanvasRunsEnd"
         }
       ],
-      "show": []
+      "show": ["readme:monitoring-wall"]
     },
     {
       "id": "monitoring-wall-canvas-buffer-throttled",

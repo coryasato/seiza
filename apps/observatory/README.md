@@ -4,14 +4,14 @@
 
 **Live at [seiza.io/observatory](https://seiza.io/observatory/).** It also runs locally: `just observatory preview` after `gpui-build`, `tanstack-build`, and `build`.
 
-The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in five scenarios: **Big file**, all 1.57 M known asteroids; **Wide sheet**, a spreadsheet's shape, 10,632 weather stations by 365 days of daily highs as heat, at four densities; **Market watch**, a trading screen, 50 made-up instruments whose prices a seeded feed updates in place, 100 to 5k times a second, each change flashing; and **Live tail**, a log tool's live view, NASA's web server log of July 1995 replayed into the table at 1k to 100k rows a second while the view follows the newest; and **Admin table**, the table in almost every app, the world's 250 countries and territories, each named in its own language and script, where what's compared is what the browser's own tools can do with each side's text.
+The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in six scenarios: **Big file**, all 1.57 M known asteroids; **Wide sheet**, a spreadsheet's shape, 10,632 weather stations by 365 days of daily highs as heat, at four densities; **Market watch**, a trading screen, 50 made-up instruments whose prices a seeded feed updates in place, 100 to 5k times a second, each change flashing; and **Live tail**, a log tool's live view, NASA's web server log of July 1995 replayed into the table at 1k to 100k rows a second while the view follows the newest; **Admin table**, the table in almost every app, the world's 250 countries and territories, each named in its own language and script, where what's compared is what the browser's own tools can do with each side's text; and **Monitoring wall**, an ops screen, 4 to 8 small tables of made-up instruments in one frame, each updated 2k times a second by a seeded feed.
 
 - **What it measures: use, not page load.** A data component is judged over a session: how soon it's usable, how long data takes to appear, how fast a scroll or a jump shows up, what a fling looks like, whether the last row is reachable, and what it costs in memory, CPU, and bytes. First pixels and bundle size are footnotes.
 - **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
 - **The same scope:** a comparison level is two builds with identical features; neither carries code the other lacks.
 - **One at a time:** contenders run one at a time, each in its own frame, since two in one tab share a main thread and a GPU. The published numbers come from cold Playwright runs; what your browser measures is labelled warm.
 - **Where TanStack wins, too:** the page's Compare panel shows the cold numbers for both devices, each card with its verdict, and says which side is lower, as this README does below.
-- **What your tab reads, and what that costs:** the contender's window has a status bar (Ready in, Rows in, Smooth, Memory; on market watch and live tail, Shown in in place of Rows in; on live tail, a Pause / Follow button beside the dial) and a meter over its corner (frame time over 10 s, memory over a minute; open, a pill, or hidden). They show what your tab reads of the side you're using, labelled warm for a side loaded second or from the cache. They share the contender's main thread, so they're held to a budget: with the meter open, a fling's late frames and dropped or GPU frames stay within noise of the meter hidden, the page spends 0.3–0.4 ms per refresh on a fast machine and under 1.5 ms on a slow one, and it re-renders nothing in React mid-fling ([`perf/results/2026-10-21-m5-d4.md`](perf/results/2026-10-21-m5-d4.md)). The pill drops more compositor frames under throttling than the open meter does.
+- **What your tab reads, and what that costs:** the contender's window has a status bar (Ready in, Rows in, Smooth, Memory; on market watch, live tail, and the monitoring wall, Shown in in place of Rows in; on live tail, a Pause / Follow button beside the dial) and a meter over its corner (frame time over 10 s, memory over a minute; open, a pill, or hidden). They show what your tab reads of the side you're using, labelled warm for a side loaded second or from the cache. They share the contender's main thread, so they're held to a budget: with the meter open, a fling's late frames and dropped or GPU frames stay within noise of the meter hidden, the page spends 0.3–0.4 ms per refresh on a fast machine and under 1.5 ms on a slow one, and it re-renders nothing in React mid-fling ([`perf/results/2026-10-21-m5-d4.md`](perf/results/2026-10-21-m5-d4.md)). The pill drops more compositor frames under throttling than the open meter does.
 
 ## Numbers
 
@@ -428,6 +428,95 @@ The tall table at the base level over a small file of text: the world's countrie
 "Now" is each metric's newest local measurement: [2026-11-10-m12-c2-usable-admin-table](perf/results/2026-11-10-m12-c2-usable-admin-table.json), [2026-11-10-m12-c2-data-admin-table](perf/results/2026-11-10-m12-c2-data-admin-table.json), [2026-11-10-m12-c2-scroll-admin-table](perf/results/2026-11-10-m12-c2-scroll-admin-table.json), [2026-11-10-m12-d-memory-admin-table](perf/results/2026-11-10-m12-d-memory-admin-table.json), [2026-11-10-m12-c2-data-admin-table-fonts](perf/results/2026-11-10-m12-c2-data-admin-table-fonts.json), [2026-11-10-m12-d-memory-admin-table-fonts](perf/results/2026-11-10-m12-d-memory-admin-table-fonts.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
 <!-- report:readme:admin-table:end -->
 
+### Monitoring wall
+
+The tall table at its wall level (market watch's custom cells, live re-reads, and number formats, plus density) on both sides: several small tables in one frame, all updating at once, as on an ops wall or a trading floor's desks. Each table is a desk of 50 fictional instruments, from a file of 400, in four columns (Symbol, Last, Chg %, Volume); a changed Last flashes and Chg % is drawn by its sign. The feed is synthetic: one seeded generator, run in a worker in each side's frame, sends every desk's ticks as the same bytes to either side, 2k updates a second a table, and each side folds every tick into its own store before each table re-reads its changed rows and draws once a frame. GPUI draws every table on one canvas; TanStack renders a tree of elements for each. A dial sets the tables: 4, 6, or 8 (two rows of them; one column on a phone). Each value is **GPUI / TanStack**, cold, median of 10, with no input. A side **keeps up** at a stop when at least 90% of the batches are drawn in a frame of their own, each batch counted once every table it ticked has drawn it. **Update shown in** is a batch's send time in the worker to the first presented frame in which every table it ticked has drawn it. How it's read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics"; the runs: [`perf/results/2026-11-11-m13-d2.md`](perf/results/2026-11-11-m13-d2.md). Measured with gpui-kit 0.9.1; the other scenarios' numbers were measured with 0.9.0, which an A/B in the same note found no different.
+
+- **Where GPUI wins:** keeping up on a slow device, and in garbage. Both keep up at every stop on a fast device. On a slow one TanStack keeps up only at 4 tables and GPUI through 6; at 8 neither does, but GPUI draws 80% of the batches in a frame of their own against TanStack's 43%. Both main threads are full from 6 tables on a slow device, and GPUI's frames cost about two thirds of TanStack's at 6 and a little over half at 8, so fewer of them are late. Its work per frame is lower at every stop on a slow device, and at 6 and 8 tables on a fast one. An update shows sooner on GPUI at every stop on a slow device. It pauses for garbage collection 3–4 times in 10 s at every stop on both devices, against TanStack's 22–33, most of which land in a late frame on a slow device from 6 tables on. Its HTML placeholder shell paints first pixels sooner on a slow device.
+- **Where TanStack wins:** it's usable far sooner (its prerendered first screen hydrates while GPUI's wasm downloads), holds a fraction of GPUI's memory (GPUI's canvas's backing store apart, mostly its wasm), and downloads a fraction of its bytes.
+- **Even:** smoothness on a fast device (no late frames on either side), an update's time to show on a fast device, where the two sides' runs overlap at every stop, time to data (the same engine and file), and first pixels on a fast device.
+
+At each stop:
+
+<!-- report:readme:monitoring-wall-stops:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Monitoring wall at 4 tables: batches shown in a frame of their own (keeps up), reference | — | 97.3 / 99.2 % |
+| Monitoring wall at 4 tables: batches shown in a frame of their own (keeps up), throttled | — | 97.2 / 97.4 % |
+| Monitoring wall at 4 tables: late frames under the feed, reference | — | 0 / 0 % |
+| Monitoring wall at 4 tables: late frames under the feed, throttled | — | 0 / 2.4 % |
+| Monitoring wall at 4 tables: update shown in (p50), reference | — | 14 / 15.4 ms |
+| Monitoring wall at 4 tables: update shown in (p50), throttled | — | 22.8 / 27.4 ms |
+| Monitoring wall at 4 tables: collection pauses in 10 s, reference | — | 4 / 32.5 pauses |
+| Monitoring wall at 4 tables: collection pauses in 10 s, throttled | — | 4 / 29 pauses |
+| Monitoring wall at 4 tables: work per frame (p95) under the feed, reference | — | 5.5 / 5.5 ms |
+| Monitoring wall at 4 tables: work per frame (p95) under the feed, throttled | — | 13.8 / 18.9 ms |
+| Monitoring wall at 6 tables: batches shown in a frame of their own (keeps up), reference | — | 96.3 / 99.1 % |
+| Monitoring wall at 6 tables: batches shown in a frame of their own (keeps up), throttled | — | 95.5 / 68.8 % |
+| Monitoring wall at 6 tables: late frames under the feed, reference | — | 0 / 0 % |
+| Monitoring wall at 6 tables: late frames under the feed, throttled | — | 12.6 / 72.8 % |
+| Monitoring wall at 6 tables: update shown in (p50), reference | — | 14.7 / 26.3 ms |
+| Monitoring wall at 6 tables: update shown in (p50), throttled | — | 28.6 / 46.5 ms |
+| Monitoring wall at 6 tables: collection pauses in 10 s, reference | — | 4 / 33 pauses |
+| Monitoring wall at 6 tables: collection pauses in 10 s, throttled | — | 3 / 24 pauses |
+| Monitoring wall at 6 tables: work per frame (p95) under the feed, reference | — | 5.9 / 7.6 ms |
+| Monitoring wall at 6 tables: work per frame (p95) under the feed, throttled | — | 19.4 / 33.4 ms |
+| Monitoring wall at 8 tables: batches shown in a frame of their own (keeps up), reference | — | 97.7 / 98.9 % |
+| Monitoring wall at 8 tables: batches shown in a frame of their own (keeps up), throttled | — | 80 / 43.3 % |
+| Monitoring wall at 8 tables: late frames under the feed, reference | — | 0 / 0 % |
+| Monitoring wall at 8 tables: late frames under the feed, throttled | — | 51.5 / 100 % |
+| Monitoring wall at 8 tables: update shown in (p50), reference | — | 17.3 / 26.9 ms |
+| Monitoring wall at 8 tables: update shown in (p50), throttled | — | 37 / 76.7 ms |
+| Monitoring wall at 8 tables: collection pauses in 10 s, reference | — | 4 / 31 pauses |
+| Monitoring wall at 8 tables: collection pauses in 10 s, throttled | — | 3 / 21.9 pauses |
+| Monitoring wall at 8 tables: work per frame (p95) under the feed, reference | — | 7.4 / 9.7 ms |
+| Monitoring wall at 8 tables: work per frame (p95) under the feed, throttled | — | 26 / 52 ms |
+
+"Now" is each metric's newest local measurement: [2026-11-11-m13-d2-feed-monitoring-wall-4](perf/results/2026-11-11-m13-d2-feed-monitoring-wall-4.json), [2026-11-11-m13-d2-feed-monitoring-wall-6](perf/results/2026-11-11-m13-d2-feed-monitoring-wall-6.json), [2026-11-11-m13-d2-feed-monitoring-wall-8](perf/results/2026-11-11-m13-d2-feed-monitoring-wall-8.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:monitoring-wall-stops:end -->
+
+Each run settles into its own frame scheduling, so on a fast device a side's update shown in is one of two values run by run, the feed's batches against the display's frames. The range of each side's runs, its fastest and slowest run's median update shown in, at each stop:
+
+<!-- report:readme:monitoring-wall-shown-range:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Monitoring wall at 4 tables: update shown in (p50), the fastest run, reference | — | 12.3 / 14.9 ms |
+| Monitoring wall at 4 tables: update shown in (p50), the fastest run, throttled | — | 21.9 / 26.9 ms |
+| Monitoring wall at 4 tables: update shown in (p50), the slowest run, reference | — | 16.4 / 25.5 ms |
+| Monitoring wall at 4 tables: update shown in (p50), the slowest run, throttled | — | 24.4 / 27.5 ms |
+| Monitoring wall at 6 tables: update shown in (p50), the fastest run, reference | — | 14.1 / 17.9 ms |
+| Monitoring wall at 6 tables: update shown in (p50), the fastest run, throttled | — | 26.7 / 45.7 ms |
+| Monitoring wall at 6 tables: update shown in (p50), the slowest run, reference | — | 23.9 / 27 ms |
+| Monitoring wall at 6 tables: update shown in (p50), the slowest run, throttled | — | 29.1 / 47.9 ms |
+| Monitoring wall at 8 tables: update shown in (p50), the fastest run, reference | — | 14.1 / 20.2 ms |
+| Monitoring wall at 8 tables: update shown in (p50), the fastest run, throttled | — | 36.6 / 74.6 ms |
+| Monitoring wall at 8 tables: update shown in (p50), the slowest run, reference | — | 24.2 / 27.4 ms |
+| Monitoring wall at 8 tables: update shown in (p50), the slowest run, throttled | — | 37.4 / 78.1 ms |
+
+"Now" is each metric's newest local measurement: [2026-11-11-m13-d2-feed-monitoring-wall-4](perf/results/2026-11-11-m13-d2-feed-monitoring-wall-4.json), [2026-11-11-m13-d2-feed-monitoring-wall-6](perf/results/2026-11-11-m13-d2-feed-monitoring-wall-6.json), [2026-11-11-m13-d2-feed-monitoring-wall-8](perf/results/2026-11-11-m13-d2-feed-monitoring-wall-8.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:monitoring-wall-shown-range:end -->
+
+Once, at the default stop (6 tables). Memory once the ticks are drawn leaves out every canvas buffer, as the admin table's does: GPUI's canvas is 19.8 MiB at 1440 × 900, and some runs' canvas held a second buffer at the end:
+
+<!-- report:readme:monitoring-wall:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Monitoring wall: time to first usable (6 tables), reference | — | 139.3 / 39.9 ms |
+| Monitoring wall: time to first usable (6 tables), throttled | — | 3603.2 / 490.7 ms |
+| Monitoring wall: first pixels (6 tables), reference | — | 51 / 37.6 ms |
+| Monitoring wall: first pixels (6 tables), throttled | — | 238.9 / 390 ms |
+| Monitoring wall: time to data (6 tables), reference | — | 188 / 201.8 ms |
+| Monitoring wall: time to data (6 tables), throttled | — | 1293.5 / 1332.9 ms |
+| Monitoring wall: memory once open, after GC (6 tables), reference | — | 33.2 / 4.5 MiB |
+| Monitoring wall: memory once open, after GC (6 tables), throttled | — | 32.1 / 4.3 MiB |
+| Monitoring wall: memory once the feed’s 10,000 ticks a table are drawn, less every canvas buffer (after GC) (6 tables), reference | — | 14.1 / 5.2 MiB |
+| Monitoring wall: memory once the feed’s 10,000 ticks a table are drawn, less every canvas buffer (after GC) (6 tables), throttled | — | 14.1 / 5.3 MiB |
+| Monitoring wall: runs whose canvas held a second buffer at the end (6 tables), reference | — | 3 / 0 |
+| Monitoring wall: runs whose canvas held a second buffer at the end (6 tables), throttled | — | 0 / 0 |
+
+"Now" is each metric's newest local measurement: [2026-11-11-m13-d2-usable-monitoring-wall-6](perf/results/2026-11-11-m13-d2-usable-monitoring-wall-6.json), [2026-11-11-m13-d2-data-monitoring-wall-6](perf/results/2026-11-11-m13-d2-data-monitoring-wall-6.json), [2026-11-11-m13-d2-memory-monitoring-wall-6](perf/results/2026-11-11-m13-d2-memory-monitoring-wall-6.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:monitoring-wall:end -->
+
 ## Canvas tradeoffs
 
 Where the GPUI side falls short of a DOM table, said here and in the page's description below the window:
@@ -436,6 +525,7 @@ Where the GPUI side falls short of a DOM table, said here and in the page's desc
 - **It draws only the scripts its faces cover.** GPUI bundles one face (IBM Plex Sans), so a name in another script draws as boxes. The admin table's fonts toggle loads a Noto face per script after first paint; with them, Arabic, Khmer, and Sinhala still draw a mark out of place. The flags are drawn, by the browser into the canvas.
 
 - **On touch, a swipe scrolls one axis.** GPUI's touch recognizer locks a pan to the axis it starts on and never unlocks it, so a diagonal swipe moves only one way, and when it picks the other axis the table feels stuck. TanStack's native scroller pans diagonally. It's in gpui core, not the table. Vertical and horizontal swipes and flings work.
+- **On a phone, the monitoring wall's column scrolls from fewer places.** A swipe over a GPUI table scrolls that table, and never hands on to the column of tables when the table reaches its end, so the column scrolls only from a table's title, a gap between tables, or the column's sides. TanStack's nested scrollers chain: a swipe that takes a table to its end scrolls the column on.
 - **DevTools' device mode draws it zoomed.** Chromium's emulation reports the canvas's device-pixel size at 1× under an emulated DPR, and gpui-pre-web trusts it, so the table draws a third the size at 3× zoom and touches outside that third do nothing. A real phone draws it normally (checked on an iPhone 13, Chrome and Safari). It's in gpui-pre-web, not the table.
 
 The diagnosis: [`perf/results/2026-10-19-m5-a1-phone.md`](perf/results/2026-10-19-m5-a1-phone.md).
@@ -447,6 +537,7 @@ The tables' data are re-hosted copies of public data, rewritten as Parquet, and 
 - **Asteroids (Big file):** NASA/JPL Small-Body Database (JPL Solar System Dynamics), courtesy NASA/JPL-Caltech.
 - **Daily highs (Wide sheet):** NOAA National Centers for Environmental Information, GHCN-Daily, version 3.35-upd-2026103117, under CC0 1.0. The file is cut from NOAA's data (the daily highs of 2025 with no quality flag, at stations with at least 300 such days), not NOAA's unaltered data, and NOAA endorses nothing here. Cite it as: Menne, M.J., I. Durre, B. Korzeniewski, S. McNeill, K. Thomas, X. Yin, S. Anthony, R. Ray, R.S. Vose, B.E. Gleason, and T.G. Houston, 2012: Global Historical Climatology Network - Daily (GHCN-Daily), Version 3.35. NOAA National Climatic Data Center. doi:10.7289/V5D21VHZ, accessed 2026-11-02.
 - **Instruments (Market watch):** the observatory's own, fictional and synthetic: 50 made-up companies, their names, symbols, and price levels invented for the scenario (no symbol is listed on a US exchange; the build checks), dedicated to the public domain under CC0 1.0. The prices that move are a seeded feed's, not a market's.
+- **Instruments (Monitoring wall):** the observatory's own, fictional and synthetic: 400 made-up symbols in 8 desks of 50, with price levels invented for the scenario (none listed on a US exchange, and none repeating market watch's; the build checks), dedicated to the public domain under CC0 1.0. The prices that move are the same seeded feed's, not a market's.
 - **Web server logs (Live tail):** NASA-HTTP, the Kennedy Space Center's web server log of July 1995, collected by Jim Dumoulin of NASA's Kennedy Space Center and contributed by Martin Arlitt and Carey Williamson of the University of Saskatchewan, from the Internet Traffic Archive, whose terms say "The traces may be freely redistributed." The archive asks that nothing be analyzed beyond general traffic patterns: the file keeps each request's time, request line, status, and bytes, drops the visitor's host, cuts every query string, and drops a request holding `@` (mostly e-mail addresses) or for a `~` path the server didn't serve ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"). The feed is a replay of the log, looped past its end.
 - **Countries (Admin table):** the region names (each in its region's likely language and in English) and the populations from the Unicode Common Locale Data Repository (CLDR) 49, under the Unicode License v3, its notice below; the capitals from Wikidata, under CC0 1.0. The flags are drawn from each region's code; the populations are rounded to the table's text.
 

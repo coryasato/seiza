@@ -471,12 +471,12 @@ wall *args:
 # Request bursts on the page's release build: the most requests one visitor
 # sends in any 10 s (the zone's rate limit's window), counted at the server
 # while the replay hooks fling and jump each side (on the wide sheet, at
-# every stop of the dial), market watch's and live tail's every stop on each
-# side under its feed, the admin table's GPUI side with its fonts toggle
+# every stop of the dial), market watch's, live tail's, and the monitoring
+# wall's every stop on each side under its feed, the admin table's GPUI side with its fonts toggle
 # pressed and pressed again, Big file then the wide sheet, and over 5 reloads
 # of each route. Writes perf/results/<date>-<label>.json. --label, --only
 # visit,reloads,wide,both,wide-reloads,market,market-reloads,tail,tail-reloads,
-# admin,admin-reloads.
+# admin,admin-reloads,wall,wall-reloads.
 # Run `builds` first.
 burst *args:
     node {{app_dir}}/perf/burst.ts {{args}}

@@ -32,6 +32,11 @@
 //   fetched once the rows are in), a fling with them; pressed again (a
 //   reload without them); a flip to TanStack, a fling and a jump.
 // - admin-reloads: the admin table's route reloaded 5 times, 1 s apart.
+// - wall: the monitoring wall's route; GPUI fills at the default stop and
+//   runs under the feed for 2 s, then the dial through every other stop, the
+//   same at each; a flip to TanStack, the same from there: each side at every
+//   stop.
+// - wall-reloads: the monitoring wall's route reloaded 5 times, 1 s apart.
 //
 // Every request counts, at the server: the page is served through a counting
 // proxy (shared-web/perf/serve.ts), since Playwright doesn't see the sync
@@ -41,7 +46,7 @@
 // production's: the safe side for a limit. A peak, not a timing, so one run
 // per scenario.
 //
-// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,market,market-reloads,tail,tail-reloads,admin,admin-reloads]
+// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,market,market-reloads,tail,tail-reloads,admin,admin-reloads,wall,wall-reloads]
 // Run gpui-build, tanstack-build, and build first. Writes
 // perf/results/<date>-<label>.json.
 
@@ -52,7 +57,7 @@ import { machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { startCountingProxy } from '../../../shared-web/perf/serve.ts';
 import { MARKS } from '../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../contenders/paths.ts';
-import { ADMIN_TABLE, BIG_FILE, type Level, LIVE_TAIL, MARKET_WATCH, type Scenario, WIDE_SHEET } from '../contenders/scenarios.ts';
+import { ADMIN_TABLE, BIG_FILE, type Level, LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, type Scenario, WIDE_SHEET } from '../contenders/scenarios.ts';
 import { COMPONENTS, SCENARIO_LINK, scenarioPath } from '../web/src/components.ts';
 import { perfDir, protocolContext, servePage } from './harness.ts';
 
@@ -67,7 +72,8 @@ const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
 const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
 const TAIL_ROUTE = scenarioPath(TALL_TABLE, LIVE_TAIL);
 const ADMIN_ROUTE = scenarioPath(TALL_TABLE, ADMIN_TABLE);
-/** How long a market watch or live tail frame runs under its feed at each stop. */
+const WALL_ROUTE = scenarioPath(TALL_TABLE, MONITORING_WALL);
+/** How long a market watch, live tail, or monitoring wall frame runs under its feed at each stop. */
 const FEED_MS = 2_000;
 
 /** The most of `times` (ms) inside any `WINDOW_MS`. */
@@ -132,12 +138,13 @@ async function flip(page: Page, to: 'GPUI' | 'TanStack'): Promise<void> {
  * On a scenario's route with a dial: `side` filled at the stop it opens at
  * (the default for the first side; a flip keeps the stop) and used there,
  * then used at each other stop, each a new frame. The wide sheet's use is a
- * fling and a jump, then a fling; market watch's and live tail's, the feed
+ * fling and a jump, then a fling; market watch's, live tail's, and the
+ * monitoring wall's, the feed
  * (or the replay) running a while.
  */
 async function dial(page: Page, side: 'gpui' | 'tanstack', scenario: Scenario): Promise<void> {
   const use = async (first: boolean): Promise<void> => {
-    if (scenario.level === 'market' || scenario.level === 'tail') {
+    if (scenario.level === 'market' || scenario.level === 'tail' || scenario.level === 'wall') {
       await play(page, side, [], scenario.level);
       await page.waitForTimeout(FEED_MS);
     } else await play(page, side, first ? ['fling', 'jump'] : ['fling'], scenario.level);
@@ -236,6 +243,16 @@ const scenarios: Record<string, { route: string; run: (page: Page) => Promise<vo
     },
   },
   'admin-reloads': { route: ADMIN_ROUTE, run: reloads },
+  wall: {
+    route: WALL_ROUTE,
+    run: async (page) => {
+      await dial(page, 'gpui', MONITORING_WALL);
+      await flip(page, 'TanStack');
+      await dial(page, 'tanstack', MONITORING_WALL);
+      await page.waitForTimeout(2_000);
+    },
+  },
+  'wall-reloads': { route: WALL_ROUTE, run: reloads },
 };
 
 const unknown = only?.filter((name) => !(name in scenarios)) ?? [];

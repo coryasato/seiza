@@ -629,3 +629,11 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - Chrome's Responsive mode isn't a narrow window for GPUI. Under its emulated DPR the canvas's backing store comes out half the size, so GPUI lays out for half the frame's width (one column of tables from about twice the breakpoint) and reads the pointer in that half-size layout. The same frame without emulation (a resized window) lays out and scrolls correctly. Check narrow layouts by resizing the window.
 - The stacked view's scrolling needed a person's hands. Every check passed: a wheel over a gap moved the column, over a table didn't. In use, an incremental scroll or a trackpad fling between two tables lands on the next table within a few events, and 8 px sides can't be aimed at. Only a review with a trackpad found it.
 - In GPUI, as in CSS, `flex_1` on an item and its siblings splits the row evenly, so a `max_w` on a share smaller than the cap never applies: the first try drew 130 px tables on a phone. A width that's the item's own is its basis (`flex_basis`, no grow).
+
+## M13 part F: the monitoring wall shipped (2026-11-11)
+
+**Results:** [`perf/results/2026-11-11-m13-f.md`](../perf/results/2026-11-11-m13-f.md).
+
+**Surprises:**
+- The wall is light on the wire. Its uses peaked at 60 and 107 requests in 10 s, under market watch's: eight tables are one file, read once a frame in a few requests, and the feed runs in the frame. What reaches the zone's limit is still reloading a scenario whose file is read by range.
+- Read under the protocol's overlap rule, an update's time to show is even at every stop on a fast device, though GPUI's median is the lower at each. Both sides' runs take one of two values, so the ranges overlap.
