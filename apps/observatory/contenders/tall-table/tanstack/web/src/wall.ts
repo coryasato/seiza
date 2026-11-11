@@ -44,15 +44,26 @@ const GPUI_SCROLLBAR = 16;
  * horizontal scrollbar takes (none for an overlay bar, or while the columns
  * fit; a classic bar's when they overflow), on `--wall-room` (`wall.css`),
  * so the rows shown are the GPUI side's either way. Measured again whenever
- * the scroller's size changes, which a bar appearing does. Returns the stop.
+ * the table's frame changes size, which is what makes a bar appear (the
+ * columns are fixed). It observes the frame, never the scroller: the room
+ * changes the scroller's own height, which inside the scroller's
+ * observation is a ResizeObserver loop, and the view's own observer of the
+ * scroller (`view.ts`'s `resized`) would read the height before the room.
+ * Observing the parent, the scroller's change is deeper, delivered to
+ * `resized` in the same frame with the room applied. Returns the stop.
  */
 export function keepBarRoom(scroller: HTMLElement): () => void {
   const fit = () => {
-    const room = `${Math.max(0, GPUI_SCROLLBAR - (scroller.offsetHeight - scroller.clientHeight))}px`;
-    if (scroller.style.getPropertyValue('--wall-room') !== room) scroller.style.setProperty('--wall-room', room);
+    // Twice at most: the room's height can bring a vertical bar in or out,
+    // which can bring the horizontal bar in or out.
+    for (let pass = 0; pass < 2; pass++) {
+      const room = `${Math.max(0, GPUI_SCROLLBAR - (scroller.offsetHeight - scroller.clientHeight))}px`;
+      if (scroller.style.getPropertyValue('--wall-room') === room) return;
+      scroller.style.setProperty('--wall-room', room);
+    }
   };
   const observer = new ResizeObserver(fit);
-  observer.observe(scroller);
+  observer.observe(scroller.parentElement!);
   fit();
   return () => observer.disconnect();
 }

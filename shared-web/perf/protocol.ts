@@ -96,6 +96,24 @@ export function summarize(values: number[], digits = 1): { median: number; min: 
   return { median: round(median(values)), min: round(Math.min(...values)), max: round(Math.max(...values)) };
 }
 
+/** Nearest-rank quartiles' distance (p75 − p25): of 10 runs, the 8th less the 3rd. */
+export function iqr(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = (p: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1))]!;
+  return sorted.length ? rank(0.75) - rank(0.25) : 0;
+}
+
+/**
+ * The quiet-machine gate: a set of runs whose IQR over median (`spread`)
+ * reaches it was too noisy to resolve a 3% difference between two medians
+ * of 10 (root `docs/DECISIONS.md`, "Measurement protocol"). The IQR, not
+ * the range: a median ignores one or two strays, and so does the gate.
+ */
+export const QUIET_SPREAD = 0.035;
+
+/** IQR over median: what `QUIET_SPREAD` gates. 0 for no values. */
+export const spread = (values: number[]): number => (values.length ? iqr(values) / median(values) : 0);
+
 /** Nearest-rank percentiles, as the perf panel computes them (`seiza::sample_stats`). */
 export function percentiles(values: number[]): { n: number; p50: number; p95: number; max: number } {
   const sorted = [...values].sort((a, b) => a - b);

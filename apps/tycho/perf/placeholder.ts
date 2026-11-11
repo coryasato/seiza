@@ -24,8 +24,9 @@
 //   gotchas"), the protocol's page, reference and throttled (--runs 10,
 //   --reference-only): TTFP and the placeholder's paint. The no-blank-frame
 //   check at the swap runs in every perf.ts run. Each side's TTFP spread
-//   ((max − min) / median) must stay under AB_MAX_SPREAD, or the run can't
-//   resolve a 3% difference and fails as too noisy: rerun it. The load
+//   (interquartile range over median, `QUIET_SPREAD`) must stay under 3.5%,
+//   or the run can't resolve a 3% difference and fails as too noisy: rerun
+//   it. Each run's TTFP is kept, so a run can be judged again. The load
 //   average is recorded, not gated (docs/DECISIONS.md, "Measurement
 //   protocol"). The other build's path is recorded relative to the repo.
 //
@@ -40,7 +41,7 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { preview } from 'vite';
 import { brotli } from '../../../shared-web/src/brotli.ts';
 import { PLACEHOLDER_CHARS } from '../../../shared-web/src/placeholder.ts';
-import { PROFILES, flag, hideDevicePixelContentBox, machineInfo, option, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, QUIET_SPREAD, flag, hideDevicePixelContentBox, machineInfo, option, spread, summarize, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { SCHEMES, compare, shoot, type HeldBack, type Scheme } from '../../../shared-web/perf/placeholder-shots.ts';
 
 const perfDir = dirname(fileURLToPath(import.meta.url));
@@ -53,8 +54,6 @@ const PORT = 4190;
 const url = `http://localhost:${PORT}/`;
 const fontPath = join(perfDir, '../../../shared-web/fonts/SeizaPlaceholder-Regular.woff2');
 const repoRoot = resolve(perfDir, '../../..');
-/** An A/B side's TTFP spread, (max − min) / median, above which the run is too noisy to resolve 3%. */
-const AB_MAX_SPREAD = 0.06;
 /** The shots hold back Tycho's wasm (the placeholder) and the engine's
  *  chunk (the first frame stays on "Engine loading…"). */
 const HELD: HeldBack = { wasm: /tycho_bg-[\w-]+\.wasm$/, afterPaint: /\/assets\/engine-[\w-]+\.js$/ };
@@ -375,27 +374,28 @@ try {
           name,
           {
             ttfpMs: summarize(of(name).map((run) => run.ttfpMs)),
+            ttfpMsRuns: of(name).map((run) => Number(run.ttfpMs.toFixed(1))),
+            ttfpSpreadPct: Number((spread(of(name).map((run) => run.ttfpMs)) * 100).toFixed(1)),
             placeholderPaintMs: summarize(of(name).flatMap((run) => (run.placeholderPaintMs === null ? [] : [run.placeholderPaintMs]))),
           },
         ]),
       );
       console.log(profile.name, JSON.stringify(output[`ab-${profile.name}`]));
-      const summaries = output[`ab-${profile.name}`] as Record<string, { ttfpMs: ReturnType<typeof summarize> }>;
       for (const name of Object.keys(variants)) {
-        const ttfp = summaries[name]?.ttfpMs;
-        if (!ttfp) {
+        const ttfps = of(name).map((run) => run.ttfpMs);
+        if (!ttfps.length) {
           failures.push(`${profile.name} A/B: no TTFP for ${name}`);
           continue;
         }
-        const spread = (ttfp.max - ttfp.min) / ttfp.median;
-        console.log(`${profile.name} ${name} TTFP spread ${(spread * 100).toFixed(1)}%`);
-        if (spread >= AB_MAX_SPREAD)
-          failures.push(`${profile.name} A/B too noisy: ${name}'s TTFP spread ${(spread * 100).toFixed(1)}% (limit ${AB_MAX_SPREAD * 100}%); rerun on a quieter machine`);
+        const noise = spread(ttfps);
+        console.log(`${profile.name} ${name} TTFP spread (IQR over median) ${(noise * 100).toFixed(1)}%`);
+        if (noise >= QUIET_SPREAD)
+          failures.push(`${profile.name} A/B too noisy: ${name}'s TTFP spread (IQR over median) ${(noise * 100).toFixed(1)}% (limit ${QUIET_SPREAD * 100}%); rerun on a quieter machine`);
       }
       if (of('this').some((run) => run.placeholderPaintMs === null || run.placeholderPaintMs > run.ttfpMs))
         failures.push(`${profile.name}: a run's placeholder didn't paint before the first frame`);
     }
-    output.ab = { other: publicPath(abDistDir!), runs, interleaved: true, maxSpread: AB_MAX_SPREAD, loadAverage: { before: loadBefore, after: load() } };
+    output.ab = { other: publicPath(abDistDir!), runs, interleaved: true, maxSpread: QUIET_SPREAD, spreadOf: 'IQR over median', loadAverage: { before: loadBefore, after: load() } };
   }
 } finally {
   await browser.close();

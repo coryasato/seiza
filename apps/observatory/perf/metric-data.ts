@@ -19,7 +19,9 @@
 // after the frame that leaves no table unfilled, TanStack's moment the
 // latest paint among every table's visible rows' cells (table t's row r
 // named as its instrument, `row:<50t + r>`; nothing scrolled, so each
-// table shows the first table's rows).
+// table shows the first table's rows). Under a feed (here and market
+// watch's), TanStack's paints count only up to the first
+// `contender:refreshed`: the feed starts at the fill.
 //
 // With `--fonts` (the admin table's toggle, GPUI only), the same with
 // `?fonts`, then the toggle's own: Scripts drawn in, `timeOrigin` →
@@ -94,16 +96,25 @@ async function scriptsDrawn(page: Page, filled: number, failures: string[]): Pro
 const TAIL_LEVEL = flaggedScenario().level === 'tail';
 
 /** The visible rows' cells painted (`rowsPainted`), on the wall across its
- *  tables: each table's rows the first table's, named as its instruments. */
-function visiblePainted(paints: readonly CellPaint[], open: number, state: ContenderState): { latest: number | null; missing: number[] } {
+ *  tables: each table's rows the first table's, named as its instruments.
+ *  Only paints before `until`, the feed's first drawn re-read: a cell
+ *  created under the feed is the feed's, not the load's. */
+function visiblePainted(paints: readonly CellPaint[], open: number, state: ContenderState, until: number): { latest: number | null; missing: number[] } {
   const tables = state.tables ?? 1;
-  const each = Array.from({ length: tables }, (_, table) => rowsPainted(paints, open, table * DESK_ROWS + state.first, table * DESK_ROWS + state.end));
+  const each = Array.from({ length: tables }, (_, table) => rowsPainted(paints, open, table * DESK_ROWS + state.first, table * DESK_ROWS + state.end, until));
   const latest = each.map((cells) => cells.latest);
   return { latest: latest.includes(null) ? null : Math.max(...(latest as number[])), missing: each.flatMap((cells) => cells.missing) };
 }
 
 /** Element Timing entries arrive after the paint, in an observer's task. */
 const PAINT_WAIT_MS = 2_000;
+
+/** Under a feed (market watch's and the wall's levels), the first
+ *  `contender:refreshed` after the fill: the feed starts at the fill, and
+ *  the fill's commit is drawn in an earlier frame than any re-read's, so
+ *  every paint of the load comes before it. Infinity until there is one. */
+const feedDrawn = (page: Page, filled: number): Promise<number> =>
+  page.evaluate(([name, after]) => performance.getEntriesByName(name, 'mark').map((mark) => mark.startTime).find((at) => at >= after) ?? Infinity, [MARKS.refreshed, filled] as const);
 
 /** The tail level's load, split (above). */
 async function tail(side: RunContext['side'], profile: RunContext['profile'], url: string, picked: RunContext['picked']): Promise<Run> {
@@ -162,10 +173,10 @@ await runMetric<Run>(
       if (picked?.scenario.level === 'wall' && state.tables !== (picked.stop as TablesStop).tables) failures.push(`state.tables ${state.tables}, not the stop's ${(picked.stop as TablesStop).tables}`);
       if (side === 'tanstack') {
         const deadline = Date.now() + PAINT_WAIT_MS;
-        let cells = visiblePainted(await paints(page), open, state);
+        let cells = visiblePainted(await paints(page), open, state, await feedDrawn(page, filled));
         while (cells.missing.length && Date.now() < deadline) {
           await page.waitForTimeout(50);
-          cells = visiblePainted(await paints(page), open, state);
+          cells = visiblePainted(await paints(page), open, state, await feedDrawn(page, filled));
         }
         if (cells.missing.length) failures.push(`visible rows without a painted cell: ${cells.missing.slice(0, 5).join(', ')}`);
         painted = cells.latest;
