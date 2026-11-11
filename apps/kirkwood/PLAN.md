@@ -21,7 +21,7 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | The two canvases: a spike | In progress: part A done, part B next |
+| M0 | The two canvases: a spike | In progress: parts A and B done, part C next |
 | M1 | The orbits' data | Planned |
 | M2 | The belt in space | Planned |
 | M3 | The reveal: sort by orbit size | Planned |
@@ -38,7 +38,7 @@ A *Planned* row's outline is under "Next milestones". Its spec, "done when" chec
 | Needs | For | Status |
 |---|---|---|
 
-Nothing yet. The tall table's `live`, `sort`, and `select` are built, and a filter to a drawn group's rows is the delegate's work if the rows are in memory. M0 says whether anything is missing.
+Nothing yet. The tall table's `live`, `sort`, and `select` are built, and a filter to a drawn group's rows is the delegate's work if the rows are in memory: the spike's filter needed nothing new (`docs/DECISIONS.md`, "Table"). M0's part C says whether the rows' source changes that.
 
 ---
 
@@ -66,9 +66,12 @@ The spike lives in `spike/` and is never deployed. What it proves is written dow
   *At rest 16.7 ms a frame, none late; time running, 32% of frames late (the GPU: about 45 frames a second, the main thread idle); the table flinging over a still scene, none late; both, 37%. Half the scene's resolution, or three quarters of its rows, holds 60. `docs/DECISIONS.md`, "Scene".*
 - [x] **A4. What Three.js adds in bytes** (brotli), as the spike imports it, recorded with the decision to keep or replace it.
   *104.3 KiB (523.1 raw), after first paint; kept for now. `docs/DECISIONS.md`, "Scene".*
-- [ ] **B1. The sort transition moves:** 1.57 M points fly from space to a against e and back, with the frame time during the flight recorded.
-- [ ] **B2. The fly-in:** after a shape closes, the camera flies in to the group while the table comes in beside it, filtered to the group's rows. Decides whether the table arrives with the zoom or after it.
-- [ ] **B3. A live column a person can read:** the distance from the Sun, recomputed as time runs, at a refresh rate chosen by looking at it. Decides which columns are live and how often they refresh; the cells never change faster than someone can follow.
+- [x] **B1. The sort transition moves:** 1.57 M points fly from space to a against e and back, with the frame time during the flight recorded.
+  *It moves, in the shader, on one number from Rust: [mid-flight](docs/spike/sort-mid.jpg), [landed, the gaps open](docs/spike/sort-landed.jpg), and back. 24% of the flight's frames late out and 17% back at the display's resolution (the GPU, as with time running), none at half the scene's; main-thread work 0.8 ms a frame. Chromium, Firefox, and WebKit (`spike/run.ts --only moves`). `docs/DECISIONS.md`, "Scene".*
+- [x] **B2. The fly-in:** after a shape closes, the camera flies in to the group while the table comes in beside it, filtered to the group's rows. Decides whether the table arrives with the zoom or after it.
+  *Built both ways and measured: [mid-flight](docs/spike/fly-mid.jpg), [flown in](docs/spike/fly-in.jpg). A shape's 150,500 rows are picked in 0.36 to 0.42 s, the rest go gray, the outline stays around the group, the table is over its rows, and time stays paused. The table arrives with the zoom: chosen on the board, the numbers (4.1 ms of main-thread work a frame against 0.8; at half resolution 10% of frames late against 3%), and the owner's look at both in a browser. `docs/DECISIONS.md`, "Scene", "Table".*
+- [x] **B3. A live column a person can read:** the distance from the Sun, recomputed as time runs, at a refresh rate chosen by looking at it. Decides which columns are live and how often they refresh; the cells never change faster than someone can follow.
+  *`sun_au`, a redraw of the table at the column's rate; no rate costs a frame. 2 a second, picked by the owner looking at 1, 2, 4, 10, and as fast as a timer goes (the panel's "Live" button). It's the one live column until M5. `docs/DECISIONS.md`, "Table".*
 - [ ] **C1. The rows in memory:** the 1.57 M rows with their text columns held in Rust: bytes in memory, bytes on the wire, and time to the table's first rows, against the same table over DuckDB. Decides the table's source, and with it how a filter to a group's rows is read.
 - [ ] **C2. The stack is decided** in `docs/DECISIONS.md`: the scene's renderer, who owns the clock and the selection, the rows' source, and how the two canvases are laid out.
 - [ ] **C3. M1's spec, checks, and parts are written** here, and `CLAUDE.md`'s stack and layout say what M0 decided.
@@ -118,12 +121,14 @@ None committed (the research's "Extras"):
 ## Open questions
 
 - **The table's source:** in memory or DuckDB, and with it how a filter to a group's rows is read. *M0, C1.*
-- **Which columns are live,** and how often they refresh while time runs fast. The cells are for a person to read, so they never change faster than someone can follow. *M0, B3.*
-- **The table's arrival:** with the fly-in's zoom, or after it. *M0, B2.*
+- **More live columns:** the Sun's distance is live, at 2 a second. Which others join it (the distance from Earth needs Earth's place), and how many decimals a live cell shows. *M5.*
+- **The clock's speed with the table open:** at a year a second the Sun's distance moves by up to half an au a second, so its last two decimals are never readable while time runs, at any refresh rate. Whether time slows while the table shows, the column drops decimals while it moves, or it's left as a blur that settles on pause. *M5.*
+- **The pick's stall:** placing 1.57 M rows to pick a shape's takes about 0.4 s in one task at the release. How it's taken off the frame: the rows' rotation computed once, a worker, or spread over the frames the outline closes in. *M5.*
+- **A shape drawn in a against e:** the spike takes a shape in space only. Picking a gap's edge on the landed layout is the natural next ask. *M5.*
 - **The epoch's spread:** whether JPL's elements share one epoch for most objects, or each needs propagating from its own. *M1.*
 - **The a against e furniture:** how much of board 4 is kept as drawn (liked on review, not yet specced). *M3.*
 - **A Worker of its own on the path:** whether a second Worker can take `/kirkwood/*` on a hostname bound to Tycho's as a custom domain. *M6.*
-- **The scene's resolution:** all 1.57 M points at the display's full resolution ran past a frame on an M1 in headless Chromium; half resolution held 60. Which resolution ships, chosen by eye in a real browser. *M0 part B looks; M2 decides.*
-- **A shape drawn across the panel:** a drag that leaves the scene's surface for the panel stops adding points until it comes back (a release there still closes the shape). Whether the panel should let it through. *M0, B2; M5.*
+- **The scene's resolution:** all 1.57 M points at the display's full resolution ran past a frame on an M1 in headless Chromium; half resolution held 60. Which resolution ships, chosen by eye in a real browser. In screenshots at the display's pixels the two read as the same dust up close, the half-resolution grain and the Sun's edge softer; at half, every move holds 60 but the fly-in with the table arriving (10% of its frames late). *M2 decides.*
+- **A shape drawn across the panel:** a drag that leaves the scene's surface for the panel stops adding points until it comes back (a release there still closes the shape). Whether the panel should let it through. The spike's fly-in left it as it was: a release over the panel closes the shape, and the group is what the closed shape holds. *M5.*
 - **Rows with no ellipse:** 5 rows have e at or past 1 and aren't drawn. What the scene and the row count say about them. *M2.*
 - **A phone:** whether the scene and a summoned table work at phone width, or the app says it's for a larger screen. *M6; M0 can show whether they fit.*

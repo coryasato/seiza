@@ -36,7 +36,7 @@ Leaning, not decided; the spike decides (`PLAN.md`), and this section is rewritt
 ```
 apps/kirkwood/
   docs/             # DECISIONS.md, LESSONS.md, milestones.md; spike/ (the spike's screenshots)
-  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the scene's input surface, the panel and its table), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js), data.ts (the elements file from the asteroid sample), run.ts (screenshots, input checks, frame times, bytes); not an npm workspace
+  spike/            # throwaway: crate/ (`kirkwood-spike`: the elements, the clock, the sort flight's progress, the scene's input surface, a drawn group's pick, the panel and its table with its filter and live column), src/ (main.ts; alpha.ts, GPUI's canvas composited by its alpha; scene.ts, the belt in Three.js: the flight between space and a against e, the group's colors and outline, the camera's fly-in), data.ts (the elements file from the asteroid sample), run.ts (screenshots, input checks, the moves' checks, frame times, bytes); not an npm workspace
   README.md         # for visitors
   CLAUDE.md         # this file
   PLAN.md           # what's next
@@ -51,10 +51,15 @@ The spike's only (no `just` module until there's an app), from the repo root:
 ```
 npm install --prefix apps/kirkwood/spike                 # its own deps (Three.js, DuckDB's Node client)
 node apps/kirkwood/spike/data.ts <asteroids.parquet>     # public/elements.bin (gitignored): each row's a, e, i from Tycho's sample
-node apps/kirkwood/spike/run.ts [flags]                  # builds the wasm and the page, then: the scene through GPUI's canvas (screenshots in out/), input routing, frame times with both canvases drawing, the build's bytes (--only shots,input,frames,bytes; --browser firefox|webkit; --params scale=0.5; --segments; --runs; --no-build)
+node apps/kirkwood/spike/run.ts [flags]                  # builds the wasm and the page, then: the scene through GPUI's canvas (screenshots in out/), input routing, frame times with both canvases drawing, the build's bytes, the three moves (the sort flight, a drawn group's fly-in with the table arriving, the live column), and frame times during each (--only shots,input,frames,bytes,moves,moveframes; --browser firefox|webkit; --params scale=0.5; --segments; --runs; --no-build)
+node apps/kirkwood/spike/run.ts --serve                  # builds, then serves the page to look at (?arrive=after, ?slide=<ms>, ?live=<refreshes a second>, ?decimals=<n>, ?scale=<0..1>)
 ```
 
 ## Spike gotchas
 
 - **GPUI's canvas is transparent only because of two things on the host's side:** `spike/src/alpha.ts` (the WebGPU context's alpha mode, set before the wasm starts) and the theme's `tokens.background` set transparent after `Theme::change`. `?opaque` turns the first off; in a browser on WebGL2 (headless Firefox) it changes nothing, so `run.ts`'s control fails there. Why: `docs/DECISIONS.md`, "Table".
 - **An element over the scene must `occlude()`,** or a press on it also starts a shape on the surface under it (`docs/DECISIONS.md`, "Input").
+- **The clock is moved by whoever reads it** (`advance_clock`: the scene each frame it draws, the date and the live column at their own rates), never by the scene's frames alone: landed in a against e the scene draws nothing, and time still runs (`docs/DECISIONS.md`, "Scene").
+- **The scene never calls into GPUI from a call Rust made.** Rust calls the scene inside a GPUI update (the pick's camera, the group's bytes, the outline, the fly-in), so what the scene reads back there are plain cells (`scene_years`, `scene_flight`, `scene_inset`); `fly_done`, which updates the host, is called only from the scene's own frame.
+- **What Rust hands the scene is a view over the wasm's memory:** copied or uploaded before the call returns (`setPicked`, `setOutline`, `setElements`), since the memory growing detaches it.
+- **A dot's size and opacity follow the camera's nearness** (`docs/DECISIONS.md`, "Look"); change one without the other and a flown-to group fades out or burns white.

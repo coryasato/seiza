@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 gpui-kit.workspace = true
-seiza-tall-table = { workspace = true, features = ["select"] }
+seiza-tall-table = { workspace = true, features = ["select", "live", "format"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 seiza.workspace = true
