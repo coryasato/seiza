@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part D2) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part E) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -96,7 +96,7 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
 - **C1: the TanStack contender at the level:** N tables in one React tree, each its own virtualizer over its desk (a phone's one column, the frame scrolling, its nested scrollers chaining), market watch's store widened to 400 rows, the fold, the flash, and the marks; `wall.css`; `wall` in `BUILT.tanstack`; its first-paint JS and data-layer budgets; market watch's bundle unchanged.
 - **C2: the same on both sides:** `perf/wall.ts` on both sides (each table's cells byte-identical after a fixed run of ticks, the same grid, widths, and gutter), `tanstack-contract` and `tanstack-parity` at the level (the grid, the flash, the sign colors, light and dark; Chromium, Firefox, WebKit), and all of it in `check`.
 - **D1: the metrics at the level:** A3's measures in the metric scripts at `--scenario monitoring-wall`: `metric-feed`'s pairing across the tables (the batches' generations and mask), `usable`, `data` (every table filled), and `memory` (`?ticks=60000`, Download); smoke runs only, then the code review.
-- **D2: the runs** (~1.5 h, one sitting on a quiet machine: A2-4): the feed at each stop, both sides, both devices, 10 runs, each file labelled `monitoring-wall-<stop>` with its versions; usable, data, and memory once; and the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 ("Open questions"); a results note.
+- **D2: the runs** (~1.5 h, one sitting on a quiet machine: A2-4): the feed at each stop, both sides, both devices, 10 runs, each file labelled `monitoring-wall-<stop>` with its versions; usable, data, and memory once; and the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 (settled: root `docs/DECISIONS.md`, "Comparison protocol", 2026-11-11); a results note.
 - **E: the page,** as the canvas and A3's boards draw it (the dial, the grid, the status bar, the panel, the description, the gallery card), and the Overview's rule if the wall changes it; split at its start if it's over a session.
 - **F: shipped.** The README's section by `report` (its canvas tradeoffs too: the phone's scrolling differs between the sides), `burst` under the zone's limit, the deploy, `worker-check`.
 
@@ -109,8 +109,8 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
   - The cells shown after a fixed run of ticks are byte-identical on both sides, every table.
   - Both sides draw the tables in the same grid and at the same widths.
   - `tanstack-parity` covers the grid, the flash, and the sign colors in Chromium, Firefox, and WebKit.
-- [ ] **Its runs:** `check` gates the level's budgets and runs its smoke, fixtures, and contract checks. The full cold protocol (its stops × both sides × both devices × 10 runs) runs once, in part D, each results file labelled `monitoring-wall-<stop>` with its versions.
-- [ ] **Its numbers:** at each stop, both sides, both devices: whether it keeps up, Shown in p50, collection pauses in 10 s, late frames, work per frame. Once a scenario: usable, data, memory. A results note, which also holds the 0.9.0 against 0.9.1 A/B and its verdict.
+- [ ] **Its runs:** `check` gates the level's budgets and runs its smoke, fixtures, and contract checks. The full cold protocol (its stops × both sides × both devices × 10 runs) runs once, in part D, each results file labelled `monitoring-wall-<stop>` with its versions. *The cold protocol ran in part D2 ([results](perf/results/2026-11-11-m13-d2.md)); left: one full `check` run (C2-4 ran its steps one by one).*
+- [x] **Its numbers:** at each stop, both sides, both devices: whether it keeps up, Shown in p50, collection pauses in 10 s, late frames, work per frame. Once a scenario: usable, data, memory. A results note, which also holds the 0.9.0 against 0.9.1 A/B and its verdict. *Evidence:* part D2 ([results](perf/results/2026-11-11-m13-d2.md)).
 - [ ] **The page:** the route, the dial, the grid, the status bar, the panel, and the description as the canvas and A3's boards draw them, "Measured with …" from the results; `page --check` covers them.
 - [ ] **Shipped:** the README's monitoring wall section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
 
@@ -258,6 +258,17 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
   - Passing after the fixes: `perf/wall.ts` on both sides; `tanstack-contract`; `tanstack-parity` in full, its wall grid and rows in all three browsers; `tanstack-sizes --level wall --check` (77.2 KiB, limit 84.6); `lint`.
   - The smoke runs again (1 run): the feed at 6 tables (GPUI 99.4 / 92.7%, TanStack 96.9 / 56.7%, reference / throttled), memory (60,000 ticks, cache equal), and data at the reference (96 rows on both sides).
 
+
+### Part D2: the runs
+
+**Done when:**
+- [x] **D2-1, the feed at each stop:** 4, 6, and 8 tables, both sides, both devices, 10 runs, each file labelled `monitoring-wall-<stop>` with its versions.
+  *Evidence* ([results](perf/results/2026-11-11-m13-d2.md), `2026-11-11-m13-d2-feed-monitoring-wall-{4,6,8}.json`): all 120 runs passed, gpui-kit 0.9.1. Keeps up, throttled: GPUI 97.2, 95.5, and 80.0%; TanStack 97.4, 68.8, and 43.3%. Both sides keep up at every stop at the reference (96.3–99.2%). On a slow device GPUI keeps up through 6 tables and TanStack only at 4, the edges A2's spike found. Collections in 10 s: GPUI 3–4, TanStack 22–33, of which 20–22 land in a late frame at 6 and 8 throttled. The throttle control read 4.09–4.18× in every throttled run, its busy loop's spread at most 1.4%.
+- [x] **D2-2, once a scenario at 6 tables:** usable, data, and memory, both sides, both devices, 10 runs.
+  *Evidence:* usable 139.3 ms GPUI (confirmed and guarded 10/10) against 39.9 TanStack at the reference. Time to data 188.0 against 201.8 ms. Memory after 60,000 ticks, less the canvas, 14.1 against 5.2 MiB. Download 2,801.2 KiB wasm against 122.7 KiB JS, with the engine ~5.7 MiB on each. Every published run passed. `usable` ran twice: the first set lost one TanStack run's trace mark, so the whole metric ran again alternated, 40 of 40 passing, and the first set is in `raw/`.
+- [x] **D2-3, the 0.9.0 against 0.9.1 A/B** (GPUI only, reference, median of 10: `metric response` and the wide sheet's `scroll` at `rows-20`).
+  *Evidence:* interleaved, 10 rounds of one cold run a version, the order alternating; each file's gpui-kit read from its build's wasm. Paired by round, every median difference is under 2% (key −0.02 ms, track −0.24, wheel +0.22; work down +0.04, sideways +0.05, fast −0.02) and none is distinguishable from zero (sign tests p ≥ 0.34). So the published scenarios keep their 0.9.0 labels (root [`docs/DECISIONS.md`](../../docs/DECISIONS.md), "Comparison protocol", 2026-11-11). Found on the way and fixed in `perf/contender.ts`: `versions` recorded the lock's gpui-kit, not the served build's, and a shared label could overwrite a results file.
+
 ---
 
 ## Next milestones
@@ -355,5 +366,4 @@ Not milestones. Each starts with research.
 
 - **The pill's compositor frames.** Throttled, the meter as a pill dropped more compositor frames than hidden on both sides (TanStack 7.98% against 3.5%, GPUI 4.21% against 0), while the open meter dropped none more (`perf/results/2026-10-21-m5-d4.md`). The pill isn't the default, so nothing gates it; whether it should get a layer of its own (`will-change: transform`, as the open meter has), and whether that's the cause, is untested.
 - **GPUI's lost mark offsets upstream.** gpui-pre-wgpu 0.3.11 drops cosmic-text's `x_offset` and `y_offset` (`perf/results/2026-11-09-m12-a2.md`), and 0.3.12 (gpui-kit 0.9.1) still does: its `cosmic_text_system.rs` is byte-identical. The user files the issue; whether a fix lands before part C, so the shaping verdicts are measured on it, is open.
-- **GPUI's numbers on gpui-kit 0.9.1.** Every scenario's results are labelled 0.9.0. gpui-pre 0.3.12 resets the cursor on every mouse and scroll event (a `document.body.style.cursor` write each on the web; [the bump's note](perf/results/2026-11-10-gpui-kit-0.9.1.md)), so GPUI's fling, scroll, and response readings may differ on the build the page serves. The root protocol says a bump re-measures the scenarios it touches or keeps their versions' label, decided per bump. To decide it: a GPUI-only A/B, 0.9.0 against 0.9.1, of the input-heavy readings (`metric response` and the wide sheet's `scroll` at one stop, reference, median of 10); re-measure the scenarios if it moves past the spread, else keep the label. M13's cold runs measure only the monitoring wall, and M14's re-measure only the wide sheet, so neither settles it; run it in M13's measuring part, beside its suite.
 - **The landing page.** The observatory's Worker holds the apex `seiza.io` (everything outside `/observatory/` a 404). The page is basic (a title, a catchy line, a link to the observatory), built in `site/landing/` on `site/ui/`'s shell (root `docs/DECISIONS.md`, "Repo structure"); when it ships is open. Shipping it moves the Worker to `site/worker/` and adds `/`, `/index.html`, and `/assets/` to the seiza.io WAF rule (`/fonts/` is in it already).

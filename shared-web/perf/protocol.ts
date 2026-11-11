@@ -166,6 +166,21 @@ export function versions(): Record<string, string> {
   return (cachedVersions = found);
 }
 
+/**
+ * The version of `crate` a built wasm was compiled from: under the release
+ * profile's `trim-paths`, its panic locations keep `<crate>-<version>/src/…`.
+ * What {@link versions} reads from `Cargo.lock` is the tree's, which a build
+ * made from another lock (an A/B's) isn't. Throws unless the wasm names
+ * exactly one version of it.
+ */
+export function wasmCrateVersion(wasmPath: string, crate: string): string {
+  const text = readFileSync(wasmPath).toString('latin1');
+  const escaped = crate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const found = new Set([...text.matchAll(new RegExp(`(?<![\\w-])${escaped}-(\\d+\\.\\d+\\.\\d+)/`, 'g'))].map((match) => match[1]!));
+  if (found.size !== 1) throw new Error(`${wasmPath}: names ${found.size ? [...found].join(', ') : 'no version'} of ${crate}, not one`);
+  return [...found][0]!;
+}
+
 /** Today's date on this machine, `YYYY-MM-DD`, for naming results: the
  *  local date the docs' entries carry, not UTC's (`toISOString`), which
  *  runs a day ahead in the evening west of Greenwich. */

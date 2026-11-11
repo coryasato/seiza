@@ -18,7 +18,7 @@
 //                          (`usable`, `data`, `memory`), written to
 //                          <date>-<label>-admin-table-fonts.json
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test';
 
@@ -26,12 +26,12 @@ import { chromium, type Browser, type BrowserContext, type Page, type Request } 
  *  the observatory page's frame). */
 export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, flag, machineInfo, median, option, throttle, wasmCrateVersion, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { FLING_FRAMES, FRAME_MS, PAGE_ROWS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type RefreshedFrame, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
 import { ADMIN_TABLE, ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
 import { FONTS_PARAM } from '../contenders/contract.ts';
-import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
+import { MARKS, dataPath, distDir, gpuiWebDir, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 export const SIDES: Side[] = ['gpui', 'tanstack'];
 /** Both contenders' rows (the TanStack contender's `layout.ts` pins GPUI's). */
@@ -560,6 +560,7 @@ export async function runMetric<R extends RunResult>(
       const suffix = scenario && stop && scenario.id !== BIG_FILE.id ? `-${resultLabel({ scenario, stop } as Picked)}${json.fonts ? '-fonts' : ''}` : '';
       const date = new Date().toISOString().slice(0, 10);
       const out = join(perfDir, 'results', `${date}-${label}${suffix}.json`);
+      refuseExisting(out);
       writeFileSync(out, `${JSON.stringify({ ...json, date, label, summarizedFrom: basename(file) }, null, 2)}\n`);
       console.log(`summarized ${file} again from its runs: wrote ${out}`);
     }
@@ -580,6 +581,18 @@ export async function runMetric<R extends RunResult>(
   const level = picks[0]?.scenario.level ?? 'base';
   if (!levels.includes(level)) throw new Error(`metric ${metric} doesn't run on the ${level} level`);
   const [gpuiPort, tanstackPort] = PORTS[metric]!;
+  // Results are append-only, and a file's name is its label, scenario, and
+  // stop, not its metric: a label two metrics share would overwrite the
+  // first's file. Refused before anything runs.
+  const date = new Date().toISOString().slice(0, 10);
+  const outOf = (suffix: string) => join(perfDir, 'results', `${date}-${label}${suffix}.json`);
+  const suffixOf = (pick: Picked) => (pick.scenario.id === BIG_FILE.id ? '' : `-${resultLabel(pick)}${fonts ? '-fonts' : ''}`);
+  if (label) for (const pick of picks) refuseExisting(outOf(suffixOf(pick)));
+  // The versions measured with: the tree's lockfiles, but gpui-kit's the
+  // served GPUI build's own (its wasm's panic locations), so a build made
+  // from another lock (an A/B's) is recorded as what it is.
+  const measuredWith = machineInfo();
+  if (sides.includes('gpui')) measuredWith.versions = { ...measuredWith.versions, 'gpui-kit': builtGpuiKit(level) };
   const servers: Partial<Record<Side, AppServer>> = {};
   const failures: string[] = [];
   try {
@@ -588,15 +601,15 @@ export async function runMetric<R extends RunResult>(
     for (const pick of picks) {
       // Big file's runs are unlabelled; every other scenario's, the base level's admin table too, carry its label.
       const picked = pick.scenario.id === BIG_FILE.id ? null : pick;
-      const suffix = picked ? `-${resultLabel(picked)}${fonts ? '-fonts' : ''}` : '';
+      const suffix = suffixOf(pick);
       const name = picked ? ` ${resultLabel(picked)}${fonts ? ' fonts' : ''}` : '';
       const output: Record<string, unknown> = {
-        date: new Date().toISOString().slice(0, 10),
+        date,
         label,
         metric,
         ...(picked ? { scenario: picked.scenario.id, stop: picked.stop } : {}),
         ...(fonts ? { fonts: true } : {}),
-        ...machineInfo(),
+        ...measuredWith,
         runs,
         ...(typeof extra === 'function' ? extra(picked) : extra),
         profiles: {},
@@ -625,7 +638,8 @@ export async function runMetric<R extends RunResult>(
       }
       output.failures = failures.filter((failure) => failure.startsWith(`${metric}${name} `));
       if (label) {
-        const out = join(perfDir, 'results', `${output.date}-${label}${suffix}.json`);
+        const out = outOf(suffix);
+        refuseExisting(out);
         mkdirSync(join(perfDir, 'results'), { recursive: true });
         writeFileSync(out, `${JSON.stringify(output, null, 2)}\n`);
         console.log(`wrote ${out}`);
@@ -639,6 +653,19 @@ export async function runMetric<R extends RunResult>(
     process.exit(1);
   }
   console.log('\nPASS');
+}
+
+/** Throws if a results file is already there: results are append-only. */
+function refuseExisting(out: string): void {
+  if (existsSync(out)) throw new Error(`${out} exists: results are append-only, so give this run a label of its own`);
+}
+
+/** The gpui-kit the GPUI contender's build at `level` was compiled from. */
+function builtGpuiKit(level: Scenario['level']): string {
+  const assets = join(distDir(gpuiWebDir, level), 'assets');
+  const wasm = readdirSync(assets).filter((name) => name.endsWith('.wasm'));
+  if (wasm.length !== 1) throw new Error(`${assets}: ${wasm.length} wasm files, not one`);
+  return wasmCrateVersion(join(assets, wasm[0]!), 'gpui-kit');
 }
 
 /** The scenario `--scenario` asks for: Big file without it. */
