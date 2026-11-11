@@ -21,6 +21,8 @@ export const CONTROL_SHIFT_PX = 2;
 export const WALL_COLUMNS = ['Symbol', 'Last', 'Chg %', 'Volume'] as const;
 /** A phone: one column of tables. */
 export const PHONE = { width: 390, height: 844 };
+/** A narrow window: one column of tables, its sides wide. */
+export const NARROW = { width: 700, height: 900 };
 
 export interface WallCell {
   row: number;

@@ -617,3 +617,15 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - At the reference Shown in takes one of two values on both sides, run by run. Its send → presentation part takes one of two values a frame's half apart: the feed's 16 ms batches against the display's frames, phased at each cold start. A median of 10 lands on whichever value most runs drew, so a stop's card can move by a frame's worth between suites with nothing changed.
 - `machineInfo` read the versions from the lockfile, not from the build being measured, so an A/B's other build was recorded as the tree's. The build names its own: under `trim-paths` a wasm's panic locations keep `gpui-kit-<version>/`, exactly one, which the metric scripts now record.
 - Two A/Bs, one back to back and one interleaved, both put sideways work +3.7–3.9% on 0.9.1 by the sets' medians, and pairing the interleaved rounds put it at +1%, either way. The reading takes one of two values a run, so a set's median follows how many runs drew which. A two-valued reading spreads past the quiet gate on a quiet machine, and only a paired comparison reads it.
+
+## M13 part E: the monitoring wall on the page (2026-11-11)
+
+**Results:** [`perf/results/2026-11-11-m13-e.md`](../perf/results/2026-11-11-m13-e.md).
+
+**Surprises:**
+- A build directory isn't the tree's build until it's rebuilt. The GPUI contender's market and tail directories predated part B1, though every part since had built other levels, so comparing "before" and "after" first showed this part changing their wasm. B2's recorded hash settled it. Rebuild every level before comparing any.
+- The page needed no new reading for N tables. The frame's ring is pooled across the tables on both sides, so the page reads it as market watch's, and the status bar and panel are market watch's cards with the wall's words.
+- This tab's Smooth read 66.7 % on TanStack in the check, right after the flip, on a window of a few frames; read for 15 s it held at 100 %. A single early reading says little; the check asks only for a number.
+- Chrome's Responsive mode isn't a narrow window for GPUI. Under its emulated DPR the canvas's backing store comes out half the size, so GPUI lays out for half the frame's width (one column of tables from about twice the breakpoint) and reads the pointer in that half-size layout. The same frame without emulation (a resized window) lays out and scrolls correctly. Check narrow layouts by resizing the window.
+- The stacked view's scrolling needed a person's hands. Every check passed: a wheel over a gap moved the column, over a table didn't. In use, an incremental scroll or a trackpad fling between two tables lands on the next table within a few events, and 8 px sides can't be aimed at. Only a review with a trackpad found it.
+- In GPUI, as in CSS, `flex_1` on an item and its siblings splits the row evenly, so a `max_w` on a share smaller than the cap never applies: the first try drew 130 px tables on a phone. A width that's the item's own is its basis (`flex_basis`, no grow).

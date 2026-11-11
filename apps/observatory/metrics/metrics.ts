@@ -435,6 +435,11 @@ export const SCROLLS = {
   fast: { y: -120_000, speed: 60_000 },
 } as const;
 
+/** The monitoring wall's memory session: the feed's ticks a desk, its
+ *  `?ticks` this × the stop's tables (market watch's 200 an instrument over a
+ *  desk's 50; `perf/metric-memory.ts`, and the page's Memory card says it). */
+export const WALL_TICKS_A_TABLE = 10_000;
+
 /** A side keeps up at a stop when at least this share of the display's
  *  frames draw new cells, in each of the scenario's steady scrolls
  *  (`docs/DECISIONS.md`, "Scenarios"). The chart's dashed line. */

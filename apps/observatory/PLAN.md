@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part E) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part F) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -98,7 +98,7 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
 - **D1: the metrics at the level:** A3's measures in the metric scripts at `--scenario monitoring-wall`: `metric-feed`'s pairing across the tables (the batches' generations and mask), `usable`, `data` (every table filled), and `memory` (`?ticks=60000`, Download); smoke runs only, then the code review.
 - **D2: the runs** (~1.5 h, one sitting on a quiet machine: A2-4): the feed at each stop, both sides, both devices, 10 runs, each file labelled `monitoring-wall-<stop>` with its versions; usable, data, and memory once; and the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 (settled: root `docs/DECISIONS.md`, "Comparison protocol", 2026-11-11); a results note.
 - **E: the page,** as the canvas and A3's boards draw it (the dial, the grid, the status bar, the panel, the description, the gallery card), and the Overview's rule if the wall changes it; split at its start if it's over a session.
-- **F: shipped.** The README's section by `report` (its canvas tradeoffs too: the phone's scrolling differs between the sides), `burst` under the zone's limit, the deploy, `worker-check`.
+- **F: shipped.** The README's section by `report` (its canvas tradeoffs too: the phone's scrolling differs between the sides), `burst` under the zone's limit (its feed check takes the market and tail levels alone, `perf/burst.ts`: the wall's level joins it, found by part E's code review), the deploy, `worker-check`.
 
 **Done when** (draft; the measures made exact in A1–A3):
 - [ ] **Its builds:** the level `wall` on both sides carries market watch's features and `density` (and their counterparts), and nothing else; every other level byte-identical to before. Its budgets (`gpui-wall-*`, `tanstack-wall-*`) are against baselines of their own, gated by `check`, with each feature's added bytes in a results note.
@@ -111,7 +111,7 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
   - `tanstack-parity` covers the grid, the flash, and the sign colors in Chromium, Firefox, and WebKit.
 - [ ] **Its runs:** `check` gates the level's budgets and runs its smoke, fixtures, and contract checks. The full cold protocol (its stops × both sides × both devices × 10 runs) runs once, in part D, each results file labelled `monitoring-wall-<stop>` with its versions. *The cold protocol ran in part D2 ([results](perf/results/2026-11-11-m13-d2.md)); left: one full `check` run (C2-4 ran its steps one by one).*
 - [x] **Its numbers:** at each stop, both sides, both devices: whether it keeps up, Shown in p50, collection pauses in 10 s, late frames, work per frame. Once a scenario: usable, data, memory. A results note, which also holds the 0.9.0 against 0.9.1 A/B and its verdict. *Evidence:* part D2 ([results](perf/results/2026-11-11-m13-d2.md)).
-- [ ] **The page:** the route, the dial, the grid, the status bar, the panel, and the description as the canvas and A3's boards draw them, "Measured with …" from the results; `page --check` covers them.
+- [x] **The page:** the route, the dial, the grid, the status bar, the panel, and the description as the canvas and A3's boards draw them, "Measured with …" from the results; `page --check` covers them. *Evidence:* part E ([results](perf/results/2026-11-11-m13-e.md)).
 - [ ] **Shipped:** the README's monitoring wall section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
 
 ### Part A1: the data, the feed, and the level's shape
@@ -269,6 +269,28 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
 - [x] **D2-3, the 0.9.0 against 0.9.1 A/B** (GPUI only, reference, median of 10: `metric response` and the wide sheet's `scroll` at `rows-20`).
   *Evidence:* interleaved, 10 rounds of one cold run a version, the order alternating; each file's gpui-kit read from its build's wasm. Paired by round, every median difference is under 2% (key −0.02 ms, track −0.24, wheel +0.22; work down +0.04, sideways +0.05, fast −0.02) and none is distinguishable from zero (sign tests p ≥ 0.34). So the published scenarios keep their 0.9.0 labels (root [`docs/DECISIONS.md`](../../docs/DECISIONS.md), "Comparison protocol", 2026-11-11). Found on the way and fixed in `perf/contender.ts`: `versions` recorded the lock's gpui-kit, not the served build's, and a shared label could overwrite a results file.
 
+### Part E: the page
+
+The monitoring wall joins the page as the canvas draws it (its `wall` scenario; WallLight, WallTanstack, WallPanel, PhoneWall, PhoneWallDark), its words from D2's numbers. Its route is market watch's shape: a dial of stops, a feed, this tab's Shown in from the frame's ring (pooled across the tables, `docs/contender-contract.md`, "The readout's ring"), the panel's keeps-up charts and three cards at a stop. What's its own: the dial's tables, the Memory card less every canvas buffer (A3-1, as the admin table's), the gallery's drawing (eight small tables), and the Overview's rule, which the wall changes. One session: market watch's E was.
+
+**Done when:**
+- [x] **E1, the route:** `/observatory/tall-table/monitoring-wall/` (`SCENARIOS`), its frame at the wall level and default stop (6) with `?readout`; the title bar's dial "Tables" (4, 6, 8, each's sets in its title and the explainer), the "Synthetic data" tag, the lead "Several live tables in one frame. Turn up the tables."; the load's explainer with the feed's row.
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): `page --check`: the frame `…/gpui/wall/?scenario=monitoring-wall&stop=6&theme=…&readout=`, the tag, the dial `4, 6, 8` with each's sets ("each at 2k updates/s, 12k in all"), the lead, the load's feed row.
+- [x] **E2, the status bar:** Ready in, Shown in, Smooth, Memory, each's cold values at the window's stop from D2's files (through `perf/budgets.json`'s `monitoring-wall-*` metrics); this tab's Shown in and Smooth reading on both sides with no input; neither bare page keeping a ring without `?readout` (the control); a phone's Shown in and Smooth, the rest in its overflow; the data "Simulated stock prices", 400 rows.
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): `page --check`: the cold values at 6 tables (Ready in 139 / 39.9 ms, Shown in 14.7 / 26.3 ms, Smooth 100 / 100 %, Memory 14.1 / 5.2 MiB); this tab with no input reading a Shown in and Smooth on both sides (steady over 15 s: GPUI 11.8–14.2 ms, TanStack 10.0–10.7, Smooth 100 %); the ring's control; a phone's `shown`, `smooth`.
+- [x] **E3, the panel:** the keeps-up verdict and a chart per device (the share of batches shown in a frame of their own across the tables, the 90% line), the cards at a stop (Smoothness, Update shown in, Collection pauses) at the window's stop and at one picked, and the card for every stop (Ready in, Download).
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): `page --check`: "Both keep up at every stop, to 8 tables · on a slow device, TanStack keeps up to 4; GPUI keeps up to 6", both charts' shares from D2's files; at 6 Smoothness "GPUI smoother on a slow device", Shown in "GPUI 1.6× faster on a slow device" (even at the reference: runs overlap), collections "GPUI 12.3× less · 11.4× on a slow device"; at 8 as the note.
+- [x] **E4, the description:** what it models (the instruments and the feed made up), "where each side wins" from the numbers, the data's credit, "Measured with …", the other scenarios; every other scenario's route lists the wall among its others.
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): `page --check`: the wins ("GPUI keeps up with more tables on a slow device, … TanStack is ready sooner, holds less memory, and downloads less."), the credit, "Measured with gpui-kit 0.9.1 · …", the phone column's shortfall, the other five scenarios; every other route lists the wall last among its others.
+- [x] **E5, the galleries:** the Overview's rule with the wall's clause, re-derived; the wall's card (its verdict, its drawing of eight small tables, the tag), its keeps-up row, its mechanisms.
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): `page --check`: the rule "… past 10k rows a second on a slow device, or past 4 live tables on a slow device." (re-derived), the wall's card verdict and lean, both tags, its reach row (8 / 8 tables, 6 / 4 on a slow device), its mechanisms (cost per cell, garbage, the platform), its drawing's eight tables in two rows of four.
+- [x] **E6, the builds:** the contenders' builds unchanged but for the scenario list's entry; `check`'s page steps pass (`page --check`, `lint`, the TanStack and GPUI wall budgets).
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): every level of both sides rebuilt: TanStack's five and GPUI's base, wide, and wall byte-identical; GPUI's market and tail old builds predated B1 (the market wasm now B2's recorded `5e65b0bf…`), each bundle holding the scenario list once (`ALL_SCENARIOS`). `page --check` passed twice, the second on the fresh builds: first paint 69.5 ms (limit 72.5), first-paint JS 87.1 KiB (limit 95.5). `lint` passed. After the code review's fixes (7 of 9; the results note): every contender build byte-identical again, `page --check` (first paint 68.2 ms, first-paint JS 87.1 KiB) and `lint` pass.
+- [x] **E8, the stacked view scrolls** (inserted: the user's review): in one column each table at the grid's `columnWidth` (its own, 327 px) and centered on both sides, a wheel over the column's side scrolling it; `perf/wall.ts` checks the width, the centering, and the side's wheel on a phone and a 700 px window; the wall's builds within their budgets.
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md), "The stacked view"): `perf/wall.ts` passes on both sides (every stacked table 327 px and centered at 390 and 700 px, the sides' grids the same with both controls differing, a wheel over the side moving the column); `tanstack-parity`'s wall grids match GPUI's in Chromium, Firefox, and WebKit, phone included. The full `check`: every budget passes (the wall's GPUI TTFP 172.1 ms, limit 176.6; wasm 2,799.5 KiB; TanStack's first-paint JS 77.3 KiB, limit 84.6) and every step passes; on a loaded machine (load average 6–14) `tanstack-parity` failed once at Chromium's base-level track press and once at WebKit's live tail, each passing on its rerun. `page --check` after it: first paint 72.1 ms (limit 72.5, loaded), first-paint JS 87.1 KiB.
+- [x] **E7, written down:** `CLAUDE.md`, `docs/DECISIONS.md` (the page as built), a `docs/LESSONS.md` entry, the results note with each build's size effect.
+  *Evidence* ([results](perf/results/2026-11-11-m13-e.md)): those files; LESSONS' part E entry; the results note.
+
 ---
 
 ## Next milestones
@@ -355,6 +377,12 @@ Not milestones. Each starts with research.
 - **Dropping your own file:** out of the base level. It would widen the cell fixtures to every column kind (decimals, timestamps, 128-bit integers). Opening any dataset (a dropped file, HuggingFace) is Tycho's, as a utility app's job.
 
 ---
+
+## Known bugs
+
+Found and not yet fixed; each gets a session of its own (a fix in the part that owns the code, or a part of its own).
+
+- **Live tail: the crumb's scenario menu won't stay open while the view follows** (found by the user, 2026-11-11). On `/observatory/tall-table/live-tail/`, with the frame following the tail, pressing the scenario name beside "TallTable /" in the inset's header doesn't open its menu (or it closes at once). Paused (the follow toggle's "Follow · <n> new rows"), the menu works. The user's hypothesis, not yet checked: the menu closes on a focus-out (Base UI's menu dismisses when focus leaves it), and something while following moves focus, the frame or the page's readouts. To check first: which side (GPUI, TanStack, or both); what has focus as the menu closes (`document.activeElement`, a `focusout`'s `relatedTarget`); whether the frame's work under the clock calls `focus()`, or the follow toggle or the status bar re-renders the header. A fix needs a `page --check` step: the menu opens and stays open on live tail's route while following, its control paused.
 
 ## Open questions
 

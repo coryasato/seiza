@@ -66,7 +66,7 @@
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import type { Page, Request } from '@playwright/test';
-import { READ_THROUGH, SCROLLS } from '../metrics/metrics.ts';
+import { READ_THROUGH, SCROLLS, WALL_TICKS_A_TABLE } from '../metrics/metrics.ts';
 import { PAGE_ROWS, ROW_HEIGHT, dataReads, state, fedTicks, fileFacts, filledState, flaggedScenario, fontsParams, gesture, jump, medianOf, opened, openSide, quiet, readWhole, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
 import { ENGINE_CHUNK, MARKS } from './harness.ts';
 import { wholeFileWatch } from './tail-metric.ts';
@@ -85,9 +85,6 @@ const SIDEWAYS_TRIPS = 5;
 /** Market watch's session: the ticks the feed sends, then ends (20 s at
  *  the default stop's 500 a second). */
 const FEED_TICKS = 10_000;
-/** The monitoring wall's session: the ticks a desk (`?ticks` is this × the
- *  stop's tables: 60,000 at the default 6, 5 s at 2k a table). */
-const WALL_TICKS_A_TABLE = 10_000;
 /** Live tail's session: the rows the clock counts, then stops (10 s at the
  *  default stop's 10k a second, ~98 pages). */
 const TAIL_ROWS = 100_000;

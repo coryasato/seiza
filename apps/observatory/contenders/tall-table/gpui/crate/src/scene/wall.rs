@@ -46,7 +46,7 @@ pub const MOST_TABLES: usize = 8;
 
 /// The numbers the JS host hands in before market watch's ([`Market::new`]'s):
 /// the tables, the file's rows, then the grid (`web/src/wall.ts` writes them).
-const HEAD: usize = 12;
+const HEAD: usize = 13;
 
 /// The grid, px (the scenario's `grid`).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -64,6 +64,9 @@ pub struct Grid {
     pub one_column_below: f32,
     /// In one column, the rows a table shows under its header.
     pub phone_rows: usize,
+    /// In one column, a table's widest, centered: the column's sides are
+    /// room to scroll it from.
+    pub column_width: f32,
 }
 
 /// The scene's settings at the wall level.
@@ -83,7 +86,7 @@ pub struct Wall {
 impl Wall {
     /// From the JS host's numbers (`[tables, the file's rows, gap, title,
     /// row height, text size, the four widths, one column below, phone
-    /// rows, …market watch's (Market::new's, its decimals the shown
+    /// rows, a column's table's width, …market watch's (Market::new's, its decimals the shown
     /// desks')]`) and the flashing columns' names (market watch's: those the
     /// wall draws flash). Anything else is an error the host shows.
     pub fn new(level: &[f64], flash: &[String]) -> Result<Self, String> {
@@ -107,6 +110,7 @@ impl Wall {
             volume,
             below,
             phone_rows,
+            column_width,
         ] = head
         else {
             unreachable!("HEAD numbers");
@@ -118,7 +122,15 @@ impl Wall {
             ));
         }
         let lengths = [
-            title, row_height, text_size, symbol, last, change_pct, volume, below,
+            title,
+            row_height,
+            text_size,
+            symbol,
+            last,
+            change_pct,
+            volume,
+            below,
+            column_width,
         ];
         if !(gap >= 0.0
             && lengths
@@ -158,6 +170,7 @@ impl Wall {
                 widths: [symbol, last, change_pct, volume].map(|width| width as f32),
                 one_column_below: below as f32,
                 phone_rows: phone_rows as usize,
+                column_width: column_width as f32,
             },
             market,
             flashing,
@@ -394,6 +407,7 @@ mod tests {
             80.0,
             768.0,
             6.0,
+            327.0,
         ];
         level.extend([400.0, 0.3]);
         level.extend([0.6, 0.15, 149.0].repeat(4));

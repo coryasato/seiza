@@ -33,7 +33,7 @@ export const levelHost = (picked: Picked): LevelHost | undefined => {
   if (picked.scenario.level !== 'wall') return undefined;
   const { scenario, stop } = picked as Picked<WallScenario>;
   const { light, dark } = scenario.signs;
-  const { gap, title, rowHeight, textSize, widths, oneColumnBelow, phoneRows } = scenario.grid;
+  const { gap, title, rowHeight, textSize, widths, oneColumnBelow, phoneRows, columnWidth } = scenario.grid;
   const shown = wallInstruments(stop.tables);
   const asked = new URLSearchParams(location.search).get(TICKS_PARAM) ?? '0';
   const limit = /^\d+$/.test(asked) ? Number(asked) : NaN;
@@ -48,6 +48,7 @@ export const levelHost = (picked: Picked): LevelHost | undefined => {
       ...widths,
       oneColumnBelow,
       phoneRows,
+      columnWidth,
       scenario.flash.ms,
       scenario.flash.mix,
       ...light.up,

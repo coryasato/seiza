@@ -88,7 +88,9 @@ import { FAST_4G, PROFILES, flag, hideDevicePixelContentBox, machineInfo, option
 import { FONTS_PARAM, MARKS } from '../contenders/contract.ts';
 import { FONTS_LICENSE, SCRIPT_FACES } from '../contenders/fonts/faces.ts';
 import { contenderBase, OBSERVATORY, SCRIPT_FONTS, UI_FONT } from '../contenders/paths.ts';
-import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
+import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET, type Level, type Scenario } from '../contenders/scenarios.ts';
+import { WALL_INSTRUMENTS } from '../contenders/wall/instruments.ts';
+import { DESK_ROWS } from '../contenders/wall/desks.ts';
 import { COLUMNS as MARKET_COLUMNS, INSTRUMENTS } from '../contenders/market/feed.ts';
 import { COMPARE_HASH, COMPONENTS, isDensity, listOf, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
 import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
@@ -104,6 +106,8 @@ import {
   CHROME_MEMORY,
   MARKET_CARDS,
   MARKET_STOP_CARDS,
+  WALL_CARDS,
+  WALL_STOP_CARDS,
   SOAK_MEMORY,
   TAIL_CARDS,
   TAIL_STOP_CARDS,
@@ -149,6 +153,7 @@ const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
 const MARKET_ROUTE = scenarioPath(TALL_TABLE, MARKET_WATCH);
 const TAIL_ROUTE = scenarioPath(TALL_TABLE, LIVE_TAIL);
 const ADMIN_ROUTE = scenarioPath(TALL_TABLE, ADMIN_TABLE);
+const WALL_ROUTE = scenarioPath(TALL_TABLE, MONITORING_WALL);
 /** Every route's HTML file, from the build's root. */
 const HTML_FILES = ROUTES.map((route) => route.html.slice(1));
 /** A frame's URL as the page makes it: its level's base, the scenario, the stop, the theme. */
@@ -866,7 +871,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     await page.waitForFunction(() => /^\d/.test(document.querySelector('[data-segment="data"] > span:last-child')?.textContent ?? ''), null, { timeout: 2_000 }).catch(() => fail("GPUI's Rows in didn't show within 2 s of its filled mark"));
     out.file = { [BIG_FILE.id]: await fileInStatus(page, BIG_FILE) };
     // Every Memory explainer says what Chrome leaves out.
-    expect([BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE].every((scenario) => cardsOf(scenario).find((card) => card.key === 'memory')?.explain.endsWith(CHROME_MEMORY)), "a Memory card's explainer lacks Chrome's line");
+    expect([BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE, MONITORING_WALL].every((scenario) => cardsOf(scenario).find((card) => card.key === 'memory')?.explain.endsWith(CHROME_MEMORY)), "a Memory card's explainer lacks Chrome's line");
     const marks = await page.frameLocator('iframe').locator(':root').evaluate(() => Object.fromEntries(performance.getEntriesByType('mark').map((mark) => [mark.name, mark.startTime])));
     // As shown: whole milliseconds from 100, else one decimal.
     const near = (text: string | null, ms: number) => Math.abs(parseFloat(text ?? '') - ms) <= (ms >= 100 ? 0.51 : 0.051);
@@ -1021,7 +1026,7 @@ async function readouts(url: string): Promise<Record<string, unknown>> {
     expect(readFileSync(join(perfDir, '../README.md'), 'utf8').includes(`**Asteroids (Big file):** ${cold.credit}.`), "README.md's data credit isn't data/MANIFEST.json's");
     console.log(`credit: ${credit} (the page's and the README's)`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE, WALL_ROUTE]), `Big file's other scenarios: ${JSON.stringify(others)}`);
     const blocks = await page.locator('[data-description] h2').allTextContents();
     const order = ['What you’re looking at', `Why ${millions(cold.rows)} rows`, 'Where each side wins', 'Where the canvas falls short', 'Other scenarios'];
     expect(JSON.stringify(blocks) === JSON.stringify(order), `Big file's description's blocks: ${JSON.stringify(blocks)}`);
@@ -1217,7 +1222,7 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions) && cold.versions.every(([, list]) => list.length === 1), `"measured with": ${JSON.stringify(measured)}, the results say ${JSON.stringify(cold.versions)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE, WALL_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     out.measured = measured;
     // The other scenarios carry the route's `?side=`, as the sidebar's and the crumb's links do.
@@ -1398,7 +1403,182 @@ async function marketReadouts(url: string, origin: string): Promise<Record<strin
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, TAIL_ROUTE, ADMIN_ROUTE, WALL_ROUTE]), `market watch's other scenarios: ${JSON.stringify(others)}`);
+    out.wins = sentences;
+    console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
+    const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
+    const rest = found.filter((problem) => !teardown.includes(problem));
+    expect(teardown.length <= 1 && rest.length === 0, `page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: Shown in and Smooth; Ready in and Memory in the overflow.
+    const phone = await layoutContext(browser, PHONE);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await small.waitForSelector('[data-status-ready]');
+    const visible = await small.locator('[data-segment]').evaluateAll((items) => items.filter((item) => (item as HTMLElement).offsetParent !== null).map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(visible) === JSON.stringify(['shown', 'smooth']), `a phone's segments: ${JSON.stringify(visible)}`);
+    await small.getByRole('button', { name: 'More numbers' }).tap();
+    const more = (await popovers(small).textContent()) ?? '';
+    expect(more.includes('Ready in') && more.includes('Memory'), `a phone's overflow: ${more}`);
+    await phone.close();
+    console.log("phone: Shown in and Smooth in the bar, Ready in and Memory in the overflow");
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/**
+ * The monitoring wall's route (the design canvas's `wall` scenario,
+ * WallPanel): market watch's checks at the wall's level. The frame at its
+ * level and default stop with `?readout`, the "Synthetic data" tag, the
+ * dial's tables; the status bar's Ready in, Shown in, Smooth, and Memory,
+ * their cold values at the window's stop, and this tab's Shown in and
+ * Smooth reading on both sides with no input (the feed's frames, the
+ * frame's ring); the bare page without `?readout` keeping no ring (the
+ * control); the panel's keeps-up verdict and charts, its cards at the
+ * window's stop and at one picked, the card for what no stop changes; the
+ * description; a phone's Shown in and Smooth.
+ */
+async function wallReadouts(url: string, origin: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const cold = resolveCold().numbers.scenarios[MONITORING_WALL.id]!;
+  const { values } = cold;
+  const stopOf = (id: string) => MONITORING_WALL.stops.find((candidate) => candidate.id === id)!;
+  const base = (side: 'gpui' | 'tanstack') => contenderBase('tall-table', side, 'wall');
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-blink-features=ForceEagerMeasureMemory'] });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.addInitScript(markRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, base('gpui'));
+    await waitEnabled(page, 'the monitoring wall');
+    await page.waitForSelector('[data-status-ready]');
+    out.file = await fileInStatus(page, MONITORING_WALL);
+    const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
+    const src = await frameSrc(page);
+    expect(src === `${frameUrl('gpui', MONITORING_WALL, MONITORING_WALL.defaultStop, theme)}&${READOUT_PARAM}=`, `the monitoring wall's first frame: ${src}`);
+
+    // The title bar: the tag, the dial's rates and what each sets, the lead.
+    expect((await page.locator('[data-synthetic]').textContent()) === 'Synthetic data', "the title bar's \"Synthetic data\" tag");
+    const stops = await page.locator('[data-dial] [data-stop]').evaluateAll((buttons) => buttons.map((button) => [button.textContent, button.getAttribute('title')]));
+    const sets = MONITORING_WALL.stops.map((stop) => [stopShort(stop), stopSets(MONITORING_WALL, stop, cold.rows)]);
+    expect(!MONITORING_WALL.stops.some(isDensity) && JSON.stringify(stops) === JSON.stringify(sets), `the dial's stops ${JSON.stringify(stops)}, want ${JSON.stringify(sets)}`);
+    expect((await pressedStop(page)) === MONITORING_WALL.defaultStop, `the dial's pressed stop: ${await pressedStop(page)}`);
+    // The copy's counts against the data: 400 instruments, 8 desks of 50;
+    // each stop's whole rate the feed's (a desk's rate × its tables).
+    expect(cold.rows === WALL_INSTRUMENTS.length && cold.rows === MONITORING_WALL.desks.length * DESK_ROWS, `the wall's file has ${cold.rows} rows, its instruments ${WALL_INSTRUMENTS.length}`);
+    expect(MONITORING_WALL.stops.every((stop) => stopSets(MONITORING_WALL, stop, cold.rows) === `each at 2k updates/s, ${(MONITORING_WALL.rate * stop.tables) / 1000}k in all`), "the stops' sets don't say the feed's rate");
+    const lead = scenarioCopy(MONITORING_WALL).lead(cold.rows);
+    expect((await page.getByText(lead).count()) === 1, `the lead "${lead}" isn't in the title bar`);
+    await page.getByRole('button', { name: 'About the stops' }).click();
+    const dialText = (await popovers(page).textContent()) ?? '';
+    expect(dialText.startsWith(scenarioCopy(MONITORING_WALL).dial!.about) && MONITORING_WALL.stops.every((stop) => dialText.includes(stop.label)) && !dialText.includes('Cells counted'), `the dial's explainer: ${dialText}`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'About this load' }).click();
+    const loadText = (await popovers(page).textContent()) ?? '';
+    expect(loadText.includes('The feed (seeded, generated here)in its own worker'), `the load's explainer lacks the feed: ${loadText}`);
+    await page.keyboard.press('Escape');
+    console.log(`monitoring wall: GPUI's wall build at ${MONITORING_WALL.defaultStop} with ?${READOUT_PARAM}, the tag, the dial ${JSON.stringify(stops.map(([label]) => label))}, the lead, the load's feed row`);
+
+    // The status bar: its segments, their cold values at the window's stop.
+    const segments = await page.locator('[data-segment]').evaluateAll((items) => items.map((item) => item.getAttribute('data-segment')));
+    expect(JSON.stringify(segments) === JSON.stringify(WALL_CARDS.map((card) => card.key)), `the status bar's segments ${JSON.stringify(segments)}`);
+    const seen: Record<string, string> = {};
+    for (const card of WALL_CARDS) {
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await page.locator(`[data-segment="${card.key}"]`).hover();
+      const text = (await popovers(page).textContent()) ?? '';
+      const at = card.perStop ? ` at ${stopOf(MONITORING_WALL.defaultStop).label}` : '';
+      const [gpui, tanstack] = cardValues(card, values, 'reference', MONITORING_WALL.defaultStop);
+      const want = [`Cold, GPUI${at}${withUnit(gpui, card.unit)}`, `Cold, TanStack${at}${withUnit(tanstack, card.unit)}`];
+      expect(want.every((line) => text.includes(line)), `${card.key}'s explainer: ${JSON.stringify(text)}, the numbers say ${JSON.stringify(want)}`);
+      seen[card.key] = want.join(', ');
+    }
+    await page.mouse.move(0, 0);
+    out.statusBar = seen;
+
+    // This tab's Shown in and Smooth, on both sides, with no input: the
+    // feed's frames and the frame's ring.
+    const liveOf = async (key: string) => (await page.locator(`[data-segment="${key}"] .tabular-nums`).first().textContent()) ?? '';
+    const reads = async (side: string) => {
+      const ok = await page
+        .waitForFunction(() => /^\d+(\.\d+)? ms$/.test(document.querySelector('[data-segment="shown"] .tabular-nums')?.textContent ?? '') && /^\d+(\.\d+)? %$/.test(document.querySelector('[data-segment="smooth"] .tabular-nums')?.textContent ?? ''), null, { timeout: 10_000 })
+        .then(() => true, () => false);
+      const [shownIn, smooth] = [await liveOf('shown'), await liveOf('smooth')];
+      expect(ok && Number.parseFloat(shownIn) > 0 && Number.parseFloat(shownIn) < 1_000, `${side}'s live Shown in "${shownIn}" and Smooth "${smooth}"`);
+      return { shownIn, smooth };
+    };
+    out.liveGpui = await reads('GPUI');
+    const ring = await page.frameLocator('iframe').locator('body').evaluate(() => {
+      const samples = (globalThis as { __contender?: { shownIn?: Float64Array } }).__contender?.shownIn;
+      return samples ? samples[0]! : null;
+    });
+    expect(ring !== null && ring > 10, `GPUI's ring holds ${ring} samples`);
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    await waitFilled(page, base('tanstack'));
+    await waitEnabled(page, 'TanStack at the monitoring wall');
+    out.liveTanstack = await reads('TanStack');
+    console.log(`status bar: ${JSON.stringify(seen)}; this tab, no input: GPUI ${JSON.stringify(out.liveGpui)}, TanStack ${JSON.stringify(out.liveTanstack)}`);
+
+    // The control: a bare page (no ?readout), as the cold runs load it, keeps no ring.
+    const bare = await context.newPage();
+    for (const side of ['gpui', 'tanstack'] as const) {
+      await bare.goto(new URL(`${base(side)}?scenario=${MONITORING_WALL.id}&stop=${MONITORING_WALL.defaultStop}`, origin).href);
+      await bare.waitForFunction(() => performance.getEntriesByName('contender:filled').length > 0, null, { timeout: 60_000 });
+      await bare.waitForTimeout(1_000);
+      const kept = await bare.evaluate(() => (globalThis as { __contender?: { shownIn?: unknown } }).__contender?.shownIn !== undefined);
+      expect(!kept, `${side}'s bare page keeps a ring without ?${READOUT_PARAM}`);
+    }
+    await bare.close();
+    console.log(`control: neither bare page keeps a ring without ?${READOUT_PARAM}`);
+
+    // The panel at the window's stop, and at one picked.
+    await page.locator('[data-compare]').click();
+    await page.locator('[data-card="keeps"]').waitFor();
+    expect((await page.locator('[data-panel-header] h2').textContent()) === `How they compare: ${MONITORING_WALL.label}`, "the panel's title doesn't name the monitoring wall");
+    const keeps = await page.locator('[data-card="keeps"] [data-verdict]').textContent();
+    expect(keeps === keepsVerdict(MONITORING_WALL, values), `the keeps-up verdict "${keeps}", the numbers say "${keepsVerdict(MONITORING_WALL, values)}"`);
+    for (const profile of DEVICE_PROFILES) {
+      const label = (await page.locator(`[data-keeps-chart="${profile}"] svg`).first().getAttribute('aria-label')) ?? '';
+      for (const side of [0, 1] as const) {
+        const shares = MONITORING_WALL.stops.map((stop) => number(values[coldKey('keeps', profile, stop.id)]![side])).join(', ');
+        expect(label.includes('batches shown in a frame of their own') && label.includes(`${side ? 'TanStack' : 'GPUI'} ${shares} %`), `the ${profile} chart's label: ${label}; the numbers say ${shares}`);
+      }
+    }
+    const checkStop = async (stop: string, what: string) => {
+      expect((await page.locator('[data-stop-heading] h3').textContent()) === `At ${stopOf(stop).label}`, `${what}: the cards' heading`);
+      const cards: Record<string, unknown> = {};
+      for (const card of WALL_STOP_CARDS) cards[card.key] = (await checkCard(page, card, values, stop, what)).verdict;
+      expect((await page.locator('[data-card]').count()) === WALL_STOP_CARDS.length + 2, `${what}: ${await page.locator('[data-card]').count()} cards`);
+      return cards;
+    };
+    out.keeps = keeps;
+    out.atDefault = await checkStop(MONITORING_WALL.defaultStop, 'the window’s stop');
+    await page.locator('[data-keeps-chart="throttled"] [data-pick="8"]').click();
+    out.at8 = await checkStop('8', 'a picked stop');
+    console.log(`panel: ${keeps}; at ${MONITORING_WALL.defaultStop} ${JSON.stringify(out.atDefault)}; at 8 ${JSON.stringify(out.at8)}`);
+    await page.getByRole('button', { name: 'Close, back to the table' }).click();
+
+    // The description.
+    await page.locator('[data-description]').waitFor();
+    const won = winsOf(MONITORING_WALL, cold);
+    const sentences = await page.locator('[data-wins] li').allTextContents();
+    const want = [...(['gpui', 'tanstack'] as const).filter((side) => won[side].length).map((side) => winsSentence(side, won[side])), ...(won.even.length ? [evenSentence(won.even)] : [])];
+    expect(JSON.stringify(sentences) === JSON.stringify(want), `the monitoring wall's wins: ${JSON.stringify(sentences)}, the numbers say ${JSON.stringify(want)}`);
+    const credit = await page.locator('[data-credit]').textContent();
+    expect(credit === `Data: ${cold.credit}.${cold.license ? ` ${cold.license}.` : ''}`, `the monitoring wall's credit: ${JSON.stringify(credit)}`);
+    const description = (await page.locator('[data-description]').textContent()) ?? '';
+    expect(/made up/.test(description), "the description doesn't say the feed is made up");
+    expect(description.includes('GPUI’s column of tables scrolls only from a table’s title or a gap'), "the description doesn't say a phone's column scrolls differently");
+    const measured = await page.locator('[data-measured]').textContent();
+    expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
+    const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE]), `the monitoring wall's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
     const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
@@ -1668,7 +1848,7 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, ADMIN_ROUTE]), `live tail's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, ADMIN_ROUTE, WALL_ROUTE]), `live tail's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')} ${credit} ${measured}`);
     const teardown = found.filter((problem) => /^console: FAIL WITH: Error: Range request for \S+\/observatory\/data\/\S+ failed/.test(problem));
@@ -1922,7 +2102,7 @@ async function adminReadouts(url: string): Promise<Record<string, unknown>> {
     const measured = await page.locator('[data-measured]').textContent();
     expect(!!measuredWith(cold.versions) && measured === measuredWith(cold.versions), `"measured with": ${JSON.stringify(measured)}`);
     const others = await page.locator('[data-others] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE]), `the admin table's other scenarios: ${JSON.stringify(others)}`);
+    expect(JSON.stringify(others) === JSON.stringify([ROUTE, WIDE_ROUTE, MARKET_ROUTE, TAIL_ROUTE, WALL_ROUTE]), `the admin table's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     console.log(`description: ${sentences.join(' ')} ${credit} ${await faces.textContent()}`);
     expect(found.length === 0, `page problems: ${found.join('; ')}`);
@@ -2404,7 +2584,7 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
   // keeps up further, on the fast device, else on the slow one, saying so.
   let dom = false;
   const clauses: string[] = [];
-  for (const [scenario, unit] of [[WIDE_SHEET, 'cells on screen'], [MARKET_WATCH, 'updates a second'], [LIVE_TAIL, 'rows a second']] as const) {
+  for (const [scenario, unit] of [[WIDE_SHEET, 'cells on screen'], [MARKET_WATCH, 'updates a second'], [LIVE_TAIL, 'rows a second'], [MONITORING_WALL, 'live tables']] as const) {
     const kept = keptIn(scenario);
     const ahead = (profile: 'reference' | 'throttled') => kept(0, profile) > kept(1, profile);
     const even = kept(0, 'reference') === kept(1, 'reference');
@@ -2463,7 +2643,7 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     const wide = gallery.verdicts[WIDE_SHEET.id]!.text;
     expect(wide === keepsVerdict(WIDE_SHEET, values).split(' · ')[0], `the wide sheet's card "${wide}" isn't the panel's fast-device verdict`);
     // Market watch's fast device shows no edge, so its card says the slow one's too.
-    for (const fed of [MARKET_WATCH, LIVE_TAIL]) {
+    for (const fed of [MARKET_WATCH, LIVE_TAIL, MONITORING_WALL]) {
       const card = gallery.verdicts[fed.id]!;
       const fedValues = cold.numbers.scenarios[fed.id]!.values;
       // The card's verdict: the fast device's reach, and the slow device's after it where the fast one's is even; its lean the device that decides.
@@ -2475,13 +2655,17 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
       expect(card.text === wantText && card.lean === wantLean, `${fed.label}'s card "${card.text}" (${card.lean}), the numbers say "${wantText}" (${wantLean})`);
     }
     const synthetic = await page.locator('[data-scenario-card] [data-synthetic]').evaluateAll((tags) => tags.map((tag) => tag.closest('[data-scenario-card]')!.getAttribute('data-scenario-card')));
-    expect(JSON.stringify(synthetic) === JSON.stringify([MARKET_WATCH.id]), `the "Synthetic data" tags: ${JSON.stringify(synthetic)}`);
+    expect(JSON.stringify(synthetic) === JSON.stringify([MARKET_WATCH.id, MONITORING_WALL.id]), `the "Synthetic data" tags: ${JSON.stringify(synthetic)}`);
     // The admin table's card: what each side can do, the DOM's; its drawing the find bar on "Ísland".
     const admin = gallery.verdicts[ADMIN_TABLE.id]!;
     expect(admin.text === CAPABILITIES.text && admin.lean === 'tanstack', `the admin table's card "${admin.text}" (${admin.lean})`);
     const findBar = await page.locator(`[data-scenario-card="${ADMIN_TABLE.id}"] .observatory-find`).textContent();
     const lit = await page.locator(`[data-scenario-card="${ADMIN_TABLE.id}"] .observatory-found mark`).textContent();
     expect(findBar?.startsWith('Ísland') === true && lit === 'Ísland', `the admin table's drawing: find bar "${findBar}", lit "${lit}"`);
+    // The monitoring wall's drawing: its dial's most tables, in two rows (the canvas's eight, four across).
+    const most = MONITORING_WALL.stops.at(-1)!.tables;
+    const desks = await page.locator(`[data-scenario-card="${MONITORING_WALL.id}"] .observatory-wall > .observatory-drawing`).evaluateAll((tables) => tables.map((table) => Math.round(table.getBoundingClientRect().y)));
+    expect(most === 8 && desks.length === most && new Set(desks).size === 2 && desks.filter((y) => y === desks[0]).length === most / 2, `the monitoring wall's drawing: tables at ${JSON.stringify(desks)}`);
     const notSpeed = await page.locator(`[data-session="${ADMIN_TABLE.id}"]`).textContent();
     expect(notSpeed === 'The admin table isn’t a speed test: its Compare is what each side can do.', `the keeps-up section on the admin table: ${notSpeed}`);
     const rows = await page.locator('[data-reach-row]').evaluateAll((rows) =>
@@ -2505,7 +2689,7 @@ async function galleries(origin: string): Promise<Record<string, unknown>> {
     const defined = await page.locator(`#${WHY_ANCHOR} [data-mechanism]`).evaluateAll((items) => items.map((item) => item.id));
     expect(JSON.stringify(defined) === JSON.stringify(MECHANISMS.map(mechanismAnchor)), `the mechanisms' definitions: ${JSON.stringify(defined)}`);
     const fedReach: Record<string, unknown> = {};
-    for (const fed of [MARKET_WATCH, LIVE_TAIL]) {
+    for (const fed of [MARKET_WATCH, LIVE_TAIL, MONITORING_WALL]) {
       const kept = keptIn(fed);
       const labelAt = (index: number) => (index < 0 ? 'none' : fed.stops[index]!.label);
       const want = (['reference', 'throttled'] as const).map((profile) => [labelAt(kept(0, profile)), labelAt(kept(1, profile))]);
@@ -2577,6 +2761,7 @@ try {
     readOut.market = await marketReadouts(new URL(MARKET_ROUTE, url).href, server.url);
     readOut.tail = await tailReadouts(new URL(TAIL_ROUTE, url).href, server.url);
     readOut.admin = await adminReadouts(new URL(ADMIN_ROUTE, url).href);
+    readOut.wall = await wallReadouts(new URL(WALL_ROUTE, url).href, server.url);
     readOut.galleries = await galleries(server.url);
   }
   const shots = option('shots');

@@ -38,15 +38,18 @@
 //   fewer in every table;
 // - a phone's column (390×844, 4 tables): a wheel over a table scrolls
 //   that table and not the column (the first title's pixels held), and a
-//   wheel over a gap scrolls the column (they move);
+//   wheel over a gap, or over the column's side beside a table, scrolls
+//   the column (they move);
 // - what fails the load (`contender:failed`, no `contender:filled`): an
 //   unknown stop or scenario, `?ticks` that isn't a count, and the wall
 //   asked of the base build; and the feed's worker failing to load fails
 //   the view (`contender:failed` after `contender:filled`);
-// - the grid (`?cells`, light): at each stop at 1440×900, and a phone's
-//   column (390×844, 4 tables), each table's frame (`box`), its `layout`
-//   (its cells' left edge right of the row numbers, their top under the
-//   header, the row height), and its columns (`x`, `width`).
+// - the grid (`?cells`, light): at each stop at 1440×900, a phone's column
+//   (390×844, 4 tables), and a narrow window's (700×900, 6 tables), each
+//   table's frame (`box`), its `layout` (its cells' left edge right of the
+//   row numbers, their top under the header, the row height), and its
+//   columns (`x`, `width`); in a column, each table the grid's
+//   `columnWidth`, centered, its last column whole.
 //
 // Then, when both sides run, the same on both sides: after the fold (the
 // fixture's ticks, light), every table's cells' exact and shown text
@@ -77,7 +80,7 @@ import type { Side } from '../contenders/contract.ts';
 import { MARKS, perfDir, problems, serveGpui, serveTanstack } from './harness.ts';
 import { fedTicks, refreshedLog, refreshedRecorder } from './contender.ts';
 import { batchVisible, drawnReaches, type FeedBatch } from '../metrics/metrics.ts';
-import { PHONE, WALL_COLUMNS as COLUMNS, controlHolds, flashOff, gridDiffers, oneMoreRow, signWrong, wallTables, type WallTable as DrawnTable, type WallCell as Cell } from './wall-grid.ts';
+import { NARROW, PHONE, WALL_COLUMNS as COLUMNS, controlHolds, flashOff, gridDiffers, oneMoreRow, signWrong, wallTables, type WallTable as DrawnTable, type WallCell as Cell } from './wall-grid.ts';
 
 const label = option('label');
 const sideOption = option('side');
@@ -404,11 +407,18 @@ async function runSide(side: Side): Promise<void> {
       await page.mouse.wheel(0, 120);
       await page.waitForTimeout(400);
       const overGap = await shot();
+      // Over the column's side, beside the first table's rows, back up (the
+      // gap's wheel may have scrolled it as far as it goes).
+      await page.mouse.move(Math.max(1, (390 - MONITORING_WALL.grid.columnWidth) / 4), gap + title + 100);
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(400);
+      const overSide = await shot();
       const columnHeld = before.equals(overTable);
       const columnMoved = !overTable.equals(overGap);
-      out.phone = { tableScrolled: tableTop > 0, columnHeld, columnMoved };
-      console.log(`phone: a wheel over a table scrolls it (top ${tableTop}) and ${columnHeld ? 'holds' : 'moves'} the column; over a gap ${columnMoved ? 'moves' : 'holds'} it`);
-      if (!(tableTop > 0) || !columnHeld || !columnMoved) fail(`phone: table scrolled ${tableTop > 0}, column held under the table ${columnHeld}, column moved from a gap ${columnMoved}`);
+      const sideMoved = !overGap.equals(overSide);
+      out.phone = { tableScrolled: tableTop > 0, columnHeld, columnMoved, sideMoved };
+      console.log(`phone: a wheel over a table scrolls it (top ${tableTop}) and ${columnHeld ? 'holds' : 'moves'} the column; over a gap ${columnMoved ? 'moves' : 'holds'} it; over its side ${sideMoved ? 'moves' : 'holds'} it`);
+      if (!(tableTop > 0) || !columnHeld || !columnMoved || !sideMoved) fail(`phone: table scrolled ${tableTop > 0}, column held under the table ${columnHeld}, column moved from a gap ${columnMoved}, from its side ${sideMoved}`);
     } finally {
       await context.close();
     }
@@ -470,7 +480,7 @@ async function runSide(side: Side): Promise<void> {
   // The grid: each table's cells' place, row height, columns, and rows
   // shown, at each stop and on a phone.
   const grids: Record<string, unknown> = {};
-  for (const [key, stop, viewport] of [...MONITORING_WALL.stops.map((stop) => [stop.id, stop.id, undefined] as const), ['phone', '4', PHONE] as const]) {
+  for (const [key, stop, viewport] of [...MONITORING_WALL.stops.map((stop) => [stop.id, stop.id, undefined] as const), ['phone', '4', PHONE] as const, ['narrow', '6', NARROW] as const]) {
     const { context, page, found, end } = await open(browser, wall.url, `${at(stop)}&cells&theme=light`, { viewport });
     try {
       if (end !== 'filled') {
@@ -485,6 +495,19 @@ async function runSide(side: Side): Promise<void> {
       grids[key] = tables.map(({ layout }) => layout && [layout.left, layout.top]);
       console.log(`grid ${key}: ${tables.length} tables, cells at ${tables.map(({ layout }) => (layout ? `(${layout.left}, ${layout.top})` : '?')).join(' ')}`);
       if (missing) fail(`grid ${key}: ${missing} tables without a layout, a box, columns, or cells`);
+      // A column's tables: the grid's width, centered, the last column whole.
+      if (viewport) {
+        const { columnWidth } = MONITORING_WALL.grid;
+        const off = tables.flatMap(({ box, layout, columns }, table) => {
+          if (!box || !layout || !columns?.length) return [];
+          const [x, , width] = box;
+          const last = columns.at(-1)!;
+          const wrong = Math.abs(width - columnWidth) > 1 || Math.abs(x + width / 2 - viewport.width / 2) > 1 || layout.left + last.x + last.width > x + width + 0.5;
+          return wrong ? [`table ${table}: x ${x}, width ${width}, ${last.name} ends at ${layout.left + last.x + last.width}`] : [];
+        });
+        console.log(`grid ${key}: each table ${columnWidth} px wide and centered in ${viewport.width}`);
+        if (off.length) fail(`grid ${key}: tables off the column's width or center: ${off.join('; ')}`);
+      }
       if (found.length) fail(`grid ${key}: ${found.join('; ')}`);
     } finally {
       await context.close();

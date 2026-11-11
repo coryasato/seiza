@@ -10,10 +10,10 @@
  * it too.
  */
 
-import { KEEPS_UP_SHARE, READ_THROUGH, SCROLLS, TAIL_KEEPS_UP_MS, type LiveReadings } from '../../metrics/metrics.ts';
+import { KEEPS_UP_SHARE, READ_THROUGH, SCROLLS, TAIL_KEEPS_UP_MS, WALL_TICKS_A_TABLE, type LiveReadings } from '../../metrics/metrics.ts';
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
-import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, resultLabel, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET, resultLabel, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 import { listOf, scenarioCopy, stopShort } from './components.ts';
 
 export type Profile = 'reference' | 'throttled';
@@ -257,7 +257,7 @@ export const MARKET_CARDS: Card[] = [
  * the page's thread spent paused in collections over 10 s of the feed, not
  * how many there were (a hundred short pauses cost less than three long
  * ones), the longest and those in a late frame beside it, the count in the
- * explainer. Market watch's and live tail's, so the two compare.
+ * explainer. Market watch's, live tail's, and the monitoring wall's, so they compare.
  */
 const COLLECTIONS: Card = {
   key: 'collections',
@@ -356,7 +356,9 @@ export const SOAK_MEMORY: Card = {
 /** The admin table's Memory: the page less every canvas buffer, the runs
  *  that held a second one on a line of their own (`docs/DECISIONS.md`,
  *  "Measurement", 2026-11-09). */
-const ADMIN_MEMORY_HOLDS = 'What the table’s page holds, the database engine’s workers apart (Chrome only), less every image GPUI’s canvas holds: one window-sized buffer, and in some runs a second (the line under the card). GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s.';
+const lessEveryBuffer = (aside: string) =>
+  `What the table’s page holds, the database engine’s workers apart (Chrome only), less every image GPUI’s canvas holds: one window-sized buffer, and in some runs a second${aside}. GPUI’s WebAssembly memory never shrinks, and neither side’s counts the GPU’s.`;
+const ADMIN_MEMORY_HOLDS = lessEveryBuffer(' (the line under the card)');
 
 /** The admin table's status bar (the design canvas's): Big file's four,
  *  its Smooth a read-through scroll, its Memory less every canvas buffer.
@@ -379,6 +381,40 @@ export const ADMIN_CARDS: Card[] = [
     caption: 'After a scroll down and back',
     explain: `${ADMIN_MEMORY_HOLDS} Cold: after both read the file at the open, then scroll down and back; this tab’s is now. ${CHROME_MEMORY}`,
   },
+];
+
+/** The monitoring wall's status bar (the design canvas's, market watch's
+ *  four): Shown in across the tables, its Memory less every canvas buffer
+ *  (`docs/DECISIONS.md`, "Measurement", 2026-11-10). */
+export const WALL_CARDS: Card[] = [
+  { ...card('usable'), metric: 'usable' },
+  {
+    ...MARKET_CARDS.find((card) => card.key === 'shown')!,
+    caption: 'The middle of the batches',
+    explain:
+      'From the feed sending a batch of price changes to the first frame in which every table it changed on screen draws it: in this tab, the middle of the last 5 seconds, from the frame’s own clock. The feed stamps each batch as it sends it, and the side notes the frame that first draws it in each table. Cold: the middle run’s median, to the frame on screen, at this stop. A side is faster only where its runs and the other’s don’t overlap.',
+  },
+  {
+    ...MARKET_CARDS.find((card) => card.key === 'smooth')!,
+    explain:
+      'The share of frames on time while the feed runs in every table and you scroll. A frame is late when it takes longer than one and a half of your display’s frames: 25 ms at 60 Hz, 12.5 ms at 120 Hz. Counted on the page’s own thread. Cold: 10 seconds of the feed at this stop.',
+  },
+  {
+    ...card('memory'),
+    metric: 'memory',
+    caption: `After ${WALL_TICKS_A_TABLE.toLocaleString('en-US')} ticks a table`,
+    // Measured at the default stop (`filesOf`), as every scenario's memory.
+    explain: `${lessEveryBuffer('')} Cold: once each side has drawn the feed’s first ${WALL_TICKS_A_TABLE.toLocaleString('en-US')} ticks a table, at ${MONITORING_WALL.stops.find((stop) => stop.id === MONITORING_WALL.defaultStop)!.label}; this tab’s is now. ${CHROME_MEMORY}`,
+  },
+];
+
+/** The monitoring wall's cards at a stop, under its keeps-up charts (the
+ *  design canvas's, market watch's): Smoothness, Update shown in, and
+ *  Collection pauses. */
+export const WALL_STOP_CARDS: Card[] = [
+  { ...WALL_CARDS.find((card) => card.key === 'smooth')!, live: undefined },
+  { ...WALL_CARDS.find((card) => card.key === 'shown')!, live: undefined },
+  COLLECTIONS,
 ];
 
 /** A scenario's status bar cards. */
@@ -547,7 +583,7 @@ export interface Keeps {
   density?: boolean;
 }
 
-/** The shares' line: the wide sheet's and market watch's. */
+/** The shares' line: the wide sheet's, market watch's, and the monitoring wall's. */
 const SHARE = { line: KEEPS_UP_SHARE * 100, better: 'higher', unit: '%' } as const;
 
 /** The status bar's cards on a phone, by default. */
@@ -595,6 +631,22 @@ const NUMBERS: Record<string, ScenarioNumbers> = {
     perStop: [],
     gpuiOnce: ['fonts-bytes', 'fonts-drawn', 'fonts-memory', 'fonts-second', 'fonts-runs'],
     ...filesOf(ADMIN_TABLE),
+  },
+  [MONITORING_WALL.id]: {
+    cards: WALL_CARDS,
+    // The design canvas's phone: Shown in and Smooth.
+    phone: ['shown', 'smooth'],
+    once: ['usable', 'memory'],
+    perStop: ['keeps', 'late', 'shown', 'shown-min', 'shown-max', 'collections', 'collection-time', 'collection-longest', 'collection-late'],
+    ...filesOf(MONITORING_WALL),
+    stopCards: WALL_STOP_CARDS,
+    keeps: {
+      reads: 'the share of the feed’s batches shown in a frame of their own',
+      explain: 'of the feed’s batches that change a row on screen are each shown, in every table they change, in a frame of their own (over the display’s frames, where batches outnumber them), in 10 seconds of the feed. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in.',
+      won: 'keeps up with more tables',
+      ...SHARE,
+      rule: 'live tables',
+    },
   },
   [LIVE_TAIL.id]: {
     cards: TAIL_CARDS,

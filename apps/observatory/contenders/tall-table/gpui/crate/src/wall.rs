@@ -655,7 +655,8 @@ impl Render for Host {
 
 impl Host {
     /// A phone's column: each table a title, its header, and the grid's
-    /// rows, scrolled from a title or a gap.
+    /// rows, at most the grid's column width and centered, scrolled from a
+    /// title or a gap (the sides' too).
     fn column(
         &self,
         grid: &Grid,
@@ -679,10 +680,12 @@ impl Host {
                     .on_scroll(cx.listener(Self::scroll_column)),
             );
         for (desk, table) in tables.iter().enumerate() {
+            // The sides share what the table leaves, at least the gap each:
+            // room to scroll the column from.
             let side = |cx: &mut Context<Self>| {
                 div()
-                    .w(gap)
-                    .flex_none()
+                    .flex_1()
+                    .min_w(gap)
                     .on_scroll(cx.listener(Self::scroll_column))
             };
             let title =
@@ -694,7 +697,12 @@ impl Host {
                         .flex_none()
                         .flex()
                         .child(side(cx))
-                        .child(desk_of(title, table, desk))
+                        // The table at its width, shrinking only below it.
+                        .child(
+                            desk_of(title, table, desk)
+                                .flex_grow_0()
+                                .flex_basis(px(grid.column_width)),
+                        )
                         .child(side(cx)),
                 )
                 .child(

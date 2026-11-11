@@ -6881,6 +6881,1318 @@
         }
       ],
       "show": []
+    },
+    {
+      "id": "monitoring-wall-4-keeps-reference",
+      "label": "Monitoring wall at 4 tables: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-keeps-throttled",
+      "label": "Monitoring wall at 4 tables: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-late-reference",
+      "label": "Monitoring wall at 4 tables: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-late-throttled",
+      "label": "Monitoring wall at 4 tables: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-shown-reference",
+      "label": "Monitoring wall at 4 tables: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-shown-throttled",
+      "label": "Monitoring wall at 4 tables: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collections-reference",
+      "label": "Monitoring wall at 4 tables: collection pauses in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collections-throttled",
+      "label": "Monitoring wall at 4 tables: collection pauses in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-work-reference",
+      "label": "Monitoring wall at 4 tables: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-work-throttled",
+      "label": "Monitoring wall at 4 tables: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-shown-min-reference",
+      "label": "Monitoring wall at 4 tables: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-shown-min-throttled",
+      "label": "Monitoring wall at 4 tables: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-shown-max-reference",
+      "label": "Monitoring wall at 4 tables: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-shown-max-throttled",
+      "label": "Monitoring wall at 4 tables: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collection-time-reference",
+      "label": "Monitoring wall at 4 tables: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collection-time-throttled",
+      "label": "Monitoring wall at 4 tables: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collection-longest-reference",
+      "label": "Monitoring wall at 4 tables: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collection-longest-throttled",
+      "label": "Monitoring wall at 4 tables: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collection-late-reference",
+      "label": "Monitoring wall at 4 tables: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-4-collection-late-throttled",
+      "label": "Monitoring wall at 4 tables: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-4.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-keeps-reference",
+      "label": "Monitoring wall at 6 tables: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-keeps-throttled",
+      "label": "Monitoring wall at 6 tables: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-late-reference",
+      "label": "Monitoring wall at 6 tables: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-late-throttled",
+      "label": "Monitoring wall at 6 tables: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-shown-reference",
+      "label": "Monitoring wall at 6 tables: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-shown-throttled",
+      "label": "Monitoring wall at 6 tables: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collections-reference",
+      "label": "Monitoring wall at 6 tables: collection pauses in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collections-throttled",
+      "label": "Monitoring wall at 6 tables: collection pauses in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-work-reference",
+      "label": "Monitoring wall at 6 tables: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-work-throttled",
+      "label": "Monitoring wall at 6 tables: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-shown-min-reference",
+      "label": "Monitoring wall at 6 tables: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-shown-min-throttled",
+      "label": "Monitoring wall at 6 tables: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-shown-max-reference",
+      "label": "Monitoring wall at 6 tables: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-shown-max-throttled",
+      "label": "Monitoring wall at 6 tables: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collection-time-reference",
+      "label": "Monitoring wall at 6 tables: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collection-time-throttled",
+      "label": "Monitoring wall at 6 tables: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collection-longest-reference",
+      "label": "Monitoring wall at 6 tables: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collection-longest-throttled",
+      "label": "Monitoring wall at 6 tables: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collection-late-reference",
+      "label": "Monitoring wall at 6 tables: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-6-collection-late-throttled",
+      "label": "Monitoring wall at 6 tables: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-keeps-reference",
+      "label": "Monitoring wall at 8 tables: batches shown in a frame of their own (keeps up), reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-keeps-throttled",
+      "label": "Monitoring wall at 8 tables: batches shown in a frame of their own (keeps up), throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.keepsUpPct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.keepsUpPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-late-reference",
+      "label": "Monitoring wall at 8 tables: late frames under the feed, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-late-throttled",
+      "label": "Monitoring wall at 8 tables: late frames under the feed, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.latePct"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-shown-reference",
+      "label": "Monitoring wall at 8 tables: update shown in (p50), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-shown-throttled",
+      "label": "Monitoring wall at 8 tables: update shown in (p50), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collections-reference",
+      "label": "Monitoring wall at 8 tables: collection pauses in 10 s, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collections-throttled",
+      "label": "Monitoring wall at 8 tables: collection pauses in 10 s, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.collectionsIn10s"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsIn10s"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-work-reference",
+      "label": "Monitoring wall at 8 tables: work per frame (p95) under the feed, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-work-throttled",
+      "label": "Monitoring wall at 8 tables: work per frame (p95) under the feed, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.workP95Ms"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-shown-min-reference",
+      "label": "Monitoring wall at 8 tables: update shown in (p50), the fastest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-shown-min-throttled",
+      "label": "Monitoring wall at 8 tables: update shown in (p50), the fastest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "min"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "min"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-shown-max-reference",
+      "label": "Monitoring wall at 8 tables: update shown in (p50), the slowest run, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-shown-max-throttled",
+      "label": "Monitoring wall at 8 tables: update shown in (p50), the slowest run, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.shownInP50MsRuns",
+          "of": "max"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.shownInP50MsRuns",
+          "of": "max"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collection-time-reference",
+      "label": "Monitoring wall at 8 tables: time paused in collections in 10 s, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collection-time-throttled",
+      "label": "Monitoring wall at 8 tables: time paused in collections in 10 s, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.collectionTotalMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.collectionTotalMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collection-longest-reference",
+      "label": "Monitoring wall at 8 tables: the longest collection pause, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collection-longest-throttled",
+      "label": "Monitoring wall at 8 tables: the longest collection pause, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.collectionLongestMs"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.collectionLongestMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collection-late-reference",
+      "label": "Monitoring wall at 8 tables: collection pauses in a late frame, reference",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.reference.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-8-collection-late-throttled",
+      "label": "Monitoring wall at 8 tables: collection pauses in a late frame, throttled",
+      "unit": "pauses",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.gpui.summary.collectionsInLateFrame"
+        },
+        {
+          "glob": "*-feed-monitoring-wall-8.json",
+          "path": "profiles.throttled.tanstack.summary.collectionsInLateFrame"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-usable-reference",
+      "label": "Monitoring wall: time to first usable (6 tables), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-usable-throttled",
+      "label": "Monitoring wall: time to first usable (6 tables), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.usableMs"
+        },
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.usableMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-first-pixels-reference",
+      "label": "Monitoring wall: first pixels (6 tables), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-first-pixels-throttled",
+      "label": "Monitoring wall: first pixels (6 tables), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.firstPixelsMs"
+        },
+        {
+          "glob": "*-usable-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.firstPixelsMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-data-reference",
+      "label": "Monitoring wall: time to data (6 tables), reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-data-throttled",
+      "label": "Monitoring wall: time to data (6 tables), throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-data-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.ms"
+        },
+        {
+          "glob": "*-data-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-open-reference",
+      "label": "Monitoring wall: memory once open, after GC (6 tables), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-open-throttled",
+      "label": "Monitoring wall: memory once open, after GC (6 tables), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBOpenAfterGc"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBOpenAfterGc"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-reference",
+      "label": "Monitoring wall: memory once the feed’s 10,000 ticks a table are drawn, less every canvas buffer (after GC) (6 tables), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.pageMiBEndAfterGcLessCanvas"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.pageMiBEndAfterGcLessCanvas"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-throttled",
+      "label": "Monitoring wall: memory once the feed’s 10,000 ticks a table are drawn, less every canvas buffer (after GC) (6 tables), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.pageMiBEndAfterGcLessCanvas"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.pageMiBEndAfterGcLessCanvas"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-second-reference",
+      "label": "Monitoring wall: runs whose canvas held a second buffer at the end (6 tables), reference",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.secondCanvasRunsEnd"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.secondCanvasRunsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-canvas-buffer-reference",
+      "label": "Monitoring wall: one canvas buffer (6 tables), reference",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.canvasBufferMiB"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.canvasBufferMiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-runs-reference",
+      "label": "Monitoring wall: memory runs measured (6 tables), reference",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.gpui.summary.runsMeasured"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.reference.tanstack.summary.runsMeasured"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-second-throttled",
+      "label": "Monitoring wall: runs whose canvas held a second buffer at the end (6 tables), throttled",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.secondCanvasRunsEnd"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.secondCanvasRunsEnd"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-canvas-buffer-throttled",
+      "label": "Monitoring wall: one canvas buffer (6 tables), throttled",
+      "unit": "MiB",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.canvasBufferMiB"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.canvasBufferMiB"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "monitoring-wall-memory-runs-throttled",
+      "label": "Monitoring wall: memory runs measured (6 tables), throttled",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.gpui.summary.runsMeasured"
+        },
+        {
+          "glob": "*-memory-monitoring-wall-6.json",
+          "path": "profiles.throttled.tanstack.summary.runsMeasured"
+        }
+      ],
+      "show": []
     }
   ]
 }

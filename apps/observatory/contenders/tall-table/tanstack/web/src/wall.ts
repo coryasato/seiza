@@ -184,17 +184,18 @@ export class WallFrame {
  * them): the gap, the title row, the rows' height, text, and padding at
  * the table's density, and a phone's table's height (its title, header,
  * and `phoneRows` rows whole above the scrollbar room the GPUI side
- * keeps); and under `oneColumnBelow` the one column, scrolled (the frame's
- * own width, as the GPUI side's). A style element `main.ts` adds before
- * the view renders.
+ * keeps); and under `oneColumnBelow` (the frame's own width, as the GPUI
+ * side's) the one column, scrolled, each table at most `columnWidth` and
+ * centered, so the column's sides are room to scroll it from. A style
+ * element `main.ts` adds before the view renders.
  */
 export function wallCss(scenario: WallScenario): string {
-  const { gap, title, rowHeight, textSize, oneColumnBelow, phoneRows } = scenario.grid;
+  const { gap, title, rowHeight, textSize, oneColumnBelow, phoneRows, columnWidth } = scenario.grid;
   const sizes = resolveSizes({ rowHeight, text: { px: textSize } });
   const phone = title + sizes.row * (1 + phoneRows) + GPUI_SCROLLBAR + BORDERS;
   return (
     `:root { --wall-gap: ${gap}px; --wall-title: ${title}px; --row: ${sizes.row}px; --wall-text: ${sizes.text}px; --pad: ${padOf(sizes)}px; --wall-bar: ${GPUI_SCROLLBAR}px; --wall-phone: ${phone}px; }\n` +
-    `@media (max-width: ${oneColumnBelow - 0.02}px) { .wall { overflow-y: auto; } .wall > .line { display: contents; } .wall .desk { flex: none; height: var(--wall-phone); } }`
+    `@media (max-width: ${oneColumnBelow - 0.02}px) { .wall { overflow-y: auto; } .wall > .line { display: contents; } .wall .desk { flex: none; height: var(--wall-phone); width: 100%; max-width: ${columnWidth}px; align-self: center; } }`
   );
 }
 
