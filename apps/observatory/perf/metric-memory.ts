@@ -27,6 +27,13 @@
 // `FLASH_WAIT_MS` for the last flash to fade. The open's reading comes once
 // the table has filled, the feed (which starts there) just under way.
 //
+// On the monitoring wall's level (N desks of 50, each one page), the equal
+// work is market watch's, scaled to its tables: `?ticks=WALL_TICKS_A_TABLE`
+// × the stop's tables (10,000 a desk: market watch's 200 an instrument), at
+// the scenario's rate a table, every tick folded and each table's last
+// re-read drawn, then the flash's fade. Its open reading, as market
+// watch's, once every table has filled.
+//
 // On live tail's level (the table grows from 0 rows while it follows), the
 // equal work is the replay's: `?rows=TAIL_ROWS` at the stop's rate, the
 // clock stopping there (`contenders/tail/data.ts`'s `limitFrom`), every row
@@ -65,7 +72,7 @@ import { ENGINE_CHUNK, MARKS } from './harness.ts';
 import { wholeFileWatch } from './tail-metric.ts';
 import { MEMORY_ARGS, collectGarbage, pageMemory, unknownTypes, wasmRecorder, type PageMemory } from './memory-reading.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
-import { ADMIN_TABLE, type RateStop, type RowsStop } from '../contenders/scenarios.ts';
+import { ADMIN_TABLE, MONITORING_WALL, type RateStop, type RowsStop, type TablesStop } from '../contenders/scenarios.ts';
 import { SCRIPT_FONTS } from '../contenders/paths.ts';
 
 /** The walk: its length, and each step, in pages (a step within the even prefetch's reach). */
@@ -78,6 +85,9 @@ const SIDEWAYS_TRIPS = 5;
 /** Market watch's session: the ticks the feed sends, then ends (20 s at
  *  the default stop's 500 a second). */
 const FEED_TICKS = 10_000;
+/** The monitoring wall's session: the ticks a desk (`?ticks` is this × the
+ *  stop's tables: 60,000 at the default 6, 5 s at 2k a table). */
+const WALL_TICKS_A_TABLE = 10_000;
 /** Live tail's session: the rows the clock counts, then stops (10 s at the
  *  default stop's 10k a second, ~98 pages). */
 const TAIL_ROWS = 100_000;
@@ -173,13 +183,15 @@ await runMetric<Run>(
   async ({ side, profile, url, picked, fonts }) => {
     const requests: Request[] = [];
     const market = picked?.scenario.level === 'market';
+    const wall = picked?.scenario.level === 'wall';
+    const wallTicks = wall ? WALL_TICKS_A_TABLE * (picked!.stop as TablesStop).tables : 0;
     const tail = picked?.scenario.level === 'tail';
     const admin = picked?.scenario.id === ADMIN_TABLE.id;
     let reads: ReturnType<typeof dataReads> | undefined;
     let whole: ReturnType<typeof wholeFileWatch> | undefined;
     const session = await openSide(side, url, profile, {
       picked,
-      params: market ? { ticks: String(FEED_TICKS) } : tail ? { rows: String(TAIL_ROWS) } : fontsParams(fonts),
+      params: market ? { ticks: String(FEED_TICKS) } : wall ? { ticks: String(wallTicks) } : tail ? { rows: String(TAIL_ROWS) } : fontsParams(fonts),
       init: [wasmRecorder],
       // Without it, the measurement waits for a garbage collection (up to 20 s).
       args: MEMORY_ARGS,
@@ -210,10 +222,10 @@ await runMetric<Run>(
         await quiet(page, inFlight, QUIET_MS);
         whole!.request();
       }
-      // Market watch's feed starts at the fill: its open reading at once,
-      // before the devices' different waits fold different counts of ticks
-      // (its one page is read by then).
-      const open = market || tail ? await both(page, session) : null;
+      // Market watch's feed starts at the fill (the wall's at every table's):
+      // its open reading at once, before the devices' different waits fold
+      // different counts of ticks (its one page is read by then).
+      const open = market || wall || tail ? await both(page, session) : null;
       // With fonts, the scripts drawn before the open's reading.
       if (fonts) {
         const done = await page.waitForFunction((names) => names.find((name) => performance.getEntriesByName(name, 'mark').length) ?? false, [MARKS.fonts, MARKS.fontsFailed], { timeout: 120_000, polling: 10 });
@@ -250,6 +262,10 @@ await runMetric<Run>(
       } else if (market) {
         // The feed's time at the stop's rate, twice over, and a minute.
         await fedTicks(page, FEED_TICKS, (2 * FEED_TICKS * 1000) / (picked!.stop as RateStop).rate + 60_000);
+        await page.waitForTimeout(FLASH_WAIT_MS);
+      } else if (wall) {
+        // The feed's time at the scenario's rate × the tables, twice over, and a minute.
+        await fedTicks(page, wallTicks, (2 * wallTicks * 1000) / (MONITORING_WALL.rate * (picked!.stop as TablesStop).tables) + 60_000);
         await page.waitForTimeout(FLASH_WAIT_MS);
       } else if (tail) {
         // The replay's time at the stop's rate, twice over, and a minute.
@@ -343,6 +359,6 @@ await runMetric<Run>(
       filesKiB: Object.fromEntries(files.map((file) => [file, { kind: runs.find((run) => run.files[file])!.files[file]!.kind, encoding: runs.find((run) => run.files[file])!.files[file]!.encoding, kib: medianOf(runs, (run) => (run.files[file]?.bytes ?? 0) / 1024) }])),
     };
   },
-  (picked) => (picked?.scenario.level === 'tail' ? { session: 'the replay to its row limit', tailRows: TAIL_ROWS, quietMs: QUIET_MS } : picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked?.scenario.id === ADMIN_TABLE.id ? { session: 'the one page at the open, then the read-through down and back', readThrough: READ_THROUGH, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
-  { levels: ['base', 'wide', 'market', 'tail'], fontsToggle: true },
+  (picked) => (picked?.scenario.level === 'tail' ? { session: 'the replay to its row limit', tailRows: TAIL_ROWS, quietMs: QUIET_MS } : picked?.scenario.level === 'wall' ? { session: 'the feed to its tick limit', feedTicks: WALL_TICKS_A_TABLE * (picked.stop as TablesStop).tables, ticksATable: WALL_TICKS_A_TABLE, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked?.scenario.level === 'market' ? { session: 'the feed to its tick limit', feedTicks: FEED_TICKS, flashWaitMs: FLASH_WAIT_MS, quietMs: QUIET_MS } : picked?.scenario.id === ADMIN_TABLE.id ? { session: 'the one page at the open, then the read-through down and back', readThrough: READ_THROUGH, quietMs: QUIET_MS } : picked ? { session: 'read whole, then sideways', sidewaysTrips: SIDEWAYS_TRIPS, sidewaysSpeed: SCROLLS.sideways.speed, quietMs: QUIET_MS } : { walkPages: WALK_PAGES, stepPages: STEP_PAGES, quietMs: QUIET_MS }),
+  { levels: ['base', 'wide', 'market', 'tail', 'wall'], fontsToggle: true },
 );

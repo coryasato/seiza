@@ -1,0 +1,118 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d1-smoke-usable",
+  "metric": "usable",
+  "scenario": "monitoring-wall",
+  "stop": {
+    "id": "6",
+    "label": "6 tables",
+    "tables": 6
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "usableMs": 139.3,
+          "probeMs": 24.1,
+          "markMs": 8.6,
+          "confirmed": "1/1",
+          "guarded": "1/1",
+          "firstPixelsMs": 30
+        },
+        "runs": [
+          {
+            "usableMs": 139.2800006866455,
+            "probeMs": 24.060999809265127,
+            "confirmed": true,
+            "markMs": 8.555000305175781,
+            "eventLatencyMs": 24.06,
+            "guarded": true,
+            "firstPixelsMs": 30.015000343322754,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "usableMs": 38.3,
+          "probeMs": 11.3,
+          "markMs": 1.1,
+          "confirmed": "1/1",
+          "guarded": null,
+          "firstPixelsMs": 29.7
+        },
+        "runs": [
+          {
+            "usableMs": 38.329999923706055,
+            "probeMs": 11.28600053405762,
+            "confirmed": true,
+            "markMs": 1.1000003814697266,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 29.734999656677246,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "usableMs": 3608.5,
+          "probeMs": 16.5,
+          "markMs": 10.8,
+          "confirmed": "1/1",
+          "guarded": "1/1",
+          "firstPixelsMs": 246.5
+        },
+        "runs": [
+          {
+            "usableMs": 3608.4799995422363,
+            "probeMs": 16.49899948120128,
+            "confirmed": true,
+            "markMs": 10.760000228881836,
+            "eventLatencyMs": 16.5,
+            "guarded": true,
+            "firstPixelsMs": 246.51999950408936,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "usableMs": 497.3,
+          "probeMs": 5.4,
+          "markMs": 4.1,
+          "confirmed": "1/1",
+          "guarded": null,
+          "firstPixelsMs": 391.9
+        },
+        "runs": [
+          {
+            "usableMs": 497.3149995803833,
+            "probeMs": 5.351999618530272,
+            "confirmed": true,
+            "markMs": 4.125,
+            "eventLatencyMs": null,
+            "guarded": null,
+            "firstPixelsMs": 391.9349994659424,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

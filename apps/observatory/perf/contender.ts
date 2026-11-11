@@ -28,7 +28,7 @@ export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
-import { FLING_FRAMES, FRAME_MS, PAGE_ROWS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
+import { FLING_FRAMES, FRAME_MS, PAGE_ROWS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type RefreshedFrame, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
 import { ADMIN_TABLE, ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
 import { FONTS_PARAM } from '../contenders/contract.ts';
 import { MARKS, dataPath, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
@@ -400,20 +400,67 @@ export async function readWhole(session: Session, inFlight: () => number): Promi
 
 // ---------------------------------------------------------------- a feed
 
+/** Init script: each `contender:refreshed` mark with the generation drawn
+ *  then, on `__refreshed` (each side raises `__contenderRefreshed` before
+ *  its mark; on the wall each table's, copied, since the array changes in
+ *  place), from a wrapper on `performance.mark`: a call and a name check per
+ *  mark (on the wall a copy of N numbers), the same on both sides, and
+ *  nothing else in their frames. `metric feed` and `perf/wall.ts` both use
+ *  it, so the metric and the check read one log. */
+export function refreshedRecorder(): void {
+  const g = globalThis as { __contenderRefreshed?: number | number[]; __refreshed?: [number, number | number[]][] };
+  const log: [number, number | number[]][] = [];
+  g.__refreshed = log;
+  const mark = performance.mark.bind(performance);
+  performance.mark = ((name: string, options?: PerformanceMarkOptions) => {
+    const entry = mark(name, options);
+    if (name === 'contender:refreshed') {
+      const drawn = g.__contenderRefreshed ?? 0;
+      log.push([entry.startTime, typeof drawn === 'number' ? drawn : drawn.slice()]);
+    }
+    return entry;
+  }) as typeof performance.mark;
+}
+
+// The init script names the mark itself: fail if it drifts from the contract's.
+if (!refreshedRecorder.toString().includes(`'${MARKS.refreshed}'`)) throw new Error(`refreshedRecorder doesn't name ${MARKS.refreshed}`);
+
+/** The refreshed log `refreshedRecorder` keeps. */
+export const refreshedLog = (page: Scope): Promise<RefreshedFrame[]> => page.evaluate(() => (globalThis as { __refreshed?: RefreshedFrame[] }).__refreshed ?? []);
+
 /** Until the feed has folded exactly `ticks` (`?ticks`, its limit) and the
  *  re-read of its last batch is drawn (`__contenderRefreshed` reaching the
- *  batch's generation; both with `?measure`). */
-export async function fedTicks(page: Scope, ticks: number, timeout: number): Promise<void> {
+ *  batch's generation; both with `?measure`). On the monitoring wall, each
+ *  table's drawn generation reaching the highest any batch named for it (a
+ *  desk is one page, so every re-read is drawn). Each poll reads only the
+ *  batches since the last (its tally kept on `__fedTally`, made once), so
+ *  waiting adds next to no work or garbage to the page being measured. */
+export async function fedTicks(page: Scope, ticks: number, timeout: number, polling = 50): Promise<void> {
   await page.waitForFunction(
     (ticks) => {
-      const g = globalThis as { __contender?: { batches?: FeedBatch[] }; __contenderRefreshed?: number };
+      const g = globalThis as {
+        __contender?: { batches?: FeedBatch[] };
+        __contenderRefreshed?: number | number[];
+        __fedTally?: { seen: number; folded: number; last: number; highest: number[] };
+      };
       const batches = g.__contender?.batches ?? [];
-      const folded = batches.reduce((sum, [, count]) => sum + count, 0);
-      const last = batches.at(-1)?.[3] ?? 0;
-      return folded === ticks && (g.__contenderRefreshed ?? 0) >= last;
+      const tally = (g.__fedTally ??= { seen: 0, folded: 0, last: 0, highest: [] });
+      // A reopen empties the batches: start the tally over.
+      if (batches.length < tally.seen) Object.assign(tally, { seen: 0, folded: 0, last: 0 }).highest.length = 0;
+      for (; tally.seen < batches.length; tally.seen++) {
+        const [, count, , generation] = batches[tally.seen]!;
+        tally.folded += count;
+        if (typeof generation === 'number') tally.last = generation;
+        else for (let table = 0; table < generation.length; table++) tally.highest[table] = Math.max(tally.highest[table] ?? 0, generation[table]!);
+      }
+      if (tally.folded !== ticks) return false;
+      const drawn = g.__contenderRefreshed ?? 0;
+      if (typeof drawn === 'number') return drawn >= tally.last;
+      for (let table = 0; table < tally.highest.length; table++) if ((drawn[table] ?? 0) < tally.highest[table]!) return false;
+      return true;
     },
     ticks,
-    { timeout, polling: 50 },
+    { timeout, polling },
   );
 }
 

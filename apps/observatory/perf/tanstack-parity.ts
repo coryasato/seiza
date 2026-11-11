@@ -70,9 +70,9 @@
 //   at each stop at 1440×900 and a phone's column (390×844, 4 tables),
 //   DPR 1, in each browser at its defaults (no scrollbar width), each
 //   table's frame and cells where the GPUI contender's are (its wall build,
-//   Chromium) and its columns at the same x and width (`wall-grid.ts`'s
-//   `gridDiffers`; the control, the tables moved 2 px, differing in every
-//   table); then at the default stop, light and dark, under the feed in
+//   Chromium), its columns at the same x and width, and the same rows shown
+//   (`wall-grid.ts`'s `gridDiffers`; the controls, the tables moved 2 px
+//   and each showing one more row, differing in every table); then at the default stop, light and dark, under the feed in
 //   every table, Chg % drawn in the rise's or the fall's color by sign
 //   (within one 8-bit step), a zero in neither; Last alone flashing, in
 //   every table, in the rise's or the fall's color at no more than the
@@ -98,7 +98,7 @@ import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COLUMNS } from '../contenders/market/feed.ts';
 import { MARKS, dataFile, dataPath, mutedForeground, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack, tailError } from './harness.ts';
 import { DATA_FILE } from '../contenders/tail/data.ts';
-import { PHONE, WALL_COLUMNS, controlHolds, flashOff, gridDiffers, signWrong, wallTables, type WallTable } from './wall-grid.ts';
+import { PHONE, WALL_COLUMNS, controlHolds, flashOff, gridDiffers, oneMoreRow, signWrong, wallTables, type WallTable } from './wall-grid.ts';
 
 const PORT = 4319;
 const GPUI_PORT = 4320;
@@ -1201,7 +1201,8 @@ async function borderPixel(page: Page): Promise<number[]> {
         await page.goto(`${url}${at(grid.stop)}&theme=light`);
         await waitMark(page, MARKS.filled, 0, 60_000);
         await page.waitForTimeout(300);
-        return { tables: (await wallTables(page)).map(({ columns, layout, box }) => ({ columns, layout, box })), found };
+        // The cells too: the rows each table shows are compared.
+        return { tables: await wallTables(page), found };
       } finally {
         await context.close();
       }
@@ -1224,7 +1225,7 @@ async function borderPixel(page: Page): Promise<number[]> {
     const wallOut: Record<string, unknown> = {};
     for (const name of browsers) {
       // The grid at each stop and on a phone, with its control.
-      const gridOut: Record<string, { differ: number; controlTablesDiffer: number }> = {};
+      const gridOut: Record<string, { differ: number; controlTablesDiffer: number; rowsControlTablesDiffer: number }> = {};
       {
         const browser = await plain(name);
         try {
@@ -1232,16 +1233,18 @@ async function borderPixel(page: Page): Promise<number[]> {
             const { tables, found } = await tablesAt(browser, wallTanstack.url, grid);
             const wrong = gridDiffers(reference[grid.key]!, tables);
             const control = controlHolds(reference[grid.key]!, tables);
-            gridOut[grid.key] = { differ: wrong.length, controlTablesDiffer: control.differ };
+            const rows = controlHolds(reference[grid.key]!, tables, oneMoreRow);
+            gridOut[grid.key] = { differ: wrong.length, controlTablesDiffer: control.differ, rowsControlTablesDiffer: rows.differ };
             check(wrong.length === 0, `${name} wall grid ${grid.key}: ${wrong.slice(0, 4).join('; ')}`);
             check(control.holds, `${name} wall grid ${grid.key}: the control (moved 2 px) differs in ${control.differ} of ${tables.length} tables`);
+            check(rows.holds, `${name} wall grid ${grid.key}: the rows' control (one more row shown) differs in ${rows.differ} of ${tables.length} tables`);
             for (const problem of found.filter((problem) => !KNOWN_WARNINGS.some((warning) => warning.test(problem)))) check(false, `${name} wall grid ${grid.key}: ${problem}`);
           }
         } finally {
           await browser.close();
         }
       }
-      console.log(`${name} wall grid: ${Object.entries(gridOut).map(([key, { differ, controlTablesDiffer }]) => `${key} ${differ ? `${differ} off` : 'as GPUI'} (control: ${controlTablesDiffer} tables differ)`).join(', ')}`);
+      console.log(`${name} wall grid: ${Object.entries(gridOut).map(([key, { differ, controlTablesDiffer, rowsControlTablesDiffer }]) => `${key} ${differ ? `${differ} off` : 'as GPUI'} (controls: ${controlTablesDiffer} and ${rowsControlTablesDiffer} tables differ)`).join(', ')}`);
       wallOut[`${name}-grid`] = gridOut;
       const browser = await launch(name);
       try {

@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d1-review-smoke-data",
+  "metric": "data",
+  "scenario": "monitoring-wall",
+  "stop": {
+    "id": "6",
+    "label": "6 tables",
+    "tables": 6
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "ms": 205.8,
+          "openMs": 737.6,
+          "filledMarkMs": 205.8
+        },
+        "runs": [
+          {
+            "openMs": 737.6299991607666,
+            "ms": 205.79000091552734,
+            "filledMarkMs": 205.79000091552734,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 246.2,
+          "openMs": 677.4,
+          "filledMarkMs": 224.9
+        },
+        "runs": [
+          {
+            "openMs": 677.4349994659424,
+            "ms": 246.23500061035156,
+            "filledMarkMs": 224.89000034332275,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

@@ -25,7 +25,7 @@ import { FlashTurns, MarketRow, publishMarketCells, type MarketCells } from './m
 import { TailReader, TailRow, drawnRows, publishTailCells, renotify, setContractGutter, setModelRows, type TailCells } from './tail.ts';
 import { isFollowing, noteTailDrawn } from './data/follow.ts';
 import { BODY_ARIA, GUTTER_ARIA, HEAD_ARIA, NONE_ARIA, rowAria, tableAria } from './aria.ts';
-import { WallFrame, publishWallCells, type WallData, type WallTable } from './wall.ts';
+import { WallFrame, keepBarRoom, publishWallCells, type WallData, type WallTable } from './wall.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -340,12 +340,14 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     useEffect(() => {
       if (!wall) return;
       const unregister = wall.frame.register(wall.cells.desk, rerender);
+      const unroom = keepBarRoom(scrollerRef.current!);
       paging.onChange = () => {
         landed.current = true;
         wall.frame.schedule(wall.cells.desk);
       };
       return () => {
         unregister();
+        unroom();
         paging.onChange = () => {};
       };
     }, [paging]);

@@ -1,0 +1,939 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d1-smoke-memory",
+  "metric": "memory",
+  "scenario": "monitoring-wall",
+  "stop": {
+    "id": "6",
+    "label": "6 tables",
+    "tables": 6
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "session": "the feed to its tick limit",
+  "feedTicks": 60000,
+  "ticksATable": 10000,
+  "flashWaitMs": 1000,
+  "quietMs": 1000,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "cacheMiBOpen": 0,
+          "cacheMiBEnd": 0,
+          "cacheBytesEndAllEqual": true,
+          "dataReads": 3,
+          "pageMiBOpen": 32.1,
+          "pageMiBOpenAfterGc": 44.1,
+          "pageMiBOpenAfterGcLessWindow": 24.3,
+          "pageMiBOpenAfterGcByType": {
+            "Canvas": 19.8,
+            "JavaScript": 24.3
+          },
+          "pageMiBEnd": 54.2,
+          "pageMiBEndAfterGc": 54,
+          "pageMiBEndAfterGcLessWindow": 34.3,
+          "pageMiBEndAfterGcByType": {
+            "Canvas": 39.6,
+            "JavaScript": 14.5
+          },
+          "pageMiBOpenAfterGcLessCanvas": 24.3,
+          "pageMiBEndAfterGcLessCanvas": 14.5,
+          "secondCanvasRunsOpen": 0,
+          "secondCanvasRunsEnd": 1,
+          "canvasBufferMiB": 19.8,
+          "runsMeasured": 1,
+          "wasmMiBOpen": 10.4,
+          "wasmMiBEnd": 11.4,
+          "jsHeapMiBEndAfterGc": 3.5,
+          "nodesEnd": 54,
+          "workerMiBEnd": 56.9,
+          "bytesKiB": {
+            "html": 11.4,
+            "js": 27.8,
+            "wasm": 2801.2,
+            "css": 0,
+            "font": 69.7,
+            "faces": 0,
+            "other": 0,
+            "engine": 5744.9,
+            "data": 4.5
+          },
+          "filesKiB": {
+            "/fonts/IBMPlexSans-Regular.ttf": {
+              "kind": "font",
+              "encoding": "br",
+              "kib": 69.7
+            },
+            "/observatory/contenders/tall-table/gpui/wall/": {
+              "kind": "html",
+              "encoding": "br",
+              "kib": 11.4
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/engine.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 39.3
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/index.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 27.5
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/tall_table_gpui_bg.wasm": {
+              "kind": "wasm",
+              "encoding": "br",
+              "kib": 2801.2
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/worker.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 0.3
+            },
+            "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 152.5
+            },
+            "/observatory/duckdb/duckdb-eh.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 5065.5
+            },
+            "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 487.6
+            }
+          }
+        },
+        "runs": [
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 33653974,
+                "pageByType": {
+                  "Canvas": 20736000,
+                  "JavaScript": 12917974
+                },
+                "workerBytes": 59671428,
+                "wasmBytes": 10944512,
+                "jsHeapBytes": 3615720,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 46259502,
+                "pageByType": {
+                  "JavaScript": 25523502,
+                  "Canvas": 20736000
+                },
+                "workerBytes": 59684012,
+                "wasmBytes": 11993088,
+                "jsHeapBytes": 3567944,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 56798060,
+                "pageByType": {
+                  "JavaScript": 15326060,
+                  "Canvas": 41472000
+                },
+                "workerBytes": 59663652,
+                "wasmBytes": 11993088,
+                "jsHeapBytes": 3703440,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 56669062,
+                "pageByType": {
+                  "Canvas": 41472000,
+                  "JavaScript": 15197062
+                },
+                "workerBytes": 59663676,
+                "wasmBytes": 11993088,
+                "jsHeapBytes": 3666608,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 4000,
+            "cacheBytesEnd": 4000,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/wall/": {
+                "kind": "html",
+                "bytes": 11666,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/index.js": {
+                "kind": "js",
+                "bytes": 28161,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2868420,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40277,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/worker.js": {
+                "kind": "js",
+                "bytes": 311,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11666,
+              "js": 28472,
+              "wasm": 2868420,
+              "css": 0,
+              "font": 71333,
+              "faces": 0,
+              "engine": 5882795,
+              "data": 4558,
+              "other": 0
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "cacheMiBOpen": 0,
+          "cacheMiBEnd": 0,
+          "cacheBytesEndAllEqual": true,
+          "dataReads": 3,
+          "pageMiBOpen": 4,
+          "pageMiBOpenAfterGc": 4.5,
+          "pageMiBOpenAfterGcLessWindow": 4.5,
+          "pageMiBOpenAfterGcByType": {
+            "JavaScript": 4.5
+          },
+          "pageMiBEnd": 5.3,
+          "pageMiBEndAfterGc": 5.4,
+          "pageMiBEndAfterGcLessWindow": 5.4,
+          "pageMiBEndAfterGcByType": {
+            "JavaScript": 5.4
+          },
+          "pageMiBOpenAfterGcLessCanvas": 4.5,
+          "pageMiBEndAfterGcLessCanvas": 5.4,
+          "secondCanvasRunsOpen": 0,
+          "secondCanvasRunsEnd": 0,
+          "canvasBufferMiB": 0,
+          "runsMeasured": 1,
+          "wasmMiBOpen": 0,
+          "wasmMiBEnd": 0,
+          "jsHeapMiBEndAfterGc": 5.2,
+          "nodesEnd": 1620,
+          "workerMiBEnd": 56.9,
+          "bytesKiB": {
+            "html": 0.8,
+            "js": 122.5,
+            "wasm": 0,
+            "css": 1.7,
+            "font": 69.7,
+            "faces": 0,
+            "other": 0,
+            "engine": 5713.5,
+            "data": 4.5
+          },
+          "filesKiB": {
+            "/fonts/IBMPlexSans-Regular.ttf": {
+              "kind": "font",
+              "encoding": "br",
+              "kib": 69.7
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/": {
+              "kind": "html",
+              "encoding": "br",
+              "kib": 0.8
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/engine.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 7.9
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/index.css": {
+              "kind": "css",
+              "encoding": "br",
+              "kib": 1.7
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/index.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 77.4
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/paging.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 3.6
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/serialization.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 32.3
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/table.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 1.4
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/wall.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 7.5
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/worker.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 0.3
+            },
+            "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 152.5
+            },
+            "/observatory/duckdb/duckdb-eh.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 5065.5
+            },
+            "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 487.6
+            }
+          }
+        },
+        "runs": [
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 4158613,
+                "pageByType": {
+                  "JavaScript": 4158613
+                },
+                "workerBytes": 59670936,
+                "wasmBytes": 0,
+                "jsHeapBytes": 5560588,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              },
+              "afterGc": {
+                "pageBytes": 4724380,
+                "pageByType": {
+                  "JavaScript": 4724380
+                },
+                "workerBytes": 59676372,
+                "wasmBytes": 0,
+                "jsHeapBytes": 5040032,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 5607623,
+                "pageByType": {
+                  "JavaScript": 5607623
+                },
+                "workerBytes": 59663176,
+                "wasmBytes": 0,
+                "jsHeapBytes": 5512220,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              },
+              "afterGc": {
+                "pageBytes": 5636715,
+                "pageByType": {
+                  "JavaScript": 5636715
+                },
+                "workerBytes": 59663200,
+                "wasmBytes": 0,
+                "jsHeapBytes": 5484996,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              }
+            },
+            "cacheBytesOpen": 4000,
+            "cacheBytesEnd": 4000,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/tanstack/wall/": {
+                "kind": "html",
+                "bytes": 778,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/index.css": {
+                "kind": "css",
+                "bytes": 1772,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/index.js": {
+                "kind": "js",
+                "bytes": 79247,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/wall.js": {
+                "kind": "js",
+                "bytes": 7707,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/paging.js": {
+                "kind": "js",
+                "bytes": 3677,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/table.js": {
+                "kind": "js",
+                "bytes": 1432,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/serialization.js": {
+                "kind": "js",
+                "bytes": 33071,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 8076,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/worker.js": {
+                "kind": "js",
+                "bytes": 311,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 778,
+              "js": 125445,
+              "wasm": 0,
+              "css": 1772,
+              "font": 71333,
+              "faces": 0,
+              "engine": 5850594,
+              "data": 4558,
+              "other": 0
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "cacheMiBOpen": 0,
+          "cacheMiBEnd": 0,
+          "cacheBytesEndAllEqual": true,
+          "dataReads": 3,
+          "pageMiBOpen": 32.2,
+          "pageMiBOpenAfterGc": 32.1,
+          "pageMiBOpenAfterGcLessWindow": 12.3,
+          "pageMiBOpenAfterGcByType": {
+            "Canvas": 19.8,
+            "JavaScript": 12.3
+          },
+          "pageMiBEnd": 33.9,
+          "pageMiBEndAfterGc": 33.9,
+          "pageMiBEndAfterGcLessWindow": 14.1,
+          "pageMiBEndAfterGcByType": {
+            "Canvas": 19.8,
+            "JavaScript": 14.1
+          },
+          "pageMiBOpenAfterGcLessCanvas": 12.3,
+          "pageMiBEndAfterGcLessCanvas": 14.1,
+          "secondCanvasRunsOpen": 0,
+          "secondCanvasRunsEnd": 0,
+          "canvasBufferMiB": 19.8,
+          "runsMeasured": 1,
+          "wasmMiBOpen": 9.4,
+          "wasmMiBEnd": 10.9,
+          "jsHeapMiBEndAfterGc": 3.5,
+          "nodesEnd": 54,
+          "workerMiBEnd": 56.9,
+          "bytesKiB": {
+            "html": 11.4,
+            "js": 27.8,
+            "wasm": 2801.2,
+            "css": 0,
+            "font": 69.7,
+            "faces": 0,
+            "other": 0,
+            "engine": 5744.9,
+            "data": 4.5
+          },
+          "filesKiB": {
+            "/fonts/IBMPlexSans-Regular.ttf": {
+              "kind": "font",
+              "encoding": "br",
+              "kib": 69.7
+            },
+            "/observatory/contenders/tall-table/gpui/wall/": {
+              "kind": "html",
+              "encoding": "br",
+              "kib": 11.4
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/engine.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 39.3
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/index.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 27.5
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/tall_table_gpui_bg.wasm": {
+              "kind": "wasm",
+              "encoding": "br",
+              "kib": 2801.2
+            },
+            "/observatory/contenders/tall-table/gpui/wall/assets/worker.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 0.3
+            },
+            "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 152.5
+            },
+            "/observatory/duckdb/duckdb-eh.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 5065.5
+            },
+            "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 487.6
+            }
+          }
+        },
+        "runs": [
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 33777571,
+                "pageByType": {
+                  "Canvas": 20736000,
+                  "JavaScript": 13041571
+                },
+                "workerBytes": 59364746,
+                "wasmBytes": 9830400,
+                "jsHeapBytes": 3576312,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 33635207,
+                "pageByType": {
+                  "JavaScript": 12899207,
+                  "Canvas": 20736000
+                },
+                "workerBytes": 59359058,
+                "wasmBytes": 9830400,
+                "jsHeapBytes": 3519540,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 35566425,
+                "pageByType": {
+                  "JavaScript": 14830425,
+                  "Canvas": 20736000
+                },
+                "workerBytes": 59673156,
+                "wasmBytes": 11468800,
+                "jsHeapBytes": 3703912,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              },
+              "afterGc": {
+                "pageBytes": 35540662,
+                "pageByType": {
+                  "Canvas": 20736000,
+                  "JavaScript": 14804662
+                },
+                "workerBytes": 59673140,
+                "wasmBytes": 11468800,
+                "jsHeapBytes": 3666620,
+                "nodes": 54,
+                "windowCanvasBytes": 20736000
+              }
+            },
+            "cacheBytesOpen": 4000,
+            "cacheBytesEnd": 4000,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/gpui/wall/": {
+                "kind": "html",
+                "bytes": 11666,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/index.js": {
+                "kind": "js",
+                "bytes": 28161,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/tall_table_gpui_bg.wasm": {
+                "kind": "wasm",
+                "bytes": 2868420,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 40277,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/gpui/wall/assets/worker.js": {
+                "kind": "js",
+                "bytes": 311,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 11666,
+              "js": 28472,
+              "wasm": 2868420,
+              "css": 0,
+              "font": 71333,
+              "faces": 0,
+              "engine": 5882795,
+              "data": 4558,
+              "other": 0
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "cacheMiBOpen": 0,
+          "cacheMiBEnd": 0,
+          "cacheBytesEndAllEqual": true,
+          "dataReads": 3,
+          "pageMiBOpen": 4.3,
+          "pageMiBOpenAfterGc": 3.7,
+          "pageMiBOpenAfterGcLessWindow": 3.7,
+          "pageMiBOpenAfterGcByType": {
+            "JavaScript": 3.7
+          },
+          "pageMiBEnd": 5.2,
+          "pageMiBEndAfterGc": 5.3,
+          "pageMiBEndAfterGcLessWindow": 5.3,
+          "pageMiBEndAfterGcByType": {
+            "JavaScript": 5.3
+          },
+          "pageMiBOpenAfterGcLessCanvas": 3.7,
+          "pageMiBEndAfterGcLessCanvas": 5.3,
+          "secondCanvasRunsOpen": 0,
+          "secondCanvasRunsEnd": 0,
+          "canvasBufferMiB": 0,
+          "runsMeasured": 1,
+          "wasmMiBOpen": 0,
+          "wasmMiBEnd": 0,
+          "jsHeapMiBEndAfterGc": 5.1,
+          "nodesEnd": 1620,
+          "workerMiBEnd": 56.9,
+          "bytesKiB": {
+            "html": 0.8,
+            "js": 122.5,
+            "wasm": 0,
+            "css": 1.7,
+            "font": 69.7,
+            "faces": 0,
+            "other": 0,
+            "engine": 5713.5,
+            "data": 4.5
+          },
+          "filesKiB": {
+            "/fonts/IBMPlexSans-Regular.ttf": {
+              "kind": "font",
+              "encoding": "br",
+              "kib": 69.7
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/": {
+              "kind": "html",
+              "encoding": "br",
+              "kib": 0.8
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/engine.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 7.9
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/index.css": {
+              "kind": "css",
+              "encoding": "br",
+              "kib": 1.7
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/index.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 77.4
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/paging.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 3.6
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/serialization.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 32.3
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/table.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 1.4
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/wall.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 7.5
+            },
+            "/observatory/contenders/tall-table/tanstack/wall/assets/worker.js": {
+              "kind": "js",
+              "encoding": "br",
+              "kib": 0.3
+            },
+            "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 152.5
+            },
+            "/observatory/duckdb/duckdb-eh.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 5065.5
+            },
+            "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+              "kind": "engine",
+              "encoding": "br",
+              "kib": 487.6
+            }
+          }
+        },
+        "runs": [
+          {
+            "open": {
+              "measured": {
+                "pageBytes": 4478144,
+                "pageByType": {
+                  "JavaScript": 4478144
+                },
+                "workerBytes": 59364050,
+                "wasmBytes": 0,
+                "jsHeapBytes": 4407656,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              },
+              "afterGc": {
+                "pageBytes": 3916843,
+                "pageByType": {
+                  "JavaScript": 3916843
+                },
+                "workerBytes": 59358330,
+                "wasmBytes": 0,
+                "jsHeapBytes": 4387780,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              }
+            },
+            "atEnd": {
+              "measured": {
+                "pageBytes": 5474534,
+                "pageByType": {
+                  "JavaScript": 5474534
+                },
+                "workerBytes": 59672432,
+                "wasmBytes": 0,
+                "jsHeapBytes": 5381388,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              },
+              "afterGc": {
+                "pageBytes": 5600794,
+                "pageByType": {
+                  "JavaScript": 5600794
+                },
+                "workerBytes": 59672416,
+                "wasmBytes": 0,
+                "jsHeapBytes": 5362532,
+                "nodes": 1620,
+                "windowCanvasBytes": 0
+              }
+            },
+            "cacheBytesOpen": 4000,
+            "cacheBytesEnd": 4000,
+            "dataReads": 3,
+            "files": {
+              "/observatory/contenders/tall-table/tanstack/wall/": {
+                "kind": "html",
+                "bytes": 778,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/index.css": {
+                "kind": "css",
+                "bytes": 1772,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/index.js": {
+                "kind": "js",
+                "bytes": 79247,
+                "encoding": "br"
+              },
+              "/fonts/IBMPlexSans-Regular.ttf": {
+                "kind": "font",
+                "bytes": 71333,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/table.js": {
+                "kind": "js",
+                "bytes": 1432,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/paging.js": {
+                "kind": "js",
+                "bytes": 3677,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/wall.js": {
+                "kind": "js",
+                "bytes": 7707,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/serialization.js": {
+                "kind": "js",
+                "bytes": 33071,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/engine.js": {
+                "kind": "engine",
+                "bytes": 8076,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-browser-eh.worker.js": {
+                "kind": "engine",
+                "bytes": 156186,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/duckdb-eh.wasm": {
+                "kind": "engine",
+                "bytes": 5187060,
+                "encoding": "br"
+              },
+              "/observatory/duckdb/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm": {
+                "kind": "engine",
+                "bytes": 499272,
+                "encoding": "br"
+              },
+              "/observatory/contenders/tall-table/tanstack/wall/assets/worker.js": {
+                "kind": "js",
+                "bytes": 311,
+                "encoding": "br"
+              }
+            },
+            "bytes": {
+              "html": 778,
+              "js": 125445,
+              "wasm": 0,
+              "css": 1772,
+              "font": 71333,
+              "faces": 0,
+              "engine": 5850594,
+              "data": 4558,
+              "other": 0
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

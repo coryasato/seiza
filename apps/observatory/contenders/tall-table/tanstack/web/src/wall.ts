@@ -33,10 +33,30 @@ import { drawnCells, publishMarketCells, type MarketCells } from './market.ts';
 /** gpui-kit's scrollbar room (`Scrollbar::width`), which the tall table
  *  keeps under its rows whether it scrolls sideways or not: a phone's table
  *  is as tall as the GPUI side's (`docs/DECISIONS.md`, "Page";
- *  `crate/src/wall.rs`'s `phone_table`). A copy, since this side can't read
+ *  `crate/src/wall.rs`'s `phone_table`), and every table keeps the same
+ *  room under its rows (`keepBarRoom`), so both sides show the same rows. A copy, since this side can't read
  *  gpui-kit's: a bump that moves it moves the GPUI side's tables alone,
  *  which the cross-side check of the grid catches (`perf/wall.ts`). */
 const GPUI_SCROLLBAR = 16;
+/**
+ * Keeps the tall table's scrollbar room under a wall table's rows: the
+ * scroller is `GPUI_SCROLLBAR` short of its frame less the height its own
+ * horizontal scrollbar takes (none for an overlay bar, or while the columns
+ * fit; a classic bar's when they overflow), on `--wall-room` (`wall.css`),
+ * so the rows shown are the GPUI side's either way. Measured again whenever
+ * the scroller's size changes, which a bar appearing does. Returns the stop.
+ */
+export function keepBarRoom(scroller: HTMLElement): () => void {
+  const fit = () => {
+    const room = `${Math.max(0, GPUI_SCROLLBAR - (scroller.offsetHeight - scroller.clientHeight))}px`;
+    if (scroller.style.getPropertyValue('--wall-room') !== room) scroller.style.setProperty('--wall-room', room);
+  };
+  const observer = new ResizeObserver(fit);
+  observer.observe(scroller);
+  fit();
+  return () => observer.disconnect();
+}
+
 /** The table's 1 px border, top and bottom. */
 const BORDERS = 2;
 
@@ -162,7 +182,7 @@ export function wallCss(scenario: WallScenario): string {
   const sizes = resolveSizes({ rowHeight, text: { px: textSize } });
   const phone = title + sizes.row * (1 + phoneRows) + GPUI_SCROLLBAR + BORDERS;
   return (
-    `:root { --wall-gap: ${gap}px; --wall-title: ${title}px; --row: ${sizes.row}px; --wall-text: ${sizes.text}px; --pad: ${padOf(sizes)}px; --wall-phone: ${phone}px; }\n` +
+    `:root { --wall-gap: ${gap}px; --wall-title: ${title}px; --row: ${sizes.row}px; --wall-text: ${sizes.text}px; --pad: ${padOf(sizes)}px; --wall-bar: ${GPUI_SCROLLBAR}px; --wall-phone: ${phone}px; }\n` +
     `@media (max-width: ${oneColumnBelow - 0.02}px) { .wall { overflow-y: auto; } .wall > .line { display: contents; } .wall .desk { flex: none; height: var(--wall-phone); } }`
   );
 }

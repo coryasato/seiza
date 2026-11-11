@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d1-smoke-data-room",
+  "metric": "data",
+  "scenario": "monitoring-wall",
+  "stop": {
+    "id": "6",
+    "label": "6 tables",
+    "tables": 6
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "tanstack": {
+        "summary": {
+          "ms": 242.1,
+          "openMs": 608.3,
+          "filledMarkMs": 215.9
+        },
+        "runs": [
+          {
+            "openMs": 608.289999961853,
+            "ms": 242.13000011444092,
+            "filledMarkMs": 215.86000061035156,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

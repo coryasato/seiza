@@ -1,0 +1,145 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d1-smoke-market",
+  "metric": "feed",
+  "scenario": "market-watch",
+  "stop": {
+    "id": "1k",
+    "label": "1k updates/s",
+    "rate": 1000
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "settleMs": 1000,
+  "windowMs": 10000,
+  "keepsUpShare": 0.9,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "keepsUp": true,
+          "keepsUpPct": 99.8,
+          "keepsUpPctRuns": [
+            99.8
+          ],
+          "shownInP50Ms": 13,
+          "shownInP50MsRuns": [
+            13.04
+          ],
+          "shownInP95Ms": 21.1,
+          "toMarkP50Ms": 11.9,
+          "toPresentP50MsRuns": [
+            1.14
+          ],
+          "collectionsIn10s": 4,
+          "collectionLongestMs": 1.59,
+          "collectionTotalMs": 4.45,
+          "collectionsInLateFrame": 0,
+          "latePct": 0,
+          "workP50Ms": 3.76,
+          "workP95Ms": 4.34,
+          "busyMsPerSecond": 237.7,
+          "visiblePerSecond": 51.9,
+          "spinMs": 115.4
+        },
+        "runs": [
+          {
+            "windowMs": 10005.2,
+            "batches": 519,
+            "visibleBatches": 519,
+            "visiblePerSecond": 51.9,
+            "shownPerSecond": 51.8,
+            "keepsUpPct": 99.8,
+            "shownInP50Ms": 13.04,
+            "shownInP95Ms": 21.09,
+            "toMarkP50Ms": 11.89,
+            "toPresentP50Ms": 1.14,
+            "unpaired": 1,
+            "latePct": 0,
+            "workP50Ms": 3.76,
+            "workP95Ms": 4.34,
+            "busyMsPerSecond": 237.7,
+            "collections": {
+              "count": 4,
+              "minor": 3,
+              "major": 1,
+              "totalMs": 4.45,
+              "longestMs": 1.59,
+              "inLateFrame": 0
+            },
+            "spinMs": 115.4,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "keepsUp": true,
+          "keepsUpPct": 98.8,
+          "keepsUpPctRuns": [
+            98.8
+          ],
+          "shownInP50Ms": 18.9,
+          "shownInP50MsRuns": [
+            18.94
+          ],
+          "shownInP95Ms": 33.3,
+          "toMarkP50Ms": 9.8,
+          "toPresentP50MsRuns": [
+            6.29
+          ],
+          "collectionsIn10s": 29,
+          "collectionLongestMs": 3.62,
+          "collectionTotalMs": 27.28,
+          "collectionsInLateFrame": 0,
+          "latePct": 0,
+          "workP50Ms": 3.69,
+          "workP95Ms": 5.72,
+          "busyMsPerSecond": 246,
+          "visiblePerSecond": 51.9,
+          "spinMs": 116.2
+        },
+        "runs": [
+          {
+            "windowMs": 10003.9,
+            "batches": 519,
+            "visibleBatches": 519,
+            "visiblePerSecond": 51.9,
+            "shownPerSecond": 51.3,
+            "keepsUpPct": 98.8,
+            "shownInP50Ms": 18.94,
+            "shownInP95Ms": 33.27,
+            "toMarkP50Ms": 9.75,
+            "toPresentP50Ms": 6.29,
+            "unpaired": 2,
+            "latePct": 0,
+            "workP50Ms": 3.69,
+            "workP95Ms": 5.72,
+            "busyMsPerSecond": 246,
+            "collections": {
+              "count": 29,
+              "minor": 18,
+              "major": 11,
+              "totalMs": 27.28,
+              "longestMs": 3.62,
+              "inLateFrame": 0
+            },
+            "spinMs": 116.2,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

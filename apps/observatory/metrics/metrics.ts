@@ -534,12 +534,32 @@ const scrollDeltas = (trace: Trace): TraceEvent[] => trace.events.filter((event)
 /** A batch as the store folded it (`__contender.batches`, the contract's
  *  "State"): its sequence, ticks, the worker's send stamp (epoch ms), the
  *  generation its rows' re-read carries (0: none), and whether a tick
- *  reached a row on screen. */
-export type FeedBatch = readonly [seq: number, ticks: number, sent: number, generation: number, visible: number];
+ *  reached a row on screen. On the monitoring wall, a generation a table
+ *  and a bitmask of the tables whose on-screen rows it ticked. */
+export type FeedBatch = readonly [seq: number, ticks: number, sent: number, generation: number | readonly number[], visible: number];
 
 /** A `contender:refreshed` mark (page ms) and the generation drawn then
- *  (`__contenderRefreshed`, raised before the mark). */
-export type RefreshedFrame = readonly [at: number, generation: number];
+ *  (`__contenderRefreshed`, raised before the mark; on the wall a copy of
+ *  each table's, as it stood at the mark). */
+export type RefreshedFrame = readonly [at: number, generation: number | readonly number[]];
+
+/** Whether a batch has a tick on screen: market watch's flag and a
+ *  generation; the wall's mask not 0 (a table of it at generation 0 has
+ *  nothing to draw, so `drawnReaches` takes it as drawn: the pairing
+ *  `perf/wall.ts` and the readout's ring make too). */
+export function batchVisible(generation: FeedBatch[3], visible: number): boolean {
+  if (typeof generation === 'number') return visible !== 0 && generation > 0;
+  return visible !== 0;
+}
+
+/** Whether a frame's drawn generations reach a batch's: on the wall, in
+ *  every table of its mask (the pooled pairing, the contract's "Shown in,
+ *  under a feed"). */
+export function drawnReaches(drawn: RefreshedFrame[1], generation: FeedBatch[3], visible: number): boolean {
+  if (typeof generation === 'number') return typeof drawn === 'number' && drawn >= generation;
+  if (typeof drawn === 'number') return false;
+  return generation.every((each, table) => !(visible & (1 << table)) || (drawn[table] ?? 0) >= each);
+}
 
 /** A visible batch and the frame that first drew it, page ms. */
 export interface BatchShown {
@@ -568,19 +588,26 @@ export interface FeedFrames {
  * The batches of a feed's window (`from`–`to`, page ms) and the frames that
  * drew them: each visible batch's frame is the first refreshed mark at or
  * after its send whose generation reaches the batch's (the contract's
- * "Shown in, under a feed"). A batch with no tick on screen draws nothing
+ * "Shown in, under a feed"; on the monitoring wall, pooled: every table in
+ * the batch's mask has drawn the generation it names there, `drawnReaches`,
+ * one reading a batch). A batch with no tick on screen draws nothing
  * and isn't counted; one whose frame falls past `to` isn't paired.
  * `timeOrigin` turns the worker's epoch stamps into page ms.
  */
 export function feedFrames(batches: readonly FeedBatch[], refreshed: readonly RefreshedFrame[], timeOrigin: number, from: number, to: number, refreshMs = FRAME_MS): FeedFrames {
   const inWindow = batches.map(([, , sent, generation, seen]) => ({ sent: sent - timeOrigin, generation, seen })).filter(({ sent }) => sent >= from && sent <= to);
-  const visible = inWindow.filter(({ generation, seen }) => seen && generation > 0);
-  // Both lists are in time order and each one's generations only rise, so
-  // a batch's frame is never before the last batch's: one pass.
+  const visible = inWindow.filter(({ generation, seen }) => batchVisible(generation, seen));
+  // Both lists are in time order, so the first mark at or after a batch's
+  // send only moves on; its frame is the first from there whose generations
+  // reach it. (On the wall a later batch's tables may differ from this
+  // one's, so its frame can come before this one's: no shared cursor.)
   const shown: BatchShown[] = [];
-  let next = 0;
+  let since = 0;
   for (const batch of visible) {
-    while (next < refreshed.length && (refreshed[next]![0] < batch.sent || refreshed[next]![1] < batch.generation)) next++;
+    while (since < refreshed.length && refreshed[since]![0] < batch.sent) since++;
+    // No further than the window's end: a frame past it isn't paired.
+    let next = since;
+    while (next < refreshed.length && refreshed[next]![0] <= to && !drawnReaches(refreshed[next]![1], batch.generation, batch.seen)) next++;
     const frame = refreshed[next];
     if (frame && frame[0] <= to) shown.push({ sent: batch.sent, mark: frame[0] });
   }

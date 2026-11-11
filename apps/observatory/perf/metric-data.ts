@@ -15,6 +15,12 @@
 // tail drawn is one of the clock's counts and that frame's rows are all
 // real (`tailContent`).
 //
+// On the monitoring wall's level, filled is across the tables: GPUI's mark
+// after the frame that leaves no table unfilled, TanStack's moment the
+// latest paint among every table's visible rows' cells (table t's row r
+// named as its instrument, `row:<50t + r>`; nothing scrolled, so each
+// table shows the first table's rows).
+//
 // With `--fonts` (the admin table's toggle, GPUI only), the same with
 // `?fonts`, then the toggle's own: Scripts drawn in, `timeOrigin` →
 // `contender:fonts` (set right after the presentation of the first frame
@@ -32,13 +38,15 @@
 // Run `just observatory gpui-build` and `tanstack-build` first.
 
 import { presentedMark, presentingTaskRecorder, waitMark } from '../../../shared-web/perf/harness.ts';
-import { PROBE_CATEGORIES, Trace, rowsPainted, tailContent, tailData, timeToData, type StateFrame, type TailData, type TimeToData } from '../metrics/metrics.ts';
+import { PROBE_CATEGORIES, Trace, rowsPainted, tailContent, tailData, timeToData, type CellPaint, type ContenderState, type StateFrame, type TailData, type TimeToData } from '../metrics/metrics.ts';
 import { flaggedScenario, fontsParams, frameRecorder, medianOf, opened, openSide, originMark, paintRecorder, paints, runMetric, stateRecorder, type RunContext, type RunResult } from './contender.ts';
 import { MARKS, facesChecked, facesFetched } from './harness.ts';
 import { SCRIPT_FACES } from '../contenders/fonts/faces.ts';
 import type { Page } from '@playwright/test';
 import { tailLog, tailRecorder, wholeFileWatch } from './tail-metric.ts';
 import { DATA_FILE } from '../contenders/tail/data.ts';
+import { DESK_ROWS } from '../contenders/wall/desks.ts';
+import type { TablesStop } from '../contenders/scenarios.ts';
 
 interface Run extends RunResult, Partial<TimeToData>, Partial<TailData> {
   rows: number;
@@ -84,6 +92,15 @@ async function scriptsDrawn(page: Page, filled: number, failures: string[]): Pro
 
 /** On the tail level, every summary takes the split's shape, a side whose runs all failed too. */
 const TAIL_LEVEL = flaggedScenario().level === 'tail';
+
+/** The visible rows' cells painted (`rowsPainted`), on the wall across its
+ *  tables: each table's rows the first table's, named as its instruments. */
+function visiblePainted(paints: readonly CellPaint[], open: number, state: ContenderState): { latest: number | null; missing: number[] } {
+  const tables = state.tables ?? 1;
+  const each = Array.from({ length: tables }, (_, table) => rowsPainted(paints, open, table * DESK_ROWS + state.first, table * DESK_ROWS + state.end));
+  const latest = each.map((cells) => cells.latest);
+  return { latest: latest.includes(null) ? null : Math.max(...(latest as number[])), missing: each.flatMap((cells) => cells.missing) };
+}
 
 /** Element Timing entries arrive after the paint, in an observer's task. */
 const PAINT_WAIT_MS = 2_000;
@@ -141,19 +158,21 @@ await runMetric<Run>(
       const { open, filled, state } = await opened(session);
       let painted: number | null = null;
       const failures = [...session.problems];
+      // The wall's rows are every table's: its count the stop's, on both sides.
+      if (picked?.scenario.level === 'wall' && state.tables !== (picked.stop as TablesStop).tables) failures.push(`state.tables ${state.tables}, not the stop's ${(picked.stop as TablesStop).tables}`);
       if (side === 'tanstack') {
         const deadline = Date.now() + PAINT_WAIT_MS;
-        let cells = rowsPainted(await paints(page), open, state.first, state.end);
+        let cells = visiblePainted(await paints(page), open, state);
         while (cells.missing.length && Date.now() < deadline) {
           await page.waitForTimeout(50);
-          cells = rowsPainted(await paints(page), open, state.first, state.end);
+          cells = visiblePainted(await paints(page), open, state);
         }
         if (cells.missing.length) failures.push(`visible rows without a painted cell: ${cells.missing.slice(0, 5).join(', ')}`);
         painted = cells.latest;
       }
       const reading = timeToData(side, open, filled, painted);
       if (!reading) throw new Error('no paint for the visible rows');
-      return { ...reading, rows: state.end - state.first, ...(fonts ? { fonts: await scriptsDrawn(page, filled, failures) } : {}), failures };
+      return { ...reading, rows: (state.end - state.first) * (state.tables ?? 1), ...(fonts ? { fonts: await scriptsDrawn(page, filled, failures) } : {}), failures };
     } finally {
       await session.close();
     }
@@ -189,5 +208,5 @@ await runMetric<Run>(
             : {}),
         },
   (picked) => (picked?.scenario.level === 'tail' ? { split: 'download: open → the file whole; data: the first count → its frame presented; openToData: the total' } : {}),
-  { levels: ['base', 'wide', 'market', 'tail'], fontsToggle: true },
+  { levels: ['base', 'wide', 'market', 'tail', 'wall'], fontsToggle: true },
 );

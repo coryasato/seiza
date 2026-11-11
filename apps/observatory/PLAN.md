@@ -27,7 +27,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part D1) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part D2) |
 | M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
@@ -237,6 +237,26 @@ Both take the same feed, the same desks, the same widths, and the same flash. Th
   *Evidence:* [`2026-11-10-m13-c2-tanstack-parity.json`](perf/results/2026-11-10-m13-c2-tanstack-parity.json): in each browser at its defaults, the grid at 4, 6, 8, and a phone's column as the GPUI contender's (its control differing in every table); Chg % in the rise's or the fall's color by sign, Last alone flashing in all 6 tables at the mix, and a 200-tick feed lighting 20 cells whose fade ends, light and dark. One full run failed in the tail level's WebKit section (the view a frame behind the clock at the instant read), which this part doesn't touch; the two WebKit runs after it and the full run above passed.
 - [x] **C2-4, all of it in `check`:** `wall`, `tanstack-contract`, and `tanstack-parity` run there with their wall sections.
   *Evidence:* each passes on its own (above), as do `lint`, `sizes --check`, `tanstack-sizes --level wall --check`, `cold --level wall --check` (TTFP 165.6 ms, limit 176.6), and `placeholder --level wall`. The full `check` wasn't run in this session.
+
+
+### Part D1: the metrics at the level
+
+**Done when:**
+- [x] **D1-1, the feed's pairing across the tables:** `metric feed --scenario monitoring-wall` at every stop, each batch paired with the first frame at which every table in its mask has drawn the generation it names there (`feedFrames`), market watch's pairing unchanged.
+  *Evidence* ([results](perf/results/2026-11-10-m13-d1.md)): `feedFrames` takes a generation a table and a mask (`batchVisible`, `drawnReaches`), and keeps a cursor over the send times alone (on the wall a later batch's frame can come first). Over 2,000 random market-shaped feeds it paired every batch as the old one-pass code did, and a wall case with one table a frame late paired across it. The smoke run (1 run, both sides, both devices, 4, 6, and 8 tables) passed, every batch visible and paired. The slow device read 99.3, 93.8, and 69.2% on GPUI and 89.5, 55.1, and 34.6% on TanStack, where A2's spike put them. Market watch's feed at 1k still passes.
+- [x] **D1-2, once a scenario: `usable`, `data`, and `memory` at the level** (6 tables): usable confirmed by the probe, time to data every table's visible rows filled, memory after `?ticks=60000` with Download by kind.
+  *Evidence:* all three pass on both sides and devices (1 run each). Usable was confirmed and guarded on GPUI (139.3 ms reference) and confirmed on TanStack (38.3 ms). Data waits for GPUI's `filled` across the tables, and on TanStack for the latest paint among every table's visible rows (`row:<50t + r>`; 197.9 and 205.4 ms). Memory folded 60,000 ticks on both sides, with each table's last re-read drawn (`fedTicks` per table), the cache at 4,000 B open and at the end in every run. Download by kind came from the same run: GPUI 2,801.2 KiB wasm, TanStack 122.5 KiB JS, the engine about 5.7 MiB on each.
+- [x] **D1-3, the same rows on both sides** (inserted: the data smoke read 16 visible rows a table on GPUI and 17 on TanStack). Each TanStack wall table keeps the tall table's 16 px scrollbar room under its rows; `gridDiffers` compares the rows each table shows, with a control.
+  *Evidence:* decided with the user ([`docs/DECISIONS.md`](docs/DECISIONS.md), "TanStack contender"); the room less the table's own horizontal bar after the review (`wall.ts`'s `keepBarRoom`, D1-4). TanStack now shows 16 rows a table at 4, 6, and 8 (`state.end` and its cells), and data's smoke reads 96 rows on both sides. `perf/wall.ts` passes on both sides with the rows shown compared at each grid and a phone's column. The control (one more row shown) differs in every table at each grid; the first run's control differed in none, which showed the grids had dropped their cells. `tanstack-parity` passes in full ([`2026-11-10-m13-d1-tanstack-parity.json`](perf/results/2026-11-10-m13-d1-tanstack-parity.json)): in Chromium, Firefox, and WebKit the wall's grid and rows shown match GPUI's at 4, 6, 8, and a phone's column, and both controls differ in every table. `tanstack-sizes --level wall --check` passes: first-paint JS 77.1 KiB, limit 84.6. `lint` passes.
+- [x] **D1-4, the code review** (the user's `/code-review high`), before D2's runs: its 8 findings fixed.
+  *Evidence* ([results](perf/results/2026-11-10-m13-d1.md), "After the code review"):
+  - Under a classic scrollbar TanStack kept the whole room and showed a row fewer. The room is now 16 px less the bar's height. `perf/wall.ts` forces a 15 px bar on 8 overflowing tables (1200×900), and every table shows 16 rows; the control (the room kept whole) shows fewer in all 8.
+  - The batches counted are now one rule: `batchVisible` and `drawnReaches`, which `perf/wall.ts` now pairs with too.
+  - `metric feed` and `perf/wall.ts` share one refreshed recorder and one wait (`fedTicks`, a running tally on the page).
+  - The pairing's scan stops at the window's end, and `metric data` checks `state.tables` on both sides.
+  - The base, wide, market, and tail TanStack builds are byte-identical with and without this part's TanStack changes.
+  - Passing after the fixes: `perf/wall.ts` on both sides; `tanstack-contract`; `tanstack-parity` in full, its wall grid and rows in all three browsers; `tanstack-sizes --level wall --check` (77.2 KiB, limit 84.6); `lint`.
+  - The smoke runs again (1 run): the feed at 6 tables (GPUI 99.4 / 92.7%, TanStack 96.9 / 56.7%, reference / throttled), memory (60,000 ticks, cache equal), and data at the reference (96 rows on both sides).
 
 ---
 

@@ -1,0 +1,94 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d1-smoke-data",
+  "metric": "data",
+  "scenario": "monitoring-wall",
+  "stop": {
+    "id": "6",
+    "label": "6 tables",
+    "tables": 6
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "ms": 197.9,
+          "openMs": 701.9,
+          "filledMarkMs": 197.9
+        },
+        "runs": [
+          {
+            "openMs": 701.9449996948242,
+            "ms": 197.88000011444092,
+            "filledMarkMs": 197.88000011444092,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 205.4,
+          "openMs": 508.6,
+          "filledMarkMs": 188.2
+        },
+        "runs": [
+          {
+            "openMs": 508.5900001525879,
+            "ms": 205.39500045776367,
+            "filledMarkMs": 188.21000003814697,
+            "rows": 102,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "ms": 1294.3,
+          "openMs": 9826.2,
+          "filledMarkMs": 1294.3
+        },
+        "runs": [
+          {
+            "openMs": 9826.175000190735,
+            "ms": 1294.289999961853,
+            "filledMarkMs": 1294.289999961853,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 1336.3,
+          "openMs": 6888.1,
+          "filledMarkMs": 1298.2
+        },
+        "runs": [
+          {
+            "openMs": 6888.14999961853,
+            "ms": 1336.3100004196167,
+            "filledMarkMs": 1298.1999998092651,
+            "rows": 102,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

@@ -45,8 +45,10 @@ export const wallTables = (page: Page): Promise<WallTable[]> =>
 
 /** Where two sides' tables differ: each table's frame (its four edges,
  *  within `GRID_PX`), its cells' left and top (within `GRID_PX`: the
- *  gutter and the header), its row height, and its columns' x and width
- *  (within `COLUMN_PX`). */
+ *  gutter and the header), its row height, its columns' x and width
+ *  (within `COLUMN_PX`), and the rows it shows (its cells' rows, where
+ *  both sides publish cells: the tall table's scrollbar room under the
+ *  rows hides a sliver of the next row on both sides, or neither). */
 export function gridDiffers(gpui: WallTable[], tanstack: WallTable[]): string[] {
   const wrong: string[] = [];
   const off = (a: number, b: number, within: number) => Math.abs(a - b) > within;
@@ -61,6 +63,10 @@ export function gridDiffers(gpui: WallTable[], tanstack: WallTable[]): string[] 
     if (edges(ba).some((edge, i) => off(edge, edges(bb)[i]!, GRID_PX))) wrong.push(`table ${table}: frame ${ba.map((n) => +n.toFixed(2))} on GPUI, ${bb.map((n) => +n.toFixed(2))} on TanStack`);
     if (off(la.left, lb.left, GRID_PX) || off(la.top, lb.top, GRID_PX)) wrong.push(`table ${table}: cells at (${la.left}, ${la.top}) on GPUI, (${lb.left}, ${lb.top}) on TanStack`);
     if (la.rowHeight !== lb.rowHeight) wrong.push(`table ${table}: rows ${la.rowHeight} px on GPUI, ${lb.rowHeight} on TanStack`);
+    if (a.cells?.length && b.cells?.length) {
+      const shown = (cells: WallCell[]) => [...new Set(cells.map((cell) => cell.row))].sort((x, y) => x - y).join(',');
+      if (shown(a.cells) !== shown(b.cells)) wrong.push(`table ${table}: rows ${shown(a.cells)} shown on GPUI, ${shown(b.cells)} on TanStack`);
+    }
     const [ca, cb] = [a.columns ?? [], b.columns ?? []];
     if (ca.length !== cb.length) wrong.push(`table ${table}: ${ca.length} columns on GPUI, ${cb.length} on TanStack`);
     ca.forEach((column, index) => {
@@ -81,9 +87,20 @@ export const shifted = (tables: WallTable[]): WallTable[] =>
     box: table.box && [table.box[0] + CONTROL_SHIFT_PX, table.box[1], table.box[2], table.box[3]],
   }));
 
-/** Whether the control held: every table of a shifted grid differs. */
-export const controlHolds = (reference: WallTable[], tables: WallTable[]): { differ: number; holds: boolean } => {
-  const wrong = gridDiffers(reference, shifted(tables));
+/** The rows' control: the same tables, each showing one more row (its
+ *  last row's cells copied below it), which `gridDiffers` must find in
+ *  every table: the sliver of a next row that the scrollbar room hides. */
+export const oneMoreRow = (tables: WallTable[]): WallTable[] =>
+  tables.map((table) => {
+    const cells = table.cells ?? [];
+    const last = Math.max(...cells.map((cell) => cell.row));
+    return { ...table, cells: [...cells, ...cells.filter((cell) => cell.row === last).map((cell) => ({ ...cell, row: last + 1 }))] };
+  });
+
+/** Whether a control held: every table of a changed grid (`shifted`, or
+ *  `oneMoreRow`) differs. */
+export const controlHolds = (reference: WallTable[], tables: WallTable[], change: (tables: WallTable[]) => WallTable[] = shifted): { differ: number; holds: boolean } => {
+  const wrong = gridDiffers(reference, change(tables));
   const differ = new Set(wrong.map((line) => /^table (\d+)/.exec(line)?.[1]).filter(Boolean)).size;
   return { differ, holds: differ === reference.length && reference.length > 0 };
 };

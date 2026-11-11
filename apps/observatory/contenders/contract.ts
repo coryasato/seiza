@@ -26,6 +26,8 @@ export interface ContenderState {
   lastCell: string | null;
   /** The page cache's Arrow IPC bytes. */
   cacheBytes: number;
+  /** The monitoring wall's: the stop's tables (the rest is the first table's). */
+  tables?: number;
 }
 
 export interface Replay {

@@ -26,10 +26,16 @@
 //   table; every batch reached (`__contender.batches`' sequence numbers
 //   0, 1, 2, … with no gap, each with a generation a table), and each
 //   batch with a tick on screen (its mask not 0) paired with its frame, the
-//   first refreshed mark at which every table in its mask has drawn the
-//   generation it names there (`__contenderRefreshed`, logged at each
-//   mark): after its send and within `PAIRED_MS` of it; `state.tables`
+//   first refreshed mark at or after its send at which every table in its
+//   mask has drawn the generation it names there (`__contenderRefreshed`,
+//   logged at each mark by `contender.ts`'s `refreshedRecorder`; the
+//   metrics' `batchVisible` and `drawnReaches`, as `metric feed` pairs
+//   them), within `PAIRED_MS` of the send; `state.tables`
 //   the stop's; none of the marks without `?measure`;
+// - TanStack's scrollbar room with a classic horizontal bar (forced, 15
+//   px, at 8 tables at 1200×900, where the columns overflow): each table's
+//   rows shown as without the bar; its control, the room kept whole, a row
+//   fewer in every table;
 // - a phone's column (390×844, 4 tables): a wheel over a table scrolls
 //   that table and not the column (the first title's pixels held), and a
 //   wheel over a gap scrolls the column (they move);
@@ -45,11 +51,12 @@
 // Then, when both sides run, the same on both sides: after the fold (the
 // fixture's ticks, light), every table's cells' exact and shown text
 // byte-identical; and after the fold and at each grid, every table's frame
-// and cells where GPUI's are and its columns at the same x and width
-// (`wall-grid.ts`'s `gridDiffers`): the same grid, gutter, and widths. The
-// controls: TanStack's fold one tick short against GPUI's fold must
-// differ, and at each grid TanStack's tables moved 2 px must differ from
-// GPUI's in every table.
+// and cells where GPUI's are, its columns at the same x and width, and the
+// same rows shown (`wall-grid.ts`'s `gridDiffers`): the same grid, gutter,
+// widths, and scrollbar room. The controls: TanStack's fold one tick short
+// against GPUI's fold must differ, and at each grid TanStack's tables moved
+// 2 px, and each showing one more row, must differ from GPUI's in every
+// table.
 //
 // Usage: node apps/observatory/perf/wall.ts [--side gpui|tanstack] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
@@ -57,7 +64,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, type Browser, type Page } from '@playwright/test';
+import { chromium, type Browser } from '@playwright/test';
 import { presentedMark, presentingTaskRecorder, waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { formatNumber, type NumberFormat } from '../../../components/tall-table/perf/harness.ts';
@@ -68,7 +75,9 @@ import { BUILT, MONITORING_WALL } from '../contenders/scenarios.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import type { Side } from '../contenders/contract.ts';
 import { MARKS, perfDir, problems, serveGpui, serveTanstack } from './harness.ts';
-import { PHONE, WALL_COLUMNS as COLUMNS, controlHolds, flashOff, gridDiffers, signWrong, wallTables, type WallTable as DrawnTable, type WallCell as Cell } from './wall-grid.ts';
+import { fedTicks, refreshedLog, refreshedRecorder } from './contender.ts';
+import { batchVisible, drawnReaches, type FeedBatch } from '../metrics/metrics.ts';
+import { PHONE, WALL_COLUMNS as COLUMNS, controlHolds, flashOff, gridDiffers, oneMoreRow, signWrong, wallTables, type WallTable as DrawnTable, type WallCell as Cell } from './wall-grid.ts';
 
 const label = option('label');
 const sideOption = option('side');
@@ -80,6 +89,24 @@ const PORTS: Record<Side, { wall: number; base: number }> = { gpui: { wall: 4386
 const PAIRED_MS = 50;
 /** The fixture's stop: its feed is the fixture's bytes (all 8 desks). */
 const FOLD_TABLES = 8;
+/** 8 tables whose columns overflow: a horizontal bar shows. */
+const BAR_VIEWPORT = { width: 1200, height: 900 };
+/** Init script: a classic 15 px scrollbar on every table's scroller (Chromium). */
+function classicBar(): void {
+  document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = '.scroller { scrollbar-color: auto !important } .scroller::-webkit-scrollbar { width: 15px; height: 15px; background: #ccc }';
+    document.head.append(style);
+  });
+}
+/** Init script, the control: the scroller 16 px short whatever its bar. */
+function roomKeptWhole(): void {
+  document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = '.wall .scroller { height: calc(100% - 16px) !important }';
+    document.head.append(style);
+  });
+}
 /** Every table's 50 rows drawn, at 4 × 2 tables. */
 const TALL = { width: 2560, height: 2600 };
 /** The fixture's field for each column a table draws, and its format. */
@@ -94,11 +121,9 @@ const fixture = JSON.parse(readFileSync(new URL('../contenders/wall/fixtures/fee
 if (fixture.seed !== MONITORING_WALL.seed) throw new Error(`the wall's feed.json's seed ${fixture.seed} isn't the scenario's ${MONITORING_WALL.seed}`);
 if (fixture.expect.length !== FOLD_TABLES * DESK_ROWS) throw new Error(`the wall's feed.json holds ${fixture.expect.length} instruments, not ${FOLD_TABLES * DESK_ROWS}`);
 
-type Batch = [seq: number, ticks: number, sent: number, generations: number[], visible: number];
 type Global = {
-  __contender?: { tables?: DrawnTable[]; batches?: Batch[]; state?: { tables?: number; top?: number } };
+  __contender?: { tables?: DrawnTable[]; batches?: FeedBatch[]; state?: { tables?: number; top?: number } };
   __contenderRefreshed?: number[];
-  __refreshedLog?: [at: number, drawn: number[]][];
 };
 type Theme = 'light' | 'dark';
 
@@ -107,20 +132,6 @@ const results: Record<string, unknown> = {};
 /** Each side's tables after the fold (light), and at each grid. */
 const drawn: Partial<Record<Side, { fold: DrawnTable[]; foldControl: DrawnTable[]; grids: Record<string, DrawnTable[]> }>> = {};
 
-
-/** Logs `__contenderRefreshed` at each refreshed mark, a copy as it stands
- *  then (each entry raised in the frame's task, before its mark). */
-function refreshedLog(): void {
-  const g = globalThis as Global;
-  const log: [number, number[]][] = [];
-  g.__refreshedLog = log;
-  const mark = performance.mark.bind(performance);
-  performance.mark = (name: string, options?: PerformanceMarkOptions) => {
-    const entry = mark(name, options);
-    if (name === 'contender:refreshed') log.push([entry.startTime, [...(g.__contenderRefreshed ?? [])]]);
-    return entry;
-  };
-}
 
 async function open(browser: Browser, url: string, query: string, options: { theme?: Theme; viewport?: { width: number; height: number }; init?: (() => void)[] } = {}) {
   const context = await browser.newContext({ viewport: options.viewport ?? { width: 1440, height: 900 }, deviceScaleFactor: 1 });
@@ -133,23 +144,6 @@ async function open(browser: Browser, url: string, query: string, options: { the
   for (const waiting of ended) waiting.catch(() => {});
   const end = await Promise.race(ended).catch(() => 'neither' as const);
   return { context, page, found, end };
-}
-
-/** Waits until `ticks` are folded and every table has drawn its last re-read. */
-async function folded(page: Page, ticks: number): Promise<void> {
-  await page.waitForFunction(
-    (ticks) => {
-      const g = globalThis as Global;
-      const batches = g.__contender?.batches ?? [];
-      const sum = batches.reduce((total, [, count]) => total + count, 0);
-      const drawn = g.__contenderRefreshed ?? [];
-      const last = new Map<number, number>();
-      for (const [, , , generations] of batches) generations.forEach((generation, table) => generation && last.set(table, generation));
-      return sum === ticks && [...last].every(([table, generation]) => (drawn[table] ?? 0) >= generation);
-    },
-    ticks,
-    { timeout: 30_000, polling: 20 },
-  );
 }
 
 /** Each table's drawn cells against the fold, in `theme`: what differs. */
@@ -232,10 +226,13 @@ function sameOnBoth(gpui: NonNullable<(typeof drawn)['gpui']>, tanstack: NonNull
     const wrong = gridDiffers(gpui.grids[key]!, other);
     // The control: TanStack's tables moved past the tolerance differ, every one.
     const control = controlHolds(gpui.grids[key]!, other);
-    grids[key] = { differ: wrong.length, controlTablesDiffer: control.differ };
-    console.log(`grid ${key}: ${gpui.grids[key]!.length} tables, ${wrong.length} differences; the control (TanStack's moved 2 px): ${control.differ} of ${gpui.grids[key]!.length} tables differ (all must)`);
+    // The rows': TanStack's tables each showing one more row differ, every one.
+    const rows = controlHolds(gpui.grids[key]!, other, oneMoreRow);
+    grids[key] = { differ: wrong.length, controlTablesDiffer: control.differ, rowsControlTablesDiffer: rows.differ };
+    console.log(`grid ${key}: ${gpui.grids[key]!.length} tables, ${wrong.length} differences; the controls (TanStack's moved 2 px, one more row shown): ${control.differ} and ${rows.differ} of ${gpui.grids[key]!.length} tables differ (all must)`);
     if (wrong.length) fail(`grid ${key}: ${wrong.slice(0, 4).join('; ')}`);
     if (!control.holds) fail(`grid ${key}: the control (TanStack's tables moved 2 px) differs in ${control.differ} of ${gpui.grids[key]!.length} tables`);
+    if (!rows.holds) fail(`grid ${key}: the rows' control (one more row shown) differs in ${rows.differ} of ${gpui.grids[key]!.length} tables`);
   }
   same.grids = grids;
 }
@@ -268,7 +265,7 @@ async function runSide(side: Side): Promise<void> {
           fail(`fold ${ticks} ${theme}: ${end}, not filled`);
           continue;
         }
-        await folded(page, ticks);
+        await fedTicks(page, ticks, 30_000, 20);
         // The last flash fades out, and the frame after it is drawn.
         await page.waitForTimeout(MONITORING_WALL.flash.ms + 300);
         const tables = await wallTables(page);
@@ -312,17 +309,17 @@ async function runSide(side: Side): Promise<void> {
   // The marks across the tables at each stop.
   const marks: Record<string, unknown> = {};
   for (const stop of MONITORING_WALL.stops) {
-    const { context, page, found, end } = await open(browser, wall.url, `${at(stop.id)}&measure`, { init: [presentingTaskRecorder, refreshedLog] });
+    const { context, page, found, end } = await open(browser, wall.url, `${at(stop.id)}&measure`, { init: [presentingTaskRecorder, refreshedRecorder] });
     try {
       if (end !== 'filled') {
         fail(`marks ${stop.id}: ${end}`);
         continue;
       }
       await page.waitForTimeout(3000);
-      const { log, batches, origin, filled, state } = await page.evaluate(() => {
+      const log = await refreshedLog(page);
+      const { batches, origin, filled, state } = await page.evaluate(() => {
         const g = globalThis as Global;
         return {
-          log: g.__refreshedLog ?? [],
           batches: g.__contender?.batches ?? [],
           origin: performance.timeOrigin,
           filled: performance.getEntriesByName('contender:filled', 'mark').map((entry) => entry.startTime),
@@ -338,15 +335,18 @@ async function runSide(side: Side): Promise<void> {
       if (side === 'gpui') for (const [time] of sample) if ((await presentedMark(page, time)).ok) presented++;
       // Every batch reached, a generation a table.
       const gaps = batches.filter(([seq], i) => seq !== i).length;
-      const shaped = batches.filter(([, , , generations]) => generations.length !== stop.tables).length;
-      const wide = log.filter(([, drawn]) => drawn.length !== stop.tables).length;
-      // Each batch with a tick on screen paired across its tables.
-      const visible = batches.filter(([, , , , mask]) => mask !== 0);
+      const shaped = batches.filter(([, , , generations]) => typeof generations === 'number' || generations.length !== stop.tables).length;
+      const wide = log.filter(([, drawn]) => typeof drawn === 'number' || drawn.length !== stop.tables).length;
+      // Each batch with a tick on screen paired across its tables, by the
+      // metrics' rule (`batchVisible`, `drawnReaches`): its frame the first
+      // refreshed mark at or after its send that every table of its mask
+      // has drawn it by.
+      const visible = batches.filter(([, , , generations, mask]) => batchVisible(generations, mask));
       const lags: number[] = [];
       let unpaired = 0;
       for (const [, , sent, generations, mask] of visible) {
         const sentAt = sent - origin;
-        const frame = log.find(([, drawn]) => generations.every((generation, table) => !(mask & (1 << table)) || (drawn[table] ?? 0) >= generation));
+        const frame = log.find(([at, drawn]) => at >= sentAt && drawnReaches(drawn, generations, mask));
         if (frame && frame[0] >= sentAt && frame[0] - sentAt <= PAIRED_MS) lags.push(frame[0] - sentAt);
         else unpaired++;
       }
@@ -414,6 +414,46 @@ async function runSide(side: Side): Promise<void> {
     }
   }
 
+  // TanStack's scrollbar room with a classic horizontal bar: headless
+  // browsers draw none with height, so one is forced (15 px, Chromium's
+  // `::-webkit-scrollbar`) where the columns overflow (8 tables at
+  // `BAR_VIEWPORT`). The bar sits in the room (`keepBarRoom`), so each
+  // table shows the rows it shows without the bar, which the grid check
+  // holds to GPUI's. The control: the room kept whole under the bar (the
+  // scroller 16 px short whatever its bar), a row fewer in every table.
+  if (side === 'tanstack') {
+    // Its own Chromium: the script's hides scrollbars (`--hide-scrollbars`), forced ones too.
+    const shown = await chromium.launch({ channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'] });
+    const rowsShown = async (init: (() => void)[]) => {
+      const { context, page, end } = await open(shown, wall.url, `${at('8')}&cells&theme=light`, { viewport: BAR_VIEWPORT, init });
+      try {
+        if (end !== 'filled') throw new Error(`classic bar: ${end}`);
+        await page.waitForTimeout(300);
+        return await page.evaluate(() => {
+          const scroller = document.querySelector('.wall .scroller') as HTMLElement;
+          const tables = (globalThis as { __contender?: { tables?: { cells: { row: number }[] }[] } }).__contender?.tables ?? [];
+          return { rows: tables.map(({ cells }) => new Set(cells.map((cell) => cell.row)).size), bar: scroller.offsetHeight - scroller.clientHeight, overflow: scroller.scrollWidth > scroller.clientWidth };
+        });
+      } finally {
+        await context.close();
+      }
+    };
+    let plain, barred, whole;
+    try {
+      plain = await rowsShown([]);
+      barred = await rowsShown([classicBar]);
+      whole = await rowsShown([classicBar, roomKeptWhole]);
+    } finally {
+      await shown.close();
+    }
+    const fewer = whole.rows.filter((rows, table) => rows < plain.rows[table]!).length;
+    out.classicBar = { plain, barred, controlTablesFewer: fewer };
+    console.log(`classic bar (${barred.bar} px, overflowing ${barred.overflow}): rows shown ${barred.rows.join(',')}, without the bar ${plain.rows.join(',')}; the control (the room kept whole): ${fewer} of ${plain.rows.length} tables show fewer (all must)`);
+    if (!barred.overflow || barred.bar < 10) fail(`classic bar: no bar to test (${barred.bar} px, overflowing ${barred.overflow})`);
+    if (barred.rows.join() !== plain.rows.join()) fail(`classic bar: rows shown ${barred.rows.join(',')}, ${plain.rows.join(',')} without it`);
+    if (fewer !== plain.rows.length || !plain.rows.length) fail(`classic bar: the control shows fewer rows in ${fewer} of ${plain.rows.length} tables`);
+  }
+
   // The feed's worker failing to load fails the view, once it filled.
   {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
@@ -427,8 +467,8 @@ async function runSide(side: Side): Promise<void> {
     await context.close();
   }
 
-  // The grid: each table's cells' place, row height, and columns, at each
-  // stop and on a phone.
+  // The grid: each table's cells' place, row height, columns, and rows
+  // shown, at each stop and on a phone.
   const grids: Record<string, unknown> = {};
   for (const [key, stop, viewport] of [...MONITORING_WALL.stops.map((stop) => [stop.id, stop.id, undefined] as const), ['phone', '4', PHONE] as const]) {
     const { context, page, found, end } = await open(browser, wall.url, `${at(stop)}&cells&theme=light`, { viewport });
@@ -438,12 +478,13 @@ async function runSide(side: Side): Promise<void> {
         continue;
       }
       await page.waitForTimeout(300);
-      const tables = (await wallTables(page)).map(({ columns, layout, box }) => ({ columns, layout, box }));
+      // The cells too: the rows each table shows are compared across the sides.
+      const tables = await wallTables(page);
       seen.grids[key] = tables;
-      const missing = tables.filter((table) => !table.layout || !table.box || !table.columns?.length).length;
+      const missing = tables.filter((table) => !table.layout || !table.box || !table.columns?.length || !table.cells?.length).length;
       grids[key] = tables.map(({ layout }) => layout && [layout.left, layout.top]);
       console.log(`grid ${key}: ${tables.length} tables, cells at ${tables.map(({ layout }) => (layout ? `(${layout.left}, ${layout.top})` : '?')).join(' ')}`);
-      if (missing) fail(`grid ${key}: ${missing} tables without a layout, a box, or columns`);
+      if (missing) fail(`grid ${key}: ${missing} tables without a layout, a box, columns, or cells`);
       if (found.length) fail(`grid ${key}: ${found.join('; ')}`);
     } finally {
       await context.close();
