@@ -1,6 +1,6 @@
 # Research: Kirkwood, the asteroid belt as a showcase
 
-Kirkwood is a showcase (root `CLAUDE.md`, "Tiers"): an app for fun, not a tool and not a comparison. The asteroid belt as a scene to fly through, drawn from the asteroid table's own rows, with the table of those rows beside it, each moving the other. Drafted 2026-10-23 in a planning discussion and re-scoped 2026-11-10 (root [`docs/DECISIONS.md`](../DECISIONS.md), "Repo structure"). **Nothing here is built or measured**: every number below is an estimate until a spike says otherwise, and no app directory exists yet.
+Kirkwood is a showcase (root `CLAUDE.md`, "Tiers"): an app for fun, not a tool and not a comparison. The asteroid belt as a scene to fly through, drawn from the asteroid table's own rows, with the table of those rows beside it, each moving the other. Drafted 2026-10-23 in a planning discussion and re-scoped 2026-11-10 (root [`docs/DECISIONS.md`](../DECISIONS.md), "Repo structure"). **Nothing here is built or measured**: every number below is an estimate until a spike says otherwise. Its plan is [`apps/kirkwood/PLAN.md`](../../apps/kirkwood/PLAN.md).
 
 **The goal, in a sentence a visitor could repeat: every dot is a row.** 1.57 million asteroids in a scene and the same 1.57 million in a table, and touching one moves the other. Picture a space map summoned in a film: zoom to a region, draw around some of what's there, and the data comes back, here as the table's rows.
 
@@ -58,7 +58,7 @@ A selection is a set of rows, not a region: the asteroids drawn around stay lit 
 
 ## How it might be built
 
-Leaning, not decided; the spike below decides.
+Leaning, not decided; the plan's spike decides.
 
 - **The scene: Three.js on its own canvas,** beside GPUI's. GPUI has no custom-shader API on the web (checked for the density plot: `paint_surface` is macOS and iOS only), and Three.js brings the cinematic layer ready-made: bloom, a glowing Sun, a textured Jupiter, trails, depth of field, camera moves. The belt is one draw: 1.57 M points whose shader solves each orbit on the GPU. Weighed: Bevy (the look, but megabytes of wasm) and raw wgpu (all Rust, and the cinematic layer written by hand).
 - **The engine: Rust.** It owns the orbital elements and their buffers (the scene reads them through a view over wasm memory, no copy), the clock and reference frame, the integration of the resonant groups, the selection (which rows a drawn shape holds), and the link to the table.
@@ -84,19 +84,8 @@ So the scene likely gets its own compact binary file, apart from the table's Par
 
 ---
 
-## First steps
+## What came of it
 
-1. **A throwaway spike: the two canvases.** The belt in a Three.js canvas beside a GPUI panel, fed from a Rust-owned buffer. Answers: how input reaches the right canvas, whether GPUI's overlays can sit over the scene, frame time with both drawing, and what Three.js adds in bytes.
-2. **Size the rows in memory:** 1.57 M rows with their text columns, in Rust, against a table over DuckDB.
-3. **A storyboard on a design canvas:** the space view, the rotating frame, mid-transition, the gaps landed, a gap picked, a group drawn around with the table open. Drawn 2026-11-10 in seven boards (the group takes two: drawn, then flown in to) on [the canvas](https://claude.ai/artifact/Vpx3w9Jb6EAW5RFJbLKKoi) (the withdrawn plot's boards were removed from it the same day), from the sample's real a, e, and i; its notes say which parts are placeholders (the angles, so every position in space, and the whole look). Settled on review: the table's handle is a tab on the scene's right edge with the row count, and the table comes in as a panel on the right (weighed: the table as a layer under the scene's canvas that toggles front and back). The color scheme too (see "What the scene shows"), and what a drawn group does (see "What the table does"). The actions stay as drawn, and the rest is liked as drawn.
-4. **Then its plan:** an app directory from `docs/templates/app/`, adjusted for a showcase (no budgets, no results), and the root `CLAUDE.md`'s "Tiers" made current.
+The plan is [`apps/kirkwood/PLAN.md`](../../apps/kirkwood/PLAN.md), written 2026-11-10: the spike and the sizing of the rows are its first milestone, and the open questions moved there. The decisions made here and at the storyboard's review are in [`apps/kirkwood/docs/DECISIONS.md`](../../apps/kirkwood/docs/DECISIONS.md), and its home in the root [`docs/DECISIONS.md`](../DECISIONS.md), "Hosting".
 
----
-
-## Open questions
-
-- **The table's source:** in memory or DuckDB (step 2), and with it how a filter to a selection's rows is read.
-- **Which columns are live,** and how often they refresh while time runs fast. Open until the spike shows what the table does comfortably (2026-11-10). The constraint either way: the cells are for a person to read, so they never change faster than someone can follow; numbers flying by mean nothing.
-- **The epoch's spread:** whether JPL's elements share one epoch for most objects, or each needs propagating from its own.
-- **The a–e layout's furniture:** axes, labels on the gaps, and how much of the storyboard's board 4 is kept (axes in plain words, a chip per gap, a count line in the withdrawn plot's wording). Liked as drawn on review, not yet specced.
-- **A phone:** whether the scene and a summoned table work at phone width, or the app says it's for a larger screen.
+**The storyboard** is [a design canvas](https://claude.ai/artifact/Vpx3w9Jb6EAW5RFJbLKKoi) of seven boards, drawn and reviewed 2026-11-10: the space view on load, the frame rotating with Jupiter, mid-transition, the gaps landed, a gap picked, a group drawn around, and the fly-in with the table open. Its dots are the sample's real a, e, and i; its notes say which parts are placeholders (the angles, so every position in space, and the look, a flat render). The withdrawn plot's boards were removed from the canvas the same day.

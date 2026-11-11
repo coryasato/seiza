@@ -17,6 +17,7 @@ The repo holds four kinds of thing:
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
 | [**Observatory**](apps/observatory/) | The comparison page: a component in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): five scenarios (Big file, Wide sheet, Market watch, Live tail, Admin table), both contenders, the window's numbers, the meter; next, the monitoring wall |
+| [**Kirkwood**](apps/kirkwood/) | A showcase: the asteroid belt as a scene to fly through, every dot a row of the table beside it. | Planned; nothing built yet |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
 
@@ -63,6 +64,7 @@ seiza/
     duckdb/             # DuckDB-Wasm for every app: a Rust crate (seiza-duckdb) and an npm package (@seiza/duckdb)
   apps/
     observatory/        # the comparison page: web/ (the page), contenders/, worker/ (seiza.io), data/, perf/, docs/
+    kirkwood/           # the showcase, planned: its plan and decisions, no code yet
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands
