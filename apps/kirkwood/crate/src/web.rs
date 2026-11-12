@@ -2,8 +2,10 @@
 //! and what the scene asks. The page asks for each file after the first
 //! frame and writes the response into this module's memory as it comes
 //! ([`file_begin`]), so a file is held once: no copy on the page's side,
-//! and none here. The scene's attributes are views over the elements where
-//! they lie ([`elements_ptr`]); each frame it asks for the clock
+//! and none here. The elements are read as they arrive
+//! ([`elements_arrived`]): the scene fills its attributes from views over
+//! each block of rows where it lies ([`elements_blocks`]), and says how
+//! far it has drawn ([`belt_drawn`]). Each frame it asks for the clock
 //! ([`scene_years`]) and for what else it draws by.
 
 use std::cell::{Cell, RefCell};
@@ -50,12 +52,26 @@ extern "C" {
 
 thread_local! {
     static HOST: RefCell<Option<(Entity<Host>, AsyncApp)>> = const { RefCell::new(None) };
-    /// The file the page is writing into.
+    /// The rows file, while the page is writing into it.
     static ARRIVING: RefCell<Option<Bytes>> = const { RefCell::new(None) };
-    /// The elements, from the moment they're held: the scene draws from
-    /// them before the rows arrive, and the table reads the same ones.
+    /// The elements, while the page is writing into them: read a block at
+    /// a time as each is whole, so the scene draws the belt as it arrives.
+    static FILLING: RefCell<Option<Elements>> = const { RefCell::new(None) };
+    /// The elements, from the moment they're all held: the table reads the
+    /// ones the scene drew from.
     static HELD: RefCell<Option<Rc<Elements>>> = const { RefCell::new(None) };
+    /// The rows the scene has drawn so far, as it last said.
+    static DRAWN: Cell<usize> = const { Cell::new(0) };
     static PROGRESS_AT: Cell<f64> = const { Cell::new(f64::NEG_INFINITY) };
+}
+
+/// The elements, whole or still arriving; nothing before the page begins
+/// them.
+fn with_elements<R>(read: impl FnOnce(&Elements) -> R) -> Option<R> {
+    if let Some(held) = HELD.with_borrow(Clone::clone) {
+        return Some(read(&held));
+    }
+    FILLING.with_borrow(|filling| filling.as_ref().map(read))
 }
 
 fn update_host(update: impl FnOnce(&mut Host, &mut Context<Host>)) {
@@ -110,16 +126,40 @@ pub fn start(ui_font: Vec<u8>) {
         });
 }
 
-/// Room for a file of `bytes` bytes, and where to write it: the page copies
-/// each piece of the response there as it arrives. The address holds until
-/// [`file_end`]; the page makes its view over the memory anew for each
-/// piece, since the memory growing detaches one.
+/// Room for `file`, `bytes` bytes long, and where to write it: the page
+/// copies each piece of the response there as it arrives. The address
+/// holds until [`file_end`] (the elements' for the page's life); the page
+/// makes its view over the memory anew for each piece, since the memory
+/// growing detaches one. Null for a file there isn't.
 #[wasm_bindgen]
-pub fn file_begin(bytes: usize) -> *mut u8 {
-    let mut file = Bytes::zeroed(bytes);
-    let at = file.as_mut_ptr();
-    ARRIVING.set(Some(file));
-    at
+pub fn file_begin(file: u8, bytes: usize) -> *mut u8 {
+    match file {
+        ELEMENTS => {
+            let mut elements = Elements::arriving(bytes);
+            let at = elements.as_mut_ptr();
+            FILLING.set(Some(elements));
+            at
+        }
+        ROWS => {
+            let mut rows = Bytes::zeroed(bytes);
+            let at = rows.as_mut_ptr();
+            ARRIVING.set(Some(rows));
+            at
+        }
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// The elements file's first `held` bytes are written. Returns the rows
+/// that are whole so far: the file is in blocks of rows, and the scene
+/// draws each block as it's whole ([`elements_blocks`]). Throws if the
+/// header, once it's in, isn't this file's.
+#[wasm_bindgen]
+pub fn elements_arrived(held: usize) -> Result<usize, JsError> {
+    FILLING.with_borrow_mut(|filling| match filling {
+        Some(elements) => elements.arrived(held).map_err(|why| JsError::new(&why)),
+        None => Err(JsError::new("no elements file was arriving")),
+    })
 }
 
 /// The bytes held so far, of both files' together.
@@ -134,23 +174,30 @@ pub fn file_progress(received: f64, total: f64) {
 }
 
 /// The file [`file_begin`] made room for is whole. Returns why it isn't
-/// one, or nothing. With the elements held the scene can draw the belt;
-/// with both, the table opens.
+/// one, or nothing. With the elements held the scene has every block;
+/// with both files, the table opens.
 #[wasm_bindgen]
 pub fn file_end(file: u8) -> Option<String> {
-    let Some(bytes) = ARRIVING.take() else {
-        return Some("no file was arriving".into());
-    };
     match file {
-        ELEMENTS => match Elements::new(bytes) {
-            Ok(elements) => {
-                HELD.set(Some(Rc::new(elements)));
-                seiza::marks::mark(ELEMENTS_MARK);
-                None
+        ELEMENTS => {
+            let Some(elements) = FILLING.take() else {
+                return Some("no elements file was arriving".into());
+            };
+            if !elements.is_whole() {
+                return Some(format!(
+                    "the elements file ended with {} of its {} rows",
+                    elements.whole(),
+                    elements.rows()
+                ));
             }
-            Err(why) => Some(why),
-        },
+            HELD.set(Some(Rc::new(elements)));
+            seiza::marks::mark(ELEMENTS_MARK);
+            None
+        }
         ROWS => {
+            let Some(bytes) = ARRIVING.take() else {
+                return Some("no rows file was arriving".into());
+            };
             let Some(elements) = HELD.with_borrow(Clone::clone) else {
                 return Some("the rows file arrived before the elements".into());
             };
@@ -169,9 +216,15 @@ pub fn file_end(file: u8) -> Option<String> {
 }
 
 /// A file didn't arrive, or [`file_end`] turned it down: the page says so.
+/// Elements that stopped short are let go of, with whatever of the belt
+/// they'd drawn (the page clears the scene's): a dot is a row of a table
+/// that can open.
 #[wasm_bindgen]
 pub fn file_failed(message: String) {
     ARRIVING.set(None);
+    if FILLING.take().is_some() {
+        DRAWN.set(0);
+    }
     update_host(|host, cx| host.failed(message, cx));
 }
 
@@ -179,28 +232,40 @@ pub fn file_failed(message: String) {
 // `sky_drawn`, and `scene_failed`, which the page calls from its own tasks,
 // never from inside a call Rust made.
 
-/// Where the elements' columns are: `Element::COUNT` runs of
-/// [`elements_rows`] 32-bit floats, end to end (a, e, i, the node, the
-/// argument of perihelion, the mean anomaly, H). The scene's attributes
-/// are views over them, so the upload to the GPU is the only copy. The
-/// address holds for the page's life; a view over it doesn't (the memory
-/// growing detaches one), so the scene makes its views and uploads them in
-/// one task. Null before the elements are held.
+/// The blocks holding the elements' rows `from..to`, each as two numbers:
+/// where it is in this memory, and its rows. A block is
+/// [`elements_columns`] runs of that many 32-bit floats, end to end (a, e,
+/// i, the node, the argument of perihelion, the mean anomaly, H). The
+/// scene fills its attributes from views over them, so the upload to the
+/// GPU is the only copy. An address holds for the page's life; a view over
+/// it doesn't (the memory growing detaches one), so the scene makes its
+/// views and uploads them with no call in here between. `from` and `to`
+/// are rows [`elements_arrived`] has returned (or 0).
 #[wasm_bindgen]
-pub fn elements_ptr() -> *const f32 {
-    HELD.with_borrow(|held| {
-        held.as_ref()
-            .map_or(std::ptr::null(), |elements| elements.columns_ptr())
+pub fn elements_blocks(from: usize, to: usize) -> Vec<u32> {
+    with_elements(|elements| {
+        elements
+            .blocks(from, to)
+            .into_iter()
+            .flat_map(|(at, rows)| [at as usize as u32, rows as u32])
+            .collect()
     })
+    .unwrap_or_default()
 }
 
-/// The elements' rows; 0 before they're held.
+/// The elements' rows, as the file's header says; 0 before it's in.
 #[wasm_bindgen]
 pub fn elements_rows() -> usize {
-    HELD.with_borrow(|held| held.as_ref().map_or(0, |elements| elements.rows()))
+    with_elements(Elements::rows).unwrap_or(0)
 }
 
-/// The columns at [`elements_ptr`].
+/// The rows whose block is whole: what the scene can draw.
+#[wasm_bindgen]
+pub fn elements_whole() -> usize {
+    with_elements(Elements::whole).unwrap_or(0)
+}
+
+/// The columns of a block ([`elements_blocks`]).
 #[wasm_bindgen]
 pub fn elements_columns() -> usize {
     Element::COUNT
@@ -261,15 +326,24 @@ pub fn jupiter_orbit() -> Vec<f32> {
         .collect()
 }
 
-/// The belt's first draw is on screen: the page's counts are counted from
-/// the rows the scene was given, and time starts to move.
+/// The scene has drawn the elements' first `rows` rows (whole blocks, as
+/// [`elements_arrived`] counted them): what the page counts is counted
+/// from those rows. With every row drawn the counts are the belt's, and
+/// time starts to move.
 #[wasm_bindgen]
-pub fn belt_drawn() {
-    let Some(elements) = HELD.with_borrow(Clone::clone) else {
+pub fn belt_drawn(rows: usize) {
+    let Some((dots, of)) = with_elements(|elements| (elements.bound_before(rows), elements.rows()))
+    else {
         return;
     };
-    let drawn = elements.bound();
-    update_host(|host, cx| host.belt_drawn(drawn, elements.rows() - drawn, cx));
+    DRAWN.set(rows);
+    update_host(|host, cx| {
+        if rows == of {
+            host.belt_drawn(dots, of - dots, cx);
+        } else {
+            host.belt_filling(dots, of, cx);
+        }
+    });
 }
 
 /// The sky is drawn behind the belt: the page says whose stars they are,
@@ -288,16 +362,17 @@ pub fn scene_failed(message: String) {
 // --- For the checks (`checks/see.ts`).
 
 /// The crate's own place for a row, `years` after the epoch, in 64-bit
-/// floats: x, y, z in au. Empty for a row with no ellipse, or before the
-/// elements are held.
+/// floats: x, y, z in au. Empty for a row with no ellipse, or one that
+/// isn't held yet.
 #[wasm_bindgen]
 pub fn place_of(row: usize, years: f64) -> Vec<f64> {
-    HELD.with_borrow(|held| {
-        held.as_ref()
-            .filter(|elements| row < elements.rows())
+    with_elements(|elements| {
+        Some(elements)
+            .filter(|elements| row < elements.whole())
             .and_then(|elements| Orbit::of_row(elements, row))
             .map_or_else(Vec::new, |orbit| orbit.place(years).to_vec())
     })
+    .unwrap_or_default()
 }
 
 /// The clock: its years, whether it's set to run, whether it's held for
@@ -322,17 +397,20 @@ pub fn clock_date() -> String {
     clock::date(clock::years())
 }
 
-/// The rows the scene draws (those with an ellipse), and the rows it
-/// doesn't; both 0 before the elements are held.
+/// Of the rows the scene has drawn so far: those with an ellipse (a dot
+/// each) and those without; then those rows, and the rows the file has.
+/// All 0 before the first block is drawn.
 #[wasm_bindgen]
 pub fn belt_counts() -> Vec<f64> {
-    HELD.with_borrow(|held| {
-        held.as_ref().map_or_else(
-            || vec![0.0, 0.0],
-            |elements| {
-                let drawn = elements.bound();
-                vec![drawn as f64, (elements.rows() - drawn) as f64]
-            },
-        )
+    let rows = DRAWN.get();
+    with_elements(|elements| {
+        let dots = elements.bound_before(rows);
+        vec![
+            dots as f64,
+            (rows - dots) as f64,
+            rows as f64,
+            elements.rows() as f64,
+        ]
     })
+    .unwrap_or_else(|| vec![0.0; 4])
 }

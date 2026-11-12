@@ -65,9 +65,11 @@
 //           scene draws a frame at rest.
 //   slow    one load on Fast 4G with the CPU slowed 4×, the three files at
 //           brotli 11 as a deploy would send them (compressed once, a minute
-//           or two a file): when the first frame, the scene, the belt, the
-//           rows, and the sky arrive, and what the page shows on the way
-//           (out/slow-*.jpg).
+//           or two a file): when the first frame, the scene, the first dots,
+//           the whole belt, the rows, and the sky arrive, and what the page
+//           shows on the way (out/slow-*.jpg). Fails unless, while the belt
+//           fills, the page's count is the file's for the rows drawn, the
+//           scene draws those rows alone, and time waits.
 //   cross   `--browser firefox|webkit` (at DPR 1): the first frame, the belt
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
@@ -82,6 +84,7 @@ import { chromium, firefox, webkit, type Page } from '@playwright/test';
 import { clickTarget, firstDrawProbe, open, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
+import { readElements, type ElementsFile } from '../data/elements.ts';
 
 const dir = import.meta.dirname;
 const out = join(dir, 'out');
@@ -116,6 +119,8 @@ const FIRST_FRAME = 'gpui:first-frame';
 const ELEMENTS = 'kirkwood:elements';
 const ROWS = 'kirkwood:rows';
 const SCENE = 'kirkwood:scene';
+/** The elements' first block of rows is on screen; and, at `BELT`, every row. */
+const DOTS = 'kirkwood:first-dots';
 const BELT = 'kirkwood:belt';
 const TABLE = 'kirkwood:table';
 const SKY = 'kirkwood:sky';
@@ -144,7 +149,7 @@ type Kirkwood = {
   placeOf(row: number, years: number): number[];
   jupiter(years: number): number[];
   clock(): Clock;
-  belt(): { drawn: number; unbound: number };
+  belt(): { drawn: number; unbound: number; rows: number; of: number };
   ramp(): number[];
   scrim(): number[];
 };
@@ -203,6 +208,7 @@ async function load(url: string, first: boolean) {
       firstFrame: await waitMark(page, FIRST_FRAME),
       scene: await waitMark(page, SCENE),
       elements: await waitMark(page, ELEMENTS),
+      dots: await waitMark(page, DOTS),
       belt: await waitMark(page, BELT),
       rows: await waitMark(page, ROWS),
     };
@@ -350,15 +356,18 @@ async function lit(page: Page, png: Buffer, places: [number, number][], reach = 
   );
 }
 
+/** The elements file as built, read by the data's own reader. */
+let elementsRead: ElementsFile | undefined;
+const elementsFile = (): ElementsFile => (elementsRead ??= readElements(readFileSync(join(dir, '../data/elements.bin'))));
 /** The rows of the elements file with an ellipse and without, counted
- *  here from the file's own bytes: a and e, the first two columns. */
-function countRows(): { drawn: number; unbound: number } {
-  const file = readFileSync(join(dir, '../data/elements.bin'));
-  const rows = file.readUInt32LE(4);
+ *  here from the file's own bytes (its a and e), among its first `through`
+ *  rows: every row, or as many as the scene has drawn. */
+function countRows(through?: number): { drawn: number; unbound: number } {
+  const { a, e } = elementsFile().columns;
+  const rows = through ?? elementsFile().rows;
   let drawn = 0;
   for (let row = 0; row < rows; row++) {
-    const [a, e] = [file.readFloatLE(16 + row * 4), file.readFloatLE(16 + (rows + row) * 4)];
-    if (e < 1 && a > 0) drawn++;
+    if (e[row]! < 1 && a[row]! > 0) drawn++;
   }
   return { drawn, unbound: rows - drawn };
 }
@@ -746,7 +755,7 @@ async function seeCross(url: string) {
     const seen = await page.evaluate(() => {
       const kirkwood = (globalThis as unknown as Page_).__kirkwood;
       const stats = kirkwood.scene!.stats;
-      return { gpui: (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? '', scene: stats.renderer, rows: stats.rows, points: stats.points, stars: stats.stars, shared: kirkwood.viewsShareMemory, ...kirkwood.belt() };
+      return { ...kirkwood.belt(), gpui: (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? '', scene: stats.renderer, rows: stats.rows, points: stats.points, stars: stats.stars, shared: kirkwood.viewsShareMemory };
     });
     const file = countRows();
     need(seen.rows === manifest['elements.bin'].rows && seen.points === seen.rows && seen.stars === manifest['stars.bin'].stars, `the scene draws ${seen.points} points of ${seen.rows} rows and ${seen.stars} stars`);
@@ -768,14 +777,11 @@ async function seeCross(url: string) {
 
 /** A load on Fast 4G with the CPU slowed 4×, the files compressed as a
  *  deploy would send them: what the page shows from its first frame to the
- *  belt, the table, and the sky, and when. And when the first rows' worth
- *  of the elements file was held: about when the first dots could be drawn
- *  if the file were cut into blocks of rows (an estimate: the file isn't). */
+ *  first dots, the whole belt, the table, and the sky, and when. While the
+ *  belt fills, the page's count is checked against the file's own bytes
+ *  for the rows the scene has drawn, and time is checked to wait. */
 async function seeSlow(url: string) {
   const FILES = ['elements.bin', 'rows.bin', 'stars.bin'] as const;
-  /** A block of rows, were the elements cut into them: its bytes. */
-  const BLOCK_ROWS = 65_536;
-  const BLOCK = BLOCK_ROWS * 7 * 4;
   process.env.KIRKWOOD_DATA = 'br';
   try {
     // Compressed before the load is timed (once: a minute or two a file).
@@ -788,21 +794,32 @@ async function seeSlow(url: string) {
     const { page, problems, close } = await open(chromium, url, { profile: PROFILES.find((profile) => profile.name === 'throttled')! });
     try {
       const firstFrame = await waitMark(page, FIRST_FRAME);
-      const MARKS = { scene: SCENE, elements: ELEMENTS, belt: BELT, rows: ROWS, sky: SKY };
+      const MARKS = { scene: SCENE, dots: DOTS, elements: ELEMENTS, belt: BELT, rows: ROWS, sky: SKY };
       const SHOTS = [2, 10, 25];
       const seen: Record<string, number> = {};
       const shots: string[] = [];
-      let firstBlock: number | null = null;
-      const timeline: { atMs: number; heldMB: number }[] = [];
+      const timeline: { atMs: number; heldMB: number; rowsDrawn: number }[] = [];
+      /** The page's count while the belt fills, read against the file's. */
+      const filling: { atMs: number; rowsDrawn: number; dots: number; clockHeld: boolean }[] = [];
       for (let last = -Infinity; !('sky' in seen); ) {
         const state = await page.evaluate((marks) => {
           const at = (name: string) => performance.getEntriesByName(name, 'mark').at(-1)?.startTime ?? null;
-          return { now: performance.now(), held: (globalThis as unknown as Page_).__kirkwood.held, marks: Object.fromEntries(Object.entries(marks).map(([key, name]) => [key, at(name)])) };
+          const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+          return { now: performance.now(), held: kirkwood.held, belt: kirkwood.belt(), given: kirkwood.scene?.stats.rows ?? 0, points: kirkwood.scene?.stats.points ?? 0, clock: kirkwood.clock(), marks: Object.fromEntries(Object.entries(marks).map(([key, name]) => [key, at(name)])) };
         }, MARKS);
         need(state.now < 180_000, `three minutes in, the page has ${JSON.stringify(state)}`);
-        if (firstBlock === null && state.held >= 16 + BLOCK) firstBlock = state.now;
+        // Some of the belt is drawn and more is arriving: the count is
+        // counted from the rows drawn, the scene draws those rows and no
+        // more, and time waits for the rest.
+        if (state.belt.rows > 0 && state.belt.rows < state.belt.of) {
+          const file = countRows(state.belt.rows);
+          need(state.belt.drawn === file.drawn && state.belt.unbound === file.unbound, `with ${state.belt.rows} rows drawn the page counts ${state.belt.drawn} dots and ${state.belt.unbound} rows without; the file's first ${state.belt.rows} rows have ${file.drawn} and ${file.unbound}`);
+          need(state.given === state.belt.rows && state.points === state.given, `the page counts ${state.belt.rows} rows drawn; the scene was given ${state.given} and draws ${state.points}`);
+          need(state.clock.held, `time moved while the belt filled: ${JSON.stringify(state.clock)}`);
+          if (!filling.length || state.now - filling.at(-1)!.atMs >= 5000) filling.push({ atMs: round(state.now), rowsDrawn: state.belt.rows, dots: state.belt.drawn, clockHeld: state.clock.held });
+        }
         if (state.now - last >= 5000) {
-          timeline.push({ atMs: round(state.now), heldMB: mb(state.held) });
+          timeline.push({ atMs: round(state.now), heldMB: mb(state.held), rowsDrawn: state.belt.rows });
           last = state.now;
         }
         const due = SHOTS.find((seconds) => state.now >= firstFrame + seconds * 1000 && !shots.includes(`slow-${seconds}s`));
@@ -813,7 +830,8 @@ async function seeSlow(url: string) {
         for (const [key, at] of Object.entries(state.marks)) {
           if (at === null || key in seen) continue;
           seen[key] = at;
-          if (key === 'scene') continue;
+          // The elements held is the belt drawn, a moment before.
+          if (key === 'scene' || key === 'elements') continue;
           // GPUI's own frame after the mark (the handle, the counts, the line about the stars).
           await page.waitForTimeout(600);
           await shot(page, `slow-${key}`);
@@ -824,13 +842,16 @@ async function seeSlow(url: string) {
         (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith('/data/')).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd, wire: entry.encodedBodySize })),
       );
       if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+      need(filling.length > 0, 'the belt was never seen part drawn: it filled between two readings, or all at once');
+      need(seen.dots! < seen.belt!, `the first dots at ${round(seen.dots!)} ms weren't before the whole belt at ${round(seen.belt!)}`);
       return {
         profile: 'CPU 4x, Fast 4G; the files at brotli 11',
         wireMB: Object.fromEntries(Object.entries(wire).map(([name, bytes]) => [name, mb(bytes)])),
         firstFrameMs: round(firstFrame),
         sceneStartedMs: round(seen.scene!),
-        firstBlockHeldMs: firstBlock === null ? null : round(firstBlock),
-        blockRows: BLOCK_ROWS,
+        firstDotsMs: round(seen.dots!),
+        blockRows: elementsFile().blockRows,
+        filling,
         elementsHeldMs: round(seen.elements!),
         beltDrawnMs: round(seen.belt!),
         rowsHeldMs: round(seen.rows!),
@@ -980,6 +1001,7 @@ try {
         api: first.api,
         firstFrameMs: of((run) => run.marks.firstFrame),
         sceneStartedMs: of((run) => run.marks.scene),
+        firstDotsMs: of((run) => run.marks.dots),
         elementsHeldMs: of((run) => run.marks.elements),
         beltDrawnMs: of((run) => run.marks.belt),
         rowsHeldMs: of((run) => run.marks.rows),
@@ -988,6 +1010,7 @@ try {
           ...first.requests.map((request) => ({ at: request.startMs, what: `asked for ${request.path}`, until: request.endMs })),
           { at: round(first.marks.firstFrame), what: `mark ${FIRST_FRAME}` },
           { at: round(first.marks.scene), what: `mark ${SCENE}` },
+          { at: round(first.marks.dots), what: `mark ${DOTS}` },
           { at: round(first.marks.elements), what: `mark ${ELEMENTS}` },
           { at: round(first.marks.belt), what: `mark ${BELT}` },
           { at: round(first.marks.rows), what: `mark ${ROWS}` },

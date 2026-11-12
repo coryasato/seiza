@@ -147,3 +147,17 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Look", "Data"; the evide
 - **A part can end by finding the next one.** The close was this part's, and a measurement moved it: the file in blocks is part E.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Data", "Table", "Planning"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.
+
+## M2, part E: the belt fills in as it arrives (2026-11-11)
+
+**Surprises:**
+- **Cutting the file cost almost nothing on the wire.** The columns are noise to a compressor whether they run 1.58 million rows or 16,384: 0.6% more at the block size chosen, and 0.8% at a quarter of it. The block's size was free to be chosen for how the fill looks.
+- **The plan expected a draw a block, and the belt stayed one draw.** A buffer of the scene's own, written a block at a time, left the block's size with nothing to do with the draws; "from the draws it makes" turned out to have no number in it.
+- **Three.js keeps what it uploads.** Its attribute holds its array, and here an array is a view that dies when the wasm's memory grows. Before, one upload hid that; filling a block at a time needed a buffer Three.js doesn't own.
+- **Drawing each block as it came made a fast load slower.** Locally the 97 blocks land in a tenth of a second, and a hand-over for each put the whole belt 230 ms later than the file whole had. The fix was also the right thing for a reader: a count that changes four times a second, not ninety.
+- **The estimate of the first dots was pessimistic.** D2 guessed 5.6 s for a 65,536-row block; with a block a quarter the size they are on screen at 4.3 s, a tenth of a second after the scene itself.
+- **"Counted from the rows" needed a second meaning.** The rows that have arrived and the rows the scene has drawn part ways while the scene's module loads, so the count is of what the scene says it drew, and the check counts those rows again from the file's bytes at every reading.
+- **Whether time runs was settled by arithmetic before it reached the eye.** At a year a second a slow link would spend 34 of the clock's 50 years filling the belt. The knob to look at both was built and was gone the same hour.
+- **A header checked as it arrives turns a wrong file down 20 bytes in.** Reading the file a block at a time moved the check from the end of 44 MB to its start, for free.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data", "Scene"; the evidence: [`milestones.md`](milestones.md), M2's checks.

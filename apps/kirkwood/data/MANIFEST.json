@@ -4,8 +4,8 @@
     "source": "https://ssd-api.jpl.nasa.gov/sbdb_query.api",
     "fetched": "2026-11-11",
     "writer": "data/prep.ts; little-endian, each section on a 4-byte boundary",
-    "bytes": 44247632,
-    "sha256": "c804184f7bd487faa218dedc18e19d7600a3a60ec4a4a0a118dac2620bc2b6a1",
+    "bytes": 44247636,
+    "sha256": "46d6c9209047dc9233e4374d45357f9ed7572abaa03b639bc79fea7fa8eb0025",
     "epoch": {
       "jd": 2461200.5,
       "date": "2026-06-09",
@@ -13,57 +13,32 @@
     },
     "frame": "heliocentric, ecliptic and equinox of J2000 (IAU76/80)",
     "meanMotion": "0.01720209895 / a^1.5 radians a day (the Gaussian constant)",
+    "blockRows": 16384,
+    "columns": [
+      "a",
+      "e",
+      "i",
+      "om",
+      "w",
+      "ma",
+      "H"
+    ],
     "layout": [
       {
         "name": "header",
         "kind": "u8",
         "offset": 0,
-        "bytes": 16
+        "bytes": 20
       },
       {
-        "name": "a",
+        "name": "blocks",
         "kind": "f32",
-        "offset": 16,
-        "bytes": 6321088
-      },
-      {
-        "name": "e",
-        "kind": "f32",
-        "offset": 6321104,
-        "bytes": 6321088
-      },
-      {
-        "name": "i",
-        "kind": "f32",
-        "offset": 12642192,
-        "bytes": 6321088
-      },
-      {
-        "name": "om",
-        "kind": "f32",
-        "offset": 18963280,
-        "bytes": 6321088
-      },
-      {
-        "name": "w",
-        "kind": "f32",
-        "offset": 25284368,
-        "bytes": 6321088
-      },
-      {
-        "name": "ma",
-        "kind": "f32",
-        "offset": 31605456,
-        "bytes": 6321088
-      },
-      {
-        "name": "H",
-        "kind": "f32",
-        "offset": 37926544,
-        "bytes": 6321088
+        "offset": 20,
+        "bytes": 44247616
       }
     ],
     "notes": [
+      "the rows are in blocks of 16384, the last one short; a block is its rows of each column in turn: 7 runs of 32-bit floats, each as long as the block has rows",
       "rows fetched at another epoch, their mean anomaly moved to this one by their own mean motion: 96384",
       "rows with no mean anomaly in the source (a circle: 0 at its epoch): 1 ((2002 PD153))",
       "rows with no ellipse (e not below 1), their mean anomaly a hyperbola's and not an angle: 7",

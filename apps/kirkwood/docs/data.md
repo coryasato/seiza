@@ -40,16 +40,16 @@ So the elements are heliocentric, in the ecliptic of J2000 (IAU 1976 obliquity),
 
 ## The two files
 
-`data/prep.ts` builds them from the fetch: `data/elements.bin`, what the scene draws from, and `data/rows.bin`, the table's other columns. Both are gitignored; `data/MANIFEST.json` (committed) holds each one's rows, bytes, SHA-256, source, fetch date, and layout (every section's name, type, offset, and bytes), so the manifest is the layout's exact statement and this is its explanation.
+`data/prep.ts` builds them from the fetch: `data/elements.bin`, what the scene draws from, and `data/rows.bin`, the table's other columns. Both are gitignored; `data/MANIFEST.json` (committed) holds each one's rows, bytes, SHA-256, source, fetch date, and layout (every section's name, type, offset, and bytes; for the elements, the rows in a block and a block's columns), so the manifest is the layout's exact statement and this is its explanation.
 
 - **Reproducible:** prep writes the same bytes from the same `data/raw/` every time; `prep.ts --check` builds them again and fails unless they are the manifest's and the disk's. A refresh of the fetch is a new dataset: new files, a new manifest, a new date in the credit.
 - **Checked as written:** every run reads each row back out of the built bytes, the way the app will, and fails unless it is the fetch's row: the text exactly, the numbers as below.
-- **Both files** are little-endian, a column at a time, every section starting on a 4-byte boundary, so a reader holds the file's bytes as they arrive and views each column where it is.
+- **Both files** are little-endian, every section starting on a 4-byte boundary, so a reader holds the file's bytes as they arrive and views each column where it is. The rows file is a column at a time; the elements file is in blocks of rows, each block a column at a time, so its first rows can be drawn while the rest arrive.
 - **The rows' order** is the same in both: the numbered asteroids by number (row r is asteroid r + 1, so the table opens on Ceres), then the rest by designation, in the order designations were given out (the three with a survey's designation last). It's the catalog's own order made exact; the API doesn't promise one.
 
 ### `elements.bin`
 
-A 16-byte header (`KWE1`, the row count as a u32, the epoch as an f64: JD 2461200.5 TDB), then seven columns of 32-bit floats, a row count long each:
+A 20-byte header (`KWE2`, the row count as a u32, the epoch as an f64: JD 2461200.5 TDB, the rows in a block as a u32: 16,384), then the rows in blocks, the last one short (97 blocks, the last of 7,408 rows). A block is its rows of each column in turn: seven runs of 32-bit floats, each as long as the block has rows. So with B rows in a block, row r is in block ⌊r / B⌋, which starts at byte 20 + ⌊r / B⌋ × B × 28, and its cell in column c is float c × n + (r mod B) of that block, n being the block's own rows (B, or what's left in the last). `data/elements.ts` is that arithmetic: prep writes with it, and every script that reads the built file reads with it; the crate's is `crate/src/elements.rs`. The first rows are whole when the first block is, which is why the file is cut this way and how B was chosen (`DECISIONS.md`, "Data"). The columns:
 
 | Column | What | Units |
 |---|---|---|
@@ -101,10 +101,10 @@ What the file leaves out, and where each cell comes from instead:
 
 | | Raw | Brotli 11 |
 |---|---|---|
-| `elements.bin` | 44.25 MB | 34.56 MB |
+| `elements.bin` | 44.25 MB | 34.78 MB |
 | `rows.bin` | 46.27 MB | 11.15 MB |
 
-Held in memory they cost their raw size, 90.5 MB together. The elements' six orbit columns are 5.0 to 5.7 MB each at brotli 11 (their digits are noise to a compressor) and H is 2.0. Of the rows file: `spkid` 2.4 MB, `designation` 2.1, the dates 2.2 and 1.9, `n_obs_used` 1.7, and everything else 1.0.
+Held in memory they cost their raw size, 90.5 MB together. The elements' six orbit columns, each alone, are 5.0 to 5.7 MB at brotli 11 (their digits are noise to a compressor) and H is 2.0; a column at a time the file would be 34.57 MB, so the blocks cost 0.21 (`--sizes` prints it at other block sizes too). Of the rows file: `spkid` 2.4 MB, `designation` 2.1, the dates 2.2 and 1.9, `n_obs_used` 1.7, and everything else 1.0.
 
 ## The fixture
 
@@ -158,7 +158,7 @@ From the repo root:
 ```
 node apps/kirkwood/data/fetch.ts [--refresh] [--page-size 100000]   # the catalog into data/raw/asteroids/ (~3 min, once)
 node --max-old-space-size=12000 apps/kirkwood/data/survey.ts [<tycho's data/raw/asteroids>]   # the numbers above as JSON; with Tycho's raw pages, the sample against the fetch
-node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json, data/fixture.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's and the fixture is the same, writes nothing; --sizes: each file and section raw and at brotli 11 (~2 min more)
+node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json, data/fixture.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's and the fixture is the same, writes nothing; --sizes: each file and section raw and at brotli 11, each of the elements' columns alone, and the elements file at other block sizes (~4 min more)
 npm install --prefix apps/kirkwood/data   # native DuckDB, which only stars.ts needs
 node apps/kirkwood/data/stars.ts <gaia-dr3-bright.parquet> [--check]   # data/stars.bin and its entry in data/MANIFEST.json, from Tycho's Gaia sample (seconds); --check: builds again, fails unless the bytes are the manifest's, writes nothing
 node --max-old-space-size=12000 apps/kirkwood/data/precision.ts [--only error,bytes]   # the elements file's precision, weighed: each way of storing the elements, its error against 64-bit floats and its bytes (~7 min; DECISIONS.md, "Data")

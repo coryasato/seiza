@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readElements } from './elements.ts';
 // The type alone: importing the script would run its fetch.
 import type { Horizons } from './horizons.ts';
 import { JUPITER, JUPITER_APPROX, jupiterMeanLongitude, jupiterPlace } from './jupiter.ts';
@@ -64,8 +65,8 @@ const column = <T>(file: { pin: Pinned; bytes: Buffer }, name: string, as: new (
 const elementsFile = pinned('elements.bin');
 const rowsFile = pinned('rows.bin');
 const rows = elementsFile.pin.rows;
-if (elementsFile.bytes.readDoubleLE(8) !== EPOCH_JD) throw new Error("the elements file's epoch isn't orbit.ts's");
-const [a, e, i, om, w, ma] = ['a', 'e', 'i', 'om', 'w', 'ma'].map((name) => column(elementsFile, name, Float32Array)) as [Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array];
+// Each row from where its block keeps it (elements.ts, which checks the epoch).
+const { a, e, i, om, w, ma } = readElements(elementsFile.bytes).columns;
 const spkid = column(rowsFile, 'spkid', Uint32Array);
 const classOf = column(rowsFile, 'class', Uint8Array);
 const classes = rowsFile.pin.classes!;

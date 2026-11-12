@@ -82,13 +82,23 @@ struct Slide {
     start_ms: f64,
 }
 
-/// The belt as the scene drew it, counted from the elements' rows.
+/// The belt as the scene has drawn it, counted from the elements' rows.
 #[derive(Clone, Copy)]
-struct Belt {
-    /// The rows with an ellipse: a dot each.
-    drawn: usize,
-    /// The rows with none (e not below 1): no dot.
-    unbound: usize,
+enum Belt {
+    /// Some of the file's blocks of rows are drawn, and more are arriving.
+    Filling {
+        /// The dots so far: the drawn rows with an ellipse.
+        dots: usize,
+        /// The rows the file has.
+        rows: usize,
+    },
+    /// Every row is drawn.
+    Whole {
+        /// The rows with an ellipse: a dot each.
+        drawn: usize,
+        /// The rows with none (e not below 1): no dot.
+        unbound: usize,
+    },
 }
 
 pub struct Host {
@@ -141,15 +151,30 @@ impl Host {
     /// has nothing to open.
     pub fn failed(&mut self, message: String, cx: &mut Context<Self>) {
         self.files = Files::Failed(message.into());
+        // The elements stopped short: the page clears what the scene had
+        // drawn of them, and nothing is counted.
+        if matches!(self.belt, Some(Belt::Filling { .. })) {
+            self.belt = None;
+        }
         cx.notify();
     }
 
-    /// The scene drew the belt from the elements: `drawn` rows on their
-    /// ellipses and `unbound` with none, counted from the rows. Time moves
-    /// from here.
+    /// The scene has drawn the first of the elements' blocks: `dots` rows
+    /// on their ellipses so far, of a file of `rows` rows still arriving.
+    /// Time waits for the rest (`docs/DECISIONS.md`, "Scene").
+    pub fn belt_filling(&mut self, dots: usize, rows: usize, cx: &mut Context<Self>) {
+        self.belt = Some(Belt::Filling { dots, rows });
+        cx.notify();
+    }
+
+    /// The scene drew the whole belt from the elements: `drawn` rows on
+    /// their ellipses and `unbound` with none, counted from the rows. Time
+    /// moves from here.
     pub fn belt_drawn(&mut self, drawn: usize, unbound: usize, cx: &mut Context<Self>) {
-        self.belt = Some(Belt { drawn, unbound });
-        clock::release();
+        self.belt = Some(Belt::Whole { drawn, unbound });
+        if clock::held() {
+            clock::release();
+        }
         cx.notify();
     }
 
@@ -164,6 +189,11 @@ impl Host {
     /// page says so. The table doesn't need it.
     pub fn scene_failed(&mut self, message: String, cx: &mut Context<Self>) {
         self.scene_failed = Some(message.into());
+        // A belt part drawn gets no more rows, and the page clears it:
+        // nothing is counted, and there's no time to wait for.
+        if matches!(self.belt, Some(Belt::Filling { .. })) {
+            self.belt = None;
+        }
         cx.notify();
     }
 
@@ -234,17 +264,17 @@ impl Host {
         let line: SharedString = match (&self.files, &self.scene_failed, self.belt) {
             // The belt is drawn and the rows file isn't coming: the dots
             // keep their count, and the table has nothing.
-            (Files::Failed(message), _, Some(belt)) => format!(
+            (Files::Failed(message), _, Some(belt @ Belt::Whole { .. })) => format!(
                 "{} The table's rows didn't load. {message}",
                 belt_line(belt)
             )
             .into(),
-            (Files::Failed(message), _, None) => {
+            (Files::Failed(message), _, _) => {
                 format!("The asteroids didn't load. {message}").into()
             }
             (_, Some(message), _) => format!("The scene didn't start. {message}").into(),
-            // The dots on screen, counted from the rows, and the rows that
-            // have no dot.
+            // The dots on screen, counted from the rows drawn; and, once
+            // every row is, the rows that have no dot.
             (_, None, Some(belt)) => belt_line(belt).into(),
             // No count until it's counted from the rows.
             (Files::Loading { received, total }, None, None) if *total > 0.0 => format!(
@@ -352,6 +382,9 @@ impl Host {
         let ended = clock::ended();
         let says = if failed {
             "no asteroids to move"
+        } else if clock::held() && self.belt.is_some() {
+            // The first dots are on screen, and stand still until the last.
+            "waiting for the rest of the asteroids"
         } else if clock::held() {
             "waiting for the asteroids"
         } else if running {
@@ -598,14 +631,25 @@ fn ease(k: f64) -> f64 {
     }
 }
 
-/// What's drawn, counted from the rows: the dots, and the rows that have
-/// none and why.
+/// What's drawn, counted from the rows drawn: while the belt fills, the
+/// dots so far and the rows on their way; whole, the dots, and the rows
+/// that have none and why.
 fn belt_line(belt: Belt) -> String {
+    let (drawn, unbound) = match belt {
+        Belt::Filling { dots, rows } => {
+            return format!(
+                "{} asteroids so far, each on its own orbit, of {} rows arriving.",
+                grouped(dots),
+                grouped(rows)
+            );
+        }
+        Belt::Whole { drawn, unbound } => (drawn, unbound),
+    };
     let dots = format!(
         "{} asteroids, each on its own orbit, and every dot is a row.",
-        grouped(belt.drawn)
+        grouped(drawn)
     );
-    match belt.unbound {
+    match unbound {
         0 => dots,
         1 => format!(
             "{dots} 1 more row has no dot: it's passing through, on a path that never closes."
@@ -662,7 +706,14 @@ mod tests {
 
     #[test]
     fn the_rows_with_no_dot_are_counted_apart() {
-        let line = |drawn, unbound| belt_line(Belt { drawn, unbound });
+        let line = |drawn, unbound| belt_line(Belt::Whole { drawn, unbound });
+        assert_eq!(
+            belt_line(Belt::Filling {
+                dots: 32_768,
+                rows: 1_580_272
+            }),
+            "32,768 asteroids so far, each on its own orbit, of 1,580,272 rows arriving."
+        );
         assert_eq!(
             line(1_580_265, 7),
             "1,580,265 asteroids, each on its own orbit, and every dot is a row. 7 more rows have no dot: they're passing through, on paths that never close."

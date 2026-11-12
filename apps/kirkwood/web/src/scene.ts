@@ -1,7 +1,8 @@
 // The scene: the belt as one draw of points, each row's orbit solved in the
 // vertex shader from its six elements, which the crate holds (its
-// attributes are views over the elements' columns in the wasm's memory, so
-// the upload to the GPU is the only copy). With it, what the scene adds
+// attributes are filled from views over the elements' blocks in the wasm's
+// memory, a block at a time as the file arrives, so the upload to the GPU
+// is the only copy). With it, what the scene adds
 // that isn't a row, and plainly isn't a dot: the Sun, Jupiter on its own
 // orbit (the crate's, not a row's), that orbit as a line, and their names.
 //
@@ -24,7 +25,7 @@
 // `?band=<au>,<au>` (the orbit sizes that stay lit, `?bandGain` times as
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -56,10 +57,10 @@ export interface SceneStats {
   frames: number;
   /** The clock's years in the last frame drawn. */
   years: number;
-  /** The rows the scene was given; 0 until the belt is in. */
+  /** The rows the scene has been given so far; 0 until the first block. */
   rows: number;
-  /** The points it draws them as: every row (a row with no ellipse is
-   *  turned away in the shader), or `?only`'s. */
+  /** The points it draws them as: every one of those rows (a row with no
+   *  ellipse is turned away in the shader), or those of `?only`'s. */
   points: number;
   /** The sky's stars; 0 until they're in. */
   stars: number;
@@ -69,12 +70,20 @@ export interface SceneStats {
 }
 
 export interface BeltScene {
-  /** The belt's rows. `columns` makes views over the crate's seven columns
-   *  (a, e, i, the node, the argument of perihelion, the mean anomaly, in
-   *  au and degrees, and H), `rows` long each; they're uploaded to the GPU
-   *  before this returns and not read again, since the wasm's memory
-   *  growing detaches them. */
-  setElements(columns: () => Float32Array[], rows: number): void;
+  /** Room on the GPU for the belt's `rows` rows, none of them drawn yet. */
+  setBelt(rows: number): void;
+  /** The belt's next rows, a block of the elements file at a time, in the
+   *  file's order. `blocks` makes, for each block, views over its seven
+   *  columns where the crate holds them (a, e, i, the node, the argument
+   *  of perihelion, the mean anomaly, in au and degrees, and H); they're
+   *  uploaded to the GPU before this returns and not read again, since
+   *  the wasm's memory growing detaches them. `through` is the rows drawn
+   *  once they're in. Drawn in the next frame, or before this returns
+   *  when `now` (so a mark set after it is of those rows on screen). */
+  addRows(blocks: () => Float32Array[][], through: number, now: boolean): void;
+  /** No belt: the rows drawn so far are dropped and their room on the GPU
+   *  let go (their file stopped short, or a block couldn't be drawn). */
+  clearBelt(): void;
   /** Whether the scene draws a sky: never beside rows drawn alone, or at
    *  `?sky=0`. Asked before its file is. */
   wantsSky: boolean;
@@ -90,6 +99,9 @@ export interface BeltScene {
   labels(): { text: string; left: number; top: number; width: number; height: number; shown: boolean }[];
   stats: SceneStats;
 }
+
+/** The belt's attributes, in the order of a block's columns. */
+const COLUMNS = ['a', 'e', 'inc', 'node', 'peri', 'mean', 'mag'];
 
 /** The most steps the shader takes on Kepler's equation. The crate's tests
  *  run this shader's arithmetic in 32-bit floats against its own 64-bit
@@ -595,6 +607,26 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     stats.frames++;
     stats.years = frame.years;
   };
+  /** The belt's room on the GPU: a buffer a column, and what draws from them. */
+  interface Belt {
+    rows: number;
+    buffers: WebGLBuffer[];
+    draws: Points<BufferGeometry<NormalOrGLBufferAttributes>>[];
+  }
+  let belt: Belt | undefined;
+  /** The belt's first `rows` rows are in its buffers: what's drawn of it. */
+  const shown = (belt: Belt, rows: number) => {
+    stats.rows = rows;
+    stats.points = 0;
+    belt.draws.forEach((points, draw) => {
+      // A row drawn alone shows once its block is in; the belt, as far
+      // as it's in.
+      const count = alone ? Number(alone[draw]! < rows) : rows;
+      if (!alone) points.geometry.setDrawRange(0, count);
+      points.visible = count > 0;
+      stats.points += count;
+    });
+  };
   const tick = (now: number) => {
     requestAnimationFrame(tick);
     const frame = ask(now);
@@ -606,30 +638,66 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
 
   return {
     stats,
-    setElements(columns, rows) {
-      // Everything the crate is asked comes first; then the views, read
-      // where the crate keeps the columns, and their upload, in one go.
-      const frame = ask(performance.now());
-      const views = columns();
-      const NAMES = ['a', 'e', 'inc', 'node', 'peri', 'mean', 'mag'];
-      if (views.length !== NAMES.length || views.some((view) => view.length !== rows)) throw new Error(`the scene wants seven columns of ${rows} rows`);
-      const attributes = NAMES.map((attribute, column) => [attribute, new BufferAttribute(views[column]!, 1)] as const);
-      // One geometry for the belt; for rows drawn alone, one a row, each a
-      // draw of that one point from the same buffers.
-      const ranges: [number, number][] = alone ? alone.map((row) => [row, 1]) : [[0, rows]];
-      for (const [start, count] of ranges) {
+    setBelt(rows) {
+      if (belt) throw new Error('the belt has its room already');
+      // A buffer for each column, `rows` floats long, the scene's own (not
+      // Three.js's: it would keep each array it uploads, and these are
+      // filled a block at a time from views that don't last).
+      const buffers = COLUMNS.map(() => {
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, rows * 4, gl.STATIC_DRAW);
+        return buffer;
+      });
+      // One geometry for the belt, drawn as far as its rows are in; for
+      // rows drawn alone, one a row, each a draw of that one point from
+      // the same buffers, once its block is in.
+      const ranges: [number, number][] = alone ? alone.map((row) => [row, 1]) : [[0, 0]];
+      const draws = ranges.map(([start, count]) => {
         if (start >= rows) throw new Error(`?only: no row ${start}; there are ${rows}`);
-        const geometry = new BufferGeometry();
-        for (const [attribute, buffer] of attributes) geometry.setAttribute(attribute, buffer);
+        const geometry = new BufferGeometry<NormalOrGLBufferAttributes>();
+        COLUMNS.forEach((attribute, column) => geometry.setAttribute(attribute, new GLBufferAttribute(buffers[column]!, gl.FLOAT, 1, 4, rows)));
         // No `position` attribute to count by: the range says how many.
         geometry.setDrawRange(start, count);
         const points = new Points(geometry, material);
         points.frustumCulled = false;
+        points.visible = false;
         dust.add(points);
+        return points;
+      });
+      belt = { rows, buffers, draws };
+    },
+    addRows(blocks, through, now) {
+      if (!belt) throw new Error('rows before the belt has its room');
+      // Everything the crate is asked comes first; then the views, read
+      // where the crate keeps each block, and their upload, in one go.
+      const frame = now ? ask(performance.now()) : undefined;
+      let at = stats.rows;
+      for (const columns of blocks()) {
+        const count = columns[0]?.length ?? 0;
+        if (columns.length !== COLUMNS.length || columns.some((view) => view.length !== count) || at + count > belt.rows) throw new Error(`the scene wants seven columns of a block's rows, ${belt.rows} rows in all`);
+        columns.forEach((view, column) => {
+          gl.bindBuffer(gl.ARRAY_BUFFER, belt!.buffers[column]!);
+          gl.bufferSubData(gl.ARRAY_BUFFER, at * 4, view);
+        });
+        at += count;
       }
-      stats.rows = rows;
-      stats.points = ranges.reduce((sum, [, count]) => sum + count, 0);
-      render(frame);
+      if (at !== through) throw new Error(`the scene was given rows up to ${at}, not ${through}`);
+      shown(belt, through);
+      if (frame) render(frame);
+      else dirty = true;
+    },
+    clearBelt() {
+      if (!belt) return;
+      // Its room goes with it: the draws, their geometries, the buffers.
+      shown(belt, 0);
+      for (const points of belt.draws) {
+        dust.remove(points);
+        points.geometry.dispose();
+      }
+      for (const buffer of belt.buffers) gl.deleteBuffer(buffer);
+      belt = undefined;
+      dirty = true;
     },
     wantsSky: !alone && on('sky'),
     setSky(file) {

@@ -11,7 +11,8 @@
 //   --check    builds them again and fails unless they're the manifest's, the
 //              fixture's, and the disk's, byte for byte; writes nothing
 //   --sizes    also prints each file and each of its sections raw and at
-//              brotli 11 (a few minutes)
+//              brotli 11, and the elements file at other block sizes (a
+//              few minutes)
 //
 // Every run reads each row back out of the built bytes and fails unless it
 // is the fetch's row.
@@ -22,6 +23,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { brotliCompress, constants } from 'node:zlib';
+import { BLOCK_ROWS, COLUMNS, blocked, header as elementsHeader, readElements } from './elements.ts';
 import { EPOCH_JD, GAUSS, GAUSS_YEAR_DAYS, field, fullName, isBound, nearestTurn, number, readCatalog, unpackDesignation, type Catalog, type Cell } from './catalog.ts';
 
 const dataDir = dirname(fileURLToPath(import.meta.url));
@@ -88,22 +90,16 @@ function shortest(value: number): string {
   return String(value);
 }
 
-function elementsFile(catalog: Catalog): Built {
-  const header = Buffer.alloc(16);
-  header.write('KWE1', 0, 'latin1');
-  header.writeUInt32LE(catalog.rows, 4);
-  header.writeDoubleLE(EPOCH_JD, 8);
+/** The elements' seven columns as 32-bit floats, in the file's order. */
+function elementsColumns(catalog: Catalog): Float32Array[] {
   const atH = field('H');
-  const H = Float32Array.from(catalog.cells, (cells) => number(cells[atH]));
-  return build(header, [
-    { name: 'a', kind: 'f32', values: Float32Array.from(catalog.a) },
-    { name: 'e', kind: 'f32', values: Float32Array.from(catalog.e) },
-    { name: 'i', kind: 'f32', values: Float32Array.from(catalog.i) },
-    { name: 'om', kind: 'f32', values: Float32Array.from(catalog.om) },
-    { name: 'w', kind: 'f32', values: Float32Array.from(catalog.w) },
-    { name: 'ma', kind: 'f32', values: Float32Array.from(catalog.ma) },
-    { name: 'H', kind: 'f32', values: H },
-  ]);
+  return [...[catalog.a, catalog.e, catalog.i, catalog.om, catalog.w, catalog.ma].map((column) => Float32Array.from(column)), Float32Array.from(catalog.cells, (cells) => number(cells[atH]))];
+}
+
+/** The elements file: the rows in blocks of `blockRows`, each block a
+ *  column at a time (data/elements.ts). */
+function elementsFile(catalog: Catalog, blockRows = BLOCK_ROWS): Built {
+  return build(Buffer.from(elementsHeader(catalog.rows, blockRows)), [{ name: 'blocks', kind: 'f32', values: blocked(elementsColumns(catalog), blockRows) }]);
 }
 
 function rowsFile(catalog: Catalog): Built & { classes: string[]; named: number } {
@@ -158,9 +154,11 @@ function verify(catalog: Catalog, elements: Built, rowsBuilt: Built): Record<str
     return new make(built.bytes.buffer as ArrayBuffer, built.bytes.byteOffset + placed.offset, placed.bytes / width);
   };
   const file = rowsBuilt.bytes;
-  if (file.toString('latin1', 0, 4) !== 'KWR1' || elements.bytes.toString('latin1', 0, 4) !== 'KWE1') throw new Error('a file without its magic');
+  if (file.toString('latin1', 0, 4) !== 'KWR1') throw new Error('a file without its magic');
+  // The elements, each row from where its block keeps it.
+  const read = readElements(elements.bytes);
   const [rows, numbered, named, classCount] = [4, 8, 12, 16].map((at) => file.readUInt32LE(at)) as [number, number, number, number];
-  if (rows !== catalog.rows || elements.bytes.readUInt32LE(4) !== rows || elements.bytes.readDoubleLE(8) !== EPOCH_JD) throw new Error("the headers don't agree");
+  if (rows !== catalog.rows || read.rows !== rows) throw new Error("the headers don't agree");
   const classes: string[] = [];
   let cursor = 20;
   for (let index = 0; index < classCount; index++) {
@@ -169,7 +167,7 @@ function verify(catalog: Catalog, elements: Built, rowsBuilt: Built): Record<str
     cursor += 1 + length;
   }
   const f32 = (built: Built, name: string) => view(built, name, Float32Array, 4);
-  const [a, e, i, om, w, ma, H] = ['a', 'e', 'i', 'om', 'w', 'ma', 'H'].map((name) => f32(elements, name)) as [Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array];
+  const { a, e, i, om, w, ma, H } = read.columns;
   const [spkid, designation, nameRows, nameOffsets] = ['spkid', 'designation', 'name rows', 'name offsets'].map((name) => view(rowsBuilt, name, Uint32Array, 4)) as [Uint32Array, Uint32Array, Uint32Array, Uint32Array];
   const [first, last] = [view(rowsBuilt, 'first_obs', Int32Array, 4), view(rowsBuilt, 'last_obs', Int32Array, 4)];
   const [diameter, albedo] = [f32(rowsBuilt, 'diameter'), f32(rowsBuilt, 'albedo')];
@@ -320,8 +318,11 @@ const manifest = {
     epoch: { jd: EPOCH_JD, date: calendar(EPOCH_JD), scale: 'TDB' },
     frame: 'heliocentric, ecliptic and equinox of J2000 (IAU76/80)',
     meanMotion: `${GAUSS} / a^1.5 radians a day (the Gaussian constant)`,
+    blockRows: BLOCK_ROWS,
+    columns: COLUMNS,
     layout: elements.layout,
     notes: [
+      `the rows are in blocks of ${BLOCK_ROWS}, the last one short; a block is its rows of each column in turn: ${COLUMNS.length} runs of 32-bit floats, each as long as the block has rows`,
       `rows fetched at another epoch, their mean anomaly moved to this one by their own mean motion: ${catalog.notes.offEpoch}`,
       `rows with no mean anomaly in the source (a circle: 0 at its epoch): ${catalog.notes.noMeanAnomaly.length}${catalog.notes.noMeanAnomaly.length ? ` (${catalog.notes.noMeanAnomaly.join(', ')})` : ''}`,
       `rows with no ellipse (e not below 1), their mean anomaly a hyperbola's and not an angle: ${catalog.notes.unbound}`,
@@ -382,8 +383,18 @@ if (process.argv.includes('--sizes')) {
   const firstPage = (built: Built): Buffer => Buffer.concat(built.layout.slice(1).filter((section) => !section.name.startsWith('name')).map((section) => built.bytes.subarray(section.offset, section.offset + (section.bytes / catalog.rows) * 1024)));
   await Promise.all(files.flatMap(([name, built]) => [
     brotli(built.bytes).then((size) => void (sizes[name] = { rawMB: mb(built.bytes.length), brotliMB: mb(size) })),
-    ...built.layout.map((section) => brotli(built.bytes.subarray(section.offset, section.offset + section.bytes)).then((size) => void (sizes[`${name}: ${section.name}`] = { rawMB: mb(section.bytes), brotliMB: mb(size) }))),
-    ((page) => brotli(page).then((size) => void (sizes[`${name}: its first 1024 rows`] = { rawMB: Number((page.length / 1e6).toFixed(4)), brotliMB: Number((size / 1e6).toFixed(4)) })))(firstPage(built)),
+    ...built.layout.filter((section) => section.name !== 'blocks').map((section) => brotli(built.bytes.subarray(section.offset, section.offset + section.bytes)).then((size) => void (sizes[`${name}: ${section.name}`] = { rawMB: mb(section.bytes), brotliMB: mb(size) }))),
+    ...(name === 'rows.bin' ? [((page) => brotli(page).then((size) => void (sizes[`${name}: its first 1024 rows`] = { rawMB: Number((page.length / 1e6).toFixed(4)), brotliMB: Number((size / 1e6).toFixed(4)) })))(firstPage(built))] : []),
   ]));
+  // The elements' columns each alone, and the file were its blocks another
+  // size (one block of every row is the file a column at a time): what a
+  // block's size costs on the wire.
+  const columns = elementsColumns(catalog);
+  await Promise.all([
+    ...columns.map((column, at) => brotli(new Uint8Array(column.buffer)).then((size) => void (sizes[`elements.bin: ${COLUMNS[at]}`] = { rawMB: mb(column.byteLength), brotliMB: mb(size) }))),
+    ...[4096, 8192, 16_384, 32_768, 65_536, 262_144, catalog.rows]
+      .filter((blockRows) => blockRows !== BLOCK_ROWS)
+      .map((blockRows) => brotli(elementsFile(catalog, blockRows).bytes).then((size) => void (sizes[`elements.bin, were a block ${blockRows === catalog.rows ? 'every row' : `${blockRows} rows`}`] = { rawMB: mb(elements.bytes.length), brotliMB: mb(size) }))),
+  ]);
   console.table(Object.fromEntries(Object.entries(sizes).sort(([left], [right]) => left.localeCompare(right))));
 }
