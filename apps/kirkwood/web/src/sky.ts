@@ -14,6 +14,8 @@ const MAGIC = 0x3153574b; // "KWS1", little-endian
 const HEADER = 8;
 /** The faintest star in the file (its cut), G. */
 const CUT = 10.5;
+/** A star's light, of what its G alone would give: faint, behind the rows. */
+const GAIN = 0.11;
 
 /** A star's tint by Gaia's bp_rp (blue less red magnitude), in linear
  *  light: blue-white through the Sun's 0.82 to orange-red. By eye, not a
@@ -88,6 +90,9 @@ export interface Sky {
   stars: number;
   /** A star's least size follows the scene's pixels. */
   setPixelRatio(pixelRatio: number): void;
+  /** What's left of the stars' light, 1 to 0: they leave the picture as
+   *  the dots leave space. At 0 they aren't drawn. */
+  setFade(left: number): void;
 }
 
 /** The sky from the file's bytes, which the GPU takes at the first draw:
@@ -108,7 +113,7 @@ export function createSky(file: ArrayBuffer): Sky {
       uTint: { value: TINT.colors.map((color) => new Vector3(...color)) },
       uStops: { value: [...TINT.stops] },
       uSize: { value: 0 },
-      uGain: { value: 0.11 },
+      uGain: { value: GAIN },
       uMag: { value: new Vector4(CUT, 0.62, 0.15, 12) },
     },
     blending: AdditiveBlending,
@@ -120,5 +125,13 @@ export function createSky(file: ArrayBuffer): Sky {
   points.frustumCulled = false;
   // Behind the rows.
   points.renderOrder = -1;
-  return { points, stars, setPixelRatio: (pixelRatio) => void (material.uniforms.uSize!.value = 1.1 * pixelRatio) };
+  return {
+    points,
+    stars,
+    setPixelRatio: (pixelRatio) => void (material.uniforms.uSize!.value = 1.1 * pixelRatio),
+    setFade: (left) => {
+      material.uniforms.uGain!.value = GAIN * left;
+      points.visible = left > 0;
+    },
+  };
 }

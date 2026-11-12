@@ -2,7 +2,7 @@
 
 > *Daniel Kirkwood found the gaps in the asteroid belt in the 1860s without a telescope: certain orbit sizes were missing from the catalog.*
 
-**Being built.** What runs today: the belt in space, 1,580,265 asteroids each on its own orbit around the Sun, with Jupiter on its, and time running at a year a second from 1976 to 2076; and the table of all 1,580,272 rows, held in the page's memory, in a panel behind a handle. Each dot is colored by the size of its orbit and is as bright as the asteroid would look, in front of 779,012 of Gaia's brightest stars. On a slow connection the belt fills in as it arrives, the first-numbered asteroids first, and the page counts the dots so far. Not built yet: anything that links a dot to its row.
+**Being built.** What runs today: the belt in space, 1,580,265 asteroids each on its own orbit around the Sun, with Jupiter on its, and time running at a year a second from 1976 to 2076; and the table of all 1,580,272 rows, held in the page's memory, in a panel behind a handle. Each dot is colored by the size of its orbit and is as bright as the asteroid would look, in front of 779,012 of Gaia's brightest stars. On a slow connection the belt fills in as it arrives, the first-numbered asteroids first, and the page counts the dots so far. "Sort by orbit size" flies every dot into a chart of orbit size against how stretched the orbit is, and back; the chart's axes and labels aren't drawn yet. Not built yet: anything that links a dot to its row.
 
 Kirkwood is the asteroid belt as a scene to fly through, drawn from a table of 1.58 million asteroids (NASA/JPL), with that table beside it. **Every dot is a row:** click a row and the camera flies to it; draw around a group of dots and the table shows their rows.
 

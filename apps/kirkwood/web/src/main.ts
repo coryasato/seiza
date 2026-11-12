@@ -23,14 +23,23 @@ import init, {
   file_end,
   file_failed,
   file_progress,
+  flight_hold,
+  flight_state,
   jupiter_orbit,
   jupiter_place,
+  layout_gaps,
+  layout_of,
+  layout_row,
   orbit_ramp,
   place_of,
+  scene_axes,
   scene_failed,
+  scene_flight,
   scene_inset,
+  scene_plot,
   scene_scrim,
   scene_scrim_changes,
+  scene_space,
   scene_years,
   sky_drawn,
   start,
@@ -89,6 +98,15 @@ type Kirkwood = {
    *  over the scene (left, top, width, height, CSS px). */
   ramp(): number[];
   scrim(): number[];
+  /** For the checks: the sort flight (0 in space, 1 landed), whether the
+   *  action is pressed, and whether the dots are on their way; the crate's
+   *  own place on the axes for an a and an e, in this window (x and y, CSS
+   *  px); a row's a and e as the file holds them, and whether they're on
+   *  the axes; and the gaps' orbit sizes, au. */
+  flight(): { progress: number; sorted: boolean; flying: boolean };
+  layoutOf(a: number, e: number): number[];
+  layoutRow(row: number): { a: number; e: number; inView: boolean } | undefined;
+  gaps(): number[];
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -140,6 +158,11 @@ async function startScene(): Promise<BeltScene> {
     ramp: orbit_ramp,
     scrim: scene_scrim,
     scrimChanges: scene_scrim_changes,
+    flight: scene_flight,
+    space: scene_space,
+    axes: scene_axes,
+    plot: scene_plot,
+    holdFlight: flight_hold,
   });
   kirkwood.scene = scene;
   performance.mark('kirkwood:scene');
@@ -318,6 +341,16 @@ const kirkwood: Kirkwood = {
   },
   ramp: () => Array.from(orbit_ramp()),
   scrim: () => Array.from(scene_scrim()),
+  flight: () => {
+    const [progress, sorted, flying] = Array.from(flight_state());
+    return { progress: progress!, sorted: !!sorted, flying: !!flying };
+  },
+  layoutOf: (a, e) => Array.from(layout_of(a, e, innerWidth, innerHeight)),
+  layoutRow: (row) => {
+    const [a, e, inView] = Array.from(layout_row(row));
+    return a === undefined ? undefined : { a, e: e!, inView: !!inView };
+  },
+  gaps: () => Array.from(layout_gaps()),
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 

@@ -15,6 +15,13 @@
 // drawn in linear light through the look's passes (`look.ts`), with the sky
 // behind (`sky.ts`). Why each part: `docs/DECISIONS.md`, "Look".
 //
+// "Sort by orbit size" is the shader's too (`FLIGHT`): the crate holds the
+// flight's progress, and each dot is placed between where it is in space
+// and where its a and e put it on the crate's axes, the inner belt leaving
+// first. No buffer is rewritten. What isn't a row (the sky, the Sun,
+// Jupiter, its orbit, their names) leaves the picture on the way and
+// returns with the dots; landed, nothing moves and nothing is drawn.
+//
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
@@ -50,6 +57,21 @@ export interface SceneHost {
    *  only then. */
   scrim(): ArrayLike<number>;
   scrimChanges(): number;
+  /** The sort flight, moved on to `now`: 0 in space, 1 landed in a
+   *  against e. */
+  flight(now: number): number;
+  /** How much of what isn't a row is left in the picture: 1 in space, 0
+   *  with the dots landed. */
+  space(): number;
+  /** The axes the dots land on: the least a and the most (au), the least
+   *  e and the most. */
+  axes(): ArrayLike<number>;
+  /** Where the axes are in a window (CSS px), in what the panel leaves,
+   *  in clip space: the x of the least a and the y of the least e, then
+   *  those of the most. */
+  plot(width: number, height: number): ArrayLike<number>;
+  /** `?flight`: holds the flight at a progress, 0 to 1. */
+  holdFlight(progress: number): void;
 }
 
 export interface SceneStats {
@@ -67,6 +89,8 @@ export interface SceneStats {
   renderer: string;
   /** The camera's distance from what it looks at, au. */
   distance: number;
+  /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
+  flight: number;
 }
 
 export interface BeltScene {
@@ -91,7 +115,8 @@ export interface BeltScene {
   setSky(file: ArrayBuffer): void;
   /** Where a window position's ray meets the ecliptic: its x and y, au. */
   under(x: number, y: number): [number, number] | undefined;
-  /** A wheel over the scene, at a window position: zooms. */
+  /** A wheel over the scene, at a window position: zooms. (The interface
+   *  hands none over while the dots are out of space.) */
   wheel(x: number, y: number, delta: number): void;
   /** Projection × view (column-major), then the window's width and height. */
   viewProjection(): number[];
@@ -169,11 +194,64 @@ const PLACE = /* glsl */ `
   }
 `;
 
+/** The sort flight: how late the outermost orbit leaves after the
+ *  innermost, and how far a dot is off its neighbors', of the flight's
+ *  whole; a dot's own flight is the rest. The crate's tests run this
+ *  arithmetic in 32-bit floats against its own place on the axes for every
+ *  row in view (`crate/src/shader.rs`): change them together. */
+const STAGGER = { outer: 0.3, each: 0.1 };
+
+/** A dot's flight from space to a against e. `flown(at)` takes the dot's
+ *  place in clip space and returns it flown; `flownBy` is then how far
+ *  along the dot is (0 in space, 1 landed) and `left` what's left of a dot
+ *  with no place on the axes, which fades where it is. */
+const FLIGHT = /* glsl */ `
+  // The flight: 0 in space, 1 landed.
+  uniform float uFlight;
+  // The axes: the least a and the most, the least e and the most.
+  uniform vec4 uAxes;
+  // Where they are, in clip space: the least a and e, then the most.
+  uniform vec4 uPlot;
+  float flownBy;
+  float left;
+
+  vec4 flown(vec4 at) {
+    flownBy = 0.0;
+    left = 1.0;
+    if (!(uFlight > 0.0)) return at;
+    // The inner belt leaves first and the outer last, each dot a little
+    // off its neighbors (by its own angles), so the columns build from
+    // the left and the gaps open as the dots land.
+    float along = (a - uAxes.x) / (uAxes.y - uAxes.x);
+    float delay = ${STAGGER.outer.toFixed(2)} * clamp(along, 0.0, 1.0) + ${STAGGER.each.toFixed(2)} * fract(node * 0.1273 + peri * 0.0553);
+    float t = clamp((uFlight - delay) / ${(1 - STAGGER.outer - STAGGER.each).toFixed(2)}, 0.0, 1.0);
+    t = t * t * (3.0 - 2.0 * t);
+    // A row past the axes (its a or its e) has no place on them.
+    if (!(a >= uAxes.x && a <= uAxes.y && e >= uAxes.z && e <= uAxes.w)) {
+      left = 1.0 - t;
+      return at;
+    }
+    flownBy = t;
+    if (!(t > 0.0)) return at;
+    vec2 plot = uPlot.xy + (uPlot.zw - uPlot.xy) * vec2(along, (e - uAxes.z) / (uAxes.w - uAxes.z));
+    if (t >= 1.0) return vec4(plot, 0.0, 1.0);
+    // A dot behind the camera has no place on screen: it comes in from
+    // past the plot's edge.
+    vec2 space = at.w > 0.0 ? at.xy / at.w : plot * 4.0;
+    return vec4(space + (plot - space) * t, 0.0, 1.0);
+  }
+`;
+
 /** The belt's dots, their tints through a ramp of `stops` stops. Every
  *  color here is linear light, written as it is into the look's buffer. */
 const vertex = (stops: number) => /* glsl */ `
   // A plain dot's size, in the scene's pixels.
   uniform float uSize;
+  // What the camera's nearness makes of a dot in space: its size, and its
+  // opacity. On the axes there is no camera: both are 1.
+  uniform vec2 uNear;
+  // A dot on the axes: its size and its opacity, of a plain dot's.
+  uniform vec2 uLanded;
   // The page's band knob: the orbit sizes (au, x to y) that stay lit, w
   // times as bright; the rest z of a dot's opacity. No band at y 0.
   uniform vec4 uBand;
@@ -195,6 +273,7 @@ const vertex = (stops: number) => /* glsl */ `
   varying float vAlpha;
   varying float vGrow;
   ${PLACE}
+  ${FLIGHT}
 
   void main() {
     // A row with no ellipse (e not below 1) has no place on one: no dot.
@@ -205,11 +284,12 @@ const vertex = (stops: number) => /* glsl */ `
     }
     vec3 at = place();
     // The ecliptic is the scene's xz plane.
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(at.x, at.z, -at.y, 1.0);
+    vec4 seen = projectionMatrix * modelViewMatrix * vec4(at.x, at.z, -at.y, 1.0);
+    gl_Position = flown(seen);
     if (uHard > 0.5) {
       gl_PointSize = uSize;
       vColor = uPlain;
-      vAlpha = 1.0;
+      vAlpha = left;
       vGrow = 1.0;
       return;
     }
@@ -223,23 +303,25 @@ const vertex = (stops: number) => /* glsl */ `
     // the main belt's 2.7 au) and again on the way to the eye (against the
     // camera's distance from what it looks at, so a zoom changes nothing).
     // Without it the far, large bodies outshine the belt.
-    float sunward = max(0.3, length(at)) / 2.7;
-    float eyeward = max(0.05, gl_Position.w) / uDistance;
+    // On the axes there is no distance: a landed dot is lit as from its
+    // orbit's own size, and seen from where the plain dot is.
+    float sunward = max(0.3, mix(length(at), a, flownBy)) / 2.7;
+    float eyeward = mix(max(0.05, seen.w) / uDistance, 1.0, flownBy);
     float flux = -0.4 * (H - uMag.x) - 2.0 * log(sunward * eyeward) / 2.302585;
     float gain = max(uLeast, pow(10.0, flux * uMag.y));
     vGrow = clamp(pow(10.0, flux * uMag.z), 1.0, uMag.w);
-    vAlpha = 1.0;
+    vAlpha = left * mix(uNear.y, uLanded.y, flownBy);
     float banded = 1.0;
     if (uBand.y > 0.0) {
       bool lit = a >= uBand.x && a <= uBand.y;
-      vAlpha = lit ? 1.0 : uBand.z;
+      vAlpha *= lit ? 1.0 : uBand.z;
       banded = lit ? uBand.w : 1.0;
     }
     vec3 tint = uRamp[0];
     for (int k = 0; k < ${stops - 1}; k++) {
       tint = mix(tint, uRamp[k + 1], clamp((a - uStops[k]) / (uStops[k + 1] - uStops[k]), 0.0, 1.0));
     }
-    gl_PointSize = uSize * vGrow * sqrt(banded);
+    gl_PointSize = uSize * mix(uNear.x, uLanded.x, flownBy) * vGrow * sqrt(banded);
     vColor = tint * gain * banded;
   }
 `;
@@ -269,11 +351,13 @@ const BODY_VERTEX = /* glsl */ `
 `;
 const BODY_FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
+  // What's left of it as the dots leave space.
+  uniform float uFade;
   void main() {
     vec2 p = gl_PointCoord * 2.0 - 1.0;
     float d = dot(p, p);
     if (d > 1.0) discard;
-    gl_FragColor = vec4(uColor, 1.0 - d * d * d);
+    gl_FragColor = vec4(uColor, (1.0 - d * d * d) * uFade);
   }
 `;
 /** The Sun: a small core far brighter than white (the bloom spreads it)
@@ -299,6 +383,8 @@ const SUN_VERTEX = /* glsl */ `
 const SUN_FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
   uniform vec2 uLight;
+  // What's left of it as the dots leave space.
+  uniform float uFade;
   varying vec2 vAt;
   void main() {
     vec2 p = vAt;
@@ -306,7 +392,7 @@ const SUN_FRAGMENT = /* glsl */ `
     if (d > 1.0) discard;
     float window = (1.0 - d) * (1.0 - d);
     vec3 light = vec3(1.0, 0.96, 0.9) * uLight.x * exp(-d * 1400.0) + uColor * uLight.y / (1.0 + d * 260.0);
-    gl_FragColor = vec4(light * window, 1.0);
+    gl_FragColor = vec4(light * window * uFade, 1.0);
   }
 `;
 
@@ -322,6 +408,10 @@ const DOT = { px: 1.5, alpha: 0.016 };
  *  brightness and of size on its flux, the most it grows, and the least
  *  brightness. */
 const MAG = { plain: 17.7, bright: 0.45, grow: 0.2, most: 16, least: 0.4 };
+/** A dot landed on the axes, of a plain dot: its size and its opacity.
+ *  The same dot as in space, lit by its H as from its orbit's own size,
+ *  with no haze (`docs/DECISIONS.md`, "Look"). */
+const LANDED = { size: 1, alpha: 1 };
 const FOV = 40;
 /** The opening camera: it looks at the Sun from 13 au, 24° above the
  *  ecliptic, from ecliptic longitude 270° + `az` (at 0 it faces longitude
@@ -373,6 +463,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const ROLL = (knob('roll', OPENING.roll) * Math.PI) / 180;
   const scale = knob('scale', 1);
   const alone = only();
+  // `?flight=<0 to 1>`: the sort flight held there, for a screenshot.
+  if (has('flight')) host.holdFlight(knob('flight', 0));
   /** Rows drawn alone are plain discs, to be found in a screenshot. */
   const hard = !!alone && on('hard');
   const marked = has('marks');
@@ -380,7 +472,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist) };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist), flight: 0 };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -403,25 +495,31 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   for (let at = 0; at < turn.length; at += 3) orbit.set(inScene(turn[at]!, turn[at + 1]!, turn[at + 2]!), at);
   const orbitGeometry = new BufferGeometry();
   orbitGeometry.setAttribute('position', new BufferAttribute(orbit, 3));
-  bodies.add(new LineLoop(orbitGeometry, new LineBasicMaterial({ color: 0x6a7594, transparent: true })));
+  const orbitLine = new LineBasicMaterial({ color: 0x6a7594, transparent: true });
+  bodies.add(new LineLoop(orbitGeometry, orbitLine));
   const sun = new Mesh(
     new PlaneGeometry(1, 1),
     new ShaderMaterial({
       vertexShader: SUN_VERTEX,
       fragmentShader: SUN_FRAGMENT,
-      uniforms: { uSize: { value: 0 }, uWindow: { value: new Vector2(1, 1) }, uColor: { value: new Color(1, 0.74, 0.46) }, uLight: { value: new Vector2(30, 1.6) } },
+      uniforms: { uSize: { value: 0 }, uWindow: { value: new Vector2(1, 1) }, uColor: { value: new Color(1, 0.74, 0.46) }, uLight: { value: new Vector2(30, 1.6) }, uFade: { value: 1 } },
       blending: AdditiveBlending,
       transparent: true,
       depthTest: false,
     }),
   );
   sun.frustumCulled = false;
+  // In this order whatever their depths (all three are transparent, which
+  // Three.js would sort far to near: the line over a Jupiter on the far
+  // side of its orbit).
+  sun.renderOrder = 1;
   bodies.add(sun);
   const jupiter = new Points(
     new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(3), 3)),
-    new ShaderMaterial({ vertexShader: BODY_VERTEX, fragmentShader: BODY_FRAGMENT, uniforms: { uSize: { value: 0 }, uColor: { value: new Color(0xd9b38c).multiplyScalar(JUPITER_LIGHT) } }, transparent: true, depthTest: false }),
+    new ShaderMaterial({ vertexShader: BODY_VERTEX, fragmentShader: BODY_FRAGMENT, uniforms: { uSize: { value: 0 }, uColor: { value: new Color(0xd9b38c).multiplyScalar(JUPITER_LIGHT) }, uFade: { value: 1 } }, transparent: true, depthTest: false }),
   );
   jupiter.frustumCulled = false;
+  jupiter.renderOrder = 2;
   bodies.add(jupiter);
   // `?marks`: white, as what the interface adds.
   const marks = marked ? new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: 0xfafafa, transparent: true, opacity: 0.55, depthTest: false })) : undefined;
@@ -480,6 +578,11 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       uMag: { value: new Vector4(MAG.plain, MAG.bright, MAG.grow, MAG.most) },
       uLeast: { value: MAG.least },
       uDistance: { value: stats.distance },
+      uNear: { value: new Vector2(1, 1) },
+      uLanded: { value: new Vector2(LANDED.size, LANDED.alpha) },
+      uFlight: { value: 0 },
+      uAxes: { value: new Vector4(...Array.from(host.axes())) },
+      uPlot: { value: new Vector4() },
     },
     blending: hard ? NormalBlending : AdditiveBlending,
     depthTest: false,
@@ -544,6 +647,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   interface Frame {
     years: number;
     inset: number;
+    /** The sort flight, 0 in space to 1 landed, and how much of what
+     *  isn't a row is left in the picture. */
+    flight: number;
+    space: number;
+    /** Where the axes are, in clip space: the least a and e, then the
+     *  most. Asked for while the dots are out of space. */
+    plot: [number, number, number, number];
     /** Where the page's text lies: left, top, width, height. */
     scrim: [number, number, number, number];
     /** Jupiter's place, in the ecliptic's axes. */
@@ -553,19 +663,49 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   /** The text's bounds as last asked for, and the crate's count then. */
   let scrim: Frame['scrim'] = [0, 0, 0, 0];
   let scrimChanges = -1;
+  /** The plot as last asked for, and the window and panel it was for. */
+  let plot: Frame['plot'] = [0, 0, 0, 0];
+  let plotFor = [0, 0, -1];
+  /** Jupiter's place as last asked for, and the years it was for. */
+  let jupiter_: Frame['jupiter'] = [0, 0, 0];
+  let jupiterFor = NaN;
   /** Asks the crate. Nothing here may run between making the views over
    *  its memory and uploading them: a call into the wasm can grow it. */
   const ask = (now: number): Frame => {
-    const [years, inset, changes] = [host.years(now), host.inset(), host.scrimChanges()];
+    const [years, inset, changes, flight, space] = [host.years(now), host.inset(), host.scrimChanges(), host.flight(now), host.space()];
     if (changes !== scrimChanges) {
       const text = host.scrim();
       [scrim, scrimChanges] = [[text[0]!, text[1]!, text[2]!, text[3]!], changes];
     }
-    if (last && last.years === years) return { years, inset, scrim, jupiter: last.jupiter };
-    const at = host.jupiter(years);
-    return { years, inset, scrim, jupiter: [at[0]!, at[1]!, at[2]!] };
+    if (flight > 0 && (innerWidth !== plotFor[0] || innerHeight !== plotFor[1] || inset !== plotFor[2])) {
+      const at = host.plot(innerWidth, innerHeight);
+      [plot, plotFor] = [[at[0]!, at[1]!, at[2]!, at[3]!], [innerWidth, innerHeight, inset]];
+    }
+    // Jupiter's place is asked for when the clock has moved and there's a
+    // Jupiter to draw: not landed, where the clock may run on unseen.
+    if (space > 0 && years !== jupiterFor) {
+      const at = host.jupiter(years);
+      [jupiter_, jupiterFor] = [[at[0]!, at[1]!, at[2]!], years];
+    }
+    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_ };
   };
-  const moved = (frame: Frame, from: Frame) => frame.years !== from.years || frame.inset !== from.inset || frame.scrim !== from.scrim;
+  // Landed, time moves no dot: of the clock, only the way back draws.
+  const moved = (frame: Frame, from: Frame) =>
+    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot;
+  /** What isn't a row, as it leaves the picture and returns: the sky, the
+   *  Sun, Jupiter, its orbit, the marks, and the names; and the haze,
+   *  which on the axes would light the gaps. */
+  let space = 1;
+  const leave = (left: number) => {
+    sun.material.uniforms.uFade!.value = left;
+    jupiter.material.uniforms.uFade!.value = left;
+    orbitLine.opacity = left;
+    if (marks) marks.material.opacity = 0.55 * left;
+    sky?.setFade(left);
+    look.setHaze(left);
+    if (left !== space) names.style.opacity = String(left);
+    space = left;
+  };
 
   const render = (frame: Frame) => {
     dirty = false;
@@ -578,9 +718,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     const near = Math.max(1, OPENING.dist / stats.distance);
     const whole = Math.floor(frame.years);
     material.uniforms.uYears!.value = [whole, frame.years - whole];
-    material.uniforms.uSize!.value = dotPx * pixelRatio * (hard ? 1 : Math.min(3, Math.sqrt(near)));
-    material.uniforms.uAlpha!.value = hard ? 1 : alpha * Math.min(12, near);
+    material.uniforms.uSize!.value = dotPx * pixelRatio;
+    material.uniforms.uAlpha!.value = hard ? 1 : alpha;
+    (material.uniforms.uNear!.value as Vector2).set(Math.min(3, Math.sqrt(near)), Math.min(12, near));
     material.uniforms.uDistance!.value = stats.distance;
+    material.uniforms.uFlight!.value = frame.flight;
+    (material.uniforms.uPlot!.value as Vector4).set(...frame.plot);
+    leave(frame.space);
     sun.material.uniforms.uSize!.value = SUN_PX * pixelRatio;
     jupiter.material.uniforms.uSize!.value = JUPITER_PX * pixelRatio;
     jupiter.position.set(...inScene(...frame.jupiter));
@@ -596,8 +740,9 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       points.needsUpdate = true;
     }
     look.setScrim(frame.scrim);
-    look.render(dust, alone ? none : bodies, camera);
-    if (!alone) {
+    // With the dots landed there's nothing of space to draw.
+    look.render(dust, alone || frame.space <= 0 ? none : bodies, camera);
+    if (!alone && frame.space > 0) {
       // Board 1: the Sun's name under it, Jupiter's beside it.
       put(sunName, sun.position, (width) => -width / 2, SUN_NAME_BELOW);
       put(jupiterName, jupiter.position, () => JUPITER_PX / 2 + 8, -9);
@@ -606,6 +751,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
     stats.frames++;
     stats.years = frame.years;
+    stats.flight = frame.flight;
   };
   /** The belt's room on the GPU: a buffer a column, and what draws from them. */
   interface Belt {
@@ -703,6 +849,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     setSky(file) {
       sky = createSky(file);
       sky.setPixelRatio(pixelRatio);
+      sky.setFade(space);
       dust.add(sky.points);
       stats.stars = sky.stars;
       // Drawn now, so the caller's mark is of stars on screen.
@@ -726,6 +873,6 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       return [eye.x + ray.x * reach, -(eye.z + ray.z * reach)];
     },
     labels: () =>
-      [sunName, jupiterName].map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden })),
+      [sunName, jupiterName].map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden && space > 0 })),
   };
 }

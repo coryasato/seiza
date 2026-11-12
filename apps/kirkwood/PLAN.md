@@ -25,7 +25,7 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 | M0 | The two canvases: a spike | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
 | M1 | The orbits' data | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
 | M2 | The belt in space | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
-| M3 | The reveal: sort by orbit size | Active: part A next |
+| M3 | The reveal: sort by orbit size | Active: part A done 2026-11-12, part B next |
 | M4 | Ride with Jupiter, and a gap picked | Planned |
 | M5 | The scene and the table, each moving the other | Planned |
 | M6 | In the open: deployed under Tycho | Planned |
@@ -61,19 +61,23 @@ Boards 3 and 4, as drawn. "Sort by orbit size" flies every dot from its place in
 
 **What leaves the picture on the way:** the sky, the Sun, Jupiter, its orbit's line, their names, and the page's line about the stars fade out as the dots leave space and return with them. The line about dot sizes stays: it's still true.
 
-**To decide in part A, by eye:** a landed dot's size, brightness, and haze (in space they follow H and the two distances; on the axes there is no distance, and the gaps must stay dark); and what the press does to time: boards 3 and 4 draw the time control paused, and the spike let the clock run on unseen.
+**Decided in part A** (`docs/DECISIONS.md`, "Look" and "Scene"): a landed dot is the plain dot of space, lit by its H as from its orbit's own size, with no haze; and the press pauses time, as boards 3 and 4 draw it, the press back giving it back. Both are the owner's to overturn by eye in a real browser. Left to part B's B3: a wheel over the layout does nothing for now.
 
 **Split into parts,** one session each:
 
-- **Part A: the flight and the landing.** The crate's progress and the layout's place for a row; the shader's flight, tested as its place in space is (`shader.rs`); the landed look; what leaves and returns; time, decided. Closes A1 to A4.
+- **Part A: the flight and the landing.** *Done 2026-11-12.* The crate's progress and the layout's place for a row; the shader's flight, tested as its place in space is (`shader.rs`); the landed look; what leaves and returns; time, decided. The action's button came with it, since A1 needs a press: its two states are still B3's to set beside the boards. Closed A1 to A4.
 - **Part B: the furniture, the count, and the close.** The action, the axes and their words, the chips, the count of rows in view, the panel open; M4's spec. Closes B1 to B4.
 
 **Done when:**
 
-- [ ] **A1. The flight:** a press flies every dot to the axes in 3 s, the inner belt first, and a second press flies them back. Screenshots mid-flight and landed, beside boards 3 and 4; the frames a second during the flight, recorded; landed, the scene draws nothing.
-- [ ] **A2. A dot lands on its own a and e.** Three rows drawn alone (Ceres, Vesta, Hektor) are each within a pixel of where the crate puts their a and e on the axes, with a control that fails; and the shader's flight, run in 32-bit floats for every row in view, lands no row a pixel off.
-- [ ] **A3. The gaps are open.** From the landed screenshot, the dust at 2.50, 2.82, 2.96, and 3.28 au is darker than a tenth of an au either side, as numbers; and each is where Jupiter's a puts its resonance.
-- [ ] **A4. What isn't a row leaves and returns:** the sky, the Sun, Jupiter, its orbit, their names, and the stars' line are gone when the dots land and back when they return, in screenshots. What the press does to time is decided, and the time control says it.
+- [x] **A1. The flight:** a press flies every dot to the axes in 3 s, the inner belt first, and a second press flies them back. Screenshots mid-flight and landed, beside boards 3 and 4; the frames a second during the flight, recorded; landed, the scene draws nothing.
+  *3.02 s out and 3.03 back, from the press to the last dot's arrival ([in space](docs/seen/sort-space.jpg), [held at 0.6 of the way](docs/seen/sort-mid.jpg), [landed](docs/seen/sort-landed.jpg), [back](docs/seen/sort-back.jpg)). The inner belt first: at 0.4 of the flight the rows inside 2.5 au are 0.48 of their way and those outside 3.2 au 0.23 (`shader.rs`, every row). The scene drew 33.5 frames a second out and 33.3 back at the display's resolution (101 frames each way; 77% and 76% of them late, the GPU's limit as with time running), and none in 1.5 s landed (`just kirkwood see --only sort`, headless Chromium, 1440×900 at DPR 2, an M1).*
+- [x] **A2. A dot lands on its own a and e.** Three rows drawn alone (Ceres, Vesta, Hektor) are each within a pixel of where the crate puts their a and e on the axes, with a control that fails; and the shader's flight, run in 32-bit floats for every row in view, lands no row a pixel off.
+  *Drawn alone and landed, on a real GPU: Ceres 0.06 px from the crate's place, Vesta 0.04, Hektor 0.02; from the place of an a 0.005 au off (the control) each is 1.6 px, and the check fails under 1. In 32-bit floats, all 1,546,968 rows in view: 0.000065 px at worst with the panel shut and 0.000062 with it open, none past a hundredth of a pixel; the rows the shader lands are the rows the crate counts in view, row for row; with the axes typed a tenth of an au off (the control) more than half the rows are a pixel out (`just kirkwood test`).*
+- [x] **A3. The gaps are open.** From the landed screenshot, the dust at 2.50, 2.82, 2.96, and 3.28 au is darker than a tenth of an au either side, as numbers; and each is where Jupiter's a puts its resonance.
+  *The mean light of a strip 0.02 au wide, for e from 0.02 to 0.25, of 255, with a tenth of an au inside and outside: 3:1 at 2.501 au, 14.1 against 102.1 and 127.0; 5:2 at 2.825, 26.9 against 118.9 and 54.6; 7:3 at 2.958, 45.5 against 65.2 and 117.7; 2:1 at 3.278, 8.9 against 124.9 and 14.0 (the belt has all but ended past it). Each place is Jupiter's a times (its turns over the orbit's)^(2/3) (`layout.rs`, `orbit.rs`), tested against the four known ones. With the haze left on, the 3:1 read 69 and the 2:1 failed: the haze goes ("Look").*
+- [x] **A4. What isn't a row leaves and returns:** the sky, the Sun, Jupiter, its orbit, their names, and the stars' line are gone when the dots land and back when they return, in screenshots. What the press does to time is decided, and the time control says it.
+  *[In space](docs/seen/sort-space.jpg), [landed](docs/seen/sort-landed.jpg), [back](docs/seen/sort-back.jpg). The check reads it too: both names shown, then neither, then both; the Sun's place 255, 255, 255, then the page's own 5, 6, 10, then 255 again; the title's lines 18,097 text pixels, 15,487 landed (the stars' sentence gone, its place kept), 18,097 back. The press pauses time and [the control says "paused"](docs/seen/sort-landed-time.jpg), as boards 3 and 4 draw it; the press back runs it again, unless the control was pressed between ("Scene").*
 - [ ] **B1. The furniture is board 4's:** the axes, ticks, and numbers, the two labels, the four chips with their lines, the Hildas' and Trojans' names, and the line over the chips, each where the board has it at 1440×900 (a screenshot beside the board), dimmed mid-flight as board 3 has it. The chips take no press.
 - [ ] **B2. The count in view is counted:** "<n> of 1,580,272 rows in view" from the elements, checked against a count from the file's own bytes.
 - [ ] **B3. The action and the panel:** the button's two states as the boards draw them; with the panel open the axes sit in what it leaves, and a dot still lands on its a and e there; a wheel over the landed layout does what's decided (nothing, or the way back).

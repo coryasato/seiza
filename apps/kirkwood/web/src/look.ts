@@ -11,7 +11,9 @@
 //        (the page's own color as a tint, and a grain that never moves)
 //
 // The haze is taken before the bodies are drawn, so it's the dots' own
-// light and nothing else: keep that order.
+// light and nothing else: keep that order. It's space's: on the axes of a
+// against e it would light the gaps, so it leaves as the dots land
+// (`setHaze`).
 //
 // Knobs, for looking and for weighing a part's cost: `?haze=0`, `?bloom=0`,
 // `?bloomScale` (the bloom's resolution, of the buffer's), `?scrim=0`.
@@ -84,6 +86,8 @@ const OUT = /* glsl */ `
 /** The quiet under the page's text: how far it fades out past the text
  *  (CSS px), and what's left of the light there. */
 const QUIET = { fade: 56, left: 0.3 };
+/** The haze, of the blurred buffer's light. */
+const HAZE = 0.9;
 
 export interface Look {
   /** The buffer's size, in the scene's own pixels, `pixelRatio` of them a
@@ -92,6 +96,9 @@ export interface Look {
   /** Where the page's text lies over the scene: left, top, width, height,
    *  CSS px. */
   setScrim(bounds: ArrayLike<number>): void;
+  /** How much of the haze is left, 1 to 0: none with the dots landed in a
+   *  against e, where it would light the gaps. */
+  setHaze(left: number): void;
   /** Draws the dust, then the bodies over it, to the canvas. */
   render(dust: Scene, bodies: Scene, camera: Camera): void;
 }
@@ -124,7 +131,7 @@ export function createLook(renderer: WebGLRenderer, page: [number, number, numbe
   const out = material(OUT, {
     tScene: { value: buffer.texture },
     tHaze: { value: steps[2]!.texture },
-    uHaze: { value: hazy ? 0.9 : 0 },
+    uHaze: { value: hazy ? HAZE : 0 },
     uFloor: { value: new Vector3(...page) },
     uGrain: { value: 0.014 },
     uScrim: { value: new Vector4() },
@@ -137,6 +144,7 @@ export function createLook(renderer: WebGLRenderer, page: [number, number, numbe
   const bloomScale = knob('bloomScale', 1);
   let size = { width: 1, height: 1, pixelRatio: 1 };
   let scrim: ArrayLike<number> = [0, 0, 0, 0];
+  let haze = 1;
 
   const pass = (shader: ShaderMaterial, to: WebGLRenderTarget | null) => {
     quad.material = shader;
@@ -165,11 +173,15 @@ export function createLook(renderer: WebGLRenderer, page: [number, number, numbe
       scrim = bounds;
       quiet();
     },
+    setHaze(left) {
+      haze = left;
+      out.uniforms.uHaze!.value = hazy ? HAZE * left : 0;
+    },
     render(dust, bodies, camera) {
       renderer.autoClear = true;
       renderer.setRenderTarget(buffer);
       renderer.render(dust, camera);
-      if (hazy) {
+      if (hazy && haze > 0) {
         let source = buffer;
         for (const step of steps) {
           copy.uniforms.tSource!.value = source.texture;

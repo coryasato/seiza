@@ -11,6 +11,8 @@
 //!   it, in 64-bit floats ([`orbit`]): a row's place, and Jupiter's;
 //! - a dot's color by its orbit size ([`ramp`]): the scene's and the
 //!   legend's one table;
+//! - the sort flight's progress ([`flight`]) and the axes it lands the
+//!   dots on, a against e ([`layout`]);
 //! - the interface ([`host`]): the title, the time control, and the table
 //!   in a panel behind its handle, over a surface that hands the scene its
 //!   wheel (`scene`);
@@ -24,7 +26,9 @@ pub mod bytes;
 pub mod catalog;
 pub mod clock;
 pub mod elements;
+pub mod flight;
 mod host;
+pub mod layout;
 pub mod orbit;
 pub mod ramp;
 pub mod rows;

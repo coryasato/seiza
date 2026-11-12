@@ -40,6 +40,9 @@ struct Clock {
     /// Held until there's something to move: the asteroids are still
     /// arriving. The time control's own state is kept under it.
     held: bool,
+    /// The sort paused it, and nobody has touched the time control since:
+    /// it runs again when the dots fly back.
+    sorted: bool,
     /// The page clock at the last reading; NaN before the first, and after
     /// a change that the time meanwhile mustn't count toward.
     last_ms: f64,
@@ -52,6 +55,7 @@ thread_local! {
             opened: 0.0,
             running: true,
             held: true,
+            sorted: false,
             last_ms: f64::NAN,
         })
     };
@@ -134,9 +138,30 @@ pub fn starts_over_at() -> f64 {
     if opened < reach().1 { opened } else { 0.0 }
 }
 
-/// Runs or pauses, from now. Run at the last day, it starts over
-/// ([`starts_over_at`]).
+/// Runs or pauses, from now: the time control's press. Run at the last
+/// day, it starts over ([`starts_over_at`]).
 pub fn set_running(running: bool) {
+    run(running, false);
+}
+
+/// The dots leave for a against e, where time moves nothing: it pauses, as
+/// the time control would pause it (`docs/DECISIONS.md`, "Scene").
+pub fn pause_for_sort() {
+    if CLOCK.get().running {
+        run(false, true);
+    }
+}
+
+/// The dots fly back to space: time runs again, if the sort is what paused
+/// it and the time control hasn't been pressed since.
+pub fn resume_after_sort() {
+    let clock = CLOCK.get();
+    if clock.sorted && !clock.running {
+        run(true, false);
+    }
+}
+
+fn run(running: bool, sorted: bool) {
     let clock = CLOCK.get();
     let years = if running && ended() {
         starts_over_at()
@@ -146,6 +171,7 @@ pub fn set_running(running: bool) {
     CLOCK.set(Clock {
         years,
         running,
+        sorted,
         last_ms: f64::NAN,
         ..clock
     });
@@ -174,7 +200,8 @@ pub fn date(years: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        EPOCH_DAY, advance, date, ended, reach, release, running, set_running, start, years,
+        EPOCH_DAY, advance, date, ended, pause_for_sort, reach, release, resume_after_sort,
+        running, set_running, start, years,
     };
     use crate::elements::YEAR_DAYS;
 
@@ -206,6 +233,37 @@ mod tests {
         // A reader a little behind the last one doesn't make time count twice.
         advance(70_098.0);
         assert!((advance(70_200.0) - 0.55).abs() < 1e-12);
+    }
+
+    #[test]
+    fn the_sort_pauses_time_and_gives_it_back_unless_the_control_was_pressed() {
+        start(EPOCH_DAY, true);
+        release();
+        advance(0.0);
+        advance(200.0);
+        pause_for_sort();
+        assert!(!running());
+        advance(300.0);
+        assert!((advance(900.0) - 0.2).abs() < 1e-12, "paused where it was");
+        resume_after_sort();
+        assert!(running());
+        advance(1000.0);
+        assert!((advance(1100.0) - 0.3).abs() < 1e-12);
+        // Run by the control while sorted: it's the visitor's, and stays.
+        pause_for_sort();
+        set_running(true);
+        resume_after_sort();
+        assert!(running());
+        // Paused by the control while sorted (run, then paused): stays paused.
+        pause_for_sort();
+        set_running(true);
+        set_running(false);
+        resume_after_sort();
+        assert!(!running());
+        // Paused before the sort: the sort gives back nothing it didn't take.
+        pause_for_sort();
+        resume_after_sort();
+        assert!(!running());
     }
 
     #[test]

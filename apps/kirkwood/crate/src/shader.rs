@@ -1,8 +1,9 @@
 //! The scene's vertex shader, step for step in 32-bit floats
 //! (`web/src/scene.ts`, `PLACE`), against the crate's own 64-bit place for
 //! the same row: what the shader's arithmetic costs a dot, at the epoch
-//! and at the ends of the clock's reach. Tests only; change the shader and
-//! this together.
+//! and at the ends of the clock's reach. And its sort flight (`FLIGHT`),
+//! against the crate's own place on the axes of a against e for every row
+//! in view. Tests only; change the shader and this together.
 //!
 //! An estimate of a GPU, not a reading of one: a GPU's sine and cosine
 //! aren't this machine's. The check that reads a real one draws three rows
@@ -12,6 +13,7 @@ use std::f32::consts::{PI, TAU};
 
 use crate::clock;
 use crate::elements::{Element, Elements};
+use crate::layout::{self, Plot};
 use crate::orbit::Orbit;
 use crate::orbit::tests::{distance, elements_file};
 
@@ -239,4 +241,135 @@ fn the_shaders_floats_keep_every_row_within_a_pixel() {
             }
         }
     }
+}
+
+/// The shader's stagger (`STAGGER`): how late the outermost orbit leaves
+/// after the innermost, and how far a dot is off its neighbors', of the
+/// flight's whole.
+const OUTER: f32 = 0.3;
+const EACH: f32 = 0.1;
+
+/// What the shader is handed for the flight: the axes' ends as 32-bit
+/// floats, and where they are in clip space, for a window and its panel.
+struct Handed {
+    axes: [f32; 4],
+    plot: [f32; 4],
+    window: [f64; 2],
+}
+
+impl Handed {
+    fn new(axes: [f64; 4], width: f64, height: f64, inset: f64) -> Self {
+        Self {
+            axes: axes.map(|end| end as f32),
+            // What the scene asks for (`scene_plot`), as it's handed over.
+            plot: Plot::in_window(width, height, inset).clip(width, height),
+            window: [width, height],
+        }
+    }
+}
+
+/// A dot's flight as the shader computes it (`flown`): how far along it
+/// is, and where it lands in the window (CSS px), or nothing for a row
+/// with no place on the axes.
+fn flown(elements: &Elements, row: usize, flight: f32, handed: &Handed) -> (f32, Option<[f64; 2]>) {
+    let get = |element| elements.get(element, row);
+    let (a, e) = (get(Element::A), get(Element::E));
+    let [a0, a1, e0, e1] = handed.axes;
+    let along = (a - a0) / (a1 - a0);
+    let off = get(Element::Node) * 0.1273 + get(Element::Perihelion) * 0.0553;
+    let delay = OUTER * along.clamp(0.0, 1.0) + EACH * (off - off.floor());
+    let t = ((flight - delay) / (1.0 - OUTER - EACH)).clamp(0.0, 1.0);
+    let t = t * t * (3.0 - 2.0 * t);
+    if !(a >= a0 && a <= a1 && e >= e0 && e <= e1) {
+        return (t, None);
+    }
+    let [left, bottom, right, top] = handed.plot;
+    let clip = [
+        left + (right - left) * along,
+        bottom + (top - bottom) * ((e - e0) / (e1 - e0)),
+    ];
+    let [width, height] = handed.window;
+    (
+        t,
+        Some([
+            (f64::from(clip[0]) + 1.0) / 2.0 * width,
+            (1.0 - f64::from(clip[1])) / 2.0 * height,
+        ]),
+    )
+}
+
+/// The shader's flight lands every row in view on the crate's place for
+/// its a and e, in a 1440×900 window with the panel shut and open; every
+/// row has left by the flight's end and none before its start, the inner
+/// belt first; and the rows it lands are the rows the crate counts in view.
+#[test]
+#[ignore = "reads data/elements.bin (just kirkwood test)"]
+fn the_shaders_flight_lands_every_row_in_view_within_a_pixel() {
+    let elements = elements_file();
+    let axes = [layout::A[0], layout::A[1], layout::E[0], layout::E[1]];
+    println!("the panel | rows in view | worst px (row) | rows past 1 px | past 0.01 px");
+    for inset in [0.0, 560.0] {
+        let handed = Handed::new(axes, 1440.0, 900.0, inset);
+        let plot = Plot::in_window(1440.0, 900.0, inset);
+        // The control: axes typed a tenth of an au off land rows elsewhere.
+        let wrong = Handed::new([1.6, axes[1], axes[2], axes[3]], 1440.0, 900.0, inset);
+        let (mut in_view, mut worst, mut worst_row) = (0usize, 0.0f64, 0);
+        let (mut past_a_pixel, mut past_a_hundredth, mut control_past) = (0, 0, 0);
+        for row in 0..elements.rows() {
+            if !elements.is_bound(row) {
+                continue;
+            }
+            let (a, e) = (elements.get(Element::A, row), elements.get(Element::E, row));
+            let (t, landed) = flown(&elements, row, 1.0, &handed);
+            assert_eq!(t, 1.0, "row {row} hasn't left by the flight's end");
+            assert_eq!(flown(&elements, row, 0.0, &handed).0, 0.0);
+            assert_eq!(
+                landed.is_some(),
+                layout::in_view(a, e),
+                "row {row}: the shader and the crate disagree on whether it's in view"
+            );
+            let Some(landed) = landed else {
+                continue;
+            };
+            in_view += 1;
+            let ours = plot.place(f64::from(a), f64::from(e));
+            let px = ((landed[0] - ours[0]).powi(2) + (landed[1] - ours[1]).powi(2)).sqrt();
+            past_a_pixel += usize::from(px > 1.0);
+            past_a_hundredth += usize::from(px > 0.01);
+            if px > worst {
+                (worst, worst_row) = (px, row);
+            }
+            if let (_, Some(off)) = flown(&elements, row, 1.0, &wrong) {
+                control_past +=
+                    usize::from((off[0] - ours[0]).abs() > 1.0 || (off[1] - ours[1]).abs() > 1.0);
+            }
+        }
+        println!(
+            "{inset} px | {in_view} | {worst:.6} ({worst_row}) | {past_a_pixel} | {past_a_hundredth}"
+        );
+        assert!(worst < 1.0, "row {worst_row} lands {worst} px off");
+        assert!(
+            control_past > in_view / 2,
+            "the control passes: {control_past} rows off"
+        );
+    }
+    // The inner belt leaves first: partway, the rows inside 2.5 au are
+    // further along than the rows outside 3.2.
+    let handed = Handed::new(axes, 1440.0, 900.0, 0.0);
+    let along = |from: f32, to: f32| {
+        let (mut sum, mut rows) = (0.0f64, 0usize);
+        for row in 0..elements.rows() {
+            let a = elements.get(Element::A, row);
+            if elements.is_bound(row) && a >= from && a < to {
+                sum += f64::from(flown(&elements, row, 0.4, &handed).0);
+                rows += 1;
+            }
+        }
+        sum / rows as f64
+    };
+    let (inner, outer) = (along(1.5, 2.5), along(3.2, 5.5));
+    println!(
+        "at 0.4 of the flight: inside 2.5 au {inner:.3} of the way, outside 3.2 au {outer:.3}"
+    );
+    assert!(inner > outer + 0.1);
 }

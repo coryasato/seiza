@@ -161,3 +161,18 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Data", "Table",
 - **A header checked as it arrives turns a wrong file down 20 bytes in.** Reading the file a block at a time moved the check from the end of 44 MB to its start, for free.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Data", "Scene"; the evidence: [`milestones.md`](milestones.md), M2's checks.
+
+## M3 part A: the flight and the landing (2026-11-12)
+
+The sort flight, built anew from the spike's decision: the crate's progress and axes, the shader's flight, what leaves the picture, and time.
+
+**Surprises:**
+- **The haze that makes the belt in space fills the gaps on the axes.** It is the picture blurred wider than a gap: the 3:1 read 69 of 255 with it and 14 without, and the 2:1 came out brighter than the empty belt beside it. "Decide by eye" was decided by a strip of pixels.
+- **The 2:1 is an edge, not a gap.** The check says "darker than a tenth of an au either side", and past 3.28 au there is almost nothing to be darker than: 8.9 against 14.0. It passes, narrowly, and only without the haze.
+- **The check for the flight found a bug that wasn't the flight's.** Jupiter's orbit line crossed its disc whenever Jupiter was on the far half of its orbit: Three.js sorts transparent things by depth. No check had read Jupiter's color that far from the epoch.
+- **A clear highlight color changes nothing.** GPUI blends a highlight's color over the text's own, so the sentence that was to fade stayed whole; the style's `fade_out` is what thins a run.
+- **0.6 isn't a 32-bit float.** The axes' top came out 0.00003 px off the board's, and "in view" at exactly e 0.6 would have meant one thing to the shader and another to the crate; the comparison is now made once, in the shader's floats.
+- **A row with no place on the axes shouldn't fly.** Sent toward where its a and e would be, it crosses the plot on its way off it. It fades where it is.
+- **A screenshot from one run can't be set against the numbers of another.** A stale frame was chased that wasn't one: time was running, so each run paused on a different date.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look"; the evidence: [`../PLAN.md`](../PLAN.md), M3's checks.

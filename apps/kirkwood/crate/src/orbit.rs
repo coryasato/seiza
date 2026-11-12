@@ -83,6 +83,13 @@ impl Orbit {
         ]
     }
 
+    /// The size of an orbit in step with this one, au: it turns `turns`
+    /// times while this turns `ours` (Kepler's third law: the period goes
+    /// as a^1.5). Where this body's pull on it adds up, turn after turn.
+    pub fn in_step(&self, turns: u32, ours: u32) -> f64 {
+        self.a * (f64::from(ours) / f64::from(turns)).powf(2.0 / 3.0)
+    }
+
     /// One turn of the orbit as `points` places, for a line.
     pub fn outline(&self, points: usize) -> Vec<[f64; 3]> {
         (0..points)
@@ -220,6 +227,16 @@ pub(crate) mod tests {
         };
         let off = distance(massless.place(years[0]), places(jupiter)[0]);
         assert!(off > 0.01, "the control passes: {off} au");
+    }
+
+    #[test]
+    fn an_orbit_in_step_with_jupiter_has_its_period_in_whole_numbers() {
+        // The Hildas turn three times to Jupiter's two, the Trojans once to
+        // its once.
+        assert!((JUPITER.in_step(3, 2) - 3.97).abs() < 0.005);
+        assert_eq!(JUPITER.in_step(1, 1), JUPITER.a);
+        let a = JUPITER.in_step(3, 1);
+        assert!((a.powf(1.5) * 3.0 - JUPITER.a.powf(1.5)).abs() < 1e-12);
     }
 
     #[test]

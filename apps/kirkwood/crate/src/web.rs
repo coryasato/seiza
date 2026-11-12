@@ -6,7 +6,8 @@
 //! ([`elements_arrived`]): the scene fills its attributes from views over
 //! each block of rows where it lies ([`elements_blocks`]), and says how
 //! far it has drawn ([`belt_drawn`]). Each frame it asks for the clock
-//! ([`scene_years`]) and for what else it draws by.
+//! ([`scene_years`]), the sort flight ([`scene_flight`]), and for what
+//! else it draws by.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -19,7 +20,9 @@ use crate::bytes::Bytes;
 use crate::catalog::Catalog;
 use crate::clock;
 use crate::elements::{Element, Elements};
+use crate::flight;
 use crate::host::Host;
+use crate::layout::{self, Plot};
 use crate::orbit::{JUPITER, Orbit};
 use crate::ramp;
 use crate::rows::{Rows, day_of};
@@ -229,7 +232,7 @@ pub fn file_failed(message: String) {
 }
 
 // --- What the scene asks. None of these enters GPUI but `belt_drawn`,
-// `sky_drawn`, and `scene_failed`, which the page calls from its own tasks,
+// `sky_drawn`, `scene_failed`, and `flight_hold`, which the page calls from its own tasks,
 // never from inside a call Rust made.
 
 /// The blocks holding the elements' rows `from..to`, each as two numbers:
@@ -277,6 +280,52 @@ pub fn elements_columns() -> usize {
 #[wasm_bindgen]
 pub fn scene_years(now_ms: f64) -> f64 {
     clock::advance(now_ms)
+}
+
+/// The sort flight, moved on to `now_ms` (the page clock): 0 in space, 1
+/// landed in a against e. The scene asks every frame, and its shader
+/// places each dot by it.
+#[wasm_bindgen]
+pub fn scene_flight(now_ms: f64) -> f64 {
+    flight::advance(now_ms)
+}
+
+/// How much of what isn't a row the scene still draws (the sky, the Sun,
+/// Jupiter, its orbit, their names): 1 in space, 0 with the dots landed.
+#[wasm_bindgen]
+pub fn scene_space() -> f64 {
+    flight::space()
+}
+
+/// The axes the dots land on: the least a and the most (au), then the
+/// least e and the most. A row past either has no place there.
+#[wasm_bindgen]
+pub fn scene_axes() -> Vec<f32> {
+    [layout::A, layout::E]
+        .into_iter()
+        .flatten()
+        .map(|end| end as f32)
+        .collect()
+}
+
+/// Where those axes are in a window `width` by `height` (CSS px), in what
+/// the panel leaves of it, in the window's clip space, as the shader takes
+/// them: the x of the least a and the y of the least e, then those of the
+/// most.
+#[wasm_bindgen]
+pub fn scene_plot(width: f64, height: f64) -> Vec<f32> {
+    Plot::in_window(width, height, f64::from(scene::inset()))
+        .clip(width, height)
+        .to_vec()
+}
+
+/// `?flight=<0 to 1>`: holds the sort flight there, for a screenshot of
+/// one moment of it. The page reads the knob (one that isn't a number is
+/// its error) and calls this from its own task.
+#[wasm_bindgen]
+pub fn flight_hold(progress: f64) {
+    flight::hold(progress);
+    update_host(|_, cx| cx.notify());
 }
 
 /// The panel's width on screen (CSS px): the scene centers in the rest.
@@ -373,6 +422,50 @@ pub fn place_of(row: usize, years: f64) -> Vec<f64> {
             .map_or_else(Vec::new, |orbit| orbit.place(years).to_vec())
     })
     .unwrap_or_default()
+}
+
+/// The crate's own place on the axes for an orbit of size `a` and
+/// eccentricity `e`, in a window `width` by `height`: x and y, CSS px.
+#[wasm_bindgen]
+pub fn layout_of(a: f64, e: f64, width: f64, height: f64) -> Vec<f64> {
+    Plot::in_window(width, height, f64::from(scene::inset()))
+        .place(a, e)
+        .to_vec()
+}
+
+/// A row's a and e as the file holds them, and whether they're on the
+/// axes; empty for a row that isn't held yet.
+#[wasm_bindgen]
+pub fn layout_row(row: usize) -> Vec<f64> {
+    with_elements(|elements| {
+        if row >= elements.whole() {
+            return Vec::new();
+        }
+        let (a, e) = (elements.get(Element::A, row), elements.get(Element::E, row));
+        vec![
+            f64::from(a),
+            f64::from(e),
+            f64::from(u8::from(layout::in_view(a, e))),
+        ]
+    })
+    .unwrap_or_default()
+}
+
+/// The gaps' orbit sizes, au: where Jupiter's a puts each resonance.
+#[wasm_bindgen]
+pub fn layout_gaps() -> Vec<f64> {
+    layout::gaps().to_vec()
+}
+
+/// The sort flight: its progress, whether the action is pressed, and
+/// whether the dots are on their way.
+#[wasm_bindgen]
+pub fn flight_state() -> Vec<f64> {
+    vec![
+        flight::progress(),
+        f64::from(u8::from(flight::sorted())),
+        f64::from(u8::from(flight::flying())),
+    ]
 }
 
 /// The clock: its years, whether it's set to run, whether it's held for

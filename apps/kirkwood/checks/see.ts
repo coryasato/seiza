@@ -54,6 +54,19 @@
 //   wheel   a wheel over the scene zooms it and leaves the table; over the
 //           table it scrolls the rows and leaves the scene; and the scene
 //           centers in what the open panel leaves (out/panel.jpg).
+//   sort    "Sort by orbit size": a press flies every dot to a against e
+//           and a second flies them back (out/sort-space.jpg, sort-landed.jpg,
+//           sort-back.jpg, and the flight held partway, sort-mid.jpg): how
+//           long each way takes, the scene's frames a second on the way, and
+//           the scene drawing nothing once landed. Fails unless the press
+//           pauses time and the press back runs it again; unless the Sun,
+//           Jupiter, their names, the sky, and the page's line about the
+//           stars are gone landed and back after; unless Ceres, Vesta, and
+//           Hektor, drawn alone and landed (out/sort-alone.png), are each
+//           within a CSS pixel of the crate's place for their a and e, and
+//           farther from that of an a 0.005 au off (the control); and unless
+//           the dust at each gap (where Jupiter's a puts it) is darker than
+//           a tenth of an au either side.
 //
 // Run only when asked for by name (minutes more each):
 //
@@ -74,7 +87,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -92,7 +105,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'rate', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'rate', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -139,7 +152,7 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; flight: number };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
@@ -152,6 +165,10 @@ type Kirkwood = {
   belt(): { drawn: number; unbound: number; rows: number; of: number };
   ramp(): number[];
   scrim(): number[];
+  flight(): { progress: number; sorted: boolean; flying: boolean };
+  layoutOf(a: number, e: number): number[];
+  layoutRow(row: number): { a: number; e: number; inView: boolean } | undefined;
+  gaps(): number[];
 };
 type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
@@ -982,6 +999,191 @@ async function seeWheel(url: string) {
   }
 }
 
+// --- The sort flight.
+
+/** One way of the flight, from the press to the dots' arrival: how long it
+ *  took, the scene's frames on the way, and the share of them that came
+ *  more than a frame and a half after the last. Call it, press, then wait
+ *  on it. */
+type Flown = { seconds: number; sceneFrames: number; sceneFramesASecond: number; pageFramesASecond: number; percentLate: number };
+const flown = (page: Page, to: boolean): Promise<Flown> =>
+  page.evaluate(
+    (to) =>
+      new Promise<Flown>((done) => {
+        const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+        const stats = kirkwood.scene!.stats;
+        let [from, frames, last, lastAt] = [NaN, 0, 0, 0];
+        const gaps: number[] = [];
+        const tick = (now: number) => {
+          const flight = kirkwood.flight();
+          // Not pressed yet.
+          if (flight.sorted !== to) return void requestAnimationFrame(tick);
+          if (Number.isNaN(from)) [from, last, lastAt] = [now, stats.frames, now];
+          frames++;
+          if (stats.frames !== last) {
+            gaps.push(now - lastAt);
+            [last, lastAt] = [stats.frames, now];
+          }
+          if (flight.flying) return void requestAnimationFrame(tick);
+          const seconds = (now - from) / 1000;
+          done({ seconds, sceneFrames: gaps.length, sceneFramesASecond: gaps.length / seconds, pageFramesASecond: frames / seconds, percentLate: (100 * gaps.filter((gap) => gap > 25).length) / gaps.length });
+        };
+        requestAnimationFrame(tick);
+      }),
+    to,
+  );
+
+/** The mean light (0 to 255) of a part of a screenshot. */
+const light = (page: Page, png: Buffer, clip: Clip) =>
+  pixelsOf(page, png, clip, (pixels) => {
+    let sum = 0;
+    for (let at = 0; at < pixels.length; at += 4) sum += pixels[at]! + pixels[at + 1]! + pixels[at + 2]!;
+    return sum / (pixels.length / 4) / 3;
+  });
+/** The pixels of a part of a screenshot as bright as the page's muted text. */
+const textPixels = (page: Page, png: Buffer, clip: Clip) =>
+  pixelsOf(page, png, clip, (pixels) => {
+    let count = 0;
+    for (let at = 0; at < pixels.length; at += 4) count += Number(pixels[at]! + pixels[at + 1]! + pixels[at + 2]! > 3 * 120);
+    return count;
+  });
+
+async function seeSort(url: string) {
+  const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
+  // The press, the landing, and the press back, with time running.
+  const flight = await withSky(url, { date: EPOCH }, async (page) => {
+    const read = async () => {
+      await settle(page);
+      const png = await page.screenshot();
+      const seen = await kirkwood(page, (kirkwood) => {
+        const scene = kirkwood.scene!;
+        return { frames: scene.stats.frames, drawnAt: scene.stats.flight, labels: scene.labels(), sun: [0, 0, 0], jupiter: kirkwood.jupiter(scene.stats.years), camera: scene.viewProjection(), flight: kirkwood.flight(), clock: kirkwood.clock(), scrim: kirkwood.scrim() };
+      });
+      const [sun, jupiter] = await lit(page, png, [project(seen.camera, seen.sun), project(seen.camera, seen.jupiter)], 8);
+      // The title's lines: the page's text over the scene.
+      const [left, top, width, height] = seen.scrim as [number, number, number, number];
+      return { ...seen, png, sunColor: sun!.color, jupiterColor: jupiter!.color, text: await textPixels(page, png, { x: left, y: top, width, height }), names: seen.labels.filter((label) => label.shown).map((label) => label.text) };
+    };
+    // In space, paused for the reading: the Sun and Jupiter stand still.
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(400);
+    const space = await read();
+    await shot(page, 'sort-space');
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(200);
+    need(space.flight.progress === 0 && !space.flight.sorted, `before the press the flight is ${JSON.stringify(space.flight)}`);
+    need(space.names.join() === 'Sol,Jupiter' && Math.min(...space.sunColor) > 180 && space.jupiterColor[0] > 170, `in space: the names ${space.names.join()}, the Sun's place ${space.sunColor}, Jupiter's ${space.jupiterColor}`);
+
+    // The press: every dot to the axes.
+    let way = flown(page, true);
+    await clickTarget(page, 'sort');
+    const out_ = await way;
+    await page.waitForTimeout(500);
+    const landed = await read();
+    await shot(page, 'sort-landed');
+    await shot(page, 'sort-landed-time', { x: 0, y: 820, width: 520, height: 80 });
+    need(landed.flight.progress === 1 && landed.flight.sorted && !landed.flight.flying && landed.drawnAt === 1, `landed, the flight is ${JSON.stringify(landed.flight)}, drawn at ${landed.drawnAt}`);
+    need(near(out_.seconds, 3, 0.25), `the flight out took ${out_.seconds.toFixed(2)} s`);
+    // Time: the press paused it, and the control says so.
+    need(!landed.clock.running, `landed, the clock is ${JSON.stringify(landed.clock)}`);
+    // What isn't a row is gone.
+    need(!landed.names.length && Math.max(...landed.sunColor) < 60 && Math.max(...landed.jupiterColor) < 60, `landed: the names ${landed.names.join() || 'none'}, the Sun's place ${landed.sunColor}, Jupiter's ${landed.jupiterColor}`);
+    need(landed.text < space.text - 300, `the title's lines are ${landed.text} text pixels landed and ${space.text} in space: the line about the stars hasn't left`);
+    // Landed, the scene draws nothing, and a wheel moves nothing: the
+    // camera is space's.
+    const camera = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.distance);
+    await page.mouse.move(500, 450);
+    await wheel(page, 300);
+    await page.waitForTimeout(1500);
+    const wheeled = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.distance);
+    need(wheeled === camera, `a wheel over the landed dots moved the camera from ${camera} au to ${wheeled}`);
+    const still = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.frames);
+    need(still === landed.frames, `landed, the scene drew ${still - landed.frames} frames in 1.5 s`);
+
+    // The press back.
+    way = flown(page, false);
+    await clickTarget(page, 'sort');
+    const back = await way;
+    await page.waitForTimeout(300);
+    // Paused for the reading, as before.
+    const ran = await kirkwood(page, (kirkwood) => kirkwood.clock());
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(400);
+    const again = await read();
+    await shot(page, 'sort-back');
+    need(again.flight.progress === 0 && !again.flight.sorted && again.drawnAt === 0, `back, the flight is ${JSON.stringify(again.flight)}`);
+    need(near(back.seconds, 3, 0.25), `the flight back took ${back.seconds.toFixed(2)} s`);
+    need(ran.running && ran.years > landed.clock.years, `back in space, the clock is ${JSON.stringify(ran)}`);
+    need(again.names.join() === 'Sol,Jupiter' && Math.min(...again.sunColor) > 180 && again.jupiterColor[0] > 170, `back: the names ${again.names.join()}, the Sun's place ${again.sunColor}, Jupiter's ${again.jupiterColor} at ${project(again.camera, again.jupiter).map(round)}`);
+    need(near(again.text, space.text, 60), `the title's lines are ${again.text} text pixels back in space and were ${space.text}`);
+    const way_ = (way: Flown) => ({ seconds: fixed(way.seconds), sceneFrames: way.sceneFrames, sceneFramesASecond: fixed(way.sceneFramesASecond, 1), pageFramesASecond: fixed(way.pageFramesASecond, 1), percentLate: fixed(way.percentLate, 1) });
+    return {
+      out: way_(out_),
+      back: way_(back),
+      framesIn1500msLanded: still - landed.frames,
+      clock: { landed: { running: landed.clock.running, date: landed.clock.date }, back: { running: ran.running } },
+      titleTextPixels: { space: space.text, landed: landed.text, back: again.text },
+      sunPlace: { space: space.sunColor, landed: landed.sunColor, back: again.sunColor },
+      names: { space: space.names, landed: landed.names, back: again.names },
+    };
+  });
+
+  // The flight held partway, for board 3.
+  await withSky(url, { ...HELD, flight: '0.6' }, async (page) => {
+    await page.waitForTimeout(400);
+    await shot(page, 'sort-mid');
+  });
+
+  // Three rows drawn alone and landed, against the crate's own place on
+  // the axes for each one's a and e.
+  const ALONE = [
+    { name: '1 Ceres', row: 0 },
+    { name: '4 Vesta', row: 3 },
+    { name: '624 Hektor', row: 623 },
+  ];
+  const alone = await withBelt(url, { ...HELD, flight: '1', only: ALONE.map((body) => body.row).join(',') }, async (page) => {
+    const png = await page.screenshot({ path: join(out, 'sort-alone.png') });
+    const places = await kirkwood(page, (kirkwood) =>
+      new URLSearchParams(location.search)
+        .get('only')!
+        .split(',')
+        .map((row) => {
+          const { a, e, inView } = kirkwood.layoutRow(Number(row))!;
+          return { a, e, inView, at: kirkwood.layoutOf(a, e), control: kirkwood.layoutOf(a + 0.005, e) };
+        }),
+    );
+    const found = await lit(page, png, places.map((place) => [place.at[0]!, place.at[1]!]));
+    return ALONE.map((body, at) => {
+      const { a, e, inView, at: [x, y], control: [controlX, controlY] } = places[at]! as { a: number; e: number; inView: boolean; at: [number, number]; control: [number, number] };
+      const off = Math.hypot(found[at]!.x - x, found[at]!.y - y);
+      const controlOff = Math.hypot(found[at]!.x - controlX, found[at]!.y - controlY);
+      need(inView && found[at]!.pixels > 20, `${body.name}: no disc near (${round(x)}, ${round(y)}) on the axes`);
+      need(off <= 1, `${body.name}: landed ${off.toFixed(2)} px from the crate's place (${round(x)}, ${round(y)})`);
+      need(controlOff > 1, `${body.name}: the control passes (${controlOff.toFixed(2)} px from the place of an a 0.005 au off)`);
+      return { body: body.name, a: fixed(a, 4), e: fixed(e, 4), cratePlacePx: [fixed(x), fixed(y)], drawnPx: [fixed(found[at]!.x), fixed(found[at]!.y)], offPx: fixed(off), controlOffPx: fixed(controlOff) };
+    });
+  });
+
+  // The gaps: the dust at each, where Jupiter's a puts it, against a tenth
+  // of an au either side, for the orbits from e 0.02 to 0.25.
+  const KNOWN = [2.5, 2.82, 2.96, 3.28];
+  const gaps = await withBelt(url, { ...HELD, flight: '1' }, async (page) => {
+    await page.waitForTimeout(400);
+    const png = await page.screenshot();
+    const at = await kirkwood(page, (kirkwood) => kirkwood.gaps().map((a) => ({ a, strips: [a - 0.1, a, a + 0.1].map((a) => [kirkwood.layoutOf(a, 0.25), kirkwood.layoutOf(a, 0.02)]) })));
+    const seen = [];
+    for (const [gap, { a, strips }] of at.entries()) {
+      need(near(a, KNOWN[gap]!, 0.006), `gap ${gap} is at ${a} au, not ${KNOWN[gap]}`);
+      // A strip 0.02 au wide.
+      const [inner, here, outer] = await Promise.all(strips.map(([top, bottom]) => light(page, png, { x: top![0]! - 3.2, y: top![1]!, width: 6.4, height: bottom![1]! - top![1]! })));
+      need(here! < inner! && here! < outer!, `the dust at ${a.toFixed(2)} au reads ${here!.toFixed(1)} of 255, against ${inner!.toFixed(1)} and ${outer!.toFixed(1)} a tenth of an au either side`);
+      seen.push({ au: fixed(a, 3), light: fixed(here!, 1), inner: fixed(inner!, 1), outer: fixed(outer!, 1) });
+    }
+    return seen;
+  });
+  return { flight, alone, gaps };
+}
+
 mkdirSync(out, { recursive: true });
 const server = await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
 try {
@@ -1050,6 +1252,7 @@ try {
   if (ONLY.has('color')) seen.color = await seeColor(server.url);
   if (ONLY.has('sky')) seen.sky = await seeSky(server.url);
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
+  if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);
   if (ONLY.has('cross')) seen.cross = await seeCross(server.url);
