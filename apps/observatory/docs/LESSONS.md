@@ -637,3 +637,12 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 **Surprises:**
 - The wall is light on the wire. Its uses peaked at 60 and 107 requests in 10 s, under market watch's: eight tables are one file, read once a frame in a few requests, and the feed runs in the frame. What reaches the zone's limit is still reloading a scenario whose file is read by range.
 - Read under the protocol's overlap rule, an update's time to show is even at every stop on a fast device, though GPUI's median is the lower at each. Both sides' runs take one of two values, so the ranges overlap.
+
+## M14 part A1: the wide sheet's later steps, specced (2026-11-12)
+
+**Results:** none measured; the spec and the file's sizing are in `PLAN.md`'s part A1, the decisions in [`DECISIONS.md`](DECISIONS.md), "Measurement" and "Scenarios", 2026-11-12.
+
+**Surprises:**
+- The table has no copy fixture. Every other feature a scenario ports has one, but `copy`'s text is tested only inside the crate, where a DOM port can't reach it. M14 asked the table for one before the port, rather than writing it here.
+- The whole sheet is copyable. At ~18 MiB of TSV for 3.9 M cells, it passes the key's 100,000-cell limit forty times over but fits the 64 MiB cap, so a confirmed select-all copies every page. It's the one copy that makes both sides read the whole file while the view must keep up.
+- A few columns cost a whole file. A week of days is under the key's limit, but a page is the source's unit, so it reads all 11 pages: the copy's paging, not its text, is what the week measures.

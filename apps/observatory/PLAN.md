@@ -28,7 +28,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
 | M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
-| M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (next) |
+| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1 done, A2 next) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
@@ -42,27 +42,16 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 |---|---|---|
 | tall-table `follow` (same; [its README](../../components/tall-table/README.md), "Following the tail") | Live tail (M11) | *Ready* (2026-10-25, tall-table M4) |
 | tall-table `let_go`: following turned off by the host, the view left where it is, `Following(false)` emitted (the reader's moves do it today; `set_following` is private) | Live tail's Pause (M11 part E2) | *Ready* (2026-11-09, tall-table M13; the TanStack contender's `letGo` built with it, in `follow.ts`, its fixture scenario and control run on the tail level) |
+| tall-table's copy fixture (`fixtures/copy.json`; [its PLAN](../../components/tall-table/PLAN.md), "Follow-ups to built features", `copy`) | The TanStack contender's copy, ported against it (M14 part C) | *Not ready* (asked 2026-11-12) |
 | tall-table `resize`, `select`, `copy` ([its PLAN](../../components/tall-table/PLAN.md), "Columns" and "Selection") | The wide sheet's later steps, a resize drag and a range copied (M14) | *Ready* (`resize` 2026-10-26, tall-table M5; `select` 2026-10-26, M6; `copy` 2026-10-27, M7) |
 
 ---
 
 ## Active milestone
 
-None: M13 closed 2026-11-11 (its spec and evidence are in [`docs/milestones.md`](docs/milestones.md)). M14 is next, and opens with its part A.
-
----
-
-## Next milestones
-
-The "done when" checks are drafts until their milestone becomes active. The scenarios (M9–M13, all done) are in the research's build order ([`docs/research/scenarios.md`](docs/research/scenarios.md), where each one's workload, measures, dial, and needs are); each scenario's research and spec open its milestone as part A, as the table's features do, and its later parts are split there.
-
-**Every scenario milestone** (decided 2026-10-30, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"), each item a "done when" check of its own:
-- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall has a level of its own, `wall`, since it needs `density`, which market watch's lacks).
-- **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
-- **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
-- **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
-
 ### M14: The wide sheet's later steps: a resize drag, a range copied
+
+Opened 2026-11-12. M13's spec and evidence are in [`docs/milestones.md`](docs/milestones.md).
 
 The research's later steps for the wide sheet ([`docs/research/scenarios.md`](docs/research/scenarios.md), "Wide sheet"): a column-resize drag, and a range selected and copied. They come after the other scenarios (decided with the user, 2026-11-04). Their features are *Ready* ("Waiting on"). **The wide level grows** (decided with the user, 2026-11-04): its one build on each side gains the table's `resize`, `select`, and `copy` and their counterparts, so a visitor resizes and copies in the frame they scroll. No second wide build and no switch between them. The same scope still holds: the base level carries none of it. Because each side's bundle grows, the wide sheet's numbers are measured again at the grown level and replace M9's.
 
@@ -71,14 +60,110 @@ The research's later steps for the wide sheet ([`docs/research/scenarios.md`](do
 - **Fixtures prove "the same":** `cells.json`'s `resize` section (skipped by the TanStack contender today) and `selection.json` in TS with their controls, and a copy fixture of the component's (a range → its text, exact; the caps) if the table has none, asked of the component's PLAN, never written here. `tanstack-parity` gains the resize band and drag, the selection's pointer and keys, and Cmd+C.
 - **The measures** (the research's, made exact in part A): a resize drag's frame cost (each frame's work while a day's column is dragged, both sides, at each stop), a selection drag's, and a copy's time (the key → the clipboard written) for a range under `key_max_cells` and for one past it confirmed (the copy's turns spread over frames: does the view keep up meanwhile?).
 - **The page:** how the window offers the tools and where their numbers go (the status bar, the panel's cards, the description), designed first: new boards on M8's canvas, light and dark, desktop and phone, decided with the user before anything is built (the canvas draws none of it today). The admin table's capability list (M12) may already say GPUI's selection by then; part A checks the two read as one story.
-- **Parts (draft):** A, the design and the spec (the boards, the measures and their scripts, the suite's time); B, the GPUI side at the grown level (its wasm and TTFP against the level's baselines, rewritten); C, the TanStack side (its first-paint JS and data layer against the level's baselines); D, the numbers (the wide sheet's whole cold suite at the grown level, then the new measures: a long run, so a code review first); E, the page; F, shipped (the README's sections, `burst`, the deploy, `worker-check`).
+**Parts** (each one session; A2 confirms B–F and splits any past a session, as M13's A3 did):
+- **A1: the spec.** Everything but the boards, from the code as it is:
+  - The level's shape: what `wide` gains on each side (the crate's feature and the bridge's, `LEVEL_FEATURES.wide`, the TanStack contender's `__LEVEL__ === 'wide'` branches), and what keeps every other level's build unchanged (the base, market, tail, and wall wasm and bundles; `sizes`' and `tanstack-sizes`' checks).
+  - The measures made exact: which column a resize drag takes and how far, the selection drag's path, the copy's ranges (one under `key_max_cells`, one past it confirmed), what "keeps up meanwhile" reads, each at which stops, and each side's input path (the gesture scroll where a scroll is under way).
+  - Their scripts: which `metric-*` script takes each (or a new one), the contract marks each needs (`docs/contender-contract.md`'s changes), and how TanStack's copy is timed the way the bridge's is.
+  - The fixtures: `cells.json`'s `resize` and `selection.json` on the TanStack side; the copy fixture (the component has none: `components/tall-table/fixtures/` holds no copy cases), asked of the table's `PLAN.md` with a "Waiting on" row here, and where it lands in B–F.
+  - The suite's time: the wide sheet's cold suite again at every stop plus the new measures, both sides, both devices, 10 runs.
+- **A2: the boards, then B–F confirmed.** New boards on M8's canvas (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK), light and dark, desktop and phone, decided with the user before anything is built:
+  - How the window offers the tools: the resize band, a selection, a copy (its progress, a declined key and how a visitor confirms, the clipboard written or refused).
+  - Where the new numbers go: the status bar, the panel's cards, the description.
+  - What a phone offers (no pointer resize on touch; the canvas tradeoffs).
+  - The admin table's capability row ("Select and copy a capital": GPUI "no" on the base build) and the wide sheet's selection read as one story.
+- **B: the GPUI side at the grown level** (its wasm and TTFP against the level's baselines, rewritten).
+- **C: the TanStack side** (its first-paint JS and data layer against the level's baselines; the ports and their fixtures).
+- **D: the numbers** (the A/B of the grown level against M9's, the suite again only where it moved, then the new measures: ~2 h 10 min in one sitting, so a code review first).
+- **E: the page.**
+- **F: shipped** (the README's sections, `burst`, the deploy, `worker-check`).
 
-**Done when** (draft):
-1. **Its builds:** the wide level on both sides carries `resize`, `select`, `copy` and their counterparts, and nothing else new; the base level byte-identical to before; the level's budgets (`gpui-wide-*`, `tanstack-wide-*`) against rewritten baselines, gated by `check`, with each feature's added bytes in a results note.
-2. **The same on both sides:** the fixtures above pass on both sides with their controls; `tanstack-parity` covers the band, the drag, the selection's input, and the copy, in Chromium, Firefox, and WebKit; a copied range's text is byte-identical on both sides and against native DuckDB's values.
-3. **Its numbers:** the wide sheet's cold suite again at every stop (M9's measures, replacing part D's on the page and in the README), and the new measures, both sides, both devices, median of 10, each results file with its versions; a results note.
-4. **The page:** the tools in the window and their numbers as the design draws them; `page --check` covers them.
-5. **Shipped:** the README's wide sheet sections with the new rows by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+**Done when:**
+- [ ] **Its builds:** the wide level on both sides carries `resize`, `select`, `copy` and their counterparts, and nothing else new; the base level byte-identical to before (every other level as `sizes` checks it: [`docs/DECISIONS.md`](docs/DECISIONS.md), "GPUI contender", 2026-11-05); the level's budgets (`gpui-wide-*`, `tanstack-wide-*`) against rewritten baselines, gated by `check`, with each feature's added bytes in a results note.
+- [ ] **The same on both sides:** the fixtures above pass on both sides with their controls; `tanstack-parity` covers the band, the drag, the selection's input, and the copy, in Chromium, Firefox, and WebKit; a copied range's text is byte-identical on both sides and against native DuckDB's values.
+- [ ] **Its numbers:** the wide sheet's scrolls at the grown level against M9's level, an interleaved A/B at every stop (decided with the user, 2026-11-12): M9's numbers stand, labelled with their build, where none moved, and the suite runs again where one did, replacing M9's on the page and in the README; and the new measures, both sides, both devices, median of 10, each results file with its versions; a results note.
+- [ ] **The page:** the tools in the window and their numbers as the design draws them; `page --check` covers them.
+- [ ] **Shipped:** the README's wide sheet sections with the new rows by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+
+### Part A1: the spec
+
+**Done when:**
+- [x] **A1-1, the level's shape:** what `wide` gains on each side and what each touches, listed for B and C; how every other level's build stays unchanged.
+  - **The scenario:** `LEVEL_FEATURES.wide` gains `resize`, `select`, `copy` (`custom-cells`, `pin`, `density`, `resize`, `select`, `copy`); `sizes` then checks the table's and the bridge's features are exactly those. No new level, stop, or file.
+  - **The GPUI crate (B):** the feature `wide` gains `seiza-tall-table/{resize,select,copy}` and `tall-table-bridge/{resize,select,copy}` (the bridge's `copy` turns on its `select`).
+    - `scene.rs`: every column resizable, the key columns as `pin` allows (the table's `pin_limit` holds a pinned column's drag at the press's half). The copy's limits are the table's defaults (`key_max_cells` 100,000, `max_bytes` 64 MiB), headers off. Every selection kind on (the table's default).
+    - The host hands each `TallTableEvent::Copy` to `clipboard::Clipboard` and tells it at `close` (a replay's reopen). A refused or unavailable write cancels the copy (`event`'s return).
+    - The confirmed copy is Cmd+Shift+C and Ctrl+Shift+C, the host's `copy`, as the bare host's `CopyConfirmed` is: a key, so the clipboard takes it as a gesture. A2's boards say how the window offers it.
+    - `contract.rs` publishes A1-3's marks and globals. The wide code sits at the files' ends or in its own (`src/wide.rs` if it grows past a few lines), so no other level's panic locations move.
+  - **The TanStack contender (C):** `__LEVEL__ === 'wide'` branches only, each level's habits (`docs/DECISIONS.md`, "TanStack contender"):
+    - `resize.ts`, a port of `state/resize.rs`: the bands (4 px each side of a 1 px hairline), the drag (width at the press plus the pointer's move, clamped; back at the press's x, the set width; a kind's width held until the pointer brings it inside), the sideways scroll held (`held_content`), the double-click fit over the visible loaded rows (each text's width as the browser measures it in the cells' font, the numbers by character count at the number advance, as `fit_column` does), and the widths published at a release or fit that changed one. TanStack Virtual's column sizes take the widths, so the column virtualizer re-measures.
+    - `select.ts`, a port of `selection.rs` and `state/select.rs`: `Rows`, `Columns`, `Cells` from an anchor to a head, `target_at` (a cell, a row's number, a header, the corner), `cell_clamped`, the keys (`key_step`, `scroll_into_view`), the tint and the active cell's edge per region (pinned and scrolled), Escape.
+    - `copy.ts` with its data side in `data/`: `push_value` and `header_line` (`format.ts`'s exact text, quoted for a tab, a line break, or a `"`; NULL empty), the turns (`TURN_CELLS` a turn, one `Text` each), the key's limit and the cap with `least_bytes`, and the reads beside the cache: `PageCache`'s copy reads (`set_copy_wants`, the plan's grant after the visible pages, before prefetch, `background_limit`, `holding` and `loading`, the passed page dropped, the cancels). It's a function behind `__LEVEL__ === 'wide'`, never a method, so no other level's paging chunk carries it. The clipboard is written as the bridge writes it: `ClipboardItem` with a promise opened at the key, resolved with a Blob at the last row; `writeText` where there's no `ClipboardItem`.
+    - **A drag draws once a frame:** a resize or selection move is applied in the frame's callback (`flushSync`), as market watch's landings are. It's the idiomatic batching, and it puts the drag's commit in the frame's `animate` work, where `domDrawn` reads the DOM's drawn frames.
+    - `copy.ts` and its data side load after first paint with the data layer. Only the bands and the selection's drawing join first-paint JS.
+  - **Every other level unchanged:** the base's wasm and bundles byte-identical (the features are compile-time and `__LEVEL__` folds); the market, tail, and wall levels as `sizes` and `tanstack-sizes` check them (their Cargo features, their bundles), [`docs/DECISIONS.md`](docs/DECISIONS.md), "GPUI contender", 2026-11-05.
+  - **What the bytes should be:** the table's own figures put the GPUI wide wasm at about +20 KiB brotli (`resize` +2.7, `select` +6.5, `copy` +11.0 over `select`; [the table's README](../../components/tall-table/README.md), "Features"), ~2,795 KiB against the 3,191 budget. TanStack's first-paint JS grows by the bands and the selection, its data layer by the copy. Both baselines are rewritten in B and C.
+- [x] **A1-2, the measures:** the resize drag, the selection drag, and the copy (under the key's limit; past it, confirmed; the view meanwhile) made exact, each side's input path, the stops each runs at.
+  - **The resize drag,** at every stop: the first day's edge (Jan 1, column 3, right of Latitude) dragged right 200 px and back, twice, a pointer move every 8 ms (~2 s), as the table's own `perf` segment does (`components/tall-table/perf/perf.ts`). Every frame re-lays out the columns; back at the press, the release changes nothing.
+  - **The selection drag,** at every stop: from the top row's first scrolled cell (Latitude) to the last fully visible row and column and back, a row a move with the column following the diagonal, a move every 8 ms, ~2 s of round trips, the table's segment. Every move changes the selection, so every frame redraws the tint.
+  - **The drags' readings,** both sides, both devices, median of 10, nothing read whole first (the visible pages loaded and rested):
+    - "Keeps up": `drewShare` over the drag (GPUI's presented frames; the DOM's `domDrawn`), at the scrolls' 90%.
+    - Work a frame, p50 and p95, from Chromium's trace (`frameWork`).
+    - Late frames.
+    - Real pointer events on both sides (Playwright's `mouse.down`, `move`, `up`); no gesture, so no DPR scaling.
+  - **The copies,** at the default stop (`rows-20`) alone: a copy's reads and text don't depend on the density. Both sides, both devices, median of 10, each from a cold view. Native DuckDB sized the file for them: 368 columns × 10,632 rows = 3,912,576 cells, ~18.0 MiB as TSV (1,774 B a row), so a whole-sheet copy passes the key's limit (100,000 cells, 271 rows of every column) and fits the 64 MiB cap.
+    - *The block:* the visible block, selected by a drag (~710 cells, every page in hand); Cmd+C → the clipboard written.
+    - *A week:* seven days' columns (a header press, Shift+press six on: 74,424 cells, under the key's limit); Cmd+C → the text all in → written. A block of a few columns reads every column of a page, so it reads all 11 pages, beside the cache: the copy's reads on each side.
+    - *The sheet:* Cmd+A, then Cmd+C (declined: the key's limit, said in the window, A2), then Cmd+Shift+C (confirmed): 3.9 M cells, ~18 MiB; the key → the text all in → written, the reads, and the main thread's time outside frames (the copy's turns).
+    - *The view meanwhile:* the scrolls' steady gesture down (`SCROLLS.down`) started at the sheet's confirmed key, its `drewShare`, late frames, and work, against the same scroll with no copy in the same run (the table's `copy.ts` method). A copy that ends before the scroll does is said (`coveredPct`).
+- [x] **A1-3, the scripts and the contract:** each measure's script, the marks and globals it reads, `docs/contender-contract.md`'s changes listed.
+  - **The scripts (D1):** `perf/metric-drag.ts` (the two drags, `--stop`), `perf/metric-copy.ts` (the copies and the view meanwhile). Each is a `metric <name>` on `perf/contender.ts`'s runner, with each side's files labelled `<label>-wide-sheet-<stop>`.
+  - **The marks, with `?measure`, on the wide level only:**
+    - `contender:copy-started`: GPUI's `Started`; TanStack's key handler opening the `ClipboardItem`.
+    - `contender:copied`: the text all in. GPUI's `Copied`; TanStack's last turn.
+    - `contender:copy-written`: the browser's write resolved. The bridge's callback; TanStack's `write()` promise.
+    - `contender:copy-declined`: a key past `key_max_cells`, nothing read.
+    - Each is timed from the key's event, as `metric-response` times a key (`docs/contender-contract.md`, "Reading the metrics").
+  - **The globals, with `?measure`:**
+    - `__contender.copy`: the copy's outcome as the bridge spells it (declined, copying, writing, written, refused, failed, unavailable).
+    - `__contender.selection`: `{kind, anchor, head}` or `null`, as `selection.json` spells it.
+    - `__contender.widths`: each column's set width.
+  - **The drags' geometry:** the scripts read where to press from the layout once, at rest, before the traced window: `__contender.layout` (the columns' lefts and widths, the row height, the pin), today published only with `?cells`. B and C publish it with `?measure` at each layout change, never a frame. B confirms it costs a measured run no frame work; if it does, a target for each press instead (`seiza::targets`).
+  - **`docs/contender-contract.md`'s changes (B and C):** the marks table's four copy rows; "State"'s three globals and the layout with `?measure`; "Reading the metrics"' drags (drew share, work, late frames) and copies (the key's event to each mark; the view meanwhile).
+  - **The checks:**
+    - `perf/wide.ts` gains a copied range's text byte-identical on both sides and against native DuckDB's values: the week's 74,424 cells, and a block across the pinned edge.
+    - `tanstack-parity` gains the band's place and cursor, the drag (live, clamped, the sideways scroll held to the release), the fit's width within a pixel of GPUI's, the selection's press, Shift, drag, and keys, the tint's place, and Cmd+C (Chromium, Firefox, WebKit).
+    - `tanstack-contract` gains the four marks and their order.
+- [x] **A1-4, the fixtures:** `cells.json`'s `resize` and `selection.json` on the TanStack side with their controls; the copy fixture asked of the table's `PLAN.md` (its "Asked for" and "Who's waiting" rows, a "Waiting on" row here), and the part that waits on it.
+  - **On the TanStack side (C):** `cells.json`'s `resize` section (7 widths, 6 cells: the clamp and the budgets; skipped today in `fixtures.test.ts`) and `selection.json` (skipped today), each with TS counterparts of the native controls. The fit isn't a fixture (its widths are shaped text); `tanstack-parity` checks it against GPUI's.
+  - **The copy fixture, asked of the table:** `components/tall-table/fixtures/` holds none. Asked for: `fixtures/copy.json`, run natively against `copy.rs`'s text and the state's `copy`, with controls:
+    - A small source's ranges (`Rows`, `Columns`, `Cells`, the anchor after the head) → their exact text.
+    - Values that need quoting (a tab, a line break, a `"`), NULL and empty text, floats' exact text (exponents, −0.0), integers, and the header line when it's on.
+    - The key's limit at n and n + 1 cells; `least_bytes`' refusal; the cap passed mid-copy.
+    - The controls: NULL written as text, no quoting, the limit off by one.
+  - **Who builds it, and when** (decided with the user, 2026-11-12): the table's PLAN, as a follow-up to `copy` ahead of `reorder` (its "Follow-ups to built features" and "Who's waiting"; "Waiting on" above). Part C waits on it; A2 and B don't.
+- [x] **A1-5, the suite's time,** and whether part D splits.
+  - **The new measures:** the drags at 4 stops × 2 sides × 2 devices × 10 runs, ~15 s reference and ~40 s throttled a run: ~75 min. The copies at one stop × 2 sides × 2 devices × 10, ~65 s a pair of runs: ~25 min. **About 1 h 40 min,** one sitting.
+  - **M9's suite at the grown level** (the done-when's "again at every stop") is ~3.5 h more in two sittings ([`docs/milestones.md`](docs/milestones.md), M9 A2). What it would re-read is the same scrolls with resize, select, and copy built but idle. The table measured that idle cost natively: `resize`'s bands +0.05–0.15 ms a frame, `select` and `copy` within the spread. TanStack's idle cost (a selection state on each cell) isn't known.
+  - **Decided with the user, 2026-11-12:** an interleaved A/B first, M9's level against the grown one, reference, the stops' scrolls, 10 rounds a side (~30 min). M9's numbers stand, labelled with the build they came from, if every reading is within the spread; the suite is re-run only if one isn't. D would be ~2 h 10 min in one sitting (the A/B, then the new measures), and the done-when's "again at every stop" becomes "the A/B, and the suite again only where it moved".
+
+### Part A2: the boards, then B–F confirmed
+
+**Done when:**
+- [ ] **A2-1, the boards,** drawn on M8's canvas and decided with the user: the tools in the window, the numbers' places, a phone, light and dark; the admin table's capability row and the wide sheet's read as one story.
+- [ ] **A2-2, B–F:** each part's checks written, split where one is over a session.
+
+---
+
+## Next milestones
+
+None planned past M14: its scenario is the research's last step. A new milestone starts from a long-term goal below, or a scenario's own follow-up.
+
+**Every scenario milestone** (decided 2026-10-30, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"), each item a "done when" check of its own:
+- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall has a level of its own, `wall`, since it needs `density`, which market watch's lacks).
+- **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
+- **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
+- **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
 
 ---
 

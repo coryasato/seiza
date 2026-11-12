@@ -143,6 +143,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `copy`'s fixture (a follow-up, below) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
@@ -156,13 +157,14 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 - **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`format` moves up (2026-11-04)** ahead of `reorder`: the observatory's market watch (its M10) waits on it from its part B, and `reorder`'s run has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`follow`'s `let_go` first (2026-11-09),** ahead of `reorder`, as M13 (`reorder` and the two after it moved down one, to M14–M16): a follow-up to a built feature, small, and the observatory's live tail waits on it before it ships (its M11 part E2).
+- **`copy`'s fixture first (2026-11-12),** ahead of `reorder`: a follow-up to a built feature, small, and the observatory's wide sheet ports the copy to its TanStack contender against it ("Follow-ups to built features", `copy`).
 - **The flash's frames first (2026-11-04),** then `format`: market watch's spike found a flash redraws the whole table every frame, which sinks the bare host on a slow device; the observatory measures market watch only on the improved component ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
 
 ## Active milestone
 
-None: M13 (`follow`'s `let_go`) closed 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)). M14 (`reorder`) is next, opening with its research ("Next milestones").
+None: M13 (`follow`'s `let_go`) closed 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)). Next: `copy`'s fixture ("Follow-ups to built features", asked 2026-11-12 by the observatory), then M14 (`reorder`), opening with its research ("Next milestones").
 
 ---
 
@@ -177,6 +179,18 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 - **Stepped ramps** (`Ramp::stepped`, the nearest stop, no mix): bucketed heat maps, as Grafana's thresholds are. Not needed for categories: a category mapped to its stop's place (k / (n − 1)) lands on the stop already.
 - **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
 - **Selection over paint:** settled in `select`'s research: a tint under the text, over the fill, bar, and flash ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-10-26); built in M6.
+
+### `copy`
+
+Built 2026-10-27 ([`docs/milestones.md`](docs/milestones.md), M7); what's left:
+
+**A fixture of its own** (asked 2026-11-12 by the observatory's wide sheet, whose TanStack contender ports the copy; next, ahead of `reorder`). `fixtures/` pins no copy today: its text is tested only in `copy.rs`'s and `state/copy/tests.rs`'s own tests, which a DOM port can't run. `fixtures/copy.json`, its format in `fixtures/README.md`, run natively against `copy.rs`'s text and the state's `copy` (a test of `state/fixtures.rs`'s, with `copy`), each case a source, a selection, and what a copy of it gives:
+- A small source's ranges (`Rows`, `Columns`, `Cells`, an anchor after its head too) → their exact text, byte for byte.
+- Values: text that needs quoting (a tab, a line break, a `"`), NULL and empty text (both empty), floats' exact text (an exponent, −0.0, a whole float), integers, a decimal; the header line with `headers` on.
+- The limits: the key's at `key_max_cells` and one past (`Declined`, nothing read), `least_bytes`' refusal before a read, the cap passed mid-copy (`Failed(TooLarge)`).
+- Its controls (a `Control`, tests only, as the other fixtures'): NULL written as `NULL`, no quoting, the key's limit off by one; each must fail its cases.
+
+Done when the fixture and its controls pass natively (`just tall-table test`), `just observatory fixtures` runs it, and the observatory's "Waiting on" row is *Ready*. Its size: one session; the paging stays as it is (no soak).
 
 ---
 
