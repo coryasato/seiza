@@ -1703,6 +1703,7 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     const gpuiRing = await ringOf();
     expect(gpuiRing !== null && gpuiRing >= 50, `GPUI's ring holds ${gpuiRing} samples`);
     out.followGpui = await followToggleCheck(page, 'GPUI');
+    out.crumbGpui = await crumbWhileFollowing(page, 'GPUI');
     await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
     // The follow toggle waits for the new frame's rows, as the toggle and the dial do.
     expect(await page.locator('[data-follow]').isDisabled(), "the follow toggle isn't disabled while TanStack's frame loads");
@@ -1713,6 +1714,8 @@ async function tailReadouts(url: string, origin: string): Promise<Record<string,
     const tanstackRing = await ringOf();
     expect(tanstackRing !== null && tanstackRing >= 50, `TanStack's ring holds ${tanstackRing} samples`);
     out.followTanstack = await followToggleCheck(page, 'TanStack');
+    out.crumbTanstack = await crumbWhileFollowing(page, 'TanStack');
+    console.log(`the crumb's menu while following: GPUI ${JSON.stringify(out.crumbGpui)}, TanStack ${JSON.stringify(out.crumbTanstack)}`);
     console.log(`status bar: ${JSON.stringify(seen)}; this tab, no input: GPUI ${JSON.stringify(out.liveGpui)} (${gpuiRing} samples), TanStack ${JSON.stringify(out.liveTanstack)} (${tanstackRing})`);
 
     // The control: a bare page (no ?readout), as the cold runs load it, keeps no ring.
@@ -2147,6 +2150,81 @@ async function ringAtLeast(frame: Frame, count: number, timeoutMs: number): Prom
   return samples;
 }
 
+/** Waits for live tail's follow toggle to read `want`; false after 5 s. */
+const followIs = (page: Page, want: 'on' | 'off'): Promise<boolean> =>
+  page.waitForFunction((want) => document.querySelector('[data-follow]')?.getAttribute('data-follow') === want, want, { timeout: 5_000 }).then(() => true, () => false);
+
+/**
+ * The crumb's menu on live tail's route, as the menu's own check: paused, it
+ * opens and stays open (the baseline); following, it stays open too, the
+ * bug's case (TanStack's scroller moves at every count, each a scroll event
+ * in the frame's window, counted so the check can't pass on a still frame:
+ * the old explainer closed on any of them); a wheel over the frame and a
+ * scrolling key in it still close it (the visitor's input). Leaves it
+ * following.
+ */
+async function crumbWhileFollowing(page: Page, side: string): Promise<Record<string, unknown>> {
+  const trigger = page.locator('[data-crumb-menu]');
+  const toggle = page.locator('[data-follow]');
+  const frame = contenderFrame(page);
+  const isOpen = async () => (await trigger.getAttribute('aria-expanded')) === 'true' && (await page.getByRole('menu').isVisible());
+  const closes = () => page.waitForFunction(() => document.querySelector('[data-crumb-menu]')?.getAttribute('aria-expanded') === 'false', null, { timeout: 2_000 }).then(() => true, () => false);
+  const follow = async () => {
+    if ((await toggle.getAttribute('data-follow')) === 'off') await toggle.click();
+    expect(await followIs(page, 'on'), `${side}: the follow toggle didn't follow again after the crumb's check`);
+  };
+  expect(await followIs(page, 'on'), `${side}: the crumb's check starts while not following`);
+
+  // Paused, the baseline: open for 1.5 s.
+  await toggle.click();
+  expect(await followIs(page, 'off'), `${side}: Pause didn't let go before the crumb's check`);
+  await trigger.click();
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1_500);
+  const paused = await isOpen();
+  expect(paused, `${side}: paused, the crumb's menu closed within 1.5 s`);
+  await page.keyboard.press('Escape');
+  await follow();
+
+  // Following, the bug's case: open for 1.5 s while the frame scrolls itself.
+  await frame.evaluate(() => {
+    const scope = globalThis as { __crumbScrolls?: number; __crumbCount?: () => void };
+    scope.__crumbScrolls = 0;
+    scope.__crumbCount = () => scope.__crumbScrolls!++;
+    addEventListener('scroll', scope.__crumbCount, true);
+  });
+  await trigger.click();
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1_500);
+  const scrolls = await frame.evaluate(() => {
+    const scope = globalThis as { __crumbScrolls?: number; __crumbCount?: () => void };
+    removeEventListener('scroll', scope.__crumbCount!, true);
+    return scope.__crumbScrolls ?? 0;
+  });
+  const following = await isOpen();
+  expect(following, `${side}: following, the crumb's menu closed within 1.5 s (${scrolls} scrolls in the frame)`);
+  if (side === 'TanStack') expect(scrolls > 0, `${side}: following, the frame didn't scroll while the menu was open (the check's premise)`);
+
+  // The visitor's input still closes it: a wheel over the frame (GPUI's
+  // scaled by the DPR, a native scroller's raw), then a scrolling key in it.
+  const stage = await box(page, 'iframe');
+  await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2);
+  if (side === 'GPUI') await wheel(page, -200);
+  else await page.mouse.wheel(0, -200);
+  await page.mouse.move(0, 0);
+  const wheelCloses = await closes();
+  expect(wheelCloses, `${side}: a wheel over the frame didn't close the crumb's menu`);
+  await follow();
+  await trigger.click();
+  // Focus into the frame's view without a press (a press closes it), then the key.
+  await frame.locator('canvas, [role="table"]').first().focus();
+  await page.keyboard.press('PageUp');
+  const keyCloses = await closes();
+  expect(keyCloses, `${side}: PageUp in the frame didn't close the crumb's menu`);
+  await follow();
+  return { paused, following, scrolls, wheelCloses, keyCloses };
+}
+
 /**
  * Live tail's follow toggle on the side the page shows: Pause lets go with
  * the view held (the frame's cells unchanged for a second, its control the
@@ -2159,7 +2237,7 @@ async function followToggleCheck(page: Page, side: string): Promise<Record<strin
   const frame = contenderFrame(page);
   const ring = () => ringSamples(frame);
   const count = async () => Number(((await page.locator('[data-follow-count]').textContent()) ?? '').replace(/\D/g, ''));
-  const toggled = (want: 'on' | 'off') => page.waitForFunction((want) => document.querySelector('[data-follow]')?.getAttribute('data-follow') === want, want, { timeout: 5_000 }).then(() => true, () => false);
+  const toggled = (want: 'on' | 'off') => followIs(page, want);
   // The meter sits over the frame and redraws: hidden while the cells are compared.
   const meterShown = (await page.locator('[data-meter-toggle]').getAttribute('aria-pressed')) === 'true';
   if (meterShown) await page.locator('[data-meter-toggle]').click();

@@ -141,7 +141,7 @@ Not milestones. Each starts with research.
 
 Found and not yet fixed; each gets a session of its own (a fix in the part that owns the code, or a part of its own).
 
-- **Live tail: the crumb's scenario menu won't stay open while the view follows** (found by the user, 2026-11-11). On `/observatory/tall-table/live-tail/`, with the frame following the tail, pressing the scenario name beside "TallTable /" in the inset's header doesn't open its menu (or it closes at once). Paused (the follow toggle's "Follow · <n> new rows"), the menu works. The user's hypothesis, not yet checked: the menu closes on a focus-out (Base UI's menu dismisses when focus leaves it), and something while following moves focus, the frame or the page's readouts. To check first: which side (GPUI, TanStack, or both); what has focus as the menu closes (`document.activeElement`, a `focusout`'s `relatedTarget`); whether the frame's work under the clock calls `focus()`, or the follow toggle or the status bar re-renders the header. A fix needs a `page --check` step: the menu opens and stays open on live tail's route while following, its control paused.
+None open.
 
 ## Open questions
 
