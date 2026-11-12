@@ -36,11 +36,26 @@
 //   bodies  the Sun and Jupiter: each name beside its disc, where the crate
 //           puts the body, at rest and with time running; the discs' colors
 //           where they should be (out/bodies.jpg).
+//   look    the look, with the sky in, on the epoch, from the spike's three
+//           cameras (out/look-opening.jpg, look-top.jpg, look-group.jpg, and
+//           each one's middle at the display's pixels, look-*-detail.png),
+//           for docs/spike/look-*-after.jpg to be set beside. Fails unless a
+//           row with no H, drawn alone as the belt's dots are, is drawn.
+//   color   color is orbit size: the legend's bar at each of the ramp's
+//           stops against the tint the scene is given (out/legend.jpg), and
+//           the belt from straight above with no sky, haze, or bloom: fails
+//           unless the dust 2.2 to 2.4 au out is warm (more red than blue),
+//           3.1 to 3.3 au out is blue, and each is the ramp's tint there
+//           more than the other's.
+//   sky     the sky: asked for after the rows file is held and the belt is
+//           drawn, its stars the manifest's; and the page's text over it
+//           (out/sky-text.jpg): the scene under the text, with and without
+//           the quiet the scene keeps there, against the text's color.
 //   wheel   a wheel over the scene zooms it and leaves the table; over the
 //           table it scrolls the rows and leaves the scene; and the scene
 //           centers in what the open panel leaves (out/panel.jpg).
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,wheel] [--runs 5]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel] [--runs 5]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json.
 
@@ -57,7 +72,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'wheel'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel'];
 const ONLY = new Set((option('only') ?? PARTS.join(',')).split(','));
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs wants a whole number of loads, 1 or more; got "${option('runs')}"`);
 if (!ONLY.size || [...ONLY].some((part) => !PARTS.includes(part))) throw new Error(`--only wants some of ${PARTS.join(', ')}; got "${option('only')}"`);
@@ -68,6 +83,7 @@ const ROWS = 'kirkwood:rows';
 const SCENE = 'kirkwood:scene';
 const BELT = 'kirkwood:belt';
 const TABLE = 'kirkwood:table';
+const SKY = 'kirkwood:sky';
 /** What first paint may wait on, by path. */
 const FIRST_PAINT = [/^\/$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/kirkwood_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
 /** The elements' epoch, where the files' places are JPL's own. */
@@ -76,23 +92,25 @@ const EPOCH = '2026-06-09';
 const PANEL = 560;
 
 type FileInfo = { rows: number; bytes: number };
-const manifest = JSON.parse(readFileSync(join(dir, '../data/MANIFEST.json'), 'utf8')) as Record<'elements.bin' | 'rows.bin', FileInfo>;
-const fixture = JSON.parse(readFileSync(join(dir, '../data/fixture.json'), 'utf8')) as { rows: { row: number; cells: { full_name: string } }[] };
+const manifest = JSON.parse(readFileSync(join(dir, '../data/MANIFEST.json'), 'utf8')) as Record<'elements.bin' | 'rows.bin', FileInfo> & { 'stars.bin': { stars: number; bytes: number } };
+const fixture = JSON.parse(readFileSync(join(dir, '../data/fixture.json'), 'utf8')) as { rows: { rule: string; row: number; cells: { full_name: string } }[] };
 const FILE_BYTES = manifest['elements.bin'].bytes + manifest['rows.bin'].bytes;
 const TABLE_ROWS = manifest['rows.bin'].rows;
 
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
-type SceneStats = { frames: number; years: number; rows: number; points: number; renderer: string; distance: number };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
-  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[] };
+  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
   jupiter(years: number): number[];
   clock(): Clock;
   belt(): { drawn: number; unbound: number };
+  ramp(): number[];
+  scrim(): number[];
 };
 type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
@@ -191,7 +209,8 @@ function checkPaint(requests: { path: string; start: number }[], firstFrame: num
   const early = requests.filter((request) => request.start < firstFrame && !FIRST_PAINT.some((pattern) => pattern.test(request.path)));
   if (early.length) throw new Error(`asked for before the first frame (${round(firstFrame)} ms): ${early.map((request) => `${request.path} at ${round(request.start)}`).join(', ')}`);
   const data = requests.filter((request) => request.path.startsWith('/data/'));
-  if (data.map((request) => request.path).join() !== '/data/elements.bin,/data/rows.bin') throw new Error(`the data asked for: ${data.map((request) => request.path).join(', ') || 'none'}`);
+  // The sky's file comes last, and may not have been asked for yet.
+  if (!['/data/elements.bin,/data/rows.bin', '/data/elements.bin,/data/rows.bin,/data/stars.bin'].includes(data.map((request) => request.path).join())) throw new Error(`the data asked for: ${data.map((request) => request.path).join(', ') || 'none'}`);
   if (!requests.some((request) => /^\/assets\/scene-[\w-]+\.js$/.test(request.path))) throw new Error("the scene's module wasn't asked for");
   // The mark is honest: inside the task that drew and presented the frame.
   const presenting = gpuTasks.find((task) => task.end !== null && task.lastGpuCall <= firstFrame && firstFrame <= task.end);
@@ -315,7 +334,7 @@ async function seeBelt(url: string) {
     // The date and the counts are GPUI's: a frame of its own after the belt's.
     await page.waitForTimeout(400);
     await shot(page, 'belt');
-    await shot(page, 'counts', { x: 0, y: 0, width: 720, height: 96 });
+    await shot(page, 'counts', { x: 0, y: 0, width: 720, height: 150 });
     return kirkwood(page, (kirkwood) => ({ ...kirkwood.belt(), rows: kirkwood.scene!.stats.rows, points: kirkwood.scene!.stats.points, shared: kirkwood.viewsShareMemory, renderer: kirkwood.scene!.stats.renderer }));
   });
   const file = countRows();
@@ -428,9 +447,9 @@ async function seeBodies(url: string) {
     const [sunAt, jupiterAt] = [project(camera, [0, 0, 0]), project(camera, jupiter)];
     const [sun, named] = [labels.find((label) => label.text === 'Sun')!, labels.find((label) => label.text === 'Jupiter')!];
     need(sun.shown && named.shown && sun.width > 10 && named.width > 20, `the names: ${JSON.stringify(labels)}`);
-    // Board 1: the Sun's name centered under its disc (14 px across),
-    // Jupiter's beside its (8 px), level with it.
-    need(near(sun.left + sun.width / 2, sunAt[0], 1.5) && near(sun.top, sunAt[1] + 13, 1), `"Sun" at ${sun.left}, ${sun.top}; the Sun at ${sunAt.map(round)}`);
+    // Board 1: the Sun's name centered under it, 36 px down, clear of its
+    // glow's middle; Jupiter's beside its disc (8 px), level with it.
+    need(near(sun.left + sun.width / 2, sunAt[0], 1.5) && near(sun.top, sunAt[1] + 36, 1), `"Sun" at ${sun.left}, ${sun.top}; the Sun at ${sunAt.map(round)}`);
     need(near(named.left, jupiterAt[0] + 12, 1) && near(named.top + named.height / 2, jupiterAt[1], 1), `"Jupiter" at ${named.left}, ${named.top}; Jupiter at ${jupiterAt.map(round)}`);
     return { sunAt, jupiterAt, sun, named };
   };
@@ -456,6 +475,220 @@ async function seeBodies(url: string) {
     return { years: Number((later.years - first.years).toFixed(2)), jupiterMovedPx: round(moved) };
   });
   return { atRest, moving };
+}
+
+// --- The look, color, and the sky.
+
+/** The spike's opening camera, spelled out (the scene's own default). */
+const OPENING = { az: '200', elev: '24', roll: '-34', dist: '13' };
+/** The belt on the epoch, time held. */
+const HELD = { date: EPOCH, paused: '' };
+/** The display's values (0 to 255) of a color in linear light. */
+const displayed = (linear: number[]) => linear.map((v) => Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055)));
+
+/** A page with the belt and the sky drawn. */
+const withSky = <T>(url: string, params: Record<string, string>, see: (page: Page) => Promise<T>): Promise<T> =>
+  withBelt(url, params, async (page) => {
+    await waitMark(page, SKY, 0, 120_000);
+    await settle(page);
+    // GPUI's own frame (the date, the lines) after the scene's.
+    await page.waitForTimeout(400);
+    return see(page);
+  });
+
+/** In a screenshot at the display's pixels: what `measure` makes of the
+ *  pixels (r, g, b, a bytes, row by row) of a part of it, in CSS px. */
+async function pixelsOf<T>(page: Page, png: Buffer, clip: Clip, measure: (pixels: Uint8ClampedArray, width: number, height: number, scale: number) => T): Promise<T> {
+  return page.evaluate(
+    async ({ data, clip, measure }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = canvas.getContext('2d', { willReadFrequently: true })!;
+      context.drawImage(bitmap, 0, 0);
+      const scale = bitmap.width / innerWidth;
+      const [width, height] = [Math.round(clip.width * scale), Math.round(clip.height * scale)];
+      const { data: pixels } = context.getImageData(Math.round(clip.x * scale), Math.round(clip.y * scale), width, height);
+      return (new Function(`return (${measure})`)() as (pixels: Uint8ClampedArray, width: number, height: number, scale: number) => T)(pixels, width, height, scale);
+    },
+    { data: png.toString('base64'), clip, measure: measure.toString() },
+  ) as Promise<T>;
+}
+
+async function seeLook(url: string) {
+  const take = async (page: Page, name: string) => {
+    writeFileSync(join(out, `look-${name}.jpg`), await page.screenshot({ type: 'jpeg', quality: 88, scale: 'css' }));
+    // Its middle at the display's own pixels: what a dot and the grain are up close.
+    await page.screenshot({ path: join(out, `look-${name}-detail.png`), clip: { x: 500, y: 330, width: 440, height: 275 }, scale: 'device' });
+    return kirkwood(page, (kirkwood) => ({ rows: kirkwood.scene!.stats.rows, stars: kirkwood.scene!.stats.stars, renderer: kirkwood.scene!.stats.renderer }));
+  };
+  // The spike's three cameras: the opening shot, top-down, and flown in to
+  // a group drawn around (560, 560) in the opening shot. There's no shape
+  // to draw yet: the camera is put about where that fly-in ended, looking
+  // at the ecliptic under that point from 5.2 au, the panel open as the
+  // fly-in left it.
+  const opening = await withSky(url, { ...HELD, ...OPENING }, async (page) => ({ ...(await take(page, 'opening')), under: await kirkwood(page, (kirkwood) => kirkwood.scene!.under(560, 560)) }));
+  need(!!opening.under, 'nothing of the ecliptic under (560, 560) in the opening shot');
+  need(opening.stars === manifest['stars.bin'].stars, `the scene draws ${opening.stars} stars; the manifest has ${manifest['stars.bin'].stars}`);
+  const top = await withSky(url, { ...HELD, az: '200', elev: '90', roll: '0', dist: '15.5' }, (page) => take(page, 'top'));
+  const at = opening.under!.map((au) => au.toFixed(3)).join(',');
+  const group = await withSky(url, { ...HELD, ...OPENING, at, dist: '5.2' }, async (page) => {
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    return take(page, 'group');
+  });
+
+  // Every row is drawn, the ones with no H among them: one of those alone,
+  // drawn as the belt's dots are (its size and opacity turned up to be found).
+  const dark = fixture.rows.find((row) => row.rule === 'no H')!;
+  const noH = await withBelt(url, { ...HELD, only: String(dark.row), hard: '0', size: '9', alpha: '1' }, async (page) => {
+    const png = await page.screenshot({ path: join(out, 'alone-no-h.png') });
+    const { camera, place } = await kirkwood(page, (kirkwood) => {
+      const row = Number(new URLSearchParams(location.search).get('only'));
+      return { camera: kirkwood.scene!.viewProjection(), place: kirkwood.placeOf(row, kirkwood.clock().years) };
+    });
+    const [x, y] = project(camera, place);
+    need(x > 20 && x < 1420 && y > 20 && y < 880, `${dark.cells.full_name} is outside the opening view, at (${round(x)}, ${round(y)})`);
+    const [found] = await lit(page, png, [[x, y]], 8);
+    need(found!.pixels > 20, `${dark.cells.full_name} has no H, and no dot at (${round(x)}, ${round(y)}): ${found!.pixels} lit pixels`);
+    return { row: dark.cells.full_name, atPx: [round(x), round(y)], litPixels: found!.pixels, color: found!.color };
+  });
+  return { opening, top, group: { ...group, lookingAtAu: opening.under }, noH };
+}
+
+async function seeColor(url: string) {
+  // The legend, drawn from the table the scene is given.
+  const legend = await withBelt(url, HELD, async (page) => {
+    await page.waitForTimeout(400);
+    await shot(page, 'legend', { x: 0, y: 0, width: 720, height: 150 });
+    const png = await page.screenshot();
+    const { bar, ramp } = await page.evaluate(() => ({ bar: (globalThis as unknown as { __seizaTargets: Record<string, number[] | undefined> }).__seizaTargets.legend, ramp: (globalThis as unknown as Page_).__kirkwood.ramp() }));
+    need(!!bar && bar[2]! > 100 && bar[3]! >= 6, `the legend's bar: ${JSON.stringify(bar)}`);
+    const stops = Array.from({ length: ramp.length / 4 }, (_, stop) => ({ au: ramp[stop * 4]!, tint: displayed(ramp.slice(stop * 4 + 1, stop * 4 + 4)) }));
+    const [from, to] = [stops[0]!.au, stops[stops.length - 1]!.au];
+    // Each stop's place along the bar, a pixel in from its ends.
+    const places = stops.map(({ au }): [number, number] => [Math.min(bar![0]! + bar![2]! - 1, Math.max(bar![0]! + 1, bar![0]! + ((au - from) / (to - from)) * bar![2]!)), bar![1]! + bar![3]! / 2]);
+    const drawn = await lit(page, png, places, 1);
+    return stops.map((stop, at) => {
+      const color = drawn[at]!.color;
+      need(color.every((channel, k) => Math.abs(channel - stop.tint[k]!) <= 8), `the legend at ${stop.au} au is ${color}; the scene's tint there is ${stop.tint}`);
+      // The control: another stop's tint isn't this one's.
+      const other = stops[(at + 2) % stops.length]!.tint;
+      need(color.some((channel, k) => Math.abs(channel - other[k]!) > 8), `the legend at ${stop.au} au (${color}) passes for another stop's tint`);
+      return { au: stop.au, tint: stop.tint, legend: color };
+    });
+  });
+
+  // The belt's own dots, from straight above, with nothing but dust drawn:
+  // the mean color of a ring of orbit sizes, less the page's own.
+  const belt = await withBelt(url, { ...HELD, elev: '90', az: '0', roll: '0', dist: '15.5', sky: '0', haze: '0', bloom: '0', scrim: '0' }, async (page) => {
+    const png = await page.screenshot({ path: join(out, 'color-top.png') });
+    const camera = await kirkwood(page, (kirkwood) => kirkwood.scene!.viewProjection());
+    const [sun, oneAu] = [project(camera, [0, 0, 0]), project(camera, [1, 0, 0])];
+    const pxAu = Math.hypot(oneAu[0] - sun[0], oneAu[1] - sun[1]);
+    /** The sum of the colors in the disc `au` out from the Sun, and its pixels. */
+    const disc = (au: number) =>
+      pixelsOf(page, png, { x: sun[0] - au * pxAu, y: sun[1] - au * pxAu, width: 2 * au * pxAu, height: 2 * au * pxAu }, (pixels, width, height) => {
+        const sum = [0, 0, 0, 0];
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            if (Math.hypot(x + 0.5 - width / 2, y + 0.5 - height / 2) > width / 2) continue;
+            const at = (y * width + x) * 4;
+            sum[0]! += pixels[at]!;
+            sum[1]! += pixels[at + 1]!;
+            sum[2]! += pixels[at + 2]!;
+            sum[3]! += 1;
+          }
+        }
+        return sum;
+      });
+    /** A ring's mean color: the disc out to `to` less the disc out to
+     *  `from`, less the page's own color (5, 6, 10). */
+    const ring = async (from: number, to: number) => {
+      const [outer, inner] = [await disc(to), await disc(from)];
+      return [0, 1, 2].map((k) => Number(((outer[k]! - inner[k]!) / (outer[3]! - inner[3]!) - [5, 6, 10][k]!).toFixed(1)));
+    };
+    const [warm, blue] = [await ring(2.2, 2.4), await ring(3.1, 3.3)];
+    need(warm[0]! > warm[2]! * 1.1, `the dust 2.2 to 2.4 au out is ${warm} over the page's color: not more red than blue`);
+    need(blue[2]! > blue[0]! * 1.1, `the dust 3.1 to 3.3 au out is ${blue} over the page's color: not more blue than red`);
+    return { pxAu: round(pxAu), ring2_2to2_4: warm, ring3_1to3_3: blue };
+  });
+  return { legend, belt };
+}
+
+async function seeSky(url: string) {
+  /** The text's color over the scene: gpui-kit's dark `muted_foreground`,
+   *  oklch(0.708 0 0), as the display's gray. */
+  const TEXT = 161;
+  const read = async (params: Record<string, string>, name?: string) => {
+    const { page, problems, close } = await open(chromium, url, { params });
+    try {
+      const marks = { belt: await waitMark(page, BELT, 0, 120_000), rows: await waitMark(page, ROWS, 0, 120_000), sky: await waitMark(page, SKY, 0, 120_000) };
+      await settle(page);
+      await page.waitForTimeout(500);
+      const seen = await page.evaluate(() => {
+        const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+        return {
+          stars: kirkwood.scene!.stats.stars,
+          scrim: kirkwood.scrim(),
+          data: (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith('/data/')).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd })),
+        };
+      });
+      if (name) {
+        await shot(page, name);
+        await shot(page, `${name}-text`, { x: 0, y: 0, width: 720, height: 150 });
+      }
+      // The scene alone under the text: GPUI's canvas out of the picture.
+      await page.addStyleTag({ content: 'body > canvas:not(#scene) { visibility: hidden }' });
+      const [left, top, width, height] = seen.scrim as [number, number, number, number];
+      need(width > 100 && height > 40, `where the text lies: ${seen.scrim}`);
+      const png = await page.screenshot();
+      // Each pixel's contrast with the text's gray (WCAG's ratio).
+      const under = await pixelsOf(page, png, { x: left, y: top, width, height }, (pixels) => {
+        const linear = (byte: number) => (byte / 255 <= 0.04045 ? byte / 255 / 12.92 : ((byte / 255 + 0.055) / 1.055) ** 2.4);
+        const text = linear(161);
+        let [below45, below3, brightest, sum] = [0, 0, 0, 0];
+        const count = pixels.length / 4;
+        for (let at = 0; at < pixels.length; at += 4) {
+          const light = 0.2126 * linear(pixels[at]!) + 0.7152 * linear(pixels[at + 1]!) + 0.0722 * linear(pixels[at + 2]!);
+          const contrast = (text + 0.05) / (light + 0.05);
+          if (contrast < 4.5) below45++;
+          if (contrast < 3) below3++;
+          brightest = Math.max(brightest, light);
+          sum += light;
+        }
+        return { shareUnder4_5: below45 / count, shareUnder3: below3 / count, leastContrast: (text + 0.05) / (brightest + 0.05), meanContrast: (text + 0.05) / (sum / count + 0.05) };
+      });
+      if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+      return { marks, ...seen, under };
+    } finally {
+      await close();
+    }
+  };
+  const quiet = await read(HELD, 'sky');
+  const loud = await read({ ...HELD, scrim: '0' });
+  const [rows, stars] = [quiet.data.find((request) => request.path === '/data/rows.bin'), quiet.data.find((request) => request.path === '/data/stars.bin')];
+  need(!!rows && !!stars, `the data asked for: ${quiet.data.map((request) => request.path).join(', ')}`);
+  need(stars!.start >= rows!.end && stars!.start >= quiet.marks.belt, `the sky's file was asked for at ${round(stars!.start)} ms; the rows file was held at ${round(rows!.end)} and the belt drawn at ${round(quiet.marks.belt)}`);
+  need(quiet.stars === manifest['stars.bin'].stars, `the scene draws ${quiet.stars} stars; the manifest has ${manifest['stars.bin'].stars}`);
+  const share = (value: number) => Number((100 * value).toFixed(2));
+  const contrast = (under: typeof quiet.under) => ({ percentUnder4_5: share(under.shareUnder4_5), percentUnder3: share(under.shareUnder3), least: Number(under.leastContrast.toFixed(2)), mean: Number(under.meanContrast.toFixed(2)) });
+  // The text reads over the sky: the scene under it holds the text's
+  // contrast, and without the quiet (the control) it holds it less.
+  need(quiet.under.shareUnder4_5 < 0.01, `${share(quiet.under.shareUnder4_5)}% of the scene under the text leaves it under 4.5 to 1`);
+  need(loud.under.shareUnder4_5 > quiet.under.shareUnder4_5 && loud.under.meanContrast < quiet.under.meanContrast, `without the quiet the text has ${JSON.stringify(contrast(loud.under))}, with it ${JSON.stringify(contrast(quiet.under))}`);
+  return {
+    stars: quiet.stars,
+    textGray: TEXT,
+    askedForMs: round(stars!.start),
+    heldMs: round(stars!.end),
+    rowsHeldMs: round(rows!.end),
+    beltDrawnMs: round(quiet.marks.belt),
+    skyDrawnMs: round(quiet.marks.sky),
+    textLiesAt: quiet.scrim.map(round),
+    contrastUnderText: contrast(quiet.under),
+    contrastUnderTextWithNoQuiet: contrast(loud.under),
+  };
 }
 
 async function seeWheel(url: string) {
@@ -566,6 +799,9 @@ try {
   if (ONLY.has('belt')) seen.belt = await seeBelt(server.url);
   if (ONLY.has('time')) seen.time = await seeTime(server.url);
   if (ONLY.has('bodies')) seen.bodies = await seeBodies(server.url);
+  if (ONLY.has('look')) seen.look = await seeLook(server.url);
+  if (ONLY.has('color')) seen.color = await seeColor(server.url);
+  if (ONLY.has('sky')) seen.sky = await seeSky(server.url);
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
   writeFileSync(join(out, 'seen.json'), `${JSON.stringify(seen, null, 2)}\n`);
   console.log(JSON.stringify(seen, null, 2));

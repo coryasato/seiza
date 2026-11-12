@@ -17,7 +17,7 @@
 // is the fetch's row.
 
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -342,7 +342,9 @@ const manifest = {
     ],
   },
 };
-const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+// The sky's file is stars.ts's, built from another source: its entry is kept as it is.
+const sky = existsSync(manifestPath) ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>)['stars.bin'] : undefined;
+const manifestText = `${JSON.stringify({ ...manifest, ...(sky ? { 'stars.bin': sky } : {}) }, null, 2)}\n`;
 const fixtureText = fixture(catalog);
 const files = [['elements.bin', elements], ['rows.bin', rowsBuilt]] as const;
 

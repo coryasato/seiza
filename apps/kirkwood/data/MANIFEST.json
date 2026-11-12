@@ -184,5 +184,45 @@
       "rows with a year-only first_obs in the source ('YYYY-??-??'), stored as the year: 6819",
       "full_name and pdes are rebuilt from the row's number, name, and designation; q and per_y from the elements file's a and e; H is the elements file's"
     ]
+  },
+  "stars.bin": {
+    "stars": 779012,
+    "source": "Gaia DR3 gaia_source (s3://stpubdata/gaia/gaia_dr3/public/hats/gaia), through Tycho's sample gaia-dr3-bright.parquet",
+    "sample": {
+      "rows": 25067889,
+      "bytes": 1572736231,
+      "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9"
+    },
+    "fetched": "2026-10-07",
+    "cut": "phot_g_mean_mag < 10.5",
+    "credit": "This work has made use of data from the European Space Agency (ESA) mission Gaia, processed by the Gaia Data Processing and Analysis Consortium (DPAC).",
+    "writer": "data/stars.ts; little-endian, each section on a 4-byte boundary, brightest first",
+    "bytes": 6232104,
+    "sha256": "7f701b0aa44639b983f968f65136f81579b337d6c95a193eeb98460e846c943c",
+    "frame": "unit directions in the ecliptic and equinox of J2000 (ICRS turned about x by 23.4392911 degrees); where each star was at Gaia's epoch, J2016.0",
+    "layout": [
+      {
+        "name": "header",
+        "kind": "u8",
+        "offset": 0,
+        "bytes": 8
+      },
+      {
+        "name": "direction",
+        "kind": "i16 x 3",
+        "offset": 8,
+        "bytes": 4674072
+      },
+      {
+        "name": "light",
+        "kind": "u8 x 2",
+        "offset": 4674080,
+        "bytes": 1558024
+      }
+    ],
+    "notes": [
+      "the brightest star's G: 1.7316069602966309; stars under G 3, 6, and 8: 150, 6764, 62723 (the sample has nothing brighter, so the sky's very brightest stars, Sirius among them, aren't drawn)",
+      "stars with no bp_rp (their tint the Sun's): 469"
+    ]
   }
 }

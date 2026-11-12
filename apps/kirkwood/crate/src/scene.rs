@@ -7,6 +7,8 @@ use std::cell::Cell;
 
 thread_local! {
     static INSET: Cell<f32> = const { Cell::new(0.0) };
+    static SCRIM: Cell<[f32; 4]> = const { Cell::new([0.0; 4]) };
+    static SCRIM_CHANGES: Cell<u32> = const { Cell::new(0) };
 }
 
 /// The panel's width on screen, CSS px: the scene centers its picture in
@@ -17,6 +19,25 @@ pub fn inset() -> f32 {
 
 pub fn set_inset(px: f32) {
     INSET.set(px);
+}
+
+/// Where the page's own text lies over the scene (the title and its
+/// lines): left, top, width, height, CSS px. The scene quiets its picture
+/// there, so the text reads over a starry corner.
+pub fn scrim() -> [f32; 4] {
+    SCRIM.get()
+}
+
+/// How many times those bounds have changed: the scene asks for them
+/// again only when this has moved.
+pub fn scrim_changes() -> u32 {
+    SCRIM_CHANGES.get()
+}
+
+pub fn set_scrim(bounds: [f32; 4]) {
+    if SCRIM.replace(bounds) != bounds {
+        SCRIM_CHANGES.set(SCRIM_CHANGES.get().wrapping_add(1));
+    }
 }
 
 /// A wheel over the scene, at a window position (CSS px): it zooms. Off

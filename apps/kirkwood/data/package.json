@@ -1,0 +1,10 @@
+{
+  "name": "@seiza/kirkwood-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Builds Kirkwood's data files. Not an npm workspace: native DuckDB, which only stars.ts needs (it reads Tycho's Gaia sample), is installed apart, with its own lockfile. Every other script here is plain Node.",
+  "dependencies": {
+    "@duckdb/node-api": "1.4.5-r.1"
+  }
+}

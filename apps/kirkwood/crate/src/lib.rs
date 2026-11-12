@@ -9,6 +9,8 @@
 //! - the table's source over them ([`table`]): every page a view;
 //! - the clock ([`clock`]), and where an orbit puts its body at a time on
 //!   it, in 64-bit floats ([`orbit`]): a row's place, and Jupiter's;
+//! - a dot's color by its orbit size ([`ramp`]): the scene's and the
+//!   legend's one table;
 //! - the interface ([`host`]): the title, the time control, and the table
 //!   in a panel behind its handle, over a surface that hands the scene its
 //!   wheel (`scene`);
@@ -24,6 +26,7 @@ pub mod clock;
 pub mod elements;
 mod host;
 pub mod orbit;
+pub mod ramp;
 pub mod rows;
 pub mod scene;
 #[cfg(test)]

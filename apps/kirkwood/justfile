@@ -9,7 +9,8 @@ pkg := web / "pkg"
 target_dir := root / "target/wasm32-unknown-unknown"
 
 # Build the wasm (debug) and start the Vite dev server with COOP/COEP. The
-# two files come from data/ (data/prep.ts builds them).
+# files come from data/ (data/prep.ts builds the two the crate holds,
+# data/stars.ts the sky's).
 dev: (wasm "debug")
     npm run dev --workspace @seiza/kirkwood-web
 
@@ -18,7 +19,7 @@ build: (wasm "release")
     npm run build --workspace @seiza/kirkwood-web
     node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist
 
-# Serve the release build with the same headers, and the two files.
+# Serve the release build with the same headers, and data/'s files.
 preview:
     npm run preview --workspace @seiza/kirkwood-web
 
@@ -37,8 +38,9 @@ test:
 
 # What the release build shows, in headless Chromium (checks/see.ts): the
 # first frame before either file is asked for, the table over the rows
-# file, and the wasm's memory against the files' bytes. Screenshots and
-# seen.json in checks/out/ (gitignored). --only paint,table,memory; --runs.
+# file, the wasm's memory against the files' bytes, the belt, the time
+# control, the look, the legend, and the sky. Screenshots and seen.json in
+# checks/out/ (gitignored). --only paint,table,memory,belt,time,bodies,look,color,sky,wheel; --runs.
 # Run `just kirkwood build` first.
 see *args:
     node {{app_dir}}/checks/see.ts {{args}}

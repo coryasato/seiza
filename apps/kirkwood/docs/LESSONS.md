@@ -117,3 +117,18 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table", "Data", "Scene",
 - **Fifty seconds to the end of time.** At a year a second the whole reach from today is under a minute, inside the two minutes the app hopes a visitor stays.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Input"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.
+
+## M2, part C: the look, the legend, and the sky (2026-11-11)
+
+**Surprises:**
+- **The decided look came back on the first build.** Written anew from the decisions' numbers, with none of the spike's code, the opening shot sat beside the spike's and matched. The decisions had recorded every number that mattered, which is what they were for.
+- **The real angles changed the picture more than the look did.** The spike's top-down shot has a faint green ring; the app's has two green clouds, 60° either side of Jupiter. Nothing in the look moved: the Trojans were finally where they are.
+- **The Hildas' triangle is violet without being asked.** Lit alone, the rows from 3.7 to 4.2 au come out in the one stop the ramp gave them. The ramp chosen on a flat storyboard needed no change on the real rows.
+- **The star count in the decisions was wrong, and the spike's own file said so.** The note said 760,754; the file it described was 4 bytes and 8 a star for 779,012. A count is worth pinning where it's counted.
+- **A legend drawn from the scene's table can be checked, and one typed twice can't.** With the ramp in Rust the legend is the same mix the shader does, and the check reads the bar's pixels against what the scene was handed.
+- **A row with no H was one comparison from vanishing.** The spike wrote 99 for none; the app's file holds NaN, and a shader's comparison with NaN is the compiler's to drop. The bits don't lie, and one such row drawn alone is now a check.
+- **The Sun's name was under the glow.** Thirteen pixels below a 14 px disc is inside a 250 px glow. Board 1 had drawn it 36 px down all along.
+- **The sky made the page's first claim false.** "Every dot is a row" sat over 779,012 dots that aren't. The fix was a sentence, shown when the stars are.
+- **A check on a hard disc doesn't want the look.** Haze is an eighth of the buffer's resolution, so its glow around a lone disc would have been found with the disc; rows drawn alone are drawn plain.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Look", "Data"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.

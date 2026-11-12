@@ -19,6 +19,7 @@ use crate::clock;
 use crate::elements::{Element, Elements};
 use crate::host::Host;
 use crate::orbit::{JUPITER, Orbit};
+use crate::ramp;
 use crate::rows::{Rows, day_of};
 use crate::scene;
 
@@ -166,9 +167,9 @@ pub fn file_failed(message: String) {
     update_host(|host, cx| host.failed(message, cx));
 }
 
-// --- What the scene asks. None of these enters GPUI but `belt_drawn` and
-// `scene_failed`, which the scene calls from its own tasks, never from
-// inside a call Rust made.
+// --- What the scene asks. None of these enters GPUI but `belt_drawn`,
+// `sky_drawn`, and `scene_failed`, which the page calls from its own tasks,
+// never from inside a call Rust made.
 
 /// Where the elements' columns are: `Element::COUNT` runs of
 /// [`elements_rows`] 32-bit floats, end to end (a, e, i, the node, the
@@ -211,6 +212,29 @@ pub fn scene_inset() -> f32 {
     scene::inset()
 }
 
+/// Where the page's text lies over the scene (left, top, width, height,
+/// CSS px): the scene quiets its picture there. Asked for when
+/// [`scene_scrim_changes`] has moved, not every frame.
+#[wasm_bindgen]
+pub fn scene_scrim() -> Vec<f32> {
+    scene::scrim().to_vec()
+}
+
+/// How many times the text's bounds have changed: a plain number, read
+/// every frame.
+#[wasm_bindgen]
+pub fn scene_scrim_changes() -> u32 {
+    scene::scrim_changes()
+}
+
+/// A dot's color by its orbit size: for each stop its a in au, then its
+/// red, green, and blue in linear light. The legend is drawn from the same
+/// table.
+#[wasm_bindgen]
+pub fn orbit_ramp() -> Vec<f32> {
+    ramp::table()
+}
+
 /// Where Jupiter is, `years` after the epoch: heliocentric ecliptic x, y,
 /// z in au. It isn't a row: its orbit is the crate's own.
 #[wasm_bindgen]
@@ -238,6 +262,13 @@ pub fn belt_drawn() {
     };
     let drawn = elements.bound();
     update_host(|host, cx| host.belt_drawn(drawn, elements.rows() - drawn, cx));
+}
+
+/// The sky is drawn behind the belt: the page says whose stars they are,
+/// and that they aren't rows.
+#[wasm_bindgen]
+pub fn sky_drawn() {
+    update_host(|host, cx| host.sky_drawn(cx));
 }
 
 /// The scene didn't start: the page says so.

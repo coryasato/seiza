@@ -10,6 +10,7 @@
 //! time starts to move.
 
 use std::rc::Rc;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use gpui_kit::component::ActiveTheme as _;
@@ -23,6 +24,7 @@ use tall_table_bridge::Publish;
 
 use crate::catalog::{Catalog, columns};
 use crate::clock;
+use crate::ramp;
 use crate::scene;
 use crate::table::{Source, Table};
 
@@ -39,6 +41,11 @@ pub const TABLE_MARK: &str = "kirkwood:table";
 pub const HANDLE_TARGET: &str = "table-handle";
 pub const CLOSE_TARGET: &str = "table-close";
 pub const TIME_TARGET: &str = "time";
+pub const LEGEND_TARGET: &str = "legend";
+
+/// The legend's bar, CSS px, and the width of each slice of it: one tint.
+const LEGEND_WIDTH: f32 = 140.;
+const LEGEND_SLICE: f32 = 2.;
 
 /// The page clock, ms; 0 off the web, where nothing animates.
 fn now() -> f64 {
@@ -77,6 +84,8 @@ struct Belt {
 pub struct Host {
     files: Files,
     belt: Option<Belt>,
+    /// The sky is drawn behind the belt.
+    sky: bool,
     /// Why there's no scene, if it didn't start.
     scene_failed: Option<SharedString>,
     table: Option<Entity<Table>>,
@@ -98,6 +107,7 @@ impl Host {
                 total: 0.0,
             },
             belt: None,
+            sky: false,
             scene_failed: None,
             table: None,
             rows: 0,
@@ -130,6 +140,13 @@ impl Host {
     pub fn belt_drawn(&mut self, drawn: usize, unbound: usize, cx: &mut Context<Self>) {
         self.belt = Some(Belt { drawn, unbound });
         clock::release();
+        cx.notify();
+    }
+
+    /// The stars are in behind the belt: dots that aren't rows, which the
+    /// page says.
+    pub fn sky_drawn(&mut self, cx: &mut Context<Self>) {
+        self.sky = true;
         cx.notify();
     }
 
@@ -228,6 +245,8 @@ impl Host {
             .into(),
             (Files::Loading { .. } | Files::Held, None, None) => "Loading the asteroids…".into(),
         };
+        let muted = cx.theme().muted_foreground;
+        let says = |line: SharedString| div().text_size(px(12.)).text_color(muted).child(line);
         div()
             .absolute()
             .left(px(24.))
@@ -236,18 +255,81 @@ impl Host {
             .flex()
             .flex_col()
             .gap_1()
+            // Where this text lies: the scene quiets its picture under it.
+            .child(
+                canvas(
+                    |bounds, _, _| {
+                        scene::set_scrim([
+                            bounds.origin.x.into(),
+                            bounds.origin.y.into(),
+                            bounds.size.width.into(),
+                            bounds.size.height.into(),
+                        ])
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             .child(
                 div()
                     .text_size(px(14.))
                     .font_weight(FontWeight::SEMIBOLD)
                     .child("Kirkwood"),
             )
-            .child(
+            .child(says(line))
+            // What the picture means, once there's a picture: what's
+            // exaggerated, whose the stars are, and what a color is.
+            .when_some(look_line(self.belt.is_some(), self.sky), |block, line| {
+                block.child(says(line.into()))
+            })
+            .when(self.belt.is_some(), |block| {
+                block.child(self.render_legend(cx))
+            })
+    }
+
+    /// Color is orbit size: the tints from the ramp's first stop to its
+    /// last, as board 1 draws the legend. Each slice is the tint the scene
+    /// gives a dot of that orbit size.
+    fn render_legend(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        // The bar never changes: its tints are mixed once.
+        static TINTS: LazyLock<Vec<[f32; 3]>> = LazyLock::new(|| {
+            let slices = (LEGEND_WIDTH / LEGEND_SLICE) as usize;
+            (0..slices)
+                .map(|slice| {
+                    let along = (slice as f32 + 0.5) / slices as f32;
+                    ramp::display(ramp::tint(ramp::FROM + (ramp::TO - ramp::FROM) * along))
+                })
+                .collect()
+        });
+        let bar = div()
+            .relative()
+            .w(px(LEGEND_WIDTH))
+            .h(px(8.))
+            .rounded(px(2.))
+            .overflow_hidden()
+            .flex()
+            .children(TINTS.iter().map(|&[r, g, b]| {
                 div()
-                    .text_size(px(12.))
-                    .text_color(cx.theme().muted_foreground)
-                    .child(line),
-            )
+                    .w(px(LEGEND_SLICE))
+                    .h_full()
+                    .bg(Rgba { r, g, b, a: 1.0 })
+            }))
+            .child(target(LEGEND_TARGET));
+        let end = |au: f32| div().text_color(theme.foreground).child(format!("{au}"));
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .text_size(px(12.))
+            .text_color(theme.muted_foreground)
+            .child("Color: orbit size (au)")
+            .child(end(ramp::FROM))
+            .child(bar)
+            .child(end(ramp::TO))
     }
 
     fn render_time_control(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -524,6 +606,22 @@ fn belt_line(belt: Belt) -> String {
     }
 }
 
+/// What the picture isn't: with the belt drawn, a dot's size is
+/// exaggerated; with the sky drawn, the stars are dots that aren't rows.
+/// Each is said while it's on screen, whether or not the other is: the sky
+/// is drawn even when the asteroids didn't load.
+fn look_line(belt: bool, sky: bool) -> Option<String> {
+    let dots = "Dot sizes are exaggerated: at true scale each one is an invisible speck.";
+    match (belt, sky) {
+        (true, true) => Some(format!(
+            "{dots} The stars behind are real, from ESA's Gaia, and aren't rows."
+        )),
+        (true, false) => Some(dots.into()),
+        (false, true) => Some("The stars are real, from ESA's Gaia, and aren't rows.".into()),
+        (false, false) => None,
+    }
+}
+
 /// A count with its thousands apart: `1,580,272`.
 fn grouped(n: usize) -> String {
     let digits = n.to_string();
@@ -539,7 +637,18 @@ fn grouped(n: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Belt, belt_line, grouped};
+    use super::{Belt, belt_line, grouped, look_line};
+
+    #[test]
+    fn what_the_picture_isnt_is_said_while_its_on_screen() {
+        assert_eq!(look_line(false, false), None);
+        let stars = look_line(false, true).unwrap();
+        assert!(stars.contains("aren't rows") && !stars.contains("exaggerated"));
+        let dots = look_line(true, false).unwrap();
+        assert!(dots.contains("exaggerated") && !dots.contains("Gaia"));
+        let both = look_line(true, true).unwrap();
+        assert!(both.contains("exaggerated") && both.contains("aren't rows"));
+    }
 
     #[test]
     fn the_rows_with_no_dot_are_counted_apart() {

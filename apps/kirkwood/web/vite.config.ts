@@ -5,12 +5,13 @@ import { crossOriginIsolationHeaders, seizaViteConfig } from '@seiza/web/vite';
 
 const root = import.meta.dirname;
 
-/** The two files the page holds, where data/prep.ts wrote them. */
-const DATA = ['elements.bin', 'rows.bin'];
+/** The files the page asks for, and the script in data/ that writes each:
+ *  the two the crate holds, and the sky's. */
+const DATA: Record<string, string> = { 'elements.bin': 'prep.ts', 'rows.bin': 'prep.ts', 'stars.bin': 'stars.ts' };
 
 /**
- * Serves the two files at `data/` under the app's base, as they are, in dev and preview: nothing
- * else of `data/` (never `data/raw/`). They aren't part of the build: 90 MB
+ * Serves those files at `data/` under the app's base, as they are, in dev and preview: nothing
+ * else of `data/` (never `data/raw/`). They aren't part of the build: 97 MB
  * that a deploy puts where it serves data from.
  */
 function serveData(): Plugin {
@@ -22,13 +23,13 @@ function serveData(): Plugin {
     const headers = { ...crossOriginIsolationHeaders, 'Cross-Origin-Resource-Policy': 'same-origin', 'Cache-Control': 'no-cache' };
     let size: number | undefined;
     try {
-      if (DATA.includes(name)) size = statSync(join(root, '../data', name)).size;
+      if (Object.hasOwn(DATA, name)) size = statSync(join(root, '../data', name)).size;
     } catch {
       // Not built: a 404 that says how.
     }
     if (size === undefined) {
       res.writeHead(404, { ...headers, 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end(DATA.includes(name) ? `no data/${name}: run data/prep.ts` : `Not found: /data/${name}`);
+      res.end(Object.hasOwn(DATA, name) ? `no data/${name}: run data/${DATA[name]}` : `Not found: /data/${name}`);
       return;
     }
     res.writeHead(200, { ...headers, 'Content-Type': 'application/octet-stream', 'Content-Length': size });

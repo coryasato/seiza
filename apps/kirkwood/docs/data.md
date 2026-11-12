@@ -1,6 +1,6 @@
 # The orbits' data
 
-Where Kirkwood's rows come from, what the fetch holds, the two files built from it that the app holds in memory, the fixture its readers are tested against, Jupiter's orbit, and what the files' places were checked against. Paths are relative to `apps/kirkwood/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Data".
+Where Kirkwood's rows come from, what the fetch holds, the two files built from it that the app holds in memory, the fixture its readers are tested against, Jupiter's orbit, what the files' places were checked against, and the sky's file, which is built from another source. Paths are relative to `apps/kirkwood/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Data".
 
 ## The fetch
 
@@ -139,6 +139,18 @@ Jupiter isn't a row, so it isn't in the files. `data/jupiter.ts` holds its six o
 
 - **Credit:** "Jupiter's orbit and the reference places: NASA/JPL Horizons, fetched 2026-11-11."
 
+## The sky
+
+`data/stars.bin` (gitignored; pinned in `data/MANIFEST.json` with its source and credit) is the scene's backdrop: Gaia DR3's stars brighter than G 10.5, 779,012 of them. They aren't rows of the asteroid table, and the crate never holds them: the page fetches the file after the rows file and hands it to the scene (`web/src/sky.ts`). Why there's a sky: `DECISIONS.md`, "Look"; why it's built this way, "Data".
+
+- **Source:** Tycho's Gaia sample, `apps/tycho/data/gaia-dr3-bright.parquet` (Gaia DR3 `gaia_source`, G under 14.5, fetched 2026-10-07; `just tycho data gaia` builds it). `data/stars.ts` reads it with native DuckDB and fails unless it is the file Tycho's `MANIFEST.json` pins (its bytes and SHA-256, which the sky's entry records).
+- **Reproducible:** the stars are written brightest first, ties by `source_id`, so a second run writes the same bytes; `stars.ts --check` builds again and fails unless they are the manifest's and the disk's. `prep.ts` carries the entry through when it rewrites the manifest.
+- **Layout:** little-endian, each section on a 4-byte boundary. An 8-byte header (`KWS1`, the star count as a u32); then each star's direction, three i16s, a unit vector times 32,767; then, on the next 4-byte boundary, each star's light, two u8s: G in twentieths of a magnitude, and bp_rp plus one in fiftieths, 255 for a star with none (469 of them, drawn in the Sun's tint).
+- **Frame:** the ecliptic and equinox of J2000, the elements' own: ICRS turned about x by the obliquity, 23.4392911°. A reader turns it into its own axes.
+- **What it isn't:** each direction is where Gaia saw the star at its epoch, J2016.0, with no proper motion applied, and it doesn't move with the clock. The sample's brightest star is G 1.73 (150 are under G 3, 6,764 under 6, 62,723 under 8), so the sky's very brightest stars, Sirius among them, aren't drawn.
+- **Size:** 6.23 MB, 5.38 at brotli 11.
+- **Credit:** "This work has made use of data from the European Space Agency (ESA) mission Gaia, processed by the Gaia Data Processing and Analysis Consortium (DPAC)."
+
 ## Commands
 
 From the repo root:
@@ -147,6 +159,8 @@ From the repo root:
 node apps/kirkwood/data/fetch.ts [--refresh] [--page-size 100000]   # the catalog into data/raw/asteroids/ (~3 min, once)
 node --max-old-space-size=12000 apps/kirkwood/data/survey.ts [<tycho's data/raw/asteroids>]   # the numbers above as JSON; with Tycho's raw pages, the sample against the fetch
 node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json, data/fixture.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's and the fixture is the same, writes nothing; --sizes: each file and section raw and at brotli 11 (~2 min more)
+npm install --prefix apps/kirkwood/data   # native DuckDB, which only stars.ts needs
+node apps/kirkwood/data/stars.ts <gaia-dr3-bright.parquet> [--check]   # data/stars.bin and its entry in data/MANIFEST.json, from Tycho's Gaia sample (seconds); --check: builds again, fails unless the bytes are the manifest's, writes nothing
 node --max-old-space-size=12000 apps/kirkwood/data/precision.ts [--only error,bytes]   # the elements file's precision, weighed: each way of storing the elements, its error against 64-bit floats and its bytes (~7 min; DECISIONS.md, "Data")
 node apps/kirkwood/data/horizons.ts   # data/horizons.json again from JPL Horizons (7 requests; a refetch changes the pinned reference, so not without a reason)
 node apps/kirkwood/data/places.ts [--date 2026-06-09] [--only bodies,jupiter,trojans,hildas]   # the built files' places against Horizons', and the Trojans and Hildas against Jupiter (a few seconds; DECISIONS.md, "Scene")
