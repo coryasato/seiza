@@ -22,6 +22,30 @@ const BOTTOM: f64 = 129.0;
 /// The gaps: an orbit there turns `.0` times while Jupiter turns `.1`.
 pub const GAPS: [(u32, u32); 4] = [(3, 1), (5, 2), (7, 3), (2, 1)];
 
+/// A tick on each axis, and its number: every half au, every tenth.
+const TICK_A: f64 = 0.5;
+const TICK_E: f64 = 0.1;
+
+/// The groups in step with Jupiter that the axes name: the name, the turns
+/// of an orbit there to Jupiter's, and the eccentricity the name sits at,
+/// over the group's own dots (board 4).
+pub const GROUPS: [(&str, (u32, u32), f64); 2] = [
+    ("Hildas, 3:2", (3, 2), 0.329),
+    ("Trojans, 1:1", (1, 1), 0.233),
+];
+
+/// A gap's chip, CSS px: its width and height, and the least room between
+/// two of them.
+pub const CHIP: [f64; 2] = [35.0, 24.0];
+const CHIP_APART: f64 = 4.0;
+/// How far under the plot's top the chips' tops are, the line over them,
+/// and the top of the line each drops into the dots; and that line's
+/// length (board 4, where the plot's top is at 96 px).
+pub const CHIPS_TOP: f64 = 110.0;
+pub const CHIPS_LINE_TOP: f64 = 82.0;
+pub const DROP_TOP: f64 = 136.0;
+pub const DROP: f64 = 150.0;
+
 /// Whether a row has a place on the axes: its a and its e are both on
 /// them. In 32-bit floats, as the file holds them and the shader compares
 /// them (the axes' ends as the floats it's handed), so the rows counted in
@@ -79,9 +103,130 @@ impl Plot {
     }
 }
 
+impl Plot {
+    /// The ticks along a: each one's orbit size, au, and its x.
+    pub fn ticks_a(&self) -> Vec<(f64, f64)> {
+        let steps = ((A[1] - A[0]) / TICK_A).round() as u32;
+        (0..=steps)
+            .map(|step| A[0] + TICK_A * f64::from(step))
+            .map(|a| (a, self.place(a, E[0])[0]))
+            .collect()
+    }
+
+    /// The ticks up e: each one's eccentricity and its y.
+    pub fn ticks_e(&self) -> Vec<(f64, f64)> {
+        let steps = ((E[1] - E[0]) / TICK_E).round() as u32;
+        (0..=steps)
+            .map(|step| E[0] + TICK_E * f64::from(step))
+            .map(|e| (e, self.place(A[0], e)[1]))
+            .collect()
+    }
+
+    /// The gaps' chips: for each, the turns it's named by, the x of the
+    /// gap (where its line drops), and the x of the chip's middle. A chip
+    /// sits over its gap, moved aside only as far as keeps it clear of the
+    /// next: beside an open panel the 5:2 and the 7:3 are closer than a
+    /// chip is wide.
+    pub fn chips(&self) -> [((u32, u32), f64, f64); 4] {
+        let at = gaps().map(|a| self.place(a, E[0])[0]);
+        let mut middles = at;
+        let least = CHIP[0] + CHIP_APART;
+        // Each pass parts the pairs still too close; four chips settle in
+        // a few.
+        for _ in 0..8 {
+            for left in 0..middles.len() - 1 {
+                let short = least - (middles[left + 1] - middles[left]);
+                if short > 0.0 {
+                    middles[left] -= short / 2.0;
+                    middles[left + 1] += short / 2.0;
+                }
+            }
+        }
+        std::array::from_fn(|gap| (GAPS[gap], at[gap], middles[gap]))
+    }
+
+    /// Where each named group's name is centered: on the orbit size that
+    /// Jupiter's a gives its resonance, at the group's eccentricity.
+    pub fn groups(&self) -> [(&'static str, [f64; 2]); 2] {
+        GROUPS.map(|(name, (turns, jupiters), e)| {
+            (name, self.place(JUPITER.in_step(turns, jupiters), e))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Plot, gaps, in_view};
+    use super::{CHIP, Plot, gaps, in_view};
+
+    #[test]
+    fn the_furniture_is_where_board_4_has_it() {
+        let plot = Plot::in_window(1440.0, 900.0, 0.0);
+        // A tick every half au, from 80 px to 1360, and every tenth.
+        let across = plot.ticks_a();
+        assert_eq!(across.len(), 9);
+        for (tick, (a, x)) in across.into_iter().enumerate() {
+            assert!((a - (1.5 + 0.5 * tick as f64)).abs() < 1e-12);
+            assert!(
+                (x - (80.0 + 160.0 * tick as f64)).abs() < 1e-9,
+                "{a} au at {x}"
+            );
+        }
+        let up = plot.ticks_e();
+        assert_eq!(up.len(), 7);
+        // (The board draws them at 770, 658, 545, 433, 321, 208, and 96.)
+        for ((e, y), board) in up
+            .into_iter()
+            .zip([771.0, 658.5, 546.0, 433.5, 321.0, 208.5, 96.0])
+        {
+            assert!((y - board).abs() < 1e-9, "e {e} at {y}");
+        }
+        // The chips: the board's are 35 px wide from 384, 487, 530, and
+        // 632, each over its gap.
+        for ((_, gap, middle), board) in plot.chips().into_iter().zip([384.0, 487.0, 530.0, 632.0])
+        {
+            assert_eq!(gap, middle, "no chip is moved aside at this width");
+            assert!(
+                (middle - CHIP[0] / 2.0 - board).abs() < 2.0,
+                "a chip from {}",
+                middle - CHIP[0] / 2.0
+            );
+        }
+        // The names: the board centers the Hildas' at (871, 401) and the
+        // Trojans' at (1265, 509).
+        let [(hildas, at), (trojans, far)] = plot.groups();
+        assert!(hildas.starts_with("Hildas") && trojans.starts_with("Trojans"));
+        assert!(
+            (at[0] - 871.0).abs() < 1.5 && (at[1] - 401.0).abs() < 0.5,
+            "{at:?}"
+        );
+        assert!(
+            (far[0] - 1265.0).abs() < 1.5 && (far[1] - 509.0).abs() < 0.5,
+            "{far:?}"
+        );
+    }
+
+    #[test]
+    fn chips_too_close_are_moved_aside_and_no_further() {
+        // Beside the open panel the plot is 720 px wide: the 5:2 and the
+        // 7:3 are 24 px apart, and a chip is 35 wide.
+        let chips = Plot::in_window(1440.0, 900.0, 560.0).chips();
+        let (gaps, middles): (Vec<f64>, Vec<f64>) =
+            chips.iter().map(|&(_, gap, middle)| (gap, middle)).unzip();
+        assert!(gaps[2] - gaps[1] < CHIP[0]);
+        for pair in middles.windows(2) {
+            assert!(pair[1] - pair[0] >= CHIP[0] + 4.0 - 1e-9, "{middles:?}");
+        }
+        // The outer two stay over their gaps, and the two moved are still
+        // over their lines.
+        assert_eq!((middles[0], middles[3]), (gaps[0], gaps[3]));
+        for gap in 1..3 {
+            assert!((middles[gap] - gaps[gap]).abs() < CHIP[0] / 2.0);
+        }
+        assert_eq!(
+            chips.map(|(turns, _, _)| turns),
+            [(3, 1), (5, 2), (7, 3), (2, 1)]
+        );
+    }
 
     #[test]
     fn the_axes_are_the_boards() {

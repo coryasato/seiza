@@ -381,16 +381,21 @@ pub fn jupiter_orbit() -> Vec<f32> {
 /// time starts to move.
 #[wasm_bindgen]
 pub fn belt_drawn(rows: usize) {
-    let Some((dots, of)) = with_elements(|elements| (elements.bound_before(rows), elements.rows()))
-    else {
+    let Some((dots, in_view, of)) = with_elements(|elements| {
+        (
+            elements.bound_before(rows),
+            elements.in_view_before(rows),
+            elements.rows(),
+        )
+    }) else {
         return;
     };
     DRAWN.set(rows);
     update_host(|host, cx| {
         if rows == of {
-            host.belt_drawn(dots, of - dots, cx);
+            host.belt_drawn(dots, of - dots, in_view, cx);
         } else {
-            host.belt_filling(dots, of, cx);
+            host.belt_filling(dots, of, in_view, cx);
         }
     });
 }
@@ -449,6 +454,13 @@ pub fn layout_row(row: usize) -> Vec<f64> {
         ]
     })
     .unwrap_or_default()
+}
+
+/// Of the rows the scene has drawn so far, those with a place on the
+/// axes: what the page counts in view.
+#[wasm_bindgen]
+pub fn layout_in_view() -> usize {
+    with_elements(|elements| elements.in_view_before(DRAWN.get())).unwrap_or(0)
 }
 
 /// The gaps' orbit sizes, au: where Jupiter's a puts each resonance.

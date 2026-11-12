@@ -28,6 +28,7 @@ import init, {
   jupiter_orbit,
   jupiter_place,
   layout_gaps,
+  layout_in_view,
   layout_of,
   layout_row,
   orbit_ramp,
@@ -102,11 +103,13 @@ type Kirkwood = {
    *  action is pressed, and whether the dots are on their way; the crate's
    *  own place on the axes for an a and an e, in this window (x and y, CSS
    *  px); a row's a and e as the file holds them, and whether they're on
-   *  the axes; and the gaps' orbit sizes, au. */
+   *  the axes; the gaps' orbit sizes, au; and the rows the page counts in
+   *  view, of those drawn. */
   flight(): { progress: number; sorted: boolean; flying: boolean };
   layoutOf(a: number, e: number): number[];
   layoutRow(row: number): { a: number; e: number; inView: boolean } | undefined;
   gaps(): number[];
+  inView(): number;
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -351,6 +354,7 @@ const kirkwood: Kirkwood = {
     return a === undefined ? undefined : { a, e: e!, inView: !!inView };
   },
   gaps: () => Array.from(layout_gaps()),
+  inView: () => layout_in_view(),
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 

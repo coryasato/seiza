@@ -64,9 +64,19 @@
 //           stars are gone landed and back after; unless Ceres, Vesta, and
 //           Hektor, drawn alone and landed (out/sort-alone.png), are each
 //           within a CSS pixel of the crate's place for their a and e, and
-//           farther from that of an a 0.005 au off (the control); and unless
-//           the dust at each gap (where Jupiter's a puts it) is darker than
-//           a tenth of an au either side.
+//           farther from that of an a 1.6 px off (the control), with the
+//           panel shut and open (out/sort-alone-panel.png); unless each
+//           piece of the axes' furniture is where board 4 has it, the axes
+//           dim mid-flight with nothing said of the dots yet, and in what
+//           the open panel leaves (out/sort-panel.jpg), a chip over its gap
+//           and clear of the next; unless the action's fill is the boards'
+//           in each state; unless a press on a chip and a wheel over the
+//           landed dots change nothing (which can't say a chip takes no
+//           press, only that none does anything); unless the count of rows
+//           in view
+//           (out/sort-count.jpg) is the count from the file's own bytes;
+//           and unless the dust at each gap (where Jupiter's a puts it) is
+//           darker than a tenth of an au either side.
 //
 // Run only when asked for by name (minutes more each):
 //
@@ -94,7 +104,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, firefox, webkit, type Page } from '@playwright/test';
-import { clickTarget, firstDrawProbe, open, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
+import { clickTarget, firstDrawProbe, open, targetRect, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
@@ -169,6 +179,7 @@ type Kirkwood = {
   layoutOf(a: number, e: number): number[];
   layoutRow(row: number): { a: number; e: number; inView: boolean } | undefined;
   gaps(): number[];
+  inView(): number;
 };
 type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
@@ -1048,8 +1059,49 @@ const textPixels = (page: Page, png: Buffer, clip: Clip) =>
     return count;
   });
 
+/** Board 4's furniture at 1440×900, the storyboard's own numbers: left,
+ *  top, width, height. (Its e axis and that axis's label are read apart:
+ *  the app's title is taller than the board's, and they start under it.) */
+type Rect = [number, number, number, number];
+const BOARD: Record<string, Rect> = {
+  'axis-a': [80, 771, 1280, 1],
+  'label-a': [80, 796, 1280, 18],
+  'gaps-line': [325, 178, 400, 18],
+  'chip-0': [384, 206, 35, 24],
+  'chip-1': [487, 206, 35, 24],
+  'chip-2': [530, 206, 35, 24],
+  'chip-3': [632, 206, 35, 24],
+  'group-0': [741, 392, 260, 18],
+  'group-1': [1135, 500, 260, 18],
+};
+const BOARD_AXIS_E: Rect = [79, 96, 1, 675];
+const BOARD_LABEL_E = [90, 110];
+/** The board's axis line, neutral-700, as a mean light of 255. */
+const AXIS_LIGHT = 64;
+const CHIPS = ['chip-0', 'chip-1', 'chip-2', 'chip-3'];
+const FURNITURE = [...Object.keys(BOARD), 'axis-e', 'label-e', 'in-view'];
+const furnitureRects = async (page: Page): Promise<Record<string, Rect>> =>
+  Object.fromEntries(await Promise.all(FURNITURE.map(async (id) => [id, await targetRect(page, id, 5_000)] as const)));
+const rounded = (rect: Rect) => rect.map(round);
+
+/** The rows with a place on the sort's axes (a from 1.5 to 5.5 au, e from 0
+ *  to `most`), counted here from the file's own bytes, in the 32-bit floats
+ *  they are. */
+function countInView(most = 0.6): number {
+  const { a, e } = elementsFile().columns;
+  const [least, mostA, leastE, mostE] = [1.5, 5.5, 0, most].map(Math.fround) as [number, number, number, number];
+  let count = 0;
+  for (let row = 0; row < elementsFile().rows; row++) count += Number(a[row]! >= least && a[row]! <= mostA && e[row]! >= leastE && e[row]! <= mostE);
+  return count;
+}
+
 async function seeSort(url: string) {
   const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
+  /** The action's fill, as a mean light of 255: just inside its left edge. */
+  const actionLight = async (page: Page, png: Buffer) => {
+    const [x, y, , height] = await targetRect(page, 'sort');
+    return Math.round(await light(page, png, { x: x + 2, y: y + height / 2 - 1, width: 3, height: 2 }));
+  };
   // The press, the landing, and the press back, with time running.
   const flight = await withSky(url, { date: EPOCH }, async (page) => {
     const read = async () => {
@@ -1062,7 +1114,7 @@ async function seeSort(url: string) {
       const [sun, jupiter] = await lit(page, png, [project(seen.camera, seen.sun), project(seen.camera, seen.jupiter)], 8);
       // The title's lines: the page's text over the scene.
       const [left, top, width, height] = seen.scrim as [number, number, number, number];
-      return { ...seen, png, sunColor: sun!.color, jupiterColor: jupiter!.color, text: await textPixels(page, png, { x: left, y: top, width, height }), names: seen.labels.filter((label) => label.shown).map((label) => label.text) };
+      return { ...seen, png, action: await actionLight(page, png), sunColor: sun!.color, jupiterColor: jupiter!.color, text: await textPixels(page, png, { x: left, y: top, width, height }), names: seen.labels.filter((label) => label.shown).map((label) => label.text) };
     };
     // In space, paused for the reading: the Sun and Jupiter stand still.
     await clickTarget(page, 'time');
@@ -1072,12 +1124,19 @@ async function seeSort(url: string) {
     await clickTarget(page, 'time');
     await page.waitForTimeout(200);
     need(space.flight.progress === 0 && !space.flight.sorted, `before the press the flight is ${JSON.stringify(space.flight)}`);
+    // The action, not pressed: the boards' fill (#262626), and no axes.
+    const actionSpace = space.action;
+    need(near(actionSpace, 38, 4), `the action's fill in space reads ${actionSpace} of 255, and the boards draw 38`);
+    const axisSpace = await light(page, space.png, { x: 700, y: 771, width: 8, height: 1 });
+    need(axisSpace < 30, `in space, where the a axis would be reads ${axisSpace.toFixed(1)} of 255`);
     need(space.names.join() === 'Sol,Jupiter' && Math.min(...space.sunColor) > 180 && space.jupiterColor[0] > 170, `in space: the names ${space.names.join()}, the Sun's place ${space.sunColor}, Jupiter's ${space.jupiterColor}`);
 
     // The press: every dot to the axes.
     let way = flown(page, true);
     await clickTarget(page, 'sort');
     const out_ = await way;
+    // Off the action: under the pointer its fill is the hover's.
+    await page.mouse.move(700, 600);
     await page.waitForTimeout(500);
     const landed = await read();
     await shot(page, 'sort-landed');
@@ -1089,6 +1148,49 @@ async function seeSort(url: string) {
     // What isn't a row is gone.
     need(!landed.names.length && Math.max(...landed.sunColor) < 60 && Math.max(...landed.jupiterColor) < 60, `landed: the names ${landed.names.join() || 'none'}, the Sun's place ${landed.sunColor}, Jupiter's ${landed.jupiterColor}`);
     need(landed.text < space.text - 300, `the title's lines are ${landed.text} text pixels landed and ${space.text} in space: the line about the stars hasn't left`);
+    // The action, pressed: the boards' pressed fill (#fafafa).
+    const actionPressed = landed.action;
+    need(near(actionPressed, 250, 4), `the action's fill pressed reads ${actionPressed} of 255, and the boards draw 250`);
+    // The furniture: each piece where board 4 has it.
+    const rects = await furnitureRects(page);
+    for (const [id, board] of Object.entries(BOARD)) {
+      need(rects[id]!.every((px, at) => near(px, board[at]!, 1.5)), `${id} is at ${rounded(rects[id]!)}, and board 4 has it at ${board}`);
+    }
+    // The e axis and its label: the board's, or under the title's lines
+    // where those reach past the axis's top.
+    const under = (landed.scrim[1]! + landed.scrim[3]! + 8) as number;
+    const [axisE, labelE, inViewAt] = [rects['axis-e']!, rects['label-e']!, rects['in-view']!];
+    need(near(axisE[0], BOARD_AXIS_E[0], 0.5) && axisE[2] === 1 && near(axisE[1] + axisE[3], 771, 0.5) && near(axisE[1], Math.max(96, under), 0.5), `the e axis is at ${rounded(axisE)}: the board's is ${BOARD_AXIS_E}, and the title's lines end at ${round(under - 8)}`);
+    need(near(labelE[0], BOARD_LABEL_E[0]!, 0.5) && near(labelE[1], Math.max(under, BOARD_LABEL_E[1]!), 0.5), `the e axis's label is at ${rounded(labelE)}: the board's is ${BOARD_LABEL_E}, and the title's lines end at ${round(under - 8)}`);
+    need(near(inViewAt[0] + inViewAt[2], 1440 - 24, 1) && near(inViewAt[1] + inViewAt[3], 900 - 29, 1), `the count in view is at ${rounded(inViewAt)}: the board's ends 24 px from the right and 29 from the bottom`);
+    // Drawn: the a axis's line whole, a chip's fill, and the words under
+    // the plot, where no dot lands.
+    const axisLanded = await light(page, landed.png, { x: 700, y: 771, width: 8, height: 1 });
+    need(near(axisLanded, AXIS_LIGHT, 8), `landed, the a axis reads ${axisLanded.toFixed(1)} of 255, and the board draws ${AXIS_LIGHT}`);
+    const chip = rects['chip-0']!;
+    const chipFill = await light(page, landed.png, { x: chip[0] + 3, y: chip[1] + 3, width: 3, height: 3 });
+    need(near(chipFill, 10, 8), `a chip's fill reads ${chipFill.toFixed(1)} of 255, and the board draws 10`);
+    const words = { 'label-a': 0, 'in-view': 0, 'chip-0': 0 };
+    for (const id of Object.keys(words) as (keyof typeof words)[]) {
+      const [x, y, width, height] = rects[id]!;
+      words[id] = await textPixels(page, landed.png, { x, y, width, height });
+      need(words[id] > 40, `${id} has ${words[id]} text pixels`);
+    }
+    await shot(page, 'sort-count', { x: 1040, y: 820, width: 400, height: 80 });
+    // The count: the crate's, against the file's own bytes.
+    const [inView, counted, control] = [await kirkwood(page, (kirkwood) => kirkwood.inView()), countInView(), countInView(0.61)];
+    need(inView === counted, `the page counts ${inView} rows in view, and the file's bytes hold ${counted}`);
+    need(control !== counted, `the control passes: ${control} rows with e to 0.61`);
+    // A press on a chip changes nothing: the flight, the clock, and (read
+    // below) the scene's frames. It can't tell a chip that takes the press
+    // from one that lets it through to the surface under it, which hears
+    // only a wheel: once a chip is a button, its check is what the press
+    // does.
+    for (const id of CHIPS) await clickTarget(page, id);
+    await page.waitForTimeout(300);
+    const pressed = await kirkwood(page, (kirkwood) => ({ flight: kirkwood.flight(), clock: kirkwood.clock() }));
+    need(pressed.flight.progress === 1 && pressed.flight.sorted && !pressed.flight.flying, `a press on each chip left the flight ${JSON.stringify(pressed.flight)}`);
+    need(!pressed.clock.running && pressed.clock.years === landed.clock.years, `a press on each chip left the clock ${JSON.stringify(pressed.clock)}`);
     // Landed, the scene draws nothing, and a wheel moves nothing: the
     // camera is space's.
     const camera = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.distance);
@@ -1125,13 +1227,31 @@ async function seeSort(url: string) {
       titleTextPixels: { space: space.text, landed: landed.text, back: again.text },
       sunPlace: { space: space.sunColor, landed: landed.sunColor, back: again.sunColor },
       names: { space: space.names, landed: landed.names, back: again.names },
+      action: { spaceLight: actionSpace, pressedLight: actionPressed },
+      furniture: { px: Object.fromEntries(Object.entries(rects).map(([id, rect]) => [id, rounded(rect)])), board: { ...BOARD, 'axis-e': BOARD_AXIS_E, 'label-e': BOARD_LABEL_E }, titleEndsPx: round(under - 8), axisLight: { space: fixed(axisSpace, 1), landed: fixed(axisLanded, 1) }, chipFillLight: fixed(chipFill, 1), textPixels: words },
+      inView: { page: inView, fileBytes: counted, controlWithETo061: control },
     };
   });
 
   // The flight held partway, for board 3.
-  await withSky(url, { ...HELD, flight: '0.6' }, async (page) => {
+  // There the axes are dim, where the board has them, and nothing is
+  // said of the dots yet.
+  const mid = await withSky(url, { ...HELD, flight: '0.6' }, async (page) => {
     await page.waitForTimeout(400);
     await shot(page, 'sort-mid');
+    const axis = await targetRect(page, 'axis-a', 5_000);
+    need(axis.every((px, at) => near(px, BOARD['axis-a']![at]!, 1.5)), `mid-flight the a axis is at ${rounded(axis)}`);
+    const axisLight = await light(page, await page.screenshot(), { x: 700, y: 771, width: 8, height: 1 });
+    // 0.45 of the line over the page's own color.
+    need(axisLight > 0.3 * AXIS_LIGHT && axisLight < 0.65 * AXIS_LIGHT, `mid-flight the a axis reads ${axisLight.toFixed(1)} of 255: 0.45 of ${AXIS_LIGHT} is ${0.45 * AXIS_LIGHT}`);
+    // The e axis's label is the board's, or under the title's lines as
+    // they are now, the stars' sentence among them, if those end lower:
+    // it's laid out again when they move.
+    const [labelE, scrim] = [await targetRect(page, 'label-e', 5_000), await kirkwood(page, (kirkwood) => kirkwood.scrim())];
+    need(near(labelE[1], Math.max(scrim[1]! + scrim[3]! + 8, BOARD_LABEL_E[1]!), 0.5), `mid-flight the e axis's label is at ${rounded(labelE)}, and the title's lines end at ${round(scrim[1]! + scrim[3]!)}`);
+    const said = await page.evaluate((ids) => ids.filter((id) => (globalThis as { __seizaTargets?: Record<string, unknown> }).__seizaTargets?.[id]), [...CHIPS, 'gaps-line', 'group-0', 'group-1', 'in-view']);
+    need(!said.length, `mid-flight the page draws ${said.join()}`);
+    return { axisLight: fixed(axisLight, 1) };
   });
 
   // Three rows drawn alone and landed, against the crate's own place on
@@ -1141,15 +1261,27 @@ async function seeSort(url: string) {
     { name: '4 Vesta', row: 3 },
     { name: '624 Hektor', row: 623 },
   ];
-  const alone = await withBelt(url, { ...HELD, flight: '1', only: ALONE.map((body) => body.row).join(',') }, async (page) => {
-    const png = await page.screenshot({ path: join(out, 'sort-alone.png') });
+  /** The table's panel, opened, and slid all the way in. */
+  const openPanel = async (page: Page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    await settle(page);
+  };
+  const landedAlone = (panel: boolean) => withBelt(url, { ...HELD, flight: '1', only: ALONE.map((body) => body.row).join(',') }, async (page) => {
+    if (panel) await openPanel(page);
+    const png = await page.screenshot({ path: join(out, panel ? 'sort-alone-panel.png' : 'sort-alone.png') });
     const places = await kirkwood(page, (kirkwood) =>
       new URLSearchParams(location.search)
         .get('only')!
         .split(',')
         .map((row) => {
           const { a, e, inView } = kirkwood.layoutRow(Number(row))!;
-          return { a, e, inView, at: kirkwood.layoutOf(a, e), control: kirkwood.layoutOf(a + 0.005, e) };
+          // The control: an a 1.6 px off, which is 0.005 au with the
+          // panel shut.
+          const pxAnAu = kirkwood.layoutOf(a + 1, e)[0]! - kirkwood.layoutOf(a, e)[0]!;
+          return { a, e, inView, at: kirkwood.layoutOf(a, e), control: kirkwood.layoutOf(a + 1.6 / pxAnAu, e) };
         }),
     );
     const found = await lit(page, png, places.map((place) => [place.at[0]!, place.at[1]!]));
@@ -1159,9 +1291,33 @@ async function seeSort(url: string) {
       const controlOff = Math.hypot(found[at]!.x - controlX, found[at]!.y - controlY);
       need(inView && found[at]!.pixels > 20, `${body.name}: no disc near (${round(x)}, ${round(y)}) on the axes`);
       need(off <= 1, `${body.name}: landed ${off.toFixed(2)} px from the crate's place (${round(x)}, ${round(y)})`);
-      need(controlOff > 1, `${body.name}: the control passes (${controlOff.toFixed(2)} px from the place of an a 0.005 au off)`);
+      need(controlOff > 1, `${body.name}: the control passes (${controlOff.toFixed(2)} px from the place of an a 1.6 px off)`);
       return { body: body.name, a: fixed(a, 4), e: fixed(e, 4), cratePlacePx: [fixed(x), fixed(y)], drawnPx: [fixed(found[at]!.x), fixed(found[at]!.y)], offPx: fixed(off), controlOffPx: fixed(controlOff) };
     });
+  });
+  const alone = await landedAlone(false);
+  // The panel open: the axes sit in what it leaves, and a dot still lands
+  // on its a and e there.
+  const alonePanel = await landedAlone(true);
+  const panel = await withBelt(url, { ...HELD, flight: '1' }, async (page) => {
+    await openPanel(page);
+    await shot(page, 'sort-panel');
+    const rects = await furnitureRects(page);
+    const left = 1440 - PANEL;
+    const axis = rects['axis-a']!;
+    need(near(axis[0], 80, 0.5) && near(axis[0] + axis[2], left - 80, 0.5) && near(axis[1], 771, 0.5), `beside the panel the a axis is at ${rounded(axis)}: it should run from 80 px to ${left - 80}`);
+    const inViewAt = rects['in-view']!;
+    need(near(inViewAt[0] + inViewAt[2], left - 24, 1), `beside the panel the count in view is at ${rounded(inViewAt)}: it should end at ${left - 24} px`);
+    // A chip is still over its gap, and clear of the next.
+    const gaps = await kirkwood(page, (kirkwood) => kirkwood.gaps().map((a) => kirkwood.layoutOf(a, 0)[0]!));
+    for (const [at, id] of CHIPS.entries()) {
+      const [x, , width] = rects[id]!;
+      need(gaps[at]! > x && gaps[at]! < x + width, `beside the panel ${id} is at ${rounded(rects[id]!)}, and its gap at ${round(gaps[at]!)} px`);
+      const next = rects[CHIPS[at + 1] ?? '']?.[0] ?? Infinity;
+      need(next >= x + width + 3.5, `beside the panel ${id} ends at ${round(x + width)} px and the next starts at ${round(next)}`);
+    }
+    for (const id of FURNITURE) need(rects[id]![0] + rects[id]![2] <= left + 16, `beside the panel ${id} is at ${rounded(rects[id]!)}`);
+    return { px: Object.fromEntries(Object.entries(rects).map(([id, rect]) => [id, rounded(rect)])), gapsPx: gaps.map(round) };
   });
 
   // The gaps: the dust at each, where Jupiter's a puts it, against a tenth
@@ -1181,7 +1337,7 @@ async function seeSort(url: string) {
     }
     return seen;
   });
-  return { flight, alone, gaps };
+  return { flight, mid, alone, alonePanel, panel, gaps };
 }
 
 mkdirSync(out, { recursive: true });

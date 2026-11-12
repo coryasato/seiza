@@ -124,9 +124,17 @@ pub struct Elements {
     layout: Option<Layout>,
     /// The rows whose block is whole: every row, once the file is held.
     whole: usize,
-    /// For each whole block, the rows with an ellipse up to its end,
+    /// For each whole block, the rows up to its end with an ellipse, and
+    /// those with a place on the sort's axes ([`crate::layout::in_view`]),
     /// counted as it arrives.
-    bound: Vec<usize>,
+    counts: Vec<Counts>,
+}
+
+/// What's counted of the rows up to a block's end.
+#[derive(Clone, Copy, Default)]
+struct Counts {
+    bound: usize,
+    in_view: usize,
 }
 
 impl Elements {
@@ -137,7 +145,7 @@ impl Elements {
             bytes: Bytes::zeroed(len),
             layout: None,
             whole: 0,
-            bound: Vec::new(),
+            counts: Vec::new(),
         }
     }
 
@@ -148,7 +156,7 @@ impl Elements {
             bytes,
             layout: None,
             whole: 0,
-            bound: Vec::new(),
+            counts: Vec::new(),
         };
         elements.arrived(held)?;
         if elements.layout.is_none() {
@@ -176,12 +184,16 @@ impl Elements {
             None if held >= HEADER => *self.layout.insert(Layout::read(&self.bytes)?),
             None => return Ok(0),
         };
-        for block in self.bound.len()..layout.whole_blocks(held) {
+        for block in self.counts.len()..layout.whole_blocks(held) {
             let from = block * layout.block;
             self.whole = from + layout.block_rows(block);
-            let before = self.bound.last().copied().unwrap_or(0);
-            let bound = (from..self.whole).filter(|row| self.is_bound(*row)).count();
-            self.bound.push(before + bound);
+            let mut counts = self.counts.last().copied().unwrap_or_default();
+            for row in from..self.whole {
+                let (a, e) = (self.get(Element::A, row), self.get(Element::E, row));
+                counts.bound += usize::from(is_ellipse(a, e));
+                counts.in_view += usize::from(crate::layout::in_view(a, e));
+            }
+            self.counts.push(counts);
         }
         Ok(self.whole)
     }
@@ -231,27 +243,44 @@ impl Elements {
     /// The rows whose orbit is an ellipse, of those held: the ones the
     /// scene draws.
     pub fn bound(&self) -> usize {
-        self.bound.last().copied().unwrap_or(0)
+        self.counts.last().map_or(0, |counts| counts.bound)
+    }
+
+    /// What's counted of the first `rows`, which end where a whole block
+    /// does.
+    fn counts_before(&self, rows: usize) -> Counts {
+        let Some(layout) = self.layout else {
+            return Counts::default();
+        };
+        assert!(rows <= self.whole && (rows.is_multiple_of(layout.block) || rows == layout.rows));
+        match rows.div_ceil(layout.block) {
+            0 => Counts::default(),
+            blocks => self.counts[blocks - 1],
+        }
     }
 
     /// The rows with an ellipse among the first `rows`, which end where a
     /// whole block does.
     pub fn bound_before(&self, rows: usize) -> usize {
-        let Some(layout) = self.layout else {
-            return 0;
-        };
-        assert!(rows <= self.whole && (rows.is_multiple_of(layout.block) || rows == layout.rows));
-        match rows.div_ceil(layout.block) {
-            0 => 0,
-            blocks => self.bound[blocks - 1],
-        }
+        self.counts_before(rows).bound
+    }
+
+    /// The rows with a place on the sort's axes among the first `rows`,
+    /// which end where a whole block does.
+    pub fn in_view_before(&self, rows: usize) -> usize {
+        self.counts_before(rows).in_view
     }
 
     /// Whether a row's orbit is an ellipse. A row whose isn't (e not below
     /// 1, a below 0) keeps its a and e; its mean anomaly is a hyperbola's.
     pub fn is_bound(&self, row: usize) -> bool {
-        self.get(Element::E, row) < 1.0 && self.get(Element::A, row) > 0.0
+        is_ellipse(self.get(Element::A, row), self.get(Element::E, row))
     }
+}
+
+/// Whether an orbit of size `a` and eccentricity `e` is an ellipse.
+fn is_ellipse(a: f32, e: f32) -> bool {
+    e < 1.0 && a > 0.0
 }
 
 #[cfg(test)]
@@ -301,6 +330,10 @@ mod tests {
         assert_eq!(elements.bound_before(4), 3);
         assert_eq!(elements.bound_before(8), 6);
         assert_eq!(elements.bound_before(10), 7);
+        // On the sort's axes: a no more than 5.5 au (rows 0 to 3) and e no
+        // more than 0.6 (not row 2).
+        assert_eq!(elements.in_view_before(4), 3);
+        assert_eq!(elements.in_view_before(10), 3);
         let blocks = elements.blocks(4, 10);
         assert_eq!(
             blocks.iter().map(|block| block.1).collect::<Vec<_>>(),

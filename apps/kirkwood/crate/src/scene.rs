@@ -34,10 +34,13 @@ pub fn scrim_changes() -> u32 {
     SCRIM_CHANGES.get()
 }
 
-pub fn set_scrim(bounds: [f32; 4]) {
-    if SCRIM.replace(bounds) != bounds {
+/// Returns whether they moved.
+pub fn set_scrim(bounds: [f32; 4]) -> bool {
+    let moved = SCRIM.replace(bounds) != bounds;
+    if moved {
         SCRIM_CHANGES.set(SCRIM_CHANGES.get().wrapping_add(1));
     }
+    moved
 }
 
 /// A wheel over the scene, at a window position (CSS px): it zooms. Off

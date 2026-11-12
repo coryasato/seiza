@@ -1,7 +1,7 @@
 //! The interface: the title, the time control, the action beside it
-//! ("Sort by orbit size"), and the table behind its handle on the right
-//! edge, a panel that slides in over the rows. Under
-//! them, a window-sized surface that hears what nothing above it took: a
+//! ("Sort by orbit size"), the furniture of the axes the sort lands the
+//! dots on, and the table behind its handle on the right edge, a panel
+//! that slides in over the rows. Under them, a window-sized surface that hears what nothing above it took: a
 //! wheel there is the scene's.
 //!
 //! Its first frame holds no data: the title, the time control, and the
@@ -27,6 +27,7 @@ use tall_table_bridge::Publish;
 use crate::catalog::{Catalog, columns};
 use crate::clock;
 use crate::flight;
+use crate::layout::{self, Plot};
 use crate::ramp;
 use crate::scene;
 use crate::table::{Source, Table};
@@ -56,6 +57,27 @@ pub const CLOSE_TARGET: &str = "table-close";
 pub const TIME_TARGET: &str = "time";
 pub const SORT_TARGET: &str = "sort";
 pub const LEGEND_TARGET: &str = "legend";
+/// The axes' furniture: the two lines, their labels, the line over the
+/// chips, each chip, each group's name, and the count of rows in view.
+pub const AXIS_A_TARGET: &str = "axis-a";
+pub const AXIS_E_TARGET: &str = "axis-e";
+pub const LABEL_A_TARGET: &str = "label-a";
+pub const LABEL_E_TARGET: &str = "label-e";
+pub const GAPS_LINE_TARGET: &str = "gaps-line";
+pub const CHIP_TARGETS: [&str; 4] = ["chip-0", "chip-1", "chip-2", "chip-3"];
+pub const GROUP_TARGETS: [&str; 2] = ["group-0", "group-1"];
+pub const IN_VIEW_TARGET: &str = "in-view";
+
+/// The axes' lines and ticks, and a chip's border: neutral-700,
+/// oklch(0.371 0 0), as board 4 draws them. The theme's border is a step
+/// darker, and too faint over the scene.
+const AXIS: u32 = 0x404040;
+/// A chip's fill: neutral-950, oklch(0.145 0 0), the theme's background
+/// before the window's was made clear.
+const CHIP_FILL: u32 = 0x0a0a0a;
+/// How far under the title's lines the e axis starts, where they reach
+/// past its top.
+const UNDER_TITLE: f64 = 8.;
 
 /// The legend's bar, CSS px, and the width of each slice of it: one tint.
 const LEGEND_WIDTH: f32 = 140.;
@@ -95,6 +117,8 @@ enum Belt {
         dots: usize,
         /// The rows the file has.
         rows: usize,
+        /// The drawn rows with a place on the sort's axes.
+        in_view: usize,
     },
     /// Every row is drawn.
     Whole {
@@ -102,6 +126,8 @@ enum Belt {
         drawn: usize,
         /// The rows with none (e not below 1): no dot.
         unbound: usize,
+        /// The rows with a place on the sort's axes.
+        in_view: usize,
     },
 }
 
@@ -164,18 +190,39 @@ impl Host {
     }
 
     /// The scene has drawn the first of the elements' blocks: `dots` rows
-    /// on their ellipses so far, of a file of `rows` rows still arriving.
-    /// Time waits for the rest (`docs/DECISIONS.md`, "Scene").
-    pub fn belt_filling(&mut self, dots: usize, rows: usize, cx: &mut Context<Self>) {
-        self.belt = Some(Belt::Filling { dots, rows });
+    /// on their ellipses so far, `in_view` of them with a place on the
+    /// sort's axes, of a file of `rows` rows still arriving. Time waits
+    /// for the rest (`docs/DECISIONS.md`, "Scene").
+    pub fn belt_filling(
+        &mut self,
+        dots: usize,
+        rows: usize,
+        in_view: usize,
+        cx: &mut Context<Self>,
+    ) {
+        self.belt = Some(Belt::Filling {
+            dots,
+            rows,
+            in_view,
+        });
         cx.notify();
     }
 
     /// The scene drew the whole belt from the elements: `drawn` rows on
-    /// their ellipses and `unbound` with none, counted from the rows. Time
-    /// moves from here.
-    pub fn belt_drawn(&mut self, drawn: usize, unbound: usize, cx: &mut Context<Self>) {
-        self.belt = Some(Belt::Whole { drawn, unbound });
+    /// their ellipses and `unbound` with none, `in_view` with a place on
+    /// the sort's axes, counted from the rows. Time moves from here.
+    pub fn belt_drawn(
+        &mut self,
+        drawn: usize,
+        unbound: usize,
+        in_view: usize,
+        cx: &mut Context<Self>,
+    ) {
+        self.belt = Some(Belt::Whole {
+            drawn,
+            unbound,
+            in_view,
+        });
         if clock::held() {
             clock::release();
         }
@@ -353,13 +400,18 @@ impl Host {
             // Where this text lies: the scene quiets its picture under it.
             .child(
                 canvas(
-                    |bounds, _, _| {
-                        scene::set_scrim([
+                    |bounds, window, _| {
+                        let moved = scene::set_scrim([
                             bounds.origin.x.into(),
                             bounds.origin.y.into(),
                             bounds.size.width.into(),
                             bounds.size.height.into(),
-                        ])
+                        ]);
+                        // The e axis starts under these lines, and was
+                        // laid out before they were measured: once more.
+                        if moved && flight::axes() > 0.0 {
+                            window.request_animation_frame();
+                        }
                     },
                     |_, _, _, _| {},
                 )
@@ -540,6 +592,197 @@ impl Host {
             .child(target(SORT_TARGET))
     }
 
+    /// The furniture of a against e, as board 4 draws it: the two axes
+    /// with a tick and its number every half au and every tenth, their
+    /// labels, a chip over each gap with its line down into the dots, the
+    /// two groups' names, the line over the chips, and the count of rows
+    /// in view. Dim while the dots fly (board 3), and what's said of the
+    /// landed dots only as they land ([`flight::axes`], [`flight::landed`]).
+    /// Every place is the crate's own plot's, the one the scene's shader
+    /// lands the dots on ([`Plot`]). None of it takes a press.
+    fn render_furniture(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
+        let (axes, landed) = (flight::axes() as f32, flight::landed() as f32);
+        if axes <= 0.0 {
+            return None;
+        }
+        let theme = cx.theme();
+        let (muted, plain) = (theme.muted_foreground, theme.foreground);
+        let line = rgb(AXIS);
+        let size = window.viewport_size();
+        let inset = f64::from(scene::inset());
+        let plot = Plot::in_window(
+            f64::from(f32::from(size.width)),
+            f64::from(f32::from(size.height)),
+            inset,
+        );
+        // A box of the window, CSS px.
+        let at = |left: f64, top: f64, width: f64, height: f64| {
+            div()
+                .absolute()
+                .left(px(left as f32))
+                .top(px(top as f32))
+                .w(px(width as f32))
+                .h(px(height as f32))
+        };
+        // The title's lines are taller than the board's, and reach past
+        // the e axis's top: the axis starts under them, with its label,
+        // and a tick they cover isn't drawn (`docs/DECISIONS.md`,
+        // "Interface").
+        let [_, top, _, height] = scene::scrim().map(f64::from);
+        let under = top + height + UNDER_TITLE;
+        let e_top = plot.top.max(under);
+        // The label: 14 px under the plot's top, as the board has it, or
+        // under the title's lines if they end lower.
+        let label_e_top = (plot.top + 14.0).max(under);
+
+        let across = plot.ticks_a().into_iter().flat_map(|(a, x)| {
+            [
+                at(x - 0.5, plot.bottom, 1.0, 4.0).bg(line),
+                at(x - 30.0, plot.bottom + 5.0, 60.0, 18.0)
+                    .text_center()
+                    .child(format!("{a:.1}")),
+            ]
+        });
+        let up = plot
+            .ticks_e()
+            .into_iter()
+            .filter(|&(_, y)| y >= e_top)
+            .flat_map(|(e, y)| {
+                [
+                    at(plot.left - 5.0, y - 0.5, 4.0, 1.0).bg(line),
+                    at(plot.left - 46.0, y - 9.5, 36.0, 18.0)
+                        .text_right()
+                        .child(format!("{e:.1}")),
+                ]
+            });
+        let lines = div()
+            .absolute()
+            .inset_0()
+            .opacity(axes)
+            .text_color(muted)
+            .child(
+                at(plot.left, plot.bottom, plot.right - plot.left, 1.0)
+                    .bg(line)
+                    .child(target(AXIS_A_TARGET)),
+            )
+            .child(
+                at(plot.left - 1.0, e_top, 1.0, plot.bottom - e_top)
+                    .bg(line)
+                    .child(target(AXIS_E_TARGET)),
+            )
+            .children(across)
+            .children(up)
+            .child(
+                at(plot.left, plot.bottom + 25.0, plot.right - plot.left, 18.0)
+                    .text_center()
+                    .text_color(plain)
+                    .child("a, the orbit's size (au)")
+                    .child(target(LABEL_A_TARGET)),
+            )
+            .child(
+                div()
+                    .absolute()
+                    .left(px(plot.left as f32 + 10.))
+                    .top(px(label_e_top as f32))
+                    .text_color(plain)
+                    .child("e, how stretched the orbit is")
+                    .child(target(LABEL_E_TARGET)),
+            );
+
+        // What's said of the landed dots.
+        let chips = plot.chips();
+        let middle = (chips[0].2 + chips[chips.len() - 1].2) / 2.0;
+        let drops = chips.into_iter().map(|(_, gap, _)| {
+            at(gap - 0.5, plot.top + layout::DROP_TOP, 1.0, layout::DROP).bg(linear_gradient(
+                180.,
+                linear_color_stop(plain.opacity(0.35), 0.),
+                linear_color_stop(plain.opacity(0.), 1.),
+            ))
+        });
+        let [chip_width, chip_height] = layout::CHIP;
+        let chips =
+            chips
+                .into_iter()
+                .zip(CHIP_TARGETS)
+                .map(|(((turns, jupiters), _, middle), id)| {
+                    at(
+                        middle - chip_width / 2.0,
+                        plot.top + layout::CHIPS_TOP,
+                        chip_width,
+                        chip_height,
+                    )
+                    .child(
+                        div()
+                            .size_full()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .border_1()
+                            .border_color(line)
+                            .rounded(px(6.))
+                            .bg(rgb(CHIP_FILL))
+                            .text_color(plain)
+                            .child(format!("{turns}:{jupiters}")),
+                    )
+                    // (Beside the chip, not in it: inside its border the
+                    // bounds would be a pixel short all round.)
+                    .child(target(id))
+                });
+        let groups = plot
+            .groups()
+            .into_iter()
+            .zip(GROUP_TARGETS)
+            .map(|((name, [x, y]), id)| {
+                at(x - 130.0, y - 9.0, 260.0, 18.0)
+                    .text_center()
+                    .child(name)
+                    .child(target(id))
+            });
+        // Said of dots that are drawn: with no belt (the sort pressed
+        // before the first rows, or the asteroids failed since) the axes
+        // stand empty and say nothing.
+        let said = self.belt.filter(|_| landed > 0.0).map(|belt| {
+            div()
+                .absolute()
+                .inset_0()
+                .opacity(landed)
+                .text_color(muted)
+                .child(
+                    at(
+                        middle - 200.0,
+                        plot.top + layout::CHIPS_LINE_TOP,
+                        400.0,
+                        18.0,
+                    )
+                    .text_center()
+                    .child("Orbits in step with Jupiter are missing.")
+                    .child(target(GAPS_LINE_TARGET)),
+                )
+                .children(drops)
+                .children(chips)
+                .children(groups)
+                // Bottom right of what the panel leaves, counted from the
+                // rows drawn.
+                .child(
+                    div()
+                        .absolute()
+                        .right(px(inset as f32 + 24.))
+                        .bottom(px(29.))
+                        .child(in_view_line(belt))
+                        .child(target(IN_VIEW_TARGET)),
+                )
+        });
+        Some(
+            div()
+                .absolute()
+                .inset_0()
+                .text_size(px(12.))
+                .line_height(px(18.))
+                .child(lines)
+                .children(said),
+        )
+    }
+
     fn render_handle(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let says: SharedString = match &self.files {
@@ -659,6 +902,9 @@ impl Render for Host {
                         );
                     },
                 ))
+                // The axes' furniture takes no input: a wheel or a press
+                // on it falls through to the surface above.
+                .children(self.render_furniture(window, cx))
                 .child(self.render_title(cx))
                 .child(self.render_time_control(cx));
         match &self.table {
@@ -737,14 +983,14 @@ fn ease(k: f64) -> f64 {
 /// that have none and why.
 fn belt_line(belt: Belt) -> String {
     let (drawn, unbound) = match belt {
-        Belt::Filling { dots, rows } => {
+        Belt::Filling { dots, rows, .. } => {
             return format!(
                 "{} asteroids so far, each on its own orbit, of {} rows arriving.",
                 grouped(dots),
                 grouped(rows)
             );
         }
-        Belt::Whole { drawn, unbound } => (drawn, unbound),
+        Belt::Whole { drawn, unbound, .. } => (drawn, unbound),
     };
     let dots = format!(
         "{} asteroids, each on its own orbit, and every dot is a row.",
@@ -759,6 +1005,20 @@ fn belt_line(belt: Belt) -> String {
             "{dots} {unbound} more rows have no dot: they're passing through, on paths that never close."
         ),
     }
+}
+
+/// The rows with a place on the sort's axes, of the file's: counted from
+/// the rows drawn, as every count on the page is.
+fn in_view_line(belt: Belt) -> String {
+    let (in_view, rows) = match belt {
+        Belt::Filling { rows, in_view, .. } => (in_view, rows),
+        Belt::Whole {
+            drawn,
+            unbound,
+            in_view,
+        } => (in_view, drawn + unbound),
+    };
+    format!("{} of {} rows in view", grouped(in_view), grouped(rows))
 }
 
 /// What the picture isn't: with the belt drawn, a dot's size is
@@ -800,7 +1060,7 @@ fn grouped(n: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Belt, belt_line, grouped, look_line};
+    use super::{Belt, belt_line, grouped, in_view_line, look_line};
 
     #[test]
     fn what_the_picture_isnt_is_said_while_its_on_screen() {
@@ -824,11 +1084,18 @@ mod tests {
 
     #[test]
     fn the_rows_with_no_dot_are_counted_apart() {
-        let line = |drawn, unbound| belt_line(Belt::Whole { drawn, unbound });
+        let line = |drawn, unbound| {
+            belt_line(Belt::Whole {
+                drawn,
+                unbound,
+                in_view: 0,
+            })
+        };
         assert_eq!(
             belt_line(Belt::Filling {
                 dots: 32_768,
-                rows: 1_580_272
+                rows: 1_580_272,
+                in_view: 0,
             }),
             "32,768 asteroids so far, each on its own orbit, of 1,580,272 rows arriving."
         );
@@ -838,6 +1105,28 @@ mod tests {
         );
         assert!(line(10, 1).contains("1 more row has no dot"));
         assert!(line(10, 0).ends_with("every dot is a row."));
+    }
+
+    #[test]
+    fn the_rows_in_view_are_counted_of_the_files_rows() {
+        assert_eq!(
+            in_view_line(Belt::Whole {
+                drawn: 1_580_265,
+                unbound: 7,
+                in_view: 1_546_968
+            }),
+            "1,546,968 of 1,580,272 rows in view"
+        );
+        // While the belt fills: of the rows drawn so far, and still of
+        // the file's.
+        assert_eq!(
+            in_view_line(Belt::Filling {
+                dots: 32_768,
+                rows: 1_580_272,
+                in_view: 32_000
+            }),
+            "32,000 of 1,580,272 rows in view"
+        );
     }
 
     #[test]

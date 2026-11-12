@@ -87,6 +87,33 @@ pub fn space() -> f64 {
     1.0 - k * k * (3.0 - 2.0 * k)
 }
 
+/// The axes' opacity while the dots fly (board 3).
+const AXES_FLYING: f64 = 0.45;
+/// The part of the flight, at each end, that the axes and the words over
+/// the landed dots come and go in.
+const EDGE: f64 = 0.1;
+
+/// How much of the axes shows (their lines, ticks, numbers, and labels):
+/// nothing in space, [`AXES_FLYING`] while the dots fly, and whole once
+/// they land, coming in over the flight's first tenth and whole over its
+/// last.
+pub fn axes() -> f64 {
+    let k = FLIGHT.get().progress;
+    AXES_FLYING * (k / EDGE).min(1.0) + (1.0 - AXES_FLYING) * landing(k)
+}
+
+/// How much shows of what's said of the landed dots (the gaps' chips, the
+/// groups' names, the line over the chips, the count of rows in view):
+/// nothing until the flight's last tenth, whole landed.
+pub fn landed() -> f64 {
+    landing(FLIGHT.get().progress)
+}
+
+fn landing(k: f64) -> f64 {
+    // (From the landed end, so landed is 1 to the bit.)
+    1.0 - ((1.0 - k) / EDGE).clamp(0.0, 1.0)
+}
+
 /// The press: the dots turn for a against e, or back for space, from
 /// wherever they are.
 pub fn toggle() {
@@ -116,7 +143,7 @@ pub fn hold(progress: f64) {
 
 #[cfg(test)]
 mod tests {
-    use super::{FLIGHT_MS, advance, flying, hold, progress, sorted, space, toggle};
+    use super::{FLIGHT_MS, advance, axes, flying, hold, landed, progress, sorted, space, toggle};
 
     #[test]
     fn the_flight_takes_three_seconds_each_way_and_turns_where_it_is() {
@@ -176,6 +203,24 @@ mod tests {
         assert_eq!(progress(), 1.0);
         hold(f64::NAN);
         assert!(progress() == 0.0 && !flying() && !sorted());
+        hold(0.0);
+    }
+
+    #[test]
+    fn the_axes_are_dim_while_the_dots_fly_and_whole_once_they_land() {
+        hold(0.0);
+        assert_eq!((axes(), landed()), (0.0, 0.0));
+        hold(0.05);
+        assert!((axes() - 0.225).abs() < 1e-12 && landed() == 0.0);
+        // Board 3: mid-flight the axes are at 0.45 and nothing is said yet.
+        for mid in [0.1, 0.6, 0.85] {
+            hold(mid);
+            assert!((axes() - 0.45).abs() < 1e-12 && landed() == 0.0, "{mid}");
+        }
+        hold(0.95);
+        assert!((axes() - 0.725).abs() < 1e-9 && (landed() - 0.5).abs() < 1e-9);
+        hold(1.0);
+        assert_eq!((axes(), landed()), (1.0, 1.0));
         hold(0.0);
     }
 }

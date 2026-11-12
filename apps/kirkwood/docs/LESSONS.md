@@ -176,3 +176,18 @@ The sort flight, built anew from the spike's decision: the crate's progress and 
 - **A screenshot from one run can't be set against the numbers of another.** A stale frame was chased that wasn't one: time was running, so each run paused on a different date.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look"; the evidence: [`../PLAN.md`](../PLAN.md), M3's checks.
+
+## M3 part B: the furniture, the count, and the close (2026-11-12)
+
+GPUI's furniture on the crate's plot, the count of rows in view, the panel open, and M4's spec.
+
+**Surprises:**
+- **The board's title is not the app's.** Board 4 draws a title that ends 84 px down; the app's says three lines more and ends at 152, across the e axis's top, its 0.6, and its label. Part A landed the dots on the board's plot without anything to collide with. The axis yields, and the title's height is now a question the next board (the card) has to answer.
+- **Beside the open panel two gaps are closer than a chip is wide.** The 5:2 and the 7:3 are 43 px apart on the board and 24 with the panel open. The chips part and their lines stay put.
+- **The furniture was laid out a frame before the title it dodges was measured.** Held mid-flight with time paused, nothing asked for another frame, and the label sat on the legend until the next thing moved. A measurement that another element reads has to ask for the frame that uses it.
+- **A target inside a bordered box is a pixel short all round.** An absolute child fills the padding box, so a chip's published bounds came out 33 by 22: the check found it against the board's 35 by 24.
+- **A fill read under the pointer is the hover's.** The pressed action read 245 of 255, not the board's 250: the click had left the pointer on it. And a reading taken from one frame against bounds from another put the unpressed one at 101.
+- **The flight's frame rate fell by a third, and it wasn't the furniture.** Another session's tests had the machine. Run turn about with the furniture off, the two were the same; a frame rate here is only worth setting beside one taken the same minute.
+- **`1.0 - 0.9` over `0.1` isn't 1.** The axes "whole once landed" came out at 0.9999999999999998 until the ramp was counted from the landed end.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface", "Input"; the evidence: [`milestones.md`](milestones.md), M3's checks.
