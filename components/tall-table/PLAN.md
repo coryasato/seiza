@@ -144,7 +144,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `copy`'s fixture (M14, built) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `copy`'s fixture (M14, built) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
@@ -158,7 +158,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 - **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`format` moves up (2026-11-04)** ahead of `reorder`: the observatory's market watch (its M10) waits on it from its part B, and `reorder`'s run has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`follow`'s `let_go` first (2026-11-09),** ahead of `reorder`, as M13 (`reorder` and the two after it moved down one, to M14–M16): a follow-up to a built feature, small, and the observatory's live tail waits on it before it ships (its M11 part E2).
-- **`copy`'s fixture first (2026-11-12),** ahead of `reorder`, as M14 (`reorder` and the two after it moved down one, to M15–M17): a follow-up to a built feature, small, and the observatory's wide sheet ports the copy to its TanStack contender against it (its M14 part C; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
+- **`copy`'s fixture first (2026-11-12),** ahead of `reorder`, as M14 (`reorder` and the two after it moved down one, to M15–M17): a follow-up to a built feature, small, and the observatory's wide sheet ports the copy to its TanStack contender against it (its M14 part C2; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **The flash's frames first (2026-11-04),** then `format`: market watch's spike found a flash redraws the whole table every frame, which sinks the bare host on a slow device; the observatory measures market watch only on the improved component ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
@@ -215,6 +215,17 @@ Not planned; noted 2026-10-24 after the manual check of `custom-cells`. The host
 - **Why not now:** the observatory's wide sheet will show heat and bar cells over real data once it adopts `custom-cells`; build this if a feature's manual check needs it before then.
 
 ---
+
+## Known bugs
+
+Found and not yet fixed. The code review of 2026-11-12 found these in `copy`'s fixture (M14). None is a fault in shipped code: each is a gap in what the fixture pins or a doc that disagrees with it. **Fix them in a session of their own before the observatory's M14 goes on** (its C2 ports the copy against this fixture), with the native test and its controls passing.
+
+- **No case pins `least_bytes` with a non-ASCII header.** Every header in `least-bytes-with-headers` and `cap-projected-with-headers` is ASCII, and the `Utf16Bytes` control doesn't bend the pre-read check (`start_copy` still counts with `String::len`). A port that counts the header line in UTF-16 (JS `length`) passes `copy.json` but refuses or admits a copy at another size than GPUI's (a column named `prix (€)`). The fix: a case with a non-ASCII header at the check's edge, and the control bending that check too.
+- **`reads` counts any read, not the copy's.** `state/fixtures/copy.rs` (~line 306) sets `reads` from any delegate read after the copy starts, the cache's own included; `fixtures/README.md` says "whether any page was read for the copy". A cache read during a copy (prefetch, `select` scrolling to the head) would fail `rows`, `key-past-limit`, or `least-bytes` natively, and a port that counts only its copy's reads would disagree. The fix: count the reads sent through the copy's grant, or say in the README that it's any read.
+- **The `WholeFloatsBare` control bends `CellValue::Float` alone** (`state/copy.rs`, ~line 723). `Float32` writes correctly under it, so no control shows that `float32-values` (`16777216.0`, `2.0`) catches a port writing a float32 with JS `String`. The fix: the control bends `Float32` too, and `float32-values` fails under it.
+- **A float32's parse differs between the sides.** The native test parses a `float32` value with `f32::from_str` (`state/fixtures/copy.rs`, ~line 82); `fixtures/README.md` tells a DOM side to parse it with `Number` and round to f32, which rounds twice. Near an f32 rounding boundary the two sources differ, and a later case would fail on the TanStack side with no port bug. Today's values are safe. The fix: parse through f64 then `as f32` natively, as the README says, or document the direct route for both.
+- **`selection_of` spells the selection kinds a second time** (`state/fixtures/copy.rs`, ~line 160), beside `Kind::as_str` (`fixtures/select.rs`'s `selection_json`). A renamed or new kind would update `selection.json`'s output but not `copy.json`'s parser. The fix: parse through `Kind::as_str` (or a `Kind::from_str` beside it), shared with `fixtures/select.rs`.
+- **Docs out of step with the fixture.** `docs/milestones.md`'s M14 A1 evidence reads as 32 cases ("27 cases … After the code review, five more"); `copy.json` holds 27. Its spec gives each case a `page_rows`, which the fixture holds once under `paging`. `milestones.md` is history and never edited: the fix's own entry there records the correct count and shape. And `docs/DECISIONS.md`'s copy-fixture entry (~line 172) names milestones in its body ("a milestone of its own (M14)", "(M15–M17)", "its M14 part C"): only its *[source]* tag may (root `CLAUDE.md`, "Docs").
 
 ## Open questions
 
