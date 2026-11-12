@@ -45,6 +45,12 @@ impl Bytes {
         self.words.as_mut_ptr().cast()
     }
 
+    /// Where the bytes are, for a view over them (the scene's attributes):
+    /// 4-byte aligned, and there for as long as this is.
+    pub fn as_ptr(&self) -> *const u8 {
+        self.words.as_ptr().cast()
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }

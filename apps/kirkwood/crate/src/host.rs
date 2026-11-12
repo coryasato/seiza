@@ -1,9 +1,13 @@
 //! The interface: the title, the time control, and the table behind its
-//! handle on the right edge, a panel that slides in over the rows.
+//! handle on the right edge, a panel that slides in over the rows. Under
+//! them, a window-sized surface that hears what nothing above it took: a
+//! wheel there is the scene's.
 //!
 //! Its first frame holds no data: the title, the time control, and the
 //! handle saying its rows are loading. The files arrive after it
-//! ([`Host::progress`], then [`Host::loaded`] or [`Host::failed`]).
+//! ([`Host::progress`], then [`Host::loaded`] or [`Host::failed`]), and the
+//! scene says when the belt is drawn ([`Host::belt_drawn`]), which is when
+//! time starts to move.
 
 use std::rc::Rc;
 use std::time::Duration;
@@ -19,6 +23,7 @@ use tall_table_bridge::Publish;
 
 use crate::catalog::{Catalog, columns};
 use crate::clock;
+use crate::scene;
 use crate::table::{Source, Table};
 
 /// The panel's width, CSS px.
@@ -60,8 +65,20 @@ struct Slide {
     start_ms: f64,
 }
 
+/// The belt as the scene drew it, counted from the elements' rows.
+#[derive(Clone, Copy)]
+struct Belt {
+    /// The rows with an ellipse: a dot each.
+    drawn: usize,
+    /// The rows with none (e not below 1): no dot.
+    unbound: usize,
+}
+
 pub struct Host {
     files: Files,
+    belt: Option<Belt>,
+    /// Why there's no scene, if it didn't start.
+    scene_failed: Option<SharedString>,
     table: Option<Entity<Table>>,
     /// Counted from the files.
     rows: usize,
@@ -80,6 +97,8 @@ impl Host {
                 received: 0.0,
                 total: 0.0,
             },
+            belt: None,
+            scene_failed: None,
             table: None,
             rows: 0,
             panel_open: false,
@@ -105,7 +124,23 @@ impl Host {
         cx.notify();
     }
 
-    /// Both files are held: the table opens over them, and time may move.
+    /// The scene drew the belt from the elements: `drawn` rows on their
+    /// ellipses and `unbound` with none, counted from the rows. Time moves
+    /// from here.
+    pub fn belt_drawn(&mut self, drawn: usize, unbound: usize, cx: &mut Context<Self>) {
+        self.belt = Some(Belt { drawn, unbound });
+        clock::release();
+        cx.notify();
+    }
+
+    /// The scene didn't start (no WebGL, or its module didn't arrive): the
+    /// page says so. The table doesn't need it.
+    pub fn scene_failed(&mut self, message: String, cx: &mut Context<Self>) {
+        self.scene_failed = Some(message.into());
+        cx.notify();
+    }
+
+    /// Both files are held: the table opens over them.
     pub fn loaded(&mut self, catalog: Rc<Catalog>, cx: &mut Context<Self>) {
         self.rows = catalog.rows();
         self.files = Files::Held;
@@ -127,7 +162,6 @@ impl Host {
         };
         self._table_events = Some(cx.subscribe(&table, move |_, _, event, _| publish.event(event)));
         self.table = Some(table);
-        clock::release();
         cx.notify();
     }
 
@@ -170,19 +204,29 @@ impl Host {
     }
 
     fn render_title(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let line: SharedString = match &self.files {
+        let line: SharedString = match (&self.files, &self.scene_failed, self.belt) {
+            // The belt is drawn and the rows file isn't coming: the dots
+            // keep their count, and the table has nothing.
+            (Files::Failed(message), _, Some(belt)) => format!(
+                "{} The table's rows didn't load. {message}",
+                belt_line(belt)
+            )
+            .into(),
+            (Files::Failed(message), _, None) => {
+                format!("The asteroids didn't load. {message}").into()
+            }
+            (_, Some(message), _) => format!("The scene didn't start. {message}").into(),
+            // The dots on screen, counted from the rows, and the rows that
+            // have no dot.
+            (_, None, Some(belt)) => belt_line(belt).into(),
             // No count until it's counted from the rows.
-            Files::Loading { received, total } if *total > 0.0 => format!(
+            (Files::Loading { received, total }, None, None) if *total > 0.0 => format!(
                 "Loading the asteroids: {:.0} of {:.0} MB",
                 received / 1e6,
                 total / 1e6
             )
             .into(),
-            Files::Loading { .. } => "Loading the asteroids…".into(),
-            Files::Failed(message) => format!("The asteroids didn't load. {message}").into(),
-            Files::Held => {
-                format!("{} asteroids, each a row of the table.", grouped(self.rows)).into()
-            }
+            (Files::Loading { .. } | Files::Held, None, None) => "Loading the asteroids…".into(),
         };
         div()
             .absolute()
@@ -209,15 +253,34 @@ impl Host {
     fn render_time_control(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let running = clock::running();
-        let failed = matches!(self.files, Files::Failed(_));
+        // No belt, and none coming: there's no time to run. (A rows file
+        // that fails after the belt is drawn leaves the belt its clock.)
+        let failed = self.belt.is_none()
+            && (matches!(self.files, Files::Failed(_)) || self.scene_failed.is_some());
+        let ended = clock::ended();
         let says = if failed {
             "no asteroids to move"
         } else if clock::held() {
             "waiting for the asteroids"
         } else if running {
             "1 year a second"
+        } else if ended {
+            // Every dot is on its 2026 orbit: a picture of the belt, and
+            // not a forecast this far from it.
+            "as far as 2026's orbits go"
         } else {
             "paused"
+        };
+        let tooltip: SharedString = if running {
+            "Pause time".into()
+        } else if ended {
+            format!(
+                "Run time again, from {}",
+                clock::date(clock::starts_over_at())
+            )
+            .into()
+        } else {
+            "Run time".into()
         };
         div()
             .absolute()
@@ -241,8 +304,7 @@ impl Host {
                         .ghost()
                         .xsmall()
                         .label(if running { "Pause" } else { "Run" })
-                        .tooltip(if running { "Pause time" } else { "Run time" })
-                        // Nothing loaded: there's no time to run.
+                        .tooltip(tooltip)
                         .disabled(failed)
                         .on_click(cx.listener(|_, _, _, cx| {
                             clock::set_running(!clock::running());
@@ -351,12 +413,28 @@ impl Host {
 impl Render for Host {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.step_slide(window);
-        let root = div()
-            .relative()
-            .size_full()
-            .text_color(cx.theme().foreground)
-            .child(self.render_title(cx))
-            .child(self.render_time_control(cx));
+        // The scene centers its picture in what the panel leaves.
+        scene::set_inset(self.panel_t * PANEL_WIDTH);
+        let root =
+            div()
+                .relative()
+                .size_full()
+                .text_color(cx.theme().foreground)
+                // Under everything: what the title, the time control, the
+                // handle, and the panel don't take is the scene's. They occlude
+                // it, so a wheel over the table never zooms.
+                .child(div().id("scene").absolute().inset_0().on_scroll(
+                    |event: &ScrollEvent, _, _| {
+                        let delta = event.delta.pixel_delta(px(16.)).y;
+                        scene::wheel(
+                            event.position.x.into(),
+                            event.position.y.into(),
+                            delta.into(),
+                        );
+                    },
+                ))
+                .child(self.render_title(cx))
+                .child(self.render_time_control(cx));
         match &self.table {
             Some(table) if self.panel_t > 0.0 => root.child(self.render_panel(&table.clone(), cx)),
             _ => root.child(self.render_handle(cx)),
@@ -364,18 +442,27 @@ impl Render for Host {
     }
 }
 
-/// The clock's date, a view of its own: while time moves it redraws at
-/// [`DATE_EVERY`], and nothing else in the window redraws with it.
-struct DateLabel;
+/// The clock's date, a view of its own: it looks at the clock every
+/// [`DATE_EVERY`], and asks for a redraw when the date it shows is old, or
+/// when the clock stopped or started under it (the scene's reading can
+/// carry it to its last day, where it stops).
+struct DateLabel {
+    /// The clock as last shown: its years, and whether it ran.
+    shown: (f64, bool),
+}
 
 impl DateLabel {
     fn new(cx: &mut Context<Self>) -> Self {
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(DATE_EVERY).await;
-                let alive = this.update(cx, |_, cx| {
+                let alive = this.update(cx, |this, cx| {
                     if clock::moves() {
                         clock::advance(now());
+                    }
+                    let clock = (clock::years(), clock::running());
+                    if clock != this.shown {
+                        this.shown = clock;
                         cx.notify();
                     }
                 });
@@ -385,7 +472,9 @@ impl DateLabel {
             }
         })
         .detach();
-        Self
+        Self {
+            shown: (clock::years(), clock::running()),
+        }
     }
 }
 
@@ -417,6 +506,24 @@ fn ease(k: f64) -> f64 {
     }
 }
 
+/// What's drawn, counted from the rows: the dots, and the rows that have
+/// none and why.
+fn belt_line(belt: Belt) -> String {
+    let dots = format!(
+        "{} asteroids, each on its own orbit, and every dot is a row.",
+        grouped(belt.drawn)
+    );
+    match belt.unbound {
+        0 => dots,
+        1 => format!(
+            "{dots} 1 more row has no dot: it's passing through, on a path that never closes."
+        ),
+        unbound => format!(
+            "{dots} {unbound} more rows have no dot: they're passing through, on paths that never close."
+        ),
+    }
+}
+
 /// A count with its thousands apart: `1,580,272`.
 fn grouped(n: usize) -> String {
     let digits = n.to_string();
@@ -432,7 +539,18 @@ fn grouped(n: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::grouped;
+    use super::{Belt, belt_line, grouped};
+
+    #[test]
+    fn the_rows_with_no_dot_are_counted_apart() {
+        let line = |drawn, unbound| belt_line(Belt { drawn, unbound });
+        assert_eq!(
+            line(1_580_265, 7),
+            "1,580,265 asteroids, each on its own orbit, and every dot is a row. 7 more rows have no dot: they're passing through, on paths that never close."
+        );
+        assert!(line(10, 1).contains("1 more row has no dot"));
+        assert!(line(10, 0).ends_with("every dot is a row."));
+    }
 
     #[test]
     fn counts_are_grouped_by_thousands() {

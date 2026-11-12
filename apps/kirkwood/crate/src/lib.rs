@@ -7,17 +7,27 @@
 //!   columns ([`rows`]), as one table of the sample's 18 columns
 //!   ([`catalog`]);
 //! - the table's source over them ([`table`]): every page a view;
-//! - the clock ([`clock`]);
+//! - the clock ([`clock`]), and where an orbit puts its body at a time on
+//!   it, in 64-bit floats ([`orbit`]): a row's place, and Jupiter's;
 //! - the interface ([`host`]): the title, the time control, and the table
-//!   in a panel behind its handle;
-//! - on the web, the entry point and the files' arrival (`web`).
+//!   in a panel behind its handle, over a surface that hands the scene its
+//!   wheel (`scene`);
+//! - on the web, the entry point, the files' arrival, and what the scene
+//!   asks each frame (`web`).
+//!
+//! The scene itself is the page's (`web/src/scene.ts`, Three.js): its
+//! attributes are views over the elements' columns, here in this memory.
 
 pub mod bytes;
 pub mod catalog;
 pub mod clock;
 pub mod elements;
 mod host;
+pub mod orbit;
 pub mod rows;
+pub mod scene;
+#[cfg(test)]
+mod shader;
 mod table;
 #[cfg(target_family = "wasm")]
 mod web;

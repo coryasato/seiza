@@ -102,3 +102,18 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene"; the check: [`dat
 - **The spike's surface colors were the theme's.** Its hex constants for the handle and the panel were gpui-kit's dark `popover`, `border`, and `muted_foreground`; the app names the tokens.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table", "Data", "Scene", "Planning"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.
+
+## M2, part B: the belt on its orbits (2026-11-11)
+
+**Surprises:**
+- **The clock we worried about was fine, and the solver nobody questioned was wrong.** Two open questions were about the shader's 32-bit clock far from the epoch. Run in floats against the 64-bit place, the clock costs a hundredth of a pixel at 50 years; the spike's six Newton steps put a row 30 px off at the epoch itself, and hundreds of au off at the ends. The estimate that raised the worry had mirrored only the clock's sum and solved the equation in 64 bits.
+- **The wrong rows were never seen.** One to three dots of 1.58 million in the wrong place can't be found by looking, and every screenshot of the spike was right. Only a comparison of every row, in arithmetic, shows them.
+- **A real GPU agreed to a twentieth of a pixel.** Three rows drawn alone and found in a screenshot sat 0.02 to 0.05 px from where 64-bit math put them, a decade out as well as at the epoch.
+- **The Sun came out yellow.** Three.js holds a color in linear light and a hand-written shader gets it raw: the Sun's `fff3d6` was drawn as `ffe5ab` until the shader wrote it out as the display's. The check that caught it was reading the disc's color where the crate puts the Sun.
+- **Nothing had to be decided about a slow link to show something on one.** The scene's module is a hundredth of the elements' size, so starting it first puts the Sun, Jupiter, and its orbit on screen for the whole wait, as a side effect.
+- **A view of memory is only good for the task that made it.** The scene asks the crate everything first, then makes its views and uploads them with no call into the wasm between: any call could grow the memory and empty the views before the GPU read them. The same fact leaves a lost WebGL context unhandled.
+- **Seven rows are a sentence, not a shader.** Drawing the hyperbolas would have meant a second solver for seven points far outside the picture; counting them apart took a line of text and made the count on screen more exact than the one before it.
+- **The date label had to notice the clock stopping.** The scene's own reading carries the clock to its last day, so a label that redraws only while time moves would have frozen a few days short of the end.
+- **Fifty seconds to the end of time.** At a year a second the whole reach from today is under a minute, inside the two minutes the app hopes a visitor stays.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Input"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.

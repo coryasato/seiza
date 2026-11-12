@@ -1,9 +1,15 @@
 //! The clock: years since the elements' epoch, one a second while it runs.
 //!
 //! It's moved by whoever reads it ([`advance`]), never by one reader's
-//! frames alone: the date at its own rate, and whatever else shows the time.
-//! A year is one turn of a 1 au orbit ([`YEAR_DAYS`]), so a row's mean
-//! anomaly needs no offset and its period is its a^1.5.
+//! frames alone: the scene each frame, the date at its own rate, and
+//! whatever else shows the time. A year is one turn of a 1 au orbit
+//! ([`YEAR_DAYS`]), so a row's mean anomaly needs no offset and its period
+//! is its a^1.5.
+//!
+//! It goes from 1976-06-09 to 2076-06-09 and no further ([`reach`]): a
+//! row's place is its 2026 ellipse, a picture of the belt and not a
+//! forecast that far out (`docs/DECISIONS.md`, "Scene"). At the last day it
+//! stops; run again, it starts over from the day it opened on.
 
 use std::cell::Cell;
 
@@ -14,6 +20,11 @@ use crate::rows::civil;
 const EPOCH_DAY: f64 = EPOCH_JD - 2_440_587.5;
 /// The clock's years in a second while it runs: what the time control says.
 const YEARS_A_SECOND: f64 = 1.0;
+/// How far the clock goes each way from the epoch, in days: back to
+/// 1976-06-09 and on to 2076-06-09, the span the files' places were
+/// checked over (`data/horizons.json`).
+const REACH_BACK_DAYS: f64 = 18_262.0;
+const REACH_ON_DAYS: f64 = 18_263.0;
 /// A gap between two readings past this is a stall (a tab back from the
 /// background): the clock doesn't jump by the time it was away.
 const STALL_MS: f64 = 500.0;
@@ -23,6 +34,8 @@ const MAX_STEP_MS: f64 = 100.0;
 #[derive(Clone, Copy)]
 struct Clock {
     years: f64,
+    /// Where it opened: where it starts over from.
+    opened: f64,
     running: bool,
     /// Held until there's something to move: the asteroids are still
     /// arriving. The time control's own state is kept under it.
@@ -34,14 +47,29 @@ struct Clock {
 
 thread_local! {
     static CLOCK: Cell<Clock> = const {
-        Cell::new(Clock { years: 0.0, running: true, held: true, last_ms: f64::NAN })
+        Cell::new(Clock {
+            years: 0.0,
+            opened: 0.0,
+            running: true,
+            held: true,
+            last_ms: f64::NAN,
+        })
     };
 }
 
-/// Starts the clock `day` days after 1970-01-01, running or not.
+/// The first and last of the clock's years.
+pub fn reach() -> (f64, f64) {
+    (-REACH_BACK_DAYS / YEAR_DAYS, REACH_ON_DAYS / YEAR_DAYS)
+}
+
+/// Starts the clock `day` days after 1970-01-01 (or at the nearest day it
+/// reaches), running or not.
 pub fn start(day: f64, running: bool) {
+    let (first, last) = reach();
+    let years = ((day - EPOCH_DAY) / YEAR_DAYS).clamp(first, last);
     CLOCK.set(Clock {
-        years: (day - EPOCH_DAY) / YEAR_DAYS,
+        years,
+        opened: years,
         running,
         ..CLOCK.get()
     });
@@ -58,8 +86,17 @@ pub fn advance(now_ms: f64) -> f64 {
             step.max(0.0)
         };
         clock.years += step / 1000.0 * YEARS_A_SECOND;
+        // The last day: the clock stops there.
+        let last = reach().1;
+        if clock.years >= last {
+            clock.years = last;
+            clock.running = false;
+        }
     }
-    clock.last_ms = now_ms;
+    // Its readers don't share a time source (a frame's own timestamp is
+    // earlier than the page clock read inside that frame): a reading from
+    // before the last one moves nothing, and mustn't be counted twice.
+    clock.last_ms = clock.last_ms.max(now_ms);
     CLOCK.set(clock);
     clock.years
 }
@@ -85,12 +122,32 @@ pub fn moves() -> bool {
     clock.running && !clock.held
 }
 
-/// Runs or pauses, from now.
+/// Whether the clock stands at its last day, with nowhere on to run.
+pub fn ended() -> bool {
+    CLOCK.get().years >= reach().1
+}
+
+/// Where the clock starts over from, run again at its last day: the day it
+/// opened on, or the epoch if that was the last day itself.
+pub fn starts_over_at() -> f64 {
+    let opened = CLOCK.get().opened;
+    if opened < reach().1 { opened } else { 0.0 }
+}
+
+/// Runs or pauses, from now. Run at the last day, it starts over
+/// ([`starts_over_at`]).
 pub fn set_running(running: bool) {
+    let clock = CLOCK.get();
+    let years = if running && ended() {
+        starts_over_at()
+    } else {
+        clock.years
+    };
     CLOCK.set(Clock {
+        years,
         running,
         last_ms: f64::NAN,
-        ..CLOCK.get()
+        ..clock
     });
 }
 
@@ -116,7 +173,9 @@ pub fn date(years: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{EPOCH_DAY, advance, date, release, set_running, start, years};
+    use super::{
+        EPOCH_DAY, advance, date, ended, reach, release, running, set_running, start, years,
+    };
     use crate::elements::YEAR_DAYS;
 
     #[test]
@@ -144,5 +203,35 @@ mod tests {
         advance(70_000.0);
         assert!((advance(70_100.0) - 0.45).abs() < 1e-12);
         assert!((years() - 0.45).abs() < 1e-12);
+        // A reader a little behind the last one doesn't make time count twice.
+        advance(70_098.0);
+        assert!((advance(70_200.0) - 0.55).abs() < 1e-12);
+    }
+
+    #[test]
+    fn the_clock_stops_at_its_last_day_and_starts_over() {
+        let (first, last) = reach();
+        assert_eq!(date(first), "1976 Jun 09");
+        assert_eq!(date(last), "2076 Jun 09");
+        // A day past either end opens on the end.
+        start(-40_000.0, true);
+        assert_eq!(years(), first);
+        start(EPOCH_DAY + 1e6, true);
+        assert_eq!(years(), last);
+        // Half a second short of the last day.
+        start(EPOCH_DAY + (last - 0.5) * YEAR_DAYS, true);
+        release();
+        let opened = years();
+        advance(0.0);
+        assert!(advance(400.0) < last && running() && !ended());
+        assert_eq!(advance(800.0), last);
+        assert!(ended() && !running());
+        assert_eq!(advance(1200.0), last, "stopped");
+        // Run again: from the day it opened on.
+        set_running(true);
+        assert!(running() && !ended());
+        assert_eq!(years(), opened);
+        advance(2000.0);
+        assert!((advance(2100.0) - (opened + 0.1)).abs() < 1e-12);
     }
 }

@@ -42,6 +42,8 @@ impl Element {
 pub struct Elements {
     bytes: Bytes,
     rows: usize,
+    /// The rows with an ellipse, counted once as the file is read.
+    bound: usize,
 }
 
 impl Elements {
@@ -63,7 +65,13 @@ impl Elements {
                 bytes.len()
             ));
         }
-        Ok(Self { bytes, rows })
+        let mut elements = Self {
+            bytes,
+            rows,
+            bound: 0,
+        };
+        elements.bound = (0..rows).filter(|row| elements.is_bound(*row)).count();
+        Ok(elements)
     }
 
     pub fn rows(&self) -> usize {
@@ -76,6 +84,18 @@ impl Elements {
         assert!(row < self.rows);
         self.bytes
             .f32_at(HEADER + (element as usize * self.rows + row) * 4)
+    }
+
+    /// Where the columns are in memory: [`Element::COUNT`] runs of
+    /// [`Self::rows`] 32-bit floats, end to end, in the file's order. The
+    /// scene's attributes are views over them.
+    pub fn columns_ptr(&self) -> *const f32 {
+        self.bytes.as_ptr().wrapping_add(HEADER).cast()
+    }
+
+    /// The rows whose orbit is an ellipse: the ones the scene draws.
+    pub fn bound(&self) -> usize {
+        self.bound
     }
 
     /// Whether a row's orbit is an ellipse. A row whose isn't (e not below

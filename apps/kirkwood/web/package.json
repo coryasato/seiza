@@ -10,6 +10,10 @@
     "typecheck": "tsc -p . && tsc -p ../checks && tsc -p ../data && tsc -p ../../../shared-web/perf"
   },
   "dependencies": {
-    "@seiza/web": "*"
+    "@seiza/web": "*",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.187.0"
   }
 }

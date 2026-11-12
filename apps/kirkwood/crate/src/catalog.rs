@@ -3,6 +3,8 @@
 //! (`docs/data.md`). A, e, i, and H are the elements file's own floats, so a
 //! cell and its dot never disagree; q and the period follow from a and e.
 
+use std::rc::Rc;
+
 use seiza_tall_table::{CellValue, ColumnKind, TallTableColumn};
 
 use crate::elements::{Element, Elements, YEAR_DAYS};
@@ -56,13 +58,14 @@ pub const NAMES: [&str; column::COUNT] = [
 /// Every row: its orbit and H from the elements file, the rest of it from
 /// the rows file.
 pub struct Catalog {
-    elements: Elements,
+    /// Shared with the scene's side, which has them before the rows arrive.
+    elements: Rc<Elements>,
     rows: Rows,
 }
 
 impl Catalog {
     /// The two files as one, if they're of the same rows.
-    pub fn new(elements: Elements, rows: Rows) -> Result<Self, String> {
+    pub fn new(elements: Rc<Elements>, rows: Rows) -> Result<Self, String> {
         if elements.rows() != rows.rows() {
             return Err(format!(
                 "the elements file has {} rows and the rows file {}: they aren't one fetch's",
@@ -250,7 +253,7 @@ mod tests {
     fn catalog() -> Catalog {
         let elements = Elements::new(file("elements.bin")).expect("the elements file");
         let rows = Rows::new(file("rows.bin")).expect("the rows file");
-        Catalog::new(elements, rows).expect("one fetch's files")
+        Catalog::new(elements.into(), rows).expect("one fetch's files")
     }
 
     /// A fetched cell as a number: JPL writes its floats as text.

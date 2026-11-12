@@ -2,7 +2,7 @@
 
 > *Daniel Kirkwood found the gaps in the asteroid belt in the 1860s without a telescope: certain orbit sizes were missing from the catalog.*
 
-**Being built.** What runs today is the table: 1,580,272 asteroids, every row held in the page's memory, in a panel behind a handle. The scene, the belt itself, isn't drawn yet.
+**Being built.** What runs today: the belt in space, 1,580,265 asteroids each on its own orbit around the Sun, with Jupiter on its, and time running at a year a second from 1976 to 2076; and the table of all 1,580,272 rows, held in the page's memory, in a panel behind a handle. Every dot is still the same pale dust: its color, its brightness, and the sky behind it aren't built yet, and neither is anything that links a dot to its row.
 
 Kirkwood is the asteroid belt as a scene to fly through, drawn from a table of 1.58 million asteroids (NASA/JPL), with that table beside it. **Every dot is a row:** click a row and the camera flies to it; draw around a group of dots and the table shows their rows.
 
@@ -19,6 +19,8 @@ It's a showcase: an app for fun around the table that [Tycho](../tycho/) is buil
 
 - **Dot sizes are exaggerated.** At true scale every asteroid is an invisible speck millions of kilometers from the next; the belt is empty.
 - **The gaps aren't shown forming.** That took millions of years. The orbits are computed from each asteroid's measured elements.
+- **Every dot is on its 2026 orbit.** Each asteroid keeps the ellipse it was on in June 2026, as if only the Sun pulled on it. That is its real place that day and close to it for a decade either side; further out it's a picture of the belt, not a forecast, so the date stops at 1976 and 2076.
+- **Seven rows have no dot.** They're passing through the solar system on paths that never close, and the page counts them apart.
 
 ## Canvas tradeoffs
 

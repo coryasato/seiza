@@ -9,14 +9,27 @@
     <link rel="icon" href="data:," />
     <meta name="description" content="The asteroid belt, drawn from a table of 1.58 million orbits: every dot is a row." />
     <style>
-      /* GPUI appends its canvas to <body> and sizes it to 100%. The page is
-         dark whatever the system is, in the color the window is filled with
-         (the crate's `PAGE`), so nothing flashes before the first frame. */
+      /* Two canvases, stacked: the scene's (Three.js, started after the
+         first frame) under GPUI's, which GPUI appends to <body> and which
+         composites by its alpha (src/alpha.ts), so the scene shows wherever
+         GPUI drew nothing. Until the scene draws, that's the page's own
+         background: dark whatever the system is, and the color the scene
+         clears to, so nothing flashes. */
       html, body { margin: 0; height: 100%; overflow: hidden; background: #05060a; color: #fafafa; }
-      body > canvas { display: block; }
+      canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+      #scene { z-index: 0; }
+      body > canvas:not(#scene) { z-index: 2; }
+      /* The names of what the scene adds (the Sun, Jupiter), between the
+         two canvases: the scene places each in the frame that draws its
+         body. The interface's face and its muted text (gpui-kit's dark
+         `muted_foreground`), with the page's color behind each letter. */
+      #names { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; font: 12px/18px 'IBM Plex Sans', system-ui, sans-serif; color: oklch(0.708 0 0); }
+      #names > div { position: absolute; left: 0; top: 0; white-space: nowrap; text-shadow: 0 0 3px #05060a, 0 0 3px #05060a; }
     </style>
   </head>
   <body>
+    <canvas id="scene"></canvas>
+    <div id="names" aria-hidden="true"></div>
     <noscript>Kirkwood needs JavaScript and WebAssembly.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
