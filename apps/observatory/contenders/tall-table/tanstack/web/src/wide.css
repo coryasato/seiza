@@ -3,6 +3,8 @@
    set on the frame), the key columns pinned, heat cells. Imported only by
    the wide level's build (`./level.css`, `vite.config.ts`). */
 
+@import './wide-theme.css';
+
 .frame.wide { position: relative; }
 
 .wide .row { height: var(--row); }
@@ -27,3 +29,32 @@
 .wide .cell.on-fill { color: var(--background); }
 
 .wide .cell.pending > .bar { height: var(--skeleton-height); }
+
+/* The selection (select.ts, wide-tools.ts), as the table draws it: a tint
+   over the selected cells' fills (and their row's line, which a selected
+   cell reaches over), under their text, and the range's and the active
+   cell's edges as inset shadows (`wide.ts`'s `selectionEdges`); the
+   selected rows' numbers and columns' names tinted. The key columns and
+   the row numbers reach over the line too, drawing it themselves, so a
+   selected cell scrolled under them never shows there. */
+.wide .row > .cell.sel { background-image: linear-gradient(var(--table-active), var(--table-active)); }
+/* Over the line, their content as tall as before (a loading bar centered there). */
+.wide .row > .cell.sel, .wide .row > .pin, .wide .row > .num { height: var(--row); padding-bottom: 1px; }
+.wide .row > .pin, .wide .row > .num { background: linear-gradient(var(--table-row-border), var(--table-row-border)) 0 100% / 100% 1px no-repeat, var(--table); }
+.wide .row.odd > .pin, .wide .row.odd > .num { background: linear-gradient(var(--table-row-border), var(--table-row-border)) 0 100% / 100% 1px no-repeat, linear-gradient(var(--table-even), var(--table-even)), var(--table); }
+.wide .row > .pin.sel, .wide .row > .num.sel { background: linear-gradient(var(--table-active), var(--table-active)), linear-gradient(var(--table-row-border), var(--table-row-border)) 0 100% / 100% 1px no-repeat, var(--table); }
+.wide .row.odd > .pin.sel, .wide .row.odd > .num.sel { background: linear-gradient(var(--table-active), var(--table-active)), linear-gradient(var(--table-row-border), var(--table-row-border)) 0 100% / 100% 1px no-repeat, linear-gradient(var(--table-even), var(--table-even)), var(--table); }
+.wide .head > .cell.sel { background-image: linear-gradient(var(--table-active), var(--table-active)); }
+.wide .head > .pin.sel { background: linear-gradient(var(--table-active), var(--table-active)), linear-gradient(var(--table-head), var(--table-head)), var(--table); }
+
+/* The resize bands (wide-tools.ts): a 1 px hairline at each column's
+   right edge with 4 px on each side, lit hovered or dragged; the scrolled
+   columns' in the header, under the pinned names; the pinned columns'
+   over the frame, clipped to the cells, under the run's edge. */
+.wide .band { position: absolute; top: 0; z-index: 0; width: 9px; height: var(--row); cursor: col-resize; }
+.wide .band > .hairline { position: absolute; top: 0; left: 4px; width: 1px; height: 100%; background: var(--table-row-border); }
+.wide .band:hover > .hairline, .wide .band.lit > .hairline { background: var(--border); }
+.wide > .bands { position: absolute; top: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.wide > .bands > .band { pointer-events: auto; }
+/* The cursor held window-wide while a drag resizes. */
+html.col-resizing, html.col-resizing * { cursor: col-resize !important; }

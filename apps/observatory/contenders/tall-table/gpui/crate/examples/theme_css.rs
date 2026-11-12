@@ -5,7 +5,8 @@
 //! page's where it sets the root's `data-theme`. The DOM side draws the same colors without
 //! anyone copying a hex value by hand. The monitoring wall's grid color, the
 //! sidebar's, goes in a file of its own (`wall-theme.css`), which only the
-//! wall level's CSS imports, so no other level's bundle changes.
+//! wall level's CSS imports, so no other level's bundle changes; so does the
+//! wide sheet's selection edge (`wide-theme.css`, the wide level's).
 //!
 //! `cargo run -p tall-table-gpui --example theme_css` writes them; with
 //! `-- --check` it fails if a committed file differs (`just observatory
@@ -21,6 +22,10 @@ const OUT: &str = concat!(
 const WALL_OUT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../tanstack/web/src/wall-theme.css"
+);
+const WIDE_OUT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../tanstack/web/src/wide-theme.css"
 );
 
 /// The variables, each with the theme field it's read from. The tall
@@ -68,6 +73,12 @@ fn wall_colors(theme: &Theme) -> [(&'static str, Hsla); 1] {
     [("sidebar", theme.sidebar)]
 }
 
+/// The wide sheet's: the edge of the selection's tint and of the active
+/// cell (the tall table's `select`, `render_selection`).
+fn wide_colors(theme: &Theme) -> [(&'static str, Hsla); 1] {
+    [("table-active-border", theme.table_active_border)]
+}
+
 fn block<const N: usize>(
     theme: &Theme,
     colors: fn(&Theme) -> [(&'static str, Hsla); N],
@@ -89,7 +100,7 @@ fn block<const N: usize>(
 
 /// The file: `colors` light and dark; with `scheme`, the root's color
 /// scheme too, and with `radius`, the theme's radius (the theme's own file
-/// has both; the wall's, which only adds a color to it, neither).
+/// has both; the wall's and the wide sheet's, which only add a color to it, neither).
 fn css<const N: usize>(
     colors: fn(&Theme) -> [(&'static str, Hsla); N],
     scheme: bool,
@@ -152,6 +163,7 @@ fn main() {
     for (out, css) in [
         (OUT, css(colors, true, true)),
         (WALL_OUT, css(wall_colors, false, false)),
+        (WIDE_OUT, css(wide_colors, false, false)),
     ] {
         if check {
             let committed = std::fs::read_to_string(out).unwrap_or_default();

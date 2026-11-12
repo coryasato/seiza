@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node", "vite/client"]
   },
-  "include": ["*.ts", "../src/env.d.ts", "../../../../market", "../../../../tail", "../src/data", "../src/cells.ts", "../src/layout.ts", "../src/density.ts", "../src/paint.ts", "../src/pin.ts", "../src/scene.ts"]
+  "include": ["*.ts", "../src/env.d.ts", "../../../../market", "../../../../tail", "../src/data", "../src/cells.ts", "../src/layout.ts", "../src/density.ts", "../src/paint.ts", "../src/pin.ts", "../src/scene.ts", "../src/select.ts", "../src/resize.ts"]
 }

@@ -21,6 +21,8 @@ import { sceneColumns, type WideScene } from './scene.ts';
 import { SCROLL, ScaledScroller } from './scroll.ts';
 import { CellTooltip } from './tooltip.ts';
 import { EdgeLine, WideHead, WideRow, cellElement, cellRect, publishCells, sheetStyle, useFramePaint, useSheet } from './wide.ts';
+import { PinnedBands, headBands, publishLayout, useWideTools, type ToolRefs, type Tools } from './wide-tools.ts';
+import { selectedColumns, selectedRows } from './select.ts';
 import { FlashTurns, MarketRow, publishMarketCells, type MarketCells } from './market.ts';
 import { TailReader, TailRow, drawnRows, publishTailCells, renotify, setContractGutter, setModelRows, type TailCells } from './tail.ts';
 import { isFollowing, noteTailDrawn } from './data/follow.ts';
@@ -139,7 +141,19 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   // (the open's count is 0), so the gutter grows with them.
   const tail = __LEVEL__ === 'tail' ? (given as TailCells | undefined) : undefined;
   if (__LEVEL__ === 'tail') rows = paging.rows;
-  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : (__LEVEL__ === 'market' || __LEVEL__ === 'wall') && market ? market.columns : __LEVEL__ === 'tail' && tail ? tail.columns : layOutAll(fileColumns)), [fileColumns, scene]);
+  // The wide level's tools (`resize`, `select`): their widths lay the
+  // columns out; the rest of what they read is the table's, at an input.
+  const frameRef = __LEVEL__ === 'wide' ? useRef<HTMLDivElement>(null) : null;
+  const columnsRef = __LEVEL__ === 'wide' ? useRef<readonly LaidOutColumn[]>([]) : null;
+  const tools: Tools | null =
+    __LEVEL__ === 'wide' && scene
+      ? useWideTools((): ToolRefs => ({ frame: frameRef!, scroller: scrollerRef, model: modelRef, sheet: sheetRef, columns: columnsRef! }), scene, () => gutter, rows, paging)
+      : null;
+  const columns = useMemo(
+    (): LaidOutColumn[] => (scene ? sceneColumns(fileColumns, scene, tools?.widths) : (__LEVEL__ === 'market' || __LEVEL__ === 'wall') && market ? market.columns : __LEVEL__ === 'tail' && tail ? tail.columns : layOutAll(fileColumns)),
+    __LEVEL__ === 'wide' ? [fileColumns, scene, tools?.widths] : [fileColumns, scene],
+  );
+  if (__LEVEL__ === 'wide' && columnsRef) columnsRef.current = columns;
   const gutter = gutterWidth(rows, sizes);
   const width = gutter + columns.reduce((sum, column) => sum + column.width, 0);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -152,7 +166,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   const measured = useMemo(measuring, []);
   // The wide level's pin, its scrolled columns, and its paint (a build
   // constant, so the hooks run the same every render).
-  const sheet = __LEVEL__ === 'wide' && scene ? useSheet(scrollerRef, columns, scene, gutter) : null;
+  const sheet = __LEVEL__ === 'wide' && scene ? useSheet(scrollerRef, columns, scene, gutter, tools?.held?.pinned ?? null) : null;
   const paint = __LEVEL__ === 'wide' && scene ? useFramePaint() : null;
   const sheetRef = useRef(sheet);
   sheetRef.current = sheet;
@@ -192,7 +206,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     tooltipRef.current = new CellTooltip(scroller, (row, column) => {
       const state = paging.row(row);
       if (state.kind !== 'loaded') return undefined;
-      const laidOut = columns[column];
+      const laidOut = (__LEVEL__ === 'wide' && columnsRef ? columnsRef.current : columns)[column];
       const tooltip = laidOut ? cellTooltip(laidOut, state.page.value(state.index, column)) : null;
       if (!tooltip) return null;
       // The market level: a fitted text opens it only where the format
@@ -216,7 +230,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
             const shown = sheetRef.current;
             const heat = paintRef.current?.heat;
             if (!shown || !heat) return;
-            publishCells(scroller, columns, shown, gutter, scene, heat, (row) => {
+            publishCells(scroller, columnsRef!.current, shown, gutter, scene, heat, (row) => {
               const state = paging.row(row);
               return state.kind === 'loaded' ? { page: state.page, index: state.index } : null;
             });
@@ -232,6 +246,8 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     // every table's filled goes to the wall's frame, which marks across them.
     const contract = new TableContract(open, paging, model, scroller, columns, gutter, __LEVEL__ === 'wall' ? measured && wall?.cells.desk === 0 : measured, rowHeight, probe);
     if (__LEVEL__ === 'wall' && wall) wallContract(contract, { tables: wall.frame.tables, filled: (filled) => wall.frame.check(wall.cells.desk, filled) });
+    // The wide level's: the replay's jump selects the row it lands on, as the table's `jump_to`.
+    if (__LEVEL__ === 'wide' && tools) contract.jumped = tools.jumped;
     contractRef.current = contract;
     // Subscribed before the virtualizer, whose render checks.
     model.subscribe(() => contract.moveStarted());
@@ -271,13 +287,20 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       model.destroy();
       modelRef.current = null;
     };
-  }, [open, __LEVEL__ === 'tail' ? 0 : rows, paging, columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
+  }, [open, __LEVEL__ === 'tail' ? 0 : rows, paging, __LEVEL__ === 'wide' ? fileColumns : columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
+
+  // The wide level's layout with `?measure`, at each change but a resize
+  // drag's moves (the table's `Layout`, which its release reports).
+  if (__LEVEL__ === 'wide')
+    useLayoutEffect(() => {
+      if (measured && tools && sheet && tools.resizing === null && scrollerRef.current) publishLayout(scrollerRef.current, columns, sheet, gutter, rowHeight);
+    }, [columns, sheet?.cellsWidth, sheet?.pin.columns, tools?.resizing]);
 
   // The contract after each commit, and after each move that rendered
   // nothing (the rows were drawn already). Subscribed after the
   // virtualizer, whose subscriber renders first.
   useLayoutEffect(() => contractRef.current?.check());
-  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, __LEVEL__ === 'tail' ? 0 : rows, paging, columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
+  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, __LEVEL__ === 'tail' ? 0 : rows, paging, __LEVEL__ === 'wide' ? fileColumns : columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
   // The table gone (a new open replaced it): its reads and timers stop.
   useEffect(() => () => paging.close(), [paging]);
 
@@ -456,6 +479,10 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   const model = modelRef.current;
   const base = windowBase();
   rendered.current = { window: base, content: model?.base ?? 0 };
+  // The wide level's selection: the rows and columns it covers.
+  const selection = __LEVEL__ === 'wide' ? (tools?.selection ?? null) : null;
+  const selRows = __LEVEL__ === 'wide' && selection ? selectedRows(selection, rows) : null;
+  const selColumns = __LEVEL__ === 'wide' && selection ? selectedColumns(selection, columns.length) : null;
   const shown = model
     ? virtualizer
         .getVirtualItems()
@@ -493,7 +520,8 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
               market,
               turns,
             });
-          if (__LEVEL__ === 'wide' && sheet && paint && scene)
+          if (__LEVEL__ === 'wide' && sheet && paint && scene) {
+            const inRange = selRows !== null && selColumns !== null && row >= selRows[0] && row <= selRows[1];
             return h(WideRow, {
               key: row,
               row,
@@ -511,7 +539,13 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
               frame: paint.frame,
               heat: paint.heat,
               measured,
+              selFrom: inRange ? selColumns![0] : -1,
+              selTo: inRange ? selColumns![1] : -1,
+              selTop: inRange && row === selRows![0],
+              selBottom: inRange && row === selRows![1],
+              active: inRange && tools!.focused && tools!.selection!.anchor[0] === row ? tools!.selection!.anchor[1] : -1,
             });
+          }
           return h(Row, {
             key: row,
             row,
@@ -526,18 +560,22 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
         })
     : [];
 
-  if (__LEVEL__ === 'wide' && sheet && scene)
+  if (__LEVEL__ === 'wide' && sheet && scene && tools) {
+    // A resize holds the content reaching the view's right until the release.
+    const held = tools.held ? gutter + Math.max(width - gutter, tools.held.right) : width;
     return h(
       'div',
-      { className: 'frame wide', style: sheetStyle(sizes) },
+      { ref: frameRef, className: 'frame wide', style: sheetStyle(sizes) },
       h(
         'div',
         { ref: scrollerRef, className: 'scroller', tabIndex: 0, ...tableAria(rows), 'aria-colcount': columns.length },
-        h(WideHead, { columns, sheet, gutter, width, sizes }),
-        h('div', { ref: spacerRef, className: 'spacer', style: { width }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
+        h(WideHead, { columns, sheet, gutter, width: held, sizes, selected: selColumns, bands: headBands(columns, sheet, gutter, tools.resizing) }),
+        h('div', { ref: spacerRef, className: 'spacer', style: { width: held }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
       ),
+      h(PinnedBands, { columns, sheet, gutter, lit: tools.resizing, sizes }),
       h(EdgeLine, { sheet, gutter }),
     );
+  }
   return h(
     'div',
     { className: 'frame' },

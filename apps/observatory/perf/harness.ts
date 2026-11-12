@@ -5,7 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from '@playwright/test';
 import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
@@ -115,6 +115,23 @@ export async function protocolContext(browser: Browser, options: { dpr?: number;
 
 /** Collects page errors, console errors and warnings (GPUI's `[WARN]` logs
  *  describe the GPU, not a broken page), and HTTP errors. */
+/** Warnings that aren't a contender's view's: DuckDB-Wasm's own `eh`
+ *  bundle warns in Firefox (the engine's), and Firefox warns of the scroll
+ *  model's content placed from its scroll listener, which is its design
+ *  (`docs/dom-scroll-model.md`). The parity checks drop them from
+ *  `problems`. */
+export const KNOWN_WARNINGS = [/WebAssembly exception handling 'try' instruction is deprecated/, /appears to use a scroll-linked positioning effect/];
+
+/** Playwright's browsers by name, as `--browsers` lists them. */
+export const BROWSER_TYPES: Record<string, BrowserType> = { chromium, firefox, webkit };
+
+/** Whether `a` is within `tolerance` of `b`. */
+export const near = (a: number, b: number, tolerance: number): boolean => Math.abs(a - b) <= tolerance;
+
+/** Resolves after `n` animation frames in the page. */
+export const frames = (page: Page, n = 2): Promise<void> =>
+  page.evaluate((n) => new Promise<void>((resolve) => { const step = (k: number) => (k === 0 ? resolve() : requestAnimationFrame(() => step(k - 1))); step(n); }), n);
+
 export function problems(page: Page): string[] {
   const found: string[] = [];
   page.on('pageerror', (error) => found.push(`pageerror: ${error.message}`));

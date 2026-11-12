@@ -28,7 +28,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
 | M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
-| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2 and B done, C1 next) |
+| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2, B, and C1 done, C2 next) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
@@ -175,9 +175,19 @@ The research's later steps for the wide sheet ([`docs/research/scenarios.md`](do
 ### Part C1: the TanStack side's resize and selection
 
 **Done when:**
-- [ ] **C1-1, the ports** behind `__LEVEL__ === 'wide'` (A1-1's list): `resize.ts` (the bands, the drag live and clamped, the sideways scroll held to the release, the double-click fit, the widths published at a release or fit that changed one; TanStack Virtual's column sizes from them) and `select.ts` (`Rows`, `Columns`, `Cells`, the pointer, the keys, the tint and the active cell's edge per region, Escape). A drag's move applied once a frame in the frame's callback (`flushSync`). The bands take a mouse or a pen only; a tap selects. The base, market, tail, and wall bundles byte-identical to HEAD's.
-- [ ] **C1-2, the fixtures:** `cells.json`'s `resize` section and `selection.json` run in `fixtures.test.ts` (no longer skipped), each with TS counterparts of the native controls failing.
-- [ ] **C1-3, the parity:** `tanstack-parity` at the wide level gains the band's place and cursor, the drag (live, clamped, the sideways scroll held to the release), the fit within a pixel of GPUI's, the selection's press, Shift, drag, and keys, and the tint's place against GPUI's, in Chromium, Firefox, and WebKit.
+- [x] **C1-1, the ports** behind `__LEVEL__ === 'wide'` (A1-1's list): `resize.ts` (the bands, the drag live and clamped, the sideways scroll held to the release, the double-click fit, the widths published at a release or fit that changed one; TanStack Virtual's column sizes from them) and `select.ts` (`Rows`, `Columns`, `Cells`, the pointer, the keys, the tint and the active cell's edge per region, Escape). A drag's move applied once a frame in the frame's callback (`flushSync`). The bands take a mouse or a pen only; a tap selects. The base, market, tail, and wall bundles byte-identical to HEAD's.
+  *Evidence:* `select.ts` and `resize.ts` pure, `wide-tools.ts` their DOM, the selection drawn in the cells, `wide-theme.css` its edge color ([`docs/DECISIONS.md`](docs/DECISIONS.md), "TanStack contender", 2026-11-12). The four other levels' `dist*` `diff -r`-identical to a build of HEAD's tree. The wide first-paint JS +4.4 KiB brotli, 82.2 KiB against the 84.5 budget (`2026-11-12-m14-c1-tanstack-sizes-wide.json`). With `?measure`, `__contender.selection`, `.widths`, and `.layout` published now (C2-3's other globals and marks come with the copy) ([results note](perf/results/2026-11-12-m14-c1.md)).
+- [x] **C1-2, the fixtures:** `cells.json`'s `resize` section and `selection.json` run in `fixtures.test.ts` (no longer skipped), each with TS counterparts of the native controls failing.
+  *Evidence:* `selection.json`'s 13 scenarios pass, each of its 5 controls failing; `resize` passes, the budgets ±1 and the unclamped widths failing. The contender's tests: 109 pass, 2 skipped (`copy.json`, `sort.json`).
+- [x] **C1-3, the parity:** `tanstack-parity` at the wide level gains the band's place and cursor, the drag (live, clamped, the sideways scroll held to the release), the fit within a pixel of GPUI's, the selection's press, Shift, drag, and keys, and the tint's place against GPUI's, in Chromium, Firefox, and WebKit.
+  *Evidence:* `perf/parity-tools.ts`, run by `tanstack-parity` (`2026-11-12-m14-c1-tanstack-parity.json`, all passed in all three browsers):
+  - Fits 46 and 195 px, GPUI's 46 and 195.
+  - Clamped at 31 px as GPUI's.
+  - Twenty selection steps give GPUI's selection and top row; a page key moves by each side's own page (the views 42.3 and 41.5 rows, as the base parity allows).
+  - The tint's box is GPUI's to the pixel, a block a row off differing (the control).
+  - Each band's hairline is at its edge, with `col-resize`, taking the press.
+  - Mid-drag the width is live with nothing published; the sideways scroll is held mid-drag (a trackpad's wheel moving the rows) and clamped at the release.
+  - A pinned column narrowed leaves no strip undrawn, and two keys in one task land flush (the review's fixes).
 
 ### Part C2: the TanStack side's copy
 
@@ -260,12 +270,12 @@ Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.j
 | GPUI contender at the wall level: time to first paint, throttled | — | recorded | 3633.9 ms | — | [2026-11-10-gpui-cold-wall](perf/results/2026-11-10-gpui-cold-wall.json) |
 | GPUI contender at the wall level: wasm (brotli) | ≤ 3218.6 KiB (baseline 2798.8 + 15%) | `check` | 2798.8 KiB | — | [2026-11-10-gpui-cold-wall](perf/results/2026-11-10-gpui-cold-wall.json) |
 | TanStack contender: first-paint JS (brotli) | ≤ 79.3 KiB (baseline 72.1 + 10%) | `check` | 73.8 KiB | — | [2026-11-09-m12-b1-tanstack-sizes](perf/results/2026-11-09-m12-b1-tanstack-sizes.json) |
-| TanStack contender at the wide level: first-paint JS (brotli) | ≤ 84.5 KiB (baseline 76.8 + 10%) | `check` | 77.7 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-wide](perf/results/2026-11-09-m12-b1-tanstack-sizes-wide.json) |
+| TanStack contender at the wide level: first-paint JS (brotli) | ≤ 84.5 KiB (baseline 76.8 + 10%) | `check` | 82.2 KiB | — | [2026-11-12-m14-c1-tanstack-sizes-wide](perf/results/2026-11-12-m14-c1-tanstack-sizes-wide.json) |
 | TanStack contender at the market level: first-paint JS (brotli) | ≤ 83.1 KiB (baseline 75.5 + 10%) | `check` | 75.9 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-market](perf/results/2026-11-09-m12-b1-tanstack-sizes-market.json) |
 | TanStack contender at the tail level: first-paint JS (brotli) | ≤ 84.2 KiB (baseline 76.5 + 10%) | `check` | 76.9 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-tail](perf/results/2026-11-09-m12-b1-tanstack-sizes-tail.json) |
 | TanStack contender at the wall level: first-paint JS (brotli) | ≤ 84.6 KiB (baseline 76.9 + 10%) | `check` | 76.9 KiB | — | [2026-11-10-m13-c1-tanstack-sizes-wall](perf/results/2026-11-10-m13-c1-tanstack-sizes-wall.json) |
 | TanStack contender: data layer and Arrow, after first paint (brotli) | ≤ 38.2 KiB (baseline 34.7 + 10%) | `check` | 34.8 KiB | — | [2026-11-09-m12-b1-tanstack-sizes](perf/results/2026-11-09-m12-b1-tanstack-sizes.json) |
-| TanStack contender at the wide level: data layer and Arrow, after first paint (brotli) | ≤ 38.3 KiB (baseline 34.8 + 10%) | `check` | 34.8 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-wide](perf/results/2026-11-09-m12-b1-tanstack-sizes-wide.json) |
+| TanStack contender at the wide level: data layer and Arrow, after first paint (brotli) | ≤ 38.3 KiB (baseline 34.8 + 10%) | `check` | 34.8 KiB | — | [2026-11-12-m14-c1-tanstack-sizes-wide](perf/results/2026-11-12-m14-c1-tanstack-sizes-wide.json) |
 | TanStack contender at the market level: data layer and Arrow, after first paint (brotli) | ≤ 44.8 KiB (baseline 40.7 + 10%) | `check` | 40.9 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-market](perf/results/2026-11-09-m12-b1-tanstack-sizes-market.json) |
 | TanStack contender at the tail level: data layer and Arrow, after first paint (brotli) | ≤ 42.6 KiB (baseline 38.7 + 10%) | `check` | 39.2 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-tail](perf/results/2026-11-09-m12-b1-tanstack-sizes-tail.json) |
 | TanStack contender at the wall level: data layer and Arrow, after first paint (brotli) | ≤ 47.7 KiB (baseline 43.4 + 10%) | `check` | 43.4 KiB | — | [2026-11-10-m13-c1-tanstack-sizes-wall](perf/results/2026-11-10-m13-c1-tanstack-sizes-wall.json) |

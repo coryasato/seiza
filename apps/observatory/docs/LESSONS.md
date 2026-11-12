@@ -656,3 +656,15 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - The layout global costs a measured run nothing per frame by construction. The table emits `Layout` only when the layout changes, not when the view moves, so the frame-work A/B the spec allowed for had nothing to measure: the object stays the same through a scroll.
 - `cold --write-baseline` on a level dropped that level's TanStack baseline. It replaced the level's entry whole, where the base's merge keeps the TanStack side's. Nothing had rewritten a level's GPUI baseline since that entry was added.
 - The tools cost what the table's bare host measured, the host's code included: +18.9 KiB brotli against its +20.2. Brotli moved the wasm up to 1.6 KiB for under half a KiB of raw code, so a size read before a build's last fix needs reading again.
+
+## M14 part C1: the TanStack side's resize and selection (2026-11-12)
+
+**Results:** [`perf/results/2026-11-12-m14-c1.md`](../perf/results/2026-11-12-m14-c1.md).
+
+**Surprises:**
+- A resize would have rebuilt the scroll model every frame. The view's model, contract, and tooltip were keyed by the laid-out columns, which never changed until a width could. They're now keyed by the file's columns, and read the laid-out ones through a ref.
+- TanStack Virtual doesn't see a column's new width through `estimateSize`. Its measurements are memoized on the item keys, so the column virtualizer's key function now changes with the widths. It also asks for the view's rect only once: the review found that narrowing a pinned column left a blank strip at the right until the view was told again.
+- The table's selection tint covers the rows' lines; DOM cells stop a pixel short of them. Matching it took selected cells that reach over the line, and key columns and row numbers that always do and draw the line themselves, or a selected cell scrolled under the run would tint the line there.
+- A key's scroll on the DOM lands a frame later. The review found that two keys before the scroll event both measured from the old top and overshot. Nothing else in the contender reads the top right after moving it.
+- Sharing the set width's clamp from `layout.ts` moved the base's bundle. Rollup kept the helper as a top-level function and renamed React's internals around it. `layOut` keeps its inline copy, and the test pins the two equal.
+- The view's page is its own. In headless runs the DOM's overlay scrollbar takes no height, so TanStack's view holds 42.3 rows against GPUI's 41.5, and Page Down moves 41 rows against 40. The base parity already allowed for this, so the tools' parity reads each side's page from its own End.

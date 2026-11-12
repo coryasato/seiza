@@ -45,7 +45,12 @@
 //   the edge a scrolled one; Shift+wheel scrolls sideways as a horizontal
 //   wheel does; a vertical wheel holds the header and its pinned names to
 //   the pixel, the pinned cells at their place in the new rows. Control:
-//   the screenshot of a region that scrolls differs.
+//   the screenshot of a region that scrolls differs. Then its tools
+//   (`perf/parity-tools.ts`): the resize bands' place and cursor, a drag
+//   (live, clamped, back at the press, the sideways scroll held to the
+//   release), the fit within a pixel of GPUI's, the selection's presses,
+//   Shift, drag, and keys giving GPUI's selection and top row (a page key
+//   each side's own page), and the tint where GPUI draws it.
 // - The market level (all three; market watch at its default stop, `?cells`,
 //   light and dark): under the feed, Change and Change % drawn in the rise's
 //   or the fall's color by sign (`scenarios.ts`'s, within one 8-bit step), a
@@ -87,7 +92,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from '@playwright/test';
+import { chromium, firefox, type Browser, type Page } from '@playwright/test';
 import { flag, localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { ROW_HEIGHT } from '../contenders/tall-table/tanstack/web/src/layout.ts';
@@ -96,8 +101,9 @@ import { TOOLTIP_DELAY, TOOLTIP_GRACE } from '../contenders/tall-table/tanstack/
 import { LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET, type Oklch } from '../contenders/scenarios.ts';
 import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COLUMNS } from '../contenders/market/feed.ts';
-import { MARKS, dataFile, dataPath, mutedForeground, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack, tailError } from './harness.ts';
+import { BROWSER_TYPES, KNOWN_WARNINGS, MARKS, dataFile, dataPath, frames, mutedForeground, nativeDuckDB, near, perfDir, problems, protocolContext, serveGpui, serveTanstack, tailError } from './harness.ts';
 import { DATA_FILE } from '../contenders/tail/data.ts';
+import { toolsParity } from './parity-tools.ts';
 import { PHONE, WALL_COLUMNS, controlHolds, flashOff, gridDiffers, oneMoreRow, signWrong, wallTables, type WallTable } from './wall-grid.ts';
 
 const PORT = 4319;
@@ -118,10 +124,6 @@ const ROW = ROW_HEIGHT;
 const DELAY = TOOLTIP_DELAY;
 const GRACE = TOOLTIP_GRACE;
 const DRAG_SETTLE = PAGING.dragSettleMs;
-/** DuckDB-Wasm's own `eh` bundle warns in Firefox (the engine's, not the
- *  view's), and Firefox warns of the scroll model's content placed from its
- *  scroll listener, which is its design (`docs/dom-scroll-model.md`). */
-const KNOWN_WARNINGS = [/WebAssembly exception handling 'try' instruction is deprecated/, /appears to use a scroll-linked positioning effect/];
 
 const label = option('label');
 const browsers = (option('browsers') ?? 'chromium,firefox,webkit').split(',');
@@ -131,8 +133,6 @@ const check = (ok: boolean, problem: string) => {
   if (!ok) failures.push(problem);
   return ok;
 };
-const types: Record<string, BrowserType> = { chromium, firefox, webkit };
-const near = (a: number, b: number, tolerance: number) => Math.abs(a - b) <= tolerance;
 
 // --- the file, from native DuckDB ---
 
@@ -163,7 +163,7 @@ const launch = (name: string, headed = false): Promise<Browser> =>
     ? chromium.launch({ channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'] })
     : name === 'firefox'
       ? firefox.launch({ headless: !headed, firefoxUserPrefs: { 'ui.useOverlayScrollbars': 0 } })
-      : types[name]!.launch();
+      : BROWSER_TYPES[name]!.launch();
 
 /** The TanStack contender, open, row 0 drawn with data, its calls logged. */
 async function openTanstack(browser: Browser) {
@@ -200,7 +200,6 @@ async function openTanstack(browser: Browser) {
 const top = (page: Page) => page.evaluate(() => (globalThis as Global).__tanstackProbe!.paging.top());
 const log = (page: Page, since = 0) => page.evaluate((since) => (globalThis as Global).__log!.filter((entry) => entry.at >= since), since);
 const now = (page: Page) => page.evaluate(() => performance.now());
-const frames = (page: Page, n = 2) => page.evaluate((n) => new Promise<void>((resolve) => { const step = (k: number) => (k === 0 ? resolve() : requestAnimationFrame(() => step(k - 1))); step(n); }), n);
 /** Waits for `read` to settle: the same value two frames apart. */
 async function settled(page: Page, read: () => Promise<number>, timeout = 2_000): Promise<number> {
   const until = Date.now() + timeout;
@@ -957,6 +956,7 @@ async function borderPixel(page: Page): Promise<number[]> {
       }
     }
     output.wide = wide;
+    output.wideTools = await toolsParity(browsers, wideTanstack.url, wideGpui.url, (what) => check(false, what));
   } finally {
     await wideTanstack?.close();
     await wideGpui?.close();
@@ -1207,7 +1207,7 @@ async function borderPixel(page: Page): Promise<number[]> {
         await context.close();
       }
     };
-    const plain = (name: string): Promise<Browser> => (name === 'chromium' ? chromium.launch({ channel: 'chromium' }) : types[name]!.launch());
+    const plain = (name: string): Promise<Browser> => (name === 'chromium' ? chromium.launch({ channel: 'chromium' }) : BROWSER_TYPES[name]!.launch());
     // GPUI's grids, the reference (Chromium).
     const reference: Record<string, WallTable[]> = {};
     {

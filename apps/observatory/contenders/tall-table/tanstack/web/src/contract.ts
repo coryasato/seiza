@@ -45,6 +45,9 @@ export class TableContract {
   /** Published with each state too, measured or not (the wide level's
    *  `?cells`). */
   private readonly probe: (() => void) | undefined;
+  /** The wide level's (`view.ts` sets it): told the row the replay's jump
+   *  landed on. Declared only, so no other level's build carries a field. */
+  declare jumped?: (row: number) => void;
   private publishing = 0;
   private published = '';
   private targets = '';
@@ -138,7 +141,10 @@ export class TableContract {
   jump(fraction: number): Promise<void> {
     const rows = this.paging.rows;
     const row = Math.min(Math.floor(Math.min(Math.max(fraction, 0), 1) * rows), Math.max(rows - 1, 0));
-    return this.untilFilled(() => this.model.jumpTo(row * this.rowHeight));
+    const filled = this.untilFilled(() => this.model.jumpTo(row * this.rowHeight));
+    // The wide level's: the row it landed on is selected, as the table's `jump_to` does.
+    if (__LEVEL__ === 'wide') this.jumped?.(row);
+    return filled;
   }
 
   /** Runs `move`, then resolves once the view it led to is filled: after

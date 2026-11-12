@@ -131,7 +131,9 @@ tanstack-view *args:
 # the keys (and the GPUI contender's, the same keys), Shift+wheel, a track
 # press, the drag settle, the tooltip, and the focus ring, in Chromium,
 # Firefox, and WebKit; at the wide level the pinned edge and the sideways
-# scroll; at the market level the sign colors and the flash (its colors,
+# scroll, and its tools against the GPUI contender's (`perf/parity-tools.ts`:
+# the resize bands, a drag, the fit, the selection's presses and keys, the
+# tint's place); at the market level the sign colors and the flash (its colors,
 # its columns, its fade ending), light and dark; at the tail level
 # following, letting go on a wheel up, coming back at End and at a wheel
 # to the end, the time muted and an error status's color, light and
