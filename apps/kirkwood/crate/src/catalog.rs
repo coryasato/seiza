@@ -416,6 +416,30 @@ mod tests {
         assert_eq!(cell("no ellipse", column::PER_Y), "NULL");
     }
 
+    /// The scene lights the Trojans by their a and e (`ride::group`):
+    /// those rows are the rows of class TJN, every one and no other.
+    #[test]
+    #[ignore = "reads data/elements.bin and data/rows.bin, which a checkout builds (just kirkwood test)"]
+    fn the_trojans_by_a_and_e_are_the_rows_of_class_tjn() {
+        use crate::elements::Element;
+        use crate::ride::{Group, group};
+        let catalog = catalog();
+        let (elements, rows) = (catalog.elements(), catalog.file_rows());
+        let (mut trojans, mut hildas) = (0, 0);
+        for row in 0..catalog.rows() {
+            let found = group(elements.get(Element::A, row), elements.get(Element::E, row));
+            assert_eq!(
+                found == Some(Group::Trojans),
+                rows.class(row) == "TJN",
+                "row {row}, of class {}",
+                rows.class(row)
+            );
+            trojans += usize::from(found == Some(Group::Trojans));
+            hildas += usize::from(found == Some(Group::Hildas));
+        }
+        assert_eq!((trojans, hildas), (16_472, 8_400));
+    }
+
     /// The control: a reader that's one row off, or reads another column,
     /// must not pass for the fetch's.
     #[test]

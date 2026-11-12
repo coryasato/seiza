@@ -1,6 +1,6 @@
-//! The interface: the title, the time control, the action beside it
-//! ("Sort by orbit size"), the furniture of the axes the sort lands the
-//! dots on, and the table behind its handle on the right edge, a panel
+//! The interface: the title, the time control, the actions beside it
+//! ("Sort by orbit size", "Ride with Jupiter"), the furniture of the axes
+//! the sort lands the dots on, and the table behind its handle on the right edge, a panel
 //! that slides in over the rows. Under them, a window-sized surface that hears what nothing above it took: a
 //! wheel there is the scene's.
 //!
@@ -29,6 +29,7 @@ use crate::clock;
 use crate::flight;
 use crate::layout::{self, Plot};
 use crate::ramp;
+use crate::ride;
 use crate::scene;
 use crate::table::{Source, Table};
 
@@ -56,6 +57,7 @@ pub const HANDLE_TARGET: &str = "table-handle";
 pub const CLOSE_TARGET: &str = "table-close";
 pub const TIME_TARGET: &str = "time";
 pub const SORT_TARGET: &str = "sort";
+pub const RIDE_TARGET: &str = "ride";
 pub const LEGEND_TARGET: &str = "legend";
 /// The axes' furniture: the two lines, their labels, the line over the
 /// chips, each chip, each group's name, and the count of rows in view.
@@ -301,21 +303,45 @@ impl Host {
     fn toggle_sort(&mut self, cx: &mut Context<Self>) {
         // The way back is never turned down: a sort pressed before the
         // asteroids failed to load can still be pressed back.
-        if !flight::sorted() && !self.can_sort() {
+        if !flight::sorted() && !self.can_act() {
             return;
         }
         flight::toggle();
         if flight::sorted() {
             clock::pause_for_sort();
+            // One action at a time: the frame stops turning, and the
+            // camera heads back, as the dots leave for the axes
+            // (`docs/DECISIONS.md`, "Interface").
+            if ride::riding() {
+                ride::toggle();
+            }
         } else {
             clock::resume_after_sort();
         }
         cx.notify();
     }
 
-    /// Whether there are dots to sort, or may yet be: not once the
-    /// asteroids or the scene failed with no belt drawn.
-    fn can_sort(&self) -> bool {
+    /// "Ride with Jupiter": the frame turns with Jupiter and the camera
+    /// flies to straight above, or the frame stops turning and the camera
+    /// goes back where it was, from wherever they are. Time runs on.
+    fn toggle_ride(&mut self, cx: &mut Context<Self>) {
+        // The way back is never turned down.
+        if !ride::riding() && !self.can_act() {
+            return;
+        }
+        ride::toggle();
+        // One action at a time: the dots fly back to space as the frame
+        // starts to turn, and time, which the sort paused, runs again.
+        if ride::riding() && flight::sorted() {
+            flight::toggle();
+            clock::resume_after_sort();
+        }
+        cx.notify();
+    }
+
+    /// Whether there are dots to sort or to ride beside, or may yet be:
+    /// not once the asteroids or the scene failed with no belt drawn.
+    fn can_act(&self) -> bool {
         self.belt.is_some()
             || !(matches!(self.files, Files::Failed(_)) || self.scene_failed.is_some())
     }
@@ -326,6 +352,15 @@ impl Host {
     fn step_flight(&mut self, window: &mut Window) {
         if flight::flying() {
             flight::advance(now());
+            window.request_animation_frame();
+        }
+    }
+
+    /// The ride's step for this frame, and the next frame asked for while
+    /// the camera flies: the line about the stars leaves with them.
+    fn step_ride(&mut self, window: &mut Window) {
+        if ride::flying() {
+            ride::advance(now());
             window.request_animation_frame();
         }
     }
@@ -374,14 +409,28 @@ impl Host {
         };
         let muted = cx.theme().muted_foreground;
         let says = |line: SharedString| div().text_size(px(12.)).text_color(muted).child(line);
-        // The line about the stars leaves with them as the dots fly to a
-        // against e, and returns with them: it keeps its place in the
-        // line, so nothing under it moves.
-        let look = look_line(self.belt.is_some(), self.sky).map(|(line, stars)| {
+        // The line about the stars leaves with them (as the dots fly to a
+        // against e, and as the frame turns with Jupiter), and returns
+        // with them: it keeps its place in the line, so nothing under it
+        // moves. In the frame that turns with Jupiter its place is taken
+        // by what that frame exaggerates: the stars' sentence is gone by
+        // the middle of the camera's flight, and the ride's comes in over
+        // the rest of it, no sooner than the dots are back from the axes.
+        // (The two aren't one length: where they wrap differently, or no
+        // sky was drawn, the lines under them move at the swap, while
+        // neither shows.)
+        let turned = ride::turned();
+        let riding = turned >= 0.5 && self.belt.is_some();
+        let shows = if riding {
+            flight::space() * (2.0 * turned - 1.0)
+        } else {
+            flight::space() * (1.0 - 2.0 * turned).max(0.0)
+        };
+        let look = look_line(self.belt.is_some(), self.sky, riding).map(|(line, stars)| {
             let fades = HighlightStyle {
                 // (A highlight's color is blended over the text's own, so
                 // a clear one would change nothing.)
-                fade_out: Some(1.0 - flight::space() as f32),
+                fade_out: Some(1.0 - shows as f32),
                 ..HighlightStyle::default()
             };
             div()
@@ -546,7 +595,29 @@ impl Host {
                     .text_color(theme.muted_foreground)
                     .child(says),
             );
-        // Board 1's row: the time control, then the actions.
+        // Board 1's row: the time control, then the actions. "Sort by
+        // orbit size" is pressed with the dots on their way to a against
+        // e, or there (board 4); "Ride with Jupiter", with the frame
+        // turning to Jupiter's, or with it (board 2).
+        let actions = div()
+            .flex()
+            .gap(px(6.))
+            .child(self.render_action(
+                "sort",
+                "Sort by orbit size",
+                SORT_TARGET,
+                flight::sorted(),
+                Self::toggle_sort,
+                cx,
+            ))
+            .child(self.render_action(
+                "ride",
+                "Ride with Jupiter",
+                RIDE_TARGET,
+                ride::riding(),
+                Self::toggle_ride,
+                cx,
+            ));
         div()
             .absolute()
             .left(px(24.))
@@ -555,22 +626,28 @@ impl Host {
             .items_center()
             .gap_4()
             .child(control)
-            .child(self.render_sort(cx))
+            .child(actions)
     }
 
-    /// The action: "Sort by orbit size", as board 1 draws it, and pressed
-    /// (the dots on their way to a against e, or there) as board 4 does.
-    fn render_sort(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// An action, as board 1 draws one, and pressed as boards 2 and 4 do.
+    fn render_action(
+        &self,
+        id: &'static str,
+        label: &'static str,
+        published: &'static str,
+        pressed: bool,
+        press: fn(&mut Self, &mut Context<Self>),
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let theme = cx.theme();
-        let pressed = flight::sorted();
-        let able = pressed || self.can_sort();
+        let able = pressed || self.can_act();
         let (fill, hover, text) = if pressed {
             (theme.primary, theme.primary_hover, theme.primary_foreground)
         } else {
             (theme.secondary, theme.secondary_hover, theme.foreground)
         };
         div()
-            .id("sort")
+            .id(id)
             .h(px(28.))
             .px(px(10.))
             .flex()
@@ -587,9 +664,9 @@ impl Host {
             .when(!able, |action| action.opacity(0.5))
             // Nothing under it takes its presses.
             .occlude()
-            .on_click(cx.listener(|this, _, _, cx| this.toggle_sort(cx)))
-            .child("Sort by orbit size")
-            .child(target(SORT_TARGET))
+            .on_click(cx.listener(move |this, _, _, cx| press(this, cx)))
+            .child(label)
+            .child(target(published))
     }
 
     /// The furniture of a against e, as board 4 draws it: the two axes
@@ -876,6 +953,7 @@ impl Render for Host {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.step_slide(window);
         self.step_flight(window);
+        self.step_ride(window);
         // The scene centers its picture in what the panel leaves.
         scene::set_inset(self.panel_t * PANEL_WIDTH);
         let root =
@@ -1026,9 +1104,15 @@ fn in_view_line(belt: Belt) -> String {
 /// Each is said while it's on screen, whether or not the other is: the sky
 /// is drawn even when the asteroids didn't load. With the line, the part
 /// of it that's about the stars (its bytes): that part leaves the picture
-/// when they do.
-fn look_line(belt: bool, sky: bool) -> Option<(SharedString, Range<usize>)> {
+/// when they do. `riding`, in the frame that turns with Jupiter, there is
+/// no sky, and that part says instead what the frame does to the dots'
+/// light.
+fn look_line(belt: bool, sky: bool, riding: bool) -> Option<(SharedString, Range<usize>)> {
     let dots = "Dot sizes are exaggerated: at true scale each one is an invisible speck.";
+    if belt && riding {
+        let line = format!("{dots} {RIDE_LINE}");
+        return Some((line.into(), dots.len()..dots.len() + 1 + RIDE_LINE.len()));
+    }
     match (belt, sky) {
         (true, true) => {
             let line =
@@ -1044,6 +1128,10 @@ fn look_line(belt: bool, sky: bool) -> Option<(SharedString, Range<usize>)> {
         (false, false) => None,
     }
 }
+
+/// What the frame that turns with Jupiter exaggerates, said while it does
+/// (`docs/DECISIONS.md`, "Look").
+const RIDE_LINE: &str = "Here the Hildas and the Trojans are brightened, and the rest dimmed.";
 
 /// A count with its thousands apart: `1,580,272`.
 fn grouped(n: usize) -> String {
@@ -1064,15 +1152,15 @@ mod tests {
 
     #[test]
     fn what_the_picture_isnt_is_said_while_its_on_screen() {
-        assert_eq!(look_line(false, false), None);
-        let (stars, part) = look_line(false, true).unwrap();
+        assert_eq!(look_line(false, false, false), None);
+        let (stars, part) = look_line(false, true, false).unwrap();
         assert!(stars.contains("aren't rows") && !stars.contains("exaggerated"));
         assert_eq!(&stars[part], stars.as_ref());
-        let (dots, part) = look_line(true, false).unwrap();
+        let (dots, part) = look_line(true, false, false).unwrap();
         assert!(dots.contains("exaggerated") && !dots.contains("Gaia"));
         assert!(part.is_empty());
         // The part that leaves with the stars is the stars' sentence alone.
-        let (both, part) = look_line(true, true).unwrap();
+        let (both, part) = look_line(true, true, false).unwrap();
         assert!(both.contains("exaggerated") && both.contains("aren't rows"));
         assert!(
             both[part.clone()]
@@ -1080,6 +1168,21 @@ mod tests {
                 .starts_with("The stars behind")
         );
         assert!(both[..part.start].ends_with("speck."));
+        // Riding with Jupiter there's no sky: that part says what the
+        // turned frame does to the dots' light, whether or not the stars
+        // were ever in.
+        for sky in [false, true] {
+            let (riding, part) = look_line(true, sky, true).unwrap();
+            assert!(riding.contains("exaggerated") && !riding.contains("Gaia"));
+            assert!(
+                riding[part.clone()]
+                    .trim_start()
+                    .starts_with("Here the Hildas")
+            );
+            assert!(riding[part].ends_with("dimmed."));
+        }
+        // With no belt there's nothing brightened to speak of.
+        assert_eq!(look_line(false, false, true), None);
     }
 
     #[test]

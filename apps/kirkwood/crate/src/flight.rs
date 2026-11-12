@@ -9,82 +9,46 @@
 
 use std::cell::Cell;
 
+use crate::tween::{self, Tween};
+
 /// The flight, end to end: the shader staggers the dots within it.
 pub const FLIGHT_MS: f64 = 3000.0;
-/// A gap between two readings past this is a stall (a tab back from the
-/// background): the flight doesn't jump by the time it was away.
-const STALL_MS: f64 = 500.0;
-/// The most the flight moves after a stall.
-const MAX_STEP_MS: f64 = 100.0;
-
-#[derive(Clone, Copy)]
-struct Flight {
-    /// 0 in space, 1 landed, linear between.
-    progress: f64,
-    /// Where it's headed: 0 or 1 (or, held for a screenshot, where it is).
-    to: f64,
-    /// The page clock at the last reading; NaN before the first, and after
-    /// a press, whose own time doesn't count.
-    last_ms: f64,
-}
 
 thread_local! {
-    static FLIGHT: Cell<Flight> = const {
-        Cell::new(Flight {
-            progress: 0.0,
-            to: 0.0,
-            last_ms: f64::NAN,
-        })
-    };
+    static FLIGHT: Cell<Tween> = const { Cell::new(Tween::REST) };
+}
+
+fn with<R>(change: impl FnOnce(&mut Tween) -> R) -> R {
+    tween::with(&FLIGHT, change)
 }
 
 /// Moves the flight on to `now_ms` (the page clock) and returns its
 /// progress.
 pub fn advance(now_ms: f64) -> f64 {
-    let mut flight = FLIGHT.get();
-    if flight.progress != flight.to && !flight.last_ms.is_nan() {
-        let step = now_ms - flight.last_ms;
-        let step = if step > STALL_MS {
-            MAX_STEP_MS
-        } else {
-            step.max(0.0)
-        } / FLIGHT_MS;
-        flight.progress = if flight.to > flight.progress {
-            (flight.progress + step).min(flight.to)
-        } else {
-            (flight.progress - step).max(flight.to)
-        };
-    }
-    // Its readers don't share a time source: a reading from before the
-    // last one moves nothing, and mustn't be counted twice.
-    flight.last_ms = flight.last_ms.max(now_ms);
-    FLIGHT.set(flight);
-    flight.progress
+    with(|flight| flight.advance(now_ms, FLIGHT_MS))
 }
 
 /// The flight's progress, as last moved: 0 in space, 1 landed.
 pub fn progress() -> f64 {
-    FLIGHT.get().progress
+    FLIGHT.get().progress()
 }
 
 /// Whether the dots are headed for a against e, or are there: the action
 /// is pressed.
 pub fn sorted() -> bool {
-    FLIGHT.get().to > 0.0
+    FLIGHT.get().pressed()
 }
 
 /// Whether the dots are on their way, either way.
 pub fn flying() -> bool {
-    let flight = FLIGHT.get();
-    flight.progress != flight.to
+    FLIGHT.get().moving()
 }
 
 /// How much of what isn't a row is left in the picture (the sky, the Sun,
 /// Jupiter, its orbit, their names, the page's line about the stars): 1 in
 /// space, 0 once the dots have landed, eased between.
 pub fn space() -> f64 {
-    let k = FLIGHT.get().progress;
-    1.0 - k * k * (3.0 - 2.0 * k)
+    1.0 - FLIGHT.get().eased()
 }
 
 /// The axes' opacity while the dots fly (board 3).
@@ -98,7 +62,7 @@ const EDGE: f64 = 0.1;
 /// they land, coming in over the flight's first tenth and whole over its
 /// last.
 pub fn axes() -> f64 {
-    let k = FLIGHT.get().progress;
+    let k = progress();
     AXES_FLYING * (k / EDGE).min(1.0) + (1.0 - AXES_FLYING) * landing(k)
 }
 
@@ -106,7 +70,7 @@ pub fn axes() -> f64 {
 /// groups' names, the line over the chips, the count of rows in view):
 /// nothing until the flight's last tenth, whole landed.
 pub fn landed() -> f64 {
-    landing(FLIGHT.get().progress)
+    landing(progress())
 }
 
 fn landing(k: f64) -> f64 {
@@ -117,28 +81,13 @@ fn landing(k: f64) -> f64 {
 /// The press: the dots turn for a against e, or back for space, from
 /// wherever they are.
 pub fn toggle() {
-    let flight = FLIGHT.get();
-    FLIGHT.set(Flight {
-        to: if flight.to > 0.0 { 0.0 } else { 1.0 },
-        last_ms: f64::NAN,
-        ..flight
-    });
+    with(Tween::toggle);
 }
 
 /// Holds the flight at `progress`, for a screenshot of one moment of it
 /// (`?flight=`): pressed past 0, and not flying.
 pub fn hold(progress: f64) {
-    // (A NaN would never equal where it's headed, and fly forever.)
-    let progress = if progress.is_nan() {
-        0.0
-    } else {
-        progress.clamp(0.0, 1.0)
-    };
-    FLIGHT.set(Flight {
-        progress,
-        to: progress,
-        last_ms: f64::NAN,
-    });
+    with(|flight| flight.hold(progress));
 }
 
 #[cfg(test)]

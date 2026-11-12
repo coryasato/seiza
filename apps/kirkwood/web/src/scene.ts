@@ -22,6 +22,16 @@
 // Jupiter, its orbit, their names) leaves the picture on the way and
 // returns with the dots; landed, nothing moves and nothing is drawn.
 //
+// "Ride with Jupiter" is the camera's: the crate holds how far the frame
+// has turned to Jupiter's, and the camera flies by it from where it was to
+// straight above, turned about the ecliptic's pole so that Jupiter stays
+// to its right. One angle, the camera's: every dot, the Sun, and Jupiter's
+// orbit turn as one, and no buffer is rewritten. The sky leaves the
+// picture; the two groups in step with Jupiter (the Hildas, the Trojans)
+// are lit, by their a and e, and the rest of the belt dimmed; and the
+// ride's names and its dashed triangle, the page's own between the two
+// canvases, are placed through the camera on the crate's three points.
+//
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
@@ -32,7 +42,7 @@
 // `?band=<au>,<au>` (the orbit sizes that stay lit, `?bandGain` times as
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -72,6 +82,22 @@ export interface SceneHost {
   plot(width: number, height: number): ArrayLike<number>;
   /** `?flight`: holds the flight at a progress, 0 to 1. */
   holdFlight(progress: number): void;
+  /** The ride with Jupiter, moved on to `now`: how far the frame has
+   *  turned to Jupiter's, 0 fixed with the camera where it was, 1 turning
+   *  with Jupiter from straight above. */
+  ride(now: number): number;
+  /** How much of the sky is left in the picture: none with the dots
+   *  landed, and none in the frame that turns with Jupiter. */
+  sky(): number;
+  /** The three points in step with Jupiter, `years` after the epoch: 60°
+   *  ahead of it, 60° behind, and opposite, at its own orbit size (the
+   *  ecliptic's x, y, z of each, au). */
+  ridePoints(years: number): ArrayLike<number>;
+  /** The two groups the ride lights: the Hildas' least orbit size and
+   *  most (au), the Trojans' least and most, and the Trojans' most e. */
+  rideGroups(): ArrayLike<number>;
+  /** `?ride`: holds the ride at a progress, 0 to 1. */
+  holdRide(progress: number): void;
 }
 
 export interface SceneStats {
@@ -91,6 +117,8 @@ export interface SceneStats {
   distance: number;
   /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
   flight: number;
+  /** How far the frame had turned to Jupiter's in the last frame drawn. */
+  ride: number;
 }
 
 export interface BeltScene {
@@ -122,6 +150,9 @@ export interface BeltScene {
   viewProjection(): number[];
   /** The names the scene draws, and where (CSS px). */
   labels(): { text: string; left: number; top: number; width: number; height: number; shown: boolean }[];
+  /** The ride's dashed triangle as drawn: the x and y of its three
+   *  corners (CSS px); nothing while it isn't drawn. */
+  triangle(): number[] | undefined;
   stats: SceneStats;
 }
 
@@ -266,6 +297,14 @@ const vertex = (stops: number) => /* glsl */ `
   uniform vec4 uMag;
   uniform float uLeast;
   uniform float uDistance;
+  // The ride with Jupiter: how much of its light is on (0 to 1); the two
+  // groups in step with it (the Hildas' least a and most, the Trojans',
+  // and the Trojans' most e); and what the turned frame makes of a dot:
+  // a Hilda's light, a Trojan's, and the opacity of the rest.
+  uniform float uRide;
+  uniform vec4 uGroups;
+  uniform float uGroupsE;
+  uniform vec3 uRideLight;
   // 1 for a row drawn alone as a plain disc: one size, one color.
   uniform float uHard;
   uniform vec3 uPlain;
@@ -316,6 +355,15 @@ const vertex = (stops: number) => /* glsl */ `
       bool lit = a >= uBand.x && a <= uBand.y;
       vAlpha *= lit ? 1.0 : uBand.z;
       banded = lit ? uBand.w : 1.0;
+    }
+    // In the frame that turns with Jupiter the two groups that hold their
+    // shape there are lit, and the rest of the belt dimmed: a few
+    // thousand dots among a million and a half don't show otherwise.
+    if (uRide > 0.0) {
+      bool hilda = a >= uGroups.x && a <= uGroups.y;
+      bool trojan = a > uGroups.z && a < uGroups.w && e < uGroupsE;
+      if (hilda || trojan) banded *= mix(1.0, hilda ? uRideLight.x : uRideLight.y, uRide);
+      else vAlpha *= mix(1.0, uRideLight.z, uRide);
     }
     vec3 tint = uRamp[0];
     for (int k = 0; k < ${stops - 1}; k++) {
@@ -420,6 +468,20 @@ const FOV = 40;
  *  arithmetic counts pixels from a copy of this camera and `FOV`
  *  (`crate/src/shader.rs`, `on_screen`): change them together. */
 const OPENING = { az: 200, elev: 24, roll: -34, dist: 13 };
+/** The camera that rides with Jupiter: straight above the Sun, 17 au up,
+ *  where board 2 has Jupiter 379 px to the Sun's right in a window 900 px
+ *  high; farther in a window too narrow for Jupiter at its farthest and
+ *  `room` px beside it for its name. */
+const RIDE = { dist: 17, room: 130 };
+/** What the turned frame makes of a dot: a Hilda's light and a Trojan's,
+ *  of a plain dot's (its size grows by the root of it), and the opacity
+ *  of the rest of the belt (`docs/DECISIONS.md`, "Look"). */
+const RIDE_LIGHT: [number, number, number] = [3, 2, 0.35];
+/** The ride's names, from the point each is beside (CSS px), as board 2
+ *  has them: the Trojans' right of their clouds, the one ahead above its
+ *  point and the one behind below; the Hildas' two lines ending left of
+ *  the corner opposite Jupiter, above it. */
+const RIDE_NAMES = { ahead: [57, -29], behind: [57, 13], hildas: [-22, -54] } as const;
 /** The Sun's glow, CSS px across (its core is a twentieth of that), and
  *  how far under the Sun's place its name starts, clear of the glow's
  *  bright middle, as board 1 has it. */
@@ -463,8 +525,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const ROLL = (knob('roll', OPENING.roll) * Math.PI) / 180;
   const scale = knob('scale', 1);
   const alone = only();
-  // `?flight=<0 to 1>`: the sort flight held there, for a screenshot.
+  // `?flight=<0 to 1>`: the sort flight held there, for a screenshot; and
+  // `?ride=<0 to 1>`, the ride with Jupiter.
   if (has('flight')) host.holdFlight(knob('flight', 0));
+  if (has('ride')) host.holdRide(knob('ride', 0));
+  // `?rideSky=<0 to 1>`, to be looked at: how much of the sky the frame
+  // that turns with Jupiter keeps (none, as it ships).
+  const rideSky = Math.min(1, Math.max(0, knob('rideSky', 0)));
   /** Rows drawn alone are plain discs, to be found in a screenshot. */
   const hard = !!alone && on('hard');
   const marked = has('marks');
@@ -472,7 +539,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist), flight: 0 };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist), flight: 0, ride: 0 };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -480,8 +547,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const dust = new Scene();
   const bodies = new Scene();
   const camera = new PerspectiveCamera(FOV, 1, 0.01, 1000);
-  /** What the camera looks at. */
+  /** What the camera looks at, in the fixed frame, and its distance from
+   *  it there: a wheel's to move. Riding with Jupiter it looks at the Sun,
+   *  from a distance of the ride's own, which a wheel there moves by
+   *  `rideZoom` until the camera is back. */
   const target = new Vector3(...inScene(...lookedAt(), 0));
+  let spaceDistance = stats.distance;
+  let rideZoom = 1;
   /** The scene's pixels for each CSS pixel. */
   let pixelRatio = 1;
   /** Something changed that the next frame must draw. */
@@ -492,7 +564,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   // Jupiter's orbit first, so the discs are drawn over it.
   const turn = host.jupiterOrbit();
   const orbit = new Float32Array(turn.length);
-  for (let at = 0; at < turn.length; at += 3) orbit.set(inScene(turn[at]!, turn[at + 1]!, turn[at + 2]!), at);
+  /** Jupiter at its farthest from the Sun, au. */
+  let farthest = 0;
+  for (let at = 0; at < turn.length; at += 3) {
+    orbit.set(inScene(turn[at]!, turn[at + 1]!, turn[at + 2]!), at);
+    farthest = Math.max(farthest, Math.hypot(turn[at]!, turn[at + 1]!, turn[at + 2]!));
+  }
   const orbitGeometry = new BufferGeometry();
   orbitGeometry.setAttribute('position', new BufferAttribute(orbit, 3));
   const orbitLine = new LineBasicMaterial({ color: 0x6a7594, transparent: true });
@@ -539,22 +616,47 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
 
   // Their names, in the page's own text between the two canvases: placed
   // in the frame that draws the bodies, so a name never trails its disc.
-  const name = (text: string) => {
+  const name = (text: string, lines: string[] = [text]) => {
     const label = document.createElement('div');
-    label.textContent = text;
+    lines.forEach((line, at) => {
+      if (at) label.append(document.createElement('br'));
+      label.append(line);
+    });
     // Out of sight but laid out, so its size can be read.
     label.style.visibility = 'hidden';
     names.append(label);
-    return { label, text, left: 0, top: 0, width: 0, height: 0, shown: false };
+    return { label, text, left: 0, top: 0, width: 0, height: 0, shown: false, opacity: 1 };
   };
   const sunName = name('Sol');
   const jupiterName = name('Jupiter');
+  // Board 2's, in the frame that turns with Jupiter: Jupiter's name says
+  // what the frame does, and the two groups in step with it are named.
+  const heldName = name('Jupiter, held still');
+  const aheadName = name('Trojans, 60° ahead of Jupiter');
+  const behindName = name('Trojans, 60° behind');
+  const hildasName = name('Hildas: a triangle that turns with Jupiter', ['Hildas: a triangle', 'that turns with Jupiter']);
+  hildasName.label.style.textAlign = 'right';
+  const rideNames = [heldName, aheadName, behindName, hildasName];
+  const allNames = [sunName, jupiterName, ...rideNames];
+  // And its dashed triangle through the three points in step with
+  // Jupiter: white, as what the interface adds.
+  const SVG = 'http://www.w3.org/2000/svg';
+  const triangle = document.createElementNS(SVG, 'svg');
+  triangle.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; visibility: hidden');
+  const triangleLine = document.createElementNS(SVG, 'path');
+  for (const [attribute, value] of [['fill', 'none'], ['stroke', '#fafafa'], ['stroke-opacity', '0.5'], ['stroke-width', '1'], ['stroke-dasharray', '4 6']]) triangleLine.setAttribute(attribute!, value!);
+  triangle.append(triangleLine);
+  names.append(triangle);
+  /** Its corners as drawn (CSS px), and whether it is. */
+  let corners: number[] | undefined;
+  let triangleShown = false;
+  let triangleOpacity = 1;
   if (alone) names.hidden = true;
   // A name's size is read here and kept, never in a frame (a read there is
   // a layout every frame): now, and again when the interface's face
   // arrives, which changes it and so where a centered name goes.
   const measure = () => {
-    for (const named of [sunName, jupiterName]) [named.width, named.height] = [named.label.offsetWidth, named.label.offsetHeight];
+    for (const named of allNames) [named.width, named.height] = [named.label.offsetWidth, named.label.offsetHeight];
     dirty = true;
   };
   measure();
@@ -580,6 +682,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       uDistance: { value: stats.distance },
       uNear: { value: new Vector2(1, 1) },
       uLanded: { value: new Vector2(LANDED.size, LANDED.alpha) },
+      uRide: { value: 0 },
+      uGroups: { value: new Vector4(...Array.from(host.rideGroups()).slice(0, 4)) },
+      uGroupsE: { value: host.rideGroups()[4]! },
+      uRideLight: { value: new Vector3(...RIDE_LIGHT) },
       uFlight: { value: 0 },
       uAxes: { value: new Vector4(...Array.from(host.axes())) },
       uPlot: { value: new Vector4() },
@@ -606,8 +712,35 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   addEventListener('resize', resize);
   resize();
 
-  /** The camera where it is now, centered in what a panel `inset` px wide leaves. */
-  const place = (inset: number) => {
+  const ORIGIN = new Vector3();
+  const ABOVE = new Vector3(0, 1, 0);
+  const facing = new Matrix4();
+  const [fixed, riding, turnSince, at] = [new Quaternion(), new Quaternion(), new Quaternion(), new Vector3()];
+  /** Jupiter's longitude when the camera was last at rest, at either end
+   *  of its flight. The flight is between the fixed frame's camera and
+   *  the one above at this longitude, two ends that hold still, and the
+   *  turn Jupiter has made since is added as the flight goes: a flight
+   *  to an end that moved would take the shortest way to wherever it was
+   *  each frame, and jump when that way changed sides. `since` is that
+   *  turn, summed a frame at a time from the frame the flight began in
+   *  (so it has no half turn to wrap at, however long a flight is held
+   *  partway), and `longitudeDrawn` Jupiter's longitude in the last frame. */
+  let anchor = NaN;
+  let since = 0;
+  let longitudeDrawn = NaN;
+  /** How far above the Sun the camera rides, beside a panel `inset` px
+   *  wide: the ride's own distance, or as far as keeps Jupiter at its
+   *  farthest, and room for its name, inside what the panel leaves. */
+  const rideDistance = (inset: number) => {
+    const half = Math.max(50, (innerWidth - inset) / 2 - RIDE.room);
+    return Math.max(RIDE.dist, (farthest * innerHeight) / 2 / (Math.tan((FOV * Math.PI) / 360) * half));
+  };
+  /** The camera where it is now, centered in what a panel `inset` px wide
+   *  leaves: in the fixed frame where the visitor has it; riding (`ride`
+   *  of the way there), straight above the Sun and turned about the
+   *  ecliptic's pole so that Jupiter (at the longitude `anchor` and
+   *  `since` make) is to its right and the way Jupiter goes is up. */
+  const place = (inset: number, ride = 0) => {
     camera.aspect = innerWidth / innerHeight;
     // The panel covers the window's right `inset` px: the picture moves
     // left by half of it.
@@ -615,12 +748,25 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     const toward = new Vector3(Math.cos(ELEVATION) * Math.sin(AZIMUTH), Math.sin(ELEVATION), Math.cos(ELEVATION) * Math.cos(AZIMUTH));
-    camera.position.copy(target).addScaledVector(toward, stats.distance);
     // Straight down, "up" is the way the camera would face from the side.
     const up = Math.cos(ELEVATION) < 1e-3 ? new Vector3(-Math.sin(AZIMUTH), 0, -Math.cos(AZIMUTH)) : new Vector3(0, 1, 0);
-    camera.up.copy(up.applyAxisAngle(toward, ROLL));
-    camera.lookAt(target);
+    fixed.setFromRotationMatrix(facing.lookAt(toward, ORIGIN, up.applyAxisAngle(toward, ROLL)));
+    let distance = spaceDistance;
+    at.copy(target);
+    if (ride > 0) {
+      // The frame's one angle: Jupiter's longitude. Seen from above, the
+      // way Jupiter goes (a quarter turn ahead of it) is up.
+      riding.setFromRotationMatrix(facing.lookAt(ABOVE, ORIGIN, new Vector3(...inScene(-Math.sin(anchor), Math.cos(anchor), 0))));
+      // (About the ecliptic's pole, the scene's y: the way longitude grows.)
+      fixed.slerp(riding, ride).premultiply(turnSince.setFromAxisAngle(ABOVE, ride * since));
+      distance *= ((rideDistance(inset) * rideZoom) / spaceDistance) ** ride;
+      at.multiplyScalar(1 - ride);
+    }
+    camera.quaternion.copy(fixed);
+    // The camera looks down its own z at what it looks at.
+    camera.position.set(0, 0, 1).applyQuaternion(fixed).multiplyScalar(distance).add(at);
     camera.updateMatrixWorld();
+    stats.distance = distance;
   };
 
   /** Where a place in the scene is in the window (CSS px), or nothing
@@ -632,15 +778,20 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   };
   /** A name beside its body: `dx`, `dy` from the body's place to the
    *  name's corner, whole pixels so the text stays sharp. */
-  const put = (named: ReturnType<typeof name>, at: Vector3, dx: (width: number) => number, dy: number) => {
+  const put = (named: ReturnType<typeof name>, at: Vector3, dx: (width: number) => number, dy: number, opacity = 1, within?: number) => {
     const where = onScreen(at);
-    const inside = !!where && where[0] >= 0 && where[0] <= innerWidth && where[1] >= 0 && where[1] <= innerHeight;
+    // (`within`: the name itself must fit left of there, not only its body.)
+    const fits = within === undefined || (!!where && where[0] + dx(named.width) >= 0 && where[0] + dx(named.width) + named.width <= within);
+    const inside = opacity > 0 && fits && !!where && where[0] >= 0 && where[0] <= innerWidth && where[1] >= 0 && where[1] <= innerHeight;
     if (named.shown !== inside) named.label.style.visibility = inside ? 'visible' : 'hidden';
+    if (named.opacity !== opacity) named.label.style.opacity = String((named.opacity = opacity));
     named.shown = inside;
     if (!where || !inside) return;
-    named.left = Math.round(where[0] + dx(named.width));
-    named.top = Math.round(where[1] + dy);
-    named.label.style.transform = `translate(${named.left}px, ${named.top}px)`;
+    const [left, top] = [Math.round(where[0] + dx(named.width)), Math.round(where[1] + dy)];
+    // (Riding, the ride's names hold still: written when they move.)
+    if (left === named.left && top === named.top) return;
+    [named.left, named.top] = [left, top];
+    named.label.style.transform = `translate(${left}px, ${top}px)`;
   };
 
   /** What a frame is drawn from: everything the crate is asked for it. */
@@ -658,6 +809,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     scrim: [number, number, number, number];
     /** Jupiter's place, in the ecliptic's axes. */
     jupiter: [number, number, number];
+    /** How far the frame has turned to Jupiter's, and how much of the sky
+     *  is left in the picture. */
+    ride: number;
+    sky: number;
+    /** The three points in step with Jupiter: the x, y, z of each. Asked
+     *  for while the frame is turned. */
+    points: number[];
   }
   let last: Frame | undefined;
   /** The text's bounds as last asked for, and the crate's count then. */
@@ -669,10 +827,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   /** Jupiter's place as last asked for, and the years it was for. */
   let jupiter_: Frame['jupiter'] = [0, 0, 0];
   let jupiterFor = NaN;
+  /** The three points as last asked for, and the years they were for. */
+  let points: number[] = [];
+  let pointsFor = NaN;
   /** Asks the crate. Nothing here may run between making the views over
    *  its memory and uploading them: a call into the wasm can grow it. */
   const ask = (now: number): Frame => {
-    const [years, inset, changes, flight, space] = [host.years(now), host.inset(), host.scrimChanges(), host.flight(now), host.space()];
+    const [years, inset, changes, flight, space, ride, sky] = [host.years(now), host.inset(), host.scrimChanges(), host.flight(now), host.space(), host.ride(now), host.sky()];
     if (changes !== scrimChanges) {
       const text = host.scrim();
       [scrim, scrimChanges] = [[text[0]!, text[1]!, text[2]!, text[3]!], changes];
@@ -687,30 +848,75 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       const at = host.jupiter(years);
       [jupiter_, jupiterFor] = [[at[0]!, at[1]!, at[2]!], years];
     }
-    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_ };
+    if (space > 0 && ride > 0 && years !== pointsFor) [points, pointsFor] = [Array.from(host.ridePoints(years)), years];
+    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points };
   };
   // Landed, time moves no dot: of the clock, only the way back draws.
   const moved = (frame: Frame, from: Frame) =>
-    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot;
-  /** What isn't a row, as it leaves the picture and returns: the sky, the
-   *  Sun, Jupiter, its orbit, the marks, and the names; and the haze,
-   *  which on the axes would light the gaps. */
+    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky;
+  /** What isn't a row, as it leaves the picture and returns: the Sun,
+   *  Jupiter, its orbit, the marks, and the names; and the haze, which on
+   *  the axes would light the gaps. (The sky leaves by a number of its
+   *  own: it's gone from the frame that turns with Jupiter too.) */
   let space = 1;
+  let skyLeft = 1;
   const leave = (left: number) => {
     sun.material.uniforms.uFade!.value = left;
     jupiter.material.uniforms.uFade!.value = left;
     orbitLine.opacity = left;
     if (marks) marks.material.opacity = 0.55 * left;
-    sky?.setFade(left);
     look.setHaze(left);
     if (left !== space) names.style.opacity = String(left);
     space = left;
   };
 
+  /** The ride's names and its triangle, on the crate's three points,
+   *  through the camera as it is. */
+  const furnish = (frame: Frame) => {
+    const riding = frame.space > 0 ? frame.ride : 0;
+    // In the fixed frame, with none of it shown, there's nothing to do.
+    if (riding <= 0 && !triangleShown && !rideNames.some((named) => named.shown)) return;
+    const [ahead, behind, opposite] = [0, 3, 6].map((point) => new Vector3(...inScene(frame.points[point] ?? 0, frame.points[point + 1] ?? 0, frame.points[point + 2] ?? 0)));
+    // A name that would run under the panel, or off the window, isn't
+    // drawn: the camera keeps room for Jupiter's, and a narrow window has
+    // none for the Trojans'.
+    const room = innerWidth - frame.inset;
+    put(heldName, jupiter.position, () => JUPITER_PX / 2 + 8, -9, riding, room);
+    put(aheadName, ahead!, () => RIDE_NAMES.ahead[0], RIDE_NAMES.ahead[1], riding, room);
+    put(behindName, behind!, () => RIDE_NAMES.behind[0], RIDE_NAMES.behind[1], riding, room);
+    put(hildasName, opposite!, (width) => RIDE_NAMES.hildas[0] - width, RIDE_NAMES.hildas[1], riding, room);
+    const drawn = riding > 0 ? [ahead!, opposite!, behind!].map(onScreen) : [];
+    const whole = drawn.length === 3 && drawn.every((corner) => corner);
+    if (whole !== triangleShown) triangle.style.visibility = (triangleShown = whole) ? 'visible' : 'hidden';
+    if (!whole) {
+      corners = undefined;
+      return;
+    }
+    const next = drawn.flatMap((corner) => [Math.round(corner![0] * 10) / 10, Math.round(corner![1] * 10) / 10]);
+    // Riding, the three points hold still on screen: written when they move.
+    if (!corners || next.some((px, corner) => px !== corners![corner])) {
+      triangleLine.setAttribute('d', `M${next[0]} ${next[1]}L${next[2]} ${next[3]}L${next[4]} ${next[5]}Z`);
+      corners = next;
+    }
+    if (riding !== triangleOpacity) triangle.style.opacity = String((triangleOpacity = riding));
+  };
+
   const render = (frame: Frame) => {
     dirty = false;
+    // The camera's flight is from the last frame drawn at rest, at either
+    // end: this one, or the one before (which may be long ago: landed on
+    // the axes nothing is drawn, whatever the clock does). On the way,
+    // Jupiter's turn since is summed.
+    const longitude = Math.atan2(frame.jupiter[1], frame.jupiter[0]);
+    const rests = (ride: number) => ride <= 0 || ride >= 1;
+    if (rests(frame.ride) || !last || rests(last.ride) || Number.isNaN(anchor)) [anchor, since] = [longitude, 0];
+    else since += Math.atan2(Math.sin(longitude - longitudeDrawn), Math.cos(longitude - longitudeDrawn));
+    longitudeDrawn = longitude;
     last = frame;
-    place(frame.inset);
+    // Back in the fixed frame, the ride's own zoom is forgotten: the next
+    // ride opens as board 2 has it.
+    if (frame.ride <= 0) rideZoom = 1;
+    place(frame.inset, frame.ride);
     // Up close the dust thins out, by the square of how much nearer the
     // camera is than it opens: a dot's area and its opacity each grow with
     // the nearness, so the dust keeps its brightness and its colors.
@@ -723,8 +929,16 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     (material.uniforms.uNear!.value as Vector2).set(Math.min(3, Math.sqrt(near)), Math.min(12, near));
     material.uniforms.uDistance!.value = stats.distance;
     material.uniforms.uFlight!.value = frame.flight;
+    // The groups' light comes in over the second half of the camera's
+    // flight, and only in space: as the page's sentence about it does
+    // (`host.rs`), so nothing is brightened that isn't said to be.
+    material.uniforms.uRide!.value = Math.max(0, 2 * frame.ride - 1) * frame.space;
     (material.uniforms.uPlot!.value as Vector4).set(...frame.plot);
     leave(frame.space);
+    // `?rideSky`, to be looked at: what the ride leaves of the sky, which
+    // then turns with the frame.
+    const starry = rideSky > 0 ? frame.space * (1 - frame.ride * (1 - rideSky)) : frame.sky;
+    if (starry !== skyLeft) sky?.setFade((skyLeft = starry));
     sun.material.uniforms.uSize!.value = SUN_PX * pixelRatio;
     jupiter.material.uniforms.uSize!.value = JUPITER_PX * pixelRatio;
     jupiter.position.set(...inScene(...frame.jupiter));
@@ -745,13 +959,16 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (!alone && frame.space > 0) {
       // Board 1: the Sun's name under it, Jupiter's beside it.
       put(sunName, sun.position, (width) => -width / 2, SUN_NAME_BELOW);
-      put(jupiterName, jupiter.position, () => JUPITER_PX / 2 + 8, -9);
+      // Board 2: riding, Jupiter's name says it's held still.
+      put(jupiterName, jupiter.position, () => JUPITER_PX / 2 + 8, -9, 1 - frame.ride);
     }
+    if (!alone) furnish(frame);
     // `?glass`: the blur behind the panel is as wide as the panel is now.
     if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
     stats.frames++;
     stats.years = frame.years;
     stats.flight = frame.flight;
+    stats.ride = frame.ride;
   };
   /** The belt's room on the GPU: a buffer a column, and what draws from them. */
   interface Belt {
@@ -849,22 +1066,32 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     setSky(file) {
       sky = createSky(file);
       sky.setPixelRatio(pixelRatio);
-      sky.setFade(space);
+      sky.setFade(skyLeft);
       dust.add(sky.points);
       stats.stars = sky.stars;
       // Drawn now, so the caller's mark is of stars on screen.
       render(ask(performance.now()));
     },
     wheel(_x, _y, delta) {
-      stats.distance = Math.min(60, Math.max(0.05, stats.distance * Math.exp(-delta * 0.002)));
+      const by = Math.exp(-delta * 0.002);
+      // Riding, a wheel moves the ride's own distance, from as near as
+      // the fixed frame's camera goes to four times as far as the ride
+      // opens (which in a narrow window is already past 60 au); the fixed
+      // frame's is as the visitor left it, for the way back.
+      // On the way between the two a wheel moves neither: it would be the
+      // fixed frame's, changed unseen.
+      const ride = last?.ride ?? 0;
+      if (ride >= 1) rideZoom = Math.min(4, Math.max(0.05 / rideDistance(last?.inset ?? 0), rideZoom * by));
+      else if (ride <= 0) spaceDistance = Math.min(60, Math.max(0.05, spaceDistance * by));
+      else return;
       dirty = true;
     },
     viewProjection() {
-      place(last?.inset ?? 0);
+      place(last?.inset ?? 0, last?.ride);
       return [...new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements, innerWidth, innerHeight];
     },
     under(x, y) {
-      place(last?.inset ?? 0);
+      place(last?.inset ?? 0, last?.ride);
       const eye = camera.position;
       const ray = new Vector3((2 * x) / innerWidth - 1, 1 - (2 * y) / innerHeight, 0.5).unproject(camera).sub(eye);
       // Level with the ecliptic or away from it: the ray never meets it.
@@ -872,7 +1099,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       const reach = -eye.y / ray.y;
       return [eye.x + ray.x * reach, -(eye.z + ray.z * reach)];
     },
-    labels: () =>
-      [sunName, jupiterName].map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden && space > 0 })),
+    labels: () => allNames.map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden && space > 0 })),
+    triangle: () => (triangleShown && !names.hidden && space > 0 ? corners : undefined),
   };
 }

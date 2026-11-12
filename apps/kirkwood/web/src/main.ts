@@ -33,13 +33,20 @@ import init, {
   layout_row,
   orbit_ramp,
   place_of,
+  ride_counts,
+  ride_groups,
+  ride_hold,
+  ride_points,
+  ride_state,
   scene_axes,
   scene_failed,
   scene_flight,
   scene_inset,
   scene_plot,
+  scene_ride,
   scene_scrim,
   scene_scrim_changes,
+  scene_sky,
   scene_space,
   scene_years,
   sky_drawn,
@@ -110,6 +117,14 @@ type Kirkwood = {
   layoutRow(row: number): { a: number; e: number; inView: boolean } | undefined;
   gaps(): number[];
   inView(): number;
+  /** For the checks: the ride with Jupiter (how far the frame has turned
+   *  to it, whether the action is pressed, and whether the camera is on
+   *  its way); the crate's three points in step with Jupiter, `years`
+   *  after the epoch (the ecliptic's x, y, z of each, au); and the rows
+   *  drawn in each group the ride lights. */
+  ride(): { turned: number; riding: boolean; flying: boolean };
+  ridePoints(years: number): number[];
+  rideCounts(): { hildas: number; trojans: number };
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -166,6 +181,11 @@ async function startScene(): Promise<BeltScene> {
     axes: scene_axes,
     plot: scene_plot,
     holdFlight: flight_hold,
+    ride: scene_ride,
+    sky: scene_sky,
+    ridePoints: ride_points,
+    rideGroups: ride_groups,
+    holdRide: ride_hold,
   });
   kirkwood.scene = scene;
   performance.mark('kirkwood:scene');
@@ -355,6 +375,15 @@ const kirkwood: Kirkwood = {
   },
   gaps: () => Array.from(layout_gaps()),
   inView: () => layout_in_view(),
+  ride: () => {
+    const [turned, riding, flying] = Array.from(ride_state());
+    return { turned: turned!, riding: !!riding, flying: !!flying };
+  },
+  ridePoints: (years) => Array.from(ride_points(years)),
+  rideCounts: () => {
+    const [hildas, trojans] = Array.from(ride_counts());
+    return { hildas: hildas!, trojans: trojans! };
+  },
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 

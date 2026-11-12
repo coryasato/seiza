@@ -77,6 +77,27 @@
 //           (out/sort-count.jpg) is the count from the file's own bytes;
 //           and unless the dust at each gap (where Jupiter's a puts it) is
 //           darker than a tenth of an au either side.
+//   ride    "Ride with Jupiter": the ride held (out/ride.jpg, for board 2 to
+//           be set beside): fails unless the camera is straight above with
+//           Jupiter to the Sun's right, each of board 2's names and each
+//           corner of its dashed triangle is where the crate's three points
+//           project through the scene's camera (and farther from where
+//           they'd be a year on, the control), the two groups lit are the
+//           file's own 8,400 Hildas and 16,472 Trojans, and each Trojan
+//           cloud and the Hildas' far corner is brighter than the same
+//           orbit a third of a turn from Jupiter. Then a press with time
+//           running, over one of Jupiter's orbits: how far Jupiter leaves
+//           its line from the Sun and how far it moves along it, each
+//           second (out/ride-running.jpg); fails if it leaves the line by
+//           half a pixel, unless the frame turns by Jupiter's own
+//           longitude, unless the sky is gone and the page says what the
+//           turned frame brightens, and unless a second press gives the first camera back
+//           (out/ride-back.jpg), whatever a wheel did meanwhile. And the two
+//           actions together: sort pressed while riding, and riding pressed
+//           while sorted (out/ride-to-sort.jpg, ride-then-sort.jpg,
+//           sort-to-ride.jpg, sort-then-ride.jpg): fails unless each ends in
+//           one pressed action, with time paused on the axes and running
+//           again in the turning frame, and what isn't a row right in each.
 //
 // Run only when asked for by name (minutes more each):
 //
@@ -97,7 +118,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -115,7 +136,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'rate', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'ride', 'rate', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -162,12 +183,12 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; flight: number };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; flight: number; ride: number };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
   held: number;
-  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; under(x: number, y: number): [number, number] | undefined };
+  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
   jupiter(years: number): number[];
@@ -180,6 +201,9 @@ type Kirkwood = {
   layoutRow(row: number): { a: number; e: number; inView: boolean } | undefined;
   gaps(): number[];
   inView(): number;
+  ride(): { turned: number; riding: boolean; flying: boolean };
+  ridePoints(years: number): number[];
+  rideCounts(): { hildas: number; trojans: number };
 };
 type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
@@ -1095,13 +1119,33 @@ function countInView(most = 0.6): number {
   return count;
 }
 
+/** An action's fill, as a mean light of 255: a strip across its middle,
+ *  just inside its top edge, over its text. Not beside an edge: with time
+ *  running the date's width moves the row by a few pixels, and the bounds
+ *  published are those of the interface's last frame of its own, not the
+ *  date's. */
+async function actionFill(page: Page, png: Buffer, id: string): Promise<number> {
+  const [x, y, width] = await targetRect(page, id);
+  return Math.round(await light(page, png, { x: x + width / 2 - 8, y: y + 2, width: 16, height: 2 }));
+}
+
+/** The two actions' fills, each read from a screenshot taken while its
+ *  bounds held: with time running the date's width moves the row, and a
+ *  fill read against bounds from another frame is the page's between two
+ *  buttons. */
+async function actionFills(page: Page): Promise<{ sort: number; ride: number }> {
+  const bounds = async () => (await Promise.all(['sort', 'ride'].map((id) => targetRect(page, id)))).flat().join();
+  for (let tries = 0; ; tries++) {
+    const before = await bounds();
+    const png = await page.screenshot();
+    if ((await bounds()) === before) return { sort: await actionFill(page, png, 'sort'), ride: await actionFill(page, png, 'ride') };
+    need(tries < 20, "the actions' bounds never held for a screenshot");
+  }
+}
+
 async function seeSort(url: string) {
   const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
-  /** The action's fill, as a mean light of 255: just inside its left edge. */
-  const actionLight = async (page: Page, png: Buffer) => {
-    const [x, y, , height] = await targetRect(page, 'sort');
-    return Math.round(await light(page, png, { x: x + 2, y: y + height / 2 - 1, width: 3, height: 2 }));
-  };
+  const actionLight = (page: Page, png: Buffer) => actionFill(page, png, 'sort');
   // The press, the landing, and the press back, with time running.
   const flight = await withSky(url, { date: EPOCH }, async (page) => {
     const read = async () => {
@@ -1340,6 +1384,310 @@ async function seeSort(url: string) {
   return { flight, mid, alone, alonePanel, panel, gaps };
 }
 
+// --- The ride with Jupiter.
+
+/** Board 2 at 1440×900, the storyboard's own numbers: the Sun, the corner
+ *  of Jupiter's name, and its dashed triangle's corners (ahead, opposite,
+ *  behind). The board's Jupiter is on a circle, 379 px from the Sun; its
+ *  triangle is a stand-in, drawn inside Jupiter's orbit, and the app's is
+ *  through the three points at Jupiter's own orbit size. */
+const BOARD_RIDE = { sun: [720, 450], jupiterName: [1111, 441], triangle: [883.1, 167.5, 393.8, 450, 883.1, 732.5] };
+/** A name's corner from the point it's beside, CSS px (`scene.ts`,
+ *  `RIDE_NAMES`): the Trojans' two, and where the Hildas' two lines end. */
+const RIDE_NAMES = { ahead: [57, -29], behind: [57, 13], hildas: [-22, -54] } as const;
+const RIDE_TEXTS = { held: 'Jupiter, held still', ahead: 'Trojans, 60° ahead of Jupiter', behind: 'Trojans, 60° behind', hildas: 'Hildas: a triangle that turns with Jupiter' };
+
+/** The rows in each group the ride lights, counted here from the file's
+ *  own bytes, in the 32-bit floats they are. */
+function countGroups(): { hildas: number; trojans: number } {
+  const { a, e } = elementsFile().columns;
+  const [low, high, from, to, most] = [3.7, 4.2, 4.6, 5.5, 0.3].map(Math.fround) as [number, number, number, number, number];
+  let [hildas, trojans] = [0, 0];
+  for (let row = 0; row < elementsFile().rows; row++) {
+    if (a[row]! >= low && a[row]! <= high) hildas++;
+    else if (a[row]! > from && a[row]! < to && e[row]! < most) trojans++;
+  }
+  return { hildas, trojans };
+}
+
+async function seeRide(url: string) {
+  const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
+  /** One reading of the page: what the scene last drew, and the crate's
+   *  own numbers for the years it drew at. */
+  const read = (page: Page) =>
+    kirkwood(page, (kirkwood) => {
+      const scene = kirkwood.scene!;
+      const years = scene.stats.years;
+      return {
+        years,
+        labels: scene.labels(),
+        triangle: scene.triangle(),
+        camera: scene.viewProjection(),
+        distance: scene.stats.distance,
+        frames: scene.stats.frames,
+        jupiter: kirkwood.jupiter(years),
+        points: kirkwood.ridePoints(years),
+        aYearOn: kirkwood.ridePoints(years + 1),
+        ride: kirkwood.ride(),
+        flight: kirkwood.flight(),
+        clock: kirkwood.clock(),
+        scrim: kirkwood.scrim(),
+      };
+    });
+  type Reading = Awaited<ReturnType<typeof read>>;
+  const shown = (seen: Reading) => seen.labels.filter((label) => label.shown).map((label) => label.text);
+  /** A place `ahead` degrees ahead of Jupiter, `au` from the Sun on the
+   *  ecliptic, in the window. */
+  const beside = (seen: Reading, ahead: number, au: number): [number, number] => {
+    const toward = Math.atan2(seen.jupiter[1]!, seen.jupiter[0]!) + (ahead * Math.PI) / 180;
+    return project(seen.camera, [au * Math.cos(toward), au * Math.sin(toward), 0]);
+  };
+  /** Board 2's furniture against the crate's three points, through the
+   *  scene's camera: each name beside its point, each corner on it. */
+  const furniture = (seen: Reading, what: string) => {
+    const [sun, jupiter] = [project(seen.camera, [0, 0, 0]), project(seen.camera, seen.jupiter)];
+    const corners = [0, 3, 6].map((point) => project(seen.camera, seen.points.slice(point, point + 3)));
+    const control = [0, 3, 6].map((point) => project(seen.camera, seen.aYearOn.slice(point, point + 3)));
+    const [ahead, behind, opposite] = corners as [[number, number], [number, number], [number, number]];
+    const named = (text: string) => seen.labels.find((label) => label.text === text)!;
+    const [held, aheadName, behindName, hildas] = [named(RIDE_TEXTS.held), named(RIDE_TEXTS.ahead), named(RIDE_TEXTS.behind), named(RIDE_TEXTS.hildas)];
+    need(shown(seen).join() === ['Sol', ...Object.values(RIDE_TEXTS)].join(), `${what}: the names shown are ${shown(seen).join(' | ')}`);
+    // Straight above: what's over the Sun is on it, and Jupiter is level
+    // with it, to its right.
+    const over = project(seen.camera, [0, 0, 3]);
+    need(Math.hypot(over[0] - sun[0], over[1] - sun[1]) < 0.05, `${what}: 3 au over the Sun is at ${over.map(round)}, and the Sun at ${sun.map(round)}`);
+    need(near(jupiter[1], sun[1], 0.5) && jupiter[0] > sun[0] + 200, `${what}: Jupiter is at ${jupiter.map(round)}, and the Sun at ${sun.map(round)}`);
+    // The three points: 60° ahead (up, the way Jupiter goes), 60° behind,
+    // and opposite.
+    const degrees = corners.map(([x, y]) => (Math.atan2(sun[1] - y, x - sun[0]) * 180) / Math.PI);
+    need(near(degrees[0]!, 60, 0.05) && near(degrees[1]!, -60, 0.05) && near(Math.abs(degrees[2]!), 180, 0.05), `${what}: the three points are ${degrees.map((degree) => degree.toFixed(2))}° from Jupiter's line`);
+    // The names.
+    need(near(held.left, jupiter[0] + 12, 1) && near(held.top + held.height / 2, jupiter[1], 1), `${what}: "${held.text}" at ${held.left}, ${held.top}; Jupiter at ${jupiter.map(round)}`);
+    need(near(aheadName.left, ahead[0] + RIDE_NAMES.ahead[0], 1) && near(aheadName.top, ahead[1] + RIDE_NAMES.ahead[1], 1), `${what}: "${aheadName.text}" at ${aheadName.left}, ${aheadName.top}; its point at ${ahead.map(round)}`);
+    need(near(behindName.left, behind[0] + RIDE_NAMES.behind[0], 1) && near(behindName.top, behind[1] + RIDE_NAMES.behind[1], 1), `${what}: "${behindName.text}" at ${behindName.left}, ${behindName.top}; its point at ${behind.map(round)}`);
+    need(near(hildas.left + hildas.width, opposite[0] + RIDE_NAMES.hildas[0], 1) && near(hildas.top, opposite[1] + RIDE_NAMES.hildas[1], 1) && hildas.height > 30, `${what}: "${hildas.text}" at ${hildas.left}, ${hildas.top}, ${hildas.width} by ${hildas.height}; its point at ${opposite.map(round)}`);
+    // The triangle: ahead, opposite, behind.
+    const drawn = seen.triangle;
+    need(!!drawn && drawn.length === 6, `${what}: no triangle is drawn`);
+    const off = [ahead, opposite, behind].map(([x, y], corner) => Math.hypot(drawn![corner * 2]! - x, drawn![corner * 2 + 1]! - y));
+    need(Math.max(...off) <= 0.2, `${what}: the triangle's corners are ${off.map((px) => px.toFixed(2))} px from the crate's points`);
+    // The control: the points a year on, a twelfth of a turn round.
+    const controlOff = [control[0]!, control[2]!, control[1]!].map(([x, y], corner) => Math.hypot(drawn![corner * 2]! - x, drawn![corner * 2 + 1]! - y));
+    need(Math.min(...controlOff) > 1, `${what}: the control passes (${controlOff.map((px) => px.toFixed(1))} px from the points a year on)`);
+    return { sunPx: sun.map(round), jupiterPx: jupiter.map(round), pointsPx: corners.map((corner) => corner.map(round)), trianglePx: drawn!, triangleOffPx: fixed(Math.max(...off)), controlOffPx: fixed(Math.min(...controlOff), 1), names: { held: [held.left, held.top], ahead: [aheadName.left, aheadName.top], behind: [behindName.left, behindName.top], hildas: [hildas.left, hildas.top, hildas.width, hildas.height] } };
+  };
+  /** A press on "Ride with Jupiter", to its end: the seconds it took. */
+  const ridden = (page: Page, to: boolean): Promise<number> =>
+    page.evaluate(
+      (to) =>
+        new Promise<number>((done) => {
+          const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+          let from = NaN;
+          const tick = (now: number) => {
+            const ride = kirkwood.ride();
+            if (ride.riding !== to) return void requestAnimationFrame(tick);
+            if (Number.isNaN(from)) from = now;
+            if (ride.flying) return void requestAnimationFrame(tick);
+            done((now - from) / 1000);
+          };
+          requestAnimationFrame(tick);
+        }),
+      to,
+    );
+  /** Both actions at rest, and a frame drawn since. */
+  const atRest = async (page: Page) => {
+    await page.waitForFunction(() => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      return !kirkwood.ride().flying && !kirkwood.flight().flying;
+    });
+    // Off the actions: under the pointer a fill is the hover's.
+    await page.mouse.move(700, 600);
+    await page.waitForTimeout(500);
+    await settle(page);
+  };
+  /** The title's lines' text, as pixels: the line about the stars among them or not. */
+  const titleText = async (page: Page, png: Buffer, scrim: number[]) => {
+    const [x, y, width, height] = scrim as [number, number, number, number];
+    return textPixels(page, png, { x, y, width, height });
+  };
+
+  // The ride held on the epoch, for board 2: its furniture, and the groups.
+  const held = await withSky(url, { ...HELD, ride: '1' }, async (page) => {
+    await page.waitForTimeout(400);
+    const seen = await read(page);
+    const png = await page.screenshot();
+    await shot(page, 'ride');
+    need(seen.ride.turned === 1 && seen.ride.riding && !seen.ride.flying, `held, the ride is ${JSON.stringify(seen.ride)}`);
+    const placed = furniture(seen, 'held');
+    // Against the board: the Sun in the middle, and Jupiter's name beside
+    // a Jupiter within its orbit's quarter of an au of the board's circle.
+    need(near(placed.sunPx[0]!, BOARD_RIDE.sun[0]!, 0.5) && near(placed.sunPx[1]!, BOARD_RIDE.sun[1]!, 0.5), `the Sun is at ${placed.sunPx}, and board 2 has it at ${BOARD_RIDE.sun}`);
+    need(near(placed.names.held[0]!, BOARD_RIDE.jupiterName[0]!, 20) && near(placed.names.held[1]!, BOARD_RIDE.jupiterName[1]!, 1), `"${RIDE_TEXTS.held}" is at ${placed.names.held}, and board 2 has it at ${BOARD_RIDE.jupiterName}`);
+    // The groups lit are the file's own.
+    const [counts, counted] = [await kirkwood(page, (kirkwood) => kirkwood.rideCounts()), countGroups()];
+    need(counts.hildas === counted.hildas && counts.trojans === counted.trojans && counted.hildas === 8400 && counted.trojans === 16472, `the page lights ${JSON.stringify(counts)}, and the file's bytes hold ${JSON.stringify(counted)}`);
+    // And they read: each Trojan cloud against Jupiter's orbit a third of
+    // a turn from it, where nothing holds; the Hildas' corner opposite
+    // Jupiter against the same distance a third of a turn round, which
+    // their triangle's side passes inside of.
+    const box = ([x, y]: [number, number]) => light(page, png, { x: x - 20, y: y - 20, width: 40, height: 40 });
+    const a = Math.hypot(seen.points[0]!, seen.points[1]!);
+    const [ahead, behind, empty, corner, side] = await Promise.all([box(beside(seen, 60, a)), box(beside(seen, -60, a)), box(beside(seen, 120, a)), box(beside(seen, 180, 4.35)), box(beside(seen, 120, 4.35))]);
+    need(ahead! > empty! + 4 && behind! > empty! + 4, `the Trojans' clouds read ${ahead!.toFixed(1)} and ${behind!.toFixed(1)} of 255, and their orbit a third of a turn from Jupiter ${empty!.toFixed(1)}`);
+    need(corner! > side! + 2, `the Hildas' far corner reads ${corner!.toFixed(1)} of 255, and the same distance a third of a turn round ${side!.toFixed(1)}`);
+    // The sky is gone from the turned frame: a corner of the window, past
+    // every orbit drawn, is the page's own color (a mean of 7, and the grain).
+    const sky = await light(page, png, { x: 1240, y: 20, width: 180, height: 120 });
+    need(sky < 9, `a corner of the turned frame reads ${sky.toFixed(1)} of 255: the sky hasn't left`);
+    return { ...placed, board: BOARD_RIDE, distanceAu: fixed(seen.distance), groups: counts, light: { trojansAhead: fixed(ahead!, 1), trojansBehind: fixed(behind!, 1), theirOrbitAThirdRound: fixed(empty!, 1), hildasFarCorner: fixed(corner!, 1), itsDistanceAThirdRound: fixed(side!, 1), skyCorner: fixed(sky, 1) } };
+  });
+
+  // The press, with time running: Jupiter holds still over one of its
+  // orbits; the press back; and the two actions together.
+  const pressed = await withSky(url, { date: EPOCH }, async (page) => {
+    const space = await read(page);
+    const spacePng = await page.screenshot();
+    const spaceText = await titleText(page, spacePng, space.scrim);
+    need(!space.ride.riding && space.ride.turned === 0 && shown(space).join() === 'Sol,Jupiter' && !space.triangle, `before the press: the ride ${JSON.stringify(space.ride)}, the names ${shown(space).join()}`);
+    const spaceFills = await actionFills(page);
+    need(spaceFills.ride === spaceFills.sort, `not pressed, the two actions' fills read ${JSON.stringify(spaceFills)}`);
+    let way = ridden(page, true);
+    await clickTarget(page, 'ride');
+    const out_ = await way;
+    await atRest(page);
+    need(near(out_, 2, 0.25), `the camera's flight took ${out_.toFixed(2)} s`);
+    // Each second over one of Jupiter's orbits (11.86 years, at a year a
+    // second): Jupiter through the scene's camera, and a point that
+    // doesn't turn (5 au out at longitude 0), which the frame turns.
+    const samples: { years: number; offLine: number; along: number; fixedAt: number; longitude: number }[] = [];
+    let first: Reading | undefined;
+    for (;;) {
+      const seen = await read(page);
+      first ??= seen;
+      const [sun, jupiter, still] = [project(seen.camera, [0, 0, 0]), project(seen.camera, seen.jupiter), project(seen.camera, [5, 0, 0])];
+      samples.push({ years: seen.years, offLine: jupiter[1] - sun[1], along: jupiter[0] - sun[0], fixedAt: Math.atan2(sun[1] - still[1], still[0] - sun[0]), longitude: Math.atan2(seen.jupiter[1]!, seen.jupiter[0]!) });
+      if (samples.length === 4) {
+        furniture(seen, 'riding, time running');
+        await shot(page, 'ride-running');
+      }
+      if (seen.years - first.years >= 11.87) break;
+      need(samples.length < 40 && seen.clock.running, `riding, the clock is ${JSON.stringify(seen.clock)} after ${samples.length} readings`);
+      await page.waitForTimeout(1000);
+    }
+    const offLine = Math.max(...samples.map((sample) => Math.abs(sample.offLine)));
+    const along = samples.map((sample) => sample.along);
+    need(offLine < 0.5, `Jupiter left its line from the Sun by ${offLine.toFixed(2)} px`);
+    // The frame turned by Jupiter's own longitude: the point that doesn't
+    // turn went round the other way by as much.
+    const turn = (angles: number[]) => angles.slice(1).reduce((sum, angle, at) => sum + Math.atan2(Math.sin(angle - angles[at]!), Math.cos(angle - angles[at]!)), 0);
+    const [turned, went] = [turn(samples.map((sample) => sample.fixedAt)), turn(samples.map((sample) => sample.longitude))].map((radians) => (radians * 180) / Math.PI) as [number, number];
+    need(went > 355 && near(turned, -went, 0.05), `over ${(samples.at(-1)!.years - samples[0]!.years).toFixed(2)} years Jupiter went ${went.toFixed(2)}° round, and the frame turned a fixed point ${turned.toFixed(2)}°`);
+    // The sky is gone (a corner of the window is the page's own color),
+    // the page says what the turned frame brightens where it spoke of the
+    // stars, and the action is pressed.
+    const riding = await read(page);
+    const ridingPng = await page.screenshot();
+    const ridingText = await titleText(page, ridingPng, riding.scrim);
+    const skyCorner = await light(page, ridingPng, { x: 1240, y: 20, width: 180, height: 120 });
+    need(skyCorner < 9, `riding, a corner of the window reads ${skyCorner.toFixed(1)} of 255: the sky hasn't left`);
+    need(ridingText > spaceText - 2500 && ridingText !== spaceText, `the title's lines are ${ridingText} text pixels riding and ${spaceText} in the fixed frame: nothing is said of the brightened groups`);
+    const { ride: ridePressed, sort: sortBeside } = await actionFills(page);
+    need(near(ridePressed, 250, 4) && near(sortBeside, 38, 4), `riding, the actions' fills read ${ridePressed} (ride) and ${sortBeside} (sort) of 255, and the boards draw 250 and 38`);
+    // A wheel, riding, moves the ride's own camera.
+    await page.mouse.move(500, 450);
+    await wheel(page, 300);
+    await page.waitForTimeout(300);
+    const wheeled = await read(page);
+    need(wheeled.distance > riding.distance * 1.2, `a wheel, riding, moved the camera from ${riding.distance} au to ${wheeled.distance}`);
+
+    // The press back: the fixed frame, and the first camera.
+    way = ridden(page, false);
+    await clickTarget(page, 'ride');
+    const back_ = await way;
+    await atRest(page);
+    const back = await read(page);
+    const backPng = await page.screenshot();
+    await shot(page, 'ride-back');
+    need(near(back_, 2, 0.25), `the camera's flight back took ${back_.toFixed(2)} s`);
+    need(!back.ride.riding && back.ride.turned === 0 && shown(back).join() === 'Sol,Jupiter' && !back.triangle, `back: the ride ${JSON.stringify(back.ride)}, the names ${shown(back).join(' | ')}`);
+    const cameraOff = Math.max(...back.camera.map((cell, at) => Math.abs(cell - space.camera[at]!)));
+    need(cameraOff < 1e-9 && back.distance === space.distance, `back, the camera is ${cameraOff} off the first, ${back.distance} au out for ${space.distance}`);
+    need(back.clock.running && back.clock.years > riding.clock.years, `back, the clock is ${JSON.stringify(back.clock)}`);
+    const backText = await titleText(page, backPng, back.scrim);
+    need(near(backText, spaceText, 60), `the title's lines are ${backText} text pixels back in the fixed frame and were ${spaceText}`);
+    // The fixed frame doesn't turn: over a second the point that doesn't
+    // turn stays put.
+    await page.waitForTimeout(1000);
+    const later = await read(page);
+    const stayed = Math.hypot(...project(later.camera, [5, 0, 0]).map((px, at) => px - project(back.camera, [5, 0, 0])[at]!));
+    need(later.years > back.years + 0.5 && stayed < 1e-6, `back in the fixed frame, a fixed point moved ${stayed} px in ${(later.years - back.years).toFixed(2)} years`);
+
+    // The two actions together. Riding again (the wheel's zoom forgotten),
+    // then "Sort by orbit size": the frame stops turning as the dots leave.
+    way = ridden(page, true);
+    await clickTarget(page, 'ride');
+    await way;
+    await atRest(page);
+    const again = await read(page);
+    need(near(again.distance, riding.distance, 1e-9), `riding again, the camera is ${again.distance} au up, and was ${riding.distance}`);
+    await clickTarget(page, 'sort');
+    await page.waitForTimeout(1000);
+    await shot(page, 'ride-to-sort');
+    await atRest(page);
+    const sorted = await read(page);
+    const sortedPng = await page.screenshot();
+    await shot(page, 'ride-then-sort');
+    need(sorted.flight.progress === 1 && sorted.flight.sorted && sorted.ride.turned === 0 && !sorted.ride.riding, `sorted from the ride: the flight ${JSON.stringify(sorted.flight)}, the ride ${JSON.stringify(sorted.ride)}`);
+    need(!sorted.clock.running, `sorted from the ride, the clock is ${JSON.stringify(sorted.clock)}`);
+    need(!shown(sorted).length && !sorted.triangle, `sorted from the ride: the names ${shown(sorted).join(' | ')}, the triangle ${sorted.triangle}`);
+    const sortedFills = await actionFills(page);
+    need(near(sortedFills.sort, 250, 4) && near(sortedFills.ride, 38, 4), `sorted from the ride, the actions' fills read ${JSON.stringify(sortedFills)} of 255`);
+    const axisSorted = await light(page, sortedPng, { x: 700, y: 771, width: 8, height: 1 });
+    need(near(axisSorted, AXIS_LIGHT, 8), `sorted from the ride, the a axis reads ${axisSorted.toFixed(1)} of 255`);
+    // Landed, the scene draws nothing.
+    await page.waitForTimeout(1000);
+    const still = (await read(page)).frames - sorted.frames;
+    need(still === 0, `sorted from the ride, the scene drew ${still} frames in a second`);
+
+    // Then "Ride with Jupiter" while sorted: the dots fly back as the
+    // frame starts to turn, and time runs again.
+    await clickTarget(page, 'ride');
+    await page.waitForTimeout(1000);
+    await shot(page, 'sort-to-ride');
+    await atRest(page);
+    const rode = await read(page);
+    const rodePng = await page.screenshot();
+    await shot(page, 'sort-then-ride');
+    need(rode.flight.progress === 0 && !rode.flight.sorted && rode.ride.turned === 1 && rode.ride.riding, `riding from the sort: the flight ${JSON.stringify(rode.flight)}, the ride ${JSON.stringify(rode.ride)}`);
+    need(rode.clock.running && rode.clock.years > sorted.clock.years, `riding from the sort, the clock is ${JSON.stringify(rode.clock)}`);
+    furniture(rode, 'riding from the sort');
+    const rodeFills = await actionFills(page);
+    need(near(rodeFills.sort, 38, 4) && near(rodeFills.ride, 250, 4), `riding from the sort, the actions' fills read ${JSON.stringify(rodeFills)} of 255`);
+    const axisRode = await light(page, rodePng, { x: 700, y: 771, width: 8, height: 1 });
+    need(axisRode < 30, `riding from the sort, where the a axis was reads ${axisRode.toFixed(1)} of 255`);
+    return {
+      flightSeconds: { out: fixed(out_), back: fixed(back_) },
+      jupiter: {
+        years: fixed(samples.at(-1)!.years - samples[0]!.years),
+        readings: samples.length,
+        offItsLinePx: fixed(offLine, 3),
+        alongItsLinePx: { least: fixed(Math.min(...along), 1), most: fixed(Math.max(...along), 1), moved: fixed(Math.max(...along) - Math.min(...along), 1) },
+        wentRoundDegrees: fixed(went),
+        frameTurnedAFixedPointDegrees: fixed(turned),
+      },
+      distanceAu: { fixed: fixed(space.distance), riding: fixed(riding.distance), ridingAfterAWheel: fixed(wheeled.distance), back: fixed(back.distance), ridingAgain: fixed(again.distance) },
+      cameraBackOff: cameraOff,
+      titleTextPixels: { fixed: spaceText, riding: ridingText, back: backText },
+      actionFills: { riding: { ride: ridePressed, sort: sortBeside }, sortedFromTheRide: sortedFills, ridingFromTheSort: rodeFills },
+      together: {
+        sortedFromTheRide: { flight: sorted.flight, ride: sorted.ride, clockRunning: sorted.clock.running, names: shown(sorted), sceneFramesInASecond: still },
+        ridingFromTheSort: { flight: rode.flight, ride: rode.ride, clockRunning: rode.clock.running, names: shown(rode) },
+      },
+    };
+  });
+  return { held, pressed };
+}
+
 mkdirSync(out, { recursive: true });
 const server = await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
 try {
@@ -1409,6 +1757,7 @@ try {
   if (ONLY.has('sky')) seen.sky = await seeSky(server.url);
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
   if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
+  if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);
   if (ONLY.has('cross')) seen.cross = await seeCross(server.url);

@@ -191,3 +191,20 @@ GPUI's furniture on the crate's plot, the count of rows in view, the panel open,
 - **`1.0 - 0.9` over `0.1` isn't 1.** The axes "whole once landed" came out at 0.9999999999999998 until the ramp was counted from the landed end.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface", "Input"; the evidence: [`milestones.md`](milestones.md), M3's checks.
+
+## M4 part A: the frame that turns with Jupiter (2026-11-12)
+
+The second action, the camera's flight to straight above and its turn with Jupiter, board 2's names and triangle, the two groups' light, and the two actions together. On the Kepler orbits.
+
+**Surprises:**
+- **The turning frame needed nothing from the dots.** The plan spoke of every dot, the Sun, the orbit, and the sky turned by one angle; the angle is the camera's, and the shader never hears of it. Even the flight to the axes from a turning camera came free.
+- **JPL's class for a Trojan is two comparisons.** The class is in the rows file and the shader has only the elements; a and e between JPL's own bounds pick the same 16,472 rows, every one, so the scene can light a group it was never handed.
+- **Board 2's triangle isn't through the three points.** It is drawn at 0.86 of Jupiter's distance, through the Hildas' corners; the plan's is at Jupiter's a. Found only by reading the board's path against the numbers.
+- **Brightening the groups is an exaggeration, and rule 3 wants it said.** The stars' sentence had just left a place in the title to say it in.
+- **A year from the epoch the clouds already smear.** Riding in 2035 on the Kepler orbits the Trojans' clouds have spread along Jupiter's orbit and the Hildas' corners blurred: the ride is where two-body orbits show their age, which is what the integration is for.
+- **A fill read with time running is read against a row that moves.** The date's width changes as its digits do, the two buttons shift, and bounds read a frame after the screenshot put the sample in the gap between them: 7 of 255 for 38, one run in three. The lesson of the last part again, in a new place.
+- **The title had never been on the owner's screen.** Every check drew it; a real GPU draws GPUI's text subpixel, which leaves the canvas's alpha at 0 over the clear window, and the browser composites it away. Found only because a sentence was added there and the owner went looking for it. Headless Chromium can't draw the failing path at all: a real browser is the only check.
+- **A sky that turns honestly is nauseating.** The arithmetic said distracting; the owner's stomach said more. Nothing now shows that the view turns, and that reads fine.
+- **A test that steps a second at a time meets the stall guard.** The ride's own test moved it half its length in one reading, which the progress takes for a tab back from the background.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface"; the evidence: [`../PLAN.md`](../PLAN.md), M4's checks.

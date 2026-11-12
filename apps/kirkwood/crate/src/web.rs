@@ -6,8 +6,8 @@
 //! ([`elements_arrived`]): the scene fills its attributes from views over
 //! each block of rows where it lies ([`elements_blocks`]), and says how
 //! far it has drawn ([`belt_drawn`]). Each frame it asks for the clock
-//! ([`scene_years`]), the sort flight ([`scene_flight`]), and for what
-//! else it draws by.
+//! ([`scene_years`]), the sort flight ([`scene_flight`]), the ride with
+//! Jupiter ([`scene_ride`]), and for what else it draws by.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -25,6 +25,7 @@ use crate::host::Host;
 use crate::layout::{self, Plot};
 use crate::orbit::{JUPITER, Orbit};
 use crate::ramp;
+use crate::ride;
 use crate::rows::{Rows, day_of};
 use crate::scene;
 
@@ -114,6 +115,13 @@ pub fn start(ui_font: Vec<u8>) {
             seiza::stop_following_system_appearance(cx);
             Theme::change(ThemeMode::Dark, None, cx);
             Theme::global_mut(cx).tokens.background = gpui_kit::transparent_black().into();
+            // Text in gray, never subpixel. On a GPU with dual-source
+            // blending GPUI draws subpixel text in a window it takes for
+            // opaque (this one: it's made clear by hand), blending each
+            // channel and leaving the canvas's alpha as it was: over
+            // nothing that's 0, and the text is composited away. Headless
+            // Chromium has no such blending, so no check sees it.
+            cx.set_text_rendering_mode(TextRenderingMode::Grayscale);
             // `?glass`: the table's own fills let the panel's show (and
             // through it the scene), its stripes half as strong.
             if crate::host::GLASS.is_some() {
@@ -232,8 +240,8 @@ pub fn file_failed(message: String) {
 }
 
 // --- What the scene asks. None of these enters GPUI but `belt_drawn`,
-// `sky_drawn`, `scene_failed`, and `flight_hold`, which the page calls from its own tasks,
-// never from inside a call Rust made.
+// `sky_drawn`, `scene_failed`, `flight_hold`, and `ride_hold`, which the page
+// calls from its own tasks, never from inside a call Rust made.
 
 /// The blocks holding the elements' rows `from..to`, each as two numbers:
 /// where it is in this memory, and its rows. A block is
@@ -325,6 +333,47 @@ pub fn scene_plot(width: f64, height: f64) -> Vec<f32> {
 #[wasm_bindgen]
 pub fn flight_hold(progress: f64) {
     flight::hold(progress);
+    update_host(|_, cx| cx.notify());
+}
+
+/// The ride with Jupiter, moved on to `now_ms` (the page clock): how far
+/// the frame has turned to Jupiter's, 0 fixed with the camera where it
+/// was, 1 turning with Jupiter from straight above. The scene asks every
+/// frame, and flies its camera by it.
+#[wasm_bindgen]
+pub fn scene_ride(now_ms: f64) -> f64 {
+    ride::advance(now_ms);
+    ride::turned()
+}
+
+/// How much of the sky the scene still draws: none with the dots landed,
+/// and none in the frame that turns with Jupiter.
+#[wasm_bindgen]
+pub fn scene_sky() -> f64 {
+    flight::space() * ride::sky()
+}
+
+/// The three points in step with Jupiter, `years` after the epoch: 60°
+/// ahead of it, 60° behind, and opposite, at its own orbit size (x, y, z
+/// of each, au). The ride's names and its triangle are placed on them.
+#[wasm_bindgen]
+pub fn ride_points(years: f64) -> Vec<f64> {
+    ride::points(years).into_iter().flatten().collect()
+}
+
+/// The two groups the ride lights, as the shader takes them: the Hildas'
+/// least orbit size and most (au), the Trojans' least and most, and the
+/// Trojans' most e.
+#[wasm_bindgen]
+pub fn ride_groups() -> Vec<f32> {
+    ride::bounds().to_vec()
+}
+
+/// `?ride=<0 to 1>`: holds the ride there, for a screenshot of one moment
+/// of it. Called from the page's own task, as [`flight_hold`] is.
+#[wasm_bindgen]
+pub fn ride_hold(progress: f64) {
+    ride::hold(progress);
     update_host(|_, cx| cx.notify());
 }
 
@@ -478,6 +527,35 @@ pub fn flight_state() -> Vec<f64> {
         f64::from(u8::from(flight::sorted())),
         f64::from(u8::from(flight::flying())),
     ]
+}
+
+/// The ride with Jupiter: how far the frame has turned, whether the
+/// action is pressed, and whether the camera is on its way.
+#[wasm_bindgen]
+pub fn ride_state() -> Vec<f64> {
+    vec![
+        ride::turned(),
+        f64::from(u8::from(ride::riding())),
+        f64::from(u8::from(ride::flying())),
+    ]
+}
+
+/// Of the rows the scene has drawn so far, those in each group the ride
+/// lights: the Hildas, then the Trojans.
+#[wasm_bindgen]
+pub fn ride_counts() -> Vec<f64> {
+    with_elements(|elements| {
+        let (mut hildas, mut trojans) = (0.0, 0.0);
+        for row in 0..DRAWN.get() {
+            match ride::group(elements.get(Element::A, row), elements.get(Element::E, row)) {
+                Some(ride::Group::Hildas) => hildas += 1.0,
+                Some(ride::Group::Trojans) => trojans += 1.0,
+                None => {}
+            }
+        }
+        vec![hildas, trojans]
+    })
+    .unwrap_or_else(|| vec![0.0; 2])
 }
 
 /// The clock: its years, whether it's set to run, whether it's held for

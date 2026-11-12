@@ -13,6 +13,8 @@
 //!   legend's one table;
 //! - the sort flight's progress ([`flight`]) and the axes it lands the
 //!   dots on, a against e ([`layout`]);
+//! - the ride with Jupiter ([`ride`]): how far the frame has turned to
+//!   it, the points in step with it, and the two groups that hold there;
 //! - the interface ([`host`]): the title, the time control, and the table
 //!   in a panel behind its handle, over a surface that hands the scene its
 //!   wheel (`scene`);
@@ -31,11 +33,13 @@ mod host;
 pub mod layout;
 pub mod orbit;
 pub mod ramp;
+pub mod ride;
 pub mod rows;
 pub mod scene;
 #[cfg(test)]
 mod shader;
 mod table;
+mod tween;
 #[cfg(target_family = "wasm")]
 mod web;
 
