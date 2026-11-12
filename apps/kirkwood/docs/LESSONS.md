@@ -132,3 +132,18 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Input"; the evi
 - **A check on a hard disc doesn't want the look.** Haze is an eighth of the buffer's resolution, so its glow around a lone disc would have been found with the disc; rows drawn alone are drawn plain.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Look", "Data"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.
+
+## M2, part D: what was left to choose (2026-11-11)
+
+**Surprises:**
+- **No lever reaches 60 but the one already turned down.** The bloom at half its size is worth under a frame a second and a dot half the size is worth one; with the sky, the haze, and the bloom all off the belt alone is still past a frame. The look was never the cost.
+- **Drawing the belt small and the sky sharp bought nothing.** The belt at half resolution under a full-resolution sky drew exactly what the whole scene draws at three quarters, with a second buffer to pay for. It was built, measured, and taken out the same hour.
+- **A dot's size doesn't change the frame rate, and the resolution does.** So the cost isn't the pixels a dot fills, which is what "points times pixels" had been read to mean.
+- **The slow link's 34 seconds had been estimated right, and seeing them was still what decided it.** A page about dots with no dot for half a minute reads differently in screenshots than as a number in an open question.
+- **A column at a time can't be drawn early at all.** No row is whole until the file's last column, so "draw what has arrived" was never a change to the page: it is a change to the file.
+- **The preview server had never sent the data as a deploy would.** Every load so far read the files uncompressed, so the slow link couldn't be measured until the server could compress them.
+- **Other browsers passed, and showed a difference that isn't theirs.** Firefox and WebKit ran everything; what looked different was DPR 1, where a star is one bright pixel. The look had only ever been seen at DPR 2.
+- **The glass panel needed no change to the table.** The table's fills are theme tokens, so the app made them clear. And from the opening camera the glass shows almost nothing: what lies under the panel is thin sky.
+- **A part can end by finding the next one.** The close was this part's, and a measurement moved it: the file in blocks is part E.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Data", "Table", "Planning"; the evidence: [`PLAN.md`](../PLAN.md), M2's checks.

@@ -418,6 +418,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     marks.frustumCulled = false;
     bodies.add(marks);
   }
+  // `?glass`, to be looked at: the page's element that blurs the scene
+  // behind the table's panel, `?glassBlur` CSS px (the panel's own fill is
+  // GPUI's, `host.rs`).
+  const glass = has('glass') ? document.querySelector<HTMLElement>('#glass') : null;
+  glass?.style.setProperty('--glass-blur', `${knob('glassBlur', 18)}px`);
+  let glassWidth = 0;
   /** Nothing: what's drawn over rows drawn alone. */
   const none = new Scene();
 
@@ -431,7 +437,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     names.append(label);
     return { label, text, left: 0, top: 0, width: 0, height: 0, shown: false };
   };
-  const sunName = name('Sun');
+  const sunName = name('Sol');
   const jupiterName = name('Jupiter');
   if (alone) names.hidden = true;
   // A name's size is read here and kept, never in a frame (a read there is
@@ -584,6 +590,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       put(sunName, sun.position, (width) => -width / 2, SUN_NAME_BELOW);
       put(jupiterName, jupiter.position, () => JUPITER_PX / 2 + 8, -9);
     }
+    // `?glass`: the blur behind the panel is as wide as the panel is now.
+    if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
     stats.frames++;
     stats.years = frame.years;
   };

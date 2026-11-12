@@ -64,6 +64,8 @@ type Kirkwood = {
    *  when the first frame was on screen (before either file). */
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
+  /** For the checks: the bytes of the two files held so far. */
+  held: number;
   /** For the checks: the scene, once it's started; whether the views it
    *  was given were over the wasm's own memory; the crate's 64-bit place
    *  for a row and for Jupiter (ecliptic x, y, z in au); the clock; and
@@ -170,6 +172,7 @@ async function afterFirstFrame(): Promise<void> {
     for (const file of FILES) {
       await hold(file, (bytes) => {
         received += bytes;
+        kirkwood.held = received;
         file_progress(received, total);
       });
       // The belt is drawn once the elements are held and the scene is up;
@@ -227,6 +230,7 @@ const kirkwood: Kirkwood = {
   wheel: (x, y, delta) => scene?.wheel(x, y, delta),
   wasmBytes: () => memory?.buffer.byteLength ?? 0,
   wasmBytesAtFirstFrame: 0,
+  held: 0,
   placeOf: (row, years) => Array.from(place_of(row, years)),
   jupiter: (years) => Array.from(jupiter_place(years)),
   clock: () => {

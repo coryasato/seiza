@@ -1,6 +1,7 @@
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig, type Connect, type Plugin } from 'vite';
+import { brotli } from '@seiza/web/brotli';
 import { crossOriginIsolationHeaders, seizaViteConfig } from '@seiza/web/vite';
 
 const root = import.meta.dirname;
@@ -10,7 +11,7 @@ const root = import.meta.dirname;
 const DATA: Record<string, string> = { 'elements.bin': 'prep.ts', 'rows.bin': 'prep.ts', 'stars.bin': 'stars.ts' };
 
 /**
- * Serves those files at `data/` under the app's base, as they are, in dev and preview: nothing
+ * Serves those files at `data/` under the app's base, as they are (or, asked, compressed), in dev and preview: nothing
  * else of `data/` (never `data/raw/`). They aren't part of the build: 97 MB
  * that a deploy puts where it serves data from.
  */
@@ -30,6 +31,15 @@ function serveData(): Plugin {
     if (size === undefined) {
       res.writeHead(404, { ...headers, 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(Object.hasOwn(DATA, name) ? `no data/${name}: run data/${DATA[name]}` : `Not found: /data/${name}`);
+      return;
+    }
+    // As a deploy would send them, when asked (`KIRKWOOD_DATA=br`, which
+    // the slow-link check sets): each file at brotli 11, compressed once
+    // (a minute or two a file) and kept in shared-web's cache.
+    if (process.env.KIRKWOOD_DATA === 'br' && /\bbr\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+      const body = brotli(readFileSync(join(root, '../data', name)));
+      res.writeHead(200, { ...headers, 'Content-Type': 'application/octet-stream', 'Content-Encoding': 'br', 'Content-Length': body.length });
+      res.end(req.method === 'HEAD' ? undefined : body);
       return;
     }
     res.writeHead(200, { ...headers, 'Content-Type': 'application/octet-stream', 'Content-Length': size });

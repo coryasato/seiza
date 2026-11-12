@@ -95,6 +95,14 @@ pub fn start(ui_font: Vec<u8>) {
             seiza::stop_following_system_appearance(cx);
             Theme::change(ThemeMode::Dark, None, cx);
             Theme::global_mut(cx).tokens.background = gpui_kit::transparent_black().into();
+            // `?glass`: the table's own fills let the panel's show (and
+            // through it the scene), its stripes half as strong.
+            if crate::host::GLASS.is_some() {
+                let theme = Theme::global_mut(cx);
+                theme.tokens.table = gpui_kit::transparent_black().into();
+                theme.tokens.table_head = gpui_kit::transparent_black().into();
+                theme.table_even = theme.table_even.opacity(0.5);
+            }
             seiza_tall_table::init(cx);
             let host = cx.new(Host::new);
             HOST.set(Some((host.clone(), cx.to_async())));

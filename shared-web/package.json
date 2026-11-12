@@ -10,6 +10,7 @@
     "./placeholder": "./src/placeholder.ts",
     "./prerender": "./src/prerender.ts",
     "./font": "./src/font.ts",
+    "./brotli": "./src/brotli.ts",
     "./fonts/*": "./fonts/*"
   }
 }

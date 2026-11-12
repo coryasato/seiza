@@ -30,6 +30,16 @@ use crate::table::{Source, Table};
 
 /// The panel's width, CSS px.
 const PANEL_WIDTH: f32 = 560.;
+/// `?glass`: the panel as glass, to be looked at. What is left of its fill
+/// (`?glass=<0 to 1>`, 0.6 with no value); the page blurs the scene behind
+/// it (`web/src/scene.ts`). Not there, the panel is opaque.
+pub static GLASS: LazyLock<Option<f32>> = LazyLock::new(|| {
+    seiza::url::has_param("glass").then(|| {
+        seiza::url::param("glass")
+            .and_then(|fill| fill.parse::<f32>().ok())
+            .map_or(0.6, |fill| fill.clamp(0.0, 1.0))
+    })
+});
 /// The panel's slide in or out.
 const SLIDE_MS: f64 = 350.0;
 /// How often the date redraws while time moves: a rate a person can read.
@@ -458,7 +468,7 @@ impl Host {
             .flex_col()
             .border_l_1()
             .border_color(theme.border)
-            .bg(theme.popover)
+            .bg(GLASS.map_or(theme.popover, |fill| theme.popover.opacity(fill)))
             .occlude()
             .child(
                 div()

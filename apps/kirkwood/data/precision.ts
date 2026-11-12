@@ -95,7 +95,7 @@ const report: Record<string, unknown> = { rows, bound: Array.from({ length: rows
 // --- The error.
 
 if (only.includes('error')) {
-  // The opening camera (spike/src/scene.ts, the look's): 13 au from the Sun,
+  // The opening camera (web/src/scene.ts): 13 au from the Sun,
   // 24 degrees above the ecliptic, turned 34 degrees about its line of
   // sight, a 40 degree field of view up and down, in a 1440 x 900 window.
   // The scene's axes are the ecliptic's x, north, and minus y.

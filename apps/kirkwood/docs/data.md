@@ -129,7 +129,7 @@ The app's crate reads these rows from the two built files through the readers it
 
 ## Jupiter
 
-Jupiter isn't a row, so it isn't in the files. `data/jupiter.ts` holds its six osculating elements at the files' epoch and its mean motion, from JPL Horizons (body 599 about the Sun's center, the ecliptic of J2000; the same numbers are in `data/horizons.json`), and places it as a row is placed (`data/orbit.ts`'s `place`), with one difference: its mean motion is its own, 0.0830846 degrees a day, which counts its mass (`DECISIONS.md`, "Scene"). Both modules are free of Node, so a page can import them. The app doesn't: its Jupiter is the crate's (`crate/src/orbit.rs`, the same elements, tested against `data/horizons.json`), and these two serve the data's own checks and the spike.
+Jupiter isn't a row, so it isn't in the files. `data/jupiter.ts` holds its six osculating elements at the files' epoch and its mean motion, from JPL Horizons (body 599 about the Sun's center, the ecliptic of J2000; the same numbers are in `data/horizons.json`), and places it as a row is placed (`data/orbit.ts`'s `place`), with one difference: its mean motion is its own, 0.0830846 degrees a day, which counts its mass (`DECISIONS.md`, "Scene"). Both modules are free of Node, so a page can import them. The app doesn't: its Jupiter is the crate's (`crate/src/orbit.rs`, the same elements, tested against `data/horizons.json`), and these two serve the data's own checks.
 
 ## Checked against Horizons
 

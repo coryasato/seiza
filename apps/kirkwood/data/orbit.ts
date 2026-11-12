@@ -1,6 +1,5 @@
 // A two-body orbit: the files' epoch and clock, and the place six elements
-// give. No dependencies and no file access, so a page can import it (the
-// spike's scene does, for Jupiter).
+// give. No dependencies and no file access, so a page could import it.
 
 /** The epoch every row is brought to: a Julian day, TDB (2026-06-09). */
 export const EPOCH_JD = 2461200.5;

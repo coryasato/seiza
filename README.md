@@ -64,7 +64,7 @@ seiza/
     duckdb/             # DuckDB-Wasm for every app: a Rust crate (seiza-duckdb) and an npm package (@seiza/duckdb)
   apps/
     observatory/        # the comparison page: web/ (the page), contenders/, worker/ (seiza.io), data/, perf/, docs/
-    kirkwood/           # the showcase, being built: its crate and host, its data's scripts, and a throwaway spike
+    kirkwood/           # the showcase, being built: its crate and host, its data's scripts, and its checks
     <app>/
       README.md         # what it is, its numbers, its canvas tradeoffs, how to run it
       CLAUDE.md         # rules, architecture, gotchas, commands

@@ -21,7 +21,7 @@ const STEPS: usize = 32;
 /// How the shader solves Kepler's equation.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Solver {
-    /// Six of Newton's steps from M + e sin M: the spike's way.
+    /// Six of Newton's steps from M + e sin M: the first shader's way.
     Six,
     /// Newton's steps kept inside the bracket bisection would use, from
     /// π's side for a high e, until one moves it by nothing a float holds:
@@ -69,7 +69,7 @@ fn eccentric_anomaly(mean: f32, e: f32, solver: Solver) -> f32 {
 /// How the shader is handed the clock.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Clock {
-    /// One float of years, times the row's turns a year: the spike's way.
+    /// One float of years, times the row's turns a year: the first shader's way.
     Plain,
     /// Whole years and the rest apart, the row's turns a year split in two
     /// so its product with the whole years is exact: the scene's way.

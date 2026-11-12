@@ -36,7 +36,7 @@
 //   bodies  the Sun and Jupiter: each name beside its disc, where the crate
 //           puts the body, at rest and with time running; the discs' colors
 //           where they should be (out/bodies.jpg).
-//   look    the look, with the sky in, on the epoch, from the spike's three
+//   look    the look, with the sky in, on the epoch, from the look's three
 //           cameras (out/look-opening.jpg, look-top.jpg, look-group.jpg, and
 //           each one's middle at the display's pixels, look-*-detail.png),
 //           for docs/spike/look-*-after.jpg to be set beside. Fails unless a
@@ -55,15 +55,32 @@
 //           table it scrolls the rows and leaves the scene; and the scene
 //           centers in what the open panel leaves (out/panel.jpg).
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel] [--runs 5]
+// Run only when asked for by name (minutes more each):
+//
+//   rate    the scene's frames a second while time runs, at the display's
+//           resolution, three quarters, and half, each with the bloom whole,
+//           at half its size, and off (the median of `--rate-runs` loads, 3;
+//           `--panel` opens the table first; `--ways "name:knob=value&…;…"`
+//           adds ways to draw, `--ways-only` runs those alone). Fails if the
+//           scene draws a frame at rest.
+//   slow    one load on Fast 4G with the CPU slowed 4×, the three files at
+//           brotli 11 as a deploy would send them (compressed once, a minute
+//           or two a file): when the first frame, the scene, the belt, the
+//           rows, and the sky arrive, and what the page shows on the way
+//           (out/slow-*.jpg).
+//   cross   `--browser firefox|webkit` (at DPR 1): the first frame, the belt
+//           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
+//           `--browser` runs this and `wheel`, nothing else.
+//
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
-// Run `just kirkwood build` first. Writes out/seen.json.
+// Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, type Page } from '@playwright/test';
+import { chromium, firefox, webkit, type Page } from '@playwright/test';
 import { clickTarget, firstDrawProbe, open, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 
 const dir = import.meta.dirname;
@@ -72,8 +89,26 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel'];
-const ONLY = new Set((option('only') ?? PARTS.join(',')).split(','));
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'rate', 'slow', 'cross'];
+/** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
+const BROWSER = option('browser') ?? 'chromium';
+const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
+if (!ENGINE) throw new Error(`--browser wants chromium, firefox, or webkit; got "${BROWSER}"`);
+/** `rate`: the loads each way is the median of, whether the panel is open,
+ *  and more ways to draw (`--ways "name:knob=value&knob=value;…"`). */
+const RATE_RUNS = Number(option('rate-runs') ?? 3);
+const RATE_PANEL = flag('panel');
+const RATE_MORE = (option('ways') ?? '')
+  .split(';')
+  .filter(Boolean)
+  .map((way): [string, Record<string, string>] => {
+    const [name, query = ''] = way.split(':');
+    return [name!, Object.fromEntries(new URLSearchParams(query))];
+  });
+/** Asked for by name alone: the frame rates, the slow link, and another browser take minutes more. */
+const ASKED = ['rate', 'slow', 'cross'];
+const ONLY = new Set((option('only') ?? PARTS.filter((part) => !ASKED.includes(part)).join(',')).split(','));
+if (ENGINE !== chromium && [...ONLY].some((part) => part !== 'cross' && part !== 'wheel')) throw new Error('--browser runs --only cross,wheel; every other part is Chromium\'s');
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs wants a whole number of loads, 1 or more; got "${option('runs')}"`);
 if (!ONLY.size || [...ONLY].some((part) => !PARTS.includes(part))) throw new Error(`--only wants some of ${PARTS.join(', ')}; got "${option('only')}"`);
 
@@ -103,6 +138,7 @@ type SceneStats = { frames: number; years: number; rows: number; points: number;
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
+  held: number;
   scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
@@ -445,11 +481,11 @@ async function seeBodies(url: string) {
     });
   const check = ({ labels, camera, jupiter }: Awaited<ReturnType<typeof read>>) => {
     const [sunAt, jupiterAt] = [project(camera, [0, 0, 0]), project(camera, jupiter)];
-    const [sun, named] = [labels.find((label) => label.text === 'Sun')!, labels.find((label) => label.text === 'Jupiter')!];
-    need(sun.shown && named.shown && sun.width > 10 && named.width > 20, `the names: ${JSON.stringify(labels)}`);
+    const [sun, named] = [labels.find((label) => label.text === 'Sol')!, labels.find((label) => label.text === 'Jupiter')!];
+    need(sun.shown && named.shown && sun.width > 8 && named.width > 20, `the names: ${JSON.stringify(labels)}`);
     // Board 1: the Sun's name centered under it, 36 px down, clear of its
     // glow's middle; Jupiter's beside its disc (8 px), level with it.
-    need(near(sun.left + sun.width / 2, sunAt[0], 1.5) && near(sun.top, sunAt[1] + 36, 1), `"Sun" at ${sun.left}, ${sun.top}; the Sun at ${sunAt.map(round)}`);
+    need(near(sun.left + sun.width / 2, sunAt[0], 1.5) && near(sun.top, sunAt[1] + 36, 1), `"Sol" at ${sun.left}, ${sun.top}; the Sun at ${sunAt.map(round)}`);
     need(near(named.left, jupiterAt[0] + 12, 1) && near(named.top + named.height / 2, jupiterAt[1], 1), `"Jupiter" at ${named.left}, ${named.top}; Jupiter at ${jupiterAt.map(round)}`);
     return { sunAt, jupiterAt, sun, named };
   };
@@ -479,7 +515,7 @@ async function seeBodies(url: string) {
 
 // --- The look, color, and the sky.
 
-/** The spike's opening camera, spelled out (the scene's own default). */
+/** The opening camera, spelled out (the scene's own default). */
 const OPENING = { az: '200', elev: '24', roll: '-34', dist: '13' };
 /** The belt on the epoch, time held. */
 const HELD = { date: EPOCH, paused: '' };
@@ -521,7 +557,7 @@ async function seeLook(url: string) {
     await page.screenshot({ path: join(out, `look-${name}-detail.png`), clip: { x: 500, y: 330, width: 440, height: 275 }, scale: 'device' });
     return kirkwood(page, (kirkwood) => ({ rows: kirkwood.scene!.stats.rows, stars: kirkwood.scene!.stats.stars, renderer: kirkwood.scene!.stats.renderer }));
   };
-  // The spike's three cameras: the opening shot, top-down, and flown in to
+  // The three cameras the look was tried from (docs/spike/): the opening shot, top-down, and flown in to
   // a group drawn around (560, 560) in the opening shot. There's no shape
   // to draw yet: the camera is put about where that fly-in ended, looking
   // at the ecliptic under that point from 5.2 au, the panel open as the
@@ -691,8 +727,196 @@ async function seeSky(url: string) {
   };
 }
 
+/** `--browser`'s engine: the first frame, the belt and its counts, and the
+ *  panel's first row (out/cross-<browser>-*.jpg). With `wheel`, a wheel
+ *  over each canvas. At DPR 1 off Chromium, and never throttled. */
+async function seeCross(url: string) {
+  const { page, problems, close } = await open(ENGINE, url, { init: [firstDrawProbe], params: { 'probe-cells': '', date: EPOCH, paused: '' } });
+  try {
+    const marks = {
+      firstFrame: await waitMark(page, FIRST_FRAME),
+      scene: await waitMark(page, SCENE),
+      belt: await waitMark(page, BELT, 0, 120_000),
+      rows: await waitMark(page, ROWS, 0, 120_000),
+      sky: await waitMark(page, SKY, 0, 120_000),
+    };
+    await settle(page);
+    await page.waitForTimeout(500);
+    await shot(page, `cross-${BROWSER}-belt`);
+    const seen = await page.evaluate(() => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      const stats = kirkwood.scene!.stats;
+      return { gpui: (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe?.api ?? '', scene: stats.renderer, rows: stats.rows, points: stats.points, stars: stats.stars, shared: kirkwood.viewsShareMemory, ...kirkwood.belt() };
+    });
+    const file = countRows();
+    need(seen.rows === manifest['elements.bin'].rows && seen.points === seen.rows && seen.stars === manifest['stars.bin'].stars, `the scene draws ${seen.points} points of ${seen.rows} rows and ${seen.stars} stars`);
+    need(seen.drawn === file.drawn && seen.unbound === file.unbound, `the page counts ${seen.drawn} rows drawn and ${seen.unbound} not; the elements file has ${file.drawn} and ${file.unbound}`);
+    need(seen.shared === true, "the scene's attributes aren't views over the wasm's memory");
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    const firstRow = await drawnRow(page, 0);
+    await page.waitForTimeout(600);
+    await shot(page, `cross-${BROWSER}-panel`);
+    const ceres = fixture.rows.find((row) => row.row === 0)!.cells.full_name;
+    need(firstRow[1] === ceres, `the first row is ${firstRow[1]}, not ${ceres}`);
+    if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+    return { browser: BROWSER, version: page.context().browser()!.version(), marksMs: Object.fromEntries(Object.entries(marks).map(([name, at]) => [name, round(at)])), ...seen, firstRow: firstRow[1] };
+  } finally {
+    await close();
+  }
+}
+
+/** A load on Fast 4G with the CPU slowed 4×, the files compressed as a
+ *  deploy would send them: what the page shows from its first frame to the
+ *  belt, the table, and the sky, and when. And when the first rows' worth
+ *  of the elements file was held: about when the first dots could be drawn
+ *  if the file were cut into blocks of rows (an estimate: the file isn't). */
+async function seeSlow(url: string) {
+  const FILES = ['elements.bin', 'rows.bin', 'stars.bin'] as const;
+  /** A block of rows, were the elements cut into them: its bytes. */
+  const BLOCK_ROWS = 65_536;
+  const BLOCK = BLOCK_ROWS * 7 * 4;
+  process.env.KIRKWOOD_DATA = 'br';
+  try {
+    // Compressed before the load is timed (once: a minute or two a file).
+    const wire: Record<string, number> = {};
+    for (const name of FILES) {
+      const response = await fetch(`${url}data/${name}`, { method: 'HEAD', headers: { 'Accept-Encoding': 'br' } });
+      need(response.headers.get('content-encoding') === 'br', `${name} wasn't served compressed`);
+      wire[name] = Number(response.headers.get('content-length'));
+    }
+    const { page, problems, close } = await open(chromium, url, { profile: PROFILES.find((profile) => profile.name === 'throttled')! });
+    try {
+      const firstFrame = await waitMark(page, FIRST_FRAME);
+      const MARKS = { scene: SCENE, elements: ELEMENTS, belt: BELT, rows: ROWS, sky: SKY };
+      const SHOTS = [2, 10, 25];
+      const seen: Record<string, number> = {};
+      const shots: string[] = [];
+      let firstBlock: number | null = null;
+      const timeline: { atMs: number; heldMB: number }[] = [];
+      for (let last = -Infinity; !('sky' in seen); ) {
+        const state = await page.evaluate((marks) => {
+          const at = (name: string) => performance.getEntriesByName(name, 'mark').at(-1)?.startTime ?? null;
+          return { now: performance.now(), held: (globalThis as unknown as Page_).__kirkwood.held, marks: Object.fromEntries(Object.entries(marks).map(([key, name]) => [key, at(name)])) };
+        }, MARKS);
+        need(state.now < 180_000, `three minutes in, the page has ${JSON.stringify(state)}`);
+        if (firstBlock === null && state.held >= 16 + BLOCK) firstBlock = state.now;
+        if (state.now - last >= 5000) {
+          timeline.push({ atMs: round(state.now), heldMB: mb(state.held) });
+          last = state.now;
+        }
+        const due = SHOTS.find((seconds) => state.now >= firstFrame + seconds * 1000 && !shots.includes(`slow-${seconds}s`));
+        if (due !== undefined) {
+          shots.push(`slow-${due}s`);
+          await shot(page, `slow-${due}s`);
+        }
+        for (const [key, at] of Object.entries(state.marks)) {
+          if (at === null || key in seen) continue;
+          seen[key] = at;
+          if (key === 'scene') continue;
+          // GPUI's own frame after the mark (the handle, the counts, the line about the stars).
+          await page.waitForTimeout(600);
+          await shot(page, `slow-${key}`);
+        }
+        await page.waitForTimeout(100);
+      }
+      const data = await page.evaluate(() =>
+        (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith('/data/')).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd, wire: entry.encodedBodySize })),
+      );
+      if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+      return {
+        profile: 'CPU 4x, Fast 4G; the files at brotli 11',
+        wireMB: Object.fromEntries(Object.entries(wire).map(([name, bytes]) => [name, mb(bytes)])),
+        firstFrameMs: round(firstFrame),
+        sceneStartedMs: round(seen.scene!),
+        firstBlockHeldMs: firstBlock === null ? null : round(firstBlock),
+        blockRows: BLOCK_ROWS,
+        elementsHeldMs: round(seen.elements!),
+        beltDrawnMs: round(seen.belt!),
+        rowsHeldMs: round(seen.rows!),
+        skyDrawnMs: round(seen.sky!),
+        requests: data.map((request) => ({ path: request.path, startMs: round(request.start), endMs: round(request.end), wireMB: mb(request.wire) })),
+        timeline,
+      };
+    } finally {
+      await close();
+    }
+  } finally {
+    delete process.env.KIRKWOOD_DATA;
+  }
+}
+
+/** The scene's frame rate while time runs, for each way of drawing it the
+ *  resolution is chosen among: the frames the scene drew a second, the
+ *  page's own frames (rAF) beside them, and the share of the scene's frames
+ *  that came more than a frame and a half after the last. */
+type Rate = { scene: number; page: number; late: number; p50: number; p95: number };
+async function seeRate(url: string) {
+  const SECONDS = 4;
+  const WAYS: [string, Record<string, string>][] = flag('ways-only') ? RATE_MORE : [
+    ["the display's resolution", {}],
+    ["the display's, the bloom at half", { bloomScale: '0.5' }],
+    ["the display's, no bloom", { bloom: '0' }],
+    ['three quarters', { scale: '0.75' }],
+    ['three quarters, the bloom at half', { scale: '0.75', bloomScale: '0.5' }],
+    ['three quarters, no bloom', { scale: '0.75', bloom: '0' }],
+    ['half', { scale: '0.5' }],
+    ...RATE_MORE,
+  ];
+  const ways = [];
+  for (const [name, params] of WAYS) {
+    const loads: Rate[] = [];
+    for (let run = 0; run < RATE_RUNS; run++) {
+      loads.push(
+        await (params.sky === '0' ? withBelt<Rate> : withSky<Rate>)(url, { date: EPOCH, ...params }, async (page) => {
+          if (RATE_PANEL) {
+            await clickTarget(page, 'table-handle');
+            await waitMark(page, TABLE);
+            await page.waitForTimeout(600);
+            if (run === 0) await shot(page, `rate-${name.replace(/\W+/g, '-')}`);
+          }
+          return page.evaluate(
+            (ms) =>
+              new Promise<Rate>((done) => {
+                const stats = (globalThis as unknown as Page_).__kirkwood.scene!.stats;
+                const from = performance.now();
+                let [frames, last, lastAt] = [0, stats.frames, from];
+                const gaps: number[] = [];
+                const tick = (now: number) => {
+                  frames++;
+                  // A frame the scene drew since this was last asked.
+                  if (stats.frames !== last) {
+                    gaps.push(now - lastAt);
+                    [last, lastAt] = [stats.frames, now];
+                  }
+                  if (now - from < ms) return void requestAnimationFrame(tick);
+                  const seconds = (now - from) / 1000;
+                  const sorted = gaps.slice(1).sort((a, b) => a - b);
+                  done({ scene: (gaps.length - 1) / seconds, page: frames / seconds, late: sorted.filter((gap) => gap > 25).length / sorted.length, p50: sorted[Math.floor(sorted.length / 2)]!, p95: sorted[Math.floor(sorted.length * 0.95)]! });
+                };
+                requestAnimationFrame(tick);
+              }),
+            SECONDS * 1000,
+          );
+        }),
+      );
+    }
+    const of = (pick: (load: (typeof loads)[number]) => number) => round(median(loads.map(pick)));
+    ways.push({ way: name, params, sceneFramesASecond: of((load) => load.scene), pageFramesASecond: of((load) => load.page), percentLate: of((load) => 100 * load.late), frameMs: { p50: of((load) => load.p50), p95: of((load) => load.p95) } });
+    console.error(JSON.stringify(ways[ways.length - 1]));
+  }
+  // At rest the scene draws nothing.
+  const rest = await withSky(url, { date: EPOCH, paused: '' }, async (page) => {
+    const from = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.frames);
+    await page.waitForTimeout(1500);
+    return (await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.frames)) - from;
+  });
+  need(rest === 0, `at rest the scene drew ${rest} frames in 1.5 s`);
+  return { seconds: SECONDS, runs: RATE_RUNS, panelOpen: RATE_PANEL, ways, framesAtRest: rest };
+}
+
 async function seeWheel(url: string) {
-  const { page, problems, close } = await open(chromium, url, { params: { date: EPOCH, paused: '' } });
+  const { page, problems, close } = await open(ENGINE, url, { params: { date: EPOCH, paused: '' } });
   try {
     await waitMark(page, BELT, 0, 120_000);
     await waitMark(page, ROWS, 0, 120_000);
@@ -700,7 +924,7 @@ async function seeWheel(url: string) {
       page.evaluate(() => {
         const page = globalThis as unknown as Page_;
         const scene = page.__kirkwood.scene!;
-        return { distance: scene.stats.distance, first: page.__kirkwoodTable?.first ?? -1, sun: scene.labels().find((label) => label.text === 'Sun')! };
+        return { distance: scene.stats.distance, first: page.__kirkwoodTable?.first ?? -1, sun: scene.labels().find((label) => label.text === 'Sol')! };
       });
     // Over the scene, the panel shut.
     const opening = await read();
@@ -716,7 +940,7 @@ async function seeWheel(url: string) {
     await page.waitForTimeout(600);
     const open_ = await read();
     need(near(open_.sun.left + open_.sun.width / 2, (1440 - PANEL) / 2, 1.5), `the panel open, the Sun's name is centered at ${open_.sun.left + open_.sun.width / 2}`);
-    await shot(page, 'panel');
+    await shot(page, ENGINE === chromium ? 'panel' : `cross-${BROWSER}-wheel`);
     const layout = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
     // Over the table: the rows scroll, the scene stays.
     await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 3.5);
@@ -803,7 +1027,10 @@ try {
   if (ONLY.has('color')) seen.color = await seeColor(server.url);
   if (ONLY.has('sky')) seen.sky = await seeSky(server.url);
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
-  writeFileSync(join(out, 'seen.json'), `${JSON.stringify(seen, null, 2)}\n`);
+  if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
+  if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);
+  if (ONLY.has('cross')) seen.cross = await seeCross(server.url);
+  writeFileSync(join(out, ENGINE === chromium ? 'seen.json' : `seen-${BROWSER}.json`), `${JSON.stringify(seen, null, 2)}\n`);
   console.log(JSON.stringify(seen, null, 2));
 } finally {
   await server.close();
