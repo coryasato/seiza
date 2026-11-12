@@ -25,15 +25,15 @@
   },
   "levels": {
     "wide": {
-      "date": "2026-11-02",
+      "date": "2026-11-12",
       "machine": "local",
       "cpu": "Apple M1",
       "os": "Darwin 25.6.0 arm64",
       "ttfpMs": {
-        "reference": 180.8,
-        "throttled": 3585.2
+        "reference": 153.4,
+        "throttled": 3621.1
       },
-      "wasmBrotliKiB": 2775,
+      "wasmBrotliKiB": 2799.5,
       "tanstackJsBrotliKiB": {
         "date": "2026-11-03",
         "machine": "local",

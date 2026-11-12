@@ -488,3 +488,29 @@ macro_rules! probe_filled {
     }};
 }
 pub(crate) use probe_filled;
+
+// The wide sheet's, below everything another level builds (`lib.rs` says
+// why).
+
+/// Publishes what `table` reports (`watch`), and on the wide level its
+/// tools' (`wide::watch`). Inlined, so another level's code is `watch`'s.
+/// The wall's host calls `watch` for its tables itself.
+#[cfg(not(feature = "wall"))]
+#[inline(always)]
+pub fn watch_level(table: &Entity<Table>, cx: &mut Context<Host>) {
+    watch(table, cx);
+    #[cfg(feature = "wide")]
+    crate::wide::watch(table, cx);
+}
+
+/// The host is opening the file (`opening`), the table shown before closed
+/// (a replay's reopen): on the wide level the clipboard's writer is told,
+/// so a write still open is rejected. Inlined, so another level's code is
+/// `opening`'s.
+#[cfg(not(feature = "wall"))]
+#[inline(always)]
+pub fn opening_level() {
+    opening();
+    #[cfg(feature = "wide")]
+    crate::wide::closed();
+}

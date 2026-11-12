@@ -25,7 +25,7 @@ export type Level = 'base' | 'wide' | 'market' | 'tail' | 'wall';
  *  is `BUILT`'s, below; nothing else reads which levels exist from here. */
 export const LEVEL_FEATURES: Record<Level, readonly string[]> = {
   base: [],
-  wide: ['custom-cells', 'pin', 'density'],
+  wide: ['custom-cells', 'pin', 'density', 'resize', 'select', 'copy'],
   market: ['custom-cells', 'live', 'format'],
   tail: ['custom-cells', 'follow', 'live', 'format', 'density'],
   wall: ['custom-cells', 'live', 'format', 'density'],

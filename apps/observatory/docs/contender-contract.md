@@ -33,6 +33,10 @@ Always published, measured or not: every mark but the probe key's (the page's re
 | `contender:fonts-in` | The admin table with `?fonts` (`FONTS_PARAM`) only, a step: the script faces' bytes are all in hand, right before they're added. | The JS host (`web/src/fonts.ts`), once all 13 faces (`contenders/fonts/faces.ts`) have arrived and matched their pins; it fetches them at the first `filled`. | Never: the DOM has the system's fonts. |
 | `contender:fonts` | With `?fonts` only, a step: right after the first frame drawn with the faces. Scripts drawn in reads it. | `crate/src/fonts.rs`: `addFonts` adds the faces and refreshes the window; the host's next render sets the mark the JS host named (`scriptFonts`, before `start`) with `mark_after_current_task`, as the probe key's (checked against its GPU work by `perf/admin.ts`). | Never. |
 | `contender:fonts-failed` | With `?fonts` only: a face didn't load or didn't match its pin, and none was added. No `fonts` is coming. | The JS host. | Never. |
+| `contender:copy-started` | The wide sheet only, `?measure` only, an event: a copy started, its clipboard write opened, in the task that asked (the key's, or the page's Copy). The copy's time is read from the key's event (below, "Reading the metrics"). | The table's `TallTableCopy::Started`, in the subscription the table's copy emits it to, before the bridge's writer opens the `ClipboardItem` (`crate/src/wide.rs`). | The key handler opening the `ClipboardItem`. |
+| `contender:copied` | The wide sheet only, `?measure` only, an event: the copy's text all in. | The table's `Copied`. | The copy's last turn. |
+| `contender:copy-written` | The wide sheet only, `?measure` only, an event: the browser's write resolved. | The bridge's writer's callback at `Outcome::Written`. | The `write()` promise resolving. |
+| `contender:copy-declined` | The wide sheet only, `?measure` only, an event: a key on a selection past `key_max_cells` (100,000 cells); nothing read, no `copy-started`. | The table's `Declined`. | The key handler. |
 
 Marks reach the observatory's page by `postMessage` too: `parent.postMessage({ seiza: 'mark', name, at: performance.timeOrigin + startTime }, location.origin)`, one message per mark, `at` in epoch milliseconds because the page and the iframe have different time origins.
 
@@ -95,6 +99,36 @@ interface Contender {
 
 Its `state` is the first table's, as above, with `tables: number` (the stop's N) beside it: no measure of the wall scrolls, so no other table's position is read.
 
+The wide sheet adds, with `?measure` only, on both sides, each replaced (never mutated) when it changes, never a frame:
+
+```ts
+interface Contender {
+  /** What became of the last copy, as the table's bridge spells it
+   *  (`clipboard::Outcome`): `{state, id, …}`, `state` one of `declined`
+   *  (`rows`, `columns`), `copying` (`rows`, `rowsDone`), `writing` or
+   *  `written` (`bytes`), `refused` (`error`), `failed` (`reason`:
+   *  `too-large`, `read`, `cancelled`, `closed`), `unavailable`; `id` null
+   *  when declined. */
+  copy?: { state: string; id: number | null; [detail: string]: unknown };
+  /** `{kind, anchor, head}` (`rows`, `columns`, or `cells`; each cell
+   *  `[row, column]`) or null, as the table's `fixtures/selection.json`
+   *  spells it: replaced at each change. */
+  selection?: { kind: 'rows' | 'columns' | 'cells'; anchor: [number, number]; head: [number, number] } | null;
+  /** Each column's set width, CSS px, null where it's its kind's: replaced
+   *  at each release or fit that changed one. */
+  widths?: (number | null)[];
+  /** Where the cells are: `{left, top, rowHeight, cellsWidth, pinned,
+   *  columns: [{name, x, width, kind, budget}]}` (column `c`'s left edge
+   *  `left + x`, less the sideways scroll past the pinned run), replaced at
+   *  each layout change (a release or fit, the view's size), never a frame
+   *  (with `?cells` too, on every level that publishes it). The drags'
+   *  scripts read where to press from it once, at rest. */
+  layout?: object;
+}
+```
+
+GPUI's come from the table's events in `crate/src/wide.rs` (`Selected`, `ColumnWidthsChanged`, and `Layout`, which the table emits only when the layout changes), the copy's from the bridge's writer.
+
 The replay (live tail): the open reads the file by range under its own name (the summary), and the table opens at 0 rows, following; then the file is fetched whole in one request and registered in the engine as `nasa-http-jul95.whole.parquet` (`contenders/tail/data.ts`, `WHOLE_FILE`), which every page reads, and only then is the frame's clock worker (`contenders/tail/worker.ts`) started at the stop's rate. Each count it posts is set on the table (`set_rows`) in its message's task; following, the view moves on as the new rows' reads land. The fetch, the registration, or the worker failing fails the view (`contender:failed`), as does a file whose columns aren't the log's or whose rows aren't the replay's. `?rows=<n>` stops the clock at n rows (`contenders/tail/data.ts`'s `limitFrom`, handed to the worker's start message; 0, the default: never; anything but a count fails the load): memory's equal work at the level. A replay `open()` starts the replay over: the clock ended, the table reopened at 0 rows, and a new clock started (the file registered once). `__contender.batches` empties when the clock starts over; a pause asked before the worker exists holds from its start. The scroll back's probe is the state's `top` (`perf/contender.ts`'s `gpuiProbe`): let go, it holds as rows arrive. On the TanStack side the scroller's moves are the reader's (`src/tail.ts`'s `TailReader`): a move up lets go at its wheel, key, or touch move event, a move down decides at its scroll event from where it lands, End and a jump land, Home lets go, a thumb drag holds until its release; the tail pin and a resize move the scroller as the view's own moves, never the reader's.
 
 The feed (market watch): the frame's worker (`contenders/market/worker.ts`) starts once the table first fills, its store seeded from the open's page; `?ticks=<n>` ends it after n ticks (0, the default: never). A batch is folded in its message's task, every tick, and its rows re-read from the store in that task, drawn in the next frame. The worker failing to load, throwing, or sending a batch the store refuses fails the view (`contender:failed`). A replay `open()` ends the feed: the new store would miss the ticks sent meanwhile.
@@ -119,6 +153,15 @@ Live tail's frames only, with `?readout` only (`contenders/follow.ts`'s `followT
 - **The frame tells** `{ seiza: 'following', on, rows }`: `rows` the clock's last count. Sent when following changes (the page's ask, the reader's scroll up, End, a scroll back to the bottom), and while let go at most every 250 ms (`FOLLOWING_EVERY_MS`) as the counts arrive, a count held back sent when the 250 ms are up (so the last one arrives though the clock stops): never a message a frame. The page assumes a frame follows until told otherwise, and counts the rows since following was let go itself. GPUI's reports come from the table's `Following` and the clock's counts (`crate/src/clock.rs`); TanStack's from the paging's `onFollowing` and the counts (`data/replay.ts`).
 
 While let go no count is drawn, so the ring takes no sample (above) and this tab's Shown in reads "—" once the last 5 s hold none, as after a scroll up.
+
+### The copy line
+
+The wide sheet's frames only, with `?readout` only (`contenders/tools.ts`'s `toolsReporter`): a bare page, the cold runs' (`?measure` alone), neither exports the tools nor tells the page anything. The page says the selection and the copy in its status bar and offers a Copy button; the frame holds no words of its own (`docs/DECISIONS.md`, "Page"). Same origin both ways:
+
+- **The frame tells** `{ seiza: 'tools', cells, copy, done, bytes, ms, reason? }` at each selection change and copy event: `cells` the cells selected (0 for none); `copy` the last copy's state as `__contender.copy` spells it, or null (a selection change clears an ended copy's, never a running one's); `done` a running copy's share of its rows, 0–1; `bytes` the text's while writing and once written; `ms` once written, the copy's start (the key's task, or the page's call) → the browser's write resolved, the page's own clock (the cold numbers time from the key's event instead); `reason` why a copy failed. A change of `copy` goes at once; anything else (a drag's selection, a copy's progress) at most every 100 ms (`TOOLS_EVERY_MS`), the last held back sent when the time is up: never a message a frame.
+- **The page calls** `globalThis.__contenderTools.copy()` and `.cancel()` on the frame's window, inside its click: a press in the parent is the clipboard's gesture for the same-origin frame (WebKit honors only a call made in the event's task). `copy()` is the host's copy, which the key's limit doesn't hold (the cap does): the Copy button, and "Copy anyway" after a declined key. It focuses the frame's window first: Chromium refuses a clipboard write from a document without the focus, and the press gave it to the page. `cancel()` ends the copy running, the clipboard as it was.
+
+GPUI: the wasm exports `tools` (the reporter, before `start`), `toolsCopy`, and `toolsCancel`, run on the table in the caller's task (`crate/src/wide.rs`); the confirming key is Cmd+C (Ctrl+C) again on the selection the key declined, the same copy, made in the key's task (a selection change in between declines again). TanStack: the same module over its own copy.
 
 ## The cell probe
 

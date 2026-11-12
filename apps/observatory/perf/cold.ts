@@ -246,7 +246,8 @@ if (flag('write-baseline')) {
   // dated on their own); the top-level date and machine are this run's.
   const kept = existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline) : undefined;
   const entry: LevelBaseline = { date, machine, cpu, os, ttfpMs: { reference: reference.ttfpMs, throttled: throttled.ttfpMs }, wasmBrotliKiB: wasmKiB! };
-  const baseline = level === 'base' ? { ...kept, ...entry } : { ...kept!, levels: { ...kept?.levels, [level]: entry } };
+  // A level's other entries (its TanStack JS) are kept too, as the base's are.
+  const baseline = level === 'base' ? { ...kept, ...entry } : { ...kept!, levels: { ...kept?.levels, [level]: { ...kept?.levels?.[level], ...entry } } };
   writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(`wrote ${baselinePath}`);
 }

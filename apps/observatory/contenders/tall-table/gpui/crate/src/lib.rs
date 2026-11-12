@@ -101,3 +101,10 @@ fn bootstrap(ui_font: Vec<u8>) -> seiza::Bootstrap {
     let bootstrap = bootstrap.canvas_font_fallback(fonts::canvas_font_fallback());
     bootstrap
 }
+
+// The wide sheet's, below everything another level builds (above says why).
+
+/// The wide sheet's tools: the selection's copy to the clipboard, its keys,
+/// its contract, and the page's copy line.
+#[cfg(all(target_family = "wasm", feature = "wide"))]
+mod wide;

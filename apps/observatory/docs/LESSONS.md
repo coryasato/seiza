@@ -646,3 +646,13 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - The table has no copy fixture. Every other feature a scenario ports has one, but `copy`'s text is tested only inside the crate, where a DOM port can't reach it. M14 asked the table for one before the port, rather than writing it here.
 - The whole sheet is copyable. At ~18 MiB of TSV for 3.9 M cells, it passes the key's 100,000-cell limit forty times over but fits the 64 MiB cap, so a confirmed select-all copies every page. It's the one copy that makes both sides read the whole file while the view must keep up.
 - A few columns cost a whole file. A week of days is under the key's limit, but a page is the source's unit, so it reads all 11 pages: the copy's paging, not its text, is what the week measures.
+
+## M14 part B: the GPUI side at the grown wide level (2026-11-12)
+
+**Results:** [`perf/results/2026-11-12-m14-b.md`](../perf/results/2026-11-12-m14-b.md).
+
+**Surprises:**
+- A same-origin frame can take the parent's click as its clipboard gesture, but Chromium also wants its document focused. Firefox and WebKit wrote the button's copy at once; Chromium refused it until the frame focused its own window first, in the click's task.
+- The layout global costs a measured run nothing per frame by construction. The table emits `Layout` only when the layout changes, not when the view moves, so the frame-work A/B the spec allowed for had nothing to measure: the object stays the same through a scroll.
+- `cold --write-baseline` on a level dropped that level's TanStack baseline. It replaced the level's entry whole, where the base's merge keeps the TanStack side's. Nothing had rewritten a level's GPUI baseline since that entry was added.
+- The tools cost what the table's bare host measured, the host's code included: +18.9 KiB brotli against its +20.2. Brotli moved the wasm up to 1.6 KiB for under half a KiB of raw code, so a size read before a build's last fix needs reading again.

@@ -45,14 +45,23 @@ web-sys = { workspace = true, features = ["File"], optional = true }
 [features]
 fonts = ["seiza/canvas-font-fallback"]
 # The wide sheet's level: heat on the days (`custom-cells`), the key
-# columns pinned (`pin`), and the stop's rows, text, and widths (`density`).
+# columns pinned (`pin`), the stop's rows, text, and widths (`density`),
+# every column resizable (`resize`), every kind of selection (`select`),
+# and the selection copied (`copy`, the bridge's clipboard writer;
+# `src/wide.rs`).
 wide = [
     "seiza-tall-table/custom-cells",
     "seiza-tall-table/pin",
     "seiza-tall-table/density",
+    "seiza-tall-table/resize",
+    "seiza-tall-table/select",
+    "seiza-tall-table/copy",
     "tall-table-bridge/custom-cells",
     "tall-table-bridge/pin",
     "tall-table-bridge/density",
+    "tall-table-bridge/resize",
+    "tall-table-bridge/select",
+    "tall-table-bridge/copy",
 ]
 # Market watch's level: the changed cells' flash (`custom-cells` with
 # `live`), the rows re-read in place (`live`), and the canvas's text

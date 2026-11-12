@@ -25,9 +25,16 @@
 //   `contender:filled`): an unknown stop, an unknown scenario, and the wide
 //   sheet asked of the base level's build, and then the replay's open,
 //   fling, and jump each reject at once; and the base build still opens
-//   Big file without them. On both sides.
+//   Big file without them. On both sides;
+// - the tools (`perf/wide-tools.ts`): a band's drag and fit, a pinned
+//   band held, a selection drag, the week's and a block's copies against
+//   native DuckDB to the byte, the sheet declined then confirmed, the
+//   copy's marks in order, the globals only with `?measure`; the page's
+//   copy line from a parent page in Chromium, Firefox, and WebKit; a tap
+//   and a touch drag on a band. The GPUI side's (the TanStack side's when
+//   it builds them).
 //
-// Usage: node apps/observatory/perf/wide.ts [--label <name>] [--side gpui|tanstack]
+// Usage: node apps/observatory/perf/wide.ts [--label <name>] [--side gpui|tanstack] [--only tools]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
 // data`; run `just observatory gpui-build`, `gpui-build wide`,
 // `tanstack-build`, and `tanstack-build wide` first.
@@ -42,10 +49,18 @@ import { WIDE_SHEET, type DensityStop, type Oklch } from '../contenders/scenario
 import { Domain, fromOklab, fromOklch, oklab, parseHex, rampAt, type Oklab, type Rgba } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS, dataPath, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
+import { TOOL_BROWSERS, checkFromParent, checkTools, checkTouch } from './wide-tools.ts';
 
 const label = option('label');
 const only = option('side') as Side | undefined;
 const SIDES: Side[] = only ? [only] : ['gpui', 'tanstack'];
+/** `--only tools`: the tools alone, not the layouts and heat. */
+const onlyWhat = option('only');
+if (onlyWhat !== undefined && onlyWhat !== 'tools') throw new Error(`--only ${onlyWhat}: only \`tools\` is known`);
+const toolsOnly = onlyWhat === 'tools';
+/** The sides whose wide build has the tools (the TanStack side's once it builds them). */
+const TOOLED: Side[] = ['gpui'];
+if (toolsOnly && !SIDES.some((side) => TOOLED.includes(side))) throw new Error(`--only tools: ${SIDES.join(', ')} builds no tools yet (TOOLED: ${TOOLED.join(', ')})`);
 
 interface Layout {
   left: number;
@@ -241,14 +256,16 @@ const served = (side: Side, level: 'wide' | 'base'): AppServer => {
 const gpuiLayouts = new Map<string, Layout>();
 let browser: Browser | null = null;
 try {
-  servers.gpui = { wide: await serveGpui(4345, undefined, 'wide') };
-  if (SIDES.includes('gpui')) servers.gpui.base = await serveGpui(4346, undefined, 'base');
-  if (SIDES.includes('tanstack')) {
+  // With `--only tools`, only the tooled sides' wide builds.
+  const wanted = (side: Side) => SIDES.includes(side) && (!toolsOnly || TOOLED.includes(side));
+  if (!toolsOnly || wanted('gpui')) servers.gpui = { wide: await serveGpui(4345, undefined, 'wide') };
+  if (wanted('gpui') && !toolsOnly) servers.gpui!.base = await serveGpui(4346, undefined, 'base');
+  if (wanted('tanstack')) {
     servers.tanstack = { wide: await serveTanstack(4347, undefined, 'wide') };
-    servers.tanstack.base = await serveTanstack(4349, undefined, 'base');
+    if (!toolsOnly) servers.tanstack.base = await serveTanstack(4349, undefined, 'base');
   }
   browser = await chromium.launch({ channel: 'chromium' });
-  for (const side of [...new Set<Side>(['gpui', ...SIDES])]) {
+  for (const side of toolsOnly ? [] : [...new Set<Side>(['gpui', ...SIDES])]) {
     const checked = SIDES.includes(side);
     const sideResults: Record<string, unknown> = {};
     // Each stop in both themes, then the default (no `?stop`); a side read
@@ -414,6 +431,14 @@ try {
     }
     results[side] = sideResults;
   }
+  // The tools, on each side that builds them.
+  for (const side of SIDES.filter((side) => TOOLED.includes(side))) {
+    const url = served(side, 'wide').url;
+    const tools: Record<string, unknown> = { window: await checkTools(browser, side, url, conn, fail), touch: await checkTouch(browser, side, url, fail) };
+    for (const type of TOOL_BROWSERS) tools[`page-${type.name()}`] = await checkFromParent(type, side, url, conn, fail);
+    results[side] = { ...results[side], tools };
+  }
+  if (toolsOnly && !SIDES.some((side) => results[side])) fail('--only tools: no side was checked');
 } finally {
   await browser?.close();
   for (const levels of Object.values(servers)) for (const server of Object.values(levels)) await server?.close();
@@ -422,7 +447,7 @@ try {
 if (label) {
   const out = join(perfDir, 'results', `${localDate()}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  writeFileSync(out, `${JSON.stringify({ date: localDate(), label, ...machineInfo(), viewport: '1440x900', deviceScaleFactor: 2, scenario: WIDE_SHEET.id, results, failures }, null, 2)}\n`);
+  writeFileSync(out, `${JSON.stringify({ date: localDate(), label, ...machineInfo(), viewport: '1440x900', deviceScaleFactor: 2, dprNote: "the tools' page and touch sections ran at DPR 1, in the browsers they name", scenario: WIDE_SHEET.id, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }
 if (failures.length) {
