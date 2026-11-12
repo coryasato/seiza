@@ -42,7 +42,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 |---|---|---|
 | tall-table `follow` (same; [its README](../../components/tall-table/README.md), "Following the tail") | Live tail (M11) | *Ready* (2026-10-25, tall-table M4) |
 | tall-table `let_go`: following turned off by the host, the view left where it is, `Following(false)` emitted (the reader's moves do it today; `set_following` is private) | Live tail's Pause (M11 part E2) | *Ready* (2026-11-09, tall-table M13; the TanStack contender's `letGo` built with it, in `follow.ts`, its fixture scenario and control run on the tail level) |
-| tall-table's copy fixture (`fixtures/copy.json`; tall-table M14, [its PLAN](../../components/tall-table/PLAN.md), "Active milestone") | The TanStack contender's copy, ported against it (M14 part C) | *Not ready* (asked 2026-11-12) |
+| tall-table's copy fixture (`fixtures/copy.json`; tall-table M14, [its milestones](../../components/tall-table/docs/milestones.md)) | The TanStack contender's copy, ported against it (M14 part C) | *Ready* (2026-11-12, tall-table M14) |
 | tall-table `resize`, `select`, `copy` ([its PLAN](../../components/tall-table/PLAN.md), "Columns" and "Selection") | The wide sheet's later steps, a resize drag and a range copied (M14) | *Ready* (`resize` 2026-10-26, tall-table M5; `select` 2026-10-26, M6; `copy` 2026-10-27, M7) |
 
 ---

@@ -955,3 +955,63 @@ No research: it adds one call to a built feature, under its Cargo feature (`foll
 - [x] **After the code review** (nine findings; five fixed, four answered): the smoke check's let-go step waits for the view to rest by polling, as the wheel's does, not after a fixed 200 ms (`holdsWhileLetGo`, both steps' through it, and `followsAgain`); a drag's release after a host's `let_go` decides as a landing, documented (the call's doc, the README) and tested (`a_drags_release_decides_after_a_let_go`); the README's cost splits the call (+320 B after wasm-opt, measured with the hook's call dropped) from the bare host's hook; `harness.ts`'s `Global` gains the hook, with `letGo(page)` and `followingIs(page, on)` in place of six copies of the flag's wait (`smoke.ts`, `follow.ts`); `docs/DECISIONS.md` no longer says the controls' cases stay (the placed steps join them as run). Answered: the hook stays a hook, as `pin`'s, `density`'s, and `sort`'s are (a key binding brings its own action and binding), the note saying every later `follow` reading carries it; the random test's `let_go` coverage stays placed (the fixture scenario and window tests pin the path, the random test its invariants); the repeated `cfg` list stays three lines (one alias needs `cfg_aliases` and a build script). `just tall-table test`, `lint`, and the follow build's smoke in three browsers run again on the result.
 
 **Parts:** one, Part A (A1–A6): the milestone is a session's worth.
+
+## M14: `copy`'s fixture, a selection → its text, and the limits (closed 2026-11-12)
+
+Opened and closed 2026-11-12.
+
+Asked for 2026-11-12 by the observatory's wide sheet, whose TanStack contender ports the copy (its M14 part C waits on this; "Who's waiting"). A follow-up to `copy` (M7): no new Cargo feature, no change to the table's code past a tests-only `Control`, and the paging untouched (no soak). One session, one part.
+
+**Why:** `fixtures/` pins no copy today. Its text is tested only in `copy.rs`'s and `state/copy/tests.rs`'s own tests, which a DOM port can't run, so "a copied range's text is byte-identical on both sides" (the observatory's M14 done-when) has nothing to hold the TanStack side to but the GPUI side's output on the day.
+
+**What it pins** is what a copy gives, not how the table reads for it: the text, the copy's ranges, its end (copied, declined, refused), and the limits' numbers. The order of the copy's reads and the `Text` pieces' boundaries aren't pinned: neither changes the text, and both follow when a source's pages land.
+
+### `fixtures/copy.json`
+
+Its format goes in `fixtures/README.md` (a `copy.json` section and a row in the table), as the other fixtures':
+
+- **`options`**: `CopyOptions::default()` in the units a TS side uses (`max_bytes` 67,108,864, `key_max_cells` 100,000, `headers` false); the native test fails if they part, as `paging.json`'s `paging` does with `Paging::default()`. A case's `options` replace fields of it.
+- **`sources`**, by name: `columns` (each a `name` and a `kind`: `float`, `float32`, `integer`, `decimal`, `text`) and `rows` (each a list, a value a column). A float's value is a string parsed as a number (`f64::from_str` and JS's `Number` alike: `"-0.0"`, `"NaN"`, `"Infinity"`, `"1e300"`), so values JSON can't hold survive; an integer's, a decimal's, and a text's are the text the source writes (a DOM side parses an integer into its own type, a `BigInt`); `null` is NULL.
+- **`cases`**: a `source`, maybe a `page_rows` (the `Paging` field; small, so a copy spans loaded pages and pages it reads itself), maybe `options`, a `selection` as `selection.json` spells it (`kind`, `anchor`, `head`), `by` (`key`: Cmd+C through the element, under `key_max_cells`; `copy`: the host's `copy`, past it), a `why`, and `expect`:
+  - `started`: the copy's `rows` and `columns`, each `[first, last]` (the selection's ranges, normalized), or absent when the key declined;
+  - `outcome`, one of `{"copied": {"rows", "bytes"}}`, `{"declined": {"rows", "columns"}}`, `{"too_large": {"bytes", "max_bytes"}}`;
+  - `text`: with `copied`, every `Text` piece joined, byte for byte;
+  - `reads`: whether any page was read for the copy (`false` for a declined key and `least_bytes`' refusal).
+
+**The cases:**
+
+- **Ranges,** over a small source (a few columns of each kind, rows past two of `page_rows`, the first page loaded at open and the rest not): `Rows`, `Columns` (every row: the copy reads the pages it lacks), and `Cells`, each with its anchor after its head too (the same text); one cell; a block whose rows start on a page's last row and end on another page.
+- **The text's rules:** a tab between cells, `\n` between rows, no trailing line break; with `headers` on, the column names first and a `\n` after them (a name that needs quoting among them), the line counted in the bytes.
+- **Values:** text that needs quoting (a tab, `\n`, `\r`, a `"` doubled), plain text with a comma and a space (unquoted), NULL and empty text (both empty), non-ASCII text (counted in UTF-8 bytes); floats' exact text, Rust's `{:?}` (`8.0`, `-0.0`, `0.30000000000000004`, `1e300`, `1e-7`, `NaN`, `inf`, `-inf`), a `float32`'s (`0.1`), integers (`-9223372036854775808`), a decimal as its source wrote it.
+- **The limits,** `key_max_cells` and `max_bytes` set small in each case's `options`:
+  - The key at `key_max_cells` cells (copied) and one past (`declined`, its rows and columns, nothing read); the host's `copy` of the same one past (copied).
+  - `least_bytes`' refusal: separators alone past `max_bytes`, `too_large` with `bytes` the separators' (and a header's), before a read.
+  - The cap passed mid-copy: `too_large` with `bytes` the text through the row that passed it; one where the bytes pass the cap only counted in UTF-8 (a non-ASCII row).
+  - The early projection: a page's worth of rows in (`page_rows` small), their bytes a row over the copy's rows past twice the cap, `too_large` with the projection's `bytes` (`header + per_row × rows`, as `copy_turn` computes it, cut to a whole byte).
+
+**Its controls** (`copy::Control`, tests only, as the other fixtures'), each of which must fail at least one case:
+
+- `null-as-text`: NULL written `NULL` (its `Display`, as a careless port writes it);
+- `no-quoting`: fields written as they are;
+- `key-limit-off-by-one`: the key declines at `key_max_cells` cells, not past it;
+- `whole-floats-bare`: a whole float written without its `.0` (JS's `String`, as `cells.json`'s control);
+- `trailing-break`: a `\n` after the last row (a spreadsheet's habit);
+- `utf16-bytes`: the cap counted in UTF-16 code units (a JS string's `length`).
+
+The last three are added to the observatory's ask: each is a mistake a TS port is likely to make (a JS number's text, a spreadsheet's trailing break, a string's `length` as its bytes).
+
+### Done when
+
+- [x] **A1, the fixture:** `fixtures/copy.json` holds the cases above, each with a `why`; its format is in `fixtures/README.md`.
+  - 27 cases over three sources (`sheet`: 10 rows, 4 columns, a header name that needs quoting; `values`: 8 rows, a column per kind; `accents`: non-ASCII text), `page_rows` 4, no prefetch, a 2-row view. Each field's expected text was written by hand; the bytes are counted from that text. After the code review, five more: the key's limit over two columns (at it, and past it with rows under it), the least text with the header line, the projection with headers on, and a copy starting on a page's last row refused at the cap where a projection from that row alone would refuse first.
+- [x] **A2, native:** `src/state/fixtures/copy.rs` (with `copy`; a child of `state/fixtures.rs`, as each feature's is) runs every case through the element in a window over a source answering at once (Cmd+C through the keys' contexts, as `fixtures/select.rs` does; the host's `copy` and `select` as a host calls them), and `copy_controls_fail` sees each control fail; `just tall-table test` passes with every feature off, `copy` on, and all on.
+  - `just tall-table test` (2026-11-12, again after the review's fixes): exit 0, 1,370 passed, 0 failed; the three copy fixture tests ran in both `copy` builds (`copy` alone and all on). Each control fails only the cases it should: `utf16-bytes` the UTF-8 cap and the two non-ASCII copies, `key-limit-off-by-one` the key at its limit, `trailing-break` every copied case.
+- [x] **A3, the base unchanged:** the `Control` is tests only: `just tall-table size` shows the base's and `copy`'s builds as before.
+  - Checked by bytes instead of `size`: the base build compiles none of the change (`state/copy.rs` is behind `copy`; the fixture is tests only). The `copy` build's shipped wasm, before and after (`just tall-table wasm release copy`): 10,101,910 bytes both, 13 bytes differing, all panic-location line numbers in `state/copy.rs`. Built with names kept, all 53,935 function bodies are identical; the 6 names that differ are the `CopySelection` action's impl numbers, stripped in a release build. (Brotli 11 reads the two at 2,837,901 and 2,835,961 bytes: brotli's output swings on 13 changed bytes.)
+- [x] **A4, the observatory runs it:** `just observatory fixtures` runs the native test, and the TanStack contender's test names `copy.json` skipped until its port (its M14 part C).
+  - Its recipe gained `cargo test -p seiza-tall-table --features copy fixtures::copy` (3 passed); `fixtures.test.ts` skips `copy.json` ("the contender has no copy"); the whole recipe exits 0, `cell-fixture --check` matching.
+- [x] **A5, the docs:** `CLAUDE.md`'s architecture (`state/fixtures.rs`' children), layout (`fixtures/`), and tests paragraph name `copy.json`; a `docs/LESSONS.md` entry if anything surprised; no results note (nothing measured); the observatory's "Waiting on" row *Ready* (the date, tall-table M14).
+  - `CLAUDE.md` names `copy.json` in the architecture (`fixtures/copy.rs`, the copy state's `Control` and `Writer`), the layout, and the tests paragraph; `fixtures/README.md` has its row and section; the `docs/LESSONS.md` entry; no results note; the observatory's "Waiting on" row *Ready* (2026-11-12, tall-table M14), its `fixtures` recipe and `CLAUDE.md` running the test.
+- [x] **After the code review** (nine findings; eight fixed, one dropped): five cases (the key's limit over two columns, at it and past it; the least text with the header line; the projection with headers on; a copy from a page's last row refused at the cap before a projection from that row alone could); `fixtures/README.md`'s `viewport_rows` beside `paging`, and the projection counted from the copy's own first row; the 2026-11-12 decision restored as committed, the read-order question's close a bullet of its own; the test app set up once a test and each case's window closed (the three tests 11.7 s → 1.6 s); `Writer`'s place at the file's end said in a comment; a comment rewrapped. Dropped: the `utf16-bytes` control counting the header in `least_bytes` too, which changed `start_copy`'s release code (29 bytes before wasm-opt). `just tall-table test`, `lint`, `just observatory fixtures`, and the byte comparison run again on the result.
+
+**Parts:** one, Part A (A1–A5): the milestone is a session's worth.

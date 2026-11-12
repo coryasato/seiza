@@ -612,6 +612,12 @@ test('an open without a row count fails, naming it', async () => {
 // added only when both sides build selecting (root CLAUDE.md, "Comparison protocol").
 test('selection.json', { skip: 'the contender has no selection' }, () => {});
 
+// --- copy ---
+
+// `copy.json` pins a copy's text and its limits: the wide level ports the
+// copy against it.
+test('copy.json', { skip: 'the contender has no copy' }, () => {});
+
 // --- sort ---
 
 // `sort.json` pins a sort's cycle and the order a source answers in, and

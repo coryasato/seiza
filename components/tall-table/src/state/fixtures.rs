@@ -49,6 +49,11 @@ mod sort;
 #[cfg(feature = "pin")]
 mod pin;
 
+/// `copy.json` and its controls: a selection's text and the limits,
+/// through the keys and the host's `copy` in a window.
+#[cfg(feature = "copy")]
+mod copy;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;

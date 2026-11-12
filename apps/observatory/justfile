@@ -263,7 +263,8 @@ placeholder *args:
     node {{app_dir}}/perf/placeholder.ts {{args}}
 
 # The tall table's fixtures (components/tall-table/fixtures/): their native
-# tests in the component and the engine, each with its negative controls,
+# tests in the component and the engine, each with its negative controls
+# (copy.json's with `copy`, which the TanStack contender ports later),
 # the same fixtures and controls against the TanStack contender's data layer
 # (node --test), and the cell fixture against what the GPUI contender's
 # build draws: run
@@ -279,6 +280,7 @@ placeholder *args:
 fixtures:
     cargo test -p seiza-tall-table fixtures
     cargo test -p seiza-tall-table --features custom-cells,pin,density fixtures
+    cargo test -p seiza-tall-table --features copy fixtures::copy
     cargo test -p seiza-duckdb --all-features sql_fixture
     node {{app_dir}}/contenders/market/fixtures/write.ts --check
     node --test {{app_dir}}/contenders/tail/fixtures/clock.test.ts

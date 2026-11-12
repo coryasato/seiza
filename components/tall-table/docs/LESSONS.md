@@ -494,3 +494,13 @@ Results: [`perf/results/2026-11-09-m13-a.md`](../perf/results/2026-11-09-m13-a.m
 **Surprises:**
 - A size comparison that shared one cargo target directory between a worktree at the parent and the working tree read the two `follow` builds as identical, and then failed to build the working tree at all (`let_go` not found). The worktree's files, checked out after this tree's edits, were newer, so cargo's mtime check took the parent's build of the table as fresh for both. A tree measured against another needs a target directory of its own (as `size --against` does), or every source touched before its build.
 - Most of the build's 2 KiB brotli is the bare host's script hook, not the call (the call +320 B after wasm-opt, the hook +2,725): the `follow` build had no hook before, so its first one brings the machinery (a `Closure`, a global, the entry into GPUI). A feature's added bytes in the bare host can be mostly the host's.
+
+## M14: `copy`'s fixture (part A, 2026-11-12)
+
+No results note: nothing measured. The build's check was a byte comparison of the `copy` build's wasm before and after.
+
+**Surprises:**
+- A tests-only control can still move the release build's code: its stand-in outside the tests (`Writer`, a zero-sized type whose methods are the rules, inlined) emitted nothing, but its `impl` block, placed mid-file, renumbered the file's later `impl`s in their mangled names, which reordered functions in the wasm: 1,673 bytes of the code section moved at the same size. At the file's end it renumbers nothing, and the shipped wasm differs from before only in 13 bytes, the panic locations' line numbers below the lines the turn gained.
+- A table in a test window reads at the window's default size first: `add_window_view` draws before a test resizes it, so the fixture's 10-row source was read whole before a copy could find a page unloaded. The fixture's table opens at 0 rows and is given its rows once the window has its size.
+- A rule written two ways isn't always the same code: the header's length passed to `least_bytes` as `|line| writer.bytes(line)` (a zero-sized `Writer` whose `bytes` is `len`) in place of `String::len` made `start_copy` 29 bytes smaller before wasm-opt and the shipped wasm 13. The review's fix for the `utf16-bytes` control there was dropped: the control is half-applied in a case no fixture has.
+

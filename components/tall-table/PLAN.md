@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, active), then M15 (`reorder`, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, built the same day), then M15 (`reorder`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -32,7 +32,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M11 | The flash's frames, cheap: the cells' text from one element | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | `format`: a number column's shown text set by its host | Done 2026-11-05 ([`docs/milestones.md`](docs/milestones.md)) |
 | M13 | `follow`'s `let_go`: following turned off by the host | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
-| M14 | `copy`'s fixture: a selection → its text, and the limits | Active |
+| M14 | `copy`'s fixture: a selection → its text, and the limits | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
 | M15 | `reorder`: drag a column to move it | Planned |
 | M16 | `context-menu`: right- and double-click events | Planned |
 | M17 | `group-headers`: header rows over column groups | Planned |
@@ -144,7 +144,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| `copy`'s fixture (M14, a follow-up) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| `copy`'s fixture (M14, built) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
@@ -165,59 +165,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-### M14: `copy`'s fixture
-
-Asked for 2026-11-12 by the observatory's wide sheet, whose TanStack contender ports the copy (its M14 part C waits on this; "Who's waiting"). A follow-up to `copy` (M7): no new Cargo feature, no change to the table's code past a tests-only `Control`, and the paging untouched (no soak). One session, one part.
-
-**Why:** `fixtures/` pins no copy today. Its text is tested only in `copy.rs`'s and `state/copy/tests.rs`'s own tests, which a DOM port can't run, so "a copied range's text is byte-identical on both sides" (the observatory's M14 done-when) has nothing to hold the TanStack side to but the GPUI side's output on the day.
-
-**What it pins** is what a copy gives, not how the table reads for it: the text, the copy's ranges, its end (copied, declined, refused), and the limits' numbers. The copy's reads beside the cache (`PageCache`'s grant, `background_limit`, `holding`, `loading`) aren't pinned (an open question, below), and neither are the `Text` pieces' boundaries (they follow when pages land, a source's timing).
-
-#### `fixtures/copy.json`
-
-Its format goes in `fixtures/README.md` (a `copy.json` section and a row in the table), as the other fixtures':
-
-- **`options`**: `CopyOptions::default()` in the units a TS side uses (`max_bytes` 67,108,864, `key_max_cells` 100,000, `headers` false); the native test fails if they part, as `paging.json`'s `paging` does with `Paging::default()`. A case's `options` replace fields of it.
-- **`sources`**, by name: `columns` (each a `name` and a `kind`: `float`, `float32`, `integer`, `decimal`, `text`) and `rows` (each a list, a value a column). A float's value is a string parsed as a number (`f64::from_str` and JS's `Number` alike: `"-0.0"`, `"NaN"`, `"Infinity"`, `"1e300"`), so values JSON can't hold survive; an integer's, a decimal's, and a text's are the text the source writes (a DOM side parses an integer into its own type, a `BigInt`); `null` is NULL.
-- **`cases`**: a `source`, maybe a `page_rows` (the `Paging` field; small, so a copy spans loaded pages and pages it reads itself), maybe `options`, a `selection` as `selection.json` spells it (`kind`, `anchor`, `head`), `by` (`key`: Cmd+C through the element, under `key_max_cells`; `copy`: the host's `copy`, past it), a `why`, and `expect`:
-  - `started`: the copy's `rows` and `columns`, each `[first, last]` (the selection's ranges, normalized), or absent when the key declined;
-  - `outcome`, one of `{"copied": {"rows", "bytes"}}`, `{"declined": {"rows", "columns"}}`, `{"too_large": {"bytes", "max_bytes"}}`;
-  - `text`: with `copied`, every `Text` piece joined, byte for byte;
-  - `reads`: whether any page was read for the copy (`false` for a declined key and `least_bytes`' refusal).
-
-**The cases:**
-
-- **Ranges,** over a small source (a few columns of each kind, rows past two of `page_rows`, the first page loaded at open and the rest not): `Rows`, `Columns` (every row: the copy reads the pages it lacks), and `Cells`, each with its anchor after its head too (the same text); one cell; a block whose rows start on a page's last row and end on another page.
-- **The text's rules:** a tab between cells, `\n` between rows, no trailing line break; with `headers` on, the column names first and a `\n` after them (a name that needs quoting among them), the line counted in the bytes.
-- **Values:** text that needs quoting (a tab, `\n`, `\r`, a `"` doubled), plain text with a comma and a space (unquoted), NULL and empty text (both empty), non-ASCII text (counted in UTF-8 bytes); floats' exact text, Rust's `{:?}` (`8.0`, `-0.0`, `0.30000000000000004`, `1e300`, `1e-7`, `NaN`, `inf`, `-inf`), a `float32`'s (`0.1`), integers (`-9223372036854775808`), a decimal as its source wrote it.
-- **The limits,** `key_max_cells` and `max_bytes` set small in each case's `options`:
-  - The key at `key_max_cells` cells (copied) and one past (`declined`, its rows and columns, nothing read); the host's `copy` of the same one past (copied).
-  - `least_bytes`' refusal: separators alone past `max_bytes`, `too_large` with `bytes` the separators' (and a header's), before a read.
-  - The cap passed mid-copy: `too_large` with `bytes` the text through the row that passed it; one where the bytes pass the cap only counted in UTF-8 (a non-ASCII row).
-  - The early projection: a page's worth of rows in (`page_rows` small), their bytes a row over the copy's rows past twice the cap, `too_large` with the projection's `bytes` (`header + per_row × rows`, as `copy_turn` computes it, cut to a whole byte).
-
-**Its controls** (`copy::Control`, tests only, as the other fixtures'), each of which must fail at least one case:
-
-- `null-as-text`: NULL written `NULL` (its `Display`, as a careless port writes it);
-- `no-quoting`: fields written as they are;
-- `key-limit-off-by-one`: the key declines at `key_max_cells` cells, not past it;
-- `whole-floats-bare`: a whole float written without its `.0` (JS's `String`, as `cells.json`'s control);
-- `trailing-break`: a `\n` after the last row (a spreadsheet's habit);
-- `utf16-bytes`: the cap counted in UTF-16 code units (a JS string's `length`).
-
-The last three are added to the observatory's ask: each is a mistake a TS port is likely to make (a JS number's text, a spreadsheet's trailing break, a string's `length` as its bytes).
-
-#### Done when
-
-- [ ] **A1, the fixture:** `fixtures/copy.json` holds the cases above, each with a `why`; its format is in `fixtures/README.md`.
-- [ ] **A2, native:** `src/state/fixtures/copy.rs` (with `copy`; a child of `state/fixtures.rs`, as each feature's is) runs every case through the element in a window over a source answering at once (Cmd+C through the keys' contexts, as `fixtures/select.rs` does; the host's `copy` and `select` as a host calls them), and `copy_controls_fail` sees each control fail; `just tall-table test` passes with every feature off, `copy` on, and all on.
-- [ ] **A3, the base unchanged:** the `Control` is tests only: `just tall-table size` shows the base's and `copy`'s builds as before.
-- [ ] **A4, the observatory runs it:** `just observatory fixtures` runs the native test, and the TanStack contender's test names `copy.json` skipped until its port (its M14 part C).
-- [ ] **A5, the docs:** `CLAUDE.md`'s architecture (`state/fixtures.rs`' children), layout (`fixtures/`), and tests paragraph name `copy.json`; a `docs/LESSONS.md` entry if anything surprised; no results note (nothing measured); the observatory's "Waiting on" row *Ready* (the date, tall-table M14).
-
-#### Open questions
-
-- **The copy's reads:** does the observatory want them pinned too, a `copy` action in `paging.json` whose `expect` lists the copy's `load`s and `cancel`s beside the cache's (the grant after the visible pages, before prefetch; `background_limit`; a passed page let go)? Its part C ports those reads ("the reads beside the cache"), and the comparison protocol holds the paging the same on both sides; without a fixture, `tanstack-parity`'s timings are the only check. Larger than this milestone (a scripted source in `paging.json`'s runner, and its controls): a part B here if asked, or a follow-up of its own.
+None: M14 (`copy`'s fixture) closed 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)). Next: M15 (`reorder`), opening with its research ("Next milestones").
 
 ---
 
@@ -232,10 +180,6 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 - **Stepped ramps** (`Ramp::stepped`, the nearest stop, no mix): bucketed heat maps, as Grafana's thresholds are. Not needed for categories: a category mapped to its stop's place (k / (n − 1)) lands on the stop already.
 - **A bar-only column** (the text hidden, Excel's "Show Bar Only"): it widens the color-alone tradeoff (README, "Canvas tradeoffs"), since the number is no longer drawn, so the tooltip must show every hovered cell's exact value in it, not only a rounded or cut one, and the README says so.
 - **Selection over paint:** settled in `select`'s research: a tint under the text, over the fill, bar, and flash ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-10-26); built in M6.
-
-### `copy`
-
-Built 2026-10-27 ([`docs/milestones.md`](docs/milestones.md), M7). Its fixture is M14 ("Active milestone").
 
 ---
 
