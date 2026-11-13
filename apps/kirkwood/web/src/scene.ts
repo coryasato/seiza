@@ -106,6 +106,24 @@ export interface SceneHost {
   rideGroups(): ArrayLike<number>;
   /** `?ride`: holds the ride at a progress, 0 to 1. */
   holdRide(progress: number): void;
+  /** A picked gap, moved on to `now`: how much of the ride's own names,
+   *  triangle, and light it has taken away, 0 with no gap and 1 by the
+   *  time half of one is there. Asked after `ride`. */
+  gap(now: number): number;
+  /** How much of the marker, its path, and the dim under them is drawn:
+   *  as the ride's light comes in, and only in space. */
+  gapLit(): number;
+  /** The gap the marker is at: 0 to 3, in the order of the sort's chips. */
+  gapMarker(): number;
+  /** Where a gap's marker is, `years` after the epoch: ecliptic x, y, z
+   *  in au. */
+  gapPlace(gap: number, years: number): ArrayLike<number>;
+  /** A gap's marker's path in the frame that turns with Jupiter, a
+   *  closed curve: the x (along Jupiter's line) and y of each place, au. */
+  gapPath(gap: number): Float32Array;
+  /** `?gap`: holds a gap picked. `?markerE`: the marker's eccentricity. */
+  holdGap(gap: number): void;
+  markerE(e: number): void;
   /** The rows the crate's integration moves (the Hildas and the Trojans),
    *  in the file's order; none until the elements are held whole. */
   integratedRows(): Uint32Array;
@@ -182,6 +200,9 @@ export interface BeltScene {
   /** The ride's dashed triangle as drawn: the x and y of its three
    *  corners (CSS px); nothing while it isn't drawn. */
   triangle(): number[] | undefined;
+  /** A picked gap's marker as drawn: where it is, and its path's places
+   *  in order (x and y of each, CSS px); nothing while it isn't drawn. */
+  marker(): { x: number; y: number; path: number[] } | undefined;
   stats: SceneStats;
 }
 
@@ -354,6 +375,11 @@ const vertex = (stops: number, integrated: boolean) => /* glsl */ `
   uniform vec4 uGroups;
   uniform float uGroupsE;
   uniform vec3 uRideLight;
+  // A gap picked, riding: how much of its marker shows (0 to 1), the
+  // opacity that leaves the belt under it, and how much of the two
+  // groups' light the gap has left (of uRide: the rest of it dims them
+  // as the rest of the belt is).
+  uniform vec3 uMarked;
   // 1 while those two groups' rows are drawn apart, from where the
   // crate's integration has them: the belt's own draw leaves them out.
   uniform float uIntegrated;
@@ -415,9 +441,13 @@ const vertex = (stops: number, integrated: boolean) => /* glsl */ `
     // In the frame that turns with Jupiter the two groups that hold their
     // shape there are lit, and the rest of the belt dimmed: a few
     // thousand dots among a million and a half don't show otherwise.
+    // With a gap picked the whole belt is dimmed, under the marker's path.
     if (uRide > 0.0) {
-      if (hilda || trojan) banded *= mix(1.0, hilda ? uRideLight.x : uRideLight.y, uRide);
-      else vAlpha *= mix(1.0, uRideLight.z, uRide);
+      if (hilda || trojan) {
+        banded *= mix(1.0, hilda ? uRideLight.x : uRideLight.y, uMarked.z);
+        vAlpha *= mix(1.0, uRideLight.z, uRide - uMarked.z);
+      } else vAlpha *= mix(1.0, uRideLight.z, uRide);
+      vAlpha *= mix(1.0, uMarked.y, uMarked.x);
     }
     vec3 tint = uRamp[0];
     for (int k = 0; k < ${stops - 1}; k++) {
@@ -536,6 +566,15 @@ const RIDE_LIGHT: [number, number, number] = [3, 2, 0.35];
  *  point and the one behind below; the Hildas' two lines ending left of
  *  the corner opposite Jupiter, above it. */
 const RIDE_NAMES = { ahead: [57, -29], behind: [57, 13], hildas: [-22, -54] } as const;
+/** A picked gap's marker, as board 5 draws it, CSS px: a white dot in a
+ *  ring, its name up and to its right, and its path's line; and the
+ *  opacity that leaves the belt under them, of what the ride leaves it
+ *  (`docs/DECISIONS.md`, "Look"). White is what the interface adds. */
+const MARKER = { dot: 4, ring: 9, name: [16, -26], line: 1.5, dim: 0.6 } as const;
+/** What the interface adds to the scene (the ride's triangle, a picked
+ *  gap's marker, its path, and its name): white, neutral-50,
+ *  oklch(0.985 0 0), the theme's foreground. */
+const ADDED = '#fafafa';
 /** The Sun's glow, CSS px across (its core is a twentieth of that), and
  *  how far under the Sun's place its name starts, clear of the glow's
  *  bright middle, as board 1 has it. */
@@ -583,6 +622,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   // `?ride=<0 to 1>`, the ride with Jupiter.
   if (has('flight')) host.holdFlight(knob('flight', 0));
   if (has('ride')) host.holdRide(knob('ride', 0));
+  // `?gap=<0 to 3>`: that gap held picked (with `?ride=1`); `?markerE`,
+  // to be looked at: the marker's eccentricity.
+  if (has('markerE')) host.markerE(knob('markerE', 0));
+  if (has('gap')) {
+    const gap = knob('gap', 0);
+    if (!Number.isInteger(gap) || gap < 0 || gap > 3) throw new Error(`?gap wants a gap, 0 to 3 (the 3:1, 5:2, 7:3, 2:1); got "${text('gap')}"`);
+    host.holdGap(gap);
+  }
   // `?rideSky=<0 to 1>`, to be looked at: how much of the sky the frame
   // that turns with Jupiter keeps (none, as it ships).
   const rideSky = Math.min(1, Math.max(0, knob('rideSky', 0)));
@@ -693,20 +740,48 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const hildasName = name('Hildas: a triangle that turns with Jupiter', ['Hildas: a triangle', 'that turns with Jupiter']);
   hildasName.label.style.textAlign = 'right';
   const rideNames = [heldName, aheadName, behindName, hildasName];
-  const allNames = [sunName, jupiterName, ...rideNames];
+  // Board 5's, with a gap picked: the marker says what it is.
+  const markerName = name('the marker');
+  markerName.label.style.color = ADDED;
+  const allNames = [sunName, jupiterName, ...rideNames, markerName];
   // And its dashed triangle through the three points in step with
   // Jupiter: white, as what the interface adds.
   const SVG = 'http://www.w3.org/2000/svg';
   const triangle = document.createElementNS(SVG, 'svg');
   triangle.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; visibility: hidden');
   const triangleLine = document.createElementNS(SVG, 'path');
-  for (const [attribute, value] of [['fill', 'none'], ['stroke', '#fafafa'], ['stroke-opacity', '0.5'], ['stroke-width', '1'], ['stroke-dasharray', '4 6']]) triangleLine.setAttribute(attribute!, value!);
+  for (const [attribute, value] of [['fill', 'none'], ['stroke', ADDED], ['stroke-opacity', '0.5'], ['stroke-width', '1'], ['stroke-dasharray', '4 6']]) triangleLine.setAttribute(attribute!, value!);
   triangle.append(triangleLine);
   names.append(triangle);
   /** Its corners as drawn (CSS px), and whether it is. */
   let corners: number[] | undefined;
   let triangleShown = false;
   let triangleOpacity = 1;
+  // A picked gap's marker and its path, white too: the path a closed
+  // line, the marker a dot in a ring that moves along it.
+  const marking = document.createElementNS(SVG, 'svg');
+  marking.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; visibility: hidden');
+  const pathLine = document.createElementNS(SVG, 'path');
+  for (const [attribute, value] of [['fill', 'none'], ['stroke', ADDED], ['stroke-opacity', '0.9'], ['stroke-width', String(MARKER.line)], ['stroke-linejoin', 'round']]) pathLine.setAttribute(attribute!, value!);
+  const markerAt = document.createElementNS(SVG, 'g');
+  const [markerRing, markerDot] = [document.createElementNS(SVG, 'circle'), document.createElementNS(SVG, 'circle')];
+  for (const [attribute, value] of [['r', String(MARKER.ring)], ['fill', 'none'], ['stroke', ADDED], ['stroke-opacity', '0.5']]) markerRing.setAttribute(attribute!, value!);
+  for (const [attribute, value] of [['r', String(MARKER.dot)], ['fill', ADDED]]) markerDot.setAttribute(attribute!, value!);
+  markerAt.append(markerRing, markerDot);
+  marking.append(pathLine, markerAt);
+  names.append(marking);
+  // The path comes and goes on its own, once the camera is riding.
+  pathLine.style.transition = 'opacity 300ms';
+  pathLine.style.opacity = '0';
+  /** The marker as drawn: where it is and its path's places (CSS px; no
+   *  places until the camera is riding); whether any of this, the marker,
+   *  and the path show; the path's places as last written, and what for;
+   *  and how much of it all shows. */
+  let markerDrawn: { x: number; y: number; path: number[] } | undefined;
+  let [markingShown, markerShown, pathShown] = [false, true, false];
+  let pathDrawn: number[] = [];
+  let pathFor = '';
+  let markingOpacity = 1;
   if (alone) names.hidden = true;
   // A name's size is read here and kept, never in a frame (a read there is
   // a layout every frame): now, and again when the interface's face
@@ -742,6 +817,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       uGroups: { value: new Vector4(...Array.from(host.rideGroups()).slice(0, 4)) },
       uGroupsE: { value: host.rideGroups()[4]! },
       uRideLight: { value: new Vector3(...RIDE_LIGHT) },
+      uMarked: { value: new Vector3(0, knob('markerDim', MARKER.dim), 0) },
       uIntegrated: { value: 0 },
       uFlight: { value: 0 },
       uAxes: { value: new Vector4(...Array.from(host.axes())) },
@@ -888,6 +964,13 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
      *  memory; 0 while there are none (no such rows yet, the rows not yet
      *  moved to the clock, or no dot in space). */
     integrated: number;
+    /** A picked gap: how much of the ride's own it has taken away, how much of its marker
+     *  shows, which gap, and where its marker is (the ecliptic's x, y,
+     *  z). The last two are asked for while the marker shows. */
+    picked: number;
+    marked: number;
+    gap: number;
+    marker: [number, number, number];
   }
   let last: Frame | undefined;
   /** The text's bounds as last asked for, and the crate's count then. */
@@ -902,6 +985,11 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   /** The three points as last asked for, and the years they were for. */
   let points: number[] = [];
   let pointsFor = NaN;
+  /** The marker's place as last asked for, the gap and the years it was
+   *  for, and each gap's path, asked for once. */
+  let marker: Frame['marker'] = [0, 0, 0];
+  let markerFor = [-1, NaN];
+  const paths: (Float32Array | undefined)[] = [];
   /** Asks the crate. Nothing here may run between making the views over
    *  its memory and uploading them: a call into the wasm can grow it. */
   const ask = (now: number): Frame => {
@@ -925,11 +1013,20 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // drawn (so they're there when the dots fly back from the axes), and
     // their places worked out only while a dot is in space.
     const places = integrated ? host.integrated(years, flight < 1) : 0;
-    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places };
+    // A picked gap (asked after the ride, which it follows): its marker's
+    // place when the clock or the gap has moved, and its path once.
+    const [picked, lit] = [host.gap(now), host.gapLit()];
+    const gap = lit > 0 ? host.gapMarker() : (last?.gap ?? 0);
+    if (lit > 0 && (gap !== markerFor[0] || years !== markerFor[1])) {
+      const at = host.gapPlace(gap, years);
+      [marker, markerFor] = [[at[0]!, at[1]!, at[2]!], [gap, years]];
+    }
+    if (lit > 0) paths[gap] ??= host.gapPath(gap);
+    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places, picked, marked: lit, gap, marker };
   };
   // Landed, time moves no dot: of the clock, only the way back draws.
   const moved = (frame: Frame, from: Frame) =>
-    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated;
+    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated || frame.picked !== from.picked || frame.marked !== from.marked || frame.gap !== from.gap;
   /** What isn't a row, as it leaves the picture and returns: the Sun,
    *  Jupiter, its orbit, the marks, and the names; and the haze, which on
    *  the axes would light the gaps. (The sky leaves by a number of its
@@ -957,11 +1054,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // drawn: the camera keeps room for Jupiter's, and a narrow window has
     // none for the Trojans'.
     const room = innerWidth - frame.inset;
+    // With a gap picked the two groups' names and the triangle leave, as
+    // their light does: board 5 keeps Jupiter's name alone.
+    const groups = riding * (1 - frame.picked);
     put(heldName, jupiter.position, () => JUPITER_PX / 2 + 8, -9, riding, room);
-    put(aheadName, ahead!, () => RIDE_NAMES.ahead[0], RIDE_NAMES.ahead[1], riding, room);
-    put(behindName, behind!, () => RIDE_NAMES.behind[0], RIDE_NAMES.behind[1], riding, room);
-    put(hildasName, opposite!, (width) => RIDE_NAMES.hildas[0] - width, RIDE_NAMES.hildas[1], riding, room);
-    const drawn = riding > 0 ? [ahead!, opposite!, behind!].map(onScreen) : [];
+    put(aheadName, ahead!, () => RIDE_NAMES.ahead[0], RIDE_NAMES.ahead[1], groups, room);
+    put(behindName, behind!, () => RIDE_NAMES.behind[0], RIDE_NAMES.behind[1], groups, room);
+    put(hildasName, opposite!, (width) => RIDE_NAMES.hildas[0] - width, RIDE_NAMES.hildas[1], groups, room);
+    const drawn = groups > 0 ? [ahead!, opposite!, behind!].map(onScreen) : [];
     const whole = drawn.length === 3 && drawn.every((corner) => corner);
     if (whole !== triangleShown) triangle.style.visibility = (triangleShown = whole) ? 'visible' : 'hidden';
     if (!whole) {
@@ -974,7 +1074,61 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       triangleLine.setAttribute('d', `M${next[0]} ${next[1]}L${next[2]} ${next[3]}L${next[4]} ${next[5]}Z`);
       corners = next;
     }
-    if (riding !== triangleOpacity) triangle.style.opacity = String((triangleOpacity = riding));
+    if (groups !== triangleOpacity) triangle.style.opacity = String((triangleOpacity = groups));
+  };
+
+  /** A picked gap's marker and its path, through the camera as it is.
+   *  The path is the crate's, in the frame that turns with Jupiter, so
+   *  it's turned here by Jupiter's longitude: riding, it holds still on
+   *  screen, and is written only when the camera or the gap has moved.
+   *  On the camera's way to the ride or back the frame is still turning
+   *  under it (every place would be written anew each frame, as the belt
+   *  and the camera move), so the path waits for the camera to be there,
+   *  and comes and goes by its own opacity; the marker and its name don't
+   *  wait. */
+  const mark = (frame: Frame) => {
+    const lit = frame.space > 0 ? frame.marked : 0;
+    const path = paths[frame.gap];
+    if (lit <= 0 || !path) {
+      if (markingShown) marking.style.visibility = 'hidden';
+      markingShown = false;
+      markerDrawn = undefined;
+      pathFor = '';
+      put(markerName, ORIGIN, () => 0, 0, 0);
+      return;
+    }
+    if (!markingShown) marking.style.visibility = 'visible';
+    markingShown = true;
+    if (lit !== markingOpacity) marking.style.opacity = String((markingOpacity = lit));
+    // The path, once the camera is riding.
+    const there = frame.ride >= 1;
+    if (there !== pathShown) pathLine.style.opacity = (pathShown = there) ? '1' : '0';
+    const drawnFor = there ? [frame.gap, frame.inset, innerWidth, innerHeight, stats.distance].join() : '';
+    if (there && drawnFor !== pathFor) {
+      const longitude = Math.atan2(frame.jupiter[1], frame.jupiter[0]);
+      const [sin, cos] = [Math.sin(longitude), Math.cos(longitude)];
+      const seen = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements;
+      pathDrawn = [];
+      for (let place = 0; place < path.length; place += 2) {
+        // Turned to the fixed frame, then into the scene's axes (the
+        // ecliptic is its xz plane), then through the camera.
+        const [x, z] = [path[place]! * cos - path[place + 1]! * sin, -(path[place]! * sin + path[place + 1]! * cos)];
+        const w = seen[3]! * x + seen[11]! * z + seen[15]!;
+        pathDrawn.push(Math.round(((seen[0]! * x + seen[8]! * z + seen[12]!) / w + 1) * 5 * innerWidth) / 10, Math.round((1 - (seen[1]! * x + seen[9]! * z + seen[13]!) / w) * 5 * innerHeight) / 10);
+      }
+      const line: string[] = [];
+      for (let place = 0; place < pathDrawn.length; place += 2) line.push(`${place ? 'L' : 'M'}${pathDrawn[place]} ${pathDrawn[place + 1]}`);
+      pathLine.setAttribute('d', `${line.join('')}Z`);
+    }
+    pathFor = drawnFor;
+    // The marker, where it is now; behind the camera it has no place on
+    // screen, and neither it nor its name is drawn.
+    const at = new Vector3(...inScene(...frame.marker));
+    const where = onScreen(at);
+    if (markerShown !== !!where) markerAt.style.visibility = (markerShown = !!where) ? 'inherit' : 'hidden';
+    if (where) markerAt.setAttribute('transform', `translate(${where[0].toFixed(1)} ${where[1].toFixed(1)})`);
+    markerDrawn = where ? { x: where[0], y: where[1], path: there ? pathDrawn : [] } : undefined;
+    put(markerName, where ? at : ORIGIN, () => MARKER.name[0], MARKER.name[1], where ? lit : 0, innerWidth - frame.inset);
   };
 
   const render = (frame: Frame) => {
@@ -1009,6 +1163,11 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // flight, and only in space: as the page's sentence about it does
     // (`host.rs`), so nothing is brightened that isn't said to be.
     material.uniforms.uRide!.value = Math.max(0, 2 * frame.ride - 1) * frame.space;
+    // A picked gap's dim comes in the same way (the crate's own number).
+    // What a gap has left of the two groups' light is the ride's, less
+    // what the gap took.
+    const marking_ = material.uniforms.uMarked!.value as Vector3;
+    [marking_.x, marking_.z] = [frame.marked, (material.uniforms.uRide!.value as number) * (1 - frame.picked)];
     (material.uniforms.uPlot!.value as Vector4).set(...frame.plot);
     // The Hildas and the Trojans where the crate's integration has them:
     // their places uploaded when the clock has moved, from a view over
@@ -1053,6 +1212,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       put(jupiterName, jupiter.position, () => JUPITER_PX / 2 + 8, -9, 1 - frame.ride);
     }
     if (!alone) furnish(frame);
+    if (!alone) mark(frame);
     // `?glass`: the blur behind the panel is as wide as the panel is now.
     if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
     stats.frames++;
@@ -1242,5 +1402,6 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     },
     labels: () => allNames.map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden && space > 0 })),
     triangle: () => (triangleShown && !names.hidden && space > 0 ? corners : undefined),
+    marker: () => (markerDrawn && !names.hidden && space > 0 ? markerDrawn : undefined),
   };
 }

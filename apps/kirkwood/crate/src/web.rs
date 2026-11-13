@@ -21,6 +21,7 @@ use crate::catalog::Catalog;
 use crate::clock;
 use crate::elements::{Element, Elements};
 use crate::flight;
+use crate::gap;
 use crate::host::Host;
 use crate::integrate::{self, Moved};
 use crate::layout::{self, Plot};
@@ -248,7 +249,7 @@ pub fn file_failed(message: String) {
 }
 
 // --- What the scene asks. None of these enters GPUI but `belt_drawn`,
-// `sky_drawn`, `scene_failed`, `flight_hold`, and `ride_hold`, which the page
+// `sky_drawn`, `scene_failed`, `flight_hold`, `ride_hold`, and `gap_hold`, which the page
 // calls from its own tasks, never from inside a call Rust made.
 
 /// The blocks holding the elements' rows `from..to`, each as two numbers:
@@ -383,6 +384,70 @@ pub fn ride_groups() -> Vec<f32> {
 pub fn ride_hold(progress: f64) {
     ride::hold(progress);
     update_host(|_, cx| cx.notify());
+}
+
+/// A picked gap, moved on to `now_ms` (the page clock): how much of the
+/// ride's own names, triangle, and light it has taken away, 0 with no gap
+/// and 1 by the time half of one is there (the marker comes in over the
+/// other half: [`scene_gap_lit`]). Asked after [`scene_ride`].
+#[wasm_bindgen]
+pub fn scene_gap(now_ms: f64) -> f64 {
+    gap::advance(now_ms);
+    gap::groups_gone()
+}
+
+/// How much of the marker, its path, and the dim under them the scene
+/// draws: as the ride's light comes in, and only in space.
+#[wasm_bindgen]
+pub fn scene_gap_lit() -> f64 {
+    gap::lit()
+}
+
+/// The gap the marker is at (or was last): 0 to 3, in the order of the
+/// sort's chips.
+#[wasm_bindgen]
+pub fn gap_marker() -> usize {
+    gap::marker()
+}
+
+/// Where a gap's marker is, `years` after the epoch: x, y, z in au. It
+/// isn't a row: its orbit is the crate's own, exactly in step with
+/// Jupiter. Empty for a gap there isn't.
+#[wasm_bindgen]
+pub fn gap_place(picked: usize, years: f64) -> Vec<f64> {
+    if picked >= layout::GAPS.len() {
+        return Vec::new();
+    }
+    gap::place(picked, years).to_vec()
+}
+
+/// A gap's marker's path in the frame that turns with Jupiter, a closed
+/// curve: the x (along Jupiter's line from the Sun) and y (the way Jupiter
+/// goes) of each place, au. The scene turns it by Jupiter's longitude.
+#[wasm_bindgen]
+pub fn gap_path(picked: usize) -> Vec<f32> {
+    if picked >= layout::GAPS.len() {
+        return Vec::new();
+    }
+    gap::path(picked)
+        .into_iter()
+        .flatten()
+        .map(|au| au as f32)
+        .collect()
+}
+
+/// `?gap=<0 to 3>`: holds that gap picked, for a screenshot (with
+/// `?ride=1`). Called from the page's own task, as [`ride_hold`] is.
+#[wasm_bindgen]
+pub fn gap_hold(picked: usize) {
+    gap::hold(picked);
+    update_host(|_, cx| cx.notify());
+}
+
+/// `?markerE=<e>`: another eccentricity for the marker, to be looked at.
+#[wasm_bindgen]
+pub fn gap_e(e: f64) {
+    gap::set_e(e);
 }
 
 /// The rows the integration moves (the Hildas and the Trojans with an
@@ -678,6 +743,56 @@ pub fn ride_state() -> Vec<f64> {
         ride::turned(),
         f64::from(u8::from(ride::riding())),
         f64::from(u8::from(ride::flying())),
+    ]
+}
+
+/// A picked gap: the gap the marker is at, whether one is picked, how
+/// much of one there is, how much of it shows, and whether it's coming or
+/// going.
+#[wasm_bindgen]
+pub fn gap_state() -> Vec<f64> {
+    vec![
+        gap::marker() as f64,
+        f64::from(u8::from(gap::picked().is_some())),
+        gap::shown(),
+        gap::lit(),
+        f64::from(u8::from(gap::moving())),
+    ]
+}
+
+/// What the card says of a gap, a line each: its name, why its orbit
+/// empties, and its three numbers, each after its label.
+#[wasm_bindgen]
+pub fn gap_card(picked: usize) -> Vec<String> {
+    if picked >= layout::GAPS.len() {
+        return Vec::new();
+    }
+    let card = gap::card(picked);
+    [card.name, card.why]
+        .into_iter()
+        .chain(
+            card.numbers
+                .into_iter()
+                .map(|(label, number)| format!("{label} {number}")),
+        )
+        .collect()
+}
+
+/// A gap's numbers: its orbit size (au), one orbit there, one of
+/// Jupiter's, and the years its marker's path closes in (the clock's
+/// years); then the marker's eccentricity.
+#[wasm_bindgen]
+pub fn gap_numbers(picked: usize) -> Vec<f64> {
+    if picked >= layout::GAPS.len() {
+        return Vec::new();
+    }
+    let [a, orbit, jupiter] = gap::numbers(picked);
+    vec![
+        a,
+        orbit,
+        jupiter,
+        gap::closes_in(picked),
+        gap::orbit(picked).e,
     ]
 }
 

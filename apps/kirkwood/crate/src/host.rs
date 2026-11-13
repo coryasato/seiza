@@ -27,6 +27,7 @@ use tall_table_bridge::Publish;
 use crate::catalog::{Catalog, columns};
 use crate::clock;
 use crate::flight;
+use crate::gap;
 use crate::layout::{self, Plot};
 use crate::ramp;
 use crate::ride;
@@ -69,7 +70,22 @@ pub const GAPS_LINE_TARGET: &str = "gaps-line";
 pub const CHIP_TARGETS: [&str; 4] = ["chip-0", "chip-1", "chip-2", "chip-3"];
 pub const GROUP_TARGETS: [&str; 2] = ["group-0", "group-1"];
 pub const IN_VIEW_TARGET: &str = "in-view";
+/// A picked gap's card, and the four gaps' chips in it.
+pub const CARD_TARGET: &str = "gap-card";
+pub const CARD_CHIP_TARGETS: [&str; 4] =
+    ["card-chip-0", "card-chip-1", "card-chip-2", "card-chip-3"];
 
+/// A picked gap's card, as board 5 draws it, CSS px: its left, its width,
+/// and how far under the title's lines it starts (the board's card is 20
+/// under its title's, at 104; the app's title is taller, and the card
+/// keeps the distance: `docs/DECISIONS.md`, "Interface").
+const CARD_LEFT: f32 = 24.;
+const CARD_WIDTH: f32 = 300.;
+const CARD_UNDER_TITLE: f32 = 20.;
+const CARD_TOP: f32 = 104.;
+/// The card's fill: a chip's, neutral-950, oklch(0.145 0 0), at 0.92 of its
+/// opacity, as board 5 draws it.
+const CARD_FILL: u32 = 0x0a0a0aeb;
 /// The axes' lines and ticks, and a chip's border: neutral-700,
 /// oklch(0.371 0 0), as board 4 draws them. The theme's border is a step
 /// darker, and too faint over the scene.
@@ -311,7 +327,8 @@ impl Host {
             clock::pause_for_sort();
             // One action at a time: the frame stops turning, and the
             // camera heads back, as the dots leave for the axes
-            // (`docs/DECISIONS.md`, "Interface").
+            // (`docs/DECISIONS.md`, "Interface"). A picked gap's marker
+            // leaves with the frame it's drawn in.
             if ride::riding() {
                 ride::toggle();
             }
@@ -330,11 +347,44 @@ impl Host {
             return;
         }
         ride::toggle();
+        // A gap that was picked isn't this press's: pressed back, it
+        // leaves with the frame (`gap::advance`); pressed again before
+        // the camera is back, the ride opens as board 2 has it.
+        if ride::riding() {
+            gap::let_go();
+        }
         // One action at a time: the dots fly back to space as the frame
         // starts to turn, and time, which the sort paused, runs again.
         if ride::riding() && flight::sorted() {
             flight::toggle();
             clock::resume_after_sort();
+        }
+        cx.notify();
+    }
+
+    /// A gap picked, by its chip on the landed layout or in the card: the
+    /// marker goes to that gap, in the frame that turns with Jupiter. From
+    /// the landed layout that lets the sort go and rides, both at once, as
+    /// a press on "Ride with Jupiter" there would. A press on the card's
+    /// picked chip (`in_card`) lets the marker go, and leaves the ride as
+    /// board 2 has it; a second press on the landed layout's chip, still
+    /// under the pointer as it fades, picks the same gap again
+    /// (`docs/DECISIONS.md`, "Interface").
+    fn pick_gap(&mut self, picked: usize, in_card: bool, cx: &mut Context<Self>) {
+        if !self.can_act() {
+            return;
+        }
+        if in_card && ride::riding() && gap::picked() == Some(picked) {
+            gap::let_go();
+        } else {
+            gap::pick(picked);
+            if !ride::riding() {
+                ride::toggle();
+            }
+            if flight::sorted() {
+                flight::toggle();
+                clock::resume_after_sort();
+            }
         }
         cx.notify();
     }
@@ -361,6 +411,16 @@ impl Host {
     fn step_ride(&mut self, window: &mut Window) {
         if ride::flying() {
             ride::advance(now());
+            window.request_animation_frame();
+        }
+    }
+
+    /// The marker's step for this frame, and the next frame asked for
+    /// while it comes or goes: the card and the title's line go with it.
+    /// (Read every frame: back in the fixed frame, this lets the gap go.)
+    fn step_gap(&mut self, window: &mut Window) {
+        gap::advance(now());
+        if gap::moving() {
             window.request_animation_frame();
         }
     }
@@ -419,10 +479,17 @@ impl Host {
         // (The two aren't one length: where they wrap differently, or no
         // sky was drawn, the lines under them move at the swap, while
         // neither shows.)
+        // With a gap picked the ride's sentence gives its place to the
+        // marker's, the one leaving before the other comes.
         let turned = ride::turned();
-        let riding = turned >= 0.5 && self.belt.is_some();
-        let shows = if riding {
-            flight::space() * (2.0 * turned - 1.0)
+        let marked = gap::shown();
+        let riding = (turned >= 0.5 && self.belt.is_some()).then_some(if marked >= 0.5 {
+            GAP_LINE
+        } else {
+            RIDE_LINE
+        });
+        let shows = if riding.is_some() {
+            flight::space() * (2.0 * turned - 1.0) * (2.0 * marked - 1.0).abs()
         } else {
             flight::space() * (1.0 - 2.0 * turned).max(0.0)
         };
@@ -458,7 +525,7 @@ impl Host {
                         ]);
                         // The e axis starts under these lines, and was
                         // laid out before they were measured: once more.
-                        if moved && flight::axes() > 0.0 {
+                        if moved && (flight::axes() > 0.0 || gap::lit() > 0.0) {
                             window.request_animation_frame();
                         }
                     },
@@ -676,7 +743,8 @@ impl Host {
     /// in view. Dim while the dots fly (board 3), and what's said of the
     /// landed dots only as they land ([`flight::axes`], [`flight::landed`]).
     /// Every place is the crate's own plot's, the one the scene's shader
-    /// lands the dots on ([`Plot`]). None of it takes a press.
+    /// lands the dots on ([`Plot`]). None of it takes a press but the
+    /// chips, which are buttons.
     fn render_furniture(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
         let (axes, landed) = (flight::axes() as f32, flight::landed() as f32);
         if axes <= 0.0 {
@@ -767,9 +835,11 @@ impl Host {
             );
 
         // What's said of the landed dots.
+        // (None in a plot too narrow for four chips in a row: the line
+        // over them and their drops go with them.)
         let chips = plot.chips();
-        let middle = (chips[0].2 + chips[chips.len() - 1].2) / 2.0;
-        let drops = chips.into_iter().map(|(_, gap, _)| {
+        let middle = chips.map(|chips| (chips[0].2 + chips[chips.len() - 1].2) / 2.0);
+        let drops = chips.into_iter().flatten().map(|(_, gap, _)| {
             at(gap - 0.5, plot.top + layout::DROP_TOP, 1.0, layout::DROP).bg(linear_gradient(
                 180.,
                 linear_color_stop(plain.opacity(0.35), 0.),
@@ -777,34 +847,42 @@ impl Host {
             ))
         });
         let [chip_width, chip_height] = layout::CHIP;
-        let chips =
-            chips
-                .into_iter()
-                .zip(CHIP_TARGETS)
-                .map(|(((turns, jupiters), _, middle), id)| {
-                    at(
-                        middle - chip_width / 2.0,
-                        plot.top + layout::CHIPS_TOP,
-                        chip_width,
-                        chip_height,
-                    )
-                    .child(
-                        div()
-                            .size_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .border_1()
-                            .border_color(line)
-                            .rounded(px(6.))
-                            .bg(rgb(CHIP_FILL))
-                            .text_color(plain)
-                            .child(format!("{turns}:{jupiters}")),
-                    )
-                    // (Beside the chip, not in it: inside its border the
-                    // bounds would be a pixel short all round.)
-                    .child(target(id))
-                });
+        // Each chip is a button: a press picks its gap (board 5). It
+        // takes its presses, so none reaches the surface under it.
+        let chips = chips
+            .into_iter()
+            .flatten()
+            .zip(CHIP_TARGETS)
+            .enumerate()
+            .map(|(gap, (((turns, jupiters), _, middle), id))| {
+                at(
+                    middle - chip_width / 2.0,
+                    plot.top + layout::CHIPS_TOP,
+                    chip_width,
+                    chip_height,
+                )
+                .child(
+                    div()
+                        .id(("chip", gap))
+                        .size_full()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .border_1()
+                        .border_color(line)
+                        .rounded(px(6.))
+                        .bg(rgb(CHIP_FILL))
+                        .text_color(plain)
+                        .cursor_pointer()
+                        .hover(move |chip| chip.border_color(plain))
+                        .occlude()
+                        .on_click(cx.listener(move |this, _, _, cx| this.pick_gap(gap, false, cx)))
+                        .child(format!("{turns}:{jupiters}")),
+                )
+                // (Beside the chip, not in it: inside its border the
+                // bounds would be a pixel short all round.)
+                .child(target(id))
+            });
         let groups = plot
             .groups()
             .into_iter()
@@ -824,7 +902,7 @@ impl Host {
                 .inset_0()
                 .opacity(landed)
                 .text_color(muted)
-                .child(
+                .children(middle.map(|middle| {
                     at(
                         middle - 200.0,
                         plot.top + layout::CHIPS_LINE_TOP,
@@ -832,9 +910,9 @@ impl Host {
                         18.0,
                     )
                     .text_center()
-                    .child("Orbits in step with Jupiter are missing.")
-                    .child(target(GAPS_LINE_TARGET)),
-                )
+                    .child("Orbits in step with Jupiter are missing. Pick a gap.")
+                    .child(target(GAPS_LINE_TARGET))
+                }))
                 .children(drops)
                 .children(chips)
                 .children(groups)
@@ -857,6 +935,112 @@ impl Host {
                 .line_height(px(18.))
                 .child(lines)
                 .children(said),
+        )
+    }
+
+    /// A picked gap's card, as board 5 draws it: the four gaps as chips
+    /// (the picked one outlined in white; a press on another moves the
+    /// marker there, and one on the picked lets it go), the gap's name,
+    /// why its orbit empties, and three numbers, each computed from
+    /// Jupiter's own orbit ([`gap::card`]). Under the title's lines, as
+    /// far under as the board's card is under its title.
+    fn render_card(&self, cx: &Context<Self>) -> Option<impl IntoElement> {
+        let lit = gap::lit() as f32;
+        if lit <= 0.0 || self.belt.is_none() {
+            return None;
+        }
+        let theme = cx.theme();
+        let (muted, plain, edge) = (theme.muted_foreground, theme.foreground, theme.border);
+        let marker = gap::marker();
+        let picked = gap::picked();
+        let card = gap::card(marker);
+        let [_, top, _, height] = scene::scrim();
+        let chips = layout::GAPS
+            .into_iter()
+            .zip(CARD_CHIP_TARGETS)
+            .enumerate()
+            .map(|(gap, ((turns, jupiters), id))| {
+                let is_picked = picked == Some(gap);
+                div()
+                    .relative()
+                    .child(
+                        div()
+                            .id(("card-chip", gap))
+                            .h(px(24.))
+                            .px(px(8.))
+                            .flex()
+                            .items_center()
+                            .border_1()
+                            .rounded(px(6.))
+                            .text_size(px(12.))
+                            .cursor_pointer()
+                            .map(|chip| {
+                                if is_picked {
+                                    chip.border_color(plain).bg(plain.opacity(0.14))
+                                } else {
+                                    chip.border_color(rgb(AXIS))
+                                        .hover(move |chip| chip.border_color(plain))
+                                }
+                            })
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.pick_gap(gap, true, cx)),
+                            )
+                            .child(format!("{turns}:{jupiters}")),
+                    )
+                    .child(target(id))
+            });
+        let numbers = card.numbers.into_iter().map(|(label, number)| {
+            div()
+                .flex()
+                .justify_between()
+                .gap_3()
+                .child(div().text_color(muted).child(label))
+                .child(number)
+        });
+        Some(
+            div()
+                .absolute()
+                .left(px(CARD_LEFT))
+                .top(px((top + height + CARD_UNDER_TITLE).max(CARD_TOP)))
+                .w(px(CARD_WIDTH))
+                .opacity(lit)
+                .child(
+                    div()
+                        .p_4()
+                        .flex()
+                        .flex_col()
+                        .gap_3()
+                        .border_1()
+                        .border_color(edge)
+                        .rounded(px(8.))
+                        .bg(rgba(CARD_FILL))
+                        .text_size(px(12.))
+                        .line_height(px(18.))
+                        // Nothing under it takes its presses, or its wheel.
+                        .occlude()
+                        .child(div().flex().gap(px(6.)).children(chips))
+                        .child(
+                            div()
+                                .text_size(px(16.))
+                                .line_height(px(22.))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(card.name),
+                        )
+                        .child(div().text_color(muted).child(card.why))
+                        .child(
+                            div()
+                                .pt_3()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .border_t_1()
+                                .border_color(edge)
+                                .children(numbers),
+                        ),
+                )
+                // (Beside the card, not in it: inside its border the
+                // bounds would be a pixel short all round.)
+                .child(target(CARD_TARGET)),
         )
     }
 
@@ -954,6 +1138,7 @@ impl Render for Host {
         self.step_slide(window);
         self.step_flight(window);
         self.step_ride(window);
+        self.step_gap(window);
         // The scene centers its picture in what the panel leaves.
         scene::set_inset(self.panel_t * PANEL_WIDTH);
         let root =
@@ -984,6 +1169,7 @@ impl Render for Host {
                 // on it falls through to the surface above.
                 .children(self.render_furniture(window, cx))
                 .child(self.render_title(cx))
+                .children(self.render_card(cx))
                 .child(self.render_time_control(cx));
         match &self.table {
             Some(table) if self.panel_t > 0.0 => root.child(self.render_panel(&table.clone(), cx)),
@@ -1106,12 +1292,16 @@ fn in_view_line(belt: Belt) -> String {
 /// of it that's about the stars (its bytes): that part leaves the picture
 /// when they do. `riding`, in the frame that turns with Jupiter, there is
 /// no sky, and that part says instead what the frame does to the dots'
-/// light.
-fn look_line(belt: bool, sky: bool, riding: bool) -> Option<(SharedString, Range<usize>)> {
+/// light ([`RIDE_LINE`], or with a gap picked [`GAP_LINE`]).
+fn look_line(
+    belt: bool,
+    sky: bool,
+    riding: Option<&'static str>,
+) -> Option<(SharedString, Range<usize>)> {
     let dots = "Dot sizes are exaggerated: at true scale each one is an invisible speck.";
-    if belt && riding {
-        let line = format!("{dots} {RIDE_LINE}");
-        return Some((line.into(), dots.len()..dots.len() + 1 + RIDE_LINE.len()));
+    if let (true, Some(says)) = (belt, riding) {
+        let line = format!("{dots} {says}");
+        return Some((line.into(), dots.len()..dots.len() + 1 + says.len()));
     }
     match (belt, sky) {
         (true, true) => {
@@ -1133,6 +1323,11 @@ fn look_line(belt: bool, sky: bool, riding: bool) -> Option<(SharedString, Range
 /// (`docs/DECISIONS.md`, "Look").
 const RIDE_LINE: &str = "Here the Hildas and the Trojans are brightened, and the rest dimmed.";
 
+/// What that frame shows with a gap picked, said while it does: the belt
+/// dimmed, and a marker that isn't a row (rules 1 and 3).
+const GAP_LINE: &str =
+    "Here the belt is dimmed under the marker's path, and the marker isn't a row.";
+
 /// A count with its thousands apart: `1,580,272`.
 fn grouped(n: usize) -> String {
     let digits = n.to_string();
@@ -1148,19 +1343,19 @@ fn grouped(n: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Belt, belt_line, grouped, in_view_line, look_line};
+    use super::{Belt, GAP_LINE, RIDE_LINE, belt_line, grouped, in_view_line, look_line};
 
     #[test]
     fn what_the_picture_isnt_is_said_while_its_on_screen() {
-        assert_eq!(look_line(false, false, false), None);
-        let (stars, part) = look_line(false, true, false).unwrap();
+        assert_eq!(look_line(false, false, None), None);
+        let (stars, part) = look_line(false, true, None).unwrap();
         assert!(stars.contains("aren't rows") && !stars.contains("exaggerated"));
         assert_eq!(&stars[part], stars.as_ref());
-        let (dots, part) = look_line(true, false, false).unwrap();
+        let (dots, part) = look_line(true, false, None).unwrap();
         assert!(dots.contains("exaggerated") && !dots.contains("Gaia"));
         assert!(part.is_empty());
         // The part that leaves with the stars is the stars' sentence alone.
-        let (both, part) = look_line(true, true, false).unwrap();
+        let (both, part) = look_line(true, true, None).unwrap();
         assert!(both.contains("exaggerated") && both.contains("aren't rows"));
         assert!(
             both[part.clone()]
@@ -1172,7 +1367,7 @@ mod tests {
         // turned frame does to the dots' light, whether or not the stars
         // were ever in.
         for sky in [false, true] {
-            let (riding, part) = look_line(true, sky, true).unwrap();
+            let (riding, part) = look_line(true, sky, Some(RIDE_LINE)).unwrap();
             assert!(riding.contains("exaggerated") && !riding.contains("Gaia"));
             assert!(
                 riding[part.clone()]
@@ -1180,9 +1375,13 @@ mod tests {
                     .starts_with("Here the Hildas")
             );
             assert!(riding[part].ends_with("dimmed."));
+            // With a gap picked, it says the marker isn't a row.
+            let (marked, part) = look_line(true, sky, Some(GAP_LINE)).unwrap();
+            assert!(marked.contains("exaggerated") && !marked.contains("Hildas"));
+            assert!(marked[part].ends_with("the marker isn't a row."));
         }
         // With no belt there's nothing brightened to speak of.
-        assert_eq!(look_line(false, false, true), None);
+        assert_eq!(look_line(false, false, Some(RIDE_LINE)), None);
     }
 
     #[test]

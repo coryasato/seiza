@@ -207,7 +207,7 @@ The second action, the camera's flight to straight above and its turn with Jupit
 - **A sky that turns honestly is nauseating.** The arithmetic said distracting; the owner's stomach said more. Nothing now shows that the view turns, and that reads fine.
 - **A test that steps a second at a time meets the stall guard.** The ride's own test moved it half its length in one reading, which the progress takes for a tab back from the background.
 
-Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface"; the evidence: [`../PLAN.md`](../PLAN.md), M4's checks.
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface"; the evidence: [`milestones.md`](milestones.md), M4's checks.
 
 ## M4 part B: the Hildas and the Trojans, integrated (2026-11-12)
 
@@ -223,6 +223,22 @@ The integrator in Rust and its tests against Horizons, the two groups as a draw 
 - **On the epoch the two pictures are the same to the pixel.** Not close: none of 3.24 million differ, a second draw and a different order of blending included.
 - **`just` hands a `;` to the shell.** `--ways "a:;b:x=0"` through the recipe ran one way and then tried to run the rest as commands; the frame rates were asked of `node` itself.
 
-Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene"; the evidence: [`../PLAN.md`](../PLAN.md), M4's checks.
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene"; the evidence: [`milestones.md`](milestones.md), M4's checks.
 
 *After review:* a step undone isn't a step never taken. The first build stepped back the way it came when that was shorter, and a row that had passed close to Jupiter wouldn't have come back to the same float; steps are now only taken away from the epoch, and a place is the same to the bit by any way.
+
+## M4 part C: a gap picked, and the close (2026-11-12)
+
+The chips as buttons, the marker on an orbit exactly in step with Jupiter, its path in the turning frame, the dim, the card under the title, and M5's spec.
+
+**Surprises:**
+- **The plan's loop couldn't close.** "Over one of Jupiter's orbits" is true of the 3:1 and the 2:1 only: at 5:2 the marker is half a turn from where it began, 411 px away. The path closes after the ratio's second number of Jupiter's orbits, and the five-lobed and seven-lobed curves that makes are the better pictures.
+- **The card's numbers named which Jupiter.** The check asked for 11.86 years "from Jupiter's a"; Jupiter's a alone gives 11.87, since Kepler's third law for a row counts no mass. The period is from Jupiter's own mean motion, and the marker has to turn by that too or its path drifts open.
+- **The path is one curve, whatever the date.** The frame turns by Jupiter's true longitude and Jupiter's orbit isn't a circle, so it looked as if the path would have to be redrawn as the clock ran. Exactly in step, everything repeats together: the crate hands the curve over once.
+- **Board 5 had quietly dropped board 2.** No Trojans' names, no Hildas', no triangle: found by reading its markup for what wasn't there. The triangle's sides would cross every path.
+- **A target in a bordered box, again.** The card's bounds came back a pixel short all round, the gotcha already written down for the chips.
+- **A screenshot of a moving marker is of the next frame.** Its color read at the place the scene last said was the dust beside it. The same lesson a third time: read a moving thing's pixels on a held clock.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface"; the evidence: [`milestones.md`](milestones.md), M4's checks.
+
+*After review:* every check waited for the page to come to rest, and every fault was in between: a press while the camera was still flying, a second press on a chip still fading, a crossfade whose two halves did not meet. A check of a thing that moves needs a step taken while it moves.

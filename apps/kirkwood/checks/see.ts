@@ -70,10 +70,8 @@
 //           dim mid-flight with nothing said of the dots yet, and in what
 //           the open panel leaves (out/sort-panel.jpg), a chip over its gap
 //           and clear of the next; unless the action's fill is the boards'
-//           in each state; unless a press on a chip and a wheel over the
-//           landed dots change nothing (which can't say a chip takes no
-//           press, only that none does anything); unless the count of rows
-//           in view
+//           in each state; unless a wheel over the landed dots changes
+//           nothing; unless the count of rows in view
 //           (out/sort-count.jpg) is the count from the file's own bytes;
 //           and unless the dust at each gap (where Jupiter's a puts it) is
 //           darker than a tenth of an au either side.
@@ -98,6 +96,24 @@
 //           sort-to-ride.jpg, sort-then-ride.jpg): fails unless each ends in
 //           one pressed action, with time paused on the axes and running
 //           again in the turning frame, and what isn't a row right in each.
+//   gap     a gap picked: each of the four held on the epoch
+//           (out/gap-3-1.jpg for board 5, gap-5-2, gap-7-3, gap-2-1): fails
+//           unless the marker is white, drawn on the crate's place for it
+//           and on its path, with its name beside it as the board has it;
+//           unless the path ends where it began after as many of Jupiter's
+//           orbits as the ratio counts, and (the control) after one of them
+//           only where it counts one; unless the names shown are the Sun's,
+//           Jupiter's, and the marker's, with no triangle; unless the card
+//           is 20 px under the title's lines and says that gap's orbit
+//           size, period, and Jupiter's period as worked out here from
+//           JPL's a and mean motion for Jupiter, its picked chip lit; unless
+//           the page's counts and the scene's points are the file's; and
+//           unless the belt is dimmer than riding with no gap. Then the
+//           presses, with time running: a chip on the landed layout
+//           (out/gap-picking.jpg, gap-picked.jpg), another in the card
+//           (out/gap-moved.jpg), the picked one (the marker let go, board
+//           2's names back), and "Ride with Jupiter" and "Sort by orbit
+//           size" each pressed with a gap picked, which let it go.
 //   integrated  the Hildas and the Trojans, moved by the crate's integration:
 //           fails unless the rows drawn apart are the file's own two groups
 //           and the page's counts are what they were; unless, on the epoch,
@@ -132,7 +148,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,integrated,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,gap,integrated,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -150,7 +166,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'ride', 'integrated', 'rate', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'ride', 'gap', 'integrated', 'rate', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -202,7 +218,7 @@ type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
   held: number;
-  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; under(x: number, y: number): [number, number] | undefined };
+  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; marker(): { x: number; y: number; path: number[] } | undefined; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
   ellipseOf(row: number, years: number): number[];
@@ -219,6 +235,10 @@ type Kirkwood = {
   ride(): { turned: number; riding: boolean; flying: boolean };
   ridePoints(years: number): number[];
   rideCounts(): { hildas: number; trojans: number };
+  gap(): { marker: number; picked: boolean; shown: number; lit: number; moving: boolean };
+  gapCard(gap: number): string[];
+  gapNumbers(gap: number): { a: number; orbit: number; jupiter: number; closesIn: number; e: number };
+  gapPlace(gap: number, years: number): number[];
   integrated(): { rows: number; bytes: number; step: number };
   integratedJump(years: number): { stepsMs: number; placesMs: number } | undefined;
 };
@@ -1247,16 +1267,7 @@ async function seeSort(url: string) {
     const [inView, counted, control] = [await kirkwood(page, (kirkwood) => kirkwood.inView()), countInView(), countInView(0.61)];
     need(inView === counted, `the page counts ${inView} rows in view, and the file's bytes hold ${counted}`);
     need(control !== counted, `the control passes: ${control} rows with e to 0.61`);
-    // A press on a chip changes nothing: the flight, the clock, and (read
-    // below) the scene's frames. It can't tell a chip that takes the press
-    // from one that lets it through to the surface under it, which hears
-    // only a wheel: once a chip is a button, its check is what the press
-    // does.
-    for (const id of CHIPS) await clickTarget(page, id);
-    await page.waitForTimeout(300);
-    const pressed = await kirkwood(page, (kirkwood) => ({ flight: kirkwood.flight(), clock: kirkwood.clock() }));
-    need(pressed.flight.progress === 1 && pressed.flight.sorted && !pressed.flight.flying, `a press on each chip left the flight ${JSON.stringify(pressed.flight)}`);
-    need(!pressed.clock.running && pressed.clock.years === landed.clock.years, `a press on each chip left the clock ${JSON.stringify(pressed.clock)}`);
+    // (A chip is a button: what its press does is `gap`'s to check.)
     // Landed, the scene draws nothing, and a wheel moves nothing: the
     // camera is space's.
     const camera = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.distance);
@@ -1861,6 +1872,257 @@ async function seeRide(url: string) {
   return { held, pressed };
 }
 
+// --- A gap picked.
+
+/** Board 5, at 1440×900: the card's left and width, how far under the
+ *  title's lines it starts (its own card is 20 px under its title's), the
+ *  marker's name from the marker, and the marker's dot and ring. */
+const BOARD_GAP = { card: { left: 24, width: 300, underTitle: 20 }, name: [16, -26], dot: 4, ring: 9 };
+const GAPS = [
+  { name: '3:1', turns: 3, jupiters: 1 },
+  { name: '5:2', turns: 5, jupiters: 2 },
+  { name: '7:3', turns: 7, jupiters: 3 },
+  { name: '2:1', turns: 2, jupiters: 1 },
+];
+const CARD_CHIPS = ['card-chip-0', 'card-chip-1', 'card-chip-2', 'card-chip-3'];
+const MARKER_TEXT = 'the marker';
+/** Jupiter's own orbit, as JPL Horizons gave it (`data/horizons.json`):
+ *  its a (au) and its mean motion (degrees a day); and the clock's year. */
+const JUPITER = (JSON.parse(readFileSync(join(dir, '../data/horizons.json'), 'utf8')) as { jupiter: { elements: { a: number; n: number } } }).jupiter.elements;
+const YEAR_DAYS = 365.2568983263;
+
+/** How far a place is from a closed line through `path`'s places (x and y
+ *  of each), in the path's own units. */
+function fromPath(path: number[], [x, y]: [number, number]): number {
+  let nearest = Infinity;
+  for (let at = 0; at < path.length; at += 2) {
+    const [ax, ay, bx, by] = [path[at]!, path[at + 1]!, path[(at + 2) % path.length]!, path[(at + 3) % path.length]!];
+    const [dx, dy] = [bx - ax, by - ay];
+    const along = Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    nearest = Math.min(nearest, Math.hypot(x - ax - along * dx, y - ay - along * dy));
+  }
+  return nearest;
+}
+
+async function seeGap(url: string) {
+  const read = (page: Page) =>
+    kirkwood(page, (kirkwood) => {
+      const scene = kirkwood.scene!;
+      const years = scene.stats.years;
+      const gap = kirkwood.gap();
+      const numbers = kirkwood.gapNumbers(gap.marker);
+      return {
+        years,
+        gap,
+        numbers,
+        card: kirkwood.gapCard(gap.marker),
+        labels: scene.labels(),
+        triangle: scene.triangle(),
+        marker: scene.marker(),
+        camera: scene.viewProjection(),
+        points: scene.stats.points,
+        frames: scene.stats.frames,
+        jupiter: kirkwood.jupiter(years),
+        place: kirkwood.gapPlace(gap.marker, years),
+        // The marker and Jupiter along the path: eight moments of the
+        // years it closes in, then where it closes, and one of Jupiter's
+        // orbits on.
+        along: [0, 1, 2, 3, 4, 5, 6, 7, 8].map((eighth) => years + (numbers.closesIn * eighth) / 8).concat(years + numbers.jupiter).map((at) => ({ place: kirkwood.gapPlace(gap.marker, at), jupiter: kirkwood.jupiter(at) })),
+        ride: kirkwood.ride(),
+        flight: kirkwood.flight(),
+        clock: kirkwood.clock(),
+        belt: kirkwood.belt(),
+        scrim: kirkwood.scrim(),
+      };
+    });
+  type Reading = Awaited<ReturnType<typeof read>>;
+  const shown = (seen: Reading) => seen.labels.filter((label) => label.shown).map((label) => label.text);
+  /** A place at another time, as the frame that turns with Jupiter shows
+   *  it now: turned back by Jupiter's longitude then, and on by its
+   *  longitude now, through the scene's camera. */
+  const turned = (seen: Reading, moment: { place: number[]; jupiter: number[] }): [number, number] => {
+    const by = Math.atan2(seen.jupiter[1]!, seen.jupiter[0]!) - Math.atan2(moment.jupiter[1]!, moment.jupiter[0]!);
+    const [x, y] = [moment.place[0]!, moment.place[1]!];
+    return project(seen.camera, [x * Math.cos(by) - y * Math.sin(by), x * Math.sin(by) + y * Math.cos(by), 0]);
+  };
+  /** What board 5 adds, against the crate's own numbers through the
+   *  scene's camera: the marker on its place and on its path, the path
+   *  closed, its name, and the card. */
+  const marked = async (page: Page, seen: Reading, gap: number, what: string) => {
+    const { name, turns, jupiters } = GAPS[gap]!;
+    need(seen.gap.picked && seen.gap.marker === gap && seen.gap.lit === 1 && !seen.gap.moving, `${what}: the gap is ${JSON.stringify(seen.gap)}`);
+    need(seen.ride.turned === 1 && seen.ride.riding && seen.flight.progress === 0 && !seen.flight.sorted, `${what}: the ride ${JSON.stringify(seen.ride)}, the flight ${JSON.stringify(seen.flight)}`);
+    // Board 5's names: the Sun's, Jupiter's, and the marker's. The two
+    // groups' names and the triangle have left.
+    need(shown(seen).join() === ['Sol', RIDE_TEXTS.held, MARKER_TEXT].join() && !seen.triangle, `${what}: the names shown are ${shown(seen).join(' | ')}, the triangle ${seen.triangle}`);
+    const drawn = seen.marker;
+    need(!!drawn && drawn.path.length === 2 * 480 * jupiters, `${what}: the marker drawn is ${drawn ? `${drawn.path.length / 2} places of a path` : 'none'}`);
+    const at = project(seen.camera, seen.place);
+    const off = Math.hypot(drawn!.x - at[0], drawn!.y - at[1]);
+    need(off < 0.2, `${what}: the marker is drawn ${off.toFixed(2)} px from the crate's place for it, ${at.map(round)}`);
+    // On its path now, and at eight moments of the years the path closes in.
+    const onPath = Math.max(fromPath(drawn!.path, [drawn!.x, drawn!.y]), ...seen.along.slice(0, 9).map((moment) => fromPath(drawn!.path, turned(seen, moment))));
+    need(onPath < 0.5, `${what}: the marker is ${onPath.toFixed(2)} px off its path at worst`);
+    // The path closes: after as many of Jupiter's orbits as the ratio
+    // counts the marker is where it began, and (the control) after one
+    // of them only where the ratio counts one.
+    const [begins, ends, afterOne] = [turned(seen, seen.along[0]!), turned(seen, seen.along[8]!), turned(seen, seen.along[9]!)];
+    const [closes, one] = [Math.hypot(ends[0] - begins[0], ends[1] - begins[1]), Math.hypot(afterOne[0] - begins[0], afterOne[1] - begins[1])];
+    need(closes < 1, `${what}: the path ends ${closes.toFixed(3)} px from where it began`);
+    need(one < 1 === (jupiters === 1), `${what}: after one of Jupiter's orbits the marker is ${one.toFixed(1)} px from where it began`);
+    // The line drawn has no break: every step is a short one, the last
+    // to the first among them.
+    const step = Math.max(...Array.from({ length: drawn!.path.length / 2 }, (_, place) => Math.hypot(drawn!.path[(2 * place + 2) % drawn!.path.length]! - drawn!.path[2 * place]!, drawn!.path[(2 * place + 3) % drawn!.path.length]! - drawn!.path[2 * place + 1]!)));
+    need(step < 12, `${what}: the path's longest step is ${step.toFixed(1)} px`);
+    // Its name, as board 5 has it.
+    const named = seen.labels.find((label) => label.text === MARKER_TEXT)!;
+    need(near(named.left, drawn!.x + BOARD_GAP.name[0]!, 1) && near(named.top, drawn!.y + BOARD_GAP.name[1]!, 1), `${what}: "${MARKER_TEXT}" at ${named.left}, ${named.top}; the marker at ${[drawn!.x, drawn!.y].map(round)}`);
+    // White, and plainly not a dot: its middle, and its ring's radius.
+    const png = await page.screenshot();
+    const middle = await pixelsOf(page, png, { x: Math.round(drawn!.x) - 1, y: Math.round(drawn!.y) - 1, width: 2, height: 2 }, (pixels) => [pixels[0]!, pixels[1]!, pixels[2]!]);
+    // (Read on a held clock: with time running the marker has moved on
+    // by the screenshot.)
+    need(seen.clock.running || Math.min(...middle) > 225, `${what}: the marker's middle reads ${middle}, and it's drawn white`);
+    // The card: under the title's lines, its numbers Jupiter's own
+    // (JPL's a and mean motion for it, worked out here).
+    const card = await targetRect(page, 'gap-card', 5_000);
+    const under = seen.scrim[1]! + seen.scrim[3]! + BOARD_GAP.card.underTitle;
+    need(near(card[0], BOARD_GAP.card.left, 0.5) && near(card[2], BOARD_GAP.card.width, 0.5) && near(card[1], Math.max(104, under), 0.5), `${what}: the card is at ${rounded(card)}, and the title's lines end at ${round(under - BOARD_GAP.card.underTitle)}`);
+    const jupiterYears = 360 / JUPITER.n / YEAR_DAYS;
+    const worked = [`${name} with Jupiter`, `Orbit size ${(JUPITER.a * (jupiters / turns) ** (2 / 3)).toFixed(2)} au`, `One orbit ${((jupiterYears * jupiters) / turns).toFixed(2)} years`, `Jupiter's orbit ${jupiterYears.toFixed(2)} years`];
+    need([seen.card[0], ...seen.card.slice(2)].join(' | ') === worked.join(' | '), `${what}: the card says ${seen.card.join(' | ')}, and Jupiter's orbit gives ${worked.join(' | ')}`);
+    // Its chips: the picked one's fill is lit, the others' the card's.
+    const fills = await Promise.all(CARD_CHIPS.map(async (id) => {
+      const [x, y] = await targetRect(page, id, 5_000);
+      return light(page, png, { x: x + 3, y: y + 3, width: 3, height: 3 });
+    }));
+    need(fills.every((fill, chip) => (chip === gap ? fill > 30 : fill < 22)), `${what}: the card's chips' fills read ${fills.map((fill) => fill.toFixed(0))} of 255, the ${name} picked`);
+    // In no count: the page's rows and the scene's points are the file's.
+    need(seen.belt.drawn + seen.belt.unbound === manifest['elements.bin'].rows && seen.points === manifest['elements.bin'].rows, `${what}: the page counts ${JSON.stringify(seen.belt)}, the scene draws ${seen.points} points, and the file has ${manifest['elements.bin'].rows} rows`);
+    return { markerPx: [drawn!.x, drawn!.y].map(round), offItsPlacePx: fixed(off), offItsPathPx: fixed(onPath), pathPlaces: drawn!.path.length / 2, pathEndsFromItsStartPx: fixed(closes, 4), afterOneOfJupitersOrbitsPx: fixed(one, 1), longestStepPx: fixed(step, 1), markerMiddle: middle, cardPx: rounded(card), card: seen.card, cardChipsLight: fills.map((fill) => fixed(fill, 1)), e: seen.numbers.e };
+  };
+  /** The main belt's light: a box 2.7 au from the Sun, a quarter turn
+   *  ahead of Jupiter, clear of every path. */
+  const beltLight = async (page: Page, seen: Reading) => {
+    const toward = Math.atan2(seen.jupiter[1]!, seen.jupiter[0]!) + Math.PI / 2;
+    const [x, y] = project(seen.camera, [2.7 * Math.cos(toward), 2.7 * Math.sin(toward), 0]);
+    return light(page, await page.screenshot(), { x: x - 20, y: y - 20, width: 40, height: 40 });
+  };
+  const atRest = async (page: Page) => {
+    await page.waitForFunction(() => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      return !kirkwood.ride().flying && !kirkwood.flight().flying && !kirkwood.gap().moving;
+    });
+    await page.mouse.move(700, 700);
+    await page.waitForTimeout(500);
+    await settle(page);
+  };
+
+  // Each gap held picked on the epoch: a screenshot each, the 3:1's for
+  // board 5.
+  const held: Record<string, Awaited<ReturnType<typeof marked>>> = {};
+  for (const [gap, { name }] of GAPS.entries()) {
+    held[name] = await withSky(url, { ...HELD, ride: '1', gap: String(gap) }, async (page) => {
+      await page.waitForTimeout(400);
+      const seen = await read(page);
+      await shot(page, `gap-${name.replace(':', '-')}`);
+      return marked(page, seen, gap, `the ${name} held`);
+    });
+  }
+  // The ride's own light, for the dim to be set against.
+  const plain = await withSky(url, { ...HELD, ride: '1' }, async (page) => beltLight(page, await read(page)));
+  const dimmed = await withSky(url, { ...HELD, ride: '1', gap: '0' }, async (page) => beltLight(page, await read(page)));
+  need(dimmed < plain - 1, `the main belt reads ${dimmed.toFixed(1)} of 255 with a gap picked, and ${plain.toFixed(1)} riding with none`);
+
+  // The presses, with time running.
+  const pressed = await withSky(url, { date: EPOCH }, async (page) => {
+    // From the landed layout: a press on the 3:1's chip.
+    await clickTarget(page, 'sort');
+    await atRest(page);
+    const landed = await read(page);
+    need(landed.flight.progress === 1 && !landed.gap.picked && !landed.marker, `landed: the flight ${JSON.stringify(landed.flight)}, the gap ${JSON.stringify(landed.gap)}`);
+    await clickTarget(page, 'chip-0');
+    await page.waitForTimeout(1000);
+    await shot(page, 'gap-picking');
+    await atRest(page);
+    const picked = await read(page);
+    await shot(page, 'gap-picked');
+    const first = await marked(page, picked, 0, 'the 3:1 picked from the landed layout');
+    need(picked.clock.running && picked.clock.years > landed.clock.years, `picked, the clock is ${JSON.stringify(picked.clock)}`);
+    const fills = await actionFills(page);
+    need(near(fills.ride, 250, 4) && near(fills.sort, 38, 4), `picked, the actions' fills read ${JSON.stringify(fills)} of 255, and board 5 draws 250 (ride) and 38`);
+    // The marker goes along its path as time runs.
+    const moved: number[] = [];
+    for (let reading = 0; reading < 4; reading++) {
+      await page.waitForTimeout(700);
+      const seen = await read(page);
+      need(!!seen.marker, 'riding with a gap picked, no marker is drawn');
+      const at = project(seen.camera, seen.place);
+      need(Math.hypot(seen.marker!.x - at[0], seen.marker!.y - at[1]) < 0.2 && fromPath(seen.marker!.path, [seen.marker!.x, seen.marker!.y]) < 0.5, `time running, the marker at ${[seen.marker!.x, seen.marker!.y].map(round)} is off its place ${at.map(round)} or its path`);
+      moved.push(Math.hypot(seen.marker!.x - picked.marker!.x, seen.marker!.y - picked.marker!.y));
+    }
+    need(Math.max(...moved) > 20, `in three seconds the marker moved ${moved.map(round)} px`);
+    // A press on another chip in the card moves the marker there.
+    await clickTarget(page, 'card-chip-3');
+    await atRest(page);
+    const other = await read(page);
+    await shot(page, 'gap-moved');
+    const second = await marked(page, other, 3, 'the 2:1 picked in the card');
+    // A press on the picked chip lets the marker go: the ride as board 2
+    // has it, its two groups' names and its triangle back.
+    await clickTarget(page, 'card-chip-3');
+    await atRest(page);
+    const let_ = await read(page);
+    need(!let_.gap.picked && let_.gap.lit === 0 && !let_.marker && let_.ride.riding && let_.ride.turned === 1, `let go: the gap ${JSON.stringify(let_.gap)}, the ride ${JSON.stringify(let_.ride)}`);
+    need(shown(let_).join() === ['Sol', ...Object.values(RIDE_TEXTS)].join() && !!let_.triangle, `let go: the names shown are ${shown(let_).join(' | ')}`);
+    // "Ride with Jupiter" pressed back with a gap picked lets it go: the
+    // next ride has no marker.
+    await clickTarget(page, 'sort');
+    await atRest(page);
+    await clickTarget(page, 'chip-1');
+    await atRest(page);
+    const again = await read(page);
+    need(again.gap.picked && again.gap.marker === 1 && !!again.marker, `the 5:2 picked: ${JSON.stringify(again.gap)}`);
+    await clickTarget(page, 'ride');
+    await atRest(page);
+    const back = await read(page);
+    need(!back.gap.picked && !back.marker && !back.ride.riding && shown(back).join() === 'Sol,Jupiter', `back in the fixed frame: the gap ${JSON.stringify(back.gap)}, the names ${shown(back).join(' | ')}`);
+    await clickTarget(page, 'ride');
+    await atRest(page);
+    const rode = await read(page);
+    need(!rode.gap.picked && !rode.marker && rode.ride.riding && shown(rode).join() === ['Sol', ...Object.values(RIDE_TEXTS)].join(), `riding again: the gap ${JSON.stringify(rode.gap)}, the names ${shown(rode).join(' | ')}`);
+    // And "Sort by orbit size" pressed with a gap picked: the marker
+    // leaves with the frame it's drawn in.
+    await clickTarget(page, 'sort');
+    await atRest(page);
+    // (Pressed twice, as a double click would: the chip is still under
+    // the pointer as it fades, and its second press picks the gap again.
+    // Only the card's picked chip lets a gap go.)
+    await clickTarget(page, 'chip-2');
+    await page.waitForTimeout(120);
+    await clickTarget(page, 'chip-2');
+    await atRest(page);
+    const twice = await read(page);
+    need(twice.gap.picked && twice.gap.marker === 2 && !!twice.marker, `the 7:3's chip pressed twice: ${JSON.stringify(twice.gap)}`);
+    await clickTarget(page, 'sort');
+    await atRest(page);
+    const sorted = await read(page);
+    need(!sorted.gap.picked && !sorted.marker && sorted.flight.progress === 1 && !sorted.ride.riding && !shown(sorted).length, `sorted with a gap picked: the gap ${JSON.stringify(sorted.gap)}, the flight ${JSON.stringify(sorted.flight)}, the names ${shown(sorted).join(' | ')}`);
+    // And "Ride with Jupiter" pressed back and pressed again before the
+    // camera is back: the gap doesn't return with the ride.
+    await clickTarget(page, 'chip-1');
+    await atRest(page);
+    await clickTarget(page, 'ride');
+    await page.waitForTimeout(600);
+    await clickTarget(page, 'ride');
+    await atRest(page);
+    const returned = await read(page);
+    need(!returned.gap.picked && returned.gap.lit === 0 && !returned.marker && returned.ride.riding && returned.ride.turned === 1 && shown(returned).join() === ['Sol', ...Object.values(RIDE_TEXTS)].join(), `the ride pressed back and again mid-flight: the gap ${JSON.stringify(returned.gap)}, the names ${shown(returned).join(' | ')}`);
+    return { pickedFromTheLandedLayout: first, movedInTheCard: second, markerMovedPx: moved.map(round), actionFills: fills };
+  });
+  return { held, beltLight: { riding: fixed(plain, 1), aGapPicked: fixed(dimmed, 1) }, pressed, board: BOARD_GAP };
+}
+
 mkdirSync(out, { recursive: true });
 const server = await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
 try {
@@ -1931,6 +2193,7 @@ try {
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
   if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
   if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
+  if (ONLY.has('gap')) seen.gap = await seeGap(server.url);
   if (ONLY.has('integrated')) seen.integrated = await seeIntegrated(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);

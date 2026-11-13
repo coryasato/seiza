@@ -26,6 +26,14 @@ import init, {
   file_progress,
   flight_hold,
   flight_state,
+  gap_card,
+  gap_e,
+  gap_hold,
+  gap_marker,
+  gap_numbers,
+  gap_path,
+  gap_place,
+  gap_state,
   integrated_columns,
   integrated_jump,
   integrated_rows,
@@ -46,6 +54,8 @@ import init, {
   scene_axes,
   scene_failed,
   scene_flight,
+  scene_gap,
+  scene_gap_lit,
   scene_inset,
   scene_integrated,
   scene_plot,
@@ -133,6 +143,17 @@ type Kirkwood = {
   ride(): { turned: number; riding: boolean; flying: boolean };
   ridePoints(years: number): number[];
   rideCounts(): { hildas: number; trojans: number };
+  /** For the checks: a picked gap (the gap the marker is at, whether one
+   *  is picked, how much of one there is, how much of it shows, whether
+   *  it's coming or going); what the card says of a gap, a line each; a
+   *  gap's numbers (its orbit size in au, one orbit there, one of
+   *  Jupiter's, and the years its marker's path closes in, then the
+   *  marker's eccentricity); and where a gap's marker is, `years` after
+   *  the epoch (the ecliptic's x, y, z, au). */
+  gap(): { marker: number; picked: boolean; shown: number; lit: number; moving: boolean };
+  gapCard(gap: number): string[];
+  gapNumbers(gap: number): { a: number; orbit: number; jupiter: number; closesIn: number; e: number };
+  gapPlace(gap: number, years: number): number[];
   /** For the checks: the integration (the rows it moves, the bytes held
    *  for them, a step's years); and what a jump of the clock costs: the
    *  rows moved to `years` in one go, then their places worked out, in
@@ -200,6 +221,13 @@ async function startScene(): Promise<BeltScene> {
     ridePoints: ride_points,
     rideGroups: ride_groups,
     holdRide: ride_hold,
+    gap: scene_gap,
+    gapLit: scene_gap_lit,
+    gapMarker: gap_marker,
+    gapPlace: gap_place,
+    gapPath: gap_path,
+    holdGap: gap_hold,
+    markerE: gap_e,
     integratedRows: integrated_rows,
     integratedColumns: integrated_columns,
     integrated: scene_integrated,
@@ -403,6 +431,16 @@ const kirkwood: Kirkwood = {
     const [hildas, trojans] = Array.from(ride_counts());
     return { hildas: hildas!, trojans: trojans! };
   },
+  gap: () => {
+    const [marker, picked, shown, lit, moving] = Array.from(gap_state());
+    return { marker: marker!, picked: !!picked, shown: shown!, lit: lit!, moving: !!moving };
+  },
+  gapCard: (gap) => gap_card(gap),
+  gapNumbers: (gap) => {
+    const [a, orbit, jupiter, closesIn, e] = Array.from(gap_numbers(gap));
+    return { a: a!, orbit: orbit!, jupiter: jupiter!, closesIn: closesIn!, e: e! };
+  },
+  gapPlace: (gap, years) => Array.from(gap_place(gap, years)),
   integrated: () => {
     const [rows, bytes, step] = Array.from(integrated_state());
     return { rows: rows!, bytes: bytes!, step: step! };

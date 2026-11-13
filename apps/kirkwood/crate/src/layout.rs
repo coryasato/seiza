@@ -60,6 +60,10 @@ pub fn gaps() -> [f64; 4] {
     GAPS.map(|(turns, jupiters)| JUPITER.in_step(turns, jupiters))
 }
 
+/// A gap's chip: the turns it's named by, the x of the gap, and the x of
+/// the chip's middle.
+pub type Chip = ((u32, u32), f64, f64);
+
 /// Where the axes are in a window: CSS px.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Plot {
@@ -125,24 +129,50 @@ impl Plot {
     /// The gaps' chips: for each, the turns it's named by, the x of the
     /// gap (where its line drops), and the x of the chip's middle. A chip
     /// sits over its gap, moved aside only as far as keeps it clear of the
-    /// next: beside an open panel the 5:2 and the 7:3 are closer than a
-    /// chip is wide.
-    pub fn chips(&self) -> [((u32, u32), f64, f64); 4] {
+    /// next (beside an open panel the 5:2 and the 7:3 are closer than a
+    /// chip is wide) and inside the plot: the chips are buttons, and never
+    /// overlap. None in a plot too narrow for the four in a row
+    /// (`docs/DECISIONS.md`, "Interface").
+    pub fn chips(&self) -> Option<[Chip; 4]> {
         let at = gaps().map(|a| self.place(a, E[0])[0]);
-        let mut middles = at;
         let least = CHIP[0] + CHIP_APART;
-        // Each pass parts the pairs still too close; four chips settle in
-        // a few.
-        for _ in 0..8 {
-            for left in 0..middles.len() - 1 {
-                let short = least - (middles[left + 1] - middles[left]);
-                if short > 0.0 {
-                    middles[left] -= short / 2.0;
-                    middles[left + 1] += short / 2.0;
+        // How far the row's first chip can move, with the rest against it.
+        let room = self.right - self.left - CHIP[0] - least * (at.len() - 1) as f64;
+        if room < 0.0 {
+            return None;
+        }
+        // Each chip's place less its turn in the row: in order, two of
+        // these may be equal (the chips touch at `least`) and no closer.
+        // The nearest such places to the gaps' own: neighbors out of
+        // order share their mean, until none are.
+        let mut runs: Vec<(f64, usize)> = Vec::new();
+        for (gap, x) in at.into_iter().enumerate() {
+            runs.push((x - least * gap as f64, 1));
+            while let [.., before, last] = runs[..] {
+                if before.0 / before.1 as f64 <= last.0 / last.1 as f64 {
+                    break;
                 }
+                runs.truncate(runs.len() - 2);
+                runs.push((before.0 + last.0, before.1 + last.1));
             }
         }
-        std::array::from_fn(|gap| (GAPS[gap], at[gap], middles[gap]))
+        let first = self.left + CHIP[0] / 2.0;
+        let mut middles = at;
+        let mut gap = 0;
+        for (sum, chips) in runs {
+            let start = (sum / chips as f64).clamp(first, first + room);
+            for _ in 0..chips {
+                let middle = start + least * gap as f64;
+                // (A chip that didn't move is over its gap to the bit.)
+                if (middle - at[gap]).abs() > 1e-9 {
+                    middles[gap] = middle;
+                }
+                gap += 1;
+            }
+        }
+        Some(std::array::from_fn(|gap| {
+            (GAPS[gap], at[gap], middles[gap])
+        }))
     }
 
     /// Where each named group's name is centered: on the orbit size that
@@ -182,7 +212,11 @@ mod tests {
         }
         // The chips: the board's are 35 px wide from 384, 487, 530, and
         // 632, each over its gap.
-        for ((_, gap, middle), board) in plot.chips().into_iter().zip([384.0, 487.0, 530.0, 632.0])
+        for ((_, gap, middle), board) in plot
+            .chips()
+            .unwrap()
+            .into_iter()
+            .zip([384.0, 487.0, 530.0, 632.0])
         {
             assert_eq!(gap, middle, "no chip is moved aside at this width");
             assert!(
@@ -209,7 +243,7 @@ mod tests {
     fn chips_too_close_are_moved_aside_and_no_further() {
         // Beside the open panel the plot is 720 px wide: the 5:2 and the
         // 7:3 are 24 px apart, and a chip is 35 wide.
-        let chips = Plot::in_window(1440.0, 900.0, 560.0).chips();
+        let chips = Plot::in_window(1440.0, 900.0, 560.0).chips().unwrap();
         let (gaps, middles): (Vec<f64>, Vec<f64>) =
             chips.iter().map(|&(_, gap, middle)| (gap, middle)).unzip();
         assert!(gaps[2] - gaps[1] < CHIP[0]);
@@ -226,6 +260,36 @@ mod tests {
             chips.map(|(turns, _, _)| turns),
             [(3, 1), (5, 2), (7, 3), (2, 1)]
         );
+    }
+
+    #[test]
+    fn chips_in_a_narrow_plot_keep_apart_and_inside_it_or_arent_drawn() {
+        // A window 1100 px wide beside the open panel: a plot of 380 px,
+        // where the four gaps span 74 and four chips need 152.
+        for (width, inset) in [(1100.0, 560.0), (900.0, 560.0), (400.0, 0.0), (312.0, 0.0)] {
+            let plot = Plot::in_window(width, 900.0, inset);
+            let chips = plot.chips().unwrap();
+            let middles = chips.map(|(_, _, middle)| middle);
+            for pair in middles.windows(2) {
+                assert!(pair[1] - pair[0] >= CHIP[0] + 4.0 - 1e-9, "{middles:?}");
+            }
+            assert!(
+                middles[0] - CHIP[0] / 2.0 >= plot.left - 1e-9,
+                "{middles:?}"
+            );
+            assert!(
+                middles[3] + CHIP[0] / 2.0 <= plot.right + 1e-9,
+                "{middles:?}"
+            );
+        }
+        // In 380 px the row is as near its gaps as a row can be: as far
+        // left of the first as right of the last.
+        let chips = Plot::in_window(1100.0, 900.0, 560.0).chips().unwrap();
+        let off = chips.map(|(_, gap, middle)| middle - gap);
+        assert!(off[0] < 0.0 && off[3] > 0.0, "{off:?}");
+        // A plot that can't hold four chips in a row has none.
+        assert!(Plot::in_window(311.0, 900.0, 0.0).chips().is_none());
+        assert!(Plot::in_window(800.0, 900.0, 560.0).chips().is_none());
     }
 
     #[test]
