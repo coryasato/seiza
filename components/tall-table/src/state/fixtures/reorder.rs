@@ -1,5 +1,6 @@
 //! `reorder`: `fixtures/reorder.json`'s move cases run against the move's
-//! own rules ([`crate::reorder::Move`]), with their negative controls, and
+//! own rules ([`crate::reorder::Move`]) and its gap cases against the
+//! drag's ([`crate::reorder::gap`]), with their negative controls, and
 //! the order drawn and driven in a window of GPUI's test app over rows
 //! answered from memory: each drawn cell its column's own, at its place;
 //! the tooltip, `set_columns`, `set_order`, and the event; with `resize`,
@@ -12,14 +13,16 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui_kit::{
-    App, AppContext as _, Modifiers, TestAppContext, VisualTestContext, point, px, size,
+    App, AppContext as _, KeyBinding, Modifiers, MouseButton, MouseDownEvent, Pixels, Point,
+    ScrollDelta, ScrollEvent, ScrollSource, TestAppContext, TouchPhase, VisualTestContext, point,
+    px, size,
 };
 use serde_json::Value;
 
 use super::super::{TallTableEvent, TallTableState};
-use crate::column::{ColumnKind, TallTableColumn};
+use crate::column::{CellKind, ColumnKind, LaidOutColumn, TallTableColumn};
 use crate::delegate::{CellValue, PageLoad, TallTableDelegate, TallTablePage};
-use crate::reorder::{Control, Move};
+use crate::reorder::{Control, Move, View, gap};
 
 const REORDER: &str = include_str!("../../../fixtures/reorder.json");
 
@@ -52,6 +55,9 @@ fn control_of(name: Option<&str>) -> Control {
         Some("count-kept") => Control::CountKept,
         Some("recount") => Control::Recount,
         Some("selection-unmoved") => Control::SelectionUnmoved,
+        Some("gap-by-left-edge") => Control::GapByLeftEdge,
+        Some("beside-the-block") => Control::BesideTheBlock,
+        Some("no-edge-gap") => Control::NoEdgeGap,
         Some(name) => panic!("no control {name}"),
     }
 }
@@ -118,6 +124,106 @@ fn mismatches(control: Option<&str>) -> Vec<(String, String)> {
             );
         }
     }
+    mismatches.extend(gap_mismatches(&fixture, control));
+    mismatches
+}
+
+/// Columns laid out side by side at `widths`, in the list's order.
+fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
+    let mut x = 0.0;
+    widths
+        .iter()
+        .enumerate()
+        .map(|(index, width)| {
+            let column = LaidOutColumn {
+                name: format!("c{index}").into(),
+                x,
+                width: *width,
+                kind: CellKind::Float,
+                budget: 1,
+                #[cfg(feature = "format")]
+                format: None,
+                index,
+            };
+            x += width;
+            column
+        })
+        .collect()
+}
+
+/// Whether this build runs `case` (its `features` all on).
+fn runs(case: &Value) -> bool {
+    case["features"].as_array().is_none_or(|features| {
+        features.iter().all(|feature| match feature.as_str() {
+            Some("pin") => cfg!(feature = "pin"),
+            feature => panic!("no feature {feature:?}"),
+        })
+    })
+}
+
+/// What the fixture's gap cases expect that the drag's rule doesn't give,
+/// under `control`. The run in effect is `pin`'s own (`crate::pin`), from
+/// the count, the widths, and the cells' width.
+fn gap_mismatches(fixture: &Value, control: Control) -> Vec<(String, String)> {
+    let mut mismatches = Vec::new();
+    for case in fixture["gaps"].as_array().expect("gaps") {
+        if !runs(case) {
+            continue;
+        }
+        let name = case["name"].as_str().expect("name").to_string();
+        let float = |key: &str| case[key].as_f64().expect(key) as f32;
+        let widths: Vec<f32> = case["widths"]
+            .as_array()
+            .expect("widths")
+            .iter()
+            .map(|width| width.as_f64().expect("a width") as f32)
+            .collect();
+        let columns = laid_out(&widths);
+        let cells_width = float("cells_width");
+        let count = case["count"].as_u64().expect("count") as usize;
+        #[cfg(feature = "pin")]
+        let (run, edge) = {
+            let run = crate::pin::in_effect(&columns, count, cells_width);
+            let pin = crate::pin::Pin::new(&columns, run, cells_width);
+            (run, pin.edge())
+        };
+        #[cfg(not(feature = "pin"))]
+        let (run, edge) = (0, 0.0);
+        let block = &case["block"];
+        let first = block[0].as_u64().expect("first") as usize;
+        let last = block[1].as_u64().expect("last") as usize;
+        let got = gap(
+            View {
+                columns: &columns,
+                cells_width,
+                scroll_x: float("scroll_x"),
+                run,
+                edge,
+            },
+            count,
+            first..last + 1,
+            float("x"),
+            control,
+        )
+        .map(|gap| {
+            (
+                gap.at,
+                gap.to,
+                if gap.pinned { "pinned" } else { "scrolled" },
+            )
+        });
+        let expect = &case["expect"];
+        let want = expect["gap"].as_u64().map(|at| {
+            (
+                at as usize,
+                expect["to"].as_u64().expect("to") as usize,
+                expect["side"].as_str().expect("side"),
+            )
+        });
+        if got != want {
+            mismatches.push((name, format!("gap {got:?}; the fixture's {want:?}")));
+        }
+    }
     mismatches
 }
 
@@ -133,7 +239,28 @@ fn reorder_fixture() {
 fn reorder_controls_fail() {
     let fixture: Value = serde_json::from_str(REORDER).expect("reorder.json");
     let controls = fixture["controls"].as_array().expect("controls");
-    assert_eq!(controls.len(), 3);
+    assert_eq!(controls.len(), 6);
+    // A control names a case, so no two share a name.
+    let mut names: Vec<&str> = fixture["moves"]
+        .as_array()
+        .expect("moves")
+        .iter()
+        .chain(fixture["gaps"].as_array().expect("gaps"))
+        .map(|case| case["name"].as_str().expect("name"))
+        .collect();
+    let all = names.len();
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), all, "a case's name used twice");
+    // The cases this build runs, by name.
+    let run: Vec<&str> = fixture["moves"]
+        .as_array()
+        .expect("moves")
+        .iter()
+        .chain(fixture["gaps"].as_array().expect("gaps"))
+        .filter(|case| runs(case))
+        .map(|case| case["name"].as_str().expect("name"))
+        .collect();
     for control in controls {
         let name = control["name"].as_str().expect("name");
         if name == "selection-unmoved" && !cfg!(feature = "select") {
@@ -144,6 +271,9 @@ fn reorder_controls_fail() {
         assert!(!fails.is_empty(), "{name} names no case");
         for case in fails {
             let case = case.as_str().expect("a case");
+            if !run.contains(&case) {
+                continue;
+            }
             assert!(
                 failed.iter().any(|(failed, _)| failed == case),
                 "the {name} control passed {case}"
@@ -261,6 +391,8 @@ fn columns() -> Vec<TallTableColumn> {
 
 type Table = TallTableState<Memory>;
 
+gpui_kit::actions!(reorder_fixture, [HostEscape]);
+
 /// A table in a 1440×900 window over `rows` rows from memory, its events
 /// (but the probes', the scrollbar's, and `Filled`) kept.
 struct Sheet<'a> {
@@ -270,11 +402,21 @@ struct Sheet<'a> {
     events: Rc<RefCell<Vec<TallTableEvent>>>,
     /// The drawn cells' probes, the last frame's (`probe_cells`).
     cells: Rc<RefCell<Vec<crate::CellProbe>>>,
+    /// The Escapes the table let through to the host.
+    escapes: Rc<Cell<usize>>,
+    /// The table's notifications.
+    notified: Rc<Cell<usize>>,
+    /// The pointer's last position.
+    pointer: Point<Pixels>,
+    _observer: gpui_kit::Subscription,
 }
 
-/// The window's view: the table, subscribed to as it's made.
+/// The window's view: the table's element in a context of its own, whose
+/// Escape binding counts what the table lets through; the table
+/// subscribed to as it's made.
 struct Shell {
     table: gpui_kit::Entity<Table>,
+    escapes: Rc<Cell<usize>>,
     _subscription: gpui_kit::Subscription,
 }
 
@@ -282,10 +424,16 @@ impl gpui_kit::Render for Shell {
     fn render(
         &mut self,
         _: &mut gpui_kit::Window,
-        _: &mut gpui_kit::Context<Self>,
+        cx: &mut gpui_kit::Context<Self>,
     ) -> impl gpui_kit::IntoElement {
-        use gpui_kit::{ParentElement as _, Styled as _};
-        gpui_kit::div().size_full().child(self.table.clone())
+        use gpui_kit::{InteractiveElement as _, ParentElement as _, Styled as _};
+        gpui_kit::div()
+            .key_context("Host")
+            .on_action(cx.listener(|this, _: &HostEscape, _, _| {
+                this.escapes.set(this.escapes.get() + 1);
+            }))
+            .size_full()
+            .child(crate::TallTable::new(&self.table))
     }
 }
 
@@ -294,7 +442,10 @@ impl<'a> Sheet<'a> {
         cx.update(|cx| {
             gpui_kit::component::init(cx);
             crate::init(cx);
+            cx.bind_keys([KeyBinding::new("escape", HostEscape, Some("Host"))]);
         });
+        let escapes: Rc<Cell<usize>> = Rc::default();
+        let host_escapes = escapes.clone();
         let source = Memory::default();
         let events: Rc<RefCell<Vec<TallTableEvent>>> = Rc::default();
         let cells: Rc<RefCell<Vec<crate::CellProbe>>> = Rc::default();
@@ -315,18 +466,31 @@ impl<'a> Sheet<'a> {
                 });
             Shell {
                 table,
+                escapes: host_escapes,
                 _subscription: subscription,
             }
         });
         let table = shell.read_with(cx, |shell, _| shell.table.clone());
         cx.simulate_resize(size(px(1440.), px(900.)));
+        let notified: Rc<Cell<usize>> = Rc::default();
+        let observer = cx.update(|_, cx| {
+            let notified = notified.clone();
+            cx.observe(&table, move |_, _| notified.set(notified.get() + 1))
+        });
         let mut sheet = Self {
             cx,
             table,
             source,
             events,
             cells,
+            escapes,
+            notified,
+            pointer: point(px(0.), px(0.)),
+            _observer: observer,
         };
+        sheet.draw();
+        let handle = sheet.read(|table| table.focus_handle.clone());
+        sheet.cx.update(|window, cx| window.focus(&handle, cx));
         sheet.draw();
         sheet.events.borrow_mut().clear();
         sheet
@@ -911,4 +1075,601 @@ fn a_flash_stays_on_its_cell(cx: &mut TestAppContext) {
     sheet.move_columns(2..3, 0);
     assert_eq!(flashed(&mut sheet), [0], "column 2, now at place 0");
     sheet.check_cells(&[2, 0, 1, 3]);
+}
+
+// --- the drag ---
+
+impl Sheet<'_> {
+    /// Where a header is in window pixels: `place`'s, `dx` from its center
+    /// (`None`: `x` px into the cells area), in the header's row.
+    fn header(&mut self, place: usize) -> Point<Pixels> {
+        self.read(|table| {
+            let column = &table.columns[place];
+            let x = table.place().left(place, column.x, table.scroll_x) + column.width / 2.0;
+            let row_h = f32::from(table.sizes().row());
+            table.body.origin + point(px(table.gutter_width() + x), px(-row_h / 2.0))
+        })
+    }
+
+    /// `x` px into the cells area, level with the header.
+    fn over(&mut self, x: f32) -> Point<Pixels> {
+        self.read(|table| {
+            let row_h = f32::from(table.sizes().row());
+            table.body.origin + point(px(table.gutter_width() + x), px(-row_h / 2.0))
+        })
+    }
+
+    fn press_at(&mut self, at: Point<Pixels>, modifiers: Modifiers) {
+        self.pointer = at;
+        self.cx.simulate_event(MouseDownEvent {
+            position: at,
+            modifiers,
+            button: MouseButton::Left,
+            click_count: 1,
+            first_mouse: false,
+        });
+        self.draw();
+    }
+
+    fn press(&mut self, at: Point<Pixels>) {
+        self.press_at(at, Modifiers::default());
+    }
+
+    fn drag_to(&mut self, at: Point<Pixels>) {
+        self.pointer = at;
+        self.cx
+            .simulate_mouse_move(at, MouseButton::Left, Modifiers::default());
+        self.draw();
+    }
+
+    fn release(&mut self) {
+        self.cx
+            .simulate_mouse_up(self.pointer, MouseButton::Left, Modifiers::default());
+        self.draw();
+    }
+
+    /// A sideways wheel of `px` px at the pointer (positive: the content
+    /// moves left, the view right).
+    fn wheel_sideways(&mut self, by: f32) {
+        self.cx.simulate_event(ScrollEvent {
+            position: self.pointer,
+            delta: ScrollDelta::Pixels(point(px(-by), px(0.))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        });
+        self.draw();
+    }
+
+    fn key(&mut self, keys: &str) {
+        self.cx.simulate_keystrokes(keys);
+        self.draw();
+    }
+
+    fn moving(&mut self) -> bool {
+        self.read(|table| table.is_moving())
+    }
+
+    /// The gap's place and the line drawn in the header and the body.
+    fn gap(&mut self) -> Option<(usize, [Option<f32>; 2])> {
+        self.read(|table| {
+            let gap = table.moving.as_ref()?.gap?;
+            Some((gap.at, table.move_drawn.borrow().lines))
+        })
+    }
+
+    fn order(&mut self) -> Vec<usize> {
+        self.read(|table| table.order().to_vec())
+    }
+
+    /// Picks `place` to be dragged: with `select`'s `Columns` kind on, a
+    /// press and release on its header first selects it (Sheets' rule).
+    fn pick(&mut self, place: usize) {
+        #[cfg(feature = "select")]
+        if self.read(|table| table.selectable().columns) {
+            let at = self.header(place);
+            self.press(at);
+            self.release();
+        }
+        let _ = place;
+    }
+
+    /// A drag of `place`'s header (picked first) to `to`, released.
+    fn drag_header(&mut self, place: usize, to: Point<Pixels>) {
+        self.pick(place);
+        let at = self.header(place);
+        self.press(at);
+        self.drag_to(to);
+        self.release();
+    }
+}
+
+/// A press that never moves past 2 px moves nothing; with `select`, it
+/// selects as today, and inside a selected range it selects its column
+/// alone at the release.
+#[gpui_kit::test]
+fn a_press_within_2_px_moves_nothing(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(1);
+    let at = sheet.header(1);
+    sheet.press(at);
+    sheet.drag_to(at + point(px(2.), px(0.)));
+    assert!(!sheet.moving(), "2 px isn't a drag");
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    assert_eq!(sheet.moved(), Vec::<Vec<usize>>::new());
+    #[cfg(feature = "select")]
+    {
+        use crate::TallTableSelection;
+        // A range of two; a press inside it, released where it was.
+        let range = TallTableSelection::Columns {
+            anchor: (0, 1),
+            head: (0, 2),
+        };
+        sheet.update(|table, cx| table.select(Some(range), cx));
+        let at = sheet.header(2);
+        sheet.press(at);
+        assert_eq!(
+            sheet.read(|table| table.selection()),
+            Some(range),
+            "kept at the press: a drag may follow"
+        );
+        sheet.release();
+        assert_eq!(
+            sheet.read(|table| table.selection()),
+            Some(TallTableSelection::Columns {
+                anchor: (0, 2),
+                head: (0, 2)
+            }),
+            "the column alone at the release"
+        );
+    }
+}
+
+/// Past 2 px the preview follows the pointer and the line is at the gap
+/// through the header and the body, at any height; nothing is hovered;
+/// a frame only when the preview or the gap moves; the release moves the
+/// block to the gap.
+#[gpui_kit::test]
+fn a_drag_moves_its_column_to_the_gap(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    let reads = sheet.source.reads.get();
+    sheet.pick(0);
+    let at = sheet.header(0);
+    sheet.press(at);
+    // Over column 2, right of its center (372): the gap before column 3.
+    let to = sheet.over(400.);
+    sheet.drag_to(to);
+    assert!(sheet.moving());
+    let (gutter, origin) = sheet.read(|table| (table.gutter_width(), table.body.origin.x));
+    let line = gutter + 424.0;
+    assert_eq!(sheet.gap(), Some((3, [Some(line), Some(line)])));
+    let preview = sheet.read(|table| table.move_drawn.borrow().preview);
+    let moved = f32::from(to.x - at.x);
+    assert_eq!(
+        preview,
+        Some((gutter + moved, 120.0)),
+        "the block's header, moved as far as the pointer"
+    );
+    let _ = origin;
+    // Down into the body, the same x: the same gap, no frame.
+    let notified = sheet.notified.get();
+    sheet.drag_to(to + point(px(0.), px(300.)));
+    assert_eq!(sheet.gap(), Some((3, [Some(line), Some(line)])));
+    assert_eq!(sheet.notified.get(), notified, "nothing moved: no frame");
+    // Nothing hovered, no tooltip, however long it rests.
+    sheet
+        .cx
+        .executor()
+        .advance_clock(Duration::from_millis(600));
+    sheet.draw();
+    assert!(sheet.read(|table| table.hover.is_none()), "no hover");
+    sheet.release();
+    assert!(!sheet.moving());
+    assert_eq!(sheet.order(), [1, 2, 0, 3]);
+    assert_eq!(sheet.moved(), [vec![1, 2, 0, 3]]);
+    assert_eq!(sheet.source.reads.get(), reads, "a move reads nothing");
+    assert_eq!(
+        sheet.read(|table| table.move_drawn.borrow().clone()),
+        Default::default(),
+        "nothing drawn after the release"
+    );
+    // Back, past the left of the cells: the first gap.
+    let to = sheet.over(-10.);
+    sheet.drag_header(2, to);
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+}
+
+/// A release beside the block, or back where it started, moves nothing.
+#[gpui_kit::test]
+fn a_release_beside_the_block_moves_nothing(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(1);
+    let at = sheet.header(1);
+    sheet.press(at);
+    // Right of column 1's center (220), left of column 2's (372).
+    let beside = sheet.over(300.);
+    sheet.drag_to(beside);
+    assert!(sheet.moving());
+    assert_eq!(sheet.gap(), None);
+    assert_eq!(
+        sheet.read(|table| table.move_drawn.borrow().lines),
+        [None, None],
+        "no line"
+    );
+    // Left of its center, right of column 0's: before it.
+    let before = sheet.over(150.);
+    sheet.drag_to(before);
+    assert_eq!(sheet.gap(), None);
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    assert_eq!(sheet.moved(), Vec::<Vec<usize>>::new());
+}
+
+/// A wheel during a drag scrolls the body sideways, and the gap follows
+/// the columns brought under the pointer.
+#[gpui_kit::test]
+fn a_wheel_during_a_drag_moves_the_gap(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.cx.simulate_resize(size(px(400.), px(900.)));
+    sheet.draw();
+    sheet.pick(0);
+    let at = sheet.header(0);
+    sheet.press(at);
+    // Over column 1 (120..320), right of its center: the gap before 2.
+    let to = sheet.over(240.);
+    sheet.drag_to(to);
+    assert_eq!(sheet.gap().map(|(at, _)| at), Some(2));
+    sheet.wheel_sideways(150.);
+    assert_eq!(sheet.read(|table| table.scroll_x), 150.0);
+    // At 240 + 150 = 390 in the content: right of column 2's center (372).
+    assert_eq!(sheet.gap().map(|(at, _)| at), Some(3));
+    sheet.release();
+    assert_eq!(sheet.order(), [1, 2, 0, 3]);
+    assert_eq!(sheet.read(|table| table.scroll_x), 150.0, "kept");
+}
+
+/// Escape cancels a drag, nothing moved, and goes no further; with no
+/// drag it goes on as before.
+#[gpui_kit::test]
+fn escape_cancels_a_drag(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(0);
+    let at = sheet.header(0);
+    sheet.press(at);
+    let to = sheet.over(400.);
+    sheet.drag_to(to);
+    assert!(sheet.gap().is_some());
+    #[cfg(feature = "select")]
+    let selected = sheet.read(|table| table.selection());
+    sheet.key("escape");
+    assert!(!sheet.moving(), "cancelled");
+    assert_eq!(sheet.escapes.get(), 0, "the key went no further");
+    #[cfg(feature = "select")]
+    assert_eq!(
+        sheet.read(|table| table.selection()),
+        selected,
+        "nor to the selection"
+    );
+    assert_eq!(
+        sheet.read(|table| table.move_drawn.borrow().clone()),
+        Default::default()
+    );
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    assert_eq!(sheet.moved(), Vec::<Vec<usize>>::new());
+    // No drag: `select`'s Escape clears, then the host's has it.
+    #[cfg(feature = "select")]
+    {
+        sheet.key("escape");
+        assert_eq!(sheet.read(|table| table.selection()), None);
+        assert_eq!(sheet.escapes.get(), 0);
+    }
+    sheet.key("escape");
+    assert_eq!(sheet.escapes.get(), 1, "the host's");
+}
+
+/// With `select`'s `Columns` kind on: a press outside the selected range
+/// selects as today; inside, the range moves and stays selected; a range
+/// holding an unmovable column doesn't drag; a `Cells` selection makes no
+/// header movable. With the kind off, a `Rows` selection leaves the plain
+/// rule.
+#[cfg(feature = "select")]
+#[gpui_kit::test]
+fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
+    use crate::{Selectable, TallTableSelection};
+
+    let mut sheet = Sheet::open(cx, 1000);
+    let range = |anchor: usize, head: usize| TallTableSelection::Columns {
+        anchor: (0, anchor),
+        head: (0, head),
+    };
+    // Outside the range: a drag selecting, as today.
+    sheet.update(|table, cx| table.select(Some(range(0, 0)), cx));
+    let at = sheet.header(2);
+    sheet.press(at);
+    let to = sheet.header(3);
+    sheet.drag_to(to);
+    assert!(!sheet.moving());
+    assert!(sheet.read(|table| table.is_selecting()));
+    sheet.release();
+    assert_eq!(sheet.read(|table| table.selection()), Some(range(2, 3)));
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    // Inside it: the range moves, past the last column, and stays
+    // selected at its places.
+    sheet.update(|table, cx| table.select(Some(range(1, 2)), cx));
+    sheet.heard();
+    let at = sheet.header(1);
+    sheet.press(at);
+    let to = sheet.over(700.);
+    sheet.drag_to(to);
+    assert!(sheet.moving());
+    assert!(!sheet.read(|table| table.is_selecting()));
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 3, 1, 2]);
+    assert_eq!(sheet.read(|table| table.selection()), Some(range(2, 3)));
+    let selected: Vec<_> = sheet
+        .heard()
+        .into_iter()
+        .filter_map(|event| match event {
+            TallTableEvent::Selected(selection) => Some(selection),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(selected, [Some(range(2, 3))]);
+    // An unmovable column in the range: no drag, the press selects.
+    let mut list = columns();
+    list[1] = list[1].clone().movable(false);
+    sheet.update(|table, cx| table.set_columns(list, cx));
+    sheet.update(|table, cx| table.select(Some(range(0, 1)), cx));
+    let at = sheet.header(0);
+    sheet.press(at);
+    let to = sheet.over(700.);
+    sheet.drag_to(to);
+    assert!(!sheet.moving());
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    assert_eq!(sheet.read(|table| table.selection()), Some(range(0, 3)));
+    // Alone, the unmovable column doesn't drag either.
+    sheet.update(|table, cx| table.select(Some(range(1, 1)), cx));
+    let at = sheet.header(1);
+    sheet.press(at);
+    sheet.drag_to(to);
+    assert!(!sheet.moving());
+    sheet.release();
+    // A `Cells` selection: a header press selects its column.
+    sheet.update(|table, cx| table.set_columns(columns(), cx));
+    let cells = TallTableSelection::Cells {
+        anchor: (0, 0),
+        head: (2, 1),
+    };
+    sheet.update(|table, cx| table.select(Some(cells), cx));
+    let at = sheet.header(0);
+    sheet.press(at);
+    sheet.drag_to(to);
+    assert!(!sheet.moving());
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    // The kind off: the plain rule, whatever's selected.
+    sheet.update(|table, cx| table.set_selectable(Selectable::all().columns(false), cx));
+    let rows = TallTableSelection::Rows {
+        anchor: (1, 0),
+        head: (2, 0),
+    };
+    sheet.update(|table, cx| table.select(Some(rows), cx));
+    sheet.drag_header(0, to);
+    assert_eq!(sheet.order(), [1, 2, 3, 0]);
+    assert_eq!(sheet.read(|table| table.selection()), Some(rows), "kept");
+    // Shift and Cmd presses never move.
+    for modifiers in [Modifiers::shift(), Modifiers::command()] {
+        let at = sheet.header(0);
+        sheet.press_at(at, modifiers);
+        sheet.drag_to(to);
+        assert!(!sheet.moving(), "{modifiers:?}");
+        sheet.release();
+    }
+    assert_eq!(sheet.order(), [1, 2, 3, 0]);
+}
+
+/// `resize`'s band keeps its press: a drag there resizes, not moves.
+#[cfg(feature = "resize")]
+#[gpui_kit::test]
+fn the_band_keeps_its_press(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(0);
+    // Column 0's right edge.
+    let at = sheet.over(119.5);
+    sheet.press(at);
+    assert!(sheet.read(|table| table.resizing.is_some()));
+    sheet.drag_to(at + point(px(40.), px(0.)));
+    assert!(!sheet.moving());
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    assert_eq!(sheet.read(|table| table.columns[0].width), 160.0);
+}
+
+/// `sort`'s arrow keeps its press: a drag from it moves nothing, its
+/// release off the arrow sorts nothing.
+#[cfg(feature = "sort")]
+#[gpui_kit::test]
+fn the_arrow_keeps_its_press(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(0);
+    let at = sheet.read(|table| {
+        let column = &table.columns[0];
+        let (left, width) = table.arrow_box(0, column).expect("an arrow");
+        let row_h = f32::from(table.sizes().row());
+        table.body.origin
+            + point(
+                px(table.gutter_width() + column.x + left + width / 2.0),
+                px(-row_h / 2.0),
+            )
+    });
+    sheet.press(at);
+    assert_eq!(sheet.read(|table| table.sort_state.pressed), Some(0));
+    let to = sheet.over(700.);
+    sheet.drag_to(to);
+    assert!(!sheet.moving());
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    assert_eq!(sheet.source.sorts.get(), 0);
+}
+
+/// With `pin`: a drag into the run pins, out of it unpins; at the run's
+/// end the pointer's side decides, beside the block too.
+#[cfg(feature = "pin")]
+#[gpui_kit::test]
+fn a_drag_across_the_edge_pins_and_unpins(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.update(|table, cx| table.set_pinned(1, cx));
+    let pinned = |sheet: &mut Sheet| sheet.read(|table| (table.pinned(), table.pinned_in_effect()));
+    // Column 2 into the run, left of column 0's center: pinned first.
+    let to = sheet.over(30.);
+    sheet.drag_header(2, to);
+    assert_eq!(sheet.order(), [2, 0, 1, 3]);
+    assert_eq!(pinned(&mut sheet), (2, 2));
+    // The run's edge at 104 + 120 = 224. Its last column (0) just right of
+    // the edge: unpinned where it is.
+    let to = sheet.over(230.);
+    sheet.drag_header(1, to);
+    assert_eq!(sheet.order(), [2, 0, 1, 3]);
+    assert_eq!(pinned(&mut sheet), (1, 1));
+    // And back, just left of the edge (now 104): pinned where it is.
+    let to = sheet.over(100.);
+    sheet.pick(1);
+    let at = sheet.header(1);
+    sheet.press(at);
+    sheet.drag_to(to);
+    let (gap, lines) = sheet.gap().expect("a gap");
+    let gutter = sheet.read(|table| table.gutter_width());
+    assert_eq!(gap, 1);
+    assert_eq!(
+        lines,
+        [Some(gutter + 102.0); 2],
+        "inside the run, at its edge"
+    );
+    sheet.release();
+    assert_eq!(sheet.order(), [2, 0, 1, 3]);
+    assert_eq!(pinned(&mut sheet), (2, 2));
+    // A scrolled column to the run's end from the scrolled side: scrolled,
+    // first after it.
+    let to = sheet.over(230.);
+    sheet.drag_header(3, to);
+    assert_eq!(sheet.order(), [2, 0, 3, 1]);
+    assert_eq!(pinned(&mut sheet), (2, 2));
+    // Out of the run, past the last column.
+    let to = sheet.over(700.);
+    sheet.drag_header(0, to);
+    assert_eq!(sheet.order(), [0, 3, 1, 2]);
+    assert_eq!(pinned(&mut sheet), (1, 1));
+}
+
+/// Another button's release leaves the drag on; a release the table never
+/// sees cancels a drag at the next move, and a next press redraws without
+/// it; the release takes the gap the line was drawn at.
+#[gpui_kit::test]
+fn a_release_is_the_left_buttons_own(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(0);
+    let at = sheet.header(0);
+    sheet.press(at);
+    let to = sheet.over(400.);
+    sheet.drag_to(to);
+    sheet
+        .cx
+        .simulate_mouse_up(to, MouseButton::Right, Modifiers::default());
+    sheet.draw();
+    assert!(sheet.moving(), "the right button's release");
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    // Released past column 3's center, the line still before 3: the gap
+    // drawn.
+    sheet.pointer = sheet.over(560.);
+    sheet.release();
+    assert_eq!(sheet.order(), [1, 2, 0, 3], "the gap the line showed");
+    // A release unseen: the next move, its button up, cancels.
+    let back = sheet.over(-10.);
+    sheet.drag_header(2, back);
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+    let at = sheet.header(0);
+    sheet.pick(0);
+    sheet.press(at);
+    sheet.drag_to(to);
+    assert!(sheet.moving());
+    sheet.cx.simulate_mouse_move(to, None, Modifiers::default());
+    sheet.draw();
+    assert!(!sheet.moving());
+    assert_eq!(
+        sheet.read(|table| table.move_drawn.borrow().clone()),
+        Default::default()
+    );
+    // Or a press comes first: the drag's drawing goes, a frame asked for.
+    sheet.press(at);
+    sheet.drag_to(to);
+    let other = sheet.header(3);
+    let notified = sheet.notified.get();
+    sheet.press(other);
+    assert!(sheet.notified.get() > notified, "redrawn");
+    assert!(!sheet.moving());
+    assert_eq!(
+        sheet.read(|table| table.move_drawn.borrow().clone()),
+        Default::default()
+    );
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 2, 3]);
+}
+
+/// With `select`: Escape before a press inside the range drags clears the
+/// selection for good; a press whose release goes unseen still selects
+/// its column, as the click it was.
+#[cfg(feature = "select")]
+#[gpui_kit::test]
+fn escape_before_a_drag_clears_for_good(cx: &mut TestAppContext) {
+    use crate::TallTableSelection;
+
+    let mut sheet = Sheet::open(cx, 1000);
+    let range = |anchor: usize, head: usize| TallTableSelection::Columns {
+        anchor: (0, anchor),
+        head: (0, head),
+    };
+    sheet.update(|table, cx| table.select(Some(range(1, 2)), cx));
+    let at = sheet.header(2);
+    sheet.press(at);
+    sheet.key("escape");
+    assert_eq!(sheet.read(|table| table.selection()), None);
+    sheet.release();
+    assert_eq!(sheet.read(|table| table.selection()), None, "still cleared");
+    assert_eq!(sheet.escapes.get(), 0);
+    sheet.update(|table, cx| table.select(Some(range(1, 2)), cx));
+    sheet.press(at);
+    sheet.cx.simulate_mouse_move(at, None, Modifiers::default());
+    sheet.draw();
+    assert_eq!(sheet.read(|table| table.selection()), Some(range(2, 2)));
+}
+
+/// With `pin`: a host's `set_pinned` during a drag moves the line before
+/// the next pointer move, and the release takes it.
+#[cfg(feature = "pin")]
+#[gpui_kit::test]
+fn the_gap_follows_a_new_run(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.pick(3);
+    let at = sheet.header(3);
+    sheet.press(at);
+    // Right of column 1's center (220), left of column 2's (372): the gap
+    // before 2, at column 2's left.
+    let to = sheet.over(250.);
+    sheet.drag_to(to);
+    let gutter = sheet.read(|table| table.gutter_width());
+    assert_eq!(sheet.gap(), Some((2, [Some(gutter + 320.0); 2])));
+    // Two pinned, the edge at 320: the pointer in the run, the gap at its
+    // end, its line inside the run.
+    sheet.update(|table, cx| table.set_pinned(2, cx));
+    assert_eq!(sheet.gap(), Some((2, [Some(gutter + 318.0); 2])));
+    sheet.release();
+    assert_eq!(sheet.order(), [0, 1, 3, 2]);
+    assert_eq!(
+        sheet.read(|table| (table.pinned(), table.pinned_in_effect())),
+        (3, 3),
+        "pinned, from the run's side"
+    );
 }

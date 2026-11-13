@@ -530,3 +530,14 @@ No results note: nothing measured. The build's check was a byte comparison again
 - Invariant 5 could check the drawn cells' columns only because the cells' text element already records what it drew in the tests (`drawn_text`); its recorded column had to stay the column's index under the control that reads by place, or the check would have compared the control with itself.
 - M14's lesson came back in another form: a new `impl` block for a method the base also builds (`LaidOutColumn::index`, the stand-in), placed above `column.rs`'s other `impl`s, left the base the same length after wasm-opt but 1.1 KiB more brotli, its functions reordered by the renumbered mangled names. A stand-in that builds in the base goes at its file's end from the start; a size run that reads "0 after wasm-opt" with brotli moved is worth a byte comparison before calling it noise.
 
+
+## M15: `reorder` (part C, 2026-11-13)
+
+**Results:** none (nothing measured; part E measures the drag).
+
+**Surprises:**
+- The gap and the move had two pictures of the run: the gap goes by the run drawn (the pointer's side of the edge), the move by the host's count. They agree until the half-width cap cuts the run; there the pointer's side made `move_columns_pinned` refuse a move whose line was drawn. The gap now passes the pointer's side only at the count's end, and shows only where its move changes something.
+- Escape needed no key context switched on for the drag: GPUI hands a propagated action's key to the next binding that matches, so a binding that wants the key only sometimes propagates the rest of the time.
+- The fixture's controls name cases, and four gap cases first had the move cases' names (`into-the-run`, `pin-in-place`, …): in a build without `pin` the `no-edge-gap` control "passed" the move case of the same name. The controls' test now refuses a name used twice.
+- Every new window test passed at its first run, so each was checked against a mutation of what it covers (Escape never cancelling, the threshold inclusive, no selection at a release that didn't drag, a frame at every pointer move, the wheel not finding the gap again, the pointer's side ignored, the side always the pointer's): each mutation failed its test, after two first tries that mutated nothing (a no-op edit, and the wrong file).
+- The code review found what the window tests couldn't have asked: a release whose own x picked another gap than the line drawn, a line left stale by a host's `set_pinned`, a right button's release dropping the block, and Escape's clear undone by the release of a press that hadn't dragged. Each now has a test that fails without its fix. And the test helper draws every frame whatever was asked, so "a frame asked for" is read from the table's notifications, not from what was drawn.

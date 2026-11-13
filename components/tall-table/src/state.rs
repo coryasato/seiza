@@ -50,6 +50,8 @@ pub fn init(cx: &mut App) {
     select::init(cx);
     #[cfg(feature = "copy")]
     copy::init(cx);
+    #[cfg(feature = "reorder")]
+    reorder::init(cx);
 }
 
 /// How the table pages through its rows.
@@ -648,6 +650,13 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// holds page reads as a scroll's are.
     #[cfg(feature = "resize")]
     resizing: Option<resize::Resizing>,
+    /// A header pressed to move its column or a selected range, and the
+    /// drag that follows (`reorder`).
+    #[cfg(feature = "reorder")]
+    moving: Option<reorder::Moving>,
+    /// What the last frame drew of a drag (`reorder`, tests only).
+    #[cfg(all(test, feature = "reorder"))]
+    pub(crate) move_drawn: std::cell::RefCell<reorder::Drawn>,
     /// While a scrollbar drag moves, page loads wait for the pointer to rest
     /// ([`Paging::drag_settle`]); this is that wait.
     drag_settle: Option<Task<()>>,
@@ -765,6 +774,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             drag: None,
             #[cfg(feature = "resize")]
             resizing: None,
+            #[cfg(feature = "reorder")]
+            moving: None,
+            #[cfg(all(test, feature = "reorder"))]
+            move_drawn: Default::default(),
             drag_settle: None,
             #[cfg(feature = "live")]
             drag_resting: true,
@@ -987,6 +1000,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(feature = "reorder")]
         {
             self.order = (0..columns.len()).collect();
+            self.cancel_drag(cx);
         }
         self.column_info = columns;
         // A suffix the glyphs didn't shape: read them again at the next
@@ -1677,6 +1691,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if self.is_selecting() {
             return;
         }
+        // Nor while a drag moves columns.
+        #[cfg(feature = "reorder")]
+        if self.is_moving() {
+            return;
+        }
         let cell = self.cell_at(position);
         if cell == self.hover.as_ref().map(|hover| (hover.row, hover.column)) {
             return;
@@ -1922,6 +1941,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     fn render_header(&mut self, cx: &App) -> Div {
         let theme = cx.theme();
+        #[cfg(all(test, feature = "reorder"))]
+        self.move_drawn.take();
+        // The gap under the pointer now, which the line draws and the
+        // release takes (`reorder`).
+        #[cfg(feature = "reorder")]
+        self.refresh_gap();
         let sizes = self.sizes();
         #[cfg(not(feature = "pin"))]
         let gutter = self.gutter_width();
@@ -1972,6 +1997,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
             header_padding
                 .borrow_mut()
                 .push((index, cell.style().padding.right));
+            // Lifted by a drag: its text dimmed (`reorder`).
+            #[cfg(feature = "reorder")]
+            let cell = cell.when(self.lifted(index), |cell| {
+                cell.text_color(theme.muted_foreground)
+            });
             let cell = cell
                 .line_height(sizes.row())
                 .when(column.kind.numeric(), |cell| cell.text_right())
@@ -2563,6 +2593,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         if entity.read(cx).resizing.is_some() {
                             window.set_window_cursor_style(CursorStyle::ResizeColumn);
                         }
+                        // The closed hand wherever a column is carried.
+                        #[cfg(feature = "reorder")]
+                        if entity.read(cx).is_moving() {
+                            window.set_window_cursor_style(CursorStyle::ClosedHand);
+                        }
                         // Registered every frame, not only once a drag has
                         // started: a quick click on the track delivers the
                         // press and the release before the next paint, and a
@@ -2572,6 +2607,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 moving.update(cx, |this, cx| {
+                                    #[cfg(feature = "reorder")]
+                                    if this.moving.is_some() {
+                                        if event.pressed_button == Some(MouseButton::Left) {
+                                            this.move_drag_to(event.position, cx);
+                                        } else {
+                                            this.release_unseen(cx);
+                                        }
+                                        return;
+                                    }
                                     #[cfg(feature = "select")]
                                     if this.is_selecting() {
                                         if event.pressed_button == Some(MouseButton::Left) {
@@ -2604,9 +2648,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             }
                         });
                         let releasing = entity.clone();
-                        window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
+                        window.on_mouse_event(move |_event: &MouseUpEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 releasing.update(cx, |this, cx| {
+                                    // The left button's release only: another
+                                    // button's leaves the drag on.
+                                    #[cfg(feature = "reorder")]
+                                    if _event.button == MouseButton::Left {
+                                        this.end_move(cx);
+                                    }
                                     #[cfg(feature = "select")]
                                     this.end_select();
                                     #[cfg(feature = "resize")]
@@ -2630,6 +2680,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 {
                                     cx.stop_propagation();
                                     wheeling.update(cx, |this, cx| this.select_wheel(event, cx));
+                                }
+                            });
+                        }
+                        // And during a drag moving columns: the gap follows
+                        // the columns brought under the pointer.
+                        #[cfg(feature = "reorder")]
+                        {
+                            let wheeling = entity.clone();
+                            window.on_mouse_event(move |event: &ScrollEvent, phase, _, cx| {
+                                if phase == DispatchPhase::Capture && wheeling.read(cx).is_moving()
+                                {
+                                    cx.stop_propagation();
+                                    wheeling.update(cx, |this, cx| this.move_wheel(event, cx));
                                 }
                             });
                         }
@@ -2728,6 +2791,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // The run's edge, over the cells (`pin`).
         #[cfg(feature = "pin")]
         let body = body.children(self.edge_line(place, true, cx));
+        // A drag's gap, over the cells and the edge (`reorder`).
+        #[cfg(feature = "reorder")]
+        let body = body.children(self.render_gap_line(false, cx));
         body
     }
 
@@ -2889,6 +2955,12 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         // Over the bands: the last pinned column's hairline is under it.
         #[cfg(feature = "pin")]
         let header = header.children(self.edge_line(self.place(), false, cx));
+        // A drag's gap and the block lifted over it, over everything
+        // (`reorder`).
+        #[cfg(feature = "reorder")]
+        let header = header
+            .children(self.render_gap_line(true, cx))
+            .children(self.render_preview(cx));
         let body = self.render_body(cx);
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         if self.flashes.animating {
@@ -2898,10 +2970,23 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         let root = div();
         // A press on a cell, the gutter, a header, or the corner selects
         // (the bands and scrollbars stop theirs first).
-        #[cfg(feature = "select")]
+        #[cfg(all(feature = "select", not(feature = "reorder")))]
         let root = root.on_mouse_down(
             MouseButton::Left,
             cx.listener(|this, event: &MouseDownEvent, _, cx| this.press_select(event, cx)),
+        );
+        // A press on a header may drag its column (`reorder`): one inside
+        // the selected range is the drag's alone (`select`).
+        #[cfg(feature = "reorder")]
+        let root = root.on_mouse_down(
+            MouseButton::Left,
+            cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                if this.press_move(event, cx) {
+                    return;
+                }
+                #[cfg(feature = "select")]
+                this.press_select(event, cx);
+            }),
         );
         // The cells' and the header's text (`density`); the tooltip sets
         // its own.

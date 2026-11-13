@@ -394,7 +394,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// The cell nearest `position` (window pixels): the pointer's clamped
     /// to the visible cells, and past the last column to the last.
-    fn cell_clamped(&self, position: Point<Pixels>) -> Option<Cell> {
+    pub(super) fn cell_clamped(&self, position: Point<Pixels>) -> Option<Cell> {
         let last_row = self.scroll.rows().checked_sub(1)?;
         let last_column = self.columns.len().checked_sub(1)?;
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();

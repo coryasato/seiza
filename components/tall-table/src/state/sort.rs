@@ -57,7 +57,7 @@ pub(crate) struct SortState {
     icons: Option<SortIcons>,
     /// The arrow a left press went down on: its release there sorts. By
     /// its column's index, as the sort is (with `reorder`, not its place).
-    pressed: Option<usize>,
+    pub(super) pressed: Option<usize>,
     hovered: Option<usize>,
     /// A sort's reads are waiting for the end of the update that made it.
     load_deferred: bool,
@@ -340,6 +340,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let box_px = box_width(self.glyphs.arrow_px, sizes);
         #[cfg(any(test, not(feature = "pin")))]
         let gutter = self.gutter_width();
+        // Nothing drawn hovered while a column is carried (`reorder`); the
+        // hover is still tracked, so it shows again at the release.
+        #[cfg(feature = "reorder")]
+        let hovered = self.sort_state.hovered.filter(|_| !self.is_moving());
+        #[cfg(not(feature = "reorder"))]
+        let hovered = self.sort_state.hovered;
         let mut arrows = Vec::with_capacity(visible.len());
         for (index, at, edge, box_left) in visible {
             let direction = self
@@ -348,7 +354,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .filter(|sort| sort.column == index)
                 .map(|sort| sort.direction);
             let color = match direction {
-                None if self.sort_state.hovered != Some(index) => full.opacity(0.5),
+                None if hovered != Some(index) => full.opacity(0.5),
                 _ => full,
             };
             let left = box_left - TARGET_PAD;
@@ -415,6 +421,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             && (hovered.is_some() || this.sort_state.hovered == Some(index))
                         {
                             this.sort_state.hovered = hovered;
+                            // Drawn unhovered while a column is carried: its
+                            // release redraws (`reorder`).
+                            #[cfg(feature = "reorder")]
+                            if this.is_moving() {
+                                return;
+                            }
                             cx.notify();
                         }
                     }))

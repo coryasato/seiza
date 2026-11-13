@@ -1,12 +1,14 @@
 //! `reorder`: a move of a block of columns, pure (tested natively,
 //! `fixtures/reorder.json`'s subject): the order after it, each column's
-//! place after it, `pin`'s count after it, and `select`'s range after it.
+//! place after it, `pin`'s count after it, and `select`'s range after it;
+//! and a drag's gap, where its release moves the block (`gap`).
 //! A column's place is where it's drawn (0 at the left); its index is its
 //! place in `set_columns`' list, which a page reads it by
 //! (`docs/DECISIONS.md`, "Features").
 
 use std::ops::Range;
 
+use crate::column::LaidOutColumn;
 #[cfg(feature = "select")]
 use crate::selection::{Kind, TallTableSelection};
 
@@ -28,6 +30,15 @@ pub(crate) enum Control {
     /// The random test's `ReadByPlace`: a drawn cell read from its page by
     /// its place, not its column's index.
     ReadByPlace,
+    /// The fixture's `gap-by-left-edge`: the gap after the last column
+    /// whose left edge, not its center, is left of the pointer.
+    GapByLeftEdge,
+    /// The fixture's `beside-the-block`: a gap beside the block is a gap
+    /// (a move to the block's own place).
+    BesideTheBlock,
+    /// The fixture's `no-edge-gap`: the run's end beside the block refused
+    /// too, so a column can't be pinned or unpinned where it is.
+    NoEdgeGap,
 }
 
 /// A move: the columns at `places` (a block of places) to land with the
@@ -180,6 +191,178 @@ impl Move {
         };
         Some(selection.with((anchor.0, anchor_column), (head.0, head_column)))
     }
+}
+
+/// A drag's gap: where its release moves the block.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Gap {
+    /// The place the gap is before, `0..=columns`: the line is at its
+    /// column's left, or past the last column at its right.
+    pub(crate) at: usize,
+    /// The move's `to`: the block's first place after it.
+    pub(crate) to: usize,
+    /// The side the block lands on (`move_columns_pinned`'s `pinned`): at
+    /// the run's end, where both sides meet, the pointer's side of the
+    /// run's edge; elsewhere the side `to` is on, so the release never
+    /// refuses a gap the line showed (`pin`).
+    #[cfg(any(feature = "pin", test))]
+    pub(crate) pinned: bool,
+    /// The 2 px line's left, in the cells area's pixels, inside the
+    /// pointer's region.
+    pub(crate) line: f32,
+}
+
+/// The line's width.
+pub(crate) const LINE: f32 = 2.0;
+
+/// What a drag's gap is found over: the columns laid out in drawn order,
+/// the cells area's width, the sideways scroll, and the run pinned in
+/// effect (`run` columns to `edge`, the cells area's pixels; 0 and 0
+/// without `pin`).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct View<'a> {
+    pub(crate) columns: &'a [LaidOutColumn],
+    pub(crate) cells_width: f32,
+    pub(crate) scroll_x: f32,
+    pub(crate) run: usize,
+    pub(crate) edge: f32,
+}
+
+/// The gap a drag of `block` (places) shows over `view` with the pointer
+/// at `x` (the cells area's pixels, at any height), the host's pin count
+/// `count`. `None`: the release moves nothing.
+///
+/// The pointer's region is the run (left of its edge) or the scrolled
+/// columns; among its visible columns the gap is after the last whose
+/// center is left of `x`, else before its first. A gap inside the block or
+/// beside it is none, except the run's end with the pointer on the other
+/// side of the edge from a block wholly on one side: that pins or unpins
+/// it where it is. And a gap is one only where its move changes something
+/// (`Move::moves`).
+pub(crate) fn gap(
+    view: View<'_>,
+    count: usize,
+    block: Range<usize>,
+    x: f32,
+    #[cfg(test)] control: Control,
+) -> Option<Gap> {
+    let View {
+        columns,
+        cells_width,
+        scroll_x,
+        run,
+        edge,
+    } = view;
+    if block.is_empty() || block.end > columns.len() {
+        return None;
+    }
+    let run = run.min(columns.len());
+    let pointer_pinned = run > 0 && x < edge;
+    let left = |place: usize| {
+        let column = &columns[place];
+        if place < run {
+            column.x
+        } else {
+            column.x - scroll_x
+        }
+    };
+    // The region's visible places, contiguous: the run's that start in the
+    // view, or the scrolled ones overlapping it right of the edge.
+    let mut region = if pointer_pinned {
+        0..run
+    } else {
+        run..columns.len()
+    }
+    .filter(|&place| {
+        let column = &columns[place];
+        if place < run {
+            column.x < cells_width
+        } else {
+            column.x + column.width > scroll_x + edge && column.x < scroll_x + cells_width
+        }
+    });
+    let first = region.next()?;
+    let last = region.next_back().unwrap_or(first);
+    let middle = |place: usize| {
+        #[cfg(test)]
+        if control == Control::GapByLeftEdge {
+            return left(place);
+        }
+        left(place) + columns[place].width / 2.0
+    };
+    let at = (first..=last)
+        .rev()
+        .find(|&place| middle(place) < x)
+        .map_or(first, |place| place + 1);
+    let line = if at <= last {
+        left(at)
+    } else {
+        left(last) + columns[last].width - LINE
+    };
+    let (low, high) = if pointer_pinned {
+        (0.0, edge - LINE)
+    } else {
+        (edge, cells_width - LINE)
+    };
+    let line = line.min(high).max(low);
+    let (start, end) = (block.start, block.end);
+    if start < at && at < end {
+        return None;
+    }
+    let to = if at <= start { at } else { at - block.len() };
+    // Beside the block: no gap but at the run's end, across it.
+    if at == start || at == end {
+        #[cfg(test)]
+        match control {
+            Control::BesideTheBlock => {
+                return Some(Gap {
+                    at,
+                    to,
+                    pinned: pointer_pinned,
+                    line,
+                });
+            }
+            Control::NoEdgeGap => return None,
+            _ => {}
+        }
+        let across = (end <= run && !pointer_pinned) || (start >= run && pointer_pinned);
+        if run == 0 || at != run || !across {
+            return None;
+        }
+    }
+    #[cfg(any(feature = "pin", test))]
+    let pinned = {
+        let clamped = count.min(columns.len());
+        let block_pinned = end.min(clamped).saturating_sub(start.min(clamped));
+        let rest = clamped - block_pinned;
+        if to == rest {
+            pointer_pinned
+        } else {
+            to < rest
+        }
+    };
+    #[cfg(any(feature = "pin", test))]
+    let moves = Move { places: block, to }
+        .moves(
+            columns.len(),
+            count,
+            Some(pinned),
+            #[cfg(test)]
+            Control::None,
+        )
+        .is_some();
+    #[cfg(not(any(feature = "pin", test)))]
+    let moves = {
+        let _ = count;
+        to != start
+    };
+    moves.then_some(Gap {
+        at,
+        to,
+        #[cfg(any(feature = "pin", test))]
+        pinned,
+        line,
+    })
 }
 
 /// Whether `order` is a permutation of `0..columns`.
