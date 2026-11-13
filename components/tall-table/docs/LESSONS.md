@@ -510,3 +510,12 @@ No results note: nothing measured. The build's check was a byte comparison again
 
 **Surprises:**
 - The rule the review dropped for its bytes went in for none: the header's length through a `Writer` method taking the `Option` (`header.as_ref().map(String::len)` inside, inlined) built byte-identical, where a closure at the call had changed `start_copy`. And two doc comments a line longer, on the tests-only `Control`, moved the shipped wasm by shifting the panic locations below them; kept to one line each, nothing moved.
+
+## M15: `reorder` (part A, 2026-11-13)
+
+**Results:** none (no spike); the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "`reorder`".
+
+**Surprises:**
+- `DataTable` moves its columns through the delegate, so a source that reads by column index reorders its own data. Here that would read every loaded page again for a gesture that changes no value. Keeping the order in the table splits a column's number in two, its place and its index, and the work was sorting the table's numbers into which follows the screen (selection, the pin count, copy's order) and which follows the column (page reads, flashes, the sort, the widths event). The sort needs no remapping at all, since it already names the column a source sorts.
+- `DataTable` leaves its selection's index where it was after a move, so a selected column's selection lands on its neighbor. Its header drag and a selection drag can't share a header either; Google Sheets' rule (drag a selected range to move it) settles both and gives block moves for free.
+- `pin`'s count, chosen so the drawn order stays the index order, turned out to fit a move across the edge better than `DataTable`'s flags: its refusal exists only because flags would go stale, and with a count the crossing is the pin gesture itself.

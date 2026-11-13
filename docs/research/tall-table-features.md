@@ -861,3 +861,93 @@ The TanStack contender's `format.ts` gains the same format (its exact rounding, 
 ### What the random test gains
 
 Nothing: the paging is unchanged, so no soak (the table's `CLAUDE.md`, rule 5).
+
+---
+
+## `reorder`
+
+Researched 2026-11-13, from the table's column model and every place a column's number crosses to the data (`src/state.rs`: `set_columns`, `lay_out`, `note_flashes`, `render_body`'s reads of `value`, `paint`, and `decimals`, the tooltip's `value`; `src/state/copy.rs`'s turn; `src/state/resize.rs`'s fit; `src/state/sort.rs`'s call to the delegate), the header's presses (`src/state/select.rs`'s `target_at` and `press_select`; `resize`'s bands; `sort`'s arrows), `DataTable`'s column move in gpui-component 0.9.1 (`src/table/state.rs`: `col_movable`, `render_th`'s `on_drag`, the header's `on_drag_move` and `on_drop`, `drag_gap_at`, `move_column`, `TableEvent::MoveColumn`; `src/table/column.rs`: `Column::movable`, `DragColumn`; `src/table/delegate.rs`: `move_column`), GPUI's drag threshold (gpui-pre 0.3.12, `DRAG_THRESHOLD`, 2 px), and TanStack Table's column ordering (v8: `columnOrder`, an array of ids; the drag is the app's). No spike: a move draws the cells a frame already draws, in another order (below).
+
+### What asks for it
+
+- **Tycho:** a query's columns put side by side to compare, without rewriting the query; Tycho adopts every feature.
+- **`group-headers`** depends on it: a group must move whole (the table's `PLAN.md`, "Columns").
+- **No observatory scenario** asks for it, and TanStack has no drag of its own to compare: a feature level would compare the app's drag code on each side.
+
+### What `DataTable` does
+
+- **The model:** `col_movable` on the table (on by default) and `Column::movable` (on by default). A header is a GPUI `on_drag` source (`DragColumn`: the column, its name and width); the drag starts past GPUI's 2 px threshold and draws a preview, a box in `table_head` at 0.9 opacity with a border and a shadow, the column's name in it, its width clamped to 100–450 px, following the pointer.
+- **The gap:** while the pointer is over the header row (`on_drag_move`, its bounds containing the pointer), `drag_gap_at` finds the gap after the last column whose center is left of the pointer, among the columns of the pointer's region (the fixed ones, or the scrolled ones in view). No gap, and so no move, when the pointer's region isn't the dragged column's own (a fixed column can't leave the fixed run, nor a scrolled one join it) or when the gap is either side of the dragged column. The gap draws as a 2 px line in `drag_border` at its column's left edge (the last column's right edge for the gap after it), the header's height only.
+- **The drop:** on the header row alone; a drop elsewhere moves nothing. `move_column(from, to)` tells the delegate first (which moves its own columns: the delegate's `render_td(row, col)` reads by the new index), moves its column group (width, sort, and the rest travel with it), and emits `MoveColumn(from, to)`.
+- **What it skips:** the selection (`selected_col`, `selected_cell` are indices and aren't moved, so a selected column's selection lands on its neighbor), one column at a time, no sideways scroll during the drag (a column moves only within the view, or a step at a time), no Escape, no move by keys.
+- **Nothing to reuse but the rules:** its preview and drop are elements and GPUI's drag machinery, its header a flex row of elements; the tall table draws its header as positioned cells and runs its drags itself (`resize`'s `Resizing`, `select`'s `selecting`, never a `Drag`), so a press, a drag, and a release on its own canvas handlers. What carries over: the 2 px threshold, the gap by column centers, the line in `drag_border`, a preview in `table_head`.
+
+### TanStack Table
+
+`columnOrder: string[]`, the column ids in drawn order; `getVisibleLeafColumns` and the rows' cells follow it, and pinned columns go to their side after the order is applied. The data isn't touched: a cell reads its row by its column's accessor, whatever its place. The drag is the app's (dnd-kit or pointer events), so a DOM contender's move is its own code.
+
+### A place, and the column's own index
+
+Who moves the columns: the host (as `DataTable`'s delegate does), or the table.
+
+- **The host:** the table emits a move and the host passes the columns again in the new order, and its source reads them in that order. Here a page holds every column of its rows by its index in `set_columns`' list, so the source would change its query's column list and every loaded page would be read again (the wide shape's are ~4 MB each), for a gesture that changes no value. And `set_columns` cancels a copy and clears the selection. Rejected.
+- **The table:** it keeps an order, each drawn place naming a column's index in `set_columns`' list, and a page is read by that index. Nothing reaches the delegate; no page is read again. TanStack's model.
+
+So a column has two numbers once it can move: its **place** (where it's drawn, 0 at the left) and its **index** (its place in `set_columns`' list, which the pages use). Without the feature they're equal. Each of the table's numbers takes the one its meaning follows:
+
+- **Places:** what's about where columns are on screen. `select`'s ranges (`Columns` and `Cells` span the places between the anchor and the head, as the reader sees them), the keys' steps, `pin`'s count (the first *n* places), `copy`'s column order (the text in the order on screen, as a spreadsheet copies), the hit tests, the layout probe's columns (in drawn order, each with its index), and the cell probe.
+- **Indices:** what belongs to a column wherever it is. The page's `value`, `paint`, and `decimals`; `live`'s flashes (keyed by row and index, so a move doesn't move a flash off its cell); `sort` (`Sort::column` and the delegate's `sort` name an index: the source sorts its own column, and a sort follows its column across a move with no remapping); `ColumnWidthsChanged` (in index order, `set_columns`' order, since a host passes widths back through it); and everything set on `TallTableColumn` (widths, `custom-cells`' paint, `format`, `resizable`, `sortable`), which travels with the column.
+
+The state keeps its columns in drawn order, each laid-out column holding its index: everything read by place reads as today, and only the sites that cross to the data go through the index: the page reads (the cells, their paint and decimals, the tooltip, `resize`'s fit, `copy`'s turn; the probe's last cell stays index 0's, as the scripts read it), the flash's compare, `sort`'s call to the delegate, and the widths event. `set_columns` sets the order to the list's own (each place its index); a host that keeps an order across it calls `set_order` after, as a host keeping its selection calls `select`. Weighed: keeping the order by the columns' names across `set_columns` (as `sort` is kept), but a new query's columns are a new list, and a rule for names that appear, vanish, or repeat is the host's to choose.
+
+### The gesture, and `select`'s header press
+
+The header has three presses today: `resize`'s band at a column's right edge, `sort`'s arrow, and with `select` a press anywhere else on a header cell, which selects the column, a drag extending the `Columns` range across headers. A drag to move a column must share the header with that drag.
+
+- **Without `select`, or with its `Columns` kind off:** a press on a movable column's header (not its band or arrow) that moves past 2 px starts a move of that column, as `DataTable`'s.
+- **With the `Columns` kind on: Google Sheets' rule.** A press on a header inside the selected `Columns` range, past 2 px, moves the whole range (a block of columns, every one movable, or no move); a press anywhere else selects as today, its drag extending the selection. A press inside the range that doesn't pass 2 px selects the pressed column alone at its release (the selection a plain press makes today), since the press can't know yet whether a move follows. Shift and Cmd presses select as today. So moving a column with `select` is a press to select it, then a drag; a block is a range selected, then dragged.
+
+Weighed: a grip at the header's left (a target of its own, but it takes a cell's room in 56 px dense columns and the header's text), a hold before the drag (slow, and unlike either reference), and `DataTable`'s rule beside `select` (a header drag can't both extend a selection and move a column).
+
+### The drag
+
+- **The gap** is `DataTable`'s rule over the pointer's x at any height (the drag is window-wide, as `resize`'s and `select`'s are, so the pointer can leave the header without dropping nothing): among the visible columns of the pointer's region (with `pin`, the run in effect or the scrolled columns), the gap after the last whose center is left of the pointer; left of the cells, the region's first gap, and right of the last visible column, its last. A gap inside the block or either side of it is none: a release there moves nothing. The exception is `pin`'s edge (below): the run's end beside a block wholly on one side, with the pointer on the other, pins or unpins the block where it is.
+- **Sideways while dragging:** a wheel during the drag scrolls the body sideways and the gap follows the pointer over the columns that came into view, as `select`'s drag does (a window-wide wheel through `on_scroll_wheel`). No scroll at the view's edge on its own: `select` has none either (one timer for both, later, if a host asks; a note in the README's limits). Moving a column across the wide shape's 500 columns is a wheel's work, or the host's `move_columns`.
+- **Escape** cancels the drag, nothing moved; the key goes no further.
+- **The release** moves the block to the gap: the order changes, the columns are laid out again (`lay_out`, at their widths: no re-read, the cache untouched), the sideways scroll kept and clamped, and `ColumnsMoved` emitted with the order after. The moved block lands under the pointer only roughly; the view doesn't scroll to it.
+
+### What a move does to the rest
+
+- **`select`:** a `Rows` selection is kept. A `Columns` or `Cells` range whose places are all inside the moved block moves with it (the Sheets gesture leaves the block selected at its new places); and in general a range is mapped column by column: if its columns are still a contiguous run of places it's kept as that run (its rows kept, its direction kept, the anchor at the run's end on its side), which covers a range outside the places the move shifts (unchanged), one inside them alone (shifted by the block's length), and one holding the block and every shifted place (unchanged); any other is no longer contiguous and is cleared. `Selected` is emitted whenever the range's places change, with the new range, or `None` when cleared, so a host mirroring it by place stays right.
+- **`pin`:** the count is of places, so a move across the run's edge changes which columns pin unless the count changes too. The reader dragging a column into the run means to pin it, and out of it to unpin it, so the count changes by the columns that crossed, a change on the count rather than a recount (a host's count past the columns is kept as it is when nothing crosses; when something does, the change applies to the count clamped to the columns). The block lands in the run when its place after the move is within the run that's left (the clamped count, less the block's pinned columns); at the run's end, the one place both sides share, the pointer's side of the run's edge decides (left of it, the block joins the run at its end; right of it, it's the first scrolled). That makes the gap beside a block at the edge a move after all, one that only pins or unpins: the last pinned column dragged just past the edge unpins where it is, the first scrolled one dragged just left of it pins. A host's `move_columns` can't know a pointer's side, so at the run's end the block keeps its first column's side, and `move_columns_pinned` takes the side as an argument, which the drag's release calls; the fixture pins both. `set_order` is a whole order, not a move: no column crosses, so it keeps the count as a count of places (the first *n* drawn pin, whichever they are), and a host restoring an order with its pins sets the count after. The cap at half the cells' width then applies as to any count (`Pinned` if the run in effect changes): a block that doesn't fit doesn't hold, and the host's count says it was asked to. While the count passes the run in effect (a narrow view), a gap among the pinned-by-count columns drawn scrolled pins the block too, as those columns are. `DataTable` refuses a move across instead (its flags would be wrong); weighed and not taken, since with a count the move is the natural pin and unpin gesture. The count changed this way is the host's count: `set_pinned`'s value, read by `pinned()`, reported by `ColumnsMoved` alongside the order.
+- **`sort`:** nothing: the sort names an index and the arrow travels with its column.
+- **`resize`, `density`, `format`, `custom-cells`:** nothing: their settings are the column's and travel with it; the widths event stays in index order.
+- **`live`:** flashes keyed by index stay on their cells.
+- **`copy`:** a copy takes its columns' indices and names when it starts, so a move during it copies the columns as they were when it started; nothing is canceled. Its reads are pages, which hold every column. (This touches `copy`'s turn, so the soak runs: the table's `CLAUDE.md`, rule 5.)
+- **`follow`, the paging:** nothing.
+- **`group-headers`** (later): a group moves whole, so its research decides whether a drag inside a group stays inside it.
+
+### What's drawn
+
+- **During a drag:** the block's header cells, each at its width, drawn over the header in `table_head` at 0.9 opacity with a 1 px `border` edge, following the pointer's x at the offset where it was pressed (`DataTable`'s preview, at the block's real widths and the header's height, not its 100–450 px box); under it, the block's own header cells are dimmed to `muted_foreground` text so the reader sees what's lifted. The gap is a 2 px line in `drag_border` at its left edge, through the header and the body (a tall body makes the header alone hard to read across), in the gap's region's layer with `pin`. The cursor is the closed hand window-wide during the drag (`CursorStyle::ClosedHand`, CSS `grabbing`), as `resize`'s holds its own.
+- **No row or cell moves until the release:** the body draws as before the drag. A drag redraws on a pointer move that moves the preview, as `resize`'s does.
+
+### Frame-work risk
+
+- **Scrolling with a moved order:** a cell reads its page by its column's index rather than its place, an `usize` read from the laid-out column it already holds. Pages are columnar, so a permuted order reads the same columns in another order. Measured: the scroll and flings with the order reversed against the identity order on the same build and the base.
+- **The drag:** a frame a pointer move (the preview), the cells drawn as at rest plus the preview's cells and the line, as `resize`'s drag redraws. Measured as its segment: the first float column's header dragged 600 px right and back, twice, a pointer move every 8 ms (the table's `CLAUDE.md`, "Perf script gotchas").
+- **The release:** a layout, as a `resize` release's.
+
+### Canvas gaps
+
+- **Pointer only:** no keys move a column (neither `DataTable` nor Google Sheets has them). A host gives a menu or keys through `move_columns`; `context-menu` (next) gives the right-click to hang it on. The README's limits say so.
+- **A screen reader isn't told** a column moved; the README's accessibility gap covers it.
+- **Copy** writes the columns in their drawn order, as on screen.
+
+### What a DOM contender does
+
+TanStack's `columnOrder` with its own drag (pointer events on the header, a gap by centers, a line), its cells by accessor. Its cells would match only if it computes the same gap and the same after-state, so a fixture pins them: `fixtures/reorder.json`, cases of the columns' widths, the cells' width, the sideways scroll, the pin count, a block, and a pointer's x (and side) → the gap, and the move → the order, the count, and a selection before → after, run natively against the table's own functions, with negative controls (the gap by a column's left edge, not its center; a move beside the block not refused; the count kept across the edge; the selection not moved). The sort following its column is the native tests', not the fixture's (an index, unchanged). A DOM contender's test names it skipped until the observatory builds a reorder level, which no scenario asks for.
+
+### What the random test gains
+
+`Move` steps (a block, a `to`, and with `pin` a side, through `move_columns_pinned` or `move_columns`) and `SetOrder` steps (a permutation), placed from a stream of their own as `density`'s are (the case's seed mixed with a constant of their own), each a `u64` drawn there and expanded into the step (a seeded shuffle for an order: one byte, as `place_steps` gives `pin`'s, can't hold a block and a gap or a permutation), so every case's draw and the other features' places are unchanged. Its rows' text already carries the column (`r{row}c{column}…`), so invariants 5 and 7 gain the column: a drawn cell at a place holds its column's index's text, and a `Copied` text holds the indices the copy started with, in that order. A control that reads a page by place (`ReadByPlace`) must fail at invariant 5. The copy's turn changes (above), so the soak runs on the final build.
