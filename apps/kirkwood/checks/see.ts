@@ -168,6 +168,27 @@
 //           with a key held, a wheel, or a double click moves anything).
 //           Screenshots: out/tilt-*.jpg.
 //
+//   corner  the way home and what tells a visitor the controls, bottom
+//           right, on a held clock: the compass (fails unless it is where
+//           board 8 has it, says the camera's turn from where it opened and
+//           its tilt after a drag with Shift, its needle up at home, and
+//           its press and the H key each fly the camera back to the first
+//           one, number for number; riding, the ride's own camera to where
+//           the ride opens, and the fixed frame's left alone; and unless it
+//           is gone from the landed layout, where the count is); the hint
+//           (fails unless it is whole on a first visit, over a fill the
+//           scene doesn't show through, folded to its button by the
+//           camera's first move and still folded after a reload, and a
+//           button beside the open panel, whole again once it shuts); the
+//           controls' list (fails unless `?` opens and closes it, the hint
+//           and its button open it, its close button and Escape close it,
+//           it is where board 10 has it, and a wheel, a drag, and a double
+//           click on it move nothing); and the keys (fails unless each
+//           arrow slides what the camera looks at its own way, + and −
+//           zoom, they do nothing with the table's panel open while the
+//           table's own scroll its rows, and they are the scene's again
+//           once it shuts). Screenshots: out/corner-*.jpg.
+//
 // Run only when asked for by name (minutes more each):
 //
 //   drag    a drag's frames: the scene's frames a second while a scripted
@@ -191,7 +212,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,sort,ride,gap,integrated,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -202,7 +223,7 @@ import { clickTarget, firstDrawProbe, open, targetRect, waitMark, wheel, type Fi
 import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
-import { TURN as CAMERA_TURN } from '../web/src/camera.ts';
+import { KEYS, TURN as CAMERA_TURN } from '../web/src/camera.ts';
 
 const dir = import.meta.dirname;
 const out = join(dir, 'out');
@@ -210,7 +231,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'sort', 'ride', 'gap', 'integrated', 'rate', 'drag', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'rate', 'drag', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -286,7 +307,9 @@ type Kirkwood = {
   gapPlace(gap: number, years: number): number[];
   integrated(): { rows: number; bytes: number; step: number };
   integratedJump(years: number): { stepsMs: number; placesMs: number } | undefined;
+  corner(): Corner | undefined;
 };
+type Corner = { turned: number; tilt: number; folded: boolean; open: boolean };
 type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
 type Cell = { row: number; column: number; exact: string; shown: string };
@@ -669,7 +692,7 @@ async function seeBodies(url: string) {
 // --- The look, color, and the sky.
 
 /** The opening camera, spelled out (the scene's own default). */
-const OPENING = { az: '200', elev: '24', roll: '0', dist: '13' };
+const OPENING = { az: '200', elev: '24', roll: '-34', dist: '13' };
 /** The belt on the epoch, time held. */
 const HELD = { date: EPOCH, paused: '' };
 /** The display's values (0 to 255) of a color in linear light. */
@@ -1682,6 +1705,374 @@ async function seeTilt(url: string) {
 
 /** A drag's frames: the scene's frames a second while a scripted drag
  *  moves the camera round a circle, by the scene's resolution. */
+// --- The corner: the compass, the hint, the controls' list, and the keys.
+
+/** Boards 8 to 10's corner at 1440×900, the storyboard's own numbers:
+ *  left, top, width, height. The hint whole ends where its button does;
+ *  its width is its text's. The controls' list is as tall as its rows, and
+ *  so reaches as high as the table's handle: it ends `clear` px left of
+ *  the handle, where the board has it under it, and at the board's own
+ *  right edge beside the open panel, which has no handle. */
+const CORNER = { compass: [1380, 840, 36, 36], button: [1344, 844, 28, 28], hintRight: 1372, controls: { right: 1416, width: 320, bottom: 828, clear: 8 } } as const;
+/** The theme's colors the corner is drawn in, as the display's values: the
+ *  fill (popover, neutral-950, the time control's), the hint's words (muted
+ *  foreground, neutral-400), and what's lit (foreground, neutral-50). */
+const CORNER_COLORS = { fill: 0x0a, muted: 0xa3, lit: 0xfa };
+/** WCAG's contrast of two grays (0 to 255). */
+const contrast = (a: number, b: number) => {
+  const light = (v: number) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+  const [more, less] = [Math.max(light(a), light(b)), Math.min(light(a), light(b))];
+  return (more + 0.05) / (less + 0.05);
+};
+const cornerNow = async (page: Page): Promise<Corner> => {
+  const corner = await kirkwood(page, (kirkwood) => kirkwood.corner());
+  need(!!corner, 'the scene is up and the interface has no camera for its compass');
+  return corner!;
+};
+const rectIs = (rect: number[], board: readonly number[], within = 0.5) => rect.every((px, at) => near(px, board[at]!, within));
+/** A key, and the camera at rest after it. */
+async function keyed(page: Page, key: string): Promise<void> {
+  await page.keyboard.press(key);
+  await cameraRests(page);
+}
+/** A reload in the same browser: the next visit. */
+async function again(page: Page): Promise<void> {
+  await page.reload();
+  await waitMark(page, BELT, 0, 120_000);
+  await settle(page);
+}
+
+async function seeCorner(url: string) {
+  // The compass: where board 8 has it, the camera's turn and tilt, and the
+  // way home by its press and by the key.
+  const compass = await withBelt(url, HELD, async (page) => {
+    const first = await cameraNow(page);
+    const opening = await cornerNow(page);
+    // The opening is a pose, rolled: the needle leans as the horizon does.
+    const lean = turnOf(first.view.roll);
+    need(first.view.roll === -34 && near(opening.turned, lean, 0.06) && near(opening.tilt, first.view.tilt, 0.01), `the compass opens at ${JSON.stringify(opening)} with the camera at ${JSON.stringify(first.view)}`);
+    const rect = await targetRect(page, 'compass');
+    need(rectIs(rect, CORNER.compass), `the compass is at ${rect.map(round).join()}, and board 8 has it at ${CORNER.compass.join()}`);
+    await shot(page, 'corner-hint');
+    // Its needle: at home the lit half leans with the pose, over the dim
+    // half. Each read 5 px along the needle from the compass's middle.
+    const [cx, cy] = [rect[0] + rect[2] / 2, rect[1] + rect[3] / 2];
+    const halves = async () => {
+      const png = await page.screenshot();
+      const [sin, cos] = [Math.sin((lean * Math.PI) / 180), Math.cos((lean * Math.PI) / 180)];
+      const at = (along: number) => light(page, png, { x: cx + along * sin - 0.75, y: cy - along * cos - 0.75, width: 1.5, height: 1.5 });
+      return { up: round(await at(5)), down: round(await at(-5)) };
+    };
+    const home = await halves();
+    need(home.up > 180 && home.down > 50 && home.down < 130, `home, the needle's halves are ${JSON.stringify(home)} of 255 along its lean of ${lean}°: the lit one is 250, and the dim one 82`);
+    // A first tilt and turn by hand: board 9.
+    const [from, to]: [Point, Point] = [[700, 520], [800, 460]];
+    await turnDrag(page, 'Shift', from, to);
+    await cameraRests(page);
+    const turned = await cameraNow(page);
+    const says = await cornerNow(page);
+    need(near(says.turned, turnOf(turned.view.bearing - first.view.bearing), 0.06) && near(says.tilt, turned.view.tilt, 0.06), `the compass says ${JSON.stringify(says)} with the camera at ${JSON.stringify(turned.view)}`);
+    need(turned.view.tilt === first.view.tilt + (to[1] - from[1]) * CAMERA_TURN.tilt && turned.view.roll === 0, `the drag left the tilt at ${turned.view.tilt}° and the roll at ${turned.view.roll}°: a tilt and a turn level the pose`);
+    await shot(page, 'corner-folded');
+    // The needle has turned with it: its lit half is no longer where the
+    // pose had it.
+    const away = await halves();
+    need(away.up < 150, `turned ${says.turned}°, the needle's halves are ${JSON.stringify(away)} of 255: its lit half is where the pose had it`);
+    // Moved every way a hand moves it, then the compass's press.
+    await dragged(page, [700, 520], [600, 580]);
+    await page.mouse.move(600, 500);
+    await wheel(page, -300);
+    await cameraRests(page);
+    const left = await cameraNow(page);
+    need(left.view.x !== first.view.x && left.view.distance !== first.view.distance, `a drag and a wheel left the camera at ${JSON.stringify(left.view)}`);
+    const pressed = Date.now();
+    await clickTarget(page, 'compass');
+    need((await cameraNow(page)).gliding, "the compass's press left the camera at rest");
+    await cameraRests(page);
+    const ms = Date.now() - pressed;
+    const back = await cameraNow(page);
+    need(sameView(back.view, first.view) && back.matrix.every((value, at) => near(value, first.matrix[at]!, 1e-9)), `the compass's press left the camera at ${JSON.stringify(back.view)}, and it opened at ${JSON.stringify(first.view)}`);
+    const homeAgain = await cornerNow(page);
+    need(near(homeAgain.turned, lean, 0.06) && near(homeAgain.tilt, first.view.tilt, 0.01), `home, the compass says ${JSON.stringify(homeAgain)}`);
+    // And draws it: the needle leans with the pose again.
+    const drawnHome = await halves();
+    need(drawnHome.up > 180 && drawnHome.down > 50 && drawnHome.down < 130, `home again, the needle's halves are ${JSON.stringify(drawnHome)} of 255`);
+    // Mid-drag the camera is the hand's: H does nothing, and the drag goes on.
+    await dragged(page, [700, 520], [660, 540], { ms: 150, still: 80, held: true });
+    await page.keyboard.press('h');
+    await settle(page);
+    const held = await cameraNow(page);
+    need(!held.gliding, 'H pressed mid-drag started a flight');
+    await dragged(page, [660, 540], [620, 560], { ms: 150, pressed: true });
+    await cameraRests(page);
+    const dragOn = await cameraNow(page);
+    need(dragOn.view.x !== held.view.x && !sameView(dragOn.view, first.view), `after H mid-drag the drag's next moves left the camera at ${JSON.stringify(dragOn.view)}`);
+    await keyed(page, 'h');
+    // The key does the same; and a press on the way takes the camera where it is.
+    await turnDrag(page, 'Shift', [700, 520], [640, 560]);
+    await dragged(page, [700, 520], [760, 470]);
+    await cameraRests(page);
+    await keyed(page, 'h');
+    const byKey = await cameraNow(page);
+    need(sameView(byKey.view, first.view), `H left the camera at ${JSON.stringify(byKey.view)}`);
+    await turnDrag(page, 'Shift', [700, 520], [560, 470]);
+    await cameraRests(page);
+    await page.keyboard.press('h');
+    await page.waitForTimeout(150);
+    await page.mouse.click(300, 600);
+    await page.waitForTimeout(400);
+    const taken = await cameraNow(page);
+    need(!taken.gliding && !sameView(taken.view, first.view) && taken.view.bearing !== turnOf(first.view.bearing + 140 * CAMERA_TURN.bearing), `a press on the way home left the camera at ${JSON.stringify(taken.view)}, ${taken.gliding ? 'still flying' : 'at rest'}`);
+    return { atPx: rect.map(round), opening, poseRoll: first.view.roll, afterAShiftDrag: { press: from, release: to, camera: viewOf(turned.view), compass: { turned: fixed(says.turned, 1), tilt: fixed(says.tilt, 1) } }, needleLight: { home, turned: away }, leftAt: viewOf(left.view), home: viewOf(back.view), first: viewOf(first.view), flightMs: ms, byKey: viewOf(byKey.view), aPressOnTheWay: viewOf(taken.view) };
+  });
+
+  // Riding, the way home is the ride's own; on the axes there is no corner.
+  const riding = await withBelt(url, { ...HELD, ride: '1' }, async (page) => {
+    const before = await kirkwood(page, (kirkwood) => ({ fixed: kirkwood.scene!.stats.camera, riding: kirkwood.scene!.stats.riding }));
+    const opening = await cornerNow(page);
+    need(opening.turned === 0 && opening.tilt === 0, `riding, the compass opens at ${JSON.stringify(opening)}`);
+    await turnDrag(page, 'Shift', [700, 520], [760, 620]);
+    await dragged(page, [700, 520], [640, 480]);
+    await page.mouse.move(600, 500);
+    await wheel(page, 250);
+    await cameraRests(page);
+    const moved = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.riding);
+    const says = await cornerNow(page);
+    need(near(says.turned, moved.bearing, 0.06) && near(says.tilt, moved.tilt, 0.06) && moved.tilt === 50, `riding, the compass says ${JSON.stringify(says)} with the ride's camera at ${JSON.stringify(moved)}`);
+    await shot(page, 'corner-riding');
+    await clickTarget(page, 'compass');
+    await cameraRests(page);
+    const after = await kirkwood(page, (kirkwood) => ({ fixed: kirkwood.scene!.stats.camera, riding: kirkwood.scene!.stats.riding }));
+    need(sameView(after.riding, before.riding), `riding, the compass's press left the ride's camera at ${JSON.stringify(after.riding)}, and it opened at ${JSON.stringify(before.riding)}`);
+    need(sameView(after.fixed, before.fixed), "riding, the compass's press moved the fixed frame's camera");
+    return { opened: viewOf(before.riding), moved: viewOf(moved), compass: { turned: fixed(says.turned, 1), tilt: fixed(says.tilt, 1) }, home: viewOf(after.riding) };
+  });
+  const landed = await withBelt(url, { ...HELD, flight: '1' }, async (page) => {
+    const before = await cameraNow(page);
+    const targets = await page.evaluate(() => Object.keys((globalThis as unknown as { __seizaTargets: Record<string, number[]> }).__seizaTargets));
+    need(!targets.includes('compass') && !targets.includes('hint') && targets.includes('in-view'), `on the axes the page draws ${targets.join()}`);
+    for (const key of ['h', 'ArrowLeft', '+', '?']) await page.keyboard.press(key);
+    await page.waitForTimeout(400);
+    const after = await cameraNow(page);
+    need(sameView(before.view, after.view) && !(await cornerNow(page)).open, 'on the axes a key moved the camera, or opened the list');
+    await shot(page, 'corner-landed');
+    return 'no corner, and the keys do nothing';
+  });
+
+  // The hint: whole on a first visit, folded by the camera's first move,
+  // and on the next visit.
+  const hint = await withBelt(url, HELD, async (page) => {
+    need(!(await cornerNow(page)).folded, 'a first visit opens with the hint folded');
+    const whole = await targetRect(page, 'hint');
+    need(near(whole[0] + whole[2], CORNER.hintRight, 0.5) && near(whole[1], CORNER.button[1], 0.5) && whole[3] === CORNER.button[3] && whole[2] > 250, `the hint is at ${whole.map(round).join()}; board 8 ends it at ${CORNER.hintRight}, ${CORNER.button[3]} px high from ${CORNER.button[1]}`);
+    // Readable over the scene: its fill is its own, with none of the
+    // scene through it, and its words are the theme's against that.
+    const png = await page.screenshot();
+    const fill = round(await light(page, png, { x: whole[0] + 3, y: whole[1] + 3, width: 3, height: 3 }));
+    need(near(fill, CORNER_COLORS.fill, 1.5), `the hint's fill is ${fill} of 255 over the scene, and the theme's is ${CORNER_COLORS.fill}`);
+    const words = await textPixels(page, png, { x: whole[0], y: whole[1], width: whole[2], height: whole[3] });
+    need(words > 400, `the hint draws ${words} pixels of text`);
+    await shot(page, 'corner-hint-near', { x: 960, y: 780, width: 480, height: 120 });
+    // Beside the open panel there's no room for it whole: its button, and
+    // whole again once the panel shuts.
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    const beside = await targetRect(page, 'hint');
+    const besideCompass = await targetRect(page, 'compass');
+    need(rectIs(beside, [CORNER.button[0] - PANEL, ...CORNER.button.slice(1)]) && rectIs(besideCompass, [CORNER.compass[0] - PANEL, ...CORNER.compass.slice(1)]), `beside the open panel the hint is at ${beside.map(round).join()} and the compass at ${besideCompass.map(round).join()}`);
+    need(!(await cornerNow(page)).folded, 'the open panel folded the hint for good');
+    await shot(page, 'corner-panel');
+    await clickTarget(page, 'table-close');
+    await page.waitForTimeout(600);
+    need(rectIs(await targetRect(page, 'hint'), whole), 'the hint is not whole again once the panel is shut');
+    // A press on the scene that moves nothing leaves it whole; the first
+    // move folds it.
+    await page.mouse.click(300, 600);
+    await page.waitForTimeout(400);
+    need(!(await cornerNow(page)).folded, 'a click that moved nothing folded the hint');
+    await dragged(page, [700, 520], [640, 560]);
+    await settle(page);
+    need((await cornerNow(page)).folded, "the camera's first move left the hint whole");
+    const folded = await targetRect(page, 'hint');
+    need(rectIs(folded, CORNER.button), `folded, the hint's button is at ${folded.map(round).join()}, and board 9 has it at ${CORNER.button.join()}`);
+    // The next visit.
+    await again(page);
+    need((await cornerNow(page)).folded && rectIs(await targetRect(page, 'hint'), CORNER.button), 'on the next visit the hint is whole again');
+    await shot(page, 'corner-next-visit');
+    return {
+      wholePx: whole.map(round),
+      fill: { seen: fill, theme: CORNER_COLORS.fill },
+      contrast: { words: fixed(contrast(CORNER_COLORS.muted, CORNER_COLORS.fill)), lit: fixed(contrast(CORNER_COLORS.lit, CORNER_COLORS.fill)) },
+      besideThePanelPx: beside.map(round),
+      foldedPx: folded.map(round),
+      nextVisit: 'folded',
+    };
+  });
+  // A wheel is a first move too, and a key.
+  const folds = [];
+  for (const [what, move] of [
+    ['a wheel', async (page: Page) => (await page.mouse.move(600, 500), await wheel(page, 120))],
+    ['an arrow key', (page: Page) => page.keyboard.press('ArrowRight')],
+    ['a double click', (page: Page) => page.mouse.dblclick(500, 560)],
+  ] as [string, (page: Page) => Promise<void>][]) {
+    folds.push(
+      await withBelt(url, HELD, async (page) => {
+        await move(page);
+        await cameraRests(page);
+        need((await cornerNow(page)).folded, `${what} left the hint whole`);
+        return what;
+      }),
+    );
+  }
+
+  // The controls' list: behind `?`, the key and the button.
+  const controls = await withBelt(url, HELD, async (page) => {
+    const first = await cameraNow(page);
+    const state = async (open: boolean, what: string) => {
+      await settle(page);
+      const corner = await cornerNow(page);
+      need(corner.open === open, `${what}: the list is ${corner.open ? 'open' : 'shut'}`);
+    };
+    // The whole hint opens it, and that folds the hint.
+    await clickTarget(page, 'hint');
+    await state(true, 'a press on the hint');
+    need((await cornerNow(page)).folded, 'the list opened from the hint, which is still whole');
+    const rect = await targetRect(page, 'controls');
+    const handle = await targetRect(page, 'table-handle');
+    need(near(rect[0] + rect[2], handle[0] - CORNER.controls.clear, 0.5) && near(rect[2], CORNER.controls.width, 0.5) && near(rect[1] + rect[3], CORNER.controls.bottom, 0.5), `the list is at ${rect.map(round).join()}; board 10 has it ${CORNER.controls.width} px wide, ending at ${CORNER.controls.bottom}, and the handle starts at ${handle[0]}`);
+    need(rectIs(await targetRect(page, 'hint'), CORNER.button), "with the list open the hint isn't its button");
+    await page.mouse.move(300, 300);
+    await settle(page);
+    await shot(page, 'corner-controls');
+    await shot(page, 'corner-controls-near', { x: 1040, y: rect[1] - 20, width: 400, height: 900 - rect[1] + 20 });
+    // Its button is lit while it's open.
+    const lit = round(await light(page, await page.screenshot(), { x: CORNER.button[0] + 3, y: CORNER.button[1] + 3, width: 3, height: 3 }));
+    need(lit > 240, `with the list open its button's fill is ${lit} of 255`);
+    // It takes its presses and its wheel: none is the scene's.
+    const inside: Point = [rect[0] + rect[2] / 2, rect[1] + rect[3] / 2];
+    await page.mouse.move(...inside);
+    await wheel(page, 200);
+    await dragged(page, inside, [inside[0] - 300, inside[1] - 100], { ms: 200 });
+    await page.mouse.dblclick(...inside);
+    await page.waitForTimeout(500);
+    need(sameView(first.view, (await cameraNow(page)).view), `a wheel, a drag, or a double click on the list moved the camera to ${JSON.stringify((await cameraNow(page)).view)}`);
+    await state(true, 'after presses on the list');
+    // Beside the open panel, which has no handle: at the board's own edge.
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    const beside = await targetRect(page, 'controls');
+    need(near(beside[0] + beside[2], CORNER.controls.right - PANEL, 0.5) && near(beside[1] + beside[3], CORNER.controls.bottom, 0.5), `beside the open panel the list is at ${beside.map(round).join()}`);
+    await shot(page, 'corner-controls-panel');
+    // Escape shuts it there too, though the keys are the table's.
+    await page.keyboard.press('Escape');
+    await state(false, 'Escape with the panel open');
+    await clickTarget(page, 'table-close');
+    await page.waitForTimeout(600);
+    await page.keyboard.press('?');
+    await state(true, 'the ? key once the panel shut');
+    // Closed and opened each way.
+    await clickTarget(page, 'controls-close');
+    await state(false, "a press on the list's close button");
+    await page.keyboard.press('?');
+    await state(true, 'the ? key');
+    await page.keyboard.press('?');
+    await state(false, 'the ? key again');
+    await clickTarget(page, 'hint');
+    await state(true, "a press on the hint's button");
+    await clickTarget(page, 'hint');
+    await state(false, "a second press on the hint's button");
+    await page.keyboard.press('?');
+    await page.keyboard.press('Escape');
+    await state(false, 'Escape');
+    // The scene under where it was is the scene's again.
+    await page.mouse.move(...inside);
+    await wheel(page, 200);
+    await cameraRests(page);
+    need((await cameraNow(page)).view.distance > first.view.distance, 'with the list shut, a wheel where it was moved nothing');
+    // The sort takes the corner away, and an open list with it: back in
+    // space it is shut; and a press where the hint was, as the dots leave,
+    // opens nothing.
+    await page.keyboard.press('?');
+    await state(true, 'the ? key before the sort');
+    await clickTarget(page, 'sort');
+    await page.waitForTimeout(150);
+    await clickTarget(page, 'hint');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.flight().progress >= 1, undefined, { timeout: 20_000 });
+    await state(false, 'landed on the axes');
+    await clickTarget(page, 'sort');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.flight().progress <= 0, undefined, { timeout: 20_000 });
+    await state(false, 'back in space after a sort');
+    return { atPx: rect.map(round), handleStartsAtPx: round(handle[0]), besideThePanelPx: beside.map(round), buttonLitFill: lit, opens: ['the hint', 'its button', '?'], closes: ['its close button', 'its button', '?', 'Escape'] };
+  });
+
+  // The keys, while the scene has them; with the panel open, the table's.
+  const keys = await withBelt(url, HELD, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    const first = await cameraNow(page);
+    const looked = project(first.matrix, [first.view.x, first.view.y, 0]);
+    // Before any press on the page: the arrows slide what the camera looks
+    // at, each its own way in the window.
+    const arrows: Record<string, number[]> = {};
+    for (const [key, right, up] of [['ArrowLeft', -1, 0], ['ArrowRight', 1, 0], ['ArrowUp', 0, 1], ['ArrowDown', 0, -1]] as [string, number, number][]) {
+      const before = await cameraNow(page);
+      await keyed(page, key);
+      const after = await cameraNow(page);
+      // Where the camera now looks, through the camera it had.
+      const went = project(before.matrix, [after.view.x, after.view.y, 0]);
+      const [dx, dy] = [went[0] - looked[0], looked[1] - went[1]];
+      // Across the window or up it, though the pose has the plane rolled:
+      // within 2 px of straight. (How far is the plane's: a press is a
+      // length along it, which the tilt and the roll foreshorten.)
+      need(Math.sign(Math.round(dx / 2)) === right && Math.sign(Math.round(dy / 2)) === up, `${key} took what the camera looks at ${round(dx)} px right and ${round(dy)} px up`);
+      need(Math.hypot(dx, dy) > 30 && Math.hypot(dx, dy) <= KEYS.pan + 1, `${key} carried the camera ${round(Math.hypot(dx, dy))} px, and a press is at most ${KEYS.pan}`);
+      need(after.view.distance === before.view.distance && after.view.tilt === before.view.tilt && after.view.bearing === before.view.bearing, `${key} zoomed, tilted, or turned the camera`);
+      arrows[key] = [fixed(dx, 1), fixed(dy, 1)];
+    }
+    const panned = await cameraNow(page);
+    // (Within a pixel: a glide rests under a speed, not at a place.)
+    const back = project(panned.matrix, [first.view.x, first.view.y, 0]);
+    need(off(back, looked) <= 1, `left then right, up then down, left the camera looking at ${panned.view.x}, ${panned.view.y}`);
+    await keyed(page, '+');
+    const nearer = (await cameraNow(page)).view.distance;
+    await keyed(page, '-');
+    await keyed(page, '-');
+    const farther = (await cameraNow(page)).view.distance;
+    need(near(nearer, first.view.distance / KEYS.zoom, 1e-9) && near(farther, first.view.distance * KEYS.zoom, 1e-9), `+ took the camera from ${first.view.distance} au to ${nearer}, and − twice to ${farther}`);
+    // The browser's own zoom keys are the browser's.
+    await page.keyboard.press('Control+=');
+    await page.keyboard.press('Meta+-');
+    await page.waitForTimeout(400);
+    need((await cameraNow(page)).view.distance === farther, 'a + or − with Ctrl or the platform key zoomed the scene');
+    await keyed(page, 'h');
+    need(sameView((await cameraNow(page)).view, first.view), 'H left the camera away from home');
+
+    // The panel open: the keys are the table's.
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    const top = () => page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodTable!.first);
+    const rowBefore = await top();
+    for (const key of ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowLeft', '+', '-', 'h', '?']) await page.keyboard.press(key);
+    await page.waitForTimeout(500);
+    const rowAfter = await top();
+    const open = await cameraNow(page);
+    need(rowAfter > rowBefore, `with the panel open, three presses of the down arrow left the table's first row at ${rowAfter}`);
+    need(sameView(open.view, first.view) && !open.gliding && !(await cornerNow(page)).open, `with the panel open, a key moved the camera to ${JSON.stringify(open.view)}, or opened the list`);
+    // And the scene's again from the moment it shuts.
+    await clickTarget(page, 'table-close');
+    await page.waitForTimeout(600);
+    await keyed(page, 'ArrowLeft');
+    need(!sameView((await cameraNow(page)).view, first.view), 'once the panel shut, an arrow moved nothing');
+    return { arrowsPx: arrows, zoomAu: [fixed(first.view.distance, 4), fixed(nearer, 4), fixed(farther, 4)], withThePanelOpen: { tableFirstRow: [rowBefore, rowAfter], camera: 'unmoved' } };
+  });
+
+  return { compass, riding, landed, hint, alsoFoldedBy: folds, controls, keys };
+}
+
 async function seeDrag(url: string) {
   const SECONDS = 4;
   const ways = [];
@@ -2859,6 +3250,7 @@ try {
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
   if (ONLY.has('camera')) seen.camera = await seeCamera(server.url);
   if (ONLY.has('tilt')) seen.tilt = await seeTilt(server.url);
+  if (ONLY.has('corner')) seen.corner = await seeCorner(server.url);
   if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
   if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
   if (ONLY.has('gap')) seen.gap = await seeGap(server.url);

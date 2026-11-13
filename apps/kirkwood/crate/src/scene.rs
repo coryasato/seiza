@@ -1,7 +1,8 @@
 //! What passes between the interface and the scene (`web/src/scene.ts`),
 //! which isn't Rust's: plain cells the scene reads each frame, and the
-//! calls the interface makes into it (a wheel, a press, a drag, a double click). The scene never calls into GPUI from
-//! here: its exports are in `web`.
+//! calls the interface makes into it (a wheel, a press, a drag, a double
+//! click, a key, the way home). The scene never calls into GPUI from here:
+//! its exports are in `web`.
 
 use std::cell::Cell;
 
@@ -74,6 +75,45 @@ pub fn double_click(x: f32, y: f32, frame: Frame) {
     crate::web::scene_double_click(x, y, frame as u8);
     #[cfg(not(target_family = "wasm"))]
     let _ = (x, y, frame);
+}
+
+/// An arrow key, for `frame`'s camera: it slides along the ecliptic,
+/// `right` and `up` each -1, 0, or 1 as the window has them.
+pub fn nudge(right: i8, up: i8, frame: Frame) {
+    #[cfg(target_family = "wasm")]
+    crate::web::scene_nudge(right, up, frame as u8);
+    #[cfg(not(target_family = "wasm"))]
+    let _ = (right, up, frame);
+}
+
+/// The + key or the − key, for `frame`'s camera: nearer, or farther.
+pub fn zoom_step(nearer: bool, frame: Frame) {
+    #[cfg(target_family = "wasm")]
+    crate::web::scene_zoom_step(nearer, frame as u8);
+    #[cfg(not(target_family = "wasm"))]
+    let _ = (nearer, frame);
+}
+
+/// The way home, for `frame`'s camera: it flies back to where it opened.
+pub fn home(frame: Frame) {
+    #[cfg(target_family = "wasm")]
+    crate::web::scene_home(frame as u8);
+    #[cfg(not(target_family = "wasm"))]
+    let _ = frame;
+}
+
+/// Whether the hint was folded on an earlier visit: the page remembers.
+pub fn hint_folded() -> bool {
+    #[cfg(target_family = "wasm")]
+    return crate::web::hint_folded();
+    #[cfg(not(target_family = "wasm"))]
+    false
+}
+
+/// The hint is folded: the page keeps that for the next visit.
+pub fn fold_hint() {
+    #[cfg(target_family = "wasm")]
+    crate::web::fold_hint();
 }
 
 thread_local! {

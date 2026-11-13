@@ -12,8 +12,10 @@ import fontUrl from '@seiza/web/fonts/IBMPlexSans-Regular.ttf?url';
 import init, {
   belt_counts,
   belt_drawn,
+  camera_seen,
   clock_date,
   clock_state,
+  corner_state,
   elements_arrived,
   elements_blocks,
   elements_columns,
@@ -94,6 +96,9 @@ const BELT_MARK = 'kirkwood:belt';
 /** The sky's file, and the mark set once its stars are the scene's. */
 const SKY = 'stars.bin';
 const SKY_MARK = 'kirkwood:sky';
+/** Where the page keeps that the hint was folded (the origin is shared
+ *  with other apps: the key says whose it is). */
+const HINT_KEY = 'kirkwood:hint';
 
 type Kirkwood = {
   /** Called by the crate once GPUI's first frame is on screen. */
@@ -107,6 +112,21 @@ type Kirkwood = {
   dragStart(x: number, y: number, button: number, modifiers: number, frame: number): void;
   dragMove(x: number, y: number): void;
   dragEnd(x: number, y: number): void;
+  /** Called by the crate: an arrow key (`right` and `up` each -1, 0, or 1),
+   *  the + or − key, and the way home (the compass's press, the H key),
+   *  each for a frame's camera. */
+  nudge(right: number, up: number, frame: number): void;
+  zoomStep(nearer: boolean, frame: number): void;
+  home(frame: number): void;
+  /** Called by the crate: whether the hint was folded on an earlier visit,
+   *  and that it is now. */
+  hintFolded(): boolean;
+  foldHint(): void;
+  /** For the checks: the compass (how far the camera stands round from
+   *  where it opened, and its tilt, degrees, as the interface was last
+   *  told; nothing before the scene's first frame), whether the hint is
+   *  folded, and whether the controls' list is open. */
+  corner(): { turned: number; tilt: number; folded: boolean; open: boolean } | undefined;
   /** For the checks: the wasm's linear memory in bytes, now and as it was
    *  when the first frame was on screen (before either file). */
   wasmBytes(): number;
@@ -238,6 +258,7 @@ async function startScene(): Promise<BeltScene> {
     integratedRows: integrated_rows,
     integratedColumns: integrated_columns,
     integrated: scene_integrated,
+    cameraSeen: camera_seen,
     floats: (at, count) => new Float32Array(memory!.buffer, at, count),
   });
   kirkwood.scene = scene;
@@ -407,6 +428,28 @@ const kirkwood: Kirkwood = {
   dragStart: (x, y, button, modifiers, frame) => scene?.dragStart(x, y, button, modifiers, frame),
   dragMove: (x, y) => scene?.dragMove(x, y),
   dragEnd: (x, y) => scene?.dragEnd(x, y),
+  nudge: (right, up, frame) => scene?.nudge(right, up, frame),
+  zoomStep: (nearer, frame) => scene?.zoomStep(nearer, frame),
+  home: (frame) => scene?.home(frame),
+  // (Storage a browser withholds is a visit with no memory: the hint shows.)
+  hintFolded: () => {
+    try {
+      return localStorage.getItem(HINT_KEY) === 'folded';
+    } catch {
+      return false;
+    }
+  },
+  foldHint: () => {
+    try {
+      localStorage.setItem(HINT_KEY, 'folded');
+    } catch {
+      // Not kept: the hint is whole again on the next visit.
+    }
+  },
+  corner: () => {
+    const [turned, tilt, folded, open] = Array.from(corner_state());
+    return turned === undefined ? undefined : { turned, tilt: tilt!, folded: !!folded, open: !!open };
+  },
   wasmBytes: () => memory?.buffer.byteLength ?? 0,
   wasmBytesAtFirstFrame: 0,
   held: 0,

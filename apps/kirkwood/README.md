@@ -2,7 +2,7 @@
 
 > *Daniel Kirkwood found the gaps in the asteroid belt in the 1860s without a telescope: certain orbit sizes were missing from the catalog.*
 
-**Being built.** What runs today: the belt in space, 1,580,265 asteroids each on its own orbit around the Sun, with Jupiter on its, and time running at a year a second from 1976 to 2076; "Ride with Jupiter", which turns the view with the planet so it holds still, and shows one family of asteroids as a triangle and another as two clouds ahead of and behind it; and the table of all 1,580,272 rows, held in the page's memory, in a panel behind a handle. Each dot is colored by the size of its orbit and is as bright as the asteroid would look, in front of 779,012 of Gaia's brightest stars. On a slow connection the belt fills in as it arrives, the first-numbered asteroids first, and the page counts the dots so far. "Sort by orbit size" flies every dot into a chart of orbit size against how stretched the orbit is, and back, where the gaps open under the chart's axes, with a label over each gap and a count of the rows in view. Press a gap's label and the view rides with Jupiter with a marker dropped at that gap: its path there closes into a loop, and a card says why the orbit empties. Not built yet: anything that links a dot to its row.
+**Being built.** What runs today: the belt in space, 1,580,265 asteroids each on its own orbit around the Sun, with Jupiter on its, and time running at a year a second from 1976 to 2076; "Ride with Jupiter", which turns the view with the planet so it holds still, and shows one family of asteroids as a triangle and another as two clouds ahead of and behind it; and the table of all 1,580,272 rows, held in the page's memory, in a panel behind a handle. Each dot is colored by the size of its orbit and is as bright as the asteroid would look, in front of 779,012 of Gaia's brightest stars. On a slow connection the belt fills in as it arrives, the first-numbered asteroids first, and the page counts the dots so far. "Sort by orbit size" flies every dot into a chart of orbit size against how stretched the orbit is, and back, where the gaps open under the chart's axes, with a label over each gap and a count of the rows in view. Press a gap's label and the view rides with Jupiter with a marker dropped at that gap: its path there closes into a loop, and a card says why the orbit empties. The camera is yours to move, as a map's is ("Moving the camera", below). Not built yet: anything that links a dot to its row.
 
 Kirkwood is the asteroid belt as a scene to fly through, drawn from a table of 1.58 million asteroids (NASA/JPL), with that table beside it. **Every dot is a row:** click a row and the camera flies to it; draw around a group of dots and the table shows their rows.
 
@@ -14,6 +14,20 @@ What it will show:
 - **A gap, explained by playing:** pick one, and a marker asteroid dropped there shows why Jupiter keeps that orbit empty.
 
 It's a showcase: an app for fun around the table that [Tycho](../tycho/) is built on, not a tool and not a benchmark. It will live at `tycho.seiza.io/kirkwood`.
+
+## Moving the camera
+
+The camera works like a map's, in space and while riding with Jupiter. On the chart of the gaps nothing moves.
+
+| | Mouse | Trackpad | Keys |
+|---|---|---|---|
+| Move | Drag | Click and drag | The arrows |
+| Zoom | Scroll, or double click | Pinch, or two fingers up and down | + and − |
+| Tilt and turn | Shift + drag | Shift + click and drag | |
+| Back to the first view | The compass, bottom right | The compass | H |
+| This list, on the page | The ? button | The ? button | ? |
+
+The page opens on a slanted view, the belt running corner to corner. Moving and zooming keep the slant; the first tilt or turn levels the horizon, as a map's is. The compass's ring flattens as the camera tilts and its needle turns as the camera does (it leans at the opening, with the slant); pressed, it flies the camera back to the opening view. A one-line hint of the controls shows until you first move the camera, then folds to the ? button, and stays folded on your next visit. With the table open, the keys are the table's.
 
 ## Honest about the picture
 
@@ -30,6 +44,13 @@ It's a showcase: an app for fun around the table that [Tycho](../tycho/) is buil
 ## Canvas tradeoffs
 
 To be written as the app is built: what a canvas-drawn scene and table give up against the DOM (accessibility, text selection, find-in-page, bundle size), and what Kirkwood does about each. As it stands: the table is drawn on a canvas, so a screen reader finds nothing in it, its text can't be selected, and the browser's find-in-page doesn't see it.
+
+What a canvas costs the controls:
+
+- **Nothing can be tabbed to.** The compass, the ? button, the list of controls, and the two actions are drawn, not elements: Tab doesn't reach them and a screen reader doesn't announce them. Every camera move has a key, but the actions and the table's handle need a pointer.
+- **The keys work while the page has the keyboard.** A click in the address bar or another frame takes it; a click on the page gives it back. With Ctrl, Alt, or Cmd held, a key is left to the browser, so its own zoom still works.
+- **No touch yet.** One finger doesn't pan and two don't pinch or tilt; Safari's trackpad pinch isn't the wheel the scene listens for, so there it zooms the page's way or not at all. Both wait for the deploy's milestone.
+- **The hint's fold is kept in this browser's storage** for the site, as one word; where storage is off, the hint is whole on every visit.
 
 ## Credits
 

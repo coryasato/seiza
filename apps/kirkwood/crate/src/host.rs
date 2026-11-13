@@ -5,12 +5,19 @@
 //! wheel there is the scene's, and a press there starts a drag of the
 //! scene's, its camera's to pan, which the scene keeps to its release.
 //!
+//! In the bottom right corner, once the scene is up and while the dots are
+//! in space: a compass (the camera's turn and tilt; a press flies it home),
+//! a hint of the camera's controls that folds to a `?` button after the
+//! camera's first move, and behind that button the controls' list. The keys
+//! are the scene's while the table's panel is shut.
+//!
 //! Its first frame holds no data: the title, the time control, and the
 //! handle saying its rows are loading. The files arrive after it
 //! ([`Host::progress`], then [`Host::loaded`] or [`Host::failed`]), and the
 //! scene says when the belt is drawn ([`Host::belt_drawn`]), which is when
 //! time starts to move.
 
+use std::cell::Cell;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::LazyLock;
@@ -98,6 +105,34 @@ const CHIP_FILL: u32 = 0x0a0a0a;
 /// past its top.
 const UNDER_TITLE: f64 = 8.;
 
+/// The corner, as boards 8 to 10 draw it, CSS px: how far in from the right
+/// and the bottom of what the panel leaves, the controls' list's width and
+/// how far up it ends, and the least width of what the panel leaves that
+/// has room for the hint whole beside the time control's row.
+const CORNER_IN: f32 = 24.;
+const CONTROLS_WIDTH: f32 = 320.;
+const CONTROLS_BOTTOM: f32 = 72.;
+const HINT_ROOM: f32 = 1000.;
+/// How far the controls' list keeps from the table's handle.
+const CONTROLS_CLEAR: f32 = 8.;
+/// The compass: its button, the ring's radius (flattened by the camera's
+/// tilt, never thinner than `COMPASS_THIN`), and the needle's half width.
+const COMPASS: f32 = 36.;
+const COMPASS_RING: f32 = 11.;
+const COMPASS_THIN: f32 = 1.2;
+const COMPASS_NEEDLE: f32 = 3.;
+/// The ring, and the needle's far half: neutral-600, oklch(0.439 0 0).
+const COMPASS_DIM: u32 = 0x525252;
+/// What a control does, in the controls' list: neutral-300,
+/// oklch(0.87 0 0).
+const CONTROLS_SAYS: u32 = 0xd4d4d4;
+/// The controls' published bounds: the hint (whole, or folded to its
+/// button), the compass, the controls' list, and its close button.
+pub const HINT_TARGET: &str = "hint";
+pub const COMPASS_TARGET: &str = "compass";
+pub const CONTROLS_TARGET: &str = "controls";
+pub const CONTROLS_CLOSE_TARGET: &str = "controls-close";
+
 /// The legend's bar, CSS px, and the width of each slice of it: one tint.
 const LEGEND_WIDTH: f32 = 140.;
 const LEGEND_SLICE: f32 = 2.;
@@ -165,6 +200,20 @@ pub struct Host {
     panel_t: f32,
     slide: Option<Slide>,
     date: Entity<DateLabel>,
+    /// The compass, a view of its own, so the camera's turn redraws it
+    /// alone. Nothing until the scene's first frame.
+    compass: Option<Entity<Compass>>,
+    /// The hint is folded to its button: the camera has been moved, or the
+    /// controls' list opened, on this visit or one before.
+    hint_folded: bool,
+    /// The controls' list is open.
+    controls_open: bool,
+    /// The keys are the interface's while this has them: the scene's, with
+    /// the table's panel shut.
+    focus: FocusHandle,
+    /// Where the table's handle starts, CSS px from the window's left, as
+    /// last laid out: the controls' list keeps clear of it.
+    handle_left: Rc<Cell<f32>>,
     _table_events: Option<Subscription>,
 }
 
@@ -184,8 +233,121 @@ impl Host {
             panel_t: 0.0,
             slide: None,
             date: cx.new(DateLabel::new),
+            compass: None,
+            hint_folded: scene::hint_folded(),
+            controls_open: false,
+            focus: cx.focus_handle(),
+            handle_left: Rc::new(Cell::new(f32::INFINITY)),
             _table_events: None,
         }
+    }
+
+    /// The scene drew its camera: turned `turned` degrees from where it
+    /// opened, tilted `tilt` from straight down. `moved`: a hand has moved
+    /// a camera, and the hint has done its work.
+    pub fn camera_seen(&mut self, turned: f32, tilt: f32, moved: bool, cx: &mut Context<Self>) {
+        let camera = [turned, tilt];
+        // The interface itself is drawn again only for what changes more
+        // than the compass: its first showing, and the hint's fold.
+        let mut redraw = moved && !self.hint_folded;
+        match &self.compass {
+            Some(compass) => compass.update(cx, |compass, cx| {
+                compass.camera = camera;
+                cx.notify();
+            }),
+            None => {
+                self.compass = Some(cx.new(|_| Compass { camera }));
+                redraw = true;
+            }
+        }
+        if moved {
+            self.fold_hint();
+        }
+        if redraw {
+            cx.notify();
+        }
+    }
+
+    /// For the checks: the compass's turn and tilt, whether the hint is
+    /// folded, and whether the controls' list is open.
+    pub fn corner(&self, cx: &App) -> Option<[f32; 4]> {
+        self.compass.as_ref().map(|compass| {
+            let [turned, tilt] = compass.read(cx).camera;
+            [
+                turned,
+                tilt,
+                f32::from(u8::from(self.hint_folded)),
+                f32::from(u8::from(self.controls_open)),
+            ]
+        })
+    }
+
+    /// The hint folds to its button, for good: the page remembers.
+    fn fold_hint(&mut self) {
+        if !self.hint_folded {
+            self.hint_folded = true;
+            scene::fold_hint();
+        }
+    }
+
+    /// The controls' list, opened or closed: by the hint, its button, its
+    /// own close button, or the `?` key. Opened, the hint has done its
+    /// work.
+    fn toggle_controls(&mut self, cx: &mut Context<Self>) {
+        self.controls_open = !self.controls_open;
+        if self.controls_open {
+            self.fold_hint();
+        }
+        cx.notify();
+    }
+
+    /// Whether the corner is drawn: the scene is up, and the dots aren't
+    /// landed on the axes, where the camera is nobody's and the corner is
+    /// the count's.
+    fn corner_shown(&self) -> bool {
+        self.compass.is_some() && self.scene_failed.is_none() && flight::space() > 0.0
+    }
+
+    /// A key, while the scene has the keys: the arrows pan, + and − zoom,
+    /// H flies home, `?` opens and closes the controls' list, and Escape
+    /// closes it. With the table's panel open they are the table's.
+    fn key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
+        let keystroke = &event.keystroke;
+        let held = keystroke.modifiers;
+        // (With Ctrl or the platform's key, + and − are the browser's zoom.)
+        if held.control || held.platform || held.alt {
+            return;
+        }
+        // Escape shuts the list wherever the keys are, the table's too.
+        if keystroke.key == "escape" && self.controls_open {
+            self.toggle_controls(cx);
+            cx.stop_propagation();
+            return;
+        }
+        // The rest are the scene's, where the corner is a hand's to press.
+        if self.panel_open || !self.corner_shown() || !in_space() {
+            return;
+        }
+        match keystroke.key.as_str() {
+            "?" => self.toggle_controls(cx),
+            key @ ("left" | "right" | "up" | "down" | "+" | "=" | "-" | "h") => {
+                // Where the camera is no hand's the key does nothing, and
+                // is still the scene's.
+                if let Some(frame) = hands_frame() {
+                    match key {
+                        "left" => scene::nudge(-1, 0, frame),
+                        "right" => scene::nudge(1, 0, frame),
+                        "up" => scene::nudge(0, 1, frame),
+                        "down" => scene::nudge(0, -1, frame),
+                        "+" | "=" => scene::zoom_step(true, frame),
+                        "-" => scene::zoom_step(false, frame),
+                        _ => scene::home(frame),
+                    }
+                }
+            }
+            _ => return,
+        }
+        cx.stop_propagation();
     }
 
     /// The files' bytes held so far, of both files' together.
@@ -304,6 +466,9 @@ impl Host {
             // work from the moment it's open.
             let focus = table.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
+        } else {
+            // And the scene's, from the moment it's shut.
+            window.focus(&self.focus, cx);
         }
         self.slide = Some(Slide {
             from: self.panel_t,
@@ -325,6 +490,9 @@ impl Host {
         }
         flight::toggle();
         if flight::sorted() {
+            // The corner leaves with space, and an open list with it: it
+            // isn't there to be shut on the axes.
+            self.controls_open = false;
             clock::pause_for_sort();
             // One action at a time: the frame stops turning, and the
             // camera heads back, as the dots leave for the axes
@@ -1045,6 +1213,293 @@ impl Host {
         )
     }
 
+    /// The corner, as boards 8 to 10 draw it: the hint (whole on a first
+    /// visit, where there's room for it, and folded to its `?` button
+    /// after), the compass beside it, and over them the controls' list
+    /// while it's open. Bottom right of what the panel leaves. It is the
+    /// camera's, so it leaves with space as the dots fly to the axes.
+    fn render_corner(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
+        if !self.corner_shown() {
+            return None;
+        }
+        let compass_view = self.compass.clone()?;
+        // On its way out with space, it is drawn and takes nothing: a
+        // press on what can barely be seen isn't one.
+        let live = in_space();
+        let theme = cx.theme();
+        let (muted, plain, edge, fill) = (
+            theme.muted_foreground,
+            theme.foreground,
+            theme.border,
+            theme.popover,
+        );
+        let inset = scene::inset();
+        let room = f32::from(window.viewport_size().width) - inset;
+        let whole = !self.hint_folded && !self.controls_open && room >= HINT_ROOM;
+        let open = self.controls_open;
+        let hint = if whole {
+            let says = |what: &'static str, does: &'static str| {
+                div()
+                    .flex()
+                    .gap_1()
+                    .child(div().text_color(plain).child(what))
+                    .child(does)
+            };
+            let dot = || div().child("·");
+            div()
+                .id("hint")
+                .h(px(28.))
+                .px(px(10.))
+                .flex()
+                .items_center()
+                .gap_2()
+                .border_1()
+                .border_color(edge)
+                .rounded(px(6.))
+                .bg(fill)
+                .text_size(px(12.))
+                .text_color(muted)
+                .child(says("Drag", "to move"))
+                .child(dot())
+                .child(says("Scroll", "to zoom"))
+                .child(dot())
+                .child(says("Shift+drag", "to tilt"))
+                .child(dot())
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .child(
+                            div()
+                                .min_w(px(16.))
+                                .h(px(16.))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .border_1()
+                                .border_color(rgb(AXIS))
+                                .rounded(px(4.))
+                                .text_color(plain)
+                                .child("?"),
+                        )
+                        .child("for more"),
+                )
+        } else {
+            // Folded: the button, lit while the list is open (board 10).
+            div()
+                .id("hint")
+                .size(px(28.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .border_1()
+                .rounded(px(6.))
+                .text_size(px(14.))
+                .map(|button| {
+                    if open {
+                        button
+                            .border_color(theme.primary)
+                            .bg(theme.primary)
+                            .text_color(theme.primary_foreground)
+                    } else {
+                        button.border_color(edge).bg(fill).text_color(plain)
+                    }
+                })
+                .child("?")
+        }
+        .when(live, |hint| {
+            hint.cursor_pointer()
+                .hover(move |hint| hint.border_color(plain))
+                // Nothing under it takes its presses.
+                .occlude()
+                .on_click(cx.listener(|this, _, _, cx| this.toggle_controls(cx)))
+        });
+        let compass = div()
+            .id("compass")
+            .size(px(COMPASS))
+            .flex()
+            .items_center()
+            .justify_center()
+            .border_1()
+            .border_color(edge)
+            .rounded(px(COMPASS / 2.))
+            .bg(fill)
+            .when(live, |compass| {
+                compass
+                    .cursor_pointer()
+                    .hover(move |compass| compass.border_color(plain))
+                    .occlude()
+                    // The way home: where the camera is a hand's, the one
+                    // it has.
+                    .on_click(|_, _, _| {
+                        if let Some(frame) = hands_frame() {
+                            scene::home(frame);
+                        }
+                    })
+            })
+            .child(compass_view);
+        Some(
+            div()
+                .absolute()
+                .inset_0()
+                .opacity(flight::space() as f32)
+                .children(open.then(|| {
+                    // Beside the handle, not under it: the board's list is
+                    // as tall as the handle is high up, and the handle is
+                    // drawn over it (`docs/DECISIONS.md`, "Interface").
+                    // The open panel has no handle.
+                    let clear = if self.panel_t > 0.0 {
+                        0.0
+                    } else {
+                        room - self.handle_left.get() + CONTROLS_CLEAR
+                    };
+                    self.render_controls(inset + CORNER_IN.max(clear), cx)
+                }))
+                .child(
+                    div()
+                        .absolute()
+                        .right(px(inset + CORNER_IN))
+                        .bottom(px(CORNER_IN))
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(div().relative().child(hint).child(target(HINT_TARGET)))
+                        .child(
+                            div()
+                                .relative()
+                                .child(compass)
+                                .child(target(COMPASS_TARGET)),
+                        ),
+                ),
+        )
+    }
+
+    /// The controls' list, as board 10 draws it: the mouse's, the
+    /// trackpad's, and the keys' controls, over the corner. It takes its
+    /// presses and its wheel: none reaches the scene under it.
+    fn render_controls(&self, right: f32, cx: &Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        let (muted, edge) = (theme.muted_foreground, theme.border);
+        let says = rgb(CONTROLS_SAYS);
+        let key = |names: &'static str| {
+            div()
+                .px(px(5.))
+                .border_1()
+                .border_color(rgb(AXIS))
+                .rounded(px(4.))
+                .child(names)
+        };
+        let row = |does: &'static str, how: Div| {
+            div()
+                .flex()
+                .justify_between()
+                .child(does)
+                .child(how.flex().items_center().gap_1().text_color(says))
+        };
+        let group = |name: &'static str| {
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(6.))
+                .child(div().text_color(muted).child(name))
+        };
+        let close = div()
+            .id("controls-close")
+            .relative()
+            .size(px(20.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(4.))
+            .cursor_pointer()
+            .hover(|close| close.bg(theme.secondary))
+            .on_click(cx.listener(|this, _, _, cx| this.toggle_controls(cx)))
+            .child(cross_drawing(muted))
+            .child(target(CONTROLS_CLOSE_TARGET));
+        div()
+            .absolute()
+            .right(px(right))
+            .bottom(px(CONTROLS_BOTTOM))
+            .w(px(CONTROLS_WIDTH))
+            .child(
+                div()
+                    .pt(px(14.))
+                    .px_4()
+                    .pb_4()
+                    .flex()
+                    .flex_col()
+                    .gap(px(14.))
+                    .border_1()
+                    .border_color(edge)
+                    .rounded(px(8.))
+                    .bg(theme.popover)
+                    .text_size(px(12.))
+                    .line_height(px(18.))
+                    .occlude()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .text_size(px(14.))
+                                    .line_height(px(20.))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Moving the camera"),
+                            )
+                            .child(close),
+                    )
+                    .child(
+                        group("Mouse")
+                            .child(row("Move", div().child("Drag")))
+                            .child(row("Zoom", div().child("Scroll, or double click")))
+                            .child(row(
+                                "Tilt and turn",
+                                div().child(key("Shift")).child("+ drag"),
+                            )),
+                    )
+                    .child(
+                        group("Trackpad")
+                            .child(row("Move", div().child("Click and drag")))
+                            .child(row(
+                                "Zoom",
+                                div().child("Pinch, or two fingers up and down"),
+                            ))
+                            .child(row(
+                                "Tilt and turn",
+                                div().child(key("Shift")).child("+ click and drag"),
+                            )),
+                    )
+                    .child(
+                        group("Keys")
+                            .child(row(
+                                "Move",
+                                div()
+                                    .child(key("←"))
+                                    .child(key("↑"))
+                                    .child(key("↓"))
+                                    .child(key("→")),
+                            ))
+                            .child(row("Zoom", div().child(key("+")).child(key("−"))))
+                            .child(row(
+                                "Back to the first view",
+                                div().child(key("H")).child(", or the compass"),
+                            ))
+                            .child(row("This list", div().child(key("?")))),
+                    )
+                    .child(
+                        div()
+                            .text_color(muted)
+                            .child("With the table open, the keys are the table's."),
+                    ),
+            )
+            // (Beside the list, not in it: inside its border the bounds
+            // would be a pixel short all round.)
+            .child(target(CONTROLS_TARGET))
+    }
+
     fn render_handle(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let says: SharedString = match &self.files {
@@ -1074,7 +1529,16 @@ impl Host {
                     .child("Table"),
             )
             .child(div().text_size(px(14.)).child(says))
-            .child(target(HANDLE_TARGET));
+            // Where it starts: the controls' list, laid out before it,
+            // keeps clear of it, so it is laid out once more when this moves.
+            .child({
+                let (left, open) = (self.handle_left.clone(), self.controls_open);
+                measured(HANDLE_TARGET, move |bounds, window| {
+                    if left.replace(bounds.origin.x.into()) != f32::from(bounds.origin.x) && open {
+                        window.request_animation_frame();
+                    }
+                })
+            });
         // Halfway down the right edge, whatever the window's height.
         div()
             .absolute()
@@ -1142,10 +1606,17 @@ impl Render for Host {
         self.step_gap(window);
         // The scene centers its picture in what the panel leaves.
         scene::set_inset(self.panel_t * PANEL_WIDTH);
+        // The keys are the scene's unless something else has them (the
+        // table, from its panel's opening until a press elsewhere).
+        if !self.panel_open && window.focused(cx).is_none() {
+            window.focus(&self.focus, cx);
+        }
         let root = div()
             .relative()
             .size_full()
             .text_color(cx.theme().foreground)
+            .track_focus(&self.focus)
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| this.key(event, cx)))
             // Under everything: what the title, the time control, the
             // handle, and the panel don't take is the scene's. They occlude
             // it, so a wheel over the table never zooms.
@@ -1202,7 +1673,8 @@ impl Render for Host {
             .children(self.render_furniture(window, cx))
             .child(self.render_title(cx))
             .children(self.render_card(cx))
-            .child(self.render_time_control(cx));
+            .child(self.render_time_control(cx))
+            .children(self.render_corner(window, cx));
         match &self.table {
             Some(table) if self.panel_t > 0.0 => root.child(self.render_panel(&table.clone(), cx)),
             _ => root.child(self.render_handle(cx)),
@@ -1343,10 +1815,104 @@ fn drag_listeners() -> impl IntoElement {
     .size_0()
 }
 
+/// The compass's drawing, a view of its own: the scene tells of the
+/// camera's turn and tilt up to every frame of a drag, and this alone is
+/// drawn again for it, as the date alone is for the clock.
+struct Compass {
+    /// How far the camera stands round from where it opened, and its tilt
+    /// from straight down (degrees), as the scene last drew it.
+    camera: [f32; 2],
+}
+
+impl Render for Compass {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let [turned, tilt] = self.camera;
+        compass_drawing(turned, tilt, cx.theme().foreground)
+    }
+}
+
+/// The compass, as board 8 draws it: a ring that the camera's tilt
+/// flattens (a circle from straight down, a line edge-on) and a needle that
+/// turns as the camera stands round from where it opened, its near half
+/// white. Home, the needle points up.
+fn compass_drawing(turned: f32, tilt: f32, lit: Hsla) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let middle = bounds.center();
+            let at = |x: f32, y: f32| point(middle.x + px(x), middle.y + px(y));
+            let flat = (COMPASS_RING * tilt.to_radians().cos()).max(COMPASS_THIN);
+            let mut ring = PathBuilder::stroke(px(1.));
+            ring.move_to(at(-COMPASS_RING, 0.));
+            for end in [COMPASS_RING, -COMPASS_RING] {
+                ring.arc_to(
+                    point(px(COMPASS_RING), px(flat)),
+                    px(0.),
+                    false,
+                    true,
+                    at(end, 0.),
+                );
+            }
+            ring.close();
+            if let Ok(ring) = ring.build() {
+                window.paint_path(ring, rgb(COMPASS_DIM));
+            }
+            // The needle's two halves, turned clockwise as the window has it.
+            let (sin, cos) = turned.to_radians().sin_cos();
+            let turn = |x: f32, y: f32| at(x * cos - y * sin, x * sin + y * cos);
+            for (tip, color) in [
+                (COMPASS_RING, Hsla::from(rgb(COMPASS_DIM))),
+                (-COMPASS_RING, lit),
+            ] {
+                let mut half = PathBuilder::fill();
+                half.move_to(turn(0., tip));
+                half.line_to(turn(COMPASS_NEEDLE, 0.));
+                half.line_to(turn(-COMPASS_NEEDLE, 0.));
+                half.close();
+                if let Ok(half) = half.build() {
+                    window.paint_path(half, color);
+                }
+            }
+        },
+    )
+    .size(px(28.))
+}
+
+/// The cross on the controls' list's close button, as board 10 draws it.
+fn cross_drawing(color: Hsla) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let middle = bounds.center();
+            for sign in [1., -1.] {
+                let mut stroke = PathBuilder::stroke(px(1.5));
+                stroke.move_to(point(middle.x - px(4.), middle.y - px(4. * sign)));
+                stroke.line_to(point(middle.x + px(4.), middle.y + px(4. * sign)));
+                if let Ok(stroke) = stroke.build() {
+                    window.paint_path(stroke, color);
+                }
+            }
+        },
+    )
+    .size(px(12.))
+}
+
 /// Publishes its parent's bounds under `id` (`__seizaTargets[id]`).
 fn target(id: &'static str) -> impl IntoElement {
+    measured(id, |_, _| {})
+}
+
+/// Publishes its parent's bounds under `id`, and hands them to `then` as
+/// they're laid out.
+fn measured(
+    id: &'static str,
+    then: impl Fn(Bounds<Pixels>, &mut Window) + 'static,
+) -> impl IntoElement {
     canvas(
-        move |bounds, _, _| seiza::targets::publish(id, bounds),
+        move |bounds, window, _| {
+            seiza::targets::publish(id, bounds);
+            then(bounds, window);
+        },
         |_, _, _, _| {},
     )
     // From the parent's corner: left to its static place it would start

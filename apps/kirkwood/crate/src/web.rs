@@ -77,6 +77,22 @@ extern "C" {
     pub fn scene_drag_move(x: f32, y: f32);
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = dragEnd)]
     pub fn scene_drag_end(x: f32, y: f32);
+
+    /// An arrow key (`right` and `up` each -1, 0, or 1), the + or − key,
+    /// and the way home, each for the camera of a frame.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = nudge)]
+    pub fn scene_nudge(right: i8, up: i8, frame: u8);
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = zoomStep)]
+    pub fn scene_zoom_step(nearer: bool, frame: u8);
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = home)]
+    pub fn scene_home(frame: u8);
+
+    /// Whether the hint was folded on an earlier visit, and that it is
+    /// now: the page's to remember.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = hintFolded)]
+    pub fn hint_folded() -> bool;
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = foldHint)]
+    pub fn fold_hint();
 }
 
 thread_local! {
@@ -626,7 +642,29 @@ pub fn scene_failed(message: String) {
     update_host(|host, cx| host.scene_failed(message, cx));
 }
 
+/// The camera as the scene just drew it, for the compass: how far it
+/// stands round from where it opened and its tilt from straight down
+/// (degrees), and whether a hand has moved a camera yet, which folds the
+/// hint. Called from a frame of the scene's own, when one of them changed.
+#[wasm_bindgen]
+pub fn camera_seen(turned: f32, tilt: f32, moved: bool) {
+    update_host(|host, cx| host.camera_seen(turned, tilt, moved, cx));
+}
+
 // --- For the checks (`checks/see.ts`).
+
+/// The corner's state: how far the compass says the camera stands round
+/// from where it opened and its tilt (degrees), whether the hint is
+/// folded, and whether the controls' list is open. Empty before the
+/// scene's first frame.
+#[wasm_bindgen]
+pub fn corner_state() -> Vec<f32> {
+    let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    host.read_with(&cx, |host, cx| host.corner(cx))
+        .map_or_else(Vec::new, |corner| corner.to_vec())
+}
 
 /// The crate's own place for a row, `years` after the epoch, in 64-bit
 /// floats: x, y, z in au. A Hilda's or a Trojan's is where the integration

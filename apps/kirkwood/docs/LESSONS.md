@@ -268,3 +268,18 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Input", "Scene".
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Input"; the evidence: [`../PLAN.md`](../PLAN.md), M5's checks.
 
 *After review:* the modifier became Shift alone, the owner's call: the live map tilted under no key by hand either, so there was nothing to copy. And every fault found was a place the ride's new camera could reach that the old one, fixed straight above, never could: the path of a picked gap behind the eye, a press in the one frame where the crate says "riding" and the picture hasn't arrived, a stop that was exact only while the distance was a plain number. A camera a hand moves goes where no check has stood.
+
+## M5 part C: the way home, the hint, the legend, the keys, and the close (2026-11-12)
+
+**Surprises:**
+- **Board 10's list lay under the table's handle, and the board couldn't show it.** The list is as tall as the handle is high up; in the board's markup the list comes later and paints over the handle, in the app the handle is drawn last. Nobody saw it on the canvas. A board over a real screenshot still has its own paint order: what overlaps is found by adding up heights, or by building it.
+- **The boards' fill wasn't the app's.** They paint the time control, the handle, and the corner neutral-900; the app's time control has been neutral-950 since it was built. The first run of the check read 10 where it expected 23. The corner took the fill of what it sits beside.
+- **"Names the modifier as the machine does" had nothing left to check.** The check was written while the key might be Ctrl or Cmd. Part B chose Shift, which is Shift on every keyboard, so the list is one list.
+- **The keys worked before any click.** The worry was a canvas with no keyboard until pressed. GPUI's web platform hears keys without one; what was missing was on GPUI's side, where a key with nothing focused reaches only the window's root, so the interface holds a focus of its own and takes it back when nothing has it.
+- **An arrow up is 44 px and an arrow left 119.** The same distance along the ecliptic, at the opening's 66° of tilt. A pan by keys is measured on the plane, not in the window, and looks right.
+- **The compass was free while the camera pans.** Told only when the turn or the tilt moves, the interface redraws for a tilt and for nothing else a hand does.
+- **A hint beside an open panel had no room, and the boards never drew that state.** Their note says the corner moves left of the panel; at 1440 px the hint whole would then run under the row of actions. It became its button there, without counting as folded.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface" and "Input"; the evidence: [`milestones.md`](milestones.md), M5's checks.
+
+*After review, and the owner's look:* the review's faults were nearly all one kind, an input arriving while something else had the camera (H mid-drag, + at a stop during a flight, a press on the corner as it faded, a list left open under a sort); each new way to move the camera has to be asked what it does during every other. And the opening's roll came back the same day it was closed as gone. Part B had turned down "eased out on the first turn" by hand; with a way home, the same ease was right. A choice made by hand is a choice about the app as it was that day: the thing that was missing (a way back) wasn't in the question.

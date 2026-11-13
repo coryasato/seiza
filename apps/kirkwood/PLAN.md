@@ -10,7 +10,7 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 
 **Where everything else lives:**
 - [`../../docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md): the research: what the scene shows, what the table does, what's honest to simulate, the data it needs.
-- [The storyboard](https://claude.ai/artifact/Vpx3w9Jb6EAW5RFJbLKKoi): seven boards, reviewed 2026-11-10. Boards 1 to 5 were redrawn 2026-11-12 from the app as built (the release build's own scene, the interface over it where the code puts it); boards 6 and 7 are still the first drawing. Each milestone below names the boards it builds; the canvas's notes say which parts of them are placeholders, and what building changed.
+- [The storyboard](https://claude.ai/artifact/Vpx3w9Jb6EAW5RFJbLKKoi): seven boards, reviewed 2026-11-10. Boards 1 to 5 were redrawn 2026-11-12 from the app as built (the release build's own scene, the interface over it where the code puts it); boards 6 and 7 are still the first drawing; boards 8 to 10, the camera's corner, are built (the controls' list beside the table's handle, not under it), and board 11's preset isn't. Each milestone below names the boards it builds; the canvas's notes say which parts of them are placeholders, and what building changed.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every decision, by area. Repo-wide ones (the showcase tier, its home): the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 - [`docs/data.md`](docs/data.md): the fetch (its source, fields, and frame), the two files built from it, Jupiter's orbit, and what the files' places were checked against.
 - [`docs/milestones.md`](docs/milestones.md): the specs, checks, and evidence of finished milestones.
@@ -27,8 +27,8 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 | M2 | The belt in space | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
 | M3 | The reveal: sort by orbit size | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
 | M4 | Ride with Jupiter, and a gap picked | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
-| M5 | A camera a hand moves | Active: parts A and B done, the boards approved; part C next |
-| M6 | The scene and the table, each moving the other | Planned (specced; amended when M5 closes) |
+| M5 | A camera a hand moves | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
+| M6 | The scene and the table, each moving the other | Active: part A next |
 | M7 | In the open: deployed under Tycho | Planned |
 
 A *Planned* row's outline is under "Next milestones". Its spec, "done when" checks, and parts are written when the milestone before it closes, from what that one found.
@@ -46,88 +46,20 @@ Nothing. The tall table's `live`, `sort`, and `select` are built, and with the r
 
 ## Active milestone
 
-### M5: A camera a hand moves
-
-The scene gets a map's camera, the one a visitor's hand already knows (Google Maps', gesture for gesture, the owner's call, 2026-11-12: where it and another map differ, Google Maps' is built, read off the live map and not from memory): a drag pans, a wheel zooms toward the pointer, and a second drag tilts and turns. The owner's call, 2026-11-12: a drag moves the camera, since that is what a hand expects, and tilt was the first thing reached for. Tilt is content, not only a way round: seen near edge-on the belt has a thickness, and the high-inclination groups lift out of the plane. It comes before the scene and the table are linked (M6), since both links fly this camera.
-
-**The camera is the scene's own, with a map's four numbers:** what it looks at (a point on the ecliptic), its distance from it, its tilt (from straight down), and its bearing. Not Three.js's `MapControls`: GPUI's canvas takes every DOM event and the scene's has no listeners (`docs/DECISIONS.md`, "Input"), and the camera already has a view offset beside the panel, a ride between two ends, and flights to come. The surface under the interface hands the scene a drag as it hands it a wheel (its start, its moves, its end, with the button and the modifiers), so a press on a control, the panel, or a chip still moves nothing.
-
-**The gestures,** each the map's:
-
-- **A drag pans along the ecliptic,** as a tabletop slides: the plane's point under the pointer at the press stays under it, at any tilt.
-- **A wheel zooms toward the pointer:** the plane's point under it holds still, between the limits the wheel has now (0.05 to 60 au). Where the pointer is over the sky (near edge-on its ray never meets the plane), it zooms toward what the camera looks at. A trackpad's pinch is a wheel with Ctrl held and zooms the same way, never the page (gpui-pre-web already takes the wheel's default; whether the modifier reaches the surface is part A's first look).
-- **A drag with Google Maps' modifier held tilts and turns** about what the camera looks at: across the window turns, up and down tilts. The modifier is Ctrl as recalled, and Shift in its JS API's docs: part B opens by reading it off the live map, on a Mac and off one, and builds that (both, if the map takes both). (Decided in part B: Shift alone; the live map tilted under no key.) No right-drag: that is MapLibre's, and the right button is Google Maps' menu. Tilt is held between straight down and a limit short of edge-on, decided by hand in part B (the opening shot is already 66° from straight down, and edge-on is the view tilt is for, so the limit is nearer 85° than a map's 60°); never under the plane.
-- **A glide:** let go moving, the camera carries on and comes to rest. Any press stops it.
-- **A double click zooms in, toward the pointer,** as Google Maps' does. A click on a dot is M6's pick, and a double click's first click would pick: how the two live together (the pick waits out a double click's time, or picks and then zooms) is M6's to decide, with the pick.
-
-**What the scene already does, and what changes:**
-
-- **The stars already turn and never slide** (they are at infinity: `docs/DECISIONS.md`, "Look"), and the names, the triangle, and the marker's path are placed by the scene in the frame that draws them, so they stay on their points at any camera; part B checks both from a tilted one.
-- **The opening shot has a roll** (34° about its line of sight, so the belt runs corner to corner), and a map's camera has none. Decided by hand in part B: the roll is the opening's alone and eases out on the first tilt or turn (a pan and a zoom keep it), or the shot is composed again without it. The way home gives the opening back as it is. (Decided in part B: composed again without it.)
-- **A dot's size and opacity already follow the camera's nearness,** up to three times the size (`docs/DECISIONS.md`, "Look"). Zoomed in by hand, far past where a flight stops, that is looked at again in part A: whether dots part into rows or swell into discs.
-- **The scene draws 29 frames a second while time runs** (`docs/DECISIONS.md`, "Scene"), and a hand feels that in a drag as it doesn't in a clock. Part A measures a drag's frames and decides whether the scene steps its resolution down while the camera moves and back at rest; that is the first half of the open question about the scene's resolution. (Decided in part A: it doesn't.)
-
-**Each mode's rules:**
-
-- **Riding with Jupiter,** the camera's moves are in the frame that turns: Jupiter stays where the visitor's bearing left it. They are the ride's own and forgotten once the camera is back, as its wheel is now; on the way there or back an input moves nothing, as now. Tilted, the Trojans' clouds have a thickness too.
-- **On the axes** nothing moves, as now (`docs/DECISIONS.md`, "Input"): a against e is flat, and its furniture is GPUI's on a plot of the crate's. A pan and a zoom into a gap there are an open question below, not this milestone's.
-- **A flight of the camera's own** (M6's, to a row or a group) is taken over by a drag or a wheel where it is. Written into M6's spec when this closes.
-
-**The way home, and what tells a visitor the controls:**
-
-- **A compass** in a corner shows the bearing and the tilt, and a press on it flies home: the opening shot in space, the ride's own riding. A key does the same.
-- **A hint** in a corner, one line ("Drag to move · Scroll to zoom · Shift+drag to tilt · ? for more", the modifier as part B decided it), shown whole on a first visit and folded after the first move of the camera.
-- **A legend** behind `?` (as Gmail, GitHub, and Figma have it) and behind the hint: the mouse's, the trackpad's, and the keys' controls, with the modifier as the visitor's machine names it.
-- **The keys,** while the scene has them (the table takes them when its panel opens): the arrows pan, + and − zoom, and one goes home.
-- These are GPUI's, over the scene: each needs a fill or the scene's quiet under it, and a board before it is built.
-
-**Reminder: draw the boards at the end of part B,** in that session, and don't start part C without them reviewed. Then the tilted camera is running, so the boards are drawn over the app's own picture, and the owner's review falls between the two sessions instead of stopping part C at its start. The storyboard has none for a camera: the hint whole and folded, and the compass, over the opening shot; the legend; and the belt tilted near edge-on, with whatever names it (a preset, "See it edge-on", is decided on that board: a press of its own, or left to the hand).
-
-**What M5 leaves:** touch (one finger pans, two pinch and tilt), with the phone's answer in M7; Safari's pinch, which isn't a wheel there, with M7's check in Safari; a pan and zoom on the axes; and following a body, which is M6's found row.
-
-**Split into parts,** one session each:
-
-- **Part A: the drag, the wheel, and the glide.** The drag handed from the surface to the scene; the camera's four numbers; the pan along the plane; the zoom toward the pointer, and a pinch; the glide; a drag's frames and the resolution while it moves; the dots up close. Closes A1 to A4.
-- **Part B: tilt and turn, and each mode's rules.** Google Maps' modifier read off the live map, and its drag; the double click; the tilt's limit; the opening's roll; riding; the axes; the names and the stars from a tilted camera; and, last, the boards for part C. Closes B1 to B5.
-- **Part C: the way home, the hint, the legend, the keys, and the close.** From the boards: the compass, the hint and its fold, the legend, the keys; the README's controls; M6's spec amended. Closes C1 to C5.
-
-**Done when:**
-
-- [x] **A1. A drag pans along the plane:** the ecliptic's point under the pointer at the press is under it at the release, within a pixel, from the opening camera and from one tilted by its knob; a press on a control, the panel, or a chip moves nothing; and a drag that crosses the panel keeps the camera until its release. The camera before and after a scripted drag, as numbers.
-  - *Evidence (2026-11-12, `see.ts --only camera`):* a drag from (700, 520) to (560, 610): the point pressed is 0.00 px from the pointer at the release from [the opening camera](docs/seen/camera-panned.jpg) (looking at 0, 0 au, then −1.5554, −0.4797; 13 au, tilt 66°, bearing 200°, roll −34° before and after), from 30° off straight down (then −1.6271, −0.5467), and from 78° (then −0.0625, −2.4002). A drag begun on the time control, on the open panel, on the landed layout (its chips with it), and riding each left all six numbers as they were. Pressed at (420, 520) beside the open panel and let go at (1030, 600), [inside it](docs/seen/camera-across-panel.jpg): 0.00 px, and a move after the release moved nothing. `docs/DECISIONS.md`, "Input".
-- [x] **A2. A wheel zooms toward the pointer:** the plane's point under it holds within a pixel, at both limits it stops, and over the sky it zooms toward what the camera looks at. A wheel with Ctrl held zooms the scene, and the page's own zoom is unchanged.
-  - *Evidence (2026-11-12):* at (500, 560), 13 au to 7.88 to 4.78 and out to 7.88, the point 0.00 px from the pointer each time ([zoomed](docs/seen/camera-zoomed.jpg)); stops at 0.05 and 60 au, a wheel past either drawing nothing; at 5° above the plane a wheel over the sky took 13 au to 7.88 looking at 0, 0 still; a 20 px wheel zoomed by 1.041 plain and 1.221 with Ctrl, the page's zoom 1 before and after. A real trackpad's pinch isn't a headless browser's to try: by hand. `docs/DECISIONS.md`, "Input".
-- [x] **A3. The glide:** let go moving, the camera comes to rest in the time decided by hand; a press stops it; and at rest with time paused the scene draws nothing.
-  - *Evidence (2026-11-12):* A 250 px drag in 120 ms let go moving carried the camera 1.45 au on and rested 1.1 s later; let go still it doesn't glide; a press on the scene and one on the handle each stop it; at rest, time paused, 0 frames in 1.5 s. The time constant is 220 ms, chosen by the owner's hand against 120 and 350; a very hard flick carried too far, so its speed is capped at 2,000 px a second (`docs/DECISIONS.md`, "Input").
-- [x] **A4. A drag's frames are measured,** with time running, at the display's resolution and stepped down: what the scene does while the camera moves is decided by eye in a real browser and recorded with its numbers. And the dots up close are looked at, kept or changed, with a screenshot at the nearest zoom.
-  - *Evidence (2026-11-12):* A scripted drag with time running draws 29.2 frames a second at the display's resolution, 37.3 with the scene at three quarters while the camera moves, 51.7 at half, each step of resolution costing one 100 ms frame (`see.ts --only drag`; `docs/DECISIONS.md`, "Scene"). Decided by the owner's eye in a real browser: the display's resolution throughout. Stepped down, the picture flickered coming back sharp after a fling; the knob is taken out. The dots up close were looked at and kept: [1 au](docs/seen/camera-near-1.jpg), [0.2](docs/seen/camera-near-0-2.jpg), [0.05, the nearest](docs/seen/camera-near-0-05.jpg) (`docs/DECISIONS.md`, "Scene").
-- [x] **B1. A drag with Google Maps' modifier tilts and turns** about what the camera looks at: which modifier, as read off the live map, written down; the bearing and the tilt before and after a scripted drag, the tilt held at both ends of its range, and no context menu from it on a Mac. A double click zooms in toward the pointer.
-  - *Evidence (2026-11-12, `see.ts --only tilt`):* **the modifier is Shift, the owner's call:** the live map tilted under no key, by a script (drags under Ctrl, Shift, Alt, and the platform's key each only panned it, as a Mac and as Windows, headless and in a window) or by the owner's hand, so there was no map's key to read; Google's Maps JavaScript documentation names Shift, and it is easier to reach than Ctrl. A drag with Ctrl held pans. From (700, 520) to (800, 460) with Shift held: bearing 200° to 120°, tilt 66° to 36°, what the camera looks at (0, 0 au, 13 au away) unmoved and at (720, 450) in the window before and after; a drag to the right carries a point 150 px nearer than the middle from (720, 600) to (817, 575.5); a long drag down stops the tilt at 85° and one up at 0° (a drag up lifts the camera toward straight down, the owner's call by hand). No context menu: Shift raises none on a Mac (and gpui-pre-web takes every one a browser does raise). A double click at (500, 560): 13 au to 6.5, the point under it 0.00 px from the pointer, at rest 357 ms after the press; its second press starts no drag, and one click alone moves nothing. `docs/DECISIONS.md`, "Input".
-- [x] **B5. The boards for part C are drawn** in the storyboard, over the app's own tilted picture, for the owner's review before part C.
-  - *Evidence (2026-11-12):* boards 8 to 11 in [the storyboard](https://claude.ai/artifact/Vpx3w9Jb6EAW5RFJbLKKoi)'s second row, each over the release build's own scene: the hint whole with the compass (the opening shot), the hint folded after a first turn (36° from straight down), the legend, and the belt at 85°. Its blue note lists what to decide: the corner, the compass, the modifier's name, the key home, and the preset "See it edge-on" (drawn as a third action; recommended against). Reviewed and approved by the owner, 2026-11-12.
-- [x] **B2. The opening's roll is decided,** by hand, and written down; a screenshot of the opening shot and of the camera after a first turn.
-  - *Evidence (2026-11-12):* decided by the owner's hand in a real browser, against the roll eased out on a first turn and the roll kept: the shot is composed again without it. [The opening shot](docs/seen/tilt-opening.jpg), no roll, and [after a first turn](docs/seen/tilt-first-turn.jpg). The tilt's limit is 85° ([the belt from there](docs/seen/tilt-edge.jpg)). A tilt with no ends (over the top and under the plane) was tried behind a knob and thrown away: buggy, and not wanted enough to fix. `docs/DECISIONS.md`, "Input".
-- [x] **B3. Riding, the camera moves in the frame that turns:** with a bearing and a tilt of the visitor's, Jupiter holds its place in the window over one of its orbits, the names, the triangle, and a picked gap's marker and path are on the crate's points within a pixel, and the press back gives the fixed frame's camera as it was left.
-  - *Evidence (2026-11-12, `see.ts --only tilt`):* the ride has a camera of its own, a map's numbers in the frame that turns. The fixed frame's camera was left turned, tilted, and panned (looking at −0.9649, −0.5113 au from 13 au, tilt 46°, bearing 248°); riding, a hand tilted the ride's to 50°, turned it 48°, panned it, and zoomed out to 28.03 au ([there](docs/seen/tilt-riding.jpg)). Over 12.07 years of the clock, 13 readings: the Sun moved 0.00 px, the ecliptic's point under Jupiter left its line from the Sun by 0.00 px (Jupiter goes 21 px in and out along it, its orbit not a circle, and sits up to a few pixels off the plane, its orbit inclined 1.3°), the triangle's corners were 0.05 px from the crate's points at worst, and the names 0.48 px from their places. With the 5:2 gap picked and the ride's camera at tilt 40°, bearing 40°, and panned: the marker 0.00 px from the crate's place and 0.05 px off its path at worst, its name beside it ([there](docs/seen/tilt-gap.jpg)). The press back: the fixed frame's camera as it was left, number for number and its matrix to 1e-9, and the ride's own forgotten. `docs/DECISIONS.md`, "Input".
-- [x] **B4. Tilted, the picture holds:** the Sun's and Jupiter's names on their discs within a pixel, a star's place unchanged by a pan and moved by a turn, and nothing under the plane. On the axes a drag and a wheel move nothing.
-  - *Evidence (2026-11-12):* at 85° from straight down, turned 48° ([there](docs/seen/tilt-picture.jpg)): "Sol" centered under the Sun at (720, 450) and "Jupiter" beside its disc at (282.2, 496.3), each within a pixel of where board 1 puts it, Jupiter's disc found within a pixel of the crate's place. A star at (700.3, 145.3) was at (700.3, 145.3) after a pan and gone from there after a turn of 8° (no lit pixel within 3 px). At the most tilt a place 0.5 au over what the camera looks at is above it in the window: the camera is over the plane. On the axes a drag, one with Ctrl, one with Shift, a wheel, and a double click left the camera's numbers and its matrix as they were.
-- [ ] **C1. The compass** shows the bearing and the tilt as the camera has them, and its press, and the key, fly home: the first camera, as numbers. A screenshot beside its board.
-- [ ] **C2. The hint** is whole on a first visit and folded after the camera's first move, and on the next visit; readable over the scene, its contrast a number. A screenshot beside its board.
-- [ ] **C3. The legend** opens on `?` and from the hint, closes the same ways, names the modifier as the machine does (a Mac's, and another's), and takes its presses and its wheel from the scene. A screenshot beside its board.
-- [ ] **C4. The keys** pan, zoom, and go home while the scene has them, and the table's keys are the table's with its panel open.
-- [ ] **C5. M6's spec is amended** from what this found (a flight taken over, a found row followed), and the README says the controls and what a canvas costs them.
-
----
-
-## Next milestones
-
-M6 was specced before the camera became a milestone of its own; it is amended when M5 closes. M7 is an outline, specced when M6 closes.
-
 ### M6: The scene and the table, each moving the other
 
 Boards 6 and 7, and the links the storyboard didn't draw. Until now nothing ties a dot to its row. Row to scene: a press on a row flies the camera to its dot ("Find Ceres" is that press for the first row). Scene to rows: a shape drawn around a group keeps those dots their color while the rest go gray, the camera flies in, and the table is the group's rows; a click on one dot is the same for one row. And the columns that move as time runs.
 
 **The camera is M5's,** and both links fly it. A flight and a hand don't fight: a drag or a wheel mid-flight takes the camera where it is, and what was found or picked stays so.
+
+**What M5 left it** (amended at M5's close, 2026-11-12):
+
+- **A flight is the hand's own.** The way home is already a flight of the camera's that any press, drag, or wheel ends where it is (`web/src/camera.ts`, `home`). A flight to a row or a group is that flight with another place to go, so it is taken over the same way, the scene says the camera is moving on its own through it, and it doesn't fold the hint (only a hand's move does).
+- **The way home lets a followed row go.** The compass's press and H fly to the opening shot; with a row followed, that is the way back: the mark stays on its dot, the camera stops following. Riding, home is the ride's own.
+- **The compass follows a flight** for free: it is told the camera's turn and tilt by whatever moved it.
+- **The keys are the table's while its panel is open,** and a press on a row is made there: an arrow after it moves the table, not the camera. Whether a found row's press hands the arrows to anything is part A's to decide; as built they stay the table's.
+- **The corner needs room beside a longer row.** "Find Ceres" and the lasso's button make the row of actions wider, and the hint is drawn whole only where what the panel leaves has room for both (`host.rs`, `HINT_ROOM`): set again in parts A and B. The group's chip and "Show all rows" keep clear of the bottom right corner in space, as the count of rows in view has it only landed.
+- **Drawing a shape is a mode, and the keys' pan isn't a drag:** in the lasso's mode a drag draws, and the arrows, + and −, and H still move the camera, so a shape can be drawn over a view reached by keys. Whether a move mid-shape is allowed is part B's to decide.
 
 **Row to scene.** The table's rows become selectable (the tall table's `select`, rows alone). A press on a row flies the camera to that row's dot and marks it: a white ring and the row's own name, the page's, as the marker is (rule 4: white is what the interface adds). The camera keeps looking at it as time runs: a zoom, a tilt, or a turn goes round the followed row, and a pan or the way back lets it go. "Find Ceres" is the row's third button, as board 1 draws it: the same flight for row 0. A row with no ellipse has no dot to fly to, and the page says so. What the press does with another action pressed (riding, on the axes, a gap picked) joins the rule that one action is pressed at a time, and how is decided in part A.
 
@@ -150,7 +82,7 @@ Boards 6 and 7, and the links the storyboard didn't draw. Until now nothing ties
 
 **Done when:**
 
-- [ ] **A1. A flight and a hand don't fight:** a drag or a wheel mid-flight takes the camera where it is, with the found row still marked; a zoom, a tilt, and a turn keep a followed row at the middle, and a pan lets it go. The camera through a scripted flight and drag, as numbers.
+- [ ] **A1. A flight and a hand don't fight:** a drag, a wheel, or a key mid-flight takes the camera where it is, with the found row still marked; a zoom, a tilt, and a turn keep a followed row at the middle, and a pan or the way home lets it go; the compass says the camera's turn and tilt through the flight, and the hint isn't folded by one. The camera through a scripted flight and drag, as numbers.
 - [ ] **A2. A row is found.** A press on a row of the open table flies the camera to it: at the flight's end the crate's place for that row, through the scene's camera, is at the middle of what the panel leaves, within a pixel, and still is a second later with time running. For Ceres, a Hilda (an integrated row), and a row far down the file; a row with no ellipse flies nowhere and the page says why.
 - [ ] **A3. "Find Ceres"** is the row's third button, as board 1 draws it, with the two states the others have. Pressed with another action pressed, each way round, the picture ends whole with what was decided written down.
 - [ ] **A4. The found row's mark is plainly not a dot:** a white ring and the row's own name from the rows file, on the dot within a pixel, in no count; and the way back gives the first camera back.
@@ -166,6 +98,12 @@ Boards 6 and 7, and the links the storyboard didn't draw. Until now nothing ties
 - [ ] **D2. The clock with the table open** is decided (slowed, decimals dropped, or left), by looking, and written down.
 - [ ] **D3. A sort by diameter is a tour:** the table's top rows are the biggest bodies, and a press on each flies the camera to it; the sort's stall is measured and taken off the frame as decided.
 - [ ] **D4. M7's spec, checks, and parts are written** here, and the README says what runs.
+
+---
+
+## Next milestones
+
+M7 is an outline, specced when M6 closes.
 
 ### M7: In the open: deployed under Tycho
 
@@ -198,7 +136,8 @@ None committed (the research's "Extras"):
 - **The sky as a choice, riding:** the sky leaves the turned frame, and stays out by default: the owner looked at it turning (`?rideSky=1`, and at 0.4) and found it somewhat nauseating (`docs/DECISIONS.md`, "Scene"). A toggle for it may join the scene's own controls (the resolution's, above), bringing it back at 0.4, with the title's sentence about the stars following it. `?rideSky` stays as what the toggle would turn. *Not placed in a milestone yet; with the resolution's control.*
 - **A pan and a zoom on the axes:** M5's camera is space's, and a wheel or a drag on the landed layout does nothing. Zooming into a gap there is the natural ask, but the plot's ends would move: every tick, chip, and name of GPUI's would follow the scene's dots frame for frame (the two canvases in step, as nothing yet needs), and the count of rows in view would be counted again as it moves. *Not placed in a milestone yet; with a shape drawn in a against e.*
 - **Touch:** one finger pans, two pinch to zoom and drag to tilt, as a map's do. gpui-pre-web hears touches; what it hands the surface isn't looked at yet. *M7, with the phone's answer.*
-- **A slow turn of the belt until the first input:** an opening for a visitor who touches nothing. Against it: time already runs on load, so the picture already moves; and it is a camera nobody asked for (rule 6 is about tours, and this is near one). *Not planned; looked at by hand if M5's part B leaves the opening feeling still.*
+- **The storyboard's pictures of the opening are the level one's:** the opening is a pose again, rolled 34° (`docs/DECISIONS.md`, "Input", 2026-11-12, after M5 closed), and boards 1, 8, and 10 still draw the level shot of that morning, as do the screenshots M2 to M5's evidence links (history, left as taken; the corner's four were taken again). *The three boards' pictures are taken again when the storyboard is next redrawn, with boards 6 and 7 in M6.*
+- **A slow turn of the belt until the first input:** an opening for a visitor who touches nothing. Against it: time already runs on load, so the picture already moves; and it is a camera nobody asked for (rule 6 is about tours, and this is near one). *Not planned.*
 - **More live columns:** the Sun's distance is live, at 2 a second. Which others join it (the distance from Earth needs Earth's place), and how many decimals a live cell shows. *M6.*
 - **The clock's speed with the table open:** at a year a second the Sun's distance moves by up to half an au a second, so its last two decimals are never readable while time runs, at any refresh rate. Whether time slows while the table shows, the column drops decimals while it moves, or it's left as a blur that settles on pause. *M6.*
 - **The pick's stall:** placing 1.57 M rows to pick a shape's takes about 0.4 s in one task at the release. How it's taken off the frame: the rows' rotation computed once, a worker, or spread over the frames the outline closes in. *M6.*
