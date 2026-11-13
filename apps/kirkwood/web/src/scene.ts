@@ -53,6 +53,16 @@
 // own, and then follows it as time runs: a zoom, a tilt, and a turn go
 // round the row, and a pan or the way home lets it go, the mark staying.
 //
+// A group drawn (the lasso's mode, the crate's): the shape's outline is
+// drawn here as the interface hands its points over, white and dashed, the
+// page's own as the marker's path is; closed around a group it's kept on
+// the ecliptic, where each of its points' rays met it, so it stays round
+// its dots under a camera a hand moves, with a chip that counts the
+// group's rows. The group's dots keep their color and every other dot
+// goes gray, by a byte a row the crate picked. The outline and the chip
+// show only on the clock's years the shape was drawn on: the group is a
+// set of rows, and once time runs its dots leave the shape.
+//
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
@@ -159,6 +169,19 @@ export interface SceneHost {
   finds(): number;
   foundPlace(years: number, integrated: boolean): ArrayLike<number>;
   foundName(): string;
+  /** A drawn group's work, a frame's worth (the crate places the rows
+   *  while a shape is drawn, and tests them against it once it's closed);
+   *  returns a count that moves when the group, or a release's fate, has
+   *  changed. Then the group, asked for when it has: its closed shape as
+   *  drawn (x and y of each point, window positions), the clock's years it
+   *  was drawn on, what its chip says, and, asked last, where its bytes
+   *  are in the crate's memory (one a row of the file, 1 in the group), or
+   *  0 with no group. */
+  pick(): number;
+  groupShape(): Float32Array;
+  groupYears(): number;
+  groupChip(): string;
+  groupBytes(): number;
   /** The camera as this frame drew it, for the interface's compass: how
    *  far it stands round from where it opened and its tilt from straight
    *  down (degrees; riding, the ride's own camera's, and between the two
@@ -170,6 +193,8 @@ export interface SceneHost {
    *  good until that memory next grows, so it's made and uploaded with no
    *  call to the crate between. */
   floats(at: number, count: number): Float32Array;
+  /** The same over `count` bytes. */
+  bytes(at: number, count: number): Uint8Array;
 }
 
 export interface SceneStats {
@@ -208,6 +233,10 @@ export interface SceneStats {
   chase: 'waiting' | 'flying' | 'following' | '';
   /** The finds the camera has acted on: the crate's count, as of the last tick. */
   finds: number;
+  /** A drawn group: its rows as the scene was handed them (0 with none),
+   *  and how much of the gray is in, 0 to 1. */
+  group: number;
+  grayed: number;
   /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
   flight: number;
   /** How far the frame had turned to Jupiter's in the last frame drawn. */
@@ -270,6 +299,16 @@ export interface BeltScene {
   nudge(right: number, up: number, frame: number): void;
   zoomStep(nearer: boolean, frame: number): void;
   home(frame: number): void;
+  /** A shape drawn in the lasso's mode, at window positions: its start,
+   *  its next point, and its release: `closed`, the outline closes and
+   *  waits for its rows; not, it's gone. */
+  drawStart(x: number, y: number): void;
+  drawMove(x: number, y: number): void;
+  drawEnd(closed: boolean): void;
+  /** The shape's outline as drawn: the x and y of each point (CSS px;
+   *  NaN where one has no place on screen), and whether it's closed;
+   *  nothing while none is drawn. */
+  outline(): { points: number[]; closed: boolean } | undefined;
   /** Projection × view (column-major), then the window's width and height. */
   viewProjection(): number[];
   /** The names the scene draws, and where (CSS px). */
@@ -466,6 +505,10 @@ const vertex = (stops: number, integrated: boolean) => /* glsl */ `
   // 1 for a row drawn alone as a plain disc: one size, one color.
   uniform float uHard;
   uniform vec3 uPlain;
+  // A drawn group: 1 for a row in it; then how much of the gray is in (0
+  // with no group, to 1), and what's left of a gray dot's opacity.
+  attribute float picked;
+  uniform vec2 uGroup;
   varying vec3 vColor;
   varying float vAlpha;
   varying float vGrow;
@@ -532,6 +575,12 @@ const vertex = (stops: number, integrated: boolean) => /* glsl */ `
     vec3 tint = uRamp[0];
     for (int k = 0; k < ${stops - 1}; k++) {
       tint = mix(tint, uRamp[k + 1], clamp((a - uStops[k]) / (uStops[k + 1] - uStops[k]), 0.0, 1.0));
+    }
+    // Color is data: a dot outside a drawn group has none, its tint's own
+    // lightness in gray, and is dimmer.
+    if (uGroup.x > 0.0 && picked < 0.5) {
+      tint = mix(tint, vec3(dot(tint, vec3(0.2126, 0.7152, 0.0722))), uGroup.x);
+      vAlpha *= mix(1.0, uGroup.y, uGroup.x);
     }
     gl_PointSize = uSize * mix(uNear.x, uLanded.x, flownBy) * vGrow * sqrt(banded);
     vColor = tint * gain * banded;
@@ -657,6 +706,18 @@ const MARKER = { dot: 4, ring: 9, name: [16, -26], line: 1.5, dim: 0.6 } as cons
  *  own: the dot is the row's), and the row's name up and to its right, as
  *  a gap's marker has its own. */
 const FOUND_MARK = { ring: 10, line: 1.5, name: [16, -26] } as const;
+/** A drawn shape's outline and its chip, as board 6 draws them, CSS px:
+ *  the line and its dashes; the chip's height, how far over the shape's
+ *  top it sits, and how far it keeps from the edges of what the panel
+ *  leaves. The chip's border and fill are a gap's chip's (`host.rs`):
+ *  neutral-700, oklch(0.371 0 0), and neutral-950, oklch(0.145 0 0). */
+const OUTLINE = { line: 1.25, dash: '5 4', opacity: 0.85 } as const;
+const CHIP = { height: 22, over: 12, keep: 8, border: '#404040', fill: '#0a0a0a' } as const;
+/** What a drawn group makes of the rest: what's left of a gray dot's
+ *  opacity and of the sky's stars (which gray dots would be taken for),
+ *  and how long the gray takes to come and go, ms
+ *  (`docs/DECISIONS.md`, "Look"). */
+const GRAY = { alpha: 0.5, sky: 1 / 3, ms: 300 } as const;
 /** What the interface adds to the scene (the ride's triangle, a picked
  *  gap's marker, its path, and its name; a found row's ring and name): white, neutral-50,
  *  oklch(0.985 0 0), the theme's foreground. */
@@ -732,7 +793,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, flight: 0, ride: 0, integrated: 0, catchingUp: false };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, group: 0, grayed: 0, flight: 0, ride: 0, integrated: 0, catchingUp: false };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -830,7 +891,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   // A found row's: the row's own name, from the rows file, set when it's found.
   const foundName = name('');
   foundName.label.style.color = ADDED;
-  const allNames = [sunName, jupiterName, ...rideNames, markerName, foundName];
+  // A drawn group's chip: its rows, counted by the crate.
+  const groupChip = name('');
+  Object.assign(groupChip.label.style, { height: `${CHIP.height}px`, padding: '0 8px', display: 'flex', alignItems: 'center', boxSizing: 'border-box', border: `1px solid ${CHIP.border}`, borderRadius: '6px', background: CHIP.fill, color: ADDED, textShadow: 'none', fontVariantNumeric: 'tabular-nums' });
+  const allNames = [sunName, jupiterName, ...rideNames, markerName, groupChip, foundName];
   // And its dashed triangle through the three points in step with
   // Jupiter: white, as what the interface adds.
   const SVG = 'http://www.w3.org/2000/svg';
@@ -878,6 +942,34 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   names.append(finding);
   /** The ring as drawn (CSS px), if it is. */
   let foundDrawn: { x: number; y: number } | undefined;
+  // A drawn shape's outline, white too, dashed as board 6 has it.
+  const outlining = document.createElementNS(SVG, 'svg');
+  outlining.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; visibility: hidden');
+  const outlineLine = document.createElementNS(SVG, 'path');
+  for (const [attribute, value] of [['fill', 'none'], ['stroke', ADDED], ['stroke-opacity', String(OUTLINE.opacity)], ['stroke-width', String(OUTLINE.line)], ['stroke-dasharray', OUTLINE.dash], ['stroke-linejoin', 'round']]) outlineLine.setAttribute(attribute!, value!);
+  outlining.append(outlineLine);
+  names.append(outlining);
+  /** The shape while it's drawn, and closed until its rows are in: its
+   *  points, window positions; and where each closed point's ray met the
+   *  ecliptic through the camera it was drawn through. */
+  let shape: { points: number[]; closed: boolean; anchors?: ([number, number] | undefined)[]; through?: string } | undefined;
+  /** The group the crate last handed over: the years its shape was drawn
+   *  on; the shape as drawn, and the camera it was drawn through
+   *  (`cameraNow`); and the shape on the ecliptic, for any other camera.
+   *  (A point drawn over the sky, or past the reach, has no place of its
+   *  own on the ecliptic: through the camera it was drawn through, the
+   *  outline is the points themselves.) */
+  let group: { years: number; points: number[]; through: string; anchors: ([number, number] | undefined)[] } | undefined;
+  /** The fixed frame's camera and what it draws into, as one text: the
+   *  same text, the same picture of the ecliptic. */
+  const cameraNow = (inset: number) => [view.x, view.y, view.distance, view.tilt, view.bearing, view.roll, inset, innerWidth, innerHeight].join();
+  let groupChanges = 0;
+  /** How much of the gray is in, where it's headed, and the page clock
+   *  when it last moved. */
+  let [grayed, grayTo, grayAt] = [0, 0, NaN];
+  /** The outline as drawn, and the line as last written. */
+  let outlineDrawn: { points: number[]; closed: boolean } | undefined;
+  let outlineD = '';
   if (alone) names.hidden = true;
   // A name's size is read here and kept, never in a frame (a read there is
   // a layout every frame): now, and again when the interface's face
@@ -914,6 +1006,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       uGroupsE: { value: host.rideGroups()[4]! },
       uRideLight: { value: new Vector3(...RIDE_LIGHT) },
       uMarked: { value: new Vector3(0, knob('markerDim', MARKER.dim), 0) },
+      uGroup: { value: new Vector2(0, knob('gray', GRAY.alpha)) },
       uIntegrated: { value: 0 },
       uFlight: { value: 0 },
       uAxes: { value: new Vector4(...Array.from(host.axes())) },
@@ -1456,6 +1549,55 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     put(foundName, at && where ? at : ORIGIN, () => FOUND_MARK.name[0], FOUND_MARK.name[1], where ? 1 : 0, innerWidth - frame.inset);
   };
 
+  /** A drawn shape's outline, and a group's chip. While it's drawn, and
+   *  closed until its rows are in, the outline is its points as the
+   *  pointer gave them. Round a group it's on the ecliptic, through the
+   *  camera as it is, and only on the clock's years it was drawn on, in
+   *  the fixed frame, in space: its dots have left it anywhere else. */
+  const outline = (frame: Frame) => {
+    let points: number[] | undefined;
+    const held = !shape && !!group && frame.years === group.years && frame.space >= 1 && frame.ride <= 0;
+    if (shape) points = shape.points;
+    else if (held && group!.through === cameraNow(frame.inset)) points = group!.points;
+    else if (held) {
+      points = group!.anchors.flatMap((anchor) => {
+        const where = anchor && onScreen(new Vector3(...inScene(anchor[0], anchor[1], 0)));
+        return where ? [Math.round(where[0] * 10) / 10, Math.round(where[1] * 10) / 10] : [NaN, NaN];
+      });
+    }
+    const closed = held || !!shape?.closed;
+    const line: string[] = [];
+    let pen = false;
+    for (let point = 0; points && point < points.length; point += 2) {
+      // (A point with no place on screen breaks the line, as a path's does.)
+      if (Number.isNaN(points[point]!)) pen = false;
+      else {
+        line.push(`${pen ? 'L' : 'M'}${points[point]} ${points[point + 1]}`);
+        pen = true;
+      }
+    }
+    const whole = !!points && !points.some(Number.isNaN);
+    const d = line.length > 1 ? `${line.join('')}${closed && whole ? 'Z' : ''}` : '';
+    if (!!d !== !!outlineD) outlining.style.visibility = d ? 'visible' : 'hidden';
+    if (d !== outlineD) outlineLine.setAttribute('d', (outlineD = d));
+    outlineDrawn = d && points ? { points, closed } : undefined;
+    // The chip: over the shape's top, centered on it, inside what the
+    // panel leaves and clear of the row of actions.
+    let [left, right, top] = [Infinity, -Infinity, Infinity];
+    for (let point = 0; held && d && point < points!.length; point += 2) {
+      if (Number.isNaN(points![point]!)) continue;
+      [left, right, top] = [Math.min(left, points![point]!), Math.max(right, points![point]!), Math.min(top, points![point + 1]!)];
+    }
+    const chipped = held && Number.isFinite(top) && right >= 0 && left <= innerWidth - frame.inset && top <= innerHeight;
+    if (groupChip.shown !== chipped) groupChip.label.style.visibility = (groupChip.shown = chipped) ? 'visible' : 'hidden';
+    if (!chipped) return;
+    const room = innerWidth - frame.inset;
+    const [x, y] = [Math.round(Math.min(Math.max((left + right - groupChip.width) / 2, CHIP.keep), Math.max(CHIP.keep, room - groupChip.width - CHIP.keep))), Math.round(Math.max(top - CHIP.over - CHIP.height, CHIP.keep))];
+    if (x === groupChip.left && y === groupChip.top) return;
+    [groupChip.left, groupChip.top] = [x, y];
+    groupChip.label.style.transform = `translate(${x}px, ${y}px)`;
+  };
+
   const render = (frame: Frame) => {
     dirty = false;
     // The camera's flight is from the last frame drawn at rest, at either
@@ -1496,6 +1638,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     const marking_ = material.uniforms.uMarked!.value as Vector3;
     [marking_.x, marking_.z] = [frame.marked, (material.uniforms.uRide!.value as number) * (1 - frame.picked)];
     (material.uniforms.uPlot!.value as Vector4).set(...frame.plot);
+    (material.uniforms.uGroup!.value as Vector2).x = grayed;
     // The Hildas and the Trojans where the crate's integration has them:
     // their places uploaded when the clock has moved, from a view over
     // the crate's memory made here (nothing has been asked of the crate
@@ -1513,7 +1656,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     leave(frame.space);
     // `?rideSky`, to be looked at: what the ride leaves of the sky, which
     // then turns with the frame.
-    const starry = rideSky > 0 ? frame.space * (1 - frame.ride * (1 - rideSky)) : frame.sky;
+    // Round a drawn group the stars dim: gray dots would be taken for them.
+    const starry = (rideSky > 0 ? frame.space * (1 - frame.ride * (1 - rideSky)) : frame.sky) * (1 - (1 - GRAY.sky) * grayed);
     if (starry !== skyLeft) sky?.setFade((skyLeft = starry));
     sun.material.uniforms.uSize!.value = SUN_PX * pixelRatio;
     jupiter.material.uniforms.uSize!.value = JUPITER_PX * pixelRatio;
@@ -1541,6 +1685,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (!alone) furnish(frame);
     if (!alone) mark(frame);
     if (!alone) found(frame);
+    if (!alone) outline(frame);
     // `?glass`: the blur behind the panel is as wide as the panel is now.
     if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
     stats.frames++;
@@ -1548,12 +1693,15 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     stats.flight = frame.flight;
     stats.ride = frame.ride;
     stats.found = frame.found;
+    stats.grayed = grayed;
     tell(frame.ride);
   };
   /** The belt's room on the GPU: a buffer a column, and what draws from them. */
   interface Belt {
     rows: number;
     buffers: WebGLBuffer[];
+    /** A byte a row: 1 in a drawn group. */
+    picked: WebGLBuffer;
     draws: Points<BufferGeometry<NormalOrGLBufferAttributes>>[];
   }
   let belt: Belt | undefined;
@@ -1563,6 +1711,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
    *  `?only`'s), `apart` from the belt's own draw while places are in. */
   interface Integrated {
     rows: number;
+    /** Which of the file's rows they are, and each one's byte of a drawn
+     *  group. */
+    list: Uint32Array;
+    picked: BufferAttribute;
     places: WebGLBuffer;
     draws: Points<BufferGeometry<NormalOrGLBufferAttributes>>[];
     drawn: number;
@@ -1582,12 +1734,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     gl.bindBuffer(gl.ARRAY_BUFFER, places);
     gl.bufferData(gl.ARRAY_BUFFER, count * 12, gl.DYNAMIC_DRAW);
     const attributes = INTEGRATED_COLUMNS.map((attribute, column) => [attribute, new BufferAttribute(columns.slice(column * count, (column + 1) * count), 1)] as const);
+    const picked = new BufferAttribute(new Uint8Array(count), 1);
     // All of them; or, of rows drawn alone, those that are among them.
     const ranges: [number, number][] = alone ? alone.flatMap((row): [number, number][] => (rows.includes(row) ? [[rows.indexOf(row), 1]] : [])) : [[0, count]];
     const draws = ranges.map(([start, drawn]) => {
       const geometry = new BufferGeometry<NormalOrGLBufferAttributes>();
       for (const [attribute, values] of attributes) geometry.setAttribute(attribute, values);
       geometry.setAttribute('placed', new GLBufferAttribute(places, gl.FLOAT, 3, 4, count));
+      geometry.setAttribute('picked', picked);
       geometry.setDrawRange(start, drawn);
       const points = new Points(geometry, integratedMaterial);
       points.frustumCulled = false;
@@ -1595,7 +1749,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       dust.add(points);
       return points;
     });
-    integrated = { rows: count, places, draws, drawn: ranges.reduce((sum, range) => sum + range[1], 0), years: NaN, apart: false };
+    integrated = { rows: count, list: rows, picked, places, draws, drawn: ranges.reduce((sum, range) => sum + range[1], 0), years: NaN, apart: false };
   };
   /** The belt's first `rows` rows are in its buffers: what's drawn of it. */
   const shown = (belt: Belt, rows: number) => {
@@ -1610,8 +1764,56 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       stats.points += count;
     });
   };
+  /** The crate's group changed: its bytes into the belt's buffer, the
+   *  gray headed in or out, and the outline the group's or gone. Asks the
+   *  crate everything first and for the bytes' address last: the view over
+   *  them is uploaded with no call to it between. */
+  const regroup = (now: number) => {
+    const [points, years, chip] = [host.groupShape(), host.groupYears(), host.groupChip()];
+    const at = belt ? host.groupBytes() : 0;
+    if (at && belt) {
+      const bytes = host.bytes(at, belt.rows);
+      gl.bindBuffer(gl.ARRAY_BUFFER, belt.picked);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, bytes);
+      if (integrated) {
+        const picked = integrated.picked.array as Uint8Array;
+        for (let row = 0; row < integrated.rows; row++) picked[row] = bytes[integrated.list[row]!]!;
+        integrated.picked.needsUpdate = true;
+      }
+      let count = 0;
+      for (let row = 0; row < bytes.length; row++) count += bytes[row]!;
+      stats.group = count;
+      // On the ecliptic, where each point's ray met it when the shape was
+      // closed (or, with no shape of this page's, meets it now).
+      const anchors = shape?.anchors ?? Array.from({ length: points.length / 2 }, (_, point) => ground(points[point * 2]!, points[point * 2 + 1]!, REACH, true));
+      group = { years, points: Array.from(points), through: shape?.through ?? cameraNow(last?.inset ?? 0), anchors };
+      groupChip.label.textContent = groupChip.text = chip;
+      [groupChip.width, groupChip.height] = [groupChip.label.offsetWidth, groupChip.label.offsetHeight];
+    } else {
+      // (The bytes stay as they were while the gray goes out.)
+      group = undefined;
+      stats.group = 0;
+    }
+    // A release that got its rows, or none, or was let go: no shape.
+    if (!shape || shape.closed) shape = undefined;
+    [grayTo, grayAt] = [group ? 1 : 0, now];
+    dirty = true;
+  };
+
   const tick = (now: number) => {
     requestAnimationFrame(tick);
+    // A drawn group's work, a frame's worth; and the group, when it changed.
+    const changes = host.pick();
+    if (changes !== groupChanges) {
+      groupChanges = changes;
+      regroup(now);
+    }
+    if (grayed !== grayTo) {
+      const step = Math.max(0, now - grayAt) / GRAY.ms;
+      grayed = grayTo > grayed ? Math.min(grayTo, grayed + step) : Math.max(grayTo, grayed - step);
+      grayAt = now;
+      dirty = true;
+    }
     const frame = ask(now);
     // The camera is a hand's only in space, at rest in the fixed frame or
     // in the one that turns: a flight of the scene's own takes it, and a
@@ -1644,6 +1846,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         gl.bufferData(gl.ARRAY_BUFFER, rows * 4, gl.STATIC_DRAW);
         return buffer;
       });
+      // And a byte a row for a drawn group: none in one, until one is drawn.
+      const picked = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, picked);
+      gl.bufferData(gl.ARRAY_BUFFER, rows, gl.DYNAMIC_DRAW);
       // One geometry for the belt, drawn as far as its rows are in; for
       // rows drawn alone, one a row, each a draw of that one point from
       // the same buffers, once its block is in.
@@ -1652,6 +1858,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         if (start >= rows) throw new Error(`?only: no row ${start}; there are ${rows}`);
         const geometry = new BufferGeometry<NormalOrGLBufferAttributes>();
         COLUMNS.forEach((attribute, column) => geometry.setAttribute(attribute, new GLBufferAttribute(buffers[column]!, gl.FLOAT, 1, 4, rows)));
+        geometry.setAttribute('picked', new GLBufferAttribute(picked, gl.UNSIGNED_BYTE, 1, 1, rows));
         // No `position` attribute to count by: the range says how many.
         geometry.setDrawRange(start, count);
         const points = new Points(geometry, material);
@@ -1660,7 +1867,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         dust.add(points);
         return points;
       });
-      belt = { rows, buffers, draws };
+      belt = { rows, buffers, picked, draws };
     },
     addRows(blocks, through, now) {
       if (!belt) throw new Error('rows before the belt has its room');
@@ -1692,7 +1899,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         dust.remove(points);
         points.geometry.dispose();
       }
-      for (const buffer of belt.buffers) gl.deleteBuffer(buffer);
+      for (const buffer of [...belt.buffers, belt.picked]) gl.deleteBuffer(buffer);
       belt = undefined;
       if (integrated) {
         for (const points of integrated.draws) {
@@ -1760,6 +1967,31 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       else if (handOf(frame)?.fly(() => opened, performance.now())) chase = '';
       moving();
     },
+    // (The outline is the page's own line: it's written here, and no dot
+    // is drawn again for it.)
+    drawStart(x, y) {
+      shape = { points: [x, y], closed: false };
+      if (last && !alone) outline(last);
+    },
+    drawMove(x, y) {
+      if (!shape || shape.closed) return;
+      shape.points.push(x, y);
+      // (A point more on a line already drawn is that much more of it
+      // written: not every point again, at each one.)
+      if (outlineD && outlineDrawn && !alone) outlineLine.setAttribute('d', (outlineD += `L${x} ${y}`));
+      else if (last && !alone) outline(last);
+    },
+    drawEnd(closed) {
+      if (!shape) return;
+      if (closed) {
+        const points = shape.points;
+        // Where each point's ray meets the ecliptic, through the camera
+        // the crate picks through: the outline is kept there.
+        shape = { points, closed, through: cameraNow(last?.inset ?? 0), anchors: Array.from({ length: points.length / 2 }, (_, point) => ground(points[point * 2]!, points[point * 2 + 1]!, REACH, true)) };
+      } else shape = undefined;
+      if (last && !alone) outline(last);
+    },
+    outline: () => (outlineDrawn && !names.hidden && space > 0 ? outlineDrawn : undefined),
     viewProjection() {
       place(last?.inset ?? 0, last?.ride);
       return [...new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements, innerWidth, innerHeight];

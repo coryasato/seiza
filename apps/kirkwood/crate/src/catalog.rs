@@ -113,6 +113,23 @@ impl Catalog {
         )
     }
 
+    /// A row's number in a column the table sorts by (`table::SORTABLE`),
+    /// as its cell holds it; NaN where the cell is empty, or the column
+    /// isn't one of those.
+    pub fn number(&self, row: usize, column: usize) -> f32 {
+        match column {
+            column::H => self.elements.get(Element::H, row),
+            column::DIAMETER => self.rows.diameter(row),
+            column::ALBEDO => self.rows.albedo(row),
+            column::A => self.elements.get(Element::A, row),
+            column::E => self.elements.get(Element::E, row),
+            column::I => self.elements.get(Element::I, row),
+            column::Q => self.q(row),
+            column::PER_Y => self.period(row).unwrap_or(f32::NAN),
+            _ => f32::NAN,
+        }
+    }
+
     /// The cell at `row` and `column` (see [`column`]).
     pub fn value(&self, row: usize, column: usize) -> CellValue<'_> {
         let text = |text: String| CellValue::Text(text.into());
@@ -183,7 +200,11 @@ pub fn columns() -> Vec<TallTableColumn> {
     NAMES
         .into_iter()
         .zip(kinds)
-        .map(|(name, kind)| TallTableColumn::new(name, kind))
+        .enumerate()
+        // The ones the table sorts by have an arrow.
+        .map(|(column, (name, kind))| {
+            TallTableColumn::new(name, kind).sortable(crate::table::SORTABLE.contains(&column))
+        })
         .collect()
 }
 

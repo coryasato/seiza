@@ -184,6 +184,42 @@ pub fn drag_end(x: f32, y: f32) {
     let _ = (x, y);
 }
 
+/// A shape begun in the lasso's mode, at a window position (CSS px): the
+/// scene draws its outline, as it's drawn.
+pub fn draw_start(x: f32, y: f32) {
+    #[cfg(target_family = "wasm")]
+    crate::web::scene_draw_start(x, y);
+    #[cfg(not(target_family = "wasm"))]
+    let _ = (x, y);
+}
+
+/// The shape's next point.
+pub fn draw_move(x: f32, y: f32) {
+    #[cfg(target_family = "wasm")]
+    crate::web::scene_draw_move(x, y);
+    #[cfg(not(target_family = "wasm"))]
+    let _ = (x, y);
+}
+
+/// The shape's release: `closed`, the outline closes and waits for its
+/// rows; not, it's gone (a press and a release in one place).
+pub fn draw_end(closed: bool) {
+    #[cfg(target_family = "wasm")]
+    crate::web::scene_draw_end(closed);
+    #[cfg(not(target_family = "wasm"))]
+    let _ = closed;
+}
+
+/// The scene's camera as it is: projection × view (column-major), then
+/// the window's width and height (CSS px). Empty off the web, or before
+/// the scene is up.
+pub fn camera() -> Vec<f64> {
+    #[cfg(target_family = "wasm")]
+    return crate::web::scene_camera();
+    #[cfg(not(target_family = "wasm"))]
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Frame, drag_end, drag_move, drag_start, dragging, modifiers};

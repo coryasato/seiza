@@ -161,6 +161,19 @@ pub fn resume_after_sort() {
     }
 }
 
+/// The lasso's mode begins: a shape is drawn over dots that hold still,
+/// so time pauses as it does for the sort, and stays paused on the group
+/// (`docs/DECISIONS.md`, "Scene").
+pub fn pause_for_group() {
+    pause_for_sort();
+}
+
+/// The mode is left, or the group let go: time runs again, if the mode is
+/// what paused it and the time control hasn't been pressed since.
+pub fn resume_after_group() {
+    resume_after_sort();
+}
+
 fn run(running: bool, sorted: bool) {
     let clock = CLOCK.get();
     let years = if running && ended() {

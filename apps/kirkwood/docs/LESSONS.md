@@ -293,3 +293,15 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface" and "Input"; 
 - **A press on the handle before the rows are in opens nothing,** and the belt is drawn before the rows file arrives: the first run of the check pressed too early and waited a minute for a table that was never asked for.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface" and "Input"; the evidence: `PLAN.md`, M6's checks A1 to A4.
+
+## M6 part B: a group drawn, and its rows (2026-11-13)
+
+- **Pausing time is what took the pick off the frame.** The open question listed three ways (the rotations kept, a worker, the frames the outline closes in), all for work that starts at the release. But the mode pauses the clock, so nothing a row's place depends on changes while the shape is drawn: the placing, nine tenths of the work, is done before there is a shape to test, in the frames the visitor spends drawing.
+- **The plan's check and the board disagreed, and the board was right.** B1 said the release gives time back; board 6 says paused. With time back at a year a second there is nothing for the chip and the outline to be round a second later. It's left paused and written down for the owner to overturn.
+- **A line of SVG redrew a million and a half dots a point.** The outline's points set the scene dirty, as everything the scene is handed does, and each point of the shape drew the whole belt. Nothing failed: the check's frames said it (48 of 137 over 25 ms while drawing). What's the page's own to draw doesn't need a frame of the scene's.
+- **The check's own screenshot was the stall it reported.** A second-long frame between the release and the group was a PNG decoded in the page by the check itself. Anything a check times has to be clear of the check's own work in the page.
+- **Gray dots read blue.** The look adds the page's own color to every pixel, and over a dim gray dot that floor is most of the pixel's color: the first reading of "no hue" was 0.13. The number is taken above the page's color, where it is 0.00.
+- **The last label was a promise.** The find's check reads the found row's name as the last of the scene's labels; a chip added after it failed a check of something untouched.
+- **The table had no way to read a filter until it could sort.** The app never built `live`, whose `invalidate_rows` the spike's filter used; `sort`, needed for B4 anyway, forgets every page when the same sort is set again, and that is the filter.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface", and "Table"; the evidence: `PLAN.md`, M6's checks B1 to B4.

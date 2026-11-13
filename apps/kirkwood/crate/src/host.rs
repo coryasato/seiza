@@ -15,13 +15,18 @@
 //! selectable, and the selected row is marked on its dot and flown to
 //! ([`find`]). "Find Ceres", the third action, is that for the first row.
 //!
+//! A group is drawn in the scene: "Draw a group", the fourth action, is the
+//! lasso's mode, where a drag on the surface draws a shape ([`group`]); the
+//! rows under it are the table's rows until the action is pressed back, or
+//! "Show all rows" in the panel is.
+//!
 //! Its first frame holds no data: the title, the time control, and the
 //! handle saying its rows are loading. The files arrive after it
 //! ([`Host::progress`], then [`Host::loaded`] or [`Host::failed`]), and the
 //! scene says when the belt is drawn ([`Host::belt_drawn`]), which is when
 //! time starts to move.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::LazyLock;
@@ -33,7 +38,9 @@ use gpui_kit::component::Sizable as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use seiza_tall_table::{Paging, Selectable, TallTable, TallTableEvent, TallTableSelection};
+use seiza_tall_table::{
+    Paging, Selectable, Sort, SortDirection, TallTable, TallTableEvent, TallTableSelection,
+};
 use tall_table_bridge::Publish;
 
 use crate::catalog::{Catalog, columns};
@@ -41,11 +48,12 @@ use crate::clock;
 use crate::find;
 use crate::flight;
 use crate::gap;
+use crate::group;
 use crate::layout::{self, Plot};
 use crate::ramp;
 use crate::ride;
 use crate::scene;
-use crate::table::{Source, Table};
+use crate::table::{Source, Table, View};
 
 /// The panel's width, CSS px.
 const PANEL_WIDTH: f32 = 560.;
@@ -73,6 +81,10 @@ pub const TIME_TARGET: &str = "time";
 pub const SORT_TARGET: &str = "sort";
 pub const RIDE_TARGET: &str = "ride";
 pub const FIND_TARGET: &str = "find";
+pub const LASSO_TARGET: &str = "lasso";
+/// The panel's way back from a group, and its count of the group's rows.
+pub const SHOW_ALL_TARGET: &str = "show-all";
+pub const GROUP_COUNT_TARGET: &str = "group-count";
 /// The line the panel says of a found row that has no dot.
 pub const NO_DOT_TARGET: &str = "no-dot";
 /// The row "Find Ceres" finds: the file's first.
@@ -122,7 +134,7 @@ const UNDER_TITLE: f64 = 8.;
 const CORNER_IN: f32 = 24.;
 const CONTROLS_WIDTH: f32 = 320.;
 const CONTROLS_BOTTOM: f32 = 72.;
-const HINT_ROOM: f32 = 1100.;
+const HINT_ROOM: f32 = 1215.;
 /// How far the controls' list keeps from the table's handle.
 const CONTROLS_CLEAR: f32 = 8.;
 /// The compass: its button, the ring's radius (flattened by the camera's
@@ -206,6 +218,9 @@ pub struct Host {
     /// The rows the table is over: a found row's name, and whether it has
     /// a dot, are read from them.
     catalog: Option<Rc<Catalog>>,
+    /// Which of those rows the table reads, and in what order: shared
+    /// with the table's source.
+    view: Rc<RefCell<View>>,
     /// Counted from the files.
     rows: usize,
     panel_open: bool,
@@ -242,6 +257,7 @@ impl Host {
             scene_failed: None,
             table: None,
             catalog: None,
+            view: Rc::default(),
             rows: 0,
             panel_open: false,
             panel_t: 0.0,
@@ -336,6 +352,17 @@ impl Host {
         if keystroke.key == "escape" && self.controls_open {
             self.toggle_controls(cx);
             cx.stop_propagation();
+            return;
+        }
+        // And leaves the lasso's mode, a shape half drawn with it.
+        if keystroke.key == "escape" && group::mode() {
+            self.leave_mode(cx);
+            cx.stop_propagation();
+            return;
+        }
+        // The camera holds still under a shape from its press until its
+        // rows are in.
+        if group::drawing() || group::pending() {
             return;
         }
         // The rest are the scene's, where the corner is a hand's to press.
@@ -452,10 +479,15 @@ impl Host {
         let rows = self.rows as u64;
         self.catalog = Some(catalog.clone());
         let table = cx.new(|cx| {
-            let mut table =
-                Table::new(Source::new(catalog), columns(), rows, Paging::default(), cx)
-                    .probe_frames(probing)
-                    .probe_cells(probe_cells);
+            let mut table = Table::new(
+                Source::new(catalog, self.view.clone()),
+                columns(),
+                rows,
+                Paging::default(),
+                cx,
+            )
+            .probe_frames(probing)
+            .probe_cells(probe_cells);
             // A press picks a row, whichever cell it lands on: the row is
             // what the scene has a dot for.
             table.set_selectable(Selectable::none().rows(true), cx);
@@ -510,7 +542,14 @@ impl Host {
     fn selected(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
         match selection {
             Some(selection) if selection.anchor().0 != selection.head().0 => {}
-            Some(selection) => self.find(selection.head().0 as usize, cx),
+            // (A row of the table: of a group, or sorted, another of the
+            // file's.)
+            Some(selection) => {
+                let row = self.view.borrow().file_row(selection.head().0 as usize);
+                if let Some(row) = row {
+                    self.find(row, cx);
+                }
+            }
             None => {
                 find::let_go();
                 cx.notify();
@@ -541,6 +580,11 @@ impl Host {
             if ride::riding() {
                 ride::toggle();
             }
+            // The lasso's mode is let go too. A group that's held isn't:
+            // the row found is one of its rows.
+            if group::mode() {
+                self.leave_mode(cx);
+            }
         }
         cx.notify();
     }
@@ -557,12 +601,159 @@ impl Host {
         }
     }
 
-    /// For the checks: the table scrolled to `row` and that row selected,
-    /// and so found, as "Find Ceres" does for the first.
+    /// For the checks: the table scrolled to the file's `row` and that row
+    /// selected, and so found, as "Find Ceres" does for the first. Nothing
+    /// for a row the table doesn't hold (it isn't in the group).
     pub fn jump(&mut self, row: usize, cx: &mut Context<Self>) {
-        if let Some(table) = self.table.clone().filter(|_| row < self.rows) {
-            table.update(cx, |table, cx| table.jump_to(row as u64, cx));
+        let at = self.view.borrow().at(row).filter(|_| row < self.rows);
+        if let (Some(table), Some(at)) = (self.table.clone(), at) {
+            table.update(cx, |table, cx| table.jump_to(at as u64, cx));
         }
+    }
+
+    /// For the checks: the table sorted by a column (and whether
+    /// descending), as a press on its arrow sorts it, or back in the
+    /// file's order. Whether it was.
+    pub fn sort_table(&mut self, sort: Option<(usize, bool)>, cx: &mut Context<Self>) -> bool {
+        let sort = sort.map(|(column, descending)| {
+            Sort::new(
+                column,
+                if descending {
+                    SortDirection::Descending
+                } else {
+                    SortDirection::Ascending
+                },
+            )
+        });
+        if sort.is_some_and(|sort| !crate::table::SORTABLE.contains(&sort.column)) {
+            return false;
+        }
+        self.table
+            .clone()
+            .is_some_and(|table| table.update(cx, |table, cx| table.set_sort(sort, cx).is_ok()))
+    }
+
+    /// For the checks: the table's rows, and its sort (the column, and
+    /// whether it's descending).
+    pub fn table_rows(&self, cx: &App) -> Option<(u64, Option<(usize, bool)>)> {
+        self.table.as_ref().map(|table| {
+            let sort = table
+                .read(cx)
+                .sort()
+                .map(|sort| (sort.column, sort.direction == SortDirection::Descending));
+            (self.view.borrow().rows(self.rows) as u64, sort)
+        })
+    }
+
+    /// For the checks: a file row's number in a column the table sorts by.
+    pub fn number(&self, row: usize, column: usize) -> f32 {
+        self.catalog
+            .as_ref()
+            .filter(|catalog| row < catalog.rows())
+            .map_or(f32::NAN, |catalog| catalog.number(row, column))
+    }
+
+    /// For the checks: the file row at a row of the table.
+    pub fn file_row(&self, at: usize) -> Option<usize> {
+        let view = self.view.borrow();
+        view.file_row(at).filter(|_| at < view.rows(self.rows))
+    }
+
+    /// "Draw a group": the lasso's mode begins, where a drag on the scene
+    /// draws a shape and time is paused under it; or, pressed in the mode
+    /// or with a group held, it is let go: every row, every color, and
+    /// time as it was. One action at a time: the dots fly back from the
+    /// axes, the frame stops turning, and a found row is let go, as the
+    /// mode begins (`docs/DECISIONS.md`, "Interface").
+    fn toggle_lasso(&mut self, cx: &mut Context<Self>) {
+        if group::held() {
+            self.show_all(cx);
+        } else if group::mode() || group::pending() {
+            self.leave_mode(cx);
+        } else if self.can_draw() {
+            self.lose(cx);
+            if flight::sorted() {
+                flight::toggle();
+                clock::resume_after_sort();
+            }
+            if ride::riding() {
+                ride::toggle();
+            }
+            group::enter();
+            clock::pause_for_group();
+        }
+        cx.notify();
+    }
+
+    /// Whether a group can be drawn: every row is drawn, and there's a
+    /// table for its rows.
+    fn can_draw(&self) -> bool {
+        matches!(self.belt, Some(Belt::Whole { .. }))
+            && self.scene_failed.is_none()
+            && self.table.is_some()
+    }
+
+    /// The lasso's mode is left with no group: a shape half drawn goes,
+    /// and time is given back.
+    fn leave_mode(&mut self, cx: &mut Context<Self>) {
+        if group::drawing() {
+            scene::draw_end(false);
+        }
+        group::leave();
+        clock::resume_after_group();
+        cx.notify();
+    }
+
+    /// A release got its rows (`web::scene_pick`): with a group, the
+    /// table is its rows; with none under the shape, the mode goes on.
+    pub fn group_picked(&mut self, cx: &mut Context<Self>) {
+        if group::held() {
+            self.refilter(cx);
+        }
+        cx.notify();
+    }
+
+    /// "Show all rows", and the action pressed back: the group is let go.
+    /// Every row is the table's again and every dot has its color; time
+    /// runs again if the mode paused it.
+    fn show_all(&mut self, cx: &mut Context<Self>) {
+        if !group::held() {
+            return;
+        }
+        group::let_go();
+        clock::resume_after_group();
+        self.refilter(cx);
+        cx.notify();
+    }
+
+    /// The group, and the mode, let go by another action's press.
+    fn drop_group(&mut self, cx: &mut Context<Self>) {
+        if group::held() {
+            self.show_all(cx);
+        } else if group::mode() || group::pending() {
+            self.leave_mode(cx);
+        }
+    }
+
+    /// The table reads the group's rows, or with none every row: the count,
+    /// and every page again, in the sort it had (`docs/DECISIONS.md`,
+    /// "Table"). It goes to the top, and nothing is selected.
+    fn refilter(&mut self, cx: &mut Context<Self>) {
+        let Some(table) = self.table.clone() else {
+            return;
+        };
+        self.view.borrow_mut().set_group(group::rows());
+        let rows = self.view.borrow().rows(self.rows) as u64;
+        // A found row is the table's selected row, which the new rows
+        // clear.
+        find::let_go();
+        table.update(cx, |table, cx| {
+            table.select(None, cx);
+            table.set_rows(rows, cx);
+            let sort = table.sort();
+            // (Its own sort again: never refused.)
+            let _ = table.set_sort(sort, cx);
+        });
     }
 
     /// "Find Ceres": the table's first row is selected, and so found; or,
@@ -575,8 +766,14 @@ impl Host {
                 scene::home(frame);
             }
         } else if let Some(table) = self.table.clone().filter(|_| self.can_act()) {
+            // A group Ceres isn't in is let go: the first row is every
+            // row's first.
+            if self.view.borrow().at(CERES).is_none() {
+                self.show_all(cx);
+            }
+            let at = self.view.borrow().at(CERES).unwrap_or(CERES);
             // (The table's own row, scrolled to: found by its `Selected`.)
-            table.update(cx, |table, cx| table.jump_to(CERES as u64, cx));
+            table.update(cx, |table, cx| table.jump_to(at as u64, cx));
         }
         cx.notify();
     }
@@ -596,6 +793,9 @@ impl Host {
             // The corner leaves with space, and an open list with it: it
             // isn't there to be shut on the axes.
             self.controls_open = false;
+            // A group, or the lasso's mode, is let go, and time with it,
+            // before the sort pauses it again.
+            self.drop_group(cx);
             clock::pause_for_sort();
             // A found row is let go: its mark is space's.
             self.lose(cx);
@@ -626,8 +826,9 @@ impl Host {
         // the camera is back, the ride opens as board 2 has it.
         if ride::riding() {
             gap::let_go();
-            // One action at a time: a found row is let go.
+            // One action at a time: a found row is let go, and a group.
             self.lose(cx);
+            self.drop_group(cx);
         }
         // One action at a time: the dots fly back to space as the frame
         // starts to turn, and time, which the sort paused, runs again.
@@ -655,6 +856,7 @@ impl Host {
         } else {
             gap::pick(picked);
             self.lose(cx);
+            self.drop_group(cx);
             if !ride::riding() {
                 ride::toggle();
             }
@@ -926,8 +1128,16 @@ impl Host {
                         .label(if running { "Pause" } else { "Run" })
                         .tooltip(tooltip)
                         .disabled(failed)
-                        .on_click(cx.listener(|_, _, _, cx| {
-                            clock::set_running(!clock::running());
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            // Run in the lasso's mode, the dots would move
+                            // under the shape: the mode is left. (A group
+                            // that's held stays lit as its dots drift apart.)
+                            if group::mode() || group::pending() {
+                                this.leave_mode(cx);
+                                clock::set_running(true);
+                            } else {
+                                clock::set_running(!clock::running());
+                            }
                             cx.notify();
                         })),
                 ),
@@ -971,6 +1181,15 @@ impl Host {
                 find::marked() == Some(CERES),
                 self.table.is_some(),
                 Self::toggle_find,
+                cx,
+            ))
+            // The lasso: pressed in its mode, and while a group is held.
+            .child(self.render_action(
+                "Draw a group",
+                LASSO_TARGET,
+                group::mode() || group::pending() || group::held(),
+                self.can_draw(),
+                Self::toggle_lasso,
                 cx,
             ));
         div()
@@ -1694,12 +1913,48 @@ impl Host {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_size(px(14.))
-                            .child(format!("{} rows", grouped(self.rows))),
-                    )
+                    .children(match group::rows() {
+                        // Board 7's header: the group's rows, of the
+                        // file's, and the way back to them.
+                        Some(rows) => vec![
+                            div()
+                                .relative()
+                                .text_size(px(14.))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(format!("{} rows in the shape", grouped(rows.len())))
+                                .child(target(GROUP_COUNT_TARGET))
+                                .into_any_element(),
+                            div()
+                                .flex_1()
+                                .text_size(px(12.))
+                                .text_color(theme.muted_foreground)
+                                .child(format!("of {}", grouped(self.rows)))
+                                .into_any_element(),
+                            div()
+                                .id("show-all")
+                                .relative()
+                                .h(px(24.))
+                                .px_2()
+                                .flex()
+                                .items_center()
+                                .rounded(px(6.))
+                                .bg(theme.secondary)
+                                .hover(|button| button.bg(theme.secondary_hover))
+                                .cursor_pointer()
+                                .text_size(px(14.))
+                                .on_click(cx.listener(|this, _, _, cx| this.show_all(cx)))
+                                .child("Show all rows")
+                                .child(target(SHOW_ALL_TARGET))
+                                .into_any_element(),
+                        ],
+                        None => vec![
+                            div()
+                                .flex_1()
+                                .text_size(px(14.))
+                                .child(format!("{} rows", grouped(self.rows)))
+                                .into_any_element(),
+                        ],
+                    })
                     .child(
                         div().relative().child(target(CLOSE_TARGET)).child(
                             Button::new("close")
@@ -1757,7 +2012,16 @@ impl Render for Host {
                     .id("scene")
                     .absolute()
                     .inset_0()
+                    // In the lasso's mode a drag here draws.
+                    .when(group::mode(), |surface| {
+                        surface.cursor(CursorStyle::Crosshair)
+                    })
                     .on_scroll(|event: &ScrollEvent, _, _| {
+                        // The camera holds still under a shape, from its
+                        // press until its rows are in.
+                        if group::drawing() || group::pending() {
+                            return;
+                        }
                         // The camera is space's: with the dots headed
                         // for the axes, on them, or on their way back,
                         // a wheel moves nothing. Nor while the camera
@@ -1787,6 +2051,15 @@ impl Render for Host {
                             return;
                         };
                         let (x, y) = (event.position.x.into(), event.position.y.into());
+                        // In the lasso's mode the left button draws a
+                        // shape, through the fixed frame's camera at
+                        // rest, and no button moves it.
+                        if group::mode() || group::pending() {
+                            if button == 0 && frame == scene::Frame::Fixed && group::press(x, y) {
+                                scene::draw_start(x, y);
+                            }
+                            return;
+                        }
                         let held = held(event.modifiers);
                         let plain = button == 0 && held == 0;
                         // (Asked of every plain press, so the next knows
@@ -1917,8 +2190,21 @@ fn drag_listeners() -> impl IntoElement {
                     scene::press();
                 }
             });
-            window.on_mouse_event(|event: &MouseMoveEvent, phase, _, _| {
+            window.on_mouse_event(|event: &MouseMoveEvent, phase, window, _| {
                 if phase != DispatchPhase::Capture {
+                    return;
+                }
+                // A shape being drawn: its next point, or, its button
+                // found up, its close.
+                if group::drawing() {
+                    let [x, y] = in_scene(event.position, window);
+                    if event.pressed_button == Some(MouseButton::Left) {
+                        if group::point(x, y) {
+                            scene::draw_move(x, y);
+                        }
+                    } else {
+                        close_shape();
+                    }
                     return;
                 }
                 let Some(dragging) = scene::dragging() else {
@@ -1936,15 +2222,44 @@ fn drag_listeners() -> impl IntoElement {
             // Any button's release ends it: with two held, the platform
             // tells the first one's release as a move, with the button
             // it remembers still down, so the drag's own may never come.
-            window.on_mouse_event(|event: &MouseUpEvent, phase, _, _| {
-                if phase == DispatchPhase::Capture {
-                    scene::drag_end(event.position.x.into(), event.position.y.into());
+            window.on_mouse_event(|event: &MouseUpEvent, phase, window, _| {
+                if phase != DispatchPhase::Capture {
+                    return;
                 }
+                // The release closes a shape wherever it lands.
+                if group::drawing() {
+                    let [x, y] = in_scene(event.position, window);
+                    if group::point(x, y) {
+                        scene::draw_move(x, y);
+                    }
+                    close_shape();
+                }
+                scene::drag_end(event.position.x.into(), event.position.y.into());
             });
         },
     )
     .absolute()
     .size_0()
+}
+
+/// A window position kept to what the panel leaves of the window: a shape
+/// drawn across the panel runs along its edge (`docs/DECISIONS.md`,
+/// "Interface").
+fn in_scene(position: Point<Pixels>, window: &Window) -> [f32; 2] {
+    let size = window.viewport_size();
+    let room = (f32::from(size.width) - scene::inset()).max(0.0);
+    [
+        f32::from(position.x).clamp(0.0, room),
+        f32::from(position.y).clamp(0.0, f32::from(size.height).max(0.0)),
+    ]
+}
+
+/// A drawn shape closes, through the scene's camera as it is: its rows
+/// are picked over the next frames (`web::scene_pick`). One that holds
+/// nothing (a press and a release in one place) is gone, the mode still on.
+fn close_shape() {
+    let camera = group::Camera::from_scene(&scene::camera());
+    scene::draw_end(group::release(camera));
 }
 
 /// The compass's drawing, a view of its own: the scene tells of the
@@ -2167,6 +2482,16 @@ fn no_dot_line(name: &str, belt: bool) -> String {
     }
 }
 
+/// What the chip at a drawn shape says, as board 6 has it: the group's
+/// rows, counted. (The chip is the scene's: off the web nothing asks.)
+#[cfg(any(target_family = "wasm", test))]
+pub fn group_line(rows: usize) -> String {
+    match rows {
+        1 => "1 row".into(),
+        rows => format!("{} rows", grouped(rows)),
+    }
+}
+
 /// A count with its thousands apart: `1,580,272`.
 fn grouped(n: usize) -> String {
     let digits = n.to_string();
@@ -2246,6 +2571,12 @@ mod tests {
         );
         assert!(line(10, 1).contains("1 more row has no dot"));
         assert!(line(10, 0).ends_with("every dot is a row."));
+    }
+
+    #[test]
+    fn the_chip_counts_the_groups_rows() {
+        assert_eq!(super::group_line(143_854), "143,854 rows");
+        assert_eq!(super::group_line(1), "1 row");
     }
 
     #[test]

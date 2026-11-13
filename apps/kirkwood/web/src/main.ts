@@ -41,7 +41,19 @@ import init, {
   gap_state,
   integrated_columns,
   integrated_jump,
+  group_bytes,
+  group_chip,
+  group_cost,
+  group_rows,
+  group_shape,
+  group_state,
+  group_years,
   integrated_rows,
+  row_number,
+  scene_pick,
+  table_file_rows,
+  table_sort,
+  table_state,
   integrated_state,
   jupiter_orbit,
   jupiter_place,
@@ -118,6 +130,14 @@ type Kirkwood = {
   dragStart(x: number, y: number, button: number, modifiers: number, frame: number): void;
   dragMove(x: number, y: number): void;
   dragEnd(x: number, y: number): void;
+  /** Called by the crate: a shape drawn in the lasso's mode (its start,
+   *  its next point, its release, closed or gone), and the scene's camera
+   *  as it is (projection × view, then the window's width and height;
+   *  empty before the scene is up), which the crate picks a group through. */
+  drawStart(x: number, y: number): void;
+  drawMove(x: number, y: number): void;
+  drawEnd(closed: boolean): void;
+  camera(): Float64Array;
   /** Called by the crate: an arrow key (`right` and `up` each -1, 0, or 1),
    *  the + or − key, and the way home (the compass's press, the H key),
    *  each for a frame's camera. */
@@ -200,6 +220,27 @@ type Kirkwood = {
   /** For the checks: the table scrolled to a row and that row selected
    *  (so found), for a row far down the file. */
   jump(row: number): void;
+  /** For the checks: the lasso and its group (whether the mode is on, a
+   *  shape is being drawn, and a release waits for its rows; the group's
+   *  rows, -1 with none; and the rows placed so far in the mode); the
+   *  group's rows in the file's order, its closed shape as drawn (x and y
+   *  of each point), and the clock's years it was drawn on; what the last
+   *  drawn group cost, ms (placing its rows, testing them, the calls those
+   *  were spread over, the longest, and from the release to the group);
+   *  the rows the crate's integration moves; the table's rows and its sort
+   *  (the column, -1 with none); the file rows at rows of the table; the
+   *  table sorted by a column, as a press on its arrow does; and a file
+   *  row's number in a column the table sorts by. */
+  group(): { mode: boolean; drawing: boolean; pending: boolean; rows: number; placed: number };
+  groupRows(): Uint32Array;
+  groupShape(): Float32Array;
+  groupYears(): number;
+  groupCost(): { placeMs: number; testMs: number; calls: number; longestMs: number; sinceReleaseMs: number };
+  integratedRows(): Uint32Array;
+  table(): { rows: number; column: number; descending: boolean } | undefined;
+  tableRows(from: number, to: number): Uint32Array;
+  sortTable(column: number, descending: boolean): boolean;
+  rowNumber(row: number, column: number): number;
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -276,7 +317,13 @@ async function startScene(): Promise<BeltScene> {
     foundPlace: found_place,
     foundName: found_name,
     cameraSeen: camera_seen,
+    pick: scene_pick,
+    groupShape: group_shape,
+    groupYears: group_years,
+    groupChip: group_chip,
+    groupBytes: group_bytes,
     floats: (at, count) => new Float32Array(memory!.buffer, at, count),
+    bytes: (at, count) => new Uint8Array(memory!.buffer, at, count),
   });
   kirkwood.scene = scene;
   performance.mark('kirkwood:scene');
@@ -445,6 +492,10 @@ const kirkwood: Kirkwood = {
   dragStart: (x, y, button, modifiers, frame) => scene?.dragStart(x, y, button, modifiers, frame),
   dragMove: (x, y) => scene?.dragMove(x, y),
   dragEnd: (x, y) => scene?.dragEnd(x, y),
+  drawStart: (x, y) => scene?.drawStart(x, y),
+  drawMove: (x, y) => scene?.drawMove(x, y),
+  drawEnd: (closed) => scene?.drawEnd(closed),
+  camera: () => new Float64Array(scene?.viewProjection() ?? []),
   nudge: (right, up, frame) => scene?.nudge(right, up, frame),
   zoomStep: (nearer, frame) => scene?.zoomStep(nearer, frame),
   home: (frame) => scene?.home(frame),
@@ -526,6 +577,25 @@ const kirkwood: Kirkwood = {
     return { row: row!, dot: !!dot, name: found_name(), finds: finds! };
   },
   jump: (row) => table_jump(row),
+  group: () => {
+    const [mode, drawing, pending, rows, , placed] = Array.from(group_state());
+    return { mode: !!mode, drawing: !!drawing, pending: !!pending, rows: rows!, placed: placed! };
+  },
+  groupRows: group_rows,
+  groupShape: group_shape,
+  groupYears: group_years,
+  groupCost: () => {
+    const [placeMs, testMs, calls, longestMs, sinceReleaseMs] = Array.from(group_cost());
+    return { placeMs: placeMs!, testMs: testMs!, calls: calls!, longestMs: longestMs!, sinceReleaseMs: sinceReleaseMs! };
+  },
+  integratedRows: integrated_rows,
+  table: () => {
+    const [rows, column, descending] = Array.from(table_state());
+    return rows === undefined ? undefined : { rows, column: column!, descending: !!descending };
+  },
+  tableRows: table_file_rows,
+  sortTable: table_sort,
+  rowNumber: row_number,
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 

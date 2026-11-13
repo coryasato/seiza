@@ -19,6 +19,8 @@
 //!   Jupiter, its path in the frame that turns, and its card's numbers;
 //! - a row found ([`find`]): the table's selected row, which the scene
 //!   marks on its dot and flies its camera to;
+//! - a group drawn ([`group`]): the lasso's mode, the shape, and the rows
+//!   under it, picked through the scene's camera a frame's worth at a time;
 //! - those two groups moved for real ([`integrate`]): the Hildas and the
 //!   Trojans under the Sun and Jupiter, and their places for the scene;
 //! - the interface ([`host`]): the title, the time control, and the table
@@ -37,6 +39,7 @@ pub mod elements;
 pub mod find;
 pub mod flight;
 pub mod gap;
+pub mod group;
 mod host;
 pub mod integrate;
 pub mod layout;

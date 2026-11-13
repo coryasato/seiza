@@ -114,6 +114,33 @@
 //           (out/gap-moved.jpg), the picked one (the marker let go, board
 //           2's names back), and "Ride with Jupiter" and "Sort by orbit
 //           size" each pressed with a gap picked, which let it go.
+//   group   a group drawn: from straight above, with time running, "Draw a
+//           group" pressed, board 6's shape drawn by the pointer
+//           (out/group-drawing.jpg, group.jpg for board 6 to be set beside,
+//           group-detail.jpg), and the table opened on it (out/group-table.jpg,
+//           group-sorted.jpg). Fails unless a drag out of the mode is the
+//           camera's and in it draws a white line over a camera that holds
+//           still, with time paused; unless the action's fill is the
+//           boards' in each state; unless the group is the rows whose dots
+//           are inside the shape, counted again here from the elements
+//           file's own bytes through the scene's camera, and (the controls)
+//           isn't those a twentieth of a year on or with the shape 3 px
+//           over; unless the chip says that count, over the shape's top,
+//           and the outline stays round its dots under a wheel; unless the
+//           table's rows are the group's, first and last, a press on one
+//           finds that row of the file, and a sort by diameter orders the
+//           group alone; unless "Show all rows" gives back every row, every
+//           color, and time. What the pick cost is written down: placing
+//           the rows, testing them, the longest call, each frame on the
+//           way. Then with no sky, haze, or bloom: the color inside the
+//           shape and across the Sun from it, before and with the group
+//           (out/group-plain.jpg), and a year on the same rows lit, out of
+//           the shape, its outline gone (out/group-year-on.jpg). Then the
+//           mode with the other actions, from the opening camera: a shape
+//           drawn before the rows are placed (out/group-opening.jpg), the
+//           action pressed back, Escape, Run, a shape across the open panel
+//           (out/group-panel.jpg), and the sort, the ride, and "Find
+//           Ceres" each pressed with it.
 //   integrated  the Hildas and the Trojans, moved by the crate's integration:
 //           fails unless the rows drawn apart are the file's own two groups
 //           and the page's counts are what they were; unless, on the epoch,
@@ -242,6 +269,7 @@ import { clickTarget, firstDrawProbe, open, targetRect, waitMark, wheel, type Fi
 import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
+import { isBound, place } from '../data/orbit.ts';
 import { FOUND, KEYS, TURN as CAMERA_TURN } from '../web/src/camera.ts';
 
 const dir = import.meta.dirname;
@@ -250,7 +278,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'rate', 'drag', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'rate', 'drag', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -298,12 +326,12 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
 type View = { x: number; y: number; distance: number; tilt: number; bearing: number; roll: number };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; found: number; chase: 'waiting' | 'flying' | 'following' | ''; finds: number; flight: number; ride: number; integrated: number; catchingUp: boolean };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; found: number; chase: 'waiting' | 'flying' | 'following' | ''; finds: number; group: number; grayed: number; flight: number; ride: number; integrated: number; catchingUp: boolean };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
   held: number;
-  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; marker(): { x: number; y: number; path: number[] } | undefined; found(): { x: number; y: number } | undefined; under(x: number, y: number): [number, number] | undefined };
+  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; marker(): { x: number; y: number; path: number[] } | undefined; found(): { x: number; y: number } | undefined; outline(): { points: number[]; closed: boolean } | undefined; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
   ellipseOf(row: number, years: number): number[];
@@ -329,6 +357,16 @@ type Kirkwood = {
   corner(): Corner | undefined;
   found(): { row: number; dot: boolean; name: string; finds: number };
   jump(row: number): void;
+  group(): { mode: boolean; drawing: boolean; pending: boolean; rows: number; placed: number };
+  groupRows(): Uint32Array;
+  groupShape(): Float32Array;
+  groupYears(): number;
+  groupCost(): { placeMs: number; testMs: number; calls: number; longestMs: number; sinceReleaseMs: number };
+  integratedRows(): Uint32Array;
+  table(): { rows: number; column: number; descending: boolean } | undefined;
+  tableRows(from: number, to: number): Uint32Array;
+  sortTable(column: number, descending: boolean): boolean;
+  rowNumber(row: number, column: number): number;
 };
 type Corner = { turned: number; tilt: number; folded: boolean; open: boolean };
 type Probe = { rows: number; top: number; first: number; end: number; loaded: number; pending: number };
@@ -2465,6 +2503,520 @@ async function seeFind(url: string) {
   return { rows, hand, actions };
 }
 
+// --- A group drawn.
+
+/** Board 6's shape, window positions (CSS px): the path the board draws,
+ *  drawn here by the pointer. */
+const BOARD_SHAPE: Point[] = [
+  [650.2, 576.9], [653.3, 587.9], [651.5, 598.9], [644.5, 608.4], [633.5, 615.8], [620.6, 620.6],
+  [608, 623.8], [596.9, 626.3], [587.4, 629.5], [578.9, 633.5], [570, 637.8], [560.1, 641.2],
+  [549.6, 642.2], [539.2, 640.5], [529.9, 636], [522.3, 630], [515.9, 623.8], [510, 618.4],
+  [503.7, 613.8], [496.3, 609.7], [488.5, 605.3], [481, 599.7], [474.8, 593], [470.2, 585.3],
+  [467.1, 576.9], [464.7, 567.9], [462.6, 558.2], [461.1, 547.4], [461.1, 535.8], [464.3, 524.3],
+  [471.7, 514.3], [483.4, 507.5], [498.3, 505.4], [514.1, 507.9], [528.6, 514], [540.5, 521.4],
+  [549.6, 528.3], [556.8, 533.3], [563.4, 535.6], [570.6, 536.2], [578.9, 536.2], [587.9, 536.9],
+  [597.1, 538.8], [606.2, 541.9], [615.3, 546.4], [624.8, 551.9], [634.3, 558.6], [643.3, 566.9],
+];
+/** The shape's line and its chip, as the scene draws them (`scene.ts`,
+ *  `CHIP`): the chip's height, and how far over the shape's top it sits. */
+const GROUP_CHIP = { height: 22, over: 12 } as const;
+/** The diameter's column, which the check sorts by (`catalog.rs`). */
+const DIAMETER = 8;
+const groupNow = (page: Page) =>
+  kirkwood(page, (kirkwood) => {
+    const scene = kirkwood.scene!;
+    return { group: kirkwood.group(), clock: kirkwood.clock(), view: scene.stats.camera, outline: scene.outline(), chip: scene.labels().at(-2)!, lit: scene.stats.group, grayed: scene.stats.grayed, gliding: scene.stats.gliding, table: kirkwood.table(), found: kirkwood.found(), flight: kirkwood.flight(), ride: kirkwood.ride() };
+  });
+const groupIs = (page: Page, held: boolean, timeout = 20_000) =>
+  page.waitForFunction(
+    (held) => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      const group = kirkwood.group();
+      // (And the scene has it: its gray is all the way in, or out.)
+      return !group.pending && group.rows >= 0 === held && kirkwood.scene!.stats.grayed === Number(held) && (kirkwood.scene!.stats.group > 0) === held;
+    },
+    held,
+    { timeout, polling: 'raf' },
+  );
+/** Every row is placed: the mode's work is done but for a shape. */
+const placedAll = (page: Page) => page.waitForFunction((rows) => (globalThis as unknown as Page_).__kirkwood.group().placed === rows, TABLE_ROWS, { timeout: 30_000, polling: 'raf' });
+
+/** A shape drawn by the pointer through `points`, a point every `everyMs`:
+ *  pressed at the first, released at the last. `midway` runs with the
+ *  button still down, half the points drawn. */
+async function drawShape(page: Page, points: Point[], everyMs = 8, midway?: () => Promise<void>, beforeRelease?: () => Promise<void>): Promise<void> {
+  await page.mouse.move(...points[0]!);
+  await page.mouse.down();
+  for (const [at, point] of points.slice(1).entries()) {
+    await page.mouse.move(...point);
+    if (everyMs) await page.waitForTimeout(everyMs);
+    if (at === Math.floor(points.length / 2)) await midway?.();
+  }
+  await beforeRelease?.();
+  await page.mouse.up();
+}
+
+/** Whether a window position's pixel is inside a closed shape: its center,
+ *  by the even-odd rule, counted edge by edge. */
+function insideShape(shape: Float32Array | number[], x: number, y: number): boolean {
+  const [cx, cy] = [Math.floor(x) + 0.5, Math.floor(y) + 0.5];
+  let inside = false;
+  for (let point = 0; point < shape.length; point += 2) {
+    const [x0, y0] = [shape[point]!, shape[point + 1]!];
+    const [x1, y1] = [shape[(point + 2) % shape.length]!, shape[(point + 3) % shape.length]!];
+    if (y0 > cy !== y1 > cy && cx < x0 + ((cy - y0) * (x1 - x0)) / (y1 - y0)) inside = !inside;
+  }
+  return inside;
+}
+
+/** The rows whose dots are inside a shape, counted here from the elements
+ *  file's own bytes: each row's place from its six elements `years` after
+ *  the epoch (a Hilda's or a Trojan's as the crate integrates it, handed
+ *  in), held as the crate holds it (32-bit floats), through the scene's
+ *  camera (as `project`, and only what it draws: in front of it, between
+ *  its planes), into its pixel. */
+function rowsInside(shape: Float32Array | number[], camera: number[], years: number, integrated: Map<number, number[]>): number[] {
+  const { a, e, i, om, w, ma } = elementsFile().columns;
+  const at = new Float64Array(3);
+  const inside: number[] = [];
+  const [width, height] = [camera[16]!, camera[17]!];
+  for (let row = 0; row < elementsFile().rows; row++) {
+    if (!isBound(a[row]!, e[row]!)) continue;
+    const moved = integrated.get(row);
+    if (moved) at.set(moved);
+    else place(a[row]!, e[row]!, i[row]!, om[row]!, w[row]!, ma[row]!, years * YEAR_DAYS, at);
+    const [x, y, z] = [Math.fround(at[0]!), Math.fround(at[2]!), -Math.fround(at[1]!)];
+    const clip = (line: number) => camera[line]! * x + camera[line + 4]! * y + camera[line + 8]! * z + camera[line + 12]!;
+    const depth = clip(3);
+    if (!(depth > 0 && clip(2) >= -depth && clip(2) <= depth)) continue;
+    const [px, py] = [((clip(0) / depth + 1) / 2) * width, ((1 - clip(1) / depth) / 2) * height];
+    if (px >= 0 && py >= 0 && px < Math.ceil(width) && py < Math.ceil(height) && insideShape(shape, px, py)) inside.push(row);
+  }
+  return inside;
+}
+
+/** How much color a part of a screenshot has, and its light: over its
+ *  pixels brighter than the page, the sum of each one's brightest channel
+ *  less its dimmest, of the sum of its brightest; and their mean light. */
+const colorOf = (page: Page, png: Buffer, clip: Clip) =>
+  pixelsOf(page, png, clip, (pixels) => {
+    let [spread, most, light, count] = [0, 0, 0, 0];
+    for (let at = 0; at < pixels.length; at += 4) {
+      // (Over the page's own color, 5, 6, 10, which the look's floor
+      // adds to everything: on a dim gray dot it reads as blue.)
+      const [red, green, blue] = [pixels[at]! - 5, pixels[at + 1]! - 6, pixels[at + 2]! - 10];
+      const [high, low] = [Math.max(red, green, blue), Math.min(red, green, blue)];
+      if (high < 24) continue;
+      spread += high - low;
+      most += high;
+      light += (pixels[at]! + pixels[at + 1]! + pixels[at + 2]!) / 3;
+      count++;
+    }
+    return { color: most ? Number((spread / most).toFixed(3)) : 0, light: count ? Number((light / count).toFixed(1)) : 0, pixels: count };
+  });
+
+/** A cell of the open table as drawn: its exact text, and its row's
+ *  `full_name`; the columns wheeled sideways until it's in view, and back. */
+async function drawnCell(page: Page, row: number, column: number): Promise<{ exact: string; name: string }> {
+  const layout = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
+  await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 3.5);
+  const name = (await drawnRow(page, row))[1]!;
+  for (let tries = 0; tries < 12; tries++) {
+    const exact = await page.evaluate(({ row, column }) => (globalThis as unknown as Page_).__kirkwoodCells?.find((cell) => cell.row === row && cell.column === column)?.exact, { row, column });
+    if (exact !== undefined) {
+      await wheel(page, 0, -4000);
+      await page.waitForTimeout(400);
+      return { exact, name };
+    }
+    await wheel(page, 0, 240);
+    await page.waitForTimeout(300);
+  }
+  throw new Error(`column ${column} of row ${row} was never drawn`);
+}
+
+const fourFills = async (page: Page) => {
+  await page.mouse.move(700, 300);
+  await page.waitForTimeout(300);
+  const png = await page.screenshot();
+  return { sort: await actionFill(page, png, 'sort'), ride: await actionFill(page, png, 'ride'), find: await actionFill(page, png, 'find'), lasso: await actionFill(page, png, 'lasso') };
+};
+const fillsAre = (fills: Record<string, number>, pressed: string[]) => Object.entries(fills).every(([action, fill]) => near(fill, pressed.includes(action) ? ACTION.pressed : ACTION.plain, 4));
+
+async function seeGroup(url: string) {
+  /** From straight above, level: the camera board 6's picture is from. */
+  const ABOVE = { date: EPOCH, elev: '90', roll: '0' };
+  const outlineBox = (points: number[]) => {
+    const [xs, ys] = [points.filter((_, at) => at % 2 === 0), points.filter((_, at) => at % 2 === 1)];
+    return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
+  };
+
+  // The mode, the shape, the pick, the chip, and the table, with time
+  // running at the press.
+  const drawn = await withBelt(url, { ...ABOVE, perf: '', 'probe-cells': '' }, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    await settle(page);
+    const before = await groupNow(page);
+    need(!before.group.mode && before.group.rows === -1 && before.clock.running && !before.outline && !before.chip.shown && before.grayed === 0, `before a press: ${JSON.stringify(before.group)}`);
+    const plain = await fourFills(page);
+    need(fillsAre(plain, []), `no action pressed, the fills are ${JSON.stringify(plain)}`);
+    const button = await targetRect(page, 'lasso');
+    // Out of the mode a drag is the camera's.
+    await dragged(page, [700, 300], [760, 340]);
+    await cameraRests(page);
+    const panned = await groupNow(page);
+    need(!sameView(panned.view, before.view) && !panned.outline, 'out of the mode a drag moved no camera');
+    await clickTarget(page, 'compass');
+    await cameraRests(page);
+    const home = await groupNow(page);
+    need(sameView(home.view, before.view), `the way home left the camera at ${JSON.stringify(viewOf(home.view))}`);
+
+    // The press: the mode, and time paused.
+    await clickTarget(page, 'lasso');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.group().mode, undefined, { timeout: 5_000, polling: 'raf' });
+    const entered = await groupNow(page);
+    need(!entered.clock.running && entered.group.rows === -1, `in the mode the clock is ${JSON.stringify(entered.clock)}`);
+    const pressedFills = await fourFills(page);
+    need(fillsAre(pressedFills, ['lasso']), `in the mode the fills are ${JSON.stringify(pressedFills)}`);
+    // Its rows are placed while there's no shape yet, a frame's worth at a time.
+    await placedAll(page);
+    const placing = await kirkwood(page, (kirkwood) => kirkwood.groupCost());
+    // A press and a release in one place closes nothing, and the mode goes on.
+    await page.mouse.click(700, 300);
+    await settle(page);
+    const clicked = await groupNow(page);
+    need(clicked.group.mode && !clicked.group.pending && !clicked.outline, `a click in the mode left ${JSON.stringify(clicked.group)}`);
+
+    // The shape: drawn in white, the camera unmoved under it.
+    let midway: Awaited<ReturnType<typeof groupNow>> | undefined;
+    let midPng: Buffer | undefined;
+    // Each frame's length from the release to the group, as the page's own rAF has it.
+    const recordFrames = () => page.evaluate(() => {
+      const frames: number[] = [];
+      (globalThis as unknown as { __frames: number[] }).__frames = frames;
+      let last = performance.now();
+      const tick = (now: number) => {
+        frames.push(now - last);
+        last = now;
+        if (frames.length < 2000) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await drawShape(
+      page,
+      BOARD_SHAPE,
+      8,
+      async () => {
+        await settle(page);
+        midway = await groupNow(page);
+        await shot(page, 'group-drawing');
+        midPng = await page.screenshot();
+      },
+      recordFrames,
+    );
+    need(!!midway?.group.drawing && !!midway.outline && !midway.outline.closed && midway.outline.points.length >= BOARD_SHAPE.length && sameView(midway.view, before.view) && !midway.clock.running, `midway through the shape: ${JSON.stringify(midway?.group)}, its outline ${midway?.outline?.points.length} numbers`);
+    await groupIs(page, true);
+    await settle(page);
+    const frames = await page.evaluate(() => (globalThis as unknown as { __frames: number[] }).__frames.slice(2));
+    // The line is white: the brightest of the pixels round a point of it.
+    const onLine = await Promise.all(BOARD_SHAPE.slice(2, 12).map(([x, y]) => pixelsOf(page, midPng!, { x: x - 2, y: y - 2, width: 4, height: 4 }, (pixels) => Math.max(...Array.from({ length: pixels.length / 4 }, (_, at) => Math.min(pixels[at * 4]!, pixels[at * 4 + 1]!, pixels[at * 4 + 2]!))))));
+    need(Math.max(...onLine) > 150, `the shape's line reads ${onLine} of 255 at its whitest`);
+    const held = await groupNow(page);
+    const cost = await kirkwood(page, (kirkwood) => kirkwood.groupCost());
+    need(!held.group.mode && !held.clock.running && held.clock.years === entered.clock.years && sameView(held.view, before.view), `with a group the mode is ${JSON.stringify(held.group)}, the clock ${JSON.stringify(held.clock)}`);
+    const heldFills = await fourFills(page);
+    need(fillsAre(heldFills, ['lasso']), `with a group the fills are ${JSON.stringify(heldFills)}`);
+
+    // The pick is right: counted again here from the file's bytes.
+    const picked = await kirkwood(page, (kirkwood) => ({ rows: Array.from(kirkwood.groupRows()), shape: Array.from(kirkwood.groupShape()), years: kirkwood.groupYears(), camera: kirkwood.scene!.viewProjection(), moved: Array.from(kirkwood.integratedRows()) }));
+    const places = await page.evaluate(({ rows, years }) => rows.map((row) => (globalThis as unknown as Page_).__kirkwood.placeOf(row, years)), { rows: picked.moved, years: picked.years });
+    const integrated = new Map(picked.moved.map((row, at) => [row, places[at]!]));
+    need(picked.years === held.clock.years, `the group was drawn on ${picked.years}, and the clock is at ${held.clock.years}`);
+    need(picked.shape.length >= BOARD_SHAPE.length && picked.shape.length <= 2 * BOARD_SHAPE.length, `the shape kept ${picked.shape.length / 2} points of the ${BOARD_SHAPE.length} drawn`);
+    const counted = rowsInside(picked.shape, picked.camera, picked.years, integrated);
+    const theirs = new Set(picked.rows);
+    const ours = new Set(counted);
+    const differing = [...counted.filter((row) => !theirs.has(row)), ...picked.rows.filter((row) => !ours.has(row))];
+    need(differing.length === 0 && counted.length === picked.rows.length, `the group is ${picked.rows.length} rows, and ${counted.length} are inside the shape by the file's bytes; ${differing.length} differ (${differing.slice(0, 8)})`);
+    need(picked.rows.length > 10_000 && picked.rows.every((row, at) => at === 0 || row > picked.rows[at - 1]!), `the group's ${picked.rows.length} rows aren't in the file's order`);
+    // The controls: the same count a twentieth of a year on, or with the
+    // shape 3 px to the right, is another set of rows.
+    const later = rowsInside(picked.shape, picked.camera, picked.years + 0.05, integrated);
+    const shifted = rowsInside(picked.shape.map((px, at) => (at % 2 ? px : px + 3)), picked.camera, picked.years, integrated);
+    const apart = (other: number[]) => other.filter((row) => !theirs.has(row)).length + picked.rows.length - other.filter((row) => theirs.has(row)).length;
+    need(apart(later) > 100 && apart(shifted) > 100, `the controls differ by ${apart(later)} and ${apart(shifted)} rows only`);
+
+    // The chip: the set's count, over the shape's top; the outline closed
+    // round it, where it was drawn.
+    const box = outlineBox(held.outline!.points);
+    const said = `${picked.rows.length.toLocaleString('en-US')} rows`;
+    need(held.outline!.closed && held.chip.shown && held.chip.text === said && held.lit === picked.rows.length, `the chip says "${held.chip.text}" (shown: ${held.chip.shown}), the scene lights ${held.lit} rows, and the group is ${picked.rows.length}`);
+    const chipOff = [held.chip.left + held.chip.width / 2 - (box.left + box.right) / 2, held.chip.top + GROUP_CHIP.height + GROUP_CHIP.over - box.top];
+    need(Math.abs(chipOff[0]!) <= 1 && Math.abs(chipOff[1]!) <= 1 && held.chip.height === GROUP_CHIP.height, `the chip is ${chipOff} px from over the shape's top, ${held.chip.height} px high`);
+    const drawnOff = Math.max(...held.outline!.points.map((px, at) => Math.abs(px - picked.shape[at]!)));
+    need(drawnOff <= 0.2, `the closed outline is ${drawnOff} px from where it was drawn`);
+    await shot(page, 'group');
+    await shot(page, 'group-detail', { x: 380, y: 420, width: 360, height: 280 });
+    // Under a camera a hand moves, the outline stays round its dots: a
+    // wheel in, and each of its points is where its place on the ecliptic is.
+    await page.mouse.move(557, 574);
+    await wheel(page, -240);
+    await cameraRests(page);
+    const zoomed = await kirkwood(page, (kirkwood) => ({ outline: kirkwood.scene!.outline(), camera: kirkwood.scene!.viewProjection(), chip: kirkwood.scene!.labels().at(-2)!, view: kirkwood.scene!.stats.camera }));
+    need(zoomed.view.distance !== before.view.distance && !!zoomed.outline, 'a wheel with a group held zoomed nothing');
+    const again = rowsInside(zoomed.outline!.points, zoomed.camera, picked.years, integrated);
+    const kept = again.filter((row) => theirs.has(row)).length;
+    // (Dots off the ecliptic shift against a shape that lies on it, under a
+    // camera that moved: nearly all of the group is still inside.)
+    need(kept > 0.98 * picked.rows.length && again.length < 1.02 * picked.rows.length, `zoomed in, the outline holds ${again.length} rows, ${kept} of them the group's ${picked.rows.length}`);
+    await shot(page, 'group-zoomed');
+    await clickTarget(page, 'compass');
+    await cameraRests(page);
+
+    // The table is the group's.
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    const table = await kirkwood(page, (kirkwood) => ({ table: kirkwood.table()!, first: kirkwood.tableRows(0, 1)[0], last: Array.from(kirkwood.tableRows(kirkwood.table()!.rows - 1, kirkwood.table()!.rows + 1)) }));
+    need(table.table.rows === picked.rows.length && table.first === picked.rows[0] && table.last.length === 1 && table.last[0] === picked.rows.at(-1), `the table has ${table.table.rows} rows from ${table.first} to ${table.last}, and the group ${picked.rows.length} from ${picked.rows[0]} to ${picked.rows.at(-1)}`);
+    const probe = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodTable!);
+    need(probe.rows === picked.rows.length, `the table draws ${probe.rows} rows`);
+    const { a } = elementsFile().columns;
+    const firstCell = await drawnCell(page, 0, 10);
+    need(Math.fround(Number(firstCell.exact)) === a[picked.rows[0]!], `the table's first row (${firstCell.name}) has a ${firstCell.exact}, and row ${picked.rows[0]}'s is ${a[picked.rows[0]!]}`);
+    const header = await page.evaluate(() => (globalThis as { __seizaTargets?: Record<string, number[]> }).__seizaTargets);
+    need(!!header?.['show-all'] && !!header['group-count'], "the panel's header has no count of the group, or no way back");
+    await shot(page, 'group-table');
+    // A press on a row of it finds that row of the file.
+    const layout = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
+    await page.mouse.click(layout.left + 200, layout.top + 2.5 * layout.rowHeight);
+    await foundIs(page, picked.rows[2]!);
+    await chaseIs(page, 'following');
+    const found = await groupNow(page);
+    need(found.group.rows === picked.rows.length && found.found.dot, `a row of the group pressed: found ${JSON.stringify(found.found)}, the group ${found.group.rows}`);
+    await shot(page, 'group-found');
+    // A sort there orders the group alone: by diameter, the biggest first,
+    // the rows with none last, ties in the file's order.
+    const sorted = await kirkwood(page, (kirkwood) => kirkwood.sortTable(8, true));
+    await page.waitForTimeout(400);
+    const order = await kirkwood(page, (kirkwood) => {
+      const rows = Array.from(kirkwood.tableRows(0, kirkwood.table()!.rows));
+      return { table: kirkwood.table()!, rows, diameters: rows.map((row) => kirkwood.rowNumber(row, 8)), found: kirkwood.found().row };
+    });
+    need(sorted && order.table.column === DIAMETER && order.table.descending && order.table.rows === picked.rows.length, `sorted by diameter, the table is ${JSON.stringify(order.table)}`);
+    need(order.rows.length === picked.rows.length && order.rows.every((row) => theirs.has(row)) && new Set(order.rows).size === order.rows.length, "sorted, the table's rows aren't the group's");
+    const outOfOrder = order.rows.findIndex((row, at) => {
+      if (at === 0) return false;
+      const [one, next] = [order.diameters[at - 1]!, order.diameters[at]!];
+      if (Number.isNaN(one)) return !Number.isNaN(next) || row < order.rows[at - 1]!;
+      return !Number.isNaN(next) && (next > one || (next === one && row < order.rows[at - 1]!));
+    });
+    const measured = order.diameters.filter((km) => !Number.isNaN(km)).length;
+    need(outOfOrder === -1 && measured > 0 && measured < order.rows.length, `sorted by diameter, row ${outOfOrder} of the table is out of order (${measured} of ${order.rows.length} have a diameter)`);
+    const biggest = await drawnCell(page, 0, DIAMETER);
+    need(Math.fround(Number(biggest.exact)) === order.diameters[0], `the table's first row is ${biggest.name}, ${biggest.exact} km, and the group's biggest is ${order.diameters[0]} km`);
+    await shot(page, 'group-sorted');
+
+    // "Show all rows": every row, every color, and time given back.
+    await clickTarget(page, 'show-all');
+    await groupIs(page, false);
+    await page.waitForTimeout(400);
+    const all = await kirkwood(page, (kirkwood) => ({ table: kirkwood.table()!, first: kirkwood.tableRows(0, 1)[0], diameter: kirkwood.rowNumber(kirkwood.tableRows(0, 1)[0]!, 8), clock: kirkwood.clock(), group: kirkwood.group(), outline: kirkwood.scene!.outline(), chip: kirkwood.scene!.labels().at(-2)!, grayed: kirkwood.scene!.stats.grayed }));
+    // (Still sorted by diameter: of every row, Ceres is the biggest.)
+    need(all.table.rows === TABLE_ROWS && all.table.column === DIAMETER && all.first === FOUND_ROWS.ceres && all.clock.running && !all.group.mode && !all.outline && !all.chip.shown && all.grayed === 0, `after "Show all rows": ${JSON.stringify({ ...all, outline: !!all.outline })}`);
+    const backFills = await fourFills(page);
+    need(fillsAre(backFills, []), `after "Show all rows" the fills are ${JSON.stringify(backFills)}`);
+    const late = frames.filter((ms) => ms > 25).length;
+    return {
+      button: button.map(round),
+      fills: { plain, inTheMode: pressedFills, withAGroup: heldFills, afterShowAll: backFills },
+      shapePoints: picked.shape.length / 2,
+      rows: picked.rows.length,
+      countedFromTheFile: counted.length,
+      controls: { aTwentiethOfAYearOnDiffers: apart(later), shiftedThreePxDiffers: apart(shifted) },
+      integratedRowsInIt: picked.rows.filter((row) => integrated.has(row)).length,
+      chip: { says: held.chip.text, offPx: chipOff.map((px) => fixed(px, 1)) },
+      outlineOffPx: fixed(drawnOff, 2),
+      zoomedIn: { rowsInTheOutline: again.length, ofTheGroup: kept },
+      // Placing every row while the mode is on and nothing is drawn, then
+      // the release: what was left, and each frame's length on the way.
+      cost: { placingMs: round(placing.placeMs), placingCalls: placing.calls, placingLongestCallMs: round(placing.longestMs), testMs: round(cost.testMs), calls: cost.calls - placing.calls, longestCallMs: round(cost.longestMs), releaseToGroupMs: round(cost.sinceReleaseMs), framesFromTheRelease: { count: frames.length, medianMs: round(median(frames)), longestMs: round(Math.max(...frames)), over25Ms: late } },
+      table: { rows: table.table.rows, firstRow: table.first, lastRow: table.last[0], firstRowDrawn: firstCell.name, itsA: firstCell.exact },
+      foundInIt: { row: found.found.row, name: found.found.name },
+      sortedByDiameter: { firstRow: order.rows[0], km: order.diameters[0], withADiameter: measured, drawnFirst: biggest.name },
+      afterShowAll: { rows: all.table.rows, firstRow: all.first, km: all.diameter, running: all.clock.running },
+    };
+  });
+
+  // The group reads: with no sky, haze, or bloom, the dots in the shape
+  // keep their color and the rest are gray; and a year on, the same rows.
+  const reads = await withBelt(url, { ...ABOVE, sky: '0', haze: '0', bloom: '0' }, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'time');
+    await settle(page);
+    /** A part of the window inside the shape, and one across the Sun from it. */
+    const [inside, outside]: Clip[] = [{ x: 500, y: 550, width: 100, height: 45 }, { x: 840, y: 305, width: 100, height: 45 }];
+    need([[0, 0], [1, 0], [0, 1], [1, 1]].every(([dx, dy]) => insideShape(BOARD_SHAPE.flat(), inside!.x + dx! * inside!.width, inside!.y + dy! * inside!.height)), "the check's part of the window isn't inside board 6's shape");
+    const plainPng = await page.screenshot();
+    const plain = { inside: await colorOf(page, plainPng, inside!), outside: await colorOf(page, plainPng, outside!) };
+    await clickTarget(page, 'lasso');
+    await drawShape(page, BOARD_SHAPE);
+    await groupIs(page, true);
+    await settle(page);
+    const png = await page.screenshot();
+    const grouped = { inside: await colorOf(page, png, inside!), outside: await colorOf(page, png, outside!) };
+    need(near(grouped.inside.color, plain.inside.color, 0.02) && near(grouped.inside.light, plain.inside.light, 2), `inside the shape the dots read ${JSON.stringify(grouped.inside)}, and before a group ${JSON.stringify(plain.inside)}`);
+    need(grouped.outside.color < 0.03 && plain.outside.color > 0.1 && grouped.outside.light < plain.outside.light, `outside the shape the dots read ${JSON.stringify(grouped.outside)}, and before a group ${JSON.stringify(plain.outside)}`);
+    await shot(page, 'group-plain');
+    // A year on: the same rows, wherever they are now.
+    const rows = await kirkwood(page, (kirkwood) => ({ rows: Array.from(kirkwood.groupRows()), years: kirkwood.groupYears(), moved: Array.from(kirkwood.integratedRows()) }));
+    await clickTarget(page, 'time');
+    await page.waitForFunction((from) => (globalThis as unknown as Page_).__kirkwood.clock().years > from + 1, rows.years, { timeout: 10_000, polling: 'raf' });
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(300);
+    await settle(page);
+    const on = await kirkwood(page, (kirkwood) => ({ rows: Array.from(kirkwood.groupRows()), years: kirkwood.clock().years, drawn: kirkwood.scene!.stats.years, lit: kirkwood.scene!.stats.group, outline: kirkwood.scene!.outline(), chip: kirkwood.scene!.labels().at(-2)!, camera: kirkwood.scene!.viewProjection(), running: kirkwood.clock().running, mode: kirkwood.group().mode }));
+    need(on.years - rows.years > 1 && on.drawn === on.years && !on.running, `the clock ran ${on.years - rows.years} years`);
+    need(on.rows.length === rows.rows.length && on.rows.every((row, at) => row === rows.rows[at]) && on.lit === rows.rows.length, `a year on the group is ${on.rows.length} rows, and was ${rows.rows.length}`);
+    // The shape was where they were: gone, with its chip.
+    need(!on.outline && !on.chip.shown, 'a year on the outline is still drawn');
+    // Where the group's rows are now, and as many of the others: the
+    // color at each one's own pixel.
+    const { a, e, i, om, w, ma } = elementsFile().columns;
+    const [members, skipped] = [new Set(rows.rows), new Set(rows.moved)];
+    const at = new Float64Array(3);
+    const where = (row: number): Point => {
+      place(a[row]!, e[row]!, i[row]!, om[row]!, w[row]!, ma[row]!, on.years * YEAR_DAYS, at);
+      return project(on.camera, [...at]);
+    };
+    const sample = (from: number[], count: number) => Array.from({ length: count }, (_, at) => from[Math.floor((at * from.length) / count)]!).filter((row) => !skipped.has(row) && isBound(a[row]!, e[row]!));
+    const theirs = sample(rows.rows, 3000);
+    // (Others of the same orbit sizes: rows next to the group's in the file.)
+    const others = sample(rows.rows.map((row) => row + 1), 6000).filter((row) => !members.has(row) && row < elementsFile().rows).slice(0, 3000);
+    const yearPng = await page.screenshot();
+    const colorAt = async (rows: number[]) => {
+      const seen = await lit(page, yearPng, rows.map(where), 1);
+      const colors = seen.map(({ color }) => [color[0] - 5, color[1] - 6, color[2] - 10]).filter((color) => Math.max(...color) >= 24);
+      return { color: fixed(colors.reduce((sum, color) => sum + Math.max(...color) - Math.min(...color), 0) / colors.reduce((sum, color) => sum + Math.max(...color), 0), 3), pixels: colors.length };
+    };
+    const year = { theGroups: await colorAt(theirs), others: await colorAt(others) };
+    need(year.theGroups.color > 3 * year.others.color && year.theGroups.pixels > 1000 && year.others.pixels > 1000, `a year on, the group's dots read ${JSON.stringify(year.theGroups)} and the others ${JSON.stringify(year.others)}`);
+    // And they've left the shape: fewer than half are inside it now.
+    const stillInside = rows.rows.filter((row) => !skipped.has(row) && insideShape(BOARD_SHAPE.flat(), ...where(row))).length;
+    need(stillInside < rows.rows.length / 2, `a year on, ${stillInside} of the group's ${rows.rows.length} rows are still inside the shape`);
+    await shot(page, 'group-year-on');
+    return { before: plain, withAGroup: grouped, aYearOn: { years: fixed(on.years - rows.years, 3), rows: on.rows.length, ...year, stillInsideTheShape: stillInside } };
+  });
+
+  // The mode with the other actions, from the opening camera.
+  const actions = await withBelt(url, { date: EPOCH }, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    const seen: Record<string, unknown> = {};
+    const modeIs = (on: boolean) => page.waitForFunction((on) => (globalThis as unknown as Page_).__kirkwood.group().mode === on, on, { timeout: 5_000, polling: 'raf' });
+    /** A shape round the belt's left side, as the opening camera has it. */
+    const blob: Point[] = Array.from({ length: 40 }, (_, at) => [560 + 90 * Math.cos((at / 40) * 2 * Math.PI), 560 + 60 * Math.sin((at / 40) * 2 * Math.PI)]);
+    // A shape drawn at once, before the rows are placed: the release waits
+    // for them, a frame's worth at a time.
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await drawShape(page, blob, 0);
+    const early = await kirkwood(page, (kirkwood) => kirkwood.group());
+    await groupIs(page, true);
+    const cost = await kirkwood(page, (kirkwood) => ({ ...kirkwood.groupCost(), rows: kirkwood.group().rows }));
+    need(cost.rows > 1000 && cost.longestMs < 30, `drawn at once, the group is ${JSON.stringify(cost)}`);
+    seen.drawnAtOnce = { placedAtTheRelease: early.placed, pendingThen: early.pending, rows: cost.rows, releaseToGroupMs: round(cost.sinceReleaseMs), calls: cost.calls, longestCallMs: round(cost.longestMs) };
+    await shot(page, 'group-opening');
+    // The action pressed back: every row, time running.
+    await clickTarget(page, 'lasso');
+    await groupIs(page, false);
+    const back = await groupNow(page);
+    need(back.clock.running && !back.group.mode && back.table?.rows === TABLE_ROWS, `the action pressed back: ${JSON.stringify(back.group)}, the clock ${JSON.stringify(back.clock)}`);
+    // Escape leaves the mode, and gives time back; so does Run.
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await page.keyboard.press('Escape');
+    await modeIs(false);
+    need((await groupNow(page)).clock.running, 'Escape left the mode with time paused');
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await clickTarget(page, 'time');
+    await modeIs(false);
+    need((await groupNow(page)).clock.running, 'Run in the mode left time paused');
+    // Escape with a shape half drawn: gone, with the mode.
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await page.mouse.move(...blob[0]!);
+    await page.mouse.down();
+    for (const point of blob.slice(1, 12)) await page.mouse.move(...point);
+    await page.keyboard.press('Escape');
+    await modeIs(false);
+    await page.mouse.up();
+    await settle(page);
+    const escaped = await groupNow(page);
+    need(!escaped.outline && escaped.group.rows === -1 && !escaped.group.drawing && sameView(escaped.view, back.view), `Escape mid-shape left ${JSON.stringify(escaped.group)}`);
+    // A shape drawn across the open panel runs along its edge.
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await drawShape(page, [[700, 380], [1100, 400], [1150, 520], [1000, 560], [720, 540]], 30);
+    await groupIs(page, true);
+    await settle(page);
+    const edged = await groupNow(page);
+    const reach = Math.max(...edged.outline!.points.filter((_, at) => at % 2 === 0));
+    need(near(reach, 1440 - PANEL, 0.5) && edged.table?.rows === edged.group.rows, `a shape drawn across the panel reaches ${reach} px, and the panel starts at ${1440 - PANEL}`);
+    seen.acrossThePanel = { reachesPx: reach, panelAtPx: 1440 - PANEL, rows: edged.group.rows };
+    await shot(page, 'group-panel');
+    await clickTarget(page, 'table-close');
+    await page.waitForTimeout(600);
+    // One action at a time: the sort lets the group go; the mode lets the
+    // sort, the ride, and a found row go.
+    await clickTarget(page, 'sort');
+    await groupIs(page, false);
+    await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.flight().flying, undefined, { timeout: 20_000 });
+    const sorted = await groupNow(page);
+    need(sorted.flight.sorted && sorted.group.rows === -1 && sorted.table?.rows === TABLE_ROWS && !sorted.clock.running, `the sort pressed with a group held: ${JSON.stringify(sorted.group)}`);
+    seen.sortThenFills = await fourFills(page);
+    need(fillsAre(seen.sortThenFills as Record<string, number>, ['sort']), `the sort pressed with a group held, the fills are ${JSON.stringify(seen.sortThenFills)}`);
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.flight().flying, undefined, { timeout: 20_000 });
+    const fromSort = await groupNow(page);
+    need(!fromSort.flight.sorted && fromSort.group.mode && !fromSort.clock.running, `the lasso pressed on the axes: ${JSON.stringify(fromSort.flight)}`);
+    await clickTarget(page, 'ride');
+    await modeIs(false);
+    await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.ride().flying, undefined, { timeout: 20_000 });
+    const riding = await groupNow(page);
+    need(riding.ride.riding && riding.clock.running, `the ride pressed in the mode: ${JSON.stringify(riding.ride)}`);
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.ride().flying, undefined, { timeout: 20_000 });
+    await cameraRests(page);
+    const fromRide = await groupNow(page);
+    need(!fromRide.ride.riding && fromRide.group.mode, `the lasso pressed riding: ${JSON.stringify(fromRide.ride)}`);
+    seen.lassoThenFills = await fourFills(page);
+    need(fillsAre(seen.lassoThenFills as Record<string, number>, ['lasso']), `the lasso pressed riding, the fills are ${JSON.stringify(seen.lassoThenFills)}`);
+    // "Find Ceres" in the mode leaves it; with a group Ceres isn't in, it
+    // lets the group go.
+    await drawShape(page, blob, 4);
+    await groupIs(page, true);
+    await clickTarget(page, 'find');
+    await foundIs(page, FOUND_ROWS.ceres);
+    await groupIs(page, false);
+    const ceres = await groupNow(page);
+    need(ceres.table?.rows === TABLE_ROWS && ceres.clock.running, `"Find Ceres" with a group held: ${JSON.stringify(ceres.group)}`);
+    await clickTarget(page, 'lasso');
+    await modeIs(true);
+    const lost = await groupNow(page);
+    need(lost.found.row === -1, `the lasso pressed with Ceres found: ${JSON.stringify(lost.found)}`);
+    await page.keyboard.press('Escape');
+    await modeIs(false);
+    return seen;
+  });
+
+  return { drawn, reads, actions };
+}
+
 async function seeDrag(url: string) {
   const SECONDS = 4;
   const ways = [];
@@ -3648,6 +4200,7 @@ try {
   if (ONLY.has('gap')) seen.gap = await seeGap(server.url);
   if (ONLY.has('integrated')) seen.integrated = await seeIntegrated(server.url);
   if (ONLY.has('find')) seen.find = await seeFind(server.url);
+  if (ONLY.has('group')) seen.group = await seeGroup(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('drag')) seen.drag = await seeDrag(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);

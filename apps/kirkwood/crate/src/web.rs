@@ -23,6 +23,7 @@ use crate::elements::{Element, Elements};
 use crate::find;
 use crate::flight;
 use crate::gap;
+use crate::group::{self, Stepped};
 use crate::host::Host;
 use crate::integrate::{self, Moved};
 use crate::layout::{self, Plot};
@@ -40,6 +41,10 @@ const ORBIT_POINTS: usize = 256;
 /// The most time one frame's call spends stepping the two groups toward
 /// the clock, when the clock has jumped: the rest waits for the next.
 const INTEGRATE_MS: f64 = 8.0;
+/// The most time one frame's call spends on a drawn group's rows: placing
+/// them while the shape is drawn, and testing them against it once it's
+/// closed (`docs/DECISIONS.md`, "Scene").
+const PICK_MS: f64 = 6.0;
 
 /// Set once each file is held and read as one.
 const ELEMENTS_MARK: &str = "kirkwood:elements";
@@ -88,6 +93,20 @@ extern "C" {
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = home)]
     pub fn scene_home(frame: u8);
 
+    /// A shape drawn in the lasso's mode: its start, its next point (window
+    /// positions, CSS px), and its release (closed, or gone).
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = drawStart)]
+    pub fn scene_draw_start(x: f32, y: f32);
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = drawMove)]
+    pub fn scene_draw_move(x: f32, y: f32);
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = drawEnd)]
+    pub fn scene_draw_end(closed: bool);
+
+    /// The scene's camera as it is: projection × view (column-major), then
+    /// the window's width and height. Empty before the scene is up.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = camera)]
+    pub fn scene_camera() -> Vec<f64>;
+
     /// Whether the hint was folded on an earlier visit, and that it is
     /// now: the page's to remember.
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = hintFolded)]
@@ -112,6 +131,12 @@ thread_local! {
     /// The Hildas and the Trojans, moved under the Sun and Jupiter: made
     /// when the scene first asks for their rows, once the elements are held.
     static MOVED: RefCell<Option<Moved>> = const { RefCell::new(None) };
+    /// What the last drawn group cost: the milliseconds its rows took to
+    /// place and to test against the shape, the calls those were spread
+    /// over, the longest of them, and from the release to the group.
+    static PICK: Cell<[f64; 5]> = const { Cell::new([0.0; 5]) };
+    /// The page clock at the last release, and the scene's camera then.
+    static RELEASED: Cell<f64> = const { Cell::new(f64::NAN) };
 }
 
 /// The elements, whole or still arriving; nothing before the page begins
@@ -706,7 +731,197 @@ pub fn found_name() -> String {
     find::name()
 }
 
+/// A drawn group's work, a frame's worth ([`PICK_MS`]): in the lasso's
+/// mode the rows are placed on the clock's paused years, and once a shape
+/// is closed each is tested against it through the scene's camera. Returns
+/// how many times the group, or a release's fate, has changed: the scene
+/// asks for the group again ([`group_bytes`]) when that has moved. Called
+/// every frame from the scene's own, never from a call the crate made: a
+/// group picked updates the interface.
+#[wasm_bindgen]
+pub fn scene_pick() -> u32 {
+    if !(group::mode() || group::pending()) {
+        return group::changes();
+    }
+    let Some(elements) = HELD.with_borrow(Clone::clone) else {
+        return group::changes();
+    };
+    let years = clock::years();
+    // After a jump of the clock the Hildas and the Trojans are drawn on
+    // their ellipses for some frames, then where the integration has them
+    // (`scene_integrated`, which the scene asks every frame): the pick
+    // waits for them, so a row is picked where it stays drawn.
+    if MOVED.with_borrow(|moved| moved.as_ref().is_some_and(|moved| !moved.is_at(years))) {
+        return group::changes();
+    }
+    let started = seiza::marks::now();
+    let (was_pending, placed) = (group::pending(), group::placed());
+    if placed == 0 && !was_pending {
+        PICK.set([0.0; 5]);
+        RELEASED.set(f64::NAN);
+    }
+    // A release's own cost starts with it: a shape before it in this
+    // mode, which picked no rows, isn't counted in this one's test.
+    if was_pending && RELEASED.get().is_nan() {
+        RELEASED.set(started);
+        let [place, _, calls, longest, _] = PICK.get();
+        PICK.set([place, 0.0, calls, longest, 0.0]);
+    }
+    let stepped = group::step(
+        years,
+        elements.rows(),
+        |row| Orbit::of_row(&elements, row).map(|orbit| orbit.place(years)),
+        // The Hildas and the Trojans, where the scene draws them: the
+        // integration's places, while its rows are at the clock.
+        || {
+            MOVED.with_borrow(|moved| {
+                let Some(moved) = moved else {
+                    return Vec::new();
+                };
+                moved
+                    .rows()
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(at, &row)| Some((row, moved.place(at, years)?)))
+                    .collect()
+            })
+        },
+        || seiza::marks::now() - started > PICK_MS,
+    );
+    let now = seiza::marks::now();
+    let took = now - started;
+    if stepped != Stepped::Idle {
+        let [mut place, mut test, mut calls, mut longest, mut since] = PICK.get();
+        // (A call that finishes the placing and begins the test counts as
+        // the test's.)
+        if was_pending {
+            test += took;
+        } else {
+            place += took;
+        }
+        calls += 1.0;
+        longest = f64::max(longest, took);
+        if let Stepped::Picked(_) = stepped {
+            since = now - RELEASED.replace(f64::NAN);
+        }
+        PICK.set([place, test, calls, longest, since]);
+    }
+    if let Stepped::Picked(_) = stepped {
+        update_host(|host, cx| host.group_picked(cx));
+    }
+    group::changes()
+}
+
+/// The group, for the scene: where its bytes are in this memory (one a
+/// row of the file, 1 in the group), or 0 with no group. The address holds
+/// while the group does; a view over it doesn't, so the scene asks for
+/// this last and uploads its view with no call in here between.
+#[wasm_bindgen]
+pub fn group_bytes() -> u32 {
+    group::with(|group| group.bytes.as_ptr() as usize as u32).unwrap_or(0)
+}
+
+/// The group's closed shape as it was drawn: the x and y of each point,
+/// window positions (CSS px). Empty with no group.
+#[wasm_bindgen]
+pub fn group_shape() -> Vec<f32> {
+    group::with(|group| group.shape.iter().flatten().copied().collect()).unwrap_or_default()
+}
+
+/// The clock's years the group was drawn on: its outline is true there.
+#[wasm_bindgen]
+pub fn group_years() -> f64 {
+    group::with(|group| group.years).unwrap_or(f64::NAN)
+}
+
+/// What the chip at the shape says: the group's rows, counted.
+#[wasm_bindgen]
+pub fn group_chip() -> String {
+    group::with(|group| crate::host::group_line(group.rows.len())).unwrap_or_default()
+}
+
 // --- For the checks (`checks/see.ts`).
+
+/// The lasso and its group: whether the mode is on, a shape is being
+/// drawn, and a release waits for its rows; the group's rows (-1 with
+/// none); how many times it has changed; and the rows placed so far.
+#[wasm_bindgen]
+pub fn group_state() -> Vec<f64> {
+    vec![
+        f64::from(u8::from(group::mode())),
+        f64::from(u8::from(group::drawing())),
+        f64::from(u8::from(group::pending())),
+        group::rows().map_or(-1.0, |rows| rows.len() as f64),
+        f64::from(group::changes()),
+        group::placed() as f64,
+    ]
+}
+
+/// What the last drawn group cost, ms: its rows' placing, their test
+/// against the shape, the calls those were spread over, the longest call,
+/// and from the release to the group.
+#[wasm_bindgen]
+pub fn group_cost() -> Vec<f64> {
+    PICK.get().to_vec()
+}
+
+/// The group's rows, in the file's order.
+#[wasm_bindgen]
+pub fn group_rows() -> Vec<u32> {
+    group::rows().map_or_else(Vec::new, |rows| rows.to_vec())
+}
+
+/// The table: its rows, and its sort (the column, or -1, and whether it's
+/// descending). Empty before the rows are held.
+#[wasm_bindgen]
+pub fn table_state() -> Vec<f64> {
+    let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    host.read_with(&cx, |host, cx| host.table_rows(cx))
+        .map_or_else(Vec::new, |(rows, sort)| {
+            vec![
+                rows as f64,
+                sort.map_or(-1.0, |(column, _)| column as f64),
+                f64::from(u8::from(sort.is_some_and(|(_, descending)| descending))),
+            ]
+        })
+}
+
+/// The file rows at the table's rows `from..to`, in its order.
+#[wasm_bindgen]
+pub fn table_file_rows(from: usize, to: usize) -> Vec<u32> {
+    let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    host.read_with(&cx, |host, _| {
+        (from..to)
+            .map_while(|at| host.file_row(at))
+            .map(|row| row as u32)
+            .collect()
+    })
+}
+
+/// The table sorted by a column (`column` -1: the file's order), as a
+/// press on its arrow sorts it. Called from the page's own task.
+#[wasm_bindgen]
+pub fn table_sort(column: i32, descending: bool) -> bool {
+    let sort = usize::try_from(column)
+        .ok()
+        .map(|column| (column, descending));
+    let mut sorted = false;
+    update_host(|host, cx| sorted = host.sort_table(sort, cx));
+    sorted
+}
+
+/// A file row's number in a column the table sorts by; NaN for none.
+#[wasm_bindgen]
+pub fn row_number(row: usize, column: usize) -> f32 {
+    let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {
+        return f32::NAN;
+    };
+    host.read_with(&cx, |host, _| host.number(row, column))
+}
 
 /// The table scrolled to `row` and that row selected, and so found: a
 /// row far down the file, without the scroll there. Called from the
