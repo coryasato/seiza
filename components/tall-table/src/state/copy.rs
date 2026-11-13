@@ -60,11 +60,11 @@ pub(crate) enum Control {
     /// The fixture's `key-limit-off-by-one`: the key declines at
     /// `key_max_cells` cells, not past it.
     KeyLimitOffByOne,
-    /// The fixture's `whole-floats-bare`: a whole float without its `.0`.
+    /// The fixture's `whole-floats-bare`: a whole float (or f32) bare.
     WholeFloatsBare,
     /// The fixture's `trailing-break`: a line break after the last row.
     TrailingBreak,
-    /// The fixture's `utf16-bytes`: the cap counted in UTF-16 code units.
+    /// The fixture's `utf16-bytes`: every count in UTF-16 code units.
     Utf16Bytes,
 }
 
@@ -235,7 +235,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let least = text::least_bytes(
             row_count(&rows),
             columns.clone().count(),
-            header.as_ref().map(String::len),
+            self.copy_state.writer().header_bytes(&header),
         );
         if least > options.max_bytes as u64 {
             cx.emit(TallTableEvent::Copy(TallTableCopy::Failed {
@@ -701,6 +701,15 @@ impl Writer {
         text.len()
     }
 
+    /// Takes the `Option` itself and maps `String::len`: the shape that
+    /// builds as `start_copy`'s own `map(String::len)` did, byte for byte
+    /// (a closure there moved the wasm; `docs/DECISIONS.md`, "Features").
+    #[allow(clippy::ref_option)]
+    #[inline(always)]
+    fn header_bytes(self, header: &Option<String>) -> Option<usize> {
+        header.as_ref().map(String::len)
+    }
+
     #[inline(always)]
     fn finish(self, _: &mut String) {}
 
@@ -720,8 +729,11 @@ impl Control {
         match (self, value) {
             (Control::NullAsText, Some(CellValue::Null)) => text.push_str("NULL"),
             (Control::NoQuoting, Some(CellValue::Text(value))) => text.push_str(&value),
-            (Control::WholeFloatsBare, Some(CellValue::Float(value))) => {
-                let exact = format!("{value:?}");
+            (
+                Control::WholeFloatsBare,
+                Some(value @ (CellValue::Float(_) | CellValue::Float32(_))),
+            ) => {
+                let exact = value.to_string();
                 text.push_str(exact.strip_suffix(".0").unwrap_or(&exact));
             }
             (_, value) => text::push_value(text, value),
@@ -734,6 +746,11 @@ impl Control {
         } else {
             text.len()
         }
+    }
+
+    #[allow(clippy::ref_option)]
+    fn header_bytes(self, header: &Option<String>) -> Option<usize> {
+        header.as_deref().map(|line| self.bytes(line))
     }
 
     fn finish(self, text: &mut String) {

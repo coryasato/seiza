@@ -42,6 +42,20 @@
         ["café", "-Infinity", "2", "9223372036854775807", "3.14"]
       ]
     },
+    "euros": {
+      "columns": [
+        {"name": "prix (€)", "kind": "decimal"},
+        {"name": "qté", "kind": "integer"}
+      ],
+      "rows": [
+        ["12.50", "3"],
+        ["4.00", "10"],
+        ["0.99", "7"],
+        ["150.00", "1"],
+        ["8.25", "12"],
+        ["3.10", "5"]
+      ]
+    },
     "accents": {
       "columns": [
         {"name": "word", "kind": "text"}
@@ -591,6 +605,28 @@
       }
     },
     {
+      "name": "least-bytes-with-utf8-headers",
+      "source": "euros",
+      "options": {"max_bytes": 26, "headers": true},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 0],
+        "head": [0, 1]
+      },
+      "by": "copy",
+      "why": "The check before a read counts the header line in UTF-8 too: 6 rows of 2 columns are 11 bytes of separators, the header \"prix (€)\\tqté\" 15 and its line break 1, 27 in all, past the cap of 26 (in UTF-16 code units the header is 12 and the least 24, under it).",
+      "expect": {
+        "started": {
+          "rows": [0, 5],
+          "columns": [0, 1]
+        },
+        "outcome": {
+          "too_large": {"bytes": 27, "max_bytes": 26}
+        },
+        "reads": false
+      }
+    },
+    {
       "name": "cap-projected-with-headers",
       "source": "sheet",
       "options": {"max_bytes": 24, "headers": true},
@@ -633,5 +669,12 @@
       }
     }
   ],
-  "controls": ["null-as-text", "no-quoting", "key-limit-off-by-one", "whole-floats-bare", "trailing-break", "utf16-bytes"]
+  "controls": [
+    {"name": "null-as-text", "fails": ["text-values", "float32-values", "integer-values", "decimal-values"]},
+    {"name": "no-quoting", "fails": ["text-values"]},
+    {"name": "key-limit-off-by-one", "fails": ["key-at-limit", "key-counts-cells"]},
+    {"name": "whole-floats-bare", "fails": ["float-values", "float32-values"]},
+    {"name": "trailing-break", "fails": ["one-cell", "rows"]},
+    {"name": "utf16-bytes", "fails": ["cap-in-utf8", "least-bytes-with-utf8-headers"]}
+  ]
 }

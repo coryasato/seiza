@@ -1015,3 +1015,19 @@ The last three are added to the observatory's ask: each is a mistake a TS port i
 - [x] **After the code review** (nine findings; eight fixed, one dropped): five cases (the key's limit over two columns, at it and past it; the least text with the header line; the projection with headers on; a copy from a page's last row refused at the cap before a projection from that row alone could); `fixtures/README.md`'s `viewport_rows` beside `paging`, and the projection counted from the copy's own first row; the 2026-11-12 decision restored as committed, the read-order question's close a bullet of its own; the test app set up once a test and each case's window closed (the three tests 11.7 s → 1.6 s); `Writer`'s place at the file's end said in a comment; a comment rewrapped. Dropped: the `utf16-bytes` control counting the header in `least_bytes` too, which changed `start_copy`'s release code (29 bytes before wasm-opt). `just tall-table test`, `lint`, `just observatory fixtures`, and the byte comparison run again on the result.
 
 **Parts:** one, Part A (A1–A5): the milestone is a session's worth.
+
+## M14 follow-up: `copy`'s fixture's known bugs (closed 2026-11-12)
+
+The code review of M14 found six gaps in what `copy.json` pins or in the docs beside it, none a fault in shipped code; the table's `PLAN.md` held them as known bugs, to fix before the observatory's TanStack copy (its M14 part C2) ports against the fixture.
+
+**Done when:**
+
+- [x] **A non-ASCII header at `least_bytes`' edge:** the case `least-bytes-with-utf8-headers` (the `euros` source, headers `prix (€)` and `qté`: 27 bytes of least text in UTF-8, 24 in UTF-16, the cap 26), and `utf16-bytes` counting the header in the check before a read too (`Writer::header_bytes`). Under the control the case gives 28 bytes, not 27.
+- [x] **`reads` is the copy's:** the native test keeps each read's request and asks the cache which were sent for the copy (`sent_as`), so a cache read during a copy can't set it, and asserts the cache sent none.
+- [x] **`whole-floats-bare` bends `float32` too:** `float32-values` fails under it (`16777216`, `2`), as `float-values` does.
+- [x] **Each control's cases pinned:** `controls` name each one's `fails`, the cases it's there to catch, and `copy_controls_fail` asserts each fails under it (`utf16-bytes`: `cap-in-utf8` and `least-bytes-with-utf8-headers`; `whole-floats-bare`: `float-values` and `float32-values`).
+- [x] **A float32 parsed one way:** natively through f64, then `as f32`, as `fixtures/README.md` tells a DOM side.
+- [x] **One spelling of the kinds:** `copy.rs` parses a selection's kind through `Kind::parse`, a match beside `Kind::as_str`, with a round-trip test.
+- [x] **The docs:** `copy.json` holds 28 cases over four sources (`sheet`, `values`, `euros`, `accents`), `page_rows` 4 once under `paging` (no case has its own); M14's A1 evidence above reads as 32 and gives each case a `page_rows`, both wrong, left as history. `docs/DECISIONS.md`'s copy-fixture entry names no milestone in its body.
+- [x] **After the code review** (seven findings, all fixed): each control's `fails`; no cache read during a case asserted; `Kind::parse` a match with its round-trip test; one request log in the test's source; `reads` defined for a side with one fetch path in the README; the decision split in four; `header_bytes`' shape said where it's written.
+- [x] **The build unchanged:** the bare host's wasm with `copy`, and with `copy,resize,pin,density,custom-cells` (the wide sheet's), byte-identical to HEAD's (`cargo build -p tall-table-host --target wasm32-unknown-unknown --release`, `cmp`). `just tall-table test` and `lint` pass.

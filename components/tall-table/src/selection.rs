@@ -48,6 +48,17 @@ impl Kind {
             Kind::Cells => "cells",
         }
     }
+
+    /// The kind `as_str` spells `name`, for a fixture that reads one.
+    #[cfg(test)]
+    pub(crate) fn parse(name: &str) -> Option<Self> {
+        match name {
+            "rows" => Some(Kind::Rows),
+            "columns" => Some(Kind::Columns),
+            "cells" => Some(Kind::Cells),
+            _ => None,
+        }
+    }
 }
 
 fn between<T: Ord + Copy>(a: T, b: T) -> RangeInclusive<T> {
@@ -254,5 +265,17 @@ mod tests {
         assert_eq!(columns.smallest(false), None, "a press holds no column");
         assert_eq!(columns.smallest(true), Some(Kind::Columns));
         assert!(!Selectable::none().any());
+    }
+
+    #[test]
+    fn kinds_parse_as_they_are_spelled() {
+        for kind in [Kind::Rows, Kind::Columns, Kind::Cells] {
+            // A new kind fails to compile here: list it above too.
+            match kind {
+                Kind::Rows | Kind::Columns | Kind::Cells => {}
+            }
+            assert_eq!(Kind::parse(kind.as_str()), Some(kind));
+        }
+        assert_eq!(Kind::parse("block"), None);
     }
 }

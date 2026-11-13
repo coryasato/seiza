@@ -5,7 +5,7 @@
 //! view), so a copy past it reads the rest itself.
 
 use std::borrow::Cow;
-use std::cell::{Cell as Counter, RefCell};
+use std::cell::RefCell;
 use std::ops::{Range, RangeInclusive};
 use std::rc::Rc;
 
@@ -21,6 +21,7 @@ use super::super::{Paging, TallTableEvent, TallTableState, row_height};
 use crate::column::{ColumnKind, TallTableColumn};
 use crate::copy::{CopyFailure, CopyOptions, TallTableCopy};
 use crate::delegate::{CellValue, PageLoad, TallTableDelegate, TallTablePage};
+use crate::pages::Sent;
 use crate::selection::{Kind, TallTableSelection};
 use crate::tall_table::TallTable;
 
@@ -78,8 +79,10 @@ impl Source {
                         (Some(text), "float") => {
                             Field::Float(text.parse().expect("a float's text"))
                         }
+                        // Through f64 and rounded to f32, as a DOM side
+                        // parses it (`Number`, then `Math.fround`).
                         (Some(text), "float32") => {
-                            Field::Float32(text.parse().expect("a float32's text"))
+                            Field::Float32(text.parse::<f64>().expect("a float32's text") as f32)
                         }
                         (Some(text), _) => Field::Text(text.to_owned()),
                     })
@@ -114,10 +117,11 @@ impl TallTablePage for Rows {
     }
 }
 
-/// The source's rows, each read answered at once and counted.
+/// The source's rows, each read answered at once and its request kept
+/// (the cache says which were the copy's).
 struct Memory {
     source: Rc<Source>,
-    reads: Rc<Counter<usize>>,
+    requests: Rc<RefCell<Vec<u64>>>,
     next: u64,
 }
 
@@ -126,8 +130,8 @@ impl TallTableDelegate for Memory {
     type Request = u64;
 
     fn load_page(&mut self, rows: Range<u64>, _: &mut App) -> (u64, PageLoad<Rows>) {
-        self.reads.set(self.reads.get() + 1);
         self.next += 1;
+        self.requests.borrow_mut().push(self.next);
         let page = Rows {
             source: self.source.clone(),
             rows,
@@ -158,12 +162,8 @@ fn options_of(defaults: &Value, case: &Value) -> CopyOptions {
 }
 
 fn selection_of(selection: &Value) -> TallTableSelection {
-    let kind = match selection["kind"].as_str().expect("a kind") {
-        "rows" => Kind::Rows,
-        "columns" => Kind::Columns,
-        "cells" => Kind::Cells,
-        other => panic!("no selection kind {other}"),
-    };
+    let name = selection["kind"].as_str().expect("a kind");
+    let kind = Kind::parse(name).unwrap_or_else(|| panic!("no selection kind {name}"));
     let cell = |name: &str| {
         let cell = selection[name].as_array().expect("a cell");
         (
@@ -195,11 +195,11 @@ fn run_case(
         ..Paging::default()
     };
     let options = options_of(&fixture["options"], &case["options"]);
-    let reads: Rc<Counter<usize>> = Rc::default();
+    let requests: Rc<RefCell<Vec<u64>>> = Rc::default();
     let (rows, columns) = (source.rows.len() as u64, source.columns.clone());
     let delegate = Memory {
         source: source.clone(),
-        reads: reads.clone(),
+        requests: requests.clone(),
         next: 0,
     };
     let (shell, cx): (_, &mut VisualTestContext) = cx.add_window_view(move |_, cx| {
@@ -246,8 +246,12 @@ fn run_case(
     let selection = selection_of(&case["selection"]);
     table.update(cx, |table, cx| table.select(Some(selection), cx));
     draw(cx);
-    assert_eq!(reads.get(), 1, "only the first page is read at open");
-    reads.set(0);
+    assert_eq!(
+        requests.borrow().len(),
+        1,
+        "only the first page is read at open"
+    );
+    requests.borrow_mut().clear();
     match case["by"].as_str().expect("by") {
         "key" => cx.simulate_keystrokes("cmd-c"),
         "copy" => {
@@ -303,7 +307,21 @@ fn run_case(
         }
     }
     drop(events);
-    got.insert("reads".into(), json!(reads.get() > 0));
+    // A read sent for the copy; the cache sends none of its own here (no
+    // prefetch, and the view holds still), and a copy mustn't make it.
+    let sent: Vec<Option<Sent>> = table.read_with(cx, |table, _| {
+        requests
+            .borrow()
+            .iter()
+            .map(|&request| table.cache.sent_as(request))
+            .collect()
+    });
+    assert!(
+        sent.iter().all(|sent| *sent == Some(Sent::Copy)),
+        "every read during the copy is the copy's: {sent:?}"
+    );
+    let copy_read = !sent.is_empty();
+    got.insert("reads".into(), json!(copy_read));
     cx.update(|window, _| window.remove_window());
     cx.run_until_parked();
     got
@@ -361,12 +379,23 @@ fn copy_fixture(cx: &mut TestAppContext) {
 fn copy_controls_fail(cx: &mut TestAppContext) {
     init(cx);
     let fixture: Value = serde_json::from_str(COPY).expect("copy.json");
-    for name in fixture["controls"].as_array().expect("controls") {
-        let name = name.as_str().expect("a control");
+    for control in fixture["controls"].as_array().expect("controls") {
+        let name = control["name"].as_str().expect("a control's name");
+        let mismatches = copy_mismatches(cx, control_of(name));
         assert!(
-            !copy_mismatches(cx, control_of(name)).is_empty(),
+            !mismatches.is_empty(),
             "the control {name} passed the copy fixture"
         );
+        // The cases it's there to catch: each must be among them.
+        for case in control["fails"].as_array().expect("fails") {
+            let case = case.as_str().expect("a case");
+            assert!(
+                mismatches
+                    .iter()
+                    .any(|mismatch| mismatch.starts_with(&format!("{case}: "))),
+                "the control {name} passed {case}: {mismatches:#?}"
+            );
+        }
     }
 }
 

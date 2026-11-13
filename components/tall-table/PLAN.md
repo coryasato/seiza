@@ -165,7 +165,7 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None: M14 (`copy`'s fixture) closed 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)). Next: M15 (`reorder`), opening with its research ("Next milestones").
+None: M14 (`copy`'s fixture) closed 2026-11-12, and its known bugs the same day ([`docs/milestones.md`](docs/milestones.md)). Next: M15 (`reorder`), opening with its research ("Next milestones").
 
 ---
 
@@ -215,17 +215,6 @@ Not planned; noted 2026-10-24 after the manual check of `custom-cells`. The host
 - **Why not now:** the observatory's wide sheet will show heat and bar cells over real data once it adopts `custom-cells`; build this if a feature's manual check needs it before then.
 
 ---
-
-## Known bugs
-
-Found and not yet fixed. The code review of 2026-11-12 found these in `copy`'s fixture (M14). None is a fault in shipped code: each is a gap in what the fixture pins or a doc that disagrees with it. **Fix them in a session of their own before the observatory's M14 goes on** (its C2 ports the copy against this fixture), with the native test and its controls passing.
-
-- **No case pins `least_bytes` with a non-ASCII header.** Every header in `least-bytes-with-headers` and `cap-projected-with-headers` is ASCII, and the `Utf16Bytes` control doesn't bend the pre-read check (`start_copy` still counts with `String::len`). A port that counts the header line in UTF-16 (JS `length`) passes `copy.json` but refuses or admits a copy at another size than GPUI's (a column named `prix (€)`). The fix: a case with a non-ASCII header at the check's edge, and the control bending that check too.
-- **`reads` counts any read, not the copy's.** `state/fixtures/copy.rs` (~line 306) sets `reads` from any delegate read after the copy starts, the cache's own included; `fixtures/README.md` says "whether any page was read for the copy". A cache read during a copy (prefetch, `select` scrolling to the head) would fail `rows`, `key-past-limit`, or `least-bytes` natively, and a port that counts only its copy's reads would disagree. The fix: count the reads sent through the copy's grant, or say in the README that it's any read.
-- **The `WholeFloatsBare` control bends `CellValue::Float` alone** (`state/copy.rs`, ~line 723). `Float32` writes correctly under it, so no control shows that `float32-values` (`16777216.0`, `2.0`) catches a port writing a float32 with JS `String`. The fix: the control bends `Float32` too, and `float32-values` fails under it.
-- **A float32's parse differs between the sides.** The native test parses a `float32` value with `f32::from_str` (`state/fixtures/copy.rs`, ~line 82); `fixtures/README.md` tells a DOM side to parse it with `Number` and round to f32, which rounds twice. Near an f32 rounding boundary the two sources differ, and a later case would fail on the TanStack side with no port bug. Today's values are safe. The fix: parse through f64 then `as f32` natively, as the README says, or document the direct route for both.
-- **`selection_of` spells the selection kinds a second time** (`state/fixtures/copy.rs`, ~line 160), beside `Kind::as_str` (`fixtures/select.rs`'s `selection_json`). A renamed or new kind would update `selection.json`'s output but not `copy.json`'s parser. The fix: parse through `Kind::as_str` (or a `Kind::from_str` beside it), shared with `fixtures/select.rs`.
-- **Docs out of step with the fixture.** `docs/milestones.md`'s M14 A1 evidence reads as 32 cases ("27 cases … After the code review, five more"); `copy.json` holds 27. Its spec gives each case a `page_rows`, which the fixture holds once under `paging`. `milestones.md` is history and never edited: the fix's own entry there records the correct count and shape. And `docs/DECISIONS.md`'s copy-fixture entry (~line 172) names milestones in its body ("a milestone of its own (M14)", "(M15–M17)", "its M14 part C"): only its *[source]* tag may (root `CLAUDE.md`, "Docs").
 
 ## Open questions
 

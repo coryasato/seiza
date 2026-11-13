@@ -504,3 +504,9 @@ No results note: nothing measured. The build's check was a byte comparison of th
 - A table in a test window reads at the window's default size first: `add_window_view` draws before a test resizes it, so the fixture's 10-row source was read whole before a copy could find a page unloaded. The fixture's table opens at 0 rows and is given its rows once the window has its size.
 - A rule written two ways isn't always the same code: the header's length passed to `least_bytes` as `|line| writer.bytes(line)` (a zero-sized `Writer` whose `bytes` is `len`) in place of `String::len` made `start_copy` 29 bytes smaller before wasm-opt and the shipped wasm 13. The review's fix for the `utf16-bytes` control there was dropped: the control is half-applied in a case no fixture has.
 
+## M14 follow-up: `copy`'s fixture's known bugs (2026-11-12)
+
+No results note: nothing measured. The build's check was a byte comparison against HEAD's.
+
+**Surprises:**
+- The rule the review dropped for its bytes went in for none: the header's length through a `Writer` method taking the `Option` (`header.as_ref().map(String::len)` inside, inlined) built byte-identical, where a closure at the call had changed `start_copy`. And two doc comments a line longer, on the tests-only `Control`, moved the shipped wasm by shifting the panic locations below them; kept to one line each, nothing moved.
