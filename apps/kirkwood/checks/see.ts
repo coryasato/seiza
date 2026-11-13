@@ -134,8 +134,8 @@
 //           the press is under it at the release, within a CSS pixel, from
 //           the opening camera and from two tilted by `?elev`, with the
 //           distance, tilt, bearing, and roll as they were; unless a press
-//           on the time control or the open panel, on the landed layout,
-//           and riding, each dragged, moves nothing; and unless a drag that
+//           on the time control or the open panel, and on the landed
+//           layout, each dragged, moves nothing; and unless a drag that
 //           crosses the open panel keeps the camera to its release there);
 //           a wheel zooms toward the pointer (fails unless the plane's
 //           point under it holds within a pixel in and out, the camera
@@ -145,6 +145,28 @@
 //           moving carries on and rests, one let go still doesn't, a press
 //           stops one, and at rest the scene draws nothing). The dots at
 //           the nearest zoom (out/camera-near-*.jpg).
+//
+//   tilt    the camera's tilt and turn, a double click, and the ride's own
+//           camera: a drag with Shift held (fails unless
+//           the bearing and the tilt are the drag's, what the camera looks
+//           at is where it was, in au and in the window, a drag up lifts
+//           the camera toward straight down, a drag to the right carries a nearer point to
+//           the right, the tilt stops at 85° and straight down with the
+//           camera over the plane, and a drag with Ctrl held only pans); a
+//           double click (fails unless the
+//           camera is twice as near, the point under the pointer held, and
+//           its second press started no drag); riding (fails unless the
+//           ride's camera took a tilt, a turn, a pan, and a wheel and the
+//           fixed frame's none, and, over one of Jupiter's orbits, the Sun
+//           and the ecliptic's point under Jupiter held, the triangle and
+//           the names on the crate's points; unless a picked gap's marker,
+//           tilted, is on the crate's place and its path; and unless the
+//           press back gives the fixed frame's camera as it was left);
+//           tilted (fails unless the Sun's and Jupiter's names are on their
+//           discs, and a star is where it was after a pan and gone from
+//           there after a turn); and on the axes (fails if a drag, one
+//           with a key held, a wheel, or a double click moves anything).
+//           Screenshots: out/tilt-*.jpg.
 //
 // Run only when asked for by name (minutes more each):
 //
@@ -169,7 +191,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,sort,ride,gap,integrated,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,sort,ride,gap,integrated,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -180,6 +202,7 @@ import { clickTarget, firstDrawProbe, open, targetRect, waitMark, wheel, type Fi
 import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
+import { TURN as CAMERA_TURN } from '../web/src/camera.ts';
 
 const dir = import.meta.dirname;
 const out = join(dir, 'out');
@@ -187,7 +210,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'sort', 'ride', 'gap', 'integrated', 'rate', 'drag', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'sort', 'ride', 'gap', 'integrated', 'rate', 'drag', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -235,7 +258,7 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
 type View = { x: number; y: number; distance: number; tilt: number; bearing: number; roll: number };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; gliding: boolean; flight: number; ride: number; integrated: number; catchingUp: boolean };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; flight: number; ride: number; integrated: number; catchingUp: boolean };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
@@ -646,7 +669,7 @@ async function seeBodies(url: string) {
 // --- The look, color, and the sky.
 
 /** The opening camera, spelled out (the scene's own default). */
-const OPENING = { az: '200', elev: '24', roll: '-34', dist: '13' };
+const OPENING = { az: '200', elev: '24', roll: '0', dist: '13' };
 /** The belt on the epoch, time held. */
 const HELD = { date: EPOCH, paused: '' };
 /** The display's values (0 to 255) of a color in linear light. */
@@ -1205,7 +1228,6 @@ async function seeCamera(url: string) {
   const modes = [];
   for (const [name, params] of [
     ['on the axes', { flight: '1' }],
-    ['riding with Jupiter', { ride: '1' }],
   ] as [string, Record<string, string>][]) {
     modes.push(
       await withBelt(url, { ...HELD, ...params }, async (page) => {
@@ -1334,6 +1356,330 @@ async function seeCamera(url: string) {
   }
   return { pans, ...elsewhere, nothingMoves: ['a drag from the time control', 'a drag from the open panel', ...modes.map((mode) => `a drag ${mode}`)], zoom, overTheSky: sky, pinch, glide };
 }
+// --- The tilt and the turn, a double click, and the ride's own camera.
+
+/** A drag with a modifier held. */
+async function turnDrag(page: Page, modifier: 'Shift', from: Point, to: Point, options: { ms?: number; still?: number } = {}): Promise<void> {
+  await page.keyboard.down(modifier);
+  await dragged(page, from, to, { ms: 200, still: 60, ...options });
+  await page.keyboard.up(modifier);
+}
+/** The camera at rest: nothing of it moving on its own, and drawn. */
+async function cameraRests(page: Page): Promise<void> {
+  await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.scene!.stats.gliding, undefined, { timeout: 10_000, polling: 'raf' });
+  await settle(page);
+}
+/** The brightest pixel of a part of a screenshot: where (CSS px). */
+async function brightest(page: Page, png: Buffer, rect: { x: number; y: number; width: number; height: number }): Promise<Point> {
+  return page.evaluate(
+    async ({ data, rect, decode }) => {
+      const { context, scale } = await (new Function(`return (${decode})`)() as typeof decoded)(data);
+      const [left, top, width, height] = [rect.x, rect.y, rect.width, rect.height].map((px) => Math.round(px * scale)) as [number, number, number, number];
+      const { data: pixels } = context.getImageData(left, top, width, height);
+      let [most, at] = [-1, 0];
+      for (let pixel = 0; pixel < pixels.length; pixel += 4) {
+        const light = pixels[pixel]! + pixels[pixel + 1]! + pixels[pixel + 2]!;
+        if (light > most) [most, at] = [light, pixel / 4];
+      }
+      return [(left + (at % width) + 0.5) / scale, (top + Math.floor(at / width) + 0.5) / scale] as [number, number];
+    },
+    { data: png.toString('base64'), rect, decode: decoded.toString() },
+  );
+}
+/** The degrees a pixel of a drag with the modifier turns and tilts, and
+ *  the most tilt (`web/src/camera.ts`, `TURN`). */
+const TURN = CAMERA_TURN;
+const turnOf = (degrees: number) => ((degrees % 360) + 360) % 360;
+
+async function seeTilt(url: string) {
+  // A drag with Shift held: about what the camera
+  // looks at, across the window the bearing, up and down the tilt.
+  const turns = [];
+  for (const modifier of ['Shift'] as const) {
+    turns.push(
+      await withBelt(url, HELD, async (page) => {
+        // A context menu, if the browser raises one, is taken.
+        await page.evaluate(() => {
+          const seen = ((globalThis as unknown as { __menus: boolean[] }).__menus = [] as boolean[]);
+          addEventListener('contextmenu', (event) => seen.push(event.defaultPrevented));
+        });
+        await shot(page, 'tilt-opening');
+        const before = await cameraNow(page);
+        const looked = project(before.matrix, [before.view.x, before.view.y, 0]);
+        const [from, to]: [Point, Point] = [[700, 520], [800, 460]];
+        await turnDrag(page, modifier, from, to);
+        await cameraRests(page);
+        const after = await cameraNow(page);
+        const [bearing, tilt] = [turnOf(before.view.bearing - (to[0] - from[0]) * TURN.bearing), before.view.tilt + (to[1] - from[1]) * TURN.tilt];
+        need(near(after.view.bearing, bearing, 0.01) && near(after.view.tilt, tilt, 0.01), `a drag with ${modifier} from ${from.join()} to ${to.join()} took the camera from ${JSON.stringify(before.view)} to ${JSON.stringify(after.view)}; a bearing of ${bearing}° and a tilt of ${tilt}° were expected`);
+        need(after.view.x === before.view.x && after.view.y === before.view.y && after.view.distance === before.view.distance, `a drag with ${modifier} moved what the camera looks at, or its distance: ${JSON.stringify(after.view)}`);
+        // About what the camera looks at: that point is where it was.
+        const now = project(after.matrix, [after.view.x, after.view.y, 0]);
+        need(off(now, looked) <= 0.01, `what the camera looks at went from ${looked.map(round).join()} to ${now.map(round).join()}`);
+        await shot(page, 'tilt-first-turn');
+        // As a tabletop turned by its near edge: a drag to the right
+        // carries what's nearer than the middle to the right.
+        const nearer: Point = [looked[0], looked[1] + 150];
+        const held = await under(page, nearer);
+        need(!!held, `no point of the ecliptic under ${nearer.join()}`);
+        await turnDrag(page, modifier, [600, 500], [640, 500]);
+        await cameraRests(page);
+        const carried = project((await cameraNow(page)).matrix, [...held!, 0]);
+        need(carried[0] > nearer[0] + 20, `a drag to the right took a point nearer than the middle from ${nearer.map(round).join()} to ${carried.map(round).join()}`);
+        // Both ends of the tilt: short of edge-on, and straight down.
+        await turnDrag(page, modifier, [700, 100], [700, 700], { ms: 300 });
+        await cameraRests(page);
+        const edge = await cameraNow(page);
+        need(edge.view.tilt === TURN.most, `a drag down with ${modifier} left the tilt at ${edge.view.tilt}°`);
+        // Never under the plane: a place over what the camera looks at is
+        // above it in the window.
+        const [onPlane, over] = [project(edge.matrix, [edge.view.x, edge.view.y, 0]), project(edge.matrix, [edge.view.x, edge.view.y, 0.5])];
+        need(over[1] < onPlane[1] - 5 && near(over[0], onPlane[0], 0.01), `at the most tilt, 0.5 au over the plane is at ${over.map(round).join()} and the plane at ${onPlane.map(round).join()}`);
+        await shot(page, 'tilt-edge');
+        await turnDrag(page, modifier, [700, 800], [700, 100], { ms: 300 });
+        await cameraRests(page);
+        const down = await cameraNow(page);
+        need(down.view.tilt === 0, `a drag up with ${modifier} left the tilt at ${down.view.tilt}°`);
+        const above = project(down.matrix, [down.view.x, down.view.y, 3]);
+        need(off(above, project(down.matrix, [down.view.x, down.view.y, 0])) < 0.05, `straight down, 3 au over what the camera looks at is at ${above.map(round).join()}`);
+        const menus = await page.evaluate(() => (globalThis as unknown as { __menus: boolean[] }).__menus);
+        need(menus.every((taken) => taken), `a context menu was left to the browser: ${JSON.stringify(menus)}`);
+        return { modifier, press: from, release: to, before: viewOf(before.view), after: viewOf(after.view), lookedAtPx: [looked.map(round), now.map(round)], aPointNearerWentPx: [nearer.map(round), carried.map(round)], tiltEnds: [down.view.tilt, edge.view.tilt], contextMenus: { raised: menus.length, takenFromTheBrowser: menus.filter((taken) => taken).length } };
+      }),
+    );
+  }
+
+  // Ctrl isn't the key: a drag with it held pans, as a plain one does.
+  const withCtrl = await withBelt(url, HELD, async (page) => {
+    const before = await cameraNow(page);
+    await page.keyboard.down('Control');
+    await dragged(page, [700, 520], [800, 580], { ms: 200, still: 60 });
+    await page.keyboard.up('Control');
+    await cameraRests(page);
+    const after = await cameraNow(page);
+    need(after.view.bearing === before.view.bearing && after.view.tilt === before.view.tilt && after.view.roll === before.view.roll && after.view.x !== before.view.x, `a drag with Ctrl took the camera from ${JSON.stringify(before.view)} to ${JSON.stringify(after.view)}`);
+    return 'pans';
+  });
+
+  // A double click zooms in, toward the pointer.
+  const double = await withBelt(url, HELD, async (page) => {
+    const at: Point = [500, 560];
+    const before = await cameraNow(page);
+    const held = await under(page, at);
+    need(!!held, `no point of the ecliptic under ${at.join()}`);
+    const pressed = Date.now();
+    await page.mouse.dblclick(...at);
+    need((await cameraNow(page)).gliding, 'a double click left the camera at rest');
+    await cameraRests(page);
+    const ms = Date.now() - pressed;
+    const after = await cameraNow(page);
+    const now = project(after.matrix, [...held!, 0]);
+    need(near(after.view.distance, before.view.distance / 2, 1e-9) && off(now, at) <= 1, `a double click at ${at.join()} took the camera from ${before.view.distance} au to ${after.view.distance}, the point under the pointer to ${now.map(round).join()}`);
+    need(after.view.tilt === before.view.tilt && after.view.bearing === before.view.bearing && after.view.roll === before.view.roll, 'a double click tilted or turned the camera');
+    // Its second press starts no drag.
+    await page.mouse.move(at[0] + 80, at[1] + 40);
+    await settle(page);
+    need(sameView(after.view, (await cameraNow(page)).view), 'a move after a double click moved the camera');
+    // One click alone moves nothing.
+    await page.mouse.click(300, 600);
+    await page.waitForTimeout(600);
+    need(sameView(after.view, (await cameraNow(page)).view), 'a click moved the camera');
+    await shot(page, 'tilt-double-click');
+    return { at, distanceAu: [fixed(before.view.distance, 4), fixed(after.view.distance, 4)], pointAfterPx: now.map((px) => fixed(px, 2)), offPx: fixed(off(now, at), 3), ms };
+  });
+
+  // Riding, the camera moves in the frame that turns: a camera of the
+  // ride's own, and the fixed frame's as it was left.
+  const riding = await withBelt(url, { date: '1990-01-01' }, async (page) => {
+    const rests = (to: boolean) =>
+      page.waitForFunction(
+        (to) => {
+          const ride = (globalThis as unknown as Page_).__kirkwood.ride();
+          return ride.riding === to && !ride.flying;
+        },
+        to,
+        { timeout: 30_000, polling: 'raf' },
+      );
+    // The visitor's own camera first: turned, tilted, and panned.
+    await turnDrag(page, 'Shift', [700, 520], [640, 480]);
+    await dragged(page, [700, 520], [620, 470]);
+    await cameraRests(page);
+    const left = await cameraNow(page);
+    await clickTarget(page, 'ride');
+    await rests(true);
+    await page.mouse.move(700, 600);
+    await settle(page);
+    const opened = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.riding);
+    need(opened.x === 0 && opened.y === 0 && opened.tilt === 0 && opened.bearing === 0, `the ride opened with its camera at ${JSON.stringify(opened)}`);
+    // A bearing and a tilt of the visitor's, a pan, and a wheel.
+    await turnDrag(page, 'Shift', [700, 520], [760, 620]);
+    await dragged(page, [700, 520], [660, 500]);
+    await page.mouse.move(600, 500);
+    await wheel(page, 250);
+    await cameraRests(page);
+    const read = () =>
+      kirkwood(page, (kirkwood) => {
+        const scene = kirkwood.scene!;
+        const years = scene.stats.years;
+        return { years, view: scene.stats.riding, fixed: scene.stats.camera, camera: scene.viewProjection(), jupiter: kirkwood.jupiter(years), points: kirkwood.ridePoints(years), labels: scene.labels(), triangle: scene.triangle(), clock: kirkwood.clock() };
+      });
+    const first = await read();
+    need(near(first.view.tilt, 50, 0.01) && near(first.view.bearing, turnOf(-60 * TURN.bearing), 0.01) && (first.view.x !== 0 || first.view.y !== 0), `riding, a hand left the ride's camera at ${JSON.stringify(first.view)}`);
+    need(sameView(first.fixed, left.view), `riding, a hand moved the fixed frame's camera from ${JSON.stringify(left.view)} to ${JSON.stringify(first.fixed)}`);
+    await shot(page, 'tilt-riding');
+    // Over one of Jupiter's orbits: Jupiter and the Sun hold their places
+    // in the window, and the names and the triangle are on the crate's
+    // points.
+    const samples: { years: number; sun: Point; jupiter: Point; below: Point; triangle: number; names: number }[] = [];
+    for (;;) {
+      const seen = await read();
+      const [sun, jupiter, below] = [project(seen.camera, [0, 0, 0]), project(seen.camera, seen.jupiter), project(seen.camera, [seen.jupiter[0]!, seen.jupiter[1]!, 0])];
+      const corners = [0, 6, 3].map((point) => project(seen.camera, seen.points.slice(point, point + 3)));
+      need(!!seen.triangle && seen.triangle.length === 6, 'riding, tilted: no triangle is drawn');
+      const triangle = Math.max(...corners.map(([x, y], corner) => Math.hypot(seen.triangle![corner * 2]! - x, seen.triangle![corner * 2 + 1]! - y)));
+      const named = (text: string) => seen.labels.find((label) => label.text === text)!;
+      const [held, ahead, behind] = [named(RIDE_TEXTS.held), named(RIDE_TEXTS.ahead), named(RIDE_TEXTS.behind)];
+      const names = Math.max(
+        Math.abs(held.left - (jupiter[0] + 12)),
+        Math.abs(held.top + held.height / 2 - jupiter[1]),
+        Math.abs(ahead.left - (corners[0]![0] + RIDE_NAMES.ahead[0])),
+        Math.abs(ahead.top - (corners[0]![1] + RIDE_NAMES.ahead[1])),
+        Math.abs(behind.left - (corners[2]![0] + RIDE_NAMES.behind[0])),
+        Math.abs(behind.top - (corners[2]![1] + RIDE_NAMES.behind[1])),
+      );
+      need(held.shown && ahead.shown && behind.shown, `riding, tilted: the names shown are ${seen.labels.filter((label) => label.shown).map((label) => label.text).join(' | ')}`);
+      samples.push({ years: seen.years, sun, jupiter, below, triangle, names });
+      if (seen.years - first.years >= 11.87) break;
+      need(samples.length < 40 && seen.clock.running, `riding, the clock is ${JSON.stringify(seen.clock)} after ${samples.length} readings`);
+      await page.waitForTimeout(1000);
+    }
+    const moved = (which: 'sun' | 'jupiter') => Math.max(...samples.map((sample) => off(sample[which], samples[0]![which])));
+    // Jupiter's orbit isn't a circle, nor quite in the ecliptic: the point
+    // of the ecliptic under it holds its line from the Sun, and
+    // goes in and out along it.
+    const line = [samples[0]!.below[0] - samples[0]!.sun[0], samples[0]!.below[1] - samples[0]!.sun[1]] as Point;
+    const offLine = Math.max(...samples.map((sample) => Math.abs((sample.below[0] - sample.sun[0]) * line[1] - (sample.below[1] - sample.sun[1]) * line[0]) / Math.hypot(...line)));
+    need(offLine < 0.5 && moved('sun') < 0.5 && moved('jupiter') < 40, `over ${(samples.at(-1)!.years - samples[0]!.years).toFixed(2)} years, the camera turned and tilted, Jupiter left its line from the Sun by ${offLine.toFixed(2)} px and moved ${moved('jupiter').toFixed(2)} along it, and the Sun moved ${moved('sun').toFixed(2)}`);
+    const [triangle, names] = [Math.max(...samples.map((sample) => sample.triangle)), Math.max(...samples.map((sample) => sample.names))];
+    need(triangle <= 0.2 && names <= 1, `riding, tilted: the triangle's corners are ${triangle.toFixed(2)} px from the crate's points at worst, the names ${names.toFixed(2)} px from their places`);
+    // Not straight above any more: Jupiter isn't level with the Sun.
+    need(Math.abs(samples[0]!.jupiter[1] - samples[0]!.sun[1]) > 20, `the ride's camera, turned, still has Jupiter at ${samples[0]!.jupiter.map(round).join()} and the Sun at ${samples[0]!.sun.map(round).join()}`);
+    // The press back: the fixed frame's camera as it was left, and the
+    // ride's own forgotten.
+    await clickTarget(page, 'ride');
+    await rests(false);
+    await page.mouse.move(700, 600);
+    await page.waitForTimeout(300);
+    await settle(page);
+    const back = await cameraNow(page);
+    const forgotten = await kirkwood(page, (kirkwood) => kirkwood.scene!.stats.riding);
+    need(sameView(back.view, left.view) && Math.max(...back.matrix.map((cell, at) => Math.abs(cell - left.matrix[at]!))) < 1e-9, `the press back gave the camera ${JSON.stringify(back.view)}; it was left at ${JSON.stringify(left.view)}`);
+    need(forgotten.x === 0 && forgotten.y === 0 && forgotten.tilt === 0 && forgotten.bearing === 0, `back in the fixed frame the ride's camera is ${JSON.stringify(forgotten)}`);
+    return { fixedFramesCamera: { left: viewOf(left.view), back: viewOf(back.view) }, ridesCamera: viewOf(first.view), years: fixed(samples.at(-1)!.years - samples[0]!.years), readings: samples.length, jupiterPx: samples[0]!.jupiter.map(round), sunPx: samples[0]!.sun.map(round), jupiterOffItsLinePx: fixed(offLine, 3), jupiterAlongItsLinePx: fixed(moved('jupiter'), 1), sunMovedPx: fixed(moved('sun'), 3), triangleOffPx: fixed(triangle, 3), namesOffPx: fixed(names, 2) };
+  });
+  // A picked gap's marker and its path, from a camera of the visitor's.
+  const gap = await withBelt(url, { ...HELD, ride: '1', gap: '1' }, async (page) => {
+    await page.waitForTimeout(600);
+    await turnDrag(page, 'Shift', [700, 520], [650, 600]);
+    await dragged(page, [700, 520], [740, 500]);
+    await cameraRests(page);
+    await page.mouse.move(700, 700);
+    await page.waitForTimeout(400);
+    await settle(page);
+    const seen = await kirkwood(page, (kirkwood) => {
+      const scene = kirkwood.scene!;
+      const years = scene.stats.years;
+      const numbers = kirkwood.gapNumbers(1);
+      return {
+        view: scene.stats.riding,
+        camera: scene.viewProjection(),
+        marker: scene.marker(),
+        labels: scene.labels(),
+        jupiter: kirkwood.jupiter(years),
+        place: kirkwood.gapPlace(1, years),
+        along: [0, 1, 2, 3, 4, 5, 6, 7].map((eighth) => years + (numbers.closesIn * eighth) / 8).map((at) => ({ place: kirkwood.gapPlace(1, at), jupiter: kirkwood.jupiter(at) })),
+      };
+    });
+    need(near(seen.view.tilt, 40, 0.01) && near(seen.view.bearing, 40, 0.01), `riding with a gap picked, a hand left the ride's camera at ${JSON.stringify(seen.view)}`);
+    const drawn = seen.marker;
+    need(!!drawn && drawn.path.length > 0, 'tilted, no marker or no path is drawn');
+    const at = project(seen.camera, seen.place);
+    const markerOff = Math.hypot(drawn!.x - at[0], drawn!.y - at[1]);
+    // The marker at other moments, as the frame that turns shows it now.
+    const turned = (moment: { place: number[]; jupiter: number[] }): Point => {
+      const by = Math.atan2(seen.jupiter[1]!, seen.jupiter[0]!) - Math.atan2(moment.jupiter[1]!, moment.jupiter[0]!);
+      const [x, y] = [moment.place[0]!, moment.place[1]!];
+      return project(seen.camera, [x * Math.cos(by) - y * Math.sin(by), x * Math.sin(by) + y * Math.cos(by), 0]);
+    };
+    const onPath = Math.max(fromPath(drawn!.path, [drawn!.x, drawn!.y]), ...seen.along.map((moment) => fromPath(drawn!.path, turned(moment))));
+    need(markerOff < 0.2 && onPath < 0.5, `tilted, the marker is drawn ${markerOff.toFixed(2)} px from the crate's place, and ${onPath.toFixed(2)} px off its path at worst`);
+    const named = seen.labels.find((label) => label.text === MARKER_TEXT)!;
+    need(named.shown && near(named.left, drawn!.x + BOARD_GAP.name[0]!, 1) && near(named.top, drawn!.y + BOARD_GAP.name[1]!, 1), `tilted, "${MARKER_TEXT}" at ${named.left}, ${named.top}; the marker at ${[drawn!.x, drawn!.y].map(round)}`);
+    await shot(page, 'tilt-gap');
+    return { ridesCamera: viewOf(seen.view), markerOffPx: fixed(markerOff, 3), offItsPathPx: fixed(onPath, 3) };
+  });
+
+  // Tilted, the picture holds: the names on their discs, and the stars at
+  // infinity (a pan leaves one where it was, a turn moves it).
+  const picture = await withSky(url, HELD, async (page) => {
+    await turnDrag(page, 'Shift', [700, 100], [640, 700], { ms: 300 });
+    await cameraRests(page);
+    await page.mouse.move(700, 800);
+    await page.waitForTimeout(400);
+    const tilted = await kirkwood(page, (kirkwood) => {
+      const scene = kirkwood.scene!;
+      return { view: scene.stats.camera, labels: scene.labels(), camera: scene.viewProjection(), jupiter: kirkwood.jupiter(scene.stats.years) };
+    });
+    need(tilted.view.tilt === TURN.most && tilted.view.roll === 0, `the camera is ${JSON.stringify(tilted.view)}`);
+    const [sunAt, jupiterAt] = [project(tilted.camera, [0, 0, 0]), project(tilted.camera, tilted.jupiter)];
+    const [sun, named] = [tilted.labels.find((label) => label.text === 'Sol')!, tilted.labels.find((label) => label.text === 'Jupiter')!];
+    need(sun.shown && named.shown, `tilted, the names: ${JSON.stringify(tilted.labels)}`);
+    need(near(sun.left + sun.width / 2, sunAt[0], 1.5) && near(sun.top, sunAt[1] + 36, 1), `tilted, "Sol" at ${sun.left}, ${sun.top}; the Sun at ${sunAt.map(round)}`);
+    need(near(named.left, jupiterAt[0] + 12, 1) && near(named.top + named.height / 2, jupiterAt[1], 1), `tilted, "Jupiter" at ${named.left}, ${named.top}; Jupiter at ${jupiterAt.map(round)}`);
+    const [sunDisc, jupiterDisc] = await lit(page, await page.screenshot(), [sunAt, jupiterAt], 8);
+    need(Math.min(...sunDisc!.color) > 180 && jupiterDisc!.pixels > 0 && off([jupiterDisc!.x, jupiterDisc!.y], jupiterAt) <= 1, `tilted, the Sun's place is ${sunDisc!.color}, and Jupiter's disc at ${[jupiterDisc!.x, jupiterDisc!.y].map(round)} for ${jupiterAt.map(round)}`);
+    await shot(page, 'tilt-picture');
+    // A star: the brightest of a part of the sky, well over the horizon.
+    const SKY = { x: 700, y: 40, width: 600, height: 150 };
+    const star = await brightest(page, await page.screenshot(), SKY);
+    await dragged(page, [700, 600], [760, 640]);
+    await cameraRests(page);
+    await page.mouse.move(700, 800);
+    await page.waitForTimeout(300);
+    const panned = await cameraNow(page);
+    need(panned.view.x !== tilted.view.x && panned.view.bearing === tilted.view.bearing, `the pan left the camera at ${JSON.stringify(panned.view)}`);
+    const afterPan = await brightest(page, await page.screenshot(), SKY);
+    const [wasLit] = await lit(page, await page.screenshot(), [star], 3);
+    need(off(star, afterPan) <= 1 && wasLit!.pixels > 0, `a pan moved a star from ${star.map(round).join()} to ${afterPan.map(round).join()} (${wasLit!.pixels} lit pixels where it was)`);
+    await turnDrag(page, 'Shift', [700, 600], [710, 600]);
+    await cameraRests(page);
+    await page.mouse.move(700, 800);
+    await page.waitForTimeout(300);
+    const [atOld] = await lit(page, await page.screenshot(), [star], 3);
+    // Gone from where it was: nothing lit there now. (Where the brightest
+    // of a wider strip is now is only reported: it may be another star.)
+    const afterTurn = await brightest(page, await page.screenshot(), { x: 400, y: 40, width: 1000, height: 150 });
+    need(atOld!.pixels === 0, `after a turn of ${10 * TURN.bearing}° the star's place at ${star.map(round).join()} still has ${atOld!.pixels} lit pixels`);
+    return { camera: viewOf(tilted.view), sunPx: sunAt.map(round), sunName: [sun.left, sun.top], jupiterPx: jupiterAt.map(round), jupiterName: [named.left, named.top], star: { atPx: star.map(round), afterAPanPx: afterPan.map(round), afterATurnPx: afterTurn.map(round), litWhereItWas: atOld!.pixels } };
+  });
+
+  // On the axes nothing moves: a drag, one with a modifier, a wheel, a
+  // double click.
+  const axes = await withBelt(url, { ...HELD, flight: '1' }, async (page) => {
+    const before = await cameraNow(page);
+    await dragged(page, [700, 520], [560, 610], { ms: 200, still: 0 });
+    await turnDrag(page, 'Shift', [700, 520], [760, 460]);
+    await page.mouse.move(700, 520);
+    await wheel(page, -300);
+    await page.mouse.dblclick(700, 520);
+    await page.waitForTimeout(500);
+    const after = await cameraNow(page);
+    need(sameView(before.view, after.view) && !after.gliding && before.matrix.join() === after.matrix.join(), `on the axes, a hand moved the camera from ${JSON.stringify(before.view)} to ${JSON.stringify(after.view)}`);
+    return ['a drag', 'a drag with Shift', 'a wheel', 'a double click'];
+  });
+  return { turns, aDragWithCtrl: withCtrl, doubleClick: double, riding, gap, picture, onTheAxesNothingMoves: axes };
+}
+
 /** A drag's frames: the scene's frames a second while a scripted drag
  *  moves the camera round a circle, by the scene's resolution. */
 async function seeDrag(url: string) {
@@ -2512,6 +2858,7 @@ try {
   if (ONLY.has('sky')) seen.sky = await seeSky(server.url);
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
   if (ONLY.has('camera')) seen.camera = await seeCamera(server.url);
+  if (ONLY.has('tilt')) seen.tilt = await seeTilt(server.url);
   if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
   if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
   if (ONLY.has('gap')) seen.gap = await seeGap(server.url);

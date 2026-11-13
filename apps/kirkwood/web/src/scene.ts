@@ -11,8 +11,11 @@
 // width, the window.
 //
 // The camera is a map's, and a hand's (`camera.ts`): a drag pans along the
-// ecliptic, a wheel zooms toward the pointer, and a drag let go moving
-// glides to rest. The interface hands each over; this canvas hears nothing.
+// ecliptic, a wheel zooms toward the pointer, a drag let go moving glides
+// to rest, a drag with Shift held tilts and turns, and a double
+// click zooms in. Riding with Jupiter the hand has a camera of the ride's
+// own, in the frame that turns. The interface hands each input over; this
+// canvas hears nothing.
 //
 // A dot's color is its orbit size, through the crate's ramp, and its
 // brightness and size come from its H as the eye would see it; all of it is
@@ -55,7 +58,7 @@
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
-import { GLIDE, REACH, ZOOM, createHand, zoomBy, type View } from './camera.ts';
+import { GLIDE, REACH, ZOOM, createHand, type View } from './camera.ts';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -165,7 +168,13 @@ export interface SceneStats {
    *  looks at (the ecliptic's x and y, au), its distance (au), its tilt
    *  from straight down, its bearing, and its roll (degrees). */
   camera: View;
-  /** Whether the camera is gliding, let go moving. */
+  /** The ride's own camera, a hand's to move while riding: the same
+   *  numbers in the frame that turns with Jupiter (x along Jupiter's line
+   *  from the Sun). As the ride opens until a hand moves it, and again
+   *  once the camera is back in the fixed frame. */
+  riding: View;
+  /** Whether the camera is moving on its own: gliding, let go moving; on
+   *  a double click's way in; or easing its roll out. */
   gliding: boolean;
   /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
   flight: number;
@@ -201,24 +210,26 @@ export interface BeltScene {
   setSky(file: ArrayBuffer): void;
   /** Where a window position's ray meets the ecliptic: its x and y, au. */
   under(x: number, y: number): [number, number] | undefined;
-  /** A wheel over the scene in the fixed frame, at a window position,
-   *  with the modifiers held (1 Ctrl, 2 Shift, 4 Alt, 8 the platform's):
-   *  zooms toward the pointer; with Ctrl, as a trackpad's pinch. And one
-   *  riding with Jupiter: the ride's own distance, toward the Sun. (The
-   *  interface says which, from the crate's own state, and hands none
-   *  over while the dots are out of space or the camera flies between.) */
-  wheel(x: number, y: number, delta: number, modifiers: number): void;
-  rideWheel(delta: number, modifiers: number): void;
-  /** A press anywhere in the window: a glide stops. */
+  /** A wheel over the scene, at a window position, with the modifiers
+   *  held (1 Ctrl, 2 Shift, 4 Alt, 8 the platform's): zooms toward the
+   *  pointer; with Ctrl, as a trackpad's pinch. `frame` is whose camera it
+   *  moves: 0 the fixed frame's, 1 the ride's own, in the frame that turns
+   *  with Jupiter. (The interface says which, from the crate's own state,
+   *  and hands no input over while the dots are out of space or the camera
+   *  flies between the two.) */
+  wheel(x: number, y: number, delta: number, modifiers: number, frame: number): void;
+  /** A press anywhere in the window: a camera moving on its own stops. */
   press(): void;
   /** A drag on the scene, at window positions: its start (the button: 0
-   *  the left, 1 the middle, 2 the right; the modifiers), its moves, its
-   *  end. The left button's pans along the ecliptic, and let go moving the
-   *  camera glides. (The interface hands none over but in space, in the
-   *  fixed frame.) */
-  dragStart(x: number, y: number, button: number, modifiers: number): void;
+   *  the left, 1 the middle, 2 the right; the modifiers; the frame, as a
+   *  wheel's), its moves, its end. The left button's pans along the
+   *  ecliptic, and let go moving the camera glides; with Shift
+   *  held it tilts and turns about what the camera looks at. */
+  dragStart(x: number, y: number, button: number, modifiers: number, frame: number): void;
   dragMove(x: number, y: number): void;
   dragEnd(x: number, y: number): void;
+  /** A double click on the scene: nearer, toward the pointer. */
+  doubleClick(x: number, y: number, frame: number): void;
   /** Projection × view (column-major), then the window's width and height. */
   viewProjection(): number[];
   /** The names the scene draws, and where (CSS px). */
@@ -573,11 +584,11 @@ const LANDED = { size: 1, alpha: 1 };
 const FOV = 40;
 /** The opening camera: it looks at the Sun from 13 au, 24° above the
  *  ecliptic, from ecliptic longitude 270° + `az` (at 0 it faces longitude
- *  90°), turned 34° about its line of sight so the belt runs corner to
- *  corner (`docs/DECISIONS.md`, "Look"). The crate's test of the shader's
+ *  90°), with no roll: the horizon is level, as a map's camera has it
+ *  (`docs/DECISIONS.md`, "Input"). The crate's test of the shader's
  *  arithmetic counts pixels from a copy of this camera and `FOV`
  *  (`crate/src/shader.rs`, `on_screen`): change them together. */
-const OPENING = { az: 200, elev: 24, roll: -34, dist: 13 };
+const OPENING = { az: 200, elev: 24, roll: 0, dist: 13 };
 /** The camera that rides with Jupiter: straight above the Sun, 17 au up,
  *  where board 2 has Jupiter 379 px to the Sun's right in a window 900 px
  *  high; farther in a window too narrow for Jupiter at its farthest and
@@ -640,9 +651,8 @@ const inScene = (x: number, y: number, z: number): [number, number, number] => [
 
 export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: SceneHost): BeltScene {
   /** The fixed frame's camera, a map's numbers: a hand's to move
-   *  (`camera.ts`). Riding with Jupiter the camera looks at the Sun from a
-   *  distance of the ride's own, which a wheel there moves by `rideZoom`
-   *  until the camera is back. */
+   *  (`camera.ts`). Riding with Jupiter the camera is the ride's own
+   *  (`rideView`, below), a hand's too until the camera is back. */
   const [lookedX, lookedY] = lookedAt();
   const view: View = { x: lookedX, y: lookedY, distance: knob('dist', OPENING.dist), tilt: 90 - knob('elev', OPENING.elev), bearing: knob('az', OPENING.az), roll: knob('roll', OPENING.roll) };
   const scale = knob('scale', 1);
@@ -671,7 +681,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, gliding: false, flight: 0, ride: 0, integrated: 0, catchingUp: false };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, flight: 0, ride: 0, integrated: 0, catchingUp: false };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -902,33 +912,65 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     const half = Math.max(50, (innerWidth - inset) / 2 - RIDE.room);
     return Math.max(RIDE.dist, (farthest * innerHeight) / 2 / (Math.tan((FOV * Math.PI) / 360) * half));
   };
+  /** The ride's own camera, in the frame that turns with Jupiter (x along
+   *  Jupiter's line from the Sun): a hand's to move while riding, and
+   *  forgotten once the camera is back in the fixed frame. Its distance is
+   *  kept as `rideZoom` times what the ride opens at, which follows the
+   *  panel (`insetNow`: the panel's width as the camera was last placed). */
+  let insetNow = 0;
+  const rideAt = new Vector3();
+  const rideView: View = {
+    x: 0,
+    y: 0,
+    tilt: 0,
+    bearing: 0,
+    roll: 0,
+    get distance() {
+      return rideDistance(insetNow) * rideZoom;
+    },
+    set distance(au: number) {
+      rideZoom = au / rideDistance(insetNow);
+    },
+  };
+  const rideOpens = () => {
+    [rideView.x, rideView.y, rideView.tilt, rideView.bearing, rideZoom] = [0, 0, 0, 0, 1];
+  };
+  /** The way a camera with a map's numbers faces. */
+  const facingOf = (into: Quaternion, from: View) => {
+    const [AZIMUTH, ELEVATION, ROLL] = [from.bearing, 90 - from.tilt, from.roll].map((degrees) => (degrees * Math.PI) / 180) as [number, number, number];
+    const toward = new Vector3(Math.cos(ELEVATION) * Math.sin(AZIMUTH), Math.sin(ELEVATION), Math.cos(ELEVATION) * Math.cos(AZIMUTH));
+    // Straight down, "up" is the way the camera would face from the side.
+    const up = Math.cos(ELEVATION) < 1e-3 ? new Vector3(-Math.sin(AZIMUTH), 0, -Math.cos(AZIMUTH)) : new Vector3(0, 1, 0);
+    return into.setFromRotationMatrix(facing.lookAt(toward, ORIGIN, up.applyAxisAngle(toward, ROLL)));
+  };
   /** The camera where it is now, centered in what a panel `inset` px wide
    *  leaves: in the fixed frame where the visitor has it; riding (`ride`
-   *  of the way there), straight above the Sun and turned about the
-   *  ecliptic's pole so that Jupiter (at the longitude `anchor` and
-   *  `since` make) is to its right and the way Jupiter goes is up. */
+   *  of the way there), the ride's own, a map's in the frame that turns,
+   *  turned about the ecliptic's pole by Jupiter's longitude (as `anchor`
+   *  and `since` make it): as the ride opens, straight above the Sun with
+   *  Jupiter to its right and the way Jupiter goes up. */
   const place = (inset: number, ride = 0) => {
+    insetNow = inset;
     camera.aspect = innerWidth / innerHeight;
     // The panel covers the window's right `inset` px: the picture moves
     // left by half of it.
     if (inset > 0) camera.setViewOffset(innerWidth, innerHeight, inset / 2, 0, innerWidth, innerHeight);
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
-    const [AZIMUTH, ELEVATION, ROLL] = [view.bearing, 90 - view.tilt, view.roll].map((degrees) => (degrees * Math.PI) / 180) as [number, number, number];
-    const toward = new Vector3(Math.cos(ELEVATION) * Math.sin(AZIMUTH), Math.sin(ELEVATION), Math.cos(ELEVATION) * Math.cos(AZIMUTH));
-    // Straight down, "up" is the way the camera would face from the side.
-    const up = Math.cos(ELEVATION) < 1e-3 ? new Vector3(-Math.sin(AZIMUTH), 0, -Math.cos(AZIMUTH)) : new Vector3(0, 1, 0);
-    fixed.setFromRotationMatrix(facing.lookAt(toward, ORIGIN, up.applyAxisAngle(toward, ROLL)));
+    facingOf(fixed, view);
     let distance = view.distance;
     at.set(...inScene(view.x, view.y, 0));
     if (ride > 0) {
-      // The frame's one angle: Jupiter's longitude. Seen from above, the
-      // way Jupiter goes (a quarter turn ahead of it) is up.
-      riding.setFromRotationMatrix(facing.lookAt(ABOVE, ORIGIN, new Vector3(...inScene(-Math.sin(anchor), Math.cos(anchor), 0))));
-      // (About the ecliptic's pole, the scene's y: the way longitude grows.)
+      // The frame's one angle: Jupiter's longitude, a turn about the
+      // ecliptic's pole (the scene's y: the way longitude grows). The
+      // ride's camera is a map's in that frame: as it opens, straight
+      // above the Sun, the way Jupiter goes (a quarter turn ahead of it)
+      // up; and from there a hand's.
+      facingOf(riding, rideView).premultiply(turnSince.setFromAxisAngle(ABOVE, anchor));
       fixed.slerp(riding, ride).premultiply(turnSince.setFromAxisAngle(ABOVE, ride * since));
-      distance *= ((rideDistance(inset) * rideZoom) / view.distance) ** ride;
-      at.multiplyScalar(1 - ride);
+      distance *= (rideView.distance / view.distance) ** ride;
+      rideAt.set(...inScene(rideView.x, rideView.y, 0)).applyAxisAngle(ABOVE, anchor + ride * since);
+      at.lerp(rideAt, ride);
     }
     camera.quaternion.copy(fixed);
     // The camera looks down its own z at what it looks at.
@@ -956,13 +998,46 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     }
     return along > 0 ? [eye.x + (ray.x / along) * out, -(eye.z + (ray.z / along) * out)] : [eye.x, -eye.z];
   };
-  /** The hand on the fixed frame's camera: a drag, a wheel, the glide. */
-  const hand = createHand(
-    view,
-    { ground: (x, y, held) => ground(x, y, REACH, held), pixel: () => (2 * view.distance * Math.tan((FOV * Math.PI) / 360)) / innerHeight },
+  /** `?glide`: chosen by hand, left for looking. */
+  const feel = { glideMs: knob('glide', GLIDE.ms) };
+  const pixelAt = (distance: number) => (2 * distance * Math.tan((FOV * Math.PI) / 360)) / innerHeight;
+  /** The hand on the fixed frame's camera: a drag, a wheel, the glide,
+   *  the tilt and the turn, a double click. */
+  const hand = createHand(view, { ground: (x, y, held) => ground(x, y, REACH, held), pixel: () => pixelAt(view.distance), limits: () => [ZOOM.nearest, ZOOM.farthest] }, () => (dirty = true), feel);
+  /** The hand on the ride's own camera, its numbers in the frame that
+   *  turns: a point of the ecliptic is turned back by Jupiter's longitude,
+   *  as the camera was placed. It goes from as near as the fixed frame's to
+   *  four times as far as the ride opens (which in a narrow window is
+   *  already past the fixed frame's farthest). */
+  const rideHand = createHand(
+    rideView,
+    {
+      ground(x, y, held) {
+        const world = ground(x, y, REACH, held);
+        if (!world) return undefined;
+        const [sin, cos] = [Math.sin(anchor), Math.cos(anchor)];
+        return [world[0] * cos + world[1] * sin, world[1] * cos - world[0] * sin];
+      },
+      pixel: () => pixelAt(rideView.distance),
+      limits: () => [ZOOM.nearest, 4 * rideDistance(insetNow)],
+    },
     () => (dirty = true),
-    knob('glide', GLIDE.ms),
+    feel,
   );
+  /** Whose drag is under way, if either's. */
+  let dragging: typeof hand | undefined;
+  /** The hand for an input the interface handed over for a frame (0 the
+   *  fixed one's, 1 the ride's own), if the camera as last drawn is at rest
+   *  there. The interface decides from the crate's state, which a reading
+   *  of its own can move on a frame before the scene draws: in that frame
+   *  the camera drawn is still on its way, a pointer's ray through it holds
+   *  no point of either frame, and the input moves nothing. */
+  const handOf = (frame: number) => {
+    const ride = last?.ride ?? 0;
+    return frame === 1 ? (ride >= 1 ? rideHand : undefined) : ride <= 0 ? hand : undefined;
+  };
+  /** Whether the camera is moving on its own. */
+  const moving = () => (stats.gliding = hand.gliding() || rideHand.gliding());
 
   /** Where a place in the scene is in the window (CSS px), or nothing
    *  behind the camera. */
@@ -1154,7 +1229,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // The path, once the camera is riding.
     const there = frame.ride >= 1;
     if (there !== pathShown) pathLine.style.opacity = (pathShown = there) ? '1' : '0';
-    const drawnFor = there ? [frame.gap, frame.inset, innerWidth, innerHeight, stats.distance].join() : '';
+    const drawnFor = there ? [frame.gap, frame.inset, innerWidth, innerHeight, stats.distance, rideView.x, rideView.y, rideView.tilt, rideView.bearing].join() : '';
     if (there && drawnFor !== pathFor) {
       const longitude = Math.atan2(frame.jupiter[1], frame.jupiter[0]);
       const [sin, cos] = [Math.sin(longitude), Math.cos(longitude)];
@@ -1165,11 +1240,29 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         // ecliptic is its xz plane), then through the camera.
         const [x, z] = [path[place]! * cos - path[place + 1]! * sin, -(path[place]! * sin + path[place + 1]! * cos)];
         const w = seen[3]! * x + seen[11]! * z + seen[15]!;
+        // A place level with the eye or behind it has none on screen (a
+        // camera of the visitor's, tilted and near, can have the path's
+        // near side behind it): the line breaks there.
+        if (!(w > 1e-6)) {
+          pathDrawn.push(NaN, NaN);
+          continue;
+        }
         pathDrawn.push(Math.round(((seen[0]! * x + seen[8]! * z + seen[12]!) / w + 1) * 5 * innerWidth) / 10, Math.round((1 - (seen[1]! * x + seen[9]! * z + seen[13]!) / w) * 5 * innerHeight) / 10);
       }
       const line: string[] = [];
-      for (let place = 0; place < pathDrawn.length; place += 2) line.push(`${place ? 'L' : 'M'}${pathDrawn[place]} ${pathDrawn[place + 1]}`);
-      pathLine.setAttribute('d', `${line.join('')}Z`);
+      // Whole, it closes; broken, each run of places is a line of its own
+      // (and the last isn't joined to the first across the break).
+      const whole = !pathDrawn.some(Number.isNaN);
+      let pen = false;
+      for (let place = 0; place < pathDrawn.length; place += 2) {
+        if (Number.isNaN(pathDrawn[place]!)) pen = false;
+        else {
+          line.push(`${pen ? 'L' : 'M'}${pathDrawn[place]} ${pathDrawn[place + 1]}`);
+          pen = true;
+        }
+      }
+      if (!whole && pen && !Number.isNaN(pathDrawn[0]!)) line.push(`L${pathDrawn[0]} ${pathDrawn[1]}`);
+      pathLine.setAttribute('d', `${line.join('')}${whole ? 'Z' : ''}`);
     }
     pathFor = drawnFor;
     // The marker, where it is now; behind the camera it has no place on
@@ -1194,11 +1287,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     else since += Math.atan2(Math.sin(longitude - longitudeDrawn), Math.cos(longitude - longitudeDrawn));
     longitudeDrawn = longitude;
     last = frame;
-    // Back in the fixed frame, the ride's own zoom is forgotten: the next
-    // ride opens as board 2 has it.
-    if (frame.ride <= 0) rideZoom = 1;
+    // Back in the fixed frame, the ride's own camera is forgotten: the
+    // next ride opens as board 2 has it.
+    if (frame.ride <= 0) rideOpens();
     place(frame.inset, frame.ride);
     stats.camera = { ...view };
+    stats.riding = { ...rideView };
     // Up close the dust thins out, by the square of how much nearer the
     // camera is than it opens: a dot's area and its opacity each grow with
     // the nearness, so the dust keeps its brightness and its colors.
@@ -1335,11 +1429,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const tick = (now: number) => {
     requestAnimationFrame(tick);
     const frame = ask(now);
-    // The camera is a hand's only in space, in the fixed frame: a flight
-    // of the scene's own takes it, and a glide ends there.
+    // The camera is a hand's only in space, at rest in the fixed frame or
+    // in the one that turns: a flight of the scene's own takes it, and a
+    // glide ends there. (The roll's ease, once begun, goes on to its end.)
     if (frame.flight > 0 || frame.ride > 0) hand.rest();
-    else if (hand.step(now)) dirty = true;
-    stats.gliding = hand.gliding();
+    if (frame.flight > 0 || frame.ride < 1) rideHand.rest();
+    const stepped = [hand.step(now), rideHand.step(now)];
+    if (stepped[0] || stepped[1]) dirty = true;
+    moving();
     if (dirty || !last || moved(frame, last)) render(frame);
   };
   requestAnimationFrame(tick);
@@ -1432,22 +1529,23 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     },
     press() {
       hand.press();
-      stats.gliding = false;
+      rideHand.press();
+      moving();
     },
-    dragStart: (x, y, button, modifiers) => hand.dragStart(x, y, button, modifiers, performance.now()),
-    dragMove: (x, y) => hand.dragMove(x, y, performance.now()),
+    dragStart(x, y, button, modifiers, frame) {
+      dragging = handOf(frame);
+      dragging?.dragStart(x, y, button, modifiers, performance.now());
+    },
+    dragMove: (x, y) => dragging?.dragMove(x, y, performance.now()),
     dragEnd(x, y) {
-      hand.dragEnd(x, y, performance.now());
-      stats.gliding = hand.gliding();
+      dragging?.dragEnd(x, y, performance.now());
+      dragging = undefined;
+      moving();
     },
-    wheel: (x, y, delta, modifiers) => hand.wheel(x, y, delta, modifiers, performance.now()),
-    rideWheel(delta, modifiers) {
-      // The ride's own distance, from as near as the fixed frame's camera
-      // goes to four times as far as the ride opens (which in a narrow
-      // window is already past the fixed frame's farthest); the fixed
-      // frame's is as the visitor left it, for the way back.
-      rideZoom = Math.min(4, Math.max(ZOOM.nearest / rideDistance(last?.inset ?? 0), rideZoom * zoomBy(delta, modifiers)));
-      dirty = true;
+    wheel: (x, y, delta, modifiers, frame) => handOf(frame)?.wheel(x, y, delta, modifiers, performance.now()),
+    doubleClick(x, y, frame) {
+      handOf(frame)?.zoomIn(x, y, performance.now());
+      if (moving()) dirty = true;
     },
     viewProjection() {
       place(last?.inset ?? 0, last?.ride);

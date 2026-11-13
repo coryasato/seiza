@@ -1160,37 +1160,39 @@ impl Render for Host {
                         // a wheel moves nothing. Nor while the camera
                         // flies to the ride or back: it would be the
                         // fixed frame's, changed unseen.
-                        if !in_space() {
+                        let Some(frame) = hands_frame() else {
                             return;
-                        }
-                        let delta: f32 = event.delta.pixel_delta(px(16.)).y.into();
-                        let held = held(event.modifiers);
-                        if fixed_frame() {
-                            scene::wheel(
-                                event.position.x.into(),
-                                event.position.y.into(),
-                                delta,
-                                held,
-                            );
-                        } else if ride::riding() && ride::turned() >= 1.0 {
-                            scene::ride_wheel(delta, held);
-                        }
+                        };
+                        scene::wheel(
+                            event.position.x.into(),
+                            event.position.y.into(),
+                            event.delta.pixel_delta(px(16.)).y.into(),
+                            held(event.modifiers),
+                            frame,
+                        );
                     })
                     // A press here starts a drag of the scene's, which
                     // it keeps to its release wherever that is
-                    // (`drag_listeners`). Only in space, in the fixed
-                    // frame: the camera is a hand's nowhere else.
+                    // (`drag_listeners`); a double click's second press
+                    // zooms in, and starts none. Only where the camera
+                    // is a hand's.
                     .on_any_mouse_down(|event: &MouseDownEvent, _, _| {
                         let Some(button) = button(event.button) else {
                             return;
                         };
-                        if in_space() && fixed_frame() {
-                            scene::drag_start(
-                                event.position.x.into(),
-                                event.position.y.into(),
-                                button,
-                                held(event.modifiers),
-                            );
+                        let Some(frame) = hands_frame() else {
+                            return;
+                        };
+                        let (x, y) = (event.position.x.into(), event.position.y.into());
+                        let held = held(event.modifiers);
+                        let plain = button == 0 && held == 0;
+                        // (Asked of every plain press, so the next knows
+                        // of this one.)
+                        let second = plain && scene::surface_press(frame);
+                        if second && event.click_count == 2 {
+                            scene::double_click(x, y, frame);
+                        } else {
+                            scene::drag_start(x, y, button, held, frame);
                         }
                     }),
             )
@@ -1260,6 +1262,21 @@ fn in_space() -> bool {
 /// Jupiter, nor on its way there or back.
 fn fixed_frame() -> bool {
     !ride::riding() && ride::turned() <= 0.0
+}
+
+/// Whose camera a hand has, if either: in space, the fixed frame's at rest
+/// there, or the ride's own once the frame turns with Jupiter. On the way
+/// between the two, and with the dots out of space, neither.
+fn hands_frame() -> Option<scene::Frame> {
+    if !in_space() {
+        None
+    } else if fixed_frame() {
+        Some(scene::Frame::Fixed)
+    } else if ride::riding() && ride::turned() >= 1.0 {
+        Some(scene::Frame::Turning)
+    } else {
+        None
+    }
 }
 
 /// A button as the scene takes it: 0 the left, 1 the middle, 2 the right.

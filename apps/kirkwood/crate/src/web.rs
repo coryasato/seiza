@@ -56,22 +56,23 @@ extern "C" {
     fn first_frame();
 
     /// A wheel over the scene, at a window position (CSS px), with the
-    /// modifiers held (`scene::modifiers`).
+    /// modifiers held (`scene::modifiers`), for the camera of a frame
+    /// (`scene::Frame`).
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = wheel)]
-    pub fn scene_wheel(x: f32, y: f32, delta: f32, modifiers: u8);
+    pub fn scene_wheel(x: f32, y: f32, delta: f32, modifiers: u8, frame: u8);
 
-    /// A wheel over the scene, riding with Jupiter: the ride's own zoom.
-    #[wasm_bindgen(js_namespace = __kirkwood, js_name = rideWheel)]
-    pub fn scene_ride_wheel(delta: f32, modifiers: u8);
+    /// A double click on the scene, at a window position.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = doubleClick)]
+    pub fn scene_double_click(x: f32, y: f32, frame: u8);
 
     /// A press anywhere in the window.
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = press)]
     pub fn scene_press();
 
-    /// A drag on the scene: its start (the button, the modifiers), its
-    /// moves, its end, at window positions (CSS px).
+    /// A drag on the scene: its start (the button, the modifiers, the
+    /// frame), its moves, its end, at window positions (CSS px).
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = dragStart)]
-    pub fn scene_drag_start(x: f32, y: f32, button: u8, modifiers: u8);
+    pub fn scene_drag_start(x: f32, y: f32, button: u8, modifiers: u8, frame: u8);
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = dragMove)]
     pub fn scene_drag_move(x: f32, y: f32);
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = dragEnd)]

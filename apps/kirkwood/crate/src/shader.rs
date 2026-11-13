@@ -111,16 +111,12 @@ fn place(elements: &Elements, row: usize, years: f64, clock: Clock, solver: Solv
 
 /// The opening camera, a copy of `web/src/scene.ts`'s `OPENING` and `FOV`
 /// (change them together, or this tests a window nobody opens on): 13 au
-/// from the Sun, 24° above the ecliptic, turned 34° about its line of
+/// from the Sun, 24° above the ecliptic, with no roll about its line of
 /// sight, a 40° field of view up and down, in a 1440×900 window. A place
 /// on screen: CSS px from the
 /// window's center, or none behind the camera or outside the window.
 fn on_screen(place: [f64; 3]) -> Option<[f64; 2]> {
-    let (az, elev, roll) = (
-        200f64.to_radians(),
-        24f64.to_radians(),
-        (-34f64).to_radians(),
-    );
+    let (az, elev, roll) = (200f64.to_radians(), 24f64.to_radians(), 0f64.to_radians());
     let (distance, fov, width, height) = (13.0, 40f64.to_radians(), 1440.0, 900.0);
     let dot = |u: [f64; 3], v: [f64; 3]| u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
     let cross = |u: [f64; 3], v: [f64; 3]| {

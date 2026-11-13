@@ -99,12 +99,12 @@ type Kirkwood = {
   /** Called by the crate once GPUI's first frame is on screen. */
   firstFrame(): void;
   /** Called by the crate: a wheel over the scene (in the fixed frame, or
-   *  riding with Jupiter), a press anywhere in the window, and a drag on
+   *  riding with Jupiter), a double click on it, a press anywhere in the window, and a drag on
    *  the scene (its start, its moves, its end). */
-  wheel(x: number, y: number, delta: number, modifiers: number): void;
-  rideWheel(delta: number, modifiers: number): void;
+  wheel(x: number, y: number, delta: number, modifiers: number, frame: number): void;
+  doubleClick(x: number, y: number, frame: number): void;
   press(): void;
-  dragStart(x: number, y: number, button: number, modifiers: number): void;
+  dragStart(x: number, y: number, button: number, modifiers: number, frame: number): void;
   dragMove(x: number, y: number): void;
   dragEnd(x: number, y: number): void;
   /** For the checks: the wasm's linear memory in bytes, now and as it was
@@ -401,10 +401,10 @@ const kirkwood: Kirkwood = {
     kirkwood.wasmBytesAtFirstFrame = kirkwood.wasmBytes();
     void afterFirstFrame();
   },
-  wheel: (x, y, delta, modifiers) => scene?.wheel(x, y, delta, modifiers),
-  rideWheel: (delta, modifiers) => scene?.rideWheel(delta, modifiers),
+  wheel: (x, y, delta, modifiers, frame) => scene?.wheel(x, y, delta, modifiers, frame),
+  doubleClick: (x, y, frame) => scene?.doubleClick(x, y, frame),
   press: () => scene?.press(),
-  dragStart: (x, y, button, modifiers) => scene?.dragStart(x, y, button, modifiers),
+  dragStart: (x, y, button, modifiers, frame) => scene?.dragStart(x, y, button, modifiers, frame),
   dragMove: (x, y) => scene?.dragMove(x, y),
   dragEnd: (x, y) => scene?.dragEnd(x, y),
   wasmBytes: () => memory?.buffer.byteLength ?? 0,

@@ -255,3 +255,16 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interfa
 - **A flag read from the next frame reads late.** The glide's flag was set by the frame after the release, and the check read it before one came.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Input", "Scene".
+
+## M5 part B: tilt and turn, and each mode's rules (2026-11-12)
+
+**Surprises:**
+- **The live map wouldn't be read by a script.** The plan opened the part with "read the modifier off the live map". Scripted drags on it under every key only panned, as a Mac and as Windows, headless and in a window: a real map does not take a script's modifier as a hand's. Google's own documentation says Shift and the recollection said Ctrl, so both are built and the reading is the owner's, in ten seconds by hand.
+- **Jupiter doesn't hold its place, and never did.** "Jupiter holds its place in the window" failed twice before the check was right: its orbit isn't a circle, so it goes 21 px in and out along its line from the Sun; and tilted it left that line by 6 px, which is its own 1.3° of inclination lifting it off the plane. What holds is the ecliptic's point under it, on its line. Straight above, neither showed.
+- **The ride's camera was one more map, not a special case.** The ride had been "straight above the Sun, turned by one angle". Written as a map's numbers in the turning frame, with the same hand on it, its opening is bearing 0 and tilt 0, and every gesture came with no new arithmetic: the pan's one fact (the ray through the pointer meets the plane where the camera says) holds in any frame.
+- **A Mac's Ctrl+click was already taken care of.** The worry was the browser's context menu on every tilt. gpui-pre-web takes every one; headless Chromium on a Mac does raise them (4 over the check's drags), and the drag turns the camera all the same.
+- **Edge-on, the Trojans are the tall thing.** At 85° the main belt is a band and the Trojans' cloud stands well above and below it: the picture the tilt was for is more theirs than the belt's.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Input"; the evidence: [`../PLAN.md`](../PLAN.md), M5's checks.
+
+*After review:* the modifier became Shift alone, the owner's call: the live map tilted under no key by hand either, so there was nothing to copy. And every fault found was a place the ride's new camera could reach that the old one, fixed straight above, never could: the path of a picked gap behind the eye, a press in the one frame where the crate says "riding" and the picture hasn't arrived, a stop that was exact only while the distance was a plain number. A camera a hand moves goes where no check has stood.
