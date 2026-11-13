@@ -17,20 +17,25 @@
 //   --fonts                the admin table's fonts toggle (`?fonts`), GPUI only
 //                          (`usable`, `data`, `memory`), written to
 //                          <date>-<label>-admin-table-fonts.json
+//   --date <YYYY-MM-DD>    the results files' date (default: today's, local)
+//   --build <dir>          serve a kept build of the level, `<dir>/gpui/` and
+//                          `<dir>/tanstack/`, instead of the tree's (an A/B's:
+//                          `perf/ab.ts`), recorded as `build`
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test';
 
 /** A page or a frame in one: where a contender runs (the bare page, or
  *  the observatory page's frame). */
 export type Scope = Pick<Page, 'evaluate' | 'waitForFunction'>;
 import { frameRecorder, gesture as sendGesture, targetRect, waitMark, wheel, type Gesture } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, flag, machineInfo, median, option, throttle, wasmCrateVersion, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, flag, localDate, machineInfo, median, option, throttle, wasmCrateVersion, type Profile } from '../../../shared-web/perf/protocol.ts';
 import type { AppServer } from '../../../shared-web/perf/serve.ts';
 import { FLING_FRAMES, FRAME_MS, PAGE_ROWS, PROBE_KEY, flingStep, cellPaints, type CellPaint, type FeedBatch, type RefreshedFrame, type ContenderState, type Side, type StateFrame, type WheelInput } from '../metrics/metrics.ts';
 import { ADMIN_TABLE, ALL_SCENARIOS, BIG_FILE, BUILT, SCENARIO_PARAM, STOP_PARAM, resultLabel, type Picked, type Scenario, type WideScenario } from '../contenders/scenarios.ts';
 import { FONTS_PARAM } from '../contenders/contract.ts';
+import { pageSql } from '../contenders/tall-table/tanstack/web/src/data/sql.ts';
 import { MARKS, dataPath, distDir, gpuiWebDir, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 export const SIDES: Side[] = ['gpui', 'tanstack'];
@@ -336,6 +341,35 @@ export async function gesture(session: Session, scroll: Gesture): Promise<void> 
   await sendGesture(session.page, await restPoint(session.page), scroll, { scaleByDpr: session.side === 'gpui' });
 }
 
+/** Until nothing has drawn for `restMs` since `since` (GPUI: its recorded
+ *  frames, `workRecorder`'s; the DOM: its scroll position). Returns when the
+ *  poll first saw the last change: at or after the last drawing, so a
+ *  window ending there holds every frame that drew. The wide sheet's
+ *  scrolls end at it (`metric-scroll`, `metric-copy`). */
+export async function scrollRest(page: Page, side: Side, since: number, restMs: number): Promise<number> {
+  const handle = await page.waitForFunction(
+    ({ side, since, restMs }) => {
+      const g = globalThis as unknown as { __rest?: { at: number; key: string }; __seizaWork?: { t: number }[] };
+      const t = performance.now();
+      let key: string;
+      if (side === 'gpui') key = `${since}:${(g.__seizaWork ?? []).filter((sample) => sample.t >= since).length}`;
+      else {
+        const scroller = document.querySelector('.scroller')!;
+        key = `${since}:${scroller.scrollTop},${scroller.scrollLeft}`;
+      }
+      // Keyed by the scroll's start: a scroll never ends on the last one's rest.
+      if (g.__rest?.key !== key) {
+        g.__rest = { at: t, key };
+        return false;
+      }
+      return t - g.__rest.at > restMs ? g.__rest.at : false;
+    },
+    { side, since, restMs },
+    { polling: 50, timeout: 120_000 },
+  );
+  return (await handle.jsonValue()) as number;
+}
+
 /** The replay's jump to `fraction` of the rows; resolves once the view is filled. */
 export const jump = (page: Scope, fraction: number): Promise<void> => page.evaluate((fraction) => (globalThis as Global).__contender!.replay.jump(fraction), fraction);
 
@@ -424,6 +458,32 @@ export function refreshedRecorder(): void {
 
 // The init script names the mark itself: fail if it drifts from the contract's.
 if (!refreshedRecorder.toString().includes(`'${MARKS.refreshed}'`)) throw new Error(`refreshedRecorder doesn't name ${MARKS.refreshed}`);
+
+/** Init script: the time of each page query either side sends DuckDB's
+ *  worker (`pageSql`'s, the same SQL on both sides: the SQL fixture), on
+ *  `__pageReads`. DuckDB reads the file inside its worker (synchronous
+ *  XHRs), so the page sees no request for it; the query's message to the
+ *  worker (`{messageId, type, data: [connection, sql, …]}`) is what a
+ *  page read is. A wrapper on `Worker.prototype.postMessage`: a shallow
+ *  look at each message's `data`, the same on both sides. */
+export function pageReadRecorder(): void {
+  const g = globalThis as { __pageReads?: number[] };
+  const reads: number[] = [];
+  g.__pageReads = reads;
+  const post = Worker.prototype.postMessage;
+  Worker.prototype.postMessage = function (this: Worker, message: unknown, ...rest: unknown[]) {
+    const data = (message as { data?: unknown } | null)?.data;
+    if (Array.isArray(data) && data.some((part) => typeof part === 'string' && part.includes('WHERE file_row_number >='))) reads.push(performance.now());
+    return (post as (...args: unknown[]) => void).call(this, message, ...rest);
+  } as typeof post;
+}
+
+// The init script names the page SQL's clause itself: fail if it drifts from `pageSql`'s.
+if (!pageSql('x', 0, 1).includes('WHERE file_row_number >=') || !pageReadRecorder.toString().includes("'WHERE file_row_number >='")) throw new Error("pageReadRecorder's clause isn't pageSql's");
+
+/** The page reads `pageReadRecorder` logged at or after `since` (and before `until`). */
+export const pageReads = (page: Scope, since: number, until = Infinity): Promise<number> =>
+  page.evaluate(({ since, until }) => ((globalThis as { __pageReads?: number[] }).__pageReads ?? []).filter((t) => t >= since && t <= until).length, { since, until: until === Infinity ? Number.MAX_VALUE : until });
 
 /** The refreshed log `refreshedRecorder` keeps. */
 export const refreshedLog = (page: Scope): Promise<RefreshedFrame[]> => page.evaluate(() => (globalThis as { __refreshed?: RefreshedFrame[] }).__refreshed ?? []);
@@ -520,6 +580,8 @@ const PORTS: Record<string, [number, number]> = {
   feed: [4366, 4367],
   tail: [4375, 4376],
   soak: [4377, 4378],
+  drag: [4401, 4402],
+  copy: [4403, 4404],
 };
 
 /**
@@ -558,7 +620,7 @@ export async function runMetric<R extends RunResult>(
       const scenario = ALL_SCENARIOS.find((candidate) => candidate.id === json.scenario);
       const stop = scenario?.stops.find((candidate) => candidate.id === json.stop?.id);
       const suffix = scenario && stop && scenario.id !== BIG_FILE.id ? `-${resultLabel({ scenario, stop } as Picked)}${json.fonts ? '-fonts' : ''}` : '';
-      const date = new Date().toISOString().slice(0, 10);
+      const date = resultsDate();
       const out = join(perfDir, 'results', `${date}-${label}${suffix}.json`);
       refuseExisting(out);
       writeFileSync(out, `${JSON.stringify({ ...json, date, label, summarizedFrom: basename(file) }, null, 2)}\n`);
@@ -584,20 +646,22 @@ export async function runMetric<R extends RunResult>(
   // Results are append-only, and a file's name is its label, scenario, and
   // stop, not its metric: a label two metrics share would overwrite the
   // first's file. Refused before anything runs.
-  const date = new Date().toISOString().slice(0, 10);
+  const date = resultsDate();
   const outOf = (suffix: string) => join(perfDir, 'results', `${date}-${label}${suffix}.json`);
   const suffixOf = (pick: Picked) => (pick.scenario.id === BIG_FILE.id ? '' : `-${resultLabel(pick)}${fonts ? '-fonts' : ''}`);
   if (label) for (const pick of picks) refuseExisting(outOf(suffixOf(pick)));
   // The versions measured with: the tree's lockfiles, but gpui-kit's the
   // served GPUI build's own (its wasm's panic locations), so a build made
   // from another lock (an A/B's) is recorded as what it is.
+  const kept = option('build') ? resolve(option('build')!) : undefined;
+  const keptDir = (side: Side) => (kept ? join(kept, side) : undefined);
   const measuredWith = machineInfo();
-  if (sides.includes('gpui')) measuredWith.versions = { ...measuredWith.versions, 'gpui-kit': builtGpuiKit(level) };
+  if (sides.includes('gpui')) measuredWith.versions = { ...measuredWith.versions, 'gpui-kit': builtGpuiKit(keptDir('gpui') ?? distDir(gpuiWebDir, level)) };
   const servers: Partial<Record<Side, AppServer>> = {};
   const failures: string[] = [];
   try {
-    if (sides.includes('gpui')) servers.gpui = await serveGpui(gpuiPort, undefined, level);
-    if (sides.includes('tanstack')) servers.tanstack = await serveTanstack(tanstackPort, undefined, level);
+    if (sides.includes('gpui')) servers.gpui = await serveGpui(gpuiPort, undefined, level, keptDir('gpui'));
+    if (sides.includes('tanstack')) servers.tanstack = await serveTanstack(tanstackPort, undefined, level, keptDir('tanstack'));
     for (const pick of picks) {
       // Big file's runs are unlabelled; every other scenario's, the base level's admin table too, carry its label.
       const picked = pick.scenario.id === BIG_FILE.id ? null : pick;
@@ -609,6 +673,7 @@ export async function runMetric<R extends RunResult>(
         metric,
         ...(picked ? { scenario: picked.scenario.id, stop: picked.stop } : {}),
         ...(fonts ? { fonts: true } : {}),
+        ...(kept ? { build: keptName(kept) } : {}),
         ...measuredWith,
         runs,
         ...(typeof extra === 'function' ? extra(picked) : extra),
@@ -655,14 +720,31 @@ export async function runMetric<R extends RunResult>(
   console.log('\nPASS');
 }
 
+/** A results file's date: `--date` (an A/B gives every file it causes
+ *  one), else today's on this machine (`localDate`: a UTC date runs a day
+ *  ahead in the evening here, and splits a sitting's files across days). */
+function resultsDate(): string {
+  const given = option('date');
+  if (given !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(given)) throw new Error(`--date ${given}: YYYY-MM-DD`);
+  return given ?? localDate();
+}
+
 /** Throws if a results file is already there: results are append-only. */
 function refuseExisting(out: string): void {
   if (existsSync(out)) throw new Error(`${out} exists: results are append-only, so give this run a label of its own`);
 }
 
-/** The gpui-kit the GPUI contender's build at `level` was compiled from. */
-function builtGpuiKit(level: Scenario['level']): string {
-  const assets = join(distDir(gpuiWebDir, level), 'assets');
+/** A kept build's name for a results file: its path from the repo's root
+ *  (`target/ab/…`), never an absolute path (the repo is public), else its
+ *  directory's name. */
+export function keptName(dir: string): string {
+  const path = relative(join(perfDir, '../../..'), dir);
+  return path.startsWith('..') || isAbsolute(path) ? basename(dir) : path;
+}
+
+/** The gpui-kit the GPUI contender's build in `dir` was compiled from. */
+function builtGpuiKit(dir: string): string {
+  const assets = join(dir, 'assets');
   const wasm = readdirSync(assets).filter((name) => name.endsWith('.wasm'));
   if (wasm.length !== 1) throw new Error(`${assets}: ${wasm.length} wasm files, not one`);
   return wasmCrateVersion(join(assets, wasm[0]!), 'gpui-kit');

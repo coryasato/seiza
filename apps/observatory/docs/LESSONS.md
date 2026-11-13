@@ -676,3 +676,14 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 **Surprises:**
 - An import whose code is all dropped can still move other builds. `data/copy.ts` imported `number.ts`'s `f32Text` for the fixture's float32s. Nothing of the copy reached market watch's, live tail's, or the wall's bundles, but `number.ts` moved earlier in their chunks, and market watch's grew a byte. `data/copy.ts` keeps its own five-line copy.
 - The writer's ordering depends on when GPUI delivers events, and the DOM delivers them at once. A writer that can't open the clipboard cancels at `Started`. Told synchronously, that cancel would run before the copy existed, and the copy would go on reading. So the port queues its events until the call that emitted them ends, then plans the reads, as GPUI's update and `defer` do.
+
+## M14 part D1: the metrics (2026-11-13)
+
+**Results:** [`perf/results/2026-11-13-m14-d1.md`](../perf/results/2026-11-13-m14-d1.md).
+
+**Surprises:**
+- `domDrawn`'s 1 ms of animate, set for scrolls, undercounts a drag. A selection's commit over few cells runs in 0.55–0.9 ms of animate, so TanStack's select drag read 63% of frames drawn when it drew nearly all of them. A frame that drew is one that painted; the idle frame in the window painted nothing.
+- Hovering draws. The drag's control first ran its resize moves along the header with no button, and both sides drew 23 frames: the pointer crossed the next days' bands, whose hover highlights. The control now runs in the cells, where hovering draws nothing on either side.
+- The page never sees DuckDB's reads. Its worker reads the file by synchronous XHRs, so counting data requests read 0 for a copy that reads 8 pages. A page read is a page query's message to the worker.
+- Cmd+A on a cold view selects nothing of the sheet on either side (`rows [0,0]`) until a cell has been pressed, and the replay's jump moves the selection to the row it lands on. A script that keeps a selection across a jump selects it again.
+- One A/B round can point either way. The first smoke round read TanStack's grown level well under M9's (38% of frames drawn against 53% on the scroll down); the rerun, after the review's fixes, read it over (37% against 31%). TanStack's scroll at `rows-20` swings that much run to run on this machine, so nothing is read from a round, and the 10 rounds decide.

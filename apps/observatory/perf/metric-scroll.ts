@@ -49,7 +49,7 @@ import { workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
 import { percentiles } from '../../../shared-web/perf/protocol.ts';
 import { KEEPS_UP_SHARE, ORIGIN_MARK, READ_THROUGH, SCROLLS, SCROLL_CATEGORIES, Trace, WORK_CATEGORIES, compositorFrames, compositorScrolls, domDrawn, drewShare, frameWork, keepsUp, type CompositorFrames, type DrewShare } from '../metrics/metrics.ts';
 import { ADMIN_TABLE } from '../contenders/scenarios.ts';
-import { dataReads, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, restPoint, runMetric, state, type Gesture, type RunResult, type Session } from './contender.ts';
+import { dataReads, flaggedScenario, gesture, jump, medianOf, opened, openSide, quiet, readWhole, restPoint, runMetric, scrollRest, state, type Gesture, type RunResult, type Session } from './contender.ts';
 
 /** The admin table's read-through, else the wide sheet's three scrolls. */
 const ADMIN = flaggedScenario().id === ADMIN_TABLE.id;
@@ -95,34 +95,6 @@ interface Run extends RunResult {
   scrolls: Record<Scroll, Reading>;
 }
 
-/** Until nothing has drawn for `REST_MS` since `since` (GPUI: its recorded
- *  frames; the DOM: its scroll position). Returns when the poll first saw
- *  the last change: at or after the last drawing, so a window ending there
- *  holds every frame that drew. */
-async function rest(page: Page, side: Session['side'], since: number): Promise<number> {
-  const handle = await page.waitForFunction(
-    ({ side, since, restMs }) => {
-      const g = globalThis as unknown as { __rest?: { at: number; key: string }; __seizaWork?: { t: number }[] };
-      const t = performance.now();
-      let key: string;
-      if (side === 'gpui') key = `${since}:${(g.__seizaWork ?? []).filter((sample) => sample.t >= since).length}`;
-      else {
-        const scroller = document.querySelector('.scroller')!;
-        key = `${since}:${scroller.scrollTop},${scroller.scrollLeft}`;
-      }
-      // Keyed by the scroll's start: a scroll never ends on the last one's rest.
-      if (g.__rest?.key !== key) {
-        g.__rest = { at: t, key };
-        return false;
-      }
-      return t - g.__rest.at > restMs ? g.__rest.at : false;
-    },
-    { side, since, restMs: REST_MS },
-    { polling: 50, timeout: 120_000 },
-  );
-  return (await handle.jsonValue()) as number;
-}
-
 /** Init script (GPUI): the wheel events' summed `deltaX`, CSS px, which
  *  is how far GPUI scrolls sideways (it moves by its wheel deltas); its
  *  state publishes no horizontal position. */
@@ -143,7 +115,7 @@ async function traced(session: Session, scroll: Scroll): Promise<Reading> {
   await browser.startTracing(page, { categories: CATEGORIES });
   const from = await page.evaluate((name) => (performance.mark(name), performance.now()), ORIGIN_MARK);
   await gesture(session, PLAN[scroll]!);
-  const rested = (await rest(page, side, from)) + 100;
+  const rested = (await scrollRest(page, side, from, REST_MS)) + 100;
   const trace = new Trace(JSON.parse((await browser.stopTracing()).toString()));
   // The frames that moved the view: GPUI's presented; the DOM's that
   // rendered rows, or on the admin table (every row rendered) those its
@@ -181,7 +153,7 @@ async function home(session: Session, scroll: Scroll): Promise<void> {
   const since = await page.evaluate(() => performance.now());
   if (scroll === 'sideways') await gesture(session, { x: 20_000, speed: 60_000 });
   else await jump(page, 0);
-  await rest(page, side, since);
+  await scrollRest(page, side, since, REST_MS);
 }
 
 /** Each side's cache bytes once the file is read whole: every run must match. */

@@ -65,24 +65,29 @@ export const MARKS = {
  * (`contenderBase`). With `given` (a script's `--url`: production)
  * nothing starts.
  */
-export const serveGpui = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given, level);
+export const serveGpui = (port: number, given?: string, level: Level = 'base', outDir?: string): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given, level, outDir);
 
 /** A contender's build directory at a level (`dist/`, `dist-<level>/`). */
 export const distDir = (webDir: string, level: Level = 'base'): string => `${webDir}/${levelOutDir(level)}`;
 
 /** The TanStack contender's release build, as `serveGpui`. */
-export const serveTanstack = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port, given, level);
+export const serveTanstack = (port: number, given?: string, level: Level = 'base', outDir?: string): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port, given, level, outDir);
 
-async function serveContender(side: Side, webDir: string, port: number, given?: string, level: Level = 'base'): Promise<AppServer> {
+/** `outDir`: a kept build of the level to serve instead of the tree's (an
+ *  A/B's: `perf/ab.ts`), an absolute path. The engine's files still come
+ *  from the tree's build (the config's mount), which `perf/ab.ts` checks
+ *  are the kept build's to the byte. */
+async function serveContender(side: Side, webDir: string, port: number, given?: string, level: Level = 'base', outDir?: string): Promise<AppServer> {
   const base = contenderBase('tall-table', side, level);
   if (given) return { url: new URL(base, given).href, proxy: null, close: async () => {} };
+  if (outDir && !existsSync(`${outDir}/index.html`)) throw new Error(`no kept ${side} build at ${outDir}`);
   if (!existsSync(`${distDir(webDir, level)}/index.html`))
     throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build at the ${level} level: run \`just observatory ${side}-build${level === 'base' ? '' : ` ${level}`}\` first`);
   // The level's own data files, which its scenarios read.
   for (const file of new Set(ALL_SCENARIOS.filter((scenario) => scenario.level === level).map((scenario) => scenario.data)))
     if (!existsSync(dataPath(file))) throw new Error(`no data file ${file}: run \`just observatory data\` first`);
   // The build's Vite config takes its level from the mode (its outDir and base).
-  const server = await serveApp(undefined, { webDir, port, ...(level === 'base' ? {} : { mode: level }) });
+  const server = await serveApp(undefined, { webDir, port, ...(level === 'base' ? {} : { mode: level }), ...(outDir ? { outDir } : {}) });
   return { ...server, url: new URL(base, server.url).href };
 }
 

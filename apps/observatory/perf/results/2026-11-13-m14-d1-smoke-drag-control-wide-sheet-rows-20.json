@@ -1,0 +1,194 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d1-smoke-drag-control",
+  "metric": "drag",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "cells": 710,
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "drags": {
+    "resize": {
+      "column": 3,
+      "px": 200,
+      "trips": 2,
+      "movesEachWay": 62
+    },
+    "select": {
+      "from": [
+        0,
+        2
+      ]
+    }
+  },
+  "moveEveryMs": 8,
+  "tailMs": 300,
+  "control": "the moves with no button pressed",
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "resize": {
+            "drewPct": null,
+            "drewPctRuns": [
+              null
+            ],
+            "drewFrames": 0,
+            "workP50Ms": null,
+            "workP95Ms": null,
+            "recorderP50Ms": null,
+            "latePct": 0,
+            "busyPct": null,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": null,
+            "drewPctRuns": [
+              null
+            ],
+            "drewFrames": 0,
+            "workP50Ms": null,
+            "workP95Ms": null,
+            "recorderP50Ms": null,
+            "latePct": 0,
+            "busyPct": null,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "moves": 248,
+                "drewFrames": 0,
+                "workP50Ms": null,
+                "workP95Ms": null,
+                "recorderP50Ms": null,
+                "rafs": 118,
+                "lateShare": 0,
+                "busyShare": null,
+                "mainFrames": 136
+              },
+              "select": {
+                "moves": 240,
+                "drewFrames": 0,
+                "workP50Ms": null,
+                "workP95Ms": null,
+                "recorderP50Ms": null,
+                "rafs": 115,
+                "lateShare": 0,
+                "busyShare": null,
+                "mainFrames": 133
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "resize": {
+            "drewPct": null,
+            "drewPctRuns": [
+              null
+            ],
+            "drewFrames": 0,
+            "workP50Ms": null,
+            "workP95Ms": null,
+            "latePct": 0,
+            "busyPct": null,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": null,
+            "drewPctRuns": [
+              null
+            ],
+            "drewFrames": 0,
+            "workP50Ms": null,
+            "workP95Ms": null,
+            "latePct": 0,
+            "busyPct": null,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "moves": 248,
+                "drewFrames": 0,
+                "workP50Ms": null,
+                "workP95Ms": null,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": null,
+                "mainFrames": 137
+              },
+              "select": {
+                "moves": 240,
+                "drewFrames": 0,
+                "workP50Ms": null,
+                "workP95Ms": null,
+                "rafs": 115,
+                "lateShare": 0,
+                "busyShare": null,
+                "mainFrames": 133
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

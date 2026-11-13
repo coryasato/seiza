@@ -325,17 +325,39 @@ reach *args:
 # replay: Row shown in and keeps up, late frames, work, collections; then
 # the scroll back and its control) and soak (at 100k for --minutes, 10: a
 # window at the start and the end, memory after each; memory at the tail
-# level: the replay to a fixed row count).
+# level: the replay to a fixed row count), the wide sheet's drag (at each
+# stop, a resize drag and a selection drag through real pointer moves:
+# frames drawn, work, late frames; --control, the moves with no button)
+# and copy (at the default stop, the block, a week, and the sheet, each
+# from a cold view: the key to each copy mark, the page reads, the main
+# thread outside frames; the sheet's declined key; the scroll down during
+# the sheet's copy against it alone).
 # Flags: --side gpui|tanstack (default both, alternated), --runs (10),
 # --profile reference|throttled (default both), --label (writes
 # perf/results/), --scenario <id> (on its level's builds; default the base's
 # Big file) and --stop <id,…|all> (default its default stop; scroll's,
 # feed's, and tail's, all; soak's, 100k: each stop's file
 # <label>-<scenario>-<stop>), response's --inputs (6 per kind), and soak's
-# --minutes. Run gpui-build and tanstack-build (at the scenario's level) first;
-# reach and memory need `just observatory data`.
+# --minutes; --build <dir> (a kept build of the level, its gpui/ and
+# tanstack/, served instead of the tree's: `ab`'s). Run gpui-build and tanstack-build
+# (at the scenario's level) first; reach and memory need `just observatory data`.
 metric name *args:
-    node {{app_dir}}/perf/metric-{{name}}.ts {{args}}
+    cd {{invocation_directory()}} && node {{app_dir}}/perf/metric-{{name}}.ts {{args}}
+
+# An interleaved A/B of a metric (--metric, scroll) on a scenario's level
+# (--scenario, wide-sheet; --stop, the metric's own: scroll's all): the tree's build against a kept
+# one (--build <dir>: its gpui/ and tanstack/), one cold run of each build
+# and side a round, each its own invocation, the builds' and sides' order
+# alternating by round, --rounds (10), --profile (reference). Each build's
+# runs merged and summarized by the metric's script into
+# <label>-kept|tree-<scenario>-<stop>, then every reading paired round by
+# round into <label>-paired (moved: past the larger IQR, sign test p <
+# 0.05; a round paired only where both runs are whole and did the same
+# work); every file dated alike; the one-run files in perf/results/raw/. Needs --label. The kept
+# build's engine files must be the tree's. Paths are read from where `just`
+# was run (`metric`'s too).
+ab *args:
+    cd {{invocation_directory()}} && node {{app_dir}}/perf/ab.ts {{args}}
 
 # What the page's live readouts cost the contender they watch: each side
 # flung cold in four variants (the page with the meter open, a pill, or

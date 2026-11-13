@@ -1,0 +1,273 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d1-ab-smoke-tree",
+  "metric": "scroll",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "cells": 710,
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "scrolls": {
+    "down": {
+      "y": -37500,
+      "speed": 18750
+    },
+    "sideways": {
+      "x": -12000,
+      "speed": 6000
+    },
+    "fast": {
+      "y": -120000,
+      "speed": 60000
+    }
+  },
+  "keepsUpShare": 0.9,
+  "restMs": 300,
+  "mergedRuns": {
+    "gpui": 1,
+    "tanstack": 1
+  },
+  "interleaved": "one cold run a round over 1 rounds, each build and side its own invocation, the builds' order alternating by round (the kept build first in odd rounds), the sides' too",
+  "build": "tree",
+  "mergedFrom": [
+    "2026-11-13-abtmp-m14-d1-ab-smoke-r1-tree-gpui-wide-sheet-rows-20.json",
+    "2026-11-13-abtmp-m14-d1-ab-smoke-r1-tree-tanstack-wide-sheet-rows-20.json"
+  ],
+  "failures": [],
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "keepsUp": true,
+          "cacheBytes": [
+            32387080
+          ],
+          "down": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100
+            ],
+            "drewPerSecond": 60,
+            "mainFrames": 120,
+            "workP50Ms": 5.84,
+            "workP95Ms": 7.11,
+            "busyPct": 41.2,
+            "movedPx": 37500
+          },
+          "sideways": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100
+            ],
+            "drewPerSecond": 60,
+            "mainFrames": 120,
+            "workP50Ms": 4.89,
+            "workP95Ms": 5.57,
+            "busyPct": 33.2,
+            "movedPx": 12000
+          },
+          "fast": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100
+            ],
+            "drewPerSecond": 60.3,
+            "mainFrames": 122,
+            "workP50Ms": 6.27,
+            "workP95Ms": 7.13,
+            "busyPct": 41.6,
+            "movedPx": 120000
+          }
+        },
+        "runs": [
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2000.6,
+                "movedPx": 37500.0000076294,
+                "drewPerSecond": 59.98200539838049,
+                "mainFrames": 120,
+                "workP50Ms": 5.835000038146973,
+                "workP95Ms": 7.1100006103515625,
+                "busyShare": 0.41210749025659477,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2000.77,
+                "movedPx": 12000,
+                "drewPerSecond": 59.97690889007732,
+                "mainFrames": 120,
+                "workP50Ms": 4.8949995040893555,
+                "workP95Ms": 5.565000534057617,
+                "busyShare": 0.33150748456712287,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 123,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2023.11,
+                "movedPx": 119999.99999999997,
+                "drewPerSecond": 60.30319656370638,
+                "mainFrames": 122,
+                "workP50Ms": 6.274999618530273,
+                "workP95Ms": 7.129999160766602,
+                "busyShare": 0.4156610761256957,
+                "compositor": null
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "keepsUp": false,
+          "cacheBytes": [
+            32387080
+          ],
+          "down": {
+            "drewPct": 36.7,
+            "drewPctRuns": [
+              36.7
+            ],
+            "drewPerSecond": 21.7,
+            "mainFrames": 44,
+            "workP50Ms": 21.47,
+            "workP95Ms": 31.06,
+            "busyPct": 54.1,
+            "movedPx": 37500,
+            "compositorPerSecond": {
+              "whole": 21.7,
+              "partial": 38.3,
+              "dropped": 0
+            }
+          },
+          "sideways": {
+            "drewPct": 46.7,
+            "drewPctRuns": [
+              46.7
+            ],
+            "drewPerSecond": 27.7,
+            "mainFrames": 56,
+            "workP50Ms": 14.23,
+            "workP95Ms": 17.34,
+            "busyPct": 41.3,
+            "movedPx": 12000,
+            "compositorPerSecond": {
+              "whole": 27.7,
+              "partial": 32.2,
+              "dropped": 0
+            }
+          },
+          "fast": {
+            "drewPct": 46.6,
+            "drewPctRuns": [
+              46.6
+            ],
+            "drewPerSecond": 27.7,
+            "mainFrames": 78,
+            "workP50Ms": 21.31,
+            "workP95Ms": 30.12,
+            "busyPct": 60,
+            "movedPx": 123959,
+            "compositorPerSecond": {
+              "whole": 31.4,
+              "partial": 28.5,
+              "dropped": 0
+            }
+          }
+        },
+        "runs": [
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 44,
+                "displayFrames": 120,
+                "share": 0.36666666666666664,
+                "spanMs": 1984.9,
+                "movedPx": 37500,
+                "drewPerSecond": 21.663559877071894,
+                "mainFrames": 44,
+                "workP50Ms": 21.473,
+                "workP95Ms": 31.056,
+                "busyShare": 0.5412097958693581,
+                "compositor": {
+                  "whole": 43,
+                  "partial": 76,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 56,
+                "displayFrames": 120,
+                "share": 0.4666666666666667,
+                "spanMs": 1984.7,
+                "movedPx": 12000,
+                "drewPerSecond": 27.711996775331283,
+                "mainFrames": 56,
+                "workP50Ms": 14.231,
+                "workP95Ms": 17.339,
+                "busyShare": 0.4126629633317784,
+                "compositor": {
+                  "whole": 55,
+                  "partial": 64,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 76,
+                "displayFrames": 163,
+                "share": 0.4662576687116564,
+                "spanMs": 2702.88,
+                "movedPx": 123959,
+                "drewPerSecond": 27.748179719410405,
+                "mainFrames": 78,
+                "workP50Ms": 21.314,
+                "workP95Ms": 30.118,
+                "busyShare": 0.5995695264273816,
+                "compositor": {
+                  "whole": 85,
+                  "partial": 77,
+                  "presented": 162,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "summarizedFrom": "2026-11-13-m14-d1-ab-smoke-tree-wide-sheet-rows-20-merged.json"
+}

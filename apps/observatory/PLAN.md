@@ -28,7 +28,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
 | M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
-| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2, B, C1, and C2 done, D1 next) |
+| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2, B, C1, C2, and D1 done, D2 next) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
@@ -204,13 +204,16 @@ The research's later steps for the wide sheet ([`docs/research/scenarios.md`](do
 ### Part D1: the metrics
 
 **Done when:**
-- [ ] **D1-1, `perf/metric-drag.ts`** (A1-2's drags at `--stop`): the layout read once at rest, the press from it, real pointer events every 8 ms, the traced window; drew share, work p50 and p95, late frames, both sides. A smoke run at one stop, its control (a run with no drag reads no drawn frames).
-- [ ] **D1-2, `perf/metric-copy.ts`** (A1-2's copies at the default stop): the block, the week, and the sheet (declined, then confirmed), each from a cold view, the key's event to each mark; the reads; the main thread's time outside frames; the view meanwhile against the same scroll with no copy, `coveredPct`. A smoke run, its control (the declined key's marks with no `copied`).
-- [ ] **D1-3, the A/B:** the grown wide level against M9's build at every stop's scrolls, interleaved, reference, 10 rounds a side; M9's build kept from HEAD's tree. `docs/contender-contract.md`'s "Reading the metrics" gains the drags and the copies.
+- [x] **D1-1, `perf/metric-drag.ts`** (A1-2's drags at `--stop`): the layout read once at rest, the press from it, real pointer events every 8 ms, the traced window; drew share, work p50 and p95, late frames, both sides. A smoke run at one stop, its control (a run with no drag reads no drawn frames).
+  *Evidence:* `2026-11-13-m14-d1-smoke-drag-wide-sheet-rows-20.json`, PASS: at the reference GPUI drew 100% of frames on both drags, TanStack 95.1% (resize) and 96.6% (select); both throttled readings gathered. The control (`--control`, the moves with no button, `…-drag-control-…`) drew 0 frames on either drag on both sides. The DOM's drawn frames are those that painted (`domPainted`): `domDrawn`'s 1 ms of animate read TanStack's select at 63% ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-13; [results note](perf/results/2026-11-13-m14-d1.md)).
+- [x] **D1-2, `perf/metric-copy.ts`** (A1-2's copies at the default stop): the block, the week, and the sheet (declined, then confirmed), each from a cold view, the key's event to each mark; the reads; the main thread's time outside frames; the view meanwhile against the same scroll with no copy, `coveredPct`. A smoke run, its control (the declined key's marks with no `copied`).
+  *Evidence:* `2026-11-13-m14-d1-smoke-copy-wide-sheet-rows-20.json`, PASS in both profiles: the block (656 cells), the week (74,424), and the sheet (3,912,576) each started → copied → written on both sides, the page reads 0, 8, and 8 (counted at the engine worker's messages: DuckDB's own reads are invisible to the page; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-13); the sheet's first key `copy-declined` alone, 0.38–4.01 ms after it (the control); the scroll down alone and during the sheet's copy, with `coveredPct` ([results note](perf/results/2026-11-13-m14-d1.md)).
+- [x] **D1-3, the A/B:** the grown wide level against M9's build at every stop's scrolls, interleaved, reference, 10 rounds a side; M9's build kept from HEAD's tree. `docs/contender-contract.md`'s "Reading the metrics" gains the drags and the copies.
+  *Evidence:* `perf/ab.ts` (`just observatory ab`) and `runMetric --build`; the kept build is `fe36e4c`'s (the commit before part B), in `target/ab/m9-wide/`, its engine files the tree's to the byte ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-13). A one-round smoke at `rows-20` ran, merged, summarized, and paired (`2026-11-13-m14-d1-ab-smoke-*`); its 10 rounds at every stop are D2-1's. Every smoke run here is of the code with `/code-review high`'s ten fixes (the results note). The contract's "Reading the metrics" has the drags and the copies.
 
 ### Part D2: the runs
 
-Ask about a code review first (D1's code). ~2 h 10 min in one sitting.
+Ask about a code review first (D1's code). ~2 h 25 min in one sitting: the A/B ran ~1.4 min a round at one stop in D1's smoke, so ~45 min at every stop, not A1's ~30. Keep `target/ab/m9-wide/` until then (`fe36e4c`'s build; the results note says how to make it again).
 
 **Done when:**
 - [ ] **D2-1, the A/B:** each stop's readings within the spread (M9's numbers stand, labelled with their build), or the suite again where one moved, replacing M9's.

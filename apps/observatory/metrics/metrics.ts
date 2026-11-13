@@ -455,6 +455,21 @@ export const DREW_ANIMATE_MS = 1;
  *  start (page ms) and work (ms). */
 export const domDrawn = (work: FrameWork): { at: number; ms: number }[] => work.frames.filter((frame) => (frame.parts.animate ?? 0) > DREW_ANIMATE_MS).map(({ at, ms }) => ({ at, ms }));
 
+/** The frames that drew a drag's move on the DOM (`metric-drag`): the main
+ *  frames whose lifecycle painted (a `Paint` inside them), their start and
+ *  work. A drag's commit runs in the frame's animate part, as a scroll's
+ *  does, but a selection's commit can run in under `DREW_ANIMATE_MS` (a
+ *  tint over few cells), where `domDrawn` would count none; a frame with
+ *  nothing new paints nothing. Hover alone painting is what the drag's
+ *  control (the moves with no button) would catch. */
+export function domPainted(trace: Trace, work: FrameWork): { at: number; ms: number }[] {
+  if (!work.frames.length) return [];
+  const first = trace.toTrace(work.frames[0]!.at);
+  const last = work.frames.at(-1)!;
+  const paints = trace.mainThread(first, trace.toTrace(last.at + last.ms)).filter((event) => event.name === 'Paint').map((event) => trace.toPage(event.ts));
+  return work.frames.filter((frame) => paints.some((at) => at >= frame.at && at <= frame.at + frame.ms)).map(({ at, ms }) => ({ at, ms }));
+}
+
 export interface DrewShare {
   /** Frames that drew new cells. */
   drew: number;
