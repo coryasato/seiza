@@ -11,6 +11,10 @@
 //! camera's first move, and behind that button the controls' list. The keys
 //! are the scene's while the table's panel is shut.
 //!
+//! A row of the table is found in the scene: the table's rows are
+//! selectable, and the selected row is marked on its dot and flown to
+//! ([`find`]). "Find Ceres", the third action, is that for the first row.
+//!
 //! Its first frame holds no data: the title, the time control, and the
 //! handle saying its rows are loading. The files arrive after it
 //! ([`Host::progress`], then [`Host::loaded`] or [`Host::failed`]), and the
@@ -29,11 +33,12 @@ use gpui_kit::component::Sizable as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use seiza_tall_table::{Paging, TallTable};
+use seiza_tall_table::{Paging, Selectable, TallTable, TallTableEvent, TallTableSelection};
 use tall_table_bridge::Publish;
 
 use crate::catalog::{Catalog, columns};
 use crate::clock;
+use crate::find;
 use crate::flight;
 use crate::gap;
 use crate::layout::{self, Plot};
@@ -67,6 +72,11 @@ pub const CLOSE_TARGET: &str = "table-close";
 pub const TIME_TARGET: &str = "time";
 pub const SORT_TARGET: &str = "sort";
 pub const RIDE_TARGET: &str = "ride";
+pub const FIND_TARGET: &str = "find";
+/// The line the panel says of a found row that has no dot.
+pub const NO_DOT_TARGET: &str = "no-dot";
+/// The row "Find Ceres" finds: the file's first.
+const CERES: usize = 0;
 pub const LEGEND_TARGET: &str = "legend";
 /// The axes' furniture: the two lines, their labels, the line over the
 /// chips, each chip, each group's name, and the count of rows in view.
@@ -112,7 +122,7 @@ const UNDER_TITLE: f64 = 8.;
 const CORNER_IN: f32 = 24.;
 const CONTROLS_WIDTH: f32 = 320.;
 const CONTROLS_BOTTOM: f32 = 72.;
-const HINT_ROOM: f32 = 1000.;
+const HINT_ROOM: f32 = 1100.;
 /// How far the controls' list keeps from the table's handle.
 const CONTROLS_CLEAR: f32 = 8.;
 /// The compass: its button, the ring's radius (flattened by the camera's
@@ -193,6 +203,9 @@ pub struct Host {
     /// Why there's no scene, if it didn't start.
     scene_failed: Option<SharedString>,
     table: Option<Entity<Table>>,
+    /// The rows the table is over: a found row's name, and whether it has
+    /// a dot, are read from them.
+    catalog: Option<Rc<Catalog>>,
     /// Counted from the files.
     rows: usize,
     panel_open: bool,
@@ -228,6 +241,7 @@ impl Host {
             sky: false,
             scene_failed: None,
             table: None,
+            catalog: None,
             rows: 0,
             panel_open: false,
             panel_t: 0.0,
@@ -436,10 +450,16 @@ impl Host {
         let probing = seiza::url::has_param("perf");
         let probe_cells = probing && seiza::url::has_param("probe-cells");
         let rows = self.rows as u64;
+        self.catalog = Some(catalog.clone());
         let table = cx.new(|cx| {
-            Table::new(Source::new(catalog), columns(), rows, Paging::default(), cx)
-                .probe_frames(probing)
-                .probe_cells(probe_cells)
+            let mut table =
+                Table::new(Source::new(catalog), columns(), rows, Paging::default(), cx)
+                    .probe_frames(probing)
+                    .probe_cells(probe_cells);
+            // A press picks a row, whichever cell it lands on: the row is
+            // what the scene has a dot for.
+            table.set_selectable(Selectable::none().rows(true), cx);
+            table
         });
         let publish = Publish {
             filled_mark: Some(TABLE_MARK),
@@ -447,9 +467,15 @@ impl Host {
             probe: probing.then_some("__kirkwoodTable"),
             layout: probing.then_some("__kirkwoodLayout"),
             cells: probe_cells.then_some("__kirkwoodCells"),
+            selection: probing.then_some("__kirkwoodSelection"),
             ..Publish::default()
         };
-        self._table_events = Some(cx.subscribe(&table, move |_, _, event, _| publish.event(event)));
+        self._table_events = Some(cx.subscribe(&table, move |this, _, event, cx| {
+            publish.event(event);
+            if let TallTableEvent::Selected(selection) = event {
+                this.selected(*selection, cx);
+            }
+        }));
         self.table = Some(table);
         cx.notify();
     }
@@ -478,6 +504,83 @@ impl Host {
         cx.notify();
     }
 
+    /// The table's selection changed: one row selected is the row found,
+    /// and with nothing selected none is. A range of more rows (Shift, a
+    /// drag, every row) finds nothing new: what was found stays so.
+    fn selected(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
+        match selection {
+            Some(selection) if selection.anchor().0 != selection.head().0 => {}
+            Some(selection) => self.find(selection.head().0 as usize, cx),
+            None => {
+                find::let_go();
+                cx.notify();
+            }
+        }
+    }
+
+    /// A row is found: the scene marks its dot and flies its camera
+    /// there. One action at a time, and a find is one: the dots fly back
+    /// from the axes, and the frame stops turning with Jupiter, as the
+    /// camera leaves for the row (`docs/DECISIONS.md`, "Interface"). A
+    /// row with no ellipse has no dot: nothing moves, and the panel says
+    /// why.
+    fn find(&mut self, row: usize, cx: &mut Context<Self>) {
+        let Some(catalog) = &self.catalog else {
+            return;
+        };
+        if row >= catalog.rows() {
+            return;
+        }
+        let dot = catalog.elements().is_bound(row) && self.can_act();
+        find::find(row, row_name(catalog, row), dot);
+        if dot {
+            if flight::sorted() {
+                flight::toggle();
+                clock::resume_after_sort();
+            }
+            if ride::riding() {
+                ride::toggle();
+            }
+        }
+        cx.notify();
+    }
+
+    /// The found row is let go: no mark, and nothing selected in the
+    /// table. (Its `Selected` comes back here, and lets go again.)
+    fn lose(&mut self, cx: &mut Context<Self>) {
+        if find::found().is_none() {
+            return;
+        }
+        find::let_go();
+        if let Some(table) = &self.table {
+            table.update(cx, |table, cx| table.select(None, cx));
+        }
+    }
+
+    /// For the checks: the table scrolled to `row` and that row selected,
+    /// and so found, as "Find Ceres" does for the first.
+    pub fn jump(&mut self, row: usize, cx: &mut Context<Self>) {
+        if let Some(table) = self.table.clone().filter(|_| row < self.rows) {
+            table.update(cx, |table, cx| table.jump_to(row as u64, cx));
+        }
+    }
+
+    /// "Find Ceres": the table's first row is selected, and so found; or,
+    /// pressed with Ceres found, it is let go and the camera flies back
+    /// to where it opened.
+    fn toggle_find(&mut self, cx: &mut Context<Self>) {
+        if find::marked() == Some(CERES) {
+            self.lose(cx);
+            if let Some(frame) = hands_frame() {
+                scene::home(frame);
+            }
+        } else if let Some(table) = self.table.clone().filter(|_| self.can_act()) {
+            // (The table's own row, scrolled to: found by its `Selected`.)
+            table.update(cx, |table, cx| table.jump_to(CERES as u64, cx));
+        }
+        cx.notify();
+    }
+
     /// "Sort by orbit size": the dots turn for a against e, or back for
     /// space, from wherever they are. Time moves nothing on the axes, so
     /// the press pauses it, and the press back gives it back
@@ -494,6 +597,8 @@ impl Host {
             // isn't there to be shut on the axes.
             self.controls_open = false;
             clock::pause_for_sort();
+            // A found row is let go: its mark is space's.
+            self.lose(cx);
             // One action at a time: the frame stops turning, and the
             // camera heads back, as the dots leave for the axes
             // (`docs/DECISIONS.md`, "Interface"). A picked gap's marker
@@ -521,6 +626,8 @@ impl Host {
         // the camera is back, the ride opens as board 2 has it.
         if ride::riding() {
             gap::let_go();
+            // One action at a time: a found row is let go.
+            self.lose(cx);
         }
         // One action at a time: the dots fly back to space as the frame
         // starts to turn, and time, which the sort paused, runs again.
@@ -547,6 +654,7 @@ impl Host {
             gap::let_go();
         } else {
             gap::pick(picked);
+            self.lose(cx);
             if !ride::riding() {
                 ride::toggle();
             }
@@ -839,19 +947,30 @@ impl Host {
             .flex()
             .gap(px(6.))
             .child(self.render_action(
-                "sort",
                 "Sort by orbit size",
                 SORT_TARGET,
                 flight::sorted(),
+                true,
                 Self::toggle_sort,
                 cx,
             ))
             .child(self.render_action(
-                "ride",
                 "Ride with Jupiter",
                 RIDE_TARGET,
                 ride::riding(),
+                true,
                 Self::toggle_ride,
+                cx,
+            ))
+            // Board 1's third: pressed while Ceres is the row found. It
+            // needs the table's rows, which a found row is one of.
+            .child(self.render_action(
+                "Find Ceres",
+                FIND_TARGET,
+                // (Marked: with no dots drawn, Ceres found has none.)
+                find::marked() == Some(CERES),
+                self.table.is_some(),
+                Self::toggle_find,
                 cx,
             ));
         div()
@@ -866,24 +985,25 @@ impl Host {
     }
 
     /// An action, as board 1 draws one, and pressed as boards 2 and 4 do.
+    /// `ready`: what it needs beyond dots to act on is there.
     fn render_action(
         &self,
-        id: &'static str,
         label: &'static str,
         published: &'static str,
         pressed: bool,
+        ready: bool,
         press: fn(&mut Self, &mut Context<Self>),
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
-        let able = pressed || self.can_act();
+        let able = pressed || (ready && self.can_act());
         let (fill, hover, text) = if pressed {
             (theme.primary, theme.primary_hover, theme.primary_foreground)
         } else {
             (theme.secondary, theme.secondary_hover, theme.foreground)
         };
         div()
-            .id(id)
+            .id(published)
             .h(px(28.))
             .px(px(10.))
             .flex()
@@ -1594,6 +1714,18 @@ impl Host {
                         ),
                     ),
             )
+            // A found row with no dot: the press flew nowhere, and
+            // this says why.
+            .children(find::found().filter(|_| find::marked().is_none()).map(|_| {
+                div()
+                    .relative()
+                    .px_3()
+                    .pb_2()
+                    .text_size(px(12.))
+                    .text_color(theme.muted_foreground)
+                    .child(no_dot_line(&find::name(), self.belt.is_some()))
+                    .child(target(NO_DOT_TARGET))
+            }))
             .child(div().flex_1().min_h_0().child(TallTable::new(table)))
     }
 }
@@ -2016,6 +2148,24 @@ const RIDE_LINE: &str = "Here the Hildas and the Trojans are brightened, and the
 /// dimmed, and a marker that isn't a row (rules 1 and 3).
 const GAP_LINE: &str =
     "Here the belt is dimmed under the marker's path, and the marker isn't a row.";
+
+/// A row's name as its mark says it: its own name, or with none its
+/// number, or with neither its designation.
+fn row_name(catalog: &Catalog, row: usize) -> String {
+    let rows = catalog.file_rows();
+    rows.name(row).unwrap_or_else(|| rows.pdes(row))
+}
+
+/// Why a found row has no mark and the camera didn't move: its path
+/// never closes, so it has no dot (the title counts those rows); or there
+/// are no dots at all.
+fn no_dot_line(name: &str, belt: bool) -> String {
+    if belt {
+        format!("{name} has no dot to fly to: it's passing through, on a path that never closes.")
+    } else {
+        format!("{name} has no dot to fly to: the asteroids aren't drawn.")
+    }
+}
 
 /// A count with its thousands apart: `1,580,272`.
 fn grouped(n: usize) -> String {

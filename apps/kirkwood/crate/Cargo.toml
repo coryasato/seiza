@@ -13,9 +13,11 @@ crate-type = ["cdylib", "rlib"]
 gpui-kit.workspace = true
 # No observation panel: a showcase has no budgets to watch.
 seiza.workspace = true
-seiza-tall-table.workspace = true
+# `select`: a press on a row selects it, and the interface finds that row
+# in the scene (rows alone: `host.rs`).
+seiza-tall-table = { workspace = true, features = ["select"] }
 # The table's events as marks, targets, and probes, for the checks' scripts.
-tall-table-bridge.workspace = true
+tall-table-bridge = { workspace = true, features = ["select"] }
 
 # The entry point and the files' arrival are web-only; the readers and the
 # views compile natively for clippy and tests.

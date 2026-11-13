@@ -9,7 +9,7 @@ This file holds the rules for every app. Each app has its own `apps/<app>/CLAUDE
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
 - `apps/observatory/`: the Observatory, the comparison page (seiza.io/observatory). The page (the contender's window, its numbers, and its meter) and both contenders, live at seiza.io/observatory.
-- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it. Being built (the belt on its orbits with its look, its color, and its sky, the flight of its dots into orbit size against eccentricity and back, the frame that turns with Jupiter, a gap picked with its marker's path, a camera a hand pans, zooms, tilts, and turns, with a compass home and its controls listed, and the table over every row; nothing yet links a dot to its row), for tycho.seiza.io/kirkwood.
+- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it. Being built (the belt on its orbits with its look, its color, and its sky, the flight of its dots into orbit size against eccentricity and back, the frame that turns with Jupiter, a gap picked with its marker's path, a camera a hand pans, zooms, tilts, and turns, with a compass home and its controls listed, the table over every row, and a row of it found in the scene, its dot marked and flown to; nothing yet goes from a dot to its row), for tycho.seiza.io/kirkwood.
 
 The apex site (seiza.io: the observatory's page now, a landing page later) shares one shell, `site/ui/` ("The apex site" below).
 

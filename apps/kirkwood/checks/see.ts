@@ -195,6 +195,25 @@
 //           drag moves the camera, with time running and paused, at the
 //           display's resolution and at `?scale` 0.75 and 0.5 (the median
 //           of `--rate-runs` loads).
+//   find    a row found: a press on a row of the open table, with time
+//           running (Ceres; Hilda, whose place is the integration's; the
+//           file's last row, by the End key): at the flight's end the
+//           crate's place for the row, through the scene's camera, at the
+//           middle of what the panel leaves within a pixel, and a second
+//           later; its ring and its name on it, the ring white, the belt's
+//           counts as they were; a row with no ellipse found with no mark,
+//           the camera where it was, and the panel's line saying why
+//           (out/find-*.jpg). A flight and a hand, by "Find Ceres": the
+//           scene says the camera moves on its own, the compass its turn
+//           and tilt, and the hint isn't folded; following, a wheel and a
+//           drag with Shift keep the row at the middle, a pan lets it go
+//           with its mark on it, and the press back gives the first camera;
+//           a drag, a wheel, and a key mid-flight each take the camera with
+//           the row still marked; H while following flies home, the mark
+//           staying. And the three actions: "Find Ceres" where the row's
+//           third button is, each action's fill with each pressed, and the
+//           find pressed with the sort, the ride, and a gap pressed, each
+//           way round, the picture whole after.
 //   rate    the scene's frames a second while time runs, at the display's
 //           resolution, three quarters, and half, each with the bloom whole,
 //           at half its size, and off (the median of `--rate-runs` loads, 3;
@@ -212,7 +231,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -223,7 +242,7 @@ import { clickTarget, firstDrawProbe, open, targetRect, waitMark, wheel, type Fi
 import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
-import { KEYS, TURN as CAMERA_TURN } from '../web/src/camera.ts';
+import { FOUND, KEYS, TURN as CAMERA_TURN } from '../web/src/camera.ts';
 
 const dir = import.meta.dirname;
 const out = join(dir, 'out');
@@ -231,7 +250,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'rate', 'drag', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'rate', 'drag', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -272,19 +291,19 @@ const PANEL = 560;
 
 type FileInfo = { rows: number; bytes: number };
 const manifest = JSON.parse(readFileSync(join(dir, '../data/MANIFEST.json'), 'utf8')) as Record<'elements.bin' | 'rows.bin', FileInfo> & { 'stars.bin': { stars: number; bytes: number } };
-const fixture = JSON.parse(readFileSync(join(dir, '../data/fixture.json'), 'utf8')) as { rows: { rule: string; row: number; cells: { full_name: string } }[] };
+const fixture = JSON.parse(readFileSync(join(dir, '../data/fixture.json'), 'utf8')) as { rows: { rule: string; row: number; cells: { full_name: string; name: string | null; pdes: string } }[] };
 const FILE_BYTES = manifest['elements.bin'].bytes + manifest['rows.bin'].bytes;
 const TABLE_ROWS = manifest['rows.bin'].rows;
 
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
 type View = { x: number; y: number; distance: number; tilt: number; bearing: number; roll: number };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; flight: number; ride: number; integrated: number; catchingUp: boolean };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; found: number; chase: 'waiting' | 'flying' | 'following' | ''; finds: number; flight: number; ride: number; integrated: number; catchingUp: boolean };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
   held: number;
-  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; marker(): { x: number; y: number; path: number[] } | undefined; under(x: number, y: number): [number, number] | undefined };
+  scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; marker(): { x: number; y: number; path: number[] } | undefined; found(): { x: number; y: number } | undefined; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
   ellipseOf(row: number, years: number): number[];
@@ -308,9 +327,11 @@ type Kirkwood = {
   integrated(): { rows: number; bytes: number; step: number };
   integratedJump(years: number): { stepsMs: number; placesMs: number } | undefined;
   corner(): Corner | undefined;
+  found(): { row: number; dot: boolean; name: string; finds: number };
+  jump(row: number): void;
 };
 type Corner = { turned: number; tilt: number; folded: boolean; open: boolean };
-type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
+type Probe = { rows: number; top: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
 type Cell = { row: number; column: number; exact: string; shown: string };
 type Page_ = { __kirkwood: Kirkwood; __kirkwoodTable?: Probe; __kirkwoodLayout?: Layout; __kirkwoodCells?: Cell[] };
@@ -1226,7 +1247,9 @@ async function seeCamera(url: string) {
     await clickTarget(page, 'table-handle');
     await waitMark(page, TABLE);
     await page.waitForTimeout(600);
-    await dragged(page, [1440 - PANEL + 200, 450], [400, 300], { ms: 200 });
+    // (From its header: a press on a row of the table finds that row,
+    // and the camera flies to it, which `find` checks.)
+    await dragged(page, [1440 - PANEL + 200, 20], [400, 300], { ms: 200 });
     await still('a drag from the open panel');
     // From the scene across the panel, and let go over it.
     const [from, to]: [Point, Point] = [[420, 520], [1440 - PANEL + 150, 600]];
@@ -1929,6 +1952,10 @@ async function seeCorner(url: string) {
 
   // The controls' list: behind `?`, the key and the button.
   const controls = await withBelt(url, HELD, async (page) => {
+    // (The handle is wider once it counts its rows, and the list keeps
+    // clear of it a frame later: read with the rows held.)
+    await waitMark(page, ROWS, 0, 120_000);
+    await settle(page);
     const first = await cameraNow(page);
     const state = async (open: boolean, what: string) => {
       await settle(page);
@@ -2054,23 +2081,388 @@ async function seeCorner(url: string) {
     await clickTarget(page, 'table-handle');
     await waitMark(page, TABLE);
     await page.waitForTimeout(600);
-    const top = () => page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodTable!.first);
-    const rowBefore = await top();
-    for (const key of ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowLeft', '+', '-', 'h', '?']) await page.keyboard.press(key);
+    // Its arrows move its selected row (the first press selects the first
+    // row in view, each next the row under it), and the row selected is the
+    // row found: the camera goes there by the table's doing, on the flight
+    // every found row gets, and no key is the scene's (an arrow pans
+    // nothing, + and − zoom nothing, H flies nowhere, ? opens no list).
+    const rowBefore = (await kirkwood(page, (kirkwood) => kirkwood.found())).row;
+    for (const key of ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowLeft']) await page.keyboard.press(key);
+    await chaseIs(page, 'following');
+    await settle(page);
+    const followed = await foundNow(page);
+    for (const key of ['ArrowLeft', '+', '-', 'h', '?']) await page.keyboard.press(key);
     await page.waitForTimeout(500);
-    const rowAfter = await top();
-    const open = await cameraNow(page);
-    need(rowAfter > rowBefore, `with the panel open, three presses of the down arrow left the table's first row at ${rowAfter}`);
-    need(sameView(open.view, first.view) && !open.gliding && !(await cornerNow(page)).open, `with the panel open, a key moved the camera to ${JSON.stringify(open.view)}, or opened the list`);
+    const open = await foundNow(page);
+    need(rowBefore === -1 && open.found.row === 2, `with the panel open, three presses of the down arrow left row ${open.found.row} found, from ${rowBefore}`);
+    need(open.chase === 'following' && sameView(open.view, followed.view) && !open.gliding && !(await cornerNow(page)).open, `with the panel open, a key moved the camera from ${JSON.stringify(followed.view)} to ${JSON.stringify(open.view)} (${open.chase || 'at rest'}), or opened the list`);
     // And the scene's again from the moment it shuts.
     await clickTarget(page, 'table-close');
     await page.waitForTimeout(600);
     await keyed(page, 'ArrowLeft');
-    need(!sameView((await cameraNow(page)).view, first.view), 'once the panel shut, an arrow moved nothing');
-    return { arrowsPx: arrows, zoomAu: [fixed(first.view.distance, 4), fixed(nearer, 4), fixed(farther, 4)], withThePanelOpen: { tableFirstRow: [rowBefore, rowAfter], camera: 'unmoved' } };
+    const shut = await foundNow(page);
+    need(!sameView(shut.view, open.view) && shut.chase === '', 'once the panel shut, an arrow moved nothing');
+    return { arrowsPx: arrows, zoomAu: [fixed(first.view.distance, 4), fixed(nearer, 4), fixed(farther, 4)], withThePanelOpen: { rowFound: [rowBefore, open.found.row], camera: "on the found row, by the table's selection; no key the scene's" } };
   });
 
   return { compass, riding, landed, hint, alsoFoldedBy: folds, controls, keys };
+}
+
+// --- A row found.
+
+/** The rows the check finds: Ceres, the file's first; Hilda, whose place is
+ *  the integration's; the file's last; and one with no ellipse. */
+const FOUND_ROWS = { ceres: 0, hilda: 152, last: TABLE_ROWS - 1, unbound: fixture.rows.find((row) => row.rule === 'no ellipse')!.row };
+/** The mark, as the scene draws it (`scene.ts`, `FOUND_MARK`): its ring's
+ *  radius, and its name's corner from the ring's middle. */
+const FOUND_MARK = { ring: 10, name: [16, -26] } as const;
+/** An action's fill, not pressed and pressed, as the boards draw them. */
+const ACTION = { plain: 38, pressed: 250 };
+
+/** What the page says of the found row, and where the scene has it: the
+ *  crate's place for it through the scene's camera, the ring as drawn, the
+ *  name as drawn, and the camera, all of one frame. */
+const foundNow = (page: Page) =>
+  kirkwood(page, (kirkwood) => {
+    const scene = kirkwood.scene!;
+    const found = kirkwood.found();
+    return { found, chase: scene.stats.chase, gliding: scene.stats.gliding, years: scene.stats.years, view: scene.stats.camera, camera: scene.viewProjection(), place: found.row >= 0 ? kirkwood.placeOf(found.row, scene.stats.years) : [], ring: scene.found(), label: scene.labels().at(-1)!, clock: kirkwood.clock(), belt: kirkwood.belt(), flight: kirkwood.flight(), ride: kirkwood.ride(), drawn: { flight: scene.stats.flight, ride: scene.stats.ride } };
+  });
+type FoundNow = Awaited<ReturnType<typeof foundNow>>;
+/** Where the found row is in the window, by the crate's place. */
+const foundAt = (now: FoundNow): Point => project(now.camera, now.place);
+/** The camera is doing this about the found row, every find acted on (the
+ *  scene hears of a find in its next frame: until then it says what it
+ *  was doing about the last). */
+const chaseIs =(page: Page, chase: string, timeout = 20_000) => page.waitForFunction((chase) => (globalThis as unknown as Page_).__kirkwood.scene!.stats.chase === chase && (globalThis as unknown as Page_).__kirkwood.scene!.stats.finds === (globalThis as unknown as Page_).__kirkwood.found().finds, chase, { timeout, polling: 'raf' });
+const foundIs = (page: Page, row: number) => page.waitForFunction((row) => (globalThis as unknown as Page_).__kirkwood.found().row === row, row, { timeout: 10_000, polling: 'raf' });
+/** The row's ring and its name are on its dot, within a pixel: how far off. */
+function marked(now: FoundNow, row: number, name: string, when: string): number {
+  need(now.found.row === row && now.found.dot && now.found.name === name, `${when}: the page has found ${JSON.stringify(now.found)}, and row ${row} is ${name}`);
+  const at = foundAt(now);
+  need(!!now.ring && off([now.ring.x, now.ring.y], at) <= 1, `${when}: the ring is at ${JSON.stringify(now.ring)}, and its row at ${at.map(round)}`);
+  need(now.label.shown && now.label.text === name && near(now.label.left, at[0] + FOUND_MARK.name[0], 1) && near(now.label.top, at[1] + FOUND_MARK.name[1], 1), `${when}: the name is ${JSON.stringify(now.label)}, and its row at ${at.map(round)}`);
+  return fixed(off([now.ring!.x, now.ring!.y], at), 3);
+}
+/** The row is at the middle of what a panel `inset` px wide leaves, within
+ *  a pixel, the camera following it, its mark on it. */
+function centered(now: FoundNow, row: number, name: string, inset: number, when: string): { offMiddlePx: number; markOffPx: number } {
+  const markOffPx = marked(now, row, name, when);
+  need(now.chase === 'following', `${when}: the camera is ${now.chase || 'at rest'}, not following row ${row}`);
+  const at = foundAt(now);
+  const middle: Point = [(1440 - inset) / 2, 450];
+  need(off(at, middle) <= 1, `${when}: row ${row} is at ${at.map(round)}, and the middle of what the panel leaves is ${middle}`);
+  return { offMiddlePx: fixed(off(at, middle), 3), markOffPx };
+}
+/** The row is marked and the camera isn't on it: a hand has it. */
+function letGo(now: FoundNow, row: number, name: string, when: string): { offMiddlePx: number; markOffPx: number } {
+  const markOffPx = marked(now, row, name, when);
+  const away = off(foundAt(now), [720, 450]);
+  need(now.chase === '' && !now.gliding && away > 20, `${when}: the camera is ${now.chase || 'at rest'}${now.gliding ? ', moving on its own' : ''}, row ${row} ${round(away)} px from the middle`);
+  return { offMiddlePx: fixed(away, 1), markOffPx };
+}
+/** The three actions' fills, each read while its bounds held (`actionFills`). */
+async function threeFills(page: Page): Promise<{ sort: number; ride: number; find: number }> {
+  // Off the actions: under the pointer a fill is the hover's.
+  await page.mouse.move(700, 300);
+  await page.waitForTimeout(300);
+  const bounds = async () => (await Promise.all(['sort', 'ride', 'find'].map((id) => targetRect(page, id)))).flat().join();
+  for (let tries = 0; ; tries++) {
+    const before = await bounds();
+    const png = await page.screenshot();
+    if ((await bounds()) === before) return { sort: await actionFill(page, png, 'sort'), ride: await actionFill(page, png, 'ride'), find: await actionFill(page, png, 'find') };
+    need(tries < 20, "the actions' bounds never held for a screenshot");
+  }
+}
+const pressedIs = (fills: { sort: number; ride: number; find: number }, pressed: 'sort' | 'ride' | 'find' | undefined) => (['sort', 'ride', 'find'] as const).every((action) => near(fills[action], action === pressed ? ACTION.pressed : ACTION.plain, 4));
+
+async function seeFind(url: string) {
+  // A press on a row of the open table, with time running: the camera
+  // flies to the row's dot and follows it.
+  const rows = await withBelt(url, { date: EPOCH }, async (page) => {
+    const before = await foundNow(page);
+    need(before.found.row === -1 && !before.ring && !before.label.shown && before.chase === '', `before a press the page has found ${JSON.stringify(before.found)}`);
+    // (A press on the handle before the rows are held opens nothing.)
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(500);
+    const layout = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
+    /** A press on a row in view: the middle of a cell of it. */
+    const press = async (row: number) => {
+      const top = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodTable!.top);
+      await page.mouse.click(layout.left + 200, layout.top + (row - top + 0.5) * layout.rowHeight);
+    };
+    const seen: Record<string, unknown> = {};
+    /** The row found by what `how` did: at the middle at the flight's
+     *  end, and a second later, time having run. */
+    const found = async (name: string, row: number, says: string, how: () => Promise<void>) => {
+      const pressed = Date.now();
+      await how();
+      await foundIs(page, row);
+      await chaseIs(page, 'following');
+      const flightMs = Date.now() - pressed;
+      await settle(page);
+      const landed = await foundNow(page);
+      const atLanding = centered(landed, row, says, PANEL, `${name}, landed`);
+      await page.waitForTimeout(1000);
+      const later = await foundNow(page);
+      const aSecondOn = centered(later, row, says, PANEL, `${name}, a second on`);
+      need(later.years - landed.years > 0.5 && later.clock.running, `${name}: a second on the clock had run ${fixed(later.years - landed.years, 3)} years`);
+      need(later.place.some((au, axis) => Math.abs(au - landed.place[axis]!) > 1e-3), `${name}: with the clock run on, row ${row} is where it was`);
+      // Nothing is counted that wasn't: the mark is no dot.
+      need(JSON.stringify(later.belt) === JSON.stringify(before.belt), `${name}: the belt's counts are ${JSON.stringify(later.belt)}, and were ${JSON.stringify(before.belt)}`);
+      seen[name] = { row, name: says, flightMs, atLanding, aSecondOn, yearsRun: fixed(later.years - landed.years, 3), camera: viewOf(later.view), placeAu: later.place.map((au) => fixed(au, 4)) };
+      return { landed, later };
+    };
+    const ceres = await found('ceres', FOUND_ROWS.ceres, 'Ceres', () => press(FOUND_ROWS.ceres));
+    // The camera ends 2 au from the row along its line of sight, with the
+    // tilt, the bearing, and the roll it had.
+    const eye = Math.cos((ceres.landed.view.tilt * Math.PI) / 180);
+    const from = ceres.landed.view.distance - ceres.landed.place[2]! / eye;
+    // (Its distance is set as it lands, and read here some frames on:
+    // the row has moved up or down since, and following keeps the distance.)
+    need(near(from, FOUND.near, 0.1) &&ceres.landed.view.tilt === before.view.tilt && ceres.landed.view.bearing === before.view.bearing && ceres.landed.view.roll === before.view.roll, `on Ceres the camera is ${JSON.stringify(ceres.landed.view)}, ${from} au from it, and it opened at ${JSON.stringify(before.view)}`);
+    await shot(page, 'find-ceres');
+    // The ring is white, and round the dot: read at its four sides, on a
+    // held clock (with time running the camera has moved by the screenshot).
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(300);
+    const held = await foundNow(page);
+    const png = await page.screenshot();
+    const ring = await Promise.all(([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).map(([dx, dy]) => light(page, png, { x: held.ring!.x + dx * FOUND_MARK.ring - 0.5, y: held.ring!.y + dy * FOUND_MARK.ring - 0.5, width: 1, height: 1 })));
+    need(Math.min(...ring) > 150, `the ring's four sides read ${ring.map(round)} of 255`);
+    seen.ringLight = ring.map(round);
+    await shot(page, 'find-ceres-mark', { x: held.ring!.x - 120, y: held.ring!.y - 80, width: 240, height: 160 });
+    await clickTarget(page, 'time');
+    // A Hilda: its place is the integration's. Scrolled to, then pressed.
+    await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 3.5);
+    await wheel(page, (FOUND_ROWS.hilda - 6) * layout.rowHeight);
+    await page.waitForTimeout(600);
+    const group = await page.evaluate((row) => (globalThis as unknown as Page_).__kirkwood.layoutRow(row), FOUND_ROWS.hilda);
+    need(!!group && group.a > 3.7 && group.a < 4.2, `row ${FOUND_ROWS.hilda} isn't a Hilda: ${JSON.stringify(group)}`);
+    await found('hilda', FOUND_ROWS.hilda, 'Hilda', () => press(FOUND_ROWS.hilda));
+    await shot(page, 'find-hilda');
+    // A range of rows finds nothing new: Shift and an arrow, then every
+    // row, leave Hilda found and the camera on it.
+    for (const keys of ['Shift+ArrowDown', 'ControlOrMeta+a']) {
+      await page.keyboard.press(keys);
+      await page.waitForTimeout(400);
+      const ranged = await foundNow(page);
+      centered(ranged, FOUND_ROWS.hilda, 'Hilda', PANEL, `after ${keys}`);
+    }
+    // The file's last row, by the table's own key: the keys are the
+    // table's, and the row they select is the row found.
+    const last = fixture.rows.find((row) => row.row === FOUND_ROWS.last)!.cells.pdes;
+    await found('last', FOUND_ROWS.last, last, () => page.keyboard.press('End'));
+    // A row with no ellipse: the table scrolled to the row before it (found,
+    // as any row), then a press on it. It is found and has no dot: no mark,
+    // the camera where it was and no longer following, and the panel says why.
+    need(!(await page.evaluate(() => (globalThis as unknown as { __seizaTargets: Record<string, number[]> }).__seizaTargets['no-dot'])), 'the panel says a row has no dot before one was found');
+    await page.evaluate((row) => (globalThis as unknown as Page_).__kirkwood.jump(row), FOUND_ROWS.unbound - 1);
+    await foundIs(page, FOUND_ROWS.unbound - 1);
+    await chaseIs(page, 'following');
+    await press(FOUND_ROWS.unbound);
+    await foundIs(page, FOUND_ROWS.unbound);
+    await page.waitForTimeout(400);
+    const none = await foundNow(page);
+    await page.waitForTimeout(500);
+    const still = await foundNow(page);
+    const name = fixture.rows.find((row) => row.row === FOUND_ROWS.unbound)!.cells.name;
+    need(!none.found.dot && none.found.name === name && !none.ring && !none.label.shown && none.chase === '' && !none.gliding, `a row with no ellipse: found ${JSON.stringify(none.found)}, the ring ${JSON.stringify(none.ring)}, the camera ${none.chase || 'at rest'}`);
+    need(sameView(none.view, still.view) && still.years > none.years, `with no dot to follow the camera moved from ${JSON.stringify(none.view)} to ${JSON.stringify(still.view)}`);
+    const [x, y, width, height] = await targetRect(page, 'no-dot');
+    const says = await textPixels(page, await page.screenshot(), { x, y, width, height });
+    need(says > 200, `the panel's line for a row with no dot has ${says} text pixels`);
+    await shot(page, 'find-no-dot');
+    seen.noEllipse = { row: FOUND_ROWS.unbound, name, dot: none.found.dot, mark: 'none', camera: viewOf(none.view), saidAtPx: [x, y, width, height].map(round), textPixels: says };
+    return seen;
+  });
+
+  // A flight and a hand, with the panel shut and time running: "Find
+  // Ceres" is the press.
+  const hand = await withBelt(url, { date: EPOCH }, async (page) => {
+    const first = await cameraNow(page);
+    const lean = turnOf(first.view.roll);
+    need(!(await cornerNow(page)).folded, 'a first visit opens with the hint folded');
+    // ("Find Ceres" needs the table's rows.)
+    await waitMark(page, ROWS, 0, 120_000);
+    await settle(page);
+    const find = () => clickTarget(page, 'find');
+    /** The press back, and the camera home again; then the press, and
+     *  the camera `ms` into its flight. */
+    const again = async (ms: number) => {
+      await find();
+      await foundIs(page, -1);
+      await cameraRests(page);
+      await find();
+      await foundIs(page, FOUND_ROWS.ceres);
+      await chaseIs(page, 'flying');
+      await page.waitForTimeout(ms);
+    };
+    // The flight, untouched: the scene says the camera moves on its own,
+    // the compass says its turn and tilt, and the hint isn't folded.
+    await find();
+    await chaseIs(page, 'flying');
+    await page.waitForTimeout(400);
+    const [mid, midSays] = [await foundNow(page), await cornerNow(page)];
+    need(mid.chase === 'flying' && mid.gliding && off(foundAt(mid), [720, 450]) > 1, `400 ms into the flight the camera is ${mid.chase || 'at rest'}, the row at ${foundAt(mid).map(round)}`);
+    need(near(midSays.turned, lean, 0.06) && near(midSays.tilt, mid.view.tilt, 0.06), `mid-flight the compass says ${JSON.stringify(midSays)} with the camera at ${JSON.stringify(mid.view)}`);
+    await chaseIs(page, 'following');
+    await settle(page);
+    const landed = await foundNow(page);
+    const atLanding = centered(landed, FOUND_ROWS.ceres, 'Ceres', 0, 'landed');
+    const says = await cornerNow(page);
+    need(!says.folded && near(says.turned, lean, 0.06) && near(says.tilt, landed.view.tilt, 0.06), `landed, the corner says ${JSON.stringify(says)} with the camera at ${JSON.stringify(landed.view)}`);
+    await shot(page, 'find-landed');
+    // Following: a zoom, a tilt, and a turn go round the row.
+    await page.mouse.move(400, 300);
+    await wheel(page, -240);
+    await page.waitForTimeout(300);
+    const zoomed = await foundNow(page);
+    const afterZoom = centered(zoomed, FOUND_ROWS.ceres, 'Ceres', 0, 'after a wheel');
+    need(zoomed.view.distance < landed.view.distance * 0.8, `a wheel left the camera ${zoomed.view.distance} au out, from ${landed.view.distance}`);
+    await turnDrag(page, 'Shift', [500, 520], [600, 470]);
+    await cameraRests(page);
+    const turned = await foundNow(page);
+    const afterTurn = centered(turned, FOUND_ROWS.ceres, 'Ceres', 0, 'after a tilt and a turn');
+    need(turned.view.bearing !== zoomed.view.bearing && turned.view.tilt !== zoomed.view.tilt && turned.view.roll === 0, `a drag with Shift left the camera at ${JSON.stringify(turned.view)}, from ${JSON.stringify(zoomed.view)}`);
+    need((await cornerNow(page)).folded, "a hand's move left the hint whole");
+    await shot(page, 'find-turned');
+    // A pan lets the row go: it stays marked, and the camera holds still
+    // as time runs.
+    // (Read on a held clock: this near, a row the camera no longer
+    // follows is out of the window within a second of time running.)
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(300);
+    await dragged(page, [500, 520], [420, 580]);
+    await cameraRests(page);
+    const panned = await foundNow(page);
+    const afterPan = letGo(panned, FOUND_ROWS.ceres, 'Ceres', 'after a pan');
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(600);
+    const held = await foundNow(page);
+    need(sameView(held.view, panned.view) && held.years > panned.years, `let go, the camera moved from ${JSON.stringify(panned.view)} to ${JSON.stringify(held.view)}`);
+    await shot(page, 'find-let-go');
+    // The press back: no row found, no mark, and the first camera again.
+    await find();
+    await foundIs(page, -1);
+    await cameraRests(page);
+    const back = await foundNow(page);
+    need(sameView(back.view, first.view) && !back.ring && !back.label.shown && back.chase === '', `the press back left the camera at ${JSON.stringify(back.view)} (it opened at ${JSON.stringify(first.view)}), the ring ${JSON.stringify(back.ring)}`);
+    // Mid-flight a hand takes the camera where it is, and the row stays
+    // marked: a drag, a wheel, and a key.
+    await find();
+    await chaseIs(page, 'flying');
+    await page.waitForTimeout(350);
+    await dragged(page, [500, 520], [440, 560], { ms: 200 });
+    await cameraRests(page);
+    const byDrag = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a drag mid-flight');
+    await again(350);
+    await page.mouse.move(400, 300);
+    await wheel(page, -120);
+    await page.waitForTimeout(400);
+    const byWheel = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a wheel mid-flight');
+    await again(350);
+    await page.keyboard.press('ArrowLeft');
+    await cameraRests(page);
+    const byKey = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a key mid-flight');
+    // The way home lets a followed row go: the mark stays on its dot, and
+    // the camera is the first one, number for number.
+    await again(0);
+    await chaseIs(page, 'following');
+    await page.keyboard.press('h');
+    await cameraRests(page);
+    const home = await foundNow(page);
+    const markOffPx = marked(home, FOUND_ROWS.ceres, 'Ceres', 'home, by the key');
+    need(sameView(home.view, first.view) && home.chase === '', `H left the camera at ${JSON.stringify(home.view)}, ${home.chase || 'at rest'}; it opened at ${JSON.stringify(first.view)}`);
+    await shot(page, 'find-home');
+    return {
+      first: viewOf(first.view),
+      midFlight: { camera: viewOf(mid.view), rowOffMiddlePx: fixed(off(foundAt(mid), [720, 450]), 1), compass: { turned: fixed(midSays.turned, 1), tilt: fixed(midSays.tilt, 1) } },
+      landed: { camera: viewOf(landed.view), ...atLanding, hintFolded: says.folded },
+      following: { afterAWheel: { camera: viewOf(zoomed.view), ...afterZoom }, afterATiltAndATurn: { camera: viewOf(turned.view), ...afterTurn } },
+      aPanLetsGo: { camera: viewOf(panned.view), ...afterPan, heldStill: true },
+      thePressBack: viewOf(back.view),
+      takenMidFlight: { byADrag: byDrag, byAWheel: byWheel, byAKey: byKey },
+      homeWhileFollowing: { camera: viewOf(home.view), markOffPx, marked: true },
+    };
+  });
+
+  // "Find Ceres" beside the other two: one pressed at a time, each way round.
+  // (From 1990: the page runs time for a minute, and the clock ends in 2076.)
+  const actions = await withBelt(url, { date: '1990-01-01' }, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    await settle(page);
+    const rect = await targetRect(page, 'find');
+    const [sort, ride] = [await targetRect(page, 'sort'), await targetRect(page, 'ride')];
+    // The row's third button: after "Ride with Jupiter", the gap between
+    // them the one between the first two.
+    need(near(rect[0] - (ride[0] + ride[2]), ride[0] - (sort[0] + sort[2]), 0.5) && rect[1] === ride[1] && rect[3] === ride[3], `"Find Ceres" is at ${rect.map(round)}, after the ride's ${ride.map(round)} and the sort's ${sort.map(round)}`);
+    const fills: Record<string, { sort: number; ride: number; find: number }> = {};
+    const reads = async (name: string, pressed: 'sort' | 'ride' | 'find' | undefined) => {
+      const read = (fills[name] = await threeFills(page));
+      need(pressedIs(read, pressed), `${name}: the actions' fills read ${JSON.stringify(read)}, with ${pressed ?? 'none'} pressed`);
+    };
+    /** The picture is whole, in space in the fixed frame, with Ceres at
+     *  the middle and time running. */
+    const whole = async (when: string) => {
+      await chaseIs(page, 'following');
+      await settle(page);
+      const now = await foundNow(page);
+      const at = centered(now, FOUND_ROWS.ceres, 'Ceres', 0, when);
+      need(now.flight.progress === 0 && !now.flight.sorted && now.ride.turned === 0 && !now.ride.riding && now.drawn.flight === 0 && now.drawn.ride === 0 && now.clock.running, `${when}: the flight is ${JSON.stringify(now.flight)}, the ride ${JSON.stringify(now.ride)}, the clock ${JSON.stringify(now.clock)}`);
+      return at;
+    };
+    /** No row is found, and none is marked. */
+    const lost = async (when: string) => {
+      const now = await foundNow(page);
+      need(now.found.row === -1 && !now.ring && !now.label.shown && now.chase === '', `${when}: the page has found ${JSON.stringify(now.found)}, the ring ${JSON.stringify(now.ring)}, the camera ${now.chase || 'at rest'}`);
+    };
+    await reads('none', undefined);
+    await clickTarget(page, 'find');
+    const alone = await whole('"Find Ceres" pressed');
+    await reads('find', 'find');
+    await shot(page, 'find-pressed');
+    // The sort pressed with Ceres found: the row is let go, the dots land.
+    await clickTarget(page, 'sort');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.flight().progress === 1, undefined, { timeout: 15_000 });
+    await lost('the sort pressed with Ceres found');
+    await reads('sortAfterFind', 'sort');
+    // "Find Ceres" pressed with the dots landed: they fly back, time runs
+    // again, and the camera flies to Ceres once they're in space.
+    await clickTarget(page, 'find');
+    const afterSort = await whole('"Find Ceres" pressed with the sort pressed');
+    await reads('findAfterSort', 'find');
+    // The ride pressed with Ceres found: the row is let go, the frame turns.
+    await clickTarget(page, 'ride');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.ride().turned === 1, undefined, { timeout: 15_000 });
+    await lost('the ride pressed with Ceres found');
+    await reads('rideAfterFind', 'ride');
+    // "Find Ceres" pressed riding: the frame stops turning, and the camera
+    // flies to Ceres once it is the fixed frame's again.
+    await clickTarget(page, 'find');
+    const afterRide = await whole('"Find Ceres" pressed with the ride pressed');
+    await reads('findAfterRide', 'find');
+    // A gap picked with Ceres found (the sort, then its chip): let go again.
+    await clickTarget(page, 'sort');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.flight().progress === 1, undefined, { timeout: 15_000 });
+    await clickTarget(page, 'find');
+    await whole('"Find Ceres" pressed on the axes again');
+    await clickTarget(page, 'sort');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.flight().progress === 1, undefined, { timeout: 15_000 });
+    await clickTarget(page, 'chip-0');
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.ride().turned === 1, undefined, { timeout: 15_000 });
+    await lost('a gap picked');
+    await reads('aGapPicked', 'ride');
+    await clickTarget(page, 'find');
+    const afterGap = await whole('"Find Ceres" pressed with a gap picked');
+    const gap = await kirkwood(page, (kirkwood) => kirkwood.gap());
+    need(!gap.picked && gap.lit === 0, `with Ceres found again the gap is ${JSON.stringify(gap)}`);
+    await shot(page, 'find-after-gap');
+    return { atPx: rect.map(round), fills, alone, afterSort, afterRide, afterGap };
+  });
+  return { rows, hand, actions };
 }
 
 async function seeDrag(url: string) {
@@ -3255,6 +3647,7 @@ try {
   if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
   if (ONLY.has('gap')) seen.gap = await seeGap(server.url);
   if (ONLY.has('integrated')) seen.integrated = await seeIntegrated(server.url);
+  if (ONLY.has('find')) seen.find = await seeFind(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('drag')) seen.drag = await seeDrag(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);

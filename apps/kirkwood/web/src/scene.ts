@@ -47,6 +47,12 @@
 // places are in (the clock jumped), they're on their ellipses with the
 // rest. `?integrate=0` leaves them there.
 //
+// A row found (the table's selected row, the crate's to say) is marked on
+// its dot, a white ring and the row's name, the page's own as the names
+// are; and the fixed frame's camera flies to it, a flight of the hand's
+// own, and then follows it as time runs: a zoom, a tilt, and a turn go
+// round the row, and a pan or the way home lets it go, the mark staying.
+//
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
@@ -58,7 +64,7 @@
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
-import { GLIDE, REACH, ZOOM, createHand, type Place, type View } from './camera.ts';
+import { FOUND, GLIDE, REACH, SHIFT, ZOOM, aimedAt, createHand, type Place, type View } from './camera.ts';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -143,6 +149,16 @@ export interface SceneHost {
    *  jump of the clock is caught up a few milliseconds a call). With
    *  `draw` false they're stepped and no place is worked out. */
   integrated(years: number, draw: boolean): number;
+  /** The row found, which the scene marks and flies to: its row, or -1
+   *  with none (or one with no dot); how many times a row has been found
+   *  (a flight for each); where the marked row is, `years` after the epoch
+   *  (the ecliptic's x, y, z, au; empty with none), as the scene draws it:
+   *  with `integrated`, a Hilda or a Trojan where the integration has it
+   *  this frame, and without, on its ellipse; and its name. */
+  found(): number;
+  finds(): number;
+  foundPlace(years: number, integrated: boolean): ArrayLike<number>;
+  foundName(): string;
   /** The camera as this frame drew it, for the interface's compass: how
    *  far it stands round from where it opened and its tilt from straight
    *  down (degrees; riding, the ride's own camera's, and between the two
@@ -183,6 +199,15 @@ export interface SceneStats {
   /** Whether the camera is moving on its own: gliding, let go moving or
    *  from a key; on a zoom's way; or on its flight home. */
   gliding: boolean;
+  /** The row marked in the last frame drawn, or -1; and what the camera
+   *  is doing about it: `waiting` to fly there (the dots are on their way
+   *  back from the axes, or the frame is still turning), `flying` there,
+   *  `following` it as time runs, or nothing (no row, or a hand took the
+   *  camera or let the row go). */
+  found: number;
+  chase: 'waiting' | 'flying' | 'following' | '';
+  /** The finds the camera has acted on: the crate's count, as of the last tick. */
+  finds: number;
   /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
   flight: number;
   /** How far the frame had turned to Jupiter's in the last frame drawn. */
@@ -255,6 +280,9 @@ export interface BeltScene {
   /** A picked gap's marker as drawn: where it is, and its path's places
    *  in order (x and y of each, CSS px); nothing while it isn't drawn. */
   marker(): { x: number; y: number; path: number[] } | undefined;
+  /** A found row's mark as drawn: where its ring is (CSS px); nothing
+   *  while it isn't drawn. Its name is among `labels`. */
+  found(): { x: number; y: number } | undefined;
   stats: SceneStats;
 }
 
@@ -625,8 +653,12 @@ const RIDE_NAMES = { ahead: [57, -29], behind: [57, 13], hildas: [-22, -54] } as
  *  opacity that leaves the belt under them, of what the ride leaves it
  *  (`docs/DECISIONS.md`, "Look"). White is what the interface adds. */
 const MARKER = { dot: 4, ring: 9, name: [16, -26], line: 1.5, dim: 0.6 } as const;
+/** A found row's mark, CSS px: a white ring round its dot (no dot of its
+ *  own: the dot is the row's), and the row's name up and to its right, as
+ *  a gap's marker has its own. */
+const FOUND_MARK = { ring: 10, line: 1.5, name: [16, -26] } as const;
 /** What the interface adds to the scene (the ride's triangle, a picked
- *  gap's marker, its path, and its name): white, neutral-50,
+ *  gap's marker, its path, and its name; a found row's ring and name): white, neutral-50,
  *  oklch(0.985 0 0), the theme's foreground. */
 const ADDED = '#fafafa';
 /** The Sun's glow, CSS px across (its core is a twentieth of that), and
@@ -700,7 +732,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, flight: 0, ride: 0, integrated: 0, catchingUp: false };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, flight: 0, ride: 0, integrated: 0, catchingUp: false };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -795,7 +827,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   // Board 5's, with a gap picked: the marker says what it is.
   const markerName = name('the marker');
   markerName.label.style.color = ADDED;
-  const allNames = [sunName, jupiterName, ...rideNames, markerName];
+  // A found row's: the row's own name, from the rows file, set when it's found.
+  const foundName = name('');
+  foundName.label.style.color = ADDED;
+  const allNames = [sunName, jupiterName, ...rideNames, markerName, foundName];
   // And its dashed triangle through the three points in step with
   // Jupiter: white, as what the interface adds.
   const SVG = 'http://www.w3.org/2000/svg';
@@ -834,6 +869,15 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   let pathDrawn: number[] = [];
   let pathFor = '';
   let markingOpacity = 1;
+  // A found row's ring, white too: round the row's dot, which is its own.
+  const finding = document.createElementNS(SVG, 'svg');
+  finding.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; visibility: hidden');
+  const foundRing = document.createElementNS(SVG, 'circle');
+  for (const [attribute, value] of [['r', String(FOUND_MARK.ring)], ['fill', 'none'], ['stroke', ADDED], ['stroke-opacity', '0.9'], ['stroke-width', String(FOUND_MARK.line)]]) foundRing.setAttribute(attribute!, value!);
+  finding.append(foundRing);
+  names.append(finding);
+  /** The ring as drawn (CSS px), if it is. */
+  let foundDrawn: { x: number; y: number } | undefined;
   if (alone) names.hidden = true;
   // A name's size is read here and kept, never in a frame (a read there is
   // a layout every frame): now, and again when the interface's face
@@ -1047,8 +1091,74 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     byHand,
     feel,
   );
-  /** Whose drag is under way, if either's. */
+  /** Whose drag is under way, if either's; and whether it pans. */
   let dragging: typeof hand | undefined;
+  let panning = false;
+  /** A found row and the camera. `foundRow` and `foundFinds` are what the
+   *  crate last said (the row marked, and how many finds there have been:
+   *  a flight for each). `chase` is what the fixed frame's camera is doing
+   *  about it: waiting to fly there (it is a hand's only in space, at rest
+   *  in the fixed frame), flying there, or, landed, following the row as
+   *  time runs. A hand that takes the flight ends the chase, and so do a
+   *  pan and the way home while following: the row stays marked. */
+  let [foundRow, foundFinds] = [-1, host.finds()];
+  let chase: SceneStats['chase'] = '';
+  /** `?found`: how far from a found row the camera's flight ends, au. */
+  const foundNear = knob('found', FOUND.near);
+  /** What the crate says of the found row took effect: its name on the
+   *  mark, and the camera waiting to fly, or let go of a row no longer
+   *  found; then the flight begun, once the camera is a hand's. */
+  const chased = (frame: Frame, now: number) => {
+    // A flight a hand took over (or anything else ended) is no chase.
+    if (chase === 'flying' && !hand.flying()) chase = '';
+    if (frame.found !== foundRow || frame.finds !== foundFinds) {
+      if (frame.found >= 0) {
+        if (frame.found !== foundRow) {
+          foundName.label.textContent = foundName.text = host.foundName();
+          [foundName.width, foundName.height] = [foundName.label.offsetWidth, foundName.label.offsetHeight];
+        }
+        // (A flight under way goes on, to the row found now: its place
+        // is asked for at each step. A held arrow in the table is one
+        // flight that lands on the last row, not one begun again a row.)
+        if (chase !== 'flying') chase = 'waiting';
+      } else {
+        // (A flight to a row no longer found stops where it is.)
+        if (chase === 'flying') hand.press();
+        chase = '';
+      }
+      [foundRow, foundFinds] = [frame.found, frame.finds];
+    }
+    if (chase !== 'waiting' || frame.flight > 0 || frame.ride > 0 || !frame.foundAt) return;
+    // The camera keeps its tilt, its bearing, and its roll, and ends
+    // `foundNear` from the row, looking at it: where the row is when it
+    // lands (the place is asked for at each step, and the row moves).
+    const [tilt, bearing] = [view.tilt, view.bearing];
+    let to = frame.foundAt;
+    chase = 'flying';
+    const flies = hand.fly(
+      () => {
+        to = foundAt ?? to;
+        const aim = aimedAt(to, tilt, bearing);
+        return { x: aim.x, y: aim.y, distance: Math.max(foundNear + aim.under, FOUND.least), tilt, bearing };
+      },
+      now,
+      FOUND.ms,
+      () => (chase = 'following'),
+    );
+    // (A hand mid-drag has the camera: the flight waits for its release.)
+    if (!flies) chase = 'waiting';
+  };
+  /** Following, the camera looks at the found row where it is now, with
+   *  whatever tilt, bearing, and distance a hand has given it (never so
+   *  near that the row is behind it): whether it moved. */
+  const follow = (frame: Frame): boolean => {
+    if (chase !== 'following' || !frame.foundAt || frame.flight > 0 || frame.ride > 0) return false;
+    const aim = aimedAt(frame.foundAt, view.tilt, view.bearing);
+    const distance = Math.max(view.distance, aim.under + ZOOM.nearest);
+    if (aim.x === view.x && aim.y === view.y && distance === view.distance) return false;
+    [view.x, view.y, view.distance] = [aim.x, aim.y, distance];
+    return true;
+  };
   /** The hand for an input the interface handed over for a frame (0 the
    *  fixed one's, 1 the ride's own), if the camera as last drawn is at rest
    *  there. The interface decides from the crate's state, which a reading
@@ -1139,6 +1249,11 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     marked: number;
     gap: number;
     marker: [number, number, number];
+    /** The row found (-1 with none), how many finds there have been, and
+     *  where the row is (the ecliptic's x, y, z). */
+    found: number;
+    finds: number;
+    foundAt: [number, number, number] | undefined;
   }
   let last: Frame | undefined;
   /** The text's bounds as last asked for, and the crate's count then. */
@@ -1158,6 +1273,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   let marker: Frame['marker'] = [0, 0, 0];
   let markerFor = [-1, NaN];
   const paths: (Float32Array | undefined)[] = [];
+  /** The found row's place as last asked for, and the row and the years
+   *  it was for. */
+  let foundAt: Frame['foundAt'];
+  let foundFor = [-1, NaN, 0];
   /** Asks the crate. Nothing here may run between making the views over
    *  its memory and uploading them: a call into the wasm can grow it. */
   const ask = (now: number): Frame => {
@@ -1190,11 +1309,20 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       [marker, markerFor] = [[at[0]!, at[1]!, at[2]!], [gap, years]];
     }
     if (lit > 0) paths[gap] ??= host.gapPath(gap);
-    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places, picked, marked: lit, gap, marker };
+    // A found row's place, when the row or the clock has moved.
+    const [found, finds] = [host.found(), host.finds()];
+    // (Where the scene draws it: the integration's place for a Hilda or
+    // a Trojan only in a frame that draws those rows from it.)
+    const apart = Number(places !== 0);
+    if (found !== foundFor[0] || (found >= 0 && (years !== foundFor[1] || apart !== foundFor[2]))) {
+      const at = found >= 0 ? host.foundPlace(years, !!apart) : [];
+      [foundAt, foundFor] = [at.length === 3 ? [at[0]!, at[1]!, at[2]!] : undefined, [found, years, apart]];
+    }
+    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places, picked, marked: lit, gap, marker, found, finds, foundAt };
   };
   // Landed, time moves no dot: of the clock, only the way back draws.
   const moved = (frame: Frame, from: Frame) =>
-    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated || frame.picked !== from.picked || frame.marked !== from.marked || frame.gap !== from.gap;
+    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated || frame.picked !== from.picked || frame.marked !== from.marked || frame.gap !== from.gap || frame.found !== from.found || frame.foundAt !== from.foundAt;
   /** What isn't a row, as it leaves the picture and returns: the Sun,
    *  Jupiter, its orbit, the marks, and the names; and the haze, which on
    *  the axes would light the gaps. (The sky leaves by a number of its
@@ -1317,6 +1445,17 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     put(markerName, where ? at : ORIGIN, () => MARKER.name[0], MARKER.name[1], where ? lit : 0, innerWidth - frame.inset);
   };
 
+  /** A found row's ring and its name, on the row's place through the
+   *  camera as it is. Behind the camera it has no place on screen. */
+  const found = (frame: Frame) => {
+    const at = frame.space > 0 && frame.foundAt ? new Vector3(...inScene(...frame.foundAt)) : undefined;
+    const where = at && onScreen(at);
+    if (!!where !== !!foundDrawn) finding.style.visibility = where ? 'visible' : 'hidden';
+    if (where) foundRing.setAttribute('transform', `translate(${where[0].toFixed(1)} ${where[1].toFixed(1)})`);
+    foundDrawn = where ? { x: where[0], y: where[1] } : undefined;
+    put(foundName, at && where ? at : ORIGIN, () => FOUND_MARK.name[0], FOUND_MARK.name[1], where ? 1 : 0, innerWidth - frame.inset);
+  };
+
   const render = (frame: Frame) => {
     dirty = false;
     // The camera's flight is from the last frame drawn at rest, at either
@@ -1401,12 +1540,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     }
     if (!alone) furnish(frame);
     if (!alone) mark(frame);
+    if (!alone) found(frame);
     // `?glass`: the blur behind the panel is as wide as the panel is now.
     if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
     stats.frames++;
     stats.years = frame.years;
     stats.flight = frame.flight;
     stats.ride = frame.ride;
+    stats.found = frame.found;
     tell(frame.ride);
   };
   /** The belt's room on the GPU: a buffer a column, and what draws from them. */
@@ -1477,8 +1618,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // glide ends there. (The roll's ease, once begun, goes on to its end.)
     if (frame.flight > 0 || frame.ride > 0) hand.rest();
     if (frame.flight > 0 || frame.ride < 1) rideHand.rest();
+    chased(frame, now);
     const stepped = [hand.step(now), rideHand.step(now)];
-    if (stepped[0] || stepped[1]) dirty = true;
+    // (After the step: a flight that landed in it is followed from here.)
+    const followed = follow(frame);
+    if (stepped[0] || stepped[1] || followed) dirty = true;
+    [stats.chase, stats.finds] = [chase, foundFinds];
     moving();
     if (dirty || !last || moved(frame, last)) render(frame);
   };
@@ -1577,9 +1722,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     },
     dragStart(x, y, button, modifiers, frame) {
       dragging = handOf(frame);
+      panning = button === 0 && !(modifiers & SHIFT);
       dragging?.dragStart(x, y, button, modifiers, performance.now());
     },
-    dragMove: (x, y) => dragging?.dragMove(x, y, performance.now()),
+    dragMove(x, y) {
+      // A pan lets a followed row go: the camera is the hand's again.
+      if (dragging === hand && panning && chase === 'following') chase = '';
+      dragging?.dragMove(x, y, performance.now());
+    },
     dragEnd(x, y) {
       dragging?.dragEnd(x, y, performance.now());
       dragging = undefined;
@@ -1591,6 +1741,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       if (moving()) dirty = handMoved = true;
     },
     nudge(right, up, frame) {
+      // (An arrow is a pan: it lets a followed row go.)
+      if (handOf(frame) === hand && chase === 'following') chase = '';
       handOf(frame)?.nudge(right, up, performance.now());
       if (moving()) handMoved = true;
     },
@@ -1602,8 +1754,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       // The ride's own camera, as the ride opens: straight above the Sun,
       // unturned, as far as the panel leaves it room for.
       // (Asked for at each step: the panel may slide on the way.)
-      if (frame === 1) handOf(frame)?.home(() => ({ x: 0, y: 0, distance: rideDistance(insetNow), tilt: 0, bearing: 0 }), performance.now());
-      else handOf(frame)?.home(() => opened, performance.now());
+      if (frame === 1) handOf(frame)?.fly(() => ({ x: 0, y: 0, distance: rideDistance(insetNow), tilt: 0, bearing: 0 }), performance.now());
+      // The way back from a found row too: the camera stops following,
+      // and the row stays marked.
+      else if (handOf(frame)?.fly(() => opened, performance.now())) chase = '';
       moving();
     },
     viewProjection() {
@@ -1614,5 +1768,6 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     labels: () => allNames.map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden && space > 0 })),
     triangle: () => (triangleShown && !names.hidden && space > 0 ? corners : undefined),
     marker: () => (markerDrawn && !names.hidden && space > 0 ? markerDrawn : undefined),
+    found: () => (foundDrawn && !names.hidden && space > 0 ? foundDrawn : undefined),
   };
 }

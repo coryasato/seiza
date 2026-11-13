@@ -20,6 +20,7 @@ use crate::bytes::Bytes;
 use crate::catalog::Catalog;
 use crate::clock;
 use crate::elements::{Element, Elements};
+use crate::find;
 use crate::flight;
 use crate::gap;
 use crate::host::Host;
@@ -651,7 +652,80 @@ pub fn camera_seen(turned: f32, tilt: f32, moved: bool) {
     update_host(|host, cx| host.camera_seen(turned, tilt, moved, cx));
 }
 
+/// The row the scene marks and flies its camera to: the found row, if it
+/// has a dot; -1 with none. A plain number, read every frame.
+#[wasm_bindgen]
+pub fn scene_found() -> f64 {
+    find::marked().map_or(-1.0, |row| row as f64)
+}
+
+/// How many times a row has been found: the scene's camera flies when
+/// this moves. A plain number, read every frame.
+#[wasm_bindgen]
+pub fn scene_finds() -> u32 {
+    find::finds()
+}
+
+/// Where the marked row is, `years` after the epoch: x, y, z in au, in
+/// 64-bit floats, where the scene draws its dot. With `integrated` (the
+/// scene is drawing the Hildas and the Trojans from [`scene_integrated`]'s
+/// places this frame), one of those rows is where the integration has it,
+/// read from the rows the scene's own are (no row is stepped for this);
+/// any other row, and those rows while they're drawn on their ellipses, is
+/// on its ellipse. Empty with no row marked.
+#[wasm_bindgen]
+pub fn found_place(years: f64, integrated: bool) -> Vec<f64> {
+    let Some(row) = find::marked() else {
+        return Vec::new();
+    };
+    let moved = integrated
+        .then(|| {
+            MOVED.with_borrow(|moved| {
+                let moved = moved.as_ref()?;
+                let at = moved.rows().binary_search(&(row as u32)).ok()?;
+                moved.place(at, years)
+            })
+        })
+        .flatten();
+    moved
+        .or_else(|| {
+            with_elements(|elements| {
+                Some(elements)
+                    .filter(|elements| row < elements.whole())
+                    .and_then(|elements| Orbit::of_row(elements, row))
+                    .map(|orbit| orbit.place(years))
+            })
+            .flatten()
+        })
+        .map_or_else(Vec::new, |place| place.to_vec())
+}
+
+/// The found row's name, from the rows file: what its mark says.
+#[wasm_bindgen]
+pub fn found_name() -> String {
+    find::name()
+}
+
 // --- For the checks (`checks/see.ts`).
+
+/// The table scrolled to `row` and that row selected, and so found: a
+/// row far down the file, without the scroll there. Called from the
+/// page's own task.
+#[wasm_bindgen]
+pub fn table_jump(row: usize) {
+    update_host(|host, cx| host.jump(row, cx));
+}
+
+/// The row found (-1 with none), whether it has a dot, and how many times
+/// a row has been found.
+#[wasm_bindgen]
+pub fn found_state() -> Vec<f64> {
+    vec![
+        find::found().map_or(-1.0, |row| row as f64),
+        f64::from(u8::from(find::marked().is_some())),
+        f64::from(find::finds()),
+    ]
+}
 
 /// The corner's state: how far the compass says the camera stands round
 /// from where it opened and its tilt (degrees), whether the hint is
@@ -677,18 +751,22 @@ pub fn corner_state() -> Vec<f32> {
 /// yet, or a time that isn't on the clock.
 #[wasm_bindgen]
 pub fn place_of(row: usize, years: f64) -> Vec<f64> {
-    with_elements(|elements| {
-        if row >= elements.whole() {
-            return Vec::new();
-        }
-        let (a, e) = (elements.get(Element::A, row), elements.get(Element::E, row));
-        let place = match ride::group(a, e) {
-            Some(_) => integrate::place_of(elements, row, years),
-            None => Orbit::of_row(elements, row).map(|orbit| orbit.place(years)),
-        };
-        place.map_or_else(Vec::new, |place| place.to_vec())
-    })
-    .unwrap_or_default()
+    with_elements(|elements| row_place(elements, row, years))
+        .flatten()
+        .map_or_else(Vec::new, |place| place.to_vec())
+}
+
+/// A row's place, `years` after the epoch: where the integration puts a
+/// Hilda or a Trojan, any other row's ellipse's ([`place_of`]).
+fn row_place(elements: &Elements, row: usize, years: f64) -> Option<[f64; 3]> {
+    if row >= elements.whole() {
+        return None;
+    }
+    let (a, e) = (elements.get(Element::A, row), elements.get(Element::E, row));
+    match ride::group(a, e) {
+        Some(_) => integrate::place_of(elements, row, years),
+        None => Orbit::of_row(elements, row).map(|orbit| orbit.place(years)),
+    }
 }
 
 /// Where a row's 2026 ellipse alone puts it, `years` after the epoch: x,

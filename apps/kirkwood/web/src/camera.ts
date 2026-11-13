@@ -7,7 +7,8 @@
 // let go moving glides to rest, a drag with Shift held tilts and
 // turns about what the camera looks at, a double click zooms in toward
 // the pointer, the arrows pan and + and − zoom, and the way home flies it
-// back to where it opened. It knows no Three.js: the scene tells it where a window
+// back to where it opened. A flight to anywhere else (a found row) is that
+// same flight, so a hand takes it over the same way. It knows no Three.js: the scene tells it where a window
 // position's ray meets the ecliptic.
 //
 // The interface hands every input over (`crate/src/host.rs`: GPUI's canvas
@@ -59,6 +60,10 @@ export const DOUBLE = { nearer: 2, ms: 260 };
 export const KEYS = { pan: 120, zoom: 1.6, ms: 260 };
 /** The way home: how long the camera's flight back to where it opened is (ms). */
 export const HOME = { ms: 700 };
+/** A found row: how long the camera's flight to it is (ms); how far from
+ *  the row it ends (au; `?found`); and the least it ends from what it looks
+ *  at, for a row far under the ecliptic, where the camera can't follow. */
+export const FOUND = { ms: 1200, near: 2, least: 0.5 };
 
 /** The pose: how long the roll the camera opens with takes to ease out
  *  to a level horizon, on its first tilt or turn (ms). */
@@ -67,6 +72,27 @@ export const POSE = { ms: 320 };
 /** Where a camera can be flown: a view's numbers, with a roll only where
  *  the flight should leave it one (home, to the opening's pose). */
 export type Place = Omit<View, 'roll'> & { roll?: number };
+
+/** The way a camera with this tilt and bearing stands from what it looks
+ *  at, in the ecliptic's axes: a unit vector, z up from the plane. */
+export function standsFrom(tilt: number, bearing: number): [number, number, number] {
+  const [down, round] = [(tilt * Math.PI) / 180, (bearing * Math.PI) / 180];
+  return [Math.sin(down) * Math.sin(round), -Math.sin(down) * Math.cos(round), Math.cos(down)];
+}
+
+/** What a camera looks at, on the ecliptic, to have the place `at` (x, y,
+ *  z, au) at the middle of its picture, with this tilt and bearing: the
+ *  point where its line of sight through the place meets the plane. And
+ *  `under`: how far along that line, toward the camera, the place is from
+ *  that point (below 0 for a place under the plane). The camera is in
+ *  front of the place only at a distance past `under`. */
+export function aimedAt(at: readonly [number, number, number], tilt: number, bearing: number): { x: number; y: number; under: number } {
+  const [x, y, z] = standsFrom(tilt, bearing);
+  // (Never edge-on: a hand's tilt stops short of it, and a knob's is held
+  // to the same here.)
+  const under = at[2] / Math.max(z, Math.cos((TURN.most * Math.PI) / 180));
+  return { x: at[0] - under * x, y: at[1] - under * y, under };
+}
 
 /** The modifiers, as the interface hands them over (`scene.rs`). */
 export const CTRL = 1;
@@ -110,9 +136,14 @@ export interface Hand {
   /** The + key or the − key: nearer or farther, toward what the camera
    *  looks at. */
   zoomStep(nearer: boolean, now: number): void;
-  /** The way home: the camera flies to `to`, asked for at each step (a
-   *  place that follows the window is where it is when the camera lands). */
-  home(to: () => Place, now: number): void;
+  /** The way home, and any flight: the camera flies to `to` over `ms`,
+   *  asked for at each step (a place that follows the window, or a row on
+   *  its orbit, is where it is when the camera lands). `landed` is called
+   *  when it gets there, and never if a hand takes the camera first.
+   *  Whether it flies: not while a hand is mid-drag. */
+  fly(to: () => Place, now: number, ms?: number, landed?: () => void): boolean;
+  /** Whether the camera is on a flight. */
+  flying(): boolean;
   /** What moves on its own (the glide, a zoom on its way, the flight
    *  home) moved on to `now`: whether the camera moved. */
   step(now: number): boolean;
@@ -140,23 +171,29 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
    *  when: begun by the first tilt or turn of a camera that has a roll (a
    *  pan and a zoom keep it), it goes on to its end whatever is pressed. */
   let level: { from: number; at: number } | undefined;
-  /** The flight home: where the camera was, where it goes, and when it began. */
-  let flight: { from: Place; to: () => Place; at: number } | undefined;
+  /** A flight: where the camera was, where it goes, when it began, how
+   *  long it is, and who hears that it landed. */
+  let flight: { from: Place; to: () => Place; at: number; ms: number; landed?: () => void } | undefined;
 
-  const bound = () => {
+  /** How far from the Sun the camera may look after a move: `AT_MOST`,
+   *  or as far as it looks now if a flight took it farther (a found row
+   *  past the farthest: from there a hand moves it in, never jumps it in). */
+  const reach = () => Math.max(AT_MOST, Math.hypot(view.x, view.y));
+  const bound = (most: number) => {
     const out = Math.hypot(view.x, view.y);
-    if (out > AT_MOST) [view.x, view.y] = [(view.x * AT_MOST) / out, (view.y * AT_MOST) / out];
+    if (out > most) [view.x, view.y] = [(view.x * most) / out, (view.y * most) / out];
   };
   /** The camera at `distance`, the point `under` (if any) holding still:
    *  the camera and what it looks at close on it together. */
   const zoomTo = (distance: number, under: [number, number] | undefined) => {
     const scaled = distance / view.distance;
+    const most = reach();
     if (under) {
       view.x = under[0] + (view.x - under[0]) * scaled;
       view.y = under[1] + (view.y - under[1]) * scaled;
     }
     view.distance = distance;
-    bound();
+    bound(most);
   };
   const same = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.abs(a);
   const within = (distance: number) => {
@@ -168,9 +205,10 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
     const under = scene.ground(x, y, true)!;
     // The camera slides along the plane, so the ray through the pointer
     // meets it as far off as the held point now is.
+    const most = reach();
     view.x += grab[0] - under[0];
     view.y += grab[1] - under[1];
-    bound();
+    bound(most);
     trail.push({ at: now, x: view.x, y: view.y });
     while (trail.length > 2 && now - trail[0]!.at > GLIDE.read) trail.shift();
     changed();
@@ -198,12 +236,13 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
     const dt = now - glide.at;
     if (dt <= 0) return false;
     const left = Math.exp(-dt / glideMs);
+    const most = reach();
     // What a speed falling off this way covers in `dt`.
     view.x += glide.vx * glideMs * (1 - left);
     view.y += glide.vy * glideMs * (1 - left);
     glide = { vx: glide.vx * left, vy: glide.vy * left, at: now };
     const before = [view.x, view.y];
-    bound();
+    bound(most);
     const speed = (Math.hypot(glide.vx, glide.vy) / scene.pixel()) * 1000;
     // At rest, or held at the farthest it may look.
     if (speed < GLIDE.rest || before[0] !== view.x || before[1] !== view.y) glide = undefined;
@@ -313,16 +352,21 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
       flight = undefined;
       zoom = { under: undefined, from: view.distance, to, at: now, ms: KEYS.ms, key: true };
     },
-    home(to, now) {
+    fly(to, now, ms = HOME.ms, landed) {
       // (A hand mid-drag has the camera.)
-      if (grab || turn) return;
+      if (grab || turn) return false;
       glide = undefined;
       zoom = undefined;
-      level = undefined;
       const [from, home] = [{ x: view.x, y: view.y, distance: view.distance, tilt: view.tilt, bearing: view.bearing, roll: view.roll }, to()];
+      // A flight that gives the camera a roll takes it from the pose's
+      // ease; one that doesn't (to a found row) leaves the ease to end.
+      if (home.roll !== undefined) level = undefined;
       const there = same(from.distance, home.distance) && Math.hypot(from.x - home.x, from.y - home.y) <= 1e-9 * home.distance && Math.abs(from.tilt - home.tilt) < 1e-9 && Math.abs(from.bearing - home.bearing) < 1e-9 && Math.abs(from.roll - (home.roll ?? from.roll)) < 1e-9;
-      flight = there ? undefined : { from, to, at: now };
+      flight = there ? undefined : { from, to, at: now, ms, landed };
+      if (there) landed?.();
+      return true;
     },
+    flying: () => !!flight,
     step(now) {
       let moved = false;
       if (level) {
@@ -336,7 +380,7 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
       if (flight) {
         const [from, to] = [flight.from, flight.to()];
         // (A frame's time can be before the press's, in the frame of it.)
-        const t = Math.min(1, Math.max(0, (now - flight.at) / HOME.ms));
+        const t = Math.min(1, Math.max(0, (now - flight.at) / flight.ms));
         // Eased both ways; the distance even in its ratio, and the bearing
         // the short way round.
         const k = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
@@ -351,7 +395,11 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
           if (to.roll !== undefined) view.roll = from.roll! + (to.roll - from.roll!) * k;
           view.bearing = (((from.bearing + round * k) % 360) + 360) % 360;
         }
-        if (t >= 1) flight = undefined;
+        if (t >= 1) {
+          const { landed } = flight;
+          flight = undefined;
+          landed?.();
+        }
         moved = true;
       }
       if (zoom) {

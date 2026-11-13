@@ -28,6 +28,9 @@ import init, {
   file_progress,
   flight_hold,
   flight_state,
+  found_name,
+  found_place,
+  found_state,
   gap_card,
   gap_e,
   gap_hold,
@@ -55,7 +58,9 @@ import init, {
   ride_state,
   scene_axes,
   scene_failed,
+  scene_finds,
   scene_flight,
+  scene_found,
   scene_gap,
   scene_gap_lit,
   scene_inset,
@@ -69,6 +74,7 @@ import init, {
   scene_years,
   sky_drawn,
   start,
+  table_jump,
 } from '../pkg/kirkwood.js';
 // The same asset wasm-bindgen would resolve; named here so the HTML preload and
 // `init` fetch one URL (instantiateStreaming needs `application/wasm`).
@@ -187,6 +193,13 @@ type Kirkwood = {
    *  milliseconds each. */
   integrated(): { rows: number; bytes: number; step: number };
   integratedJump(years: number): { stepsMs: number; placesMs: number } | undefined;
+  /** For the checks: the row found (-1 with none), whether it has a dot
+   *  for the scene to mark, its name as the mark says it, and how many
+   *  times a row has been found. */
+  found(): { row: number; dot: boolean; name: string; finds: number };
+  /** For the checks: the table scrolled to a row and that row selected
+   *  (so found), for a row far down the file. */
+  jump(row: number): void;
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -258,6 +271,10 @@ async function startScene(): Promise<BeltScene> {
     integratedRows: integrated_rows,
     integratedColumns: integrated_columns,
     integrated: scene_integrated,
+    found: scene_found,
+    finds: scene_finds,
+    foundPlace: found_place,
+    foundName: found_name,
     cameraSeen: camera_seen,
     floats: (at, count) => new Float32Array(memory!.buffer, at, count),
   });
@@ -504,6 +521,11 @@ const kirkwood: Kirkwood = {
     const [stepsMs, placesMs] = Array.from(integrated_jump(years));
     return stepsMs === undefined ? undefined : { stepsMs, placesMs: placesMs! };
   },
+  found: () => {
+    const [row, dot, finds] = Array.from(found_state());
+    return { row: row!, dot: !!dot, name: found_name(), finds: finds! };
+  },
+  jump: (row) => table_jump(row),
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 

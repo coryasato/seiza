@@ -283,3 +283,13 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Input"; the evidence: [`
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface" and "Input"; the evidence: [`milestones.md`](milestones.md), M5's checks.
 
 *After review, and the owner's look:* the review's faults were nearly all one kind, an input arriving while something else had the camera (H mid-drag, + at a stop during a flight, a press on the corner as it faded, a list left open under a sort); each new way to move the camera has to be asked what it does during every other. And the opening's roll came back the same day it was closed as gone. Part B had turned down "eased out on the first turn" by hand; with a way home, the same ease was right. A choice made by hand is a choice about the app as it was that day: the thing that was missing (a way back) wasn't in the question.
+
+## M6 part A: a row found (2026-11-13)
+
+- **The row was never on the plane the camera looks at.** A map's camera looks at a point of the ecliptic, and Ceres is 10° off it: looking at the point under the row put it tens of pixels from the middle. The camera looks instead at where its own line of sight through the row meets the plane, and its distance is then from that point, not from the row.
+- **The table's keys found rows for free.** The found row is the table's selection, so End flew the camera to the file's last row before anything was written for keys, and the question the plan left ("does a found row's press hand the arrows to anything") had no work in it.
+- **A row let go is gone in a second.** Zoomed to 2 au with time at a year a second, a row the camera no longer follows crosses the window and leaves. The check that a pan leaves the mark on its dot had to hold the clock. Whether that is what a visitor wants from a pan is an open question.
+- **The scene is a frame behind the crate, and said "following" for a row it hadn't heard of.** The check pressed a second row and read the camera still following the first. The scene now says which find it has acted on.
+- **A press on the handle before the rows are in opens nothing,** and the belt is drawn before the rows file arrives: the first run of the check pressed too early and waited a minute for a table that was never asked for.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface" and "Input"; the evidence: `PLAN.md`, M6's checks A1 to A4.
