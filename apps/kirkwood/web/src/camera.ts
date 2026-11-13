@@ -65,6 +65,13 @@ export const HOME = { ms: 700 };
  *  at, for a row far under the ecliptic, where the camera can't follow. */
 export const FOUND = { ms: 1200, near: 2, least: 0.5 };
 
+/** A group flown in to: how far the group's dots keep from the sides of
+ *  what the panel leaves, and from its top and bottom (CSS px), about as
+ *  board 7 has them: clear of the title's lines and the row of actions.
+ *  (The flight's time is the crate's, `host.rs`, `FLY_IN_MS`: the panel
+ *  slides in over it.) */
+export const FLY = { side: 100, edge: 170 };
+
 /** The pose: how long the roll the camera opens with takes to ease out
  *  to a level horizon, on its first tilt or turn (ms). */
 export const POSE = { ms: 320 };

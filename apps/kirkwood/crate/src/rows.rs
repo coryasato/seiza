@@ -304,6 +304,12 @@ impl Rows {
         }
     }
 
+    /// Which of [`Rows::classes`] a row's orbit class is.
+    pub fn class_index(&self, row: usize) -> usize {
+        assert!(row < self.rows);
+        self.bytes.u8_at(self.at.class + row) as usize
+    }
+
     /// The orbit class (`MBA`, `TJN`, …); empty for an index the header
     /// doesn't have.
     pub fn class(&self, row: usize) -> &str {

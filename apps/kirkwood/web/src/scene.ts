@@ -63,6 +63,17 @@
 // show only on the clock's years the shape was drawn on: the group is a
 // set of rows, and once time runs its dots leave the shape.
 //
+// A drawn group is flown in to: the camera closes on where the group's
+// dots were in the window (the crate's box, the middle of them) until that
+// fills what the panel will leave, a flight of the hand's own, and its way
+// back is a flight to where it was. Its biggest bodies are named on their
+// dots, each a ring and a chip with the row's name and diameter (the
+// crate's to say which, from the rows file).
+//
+// A click on a dot: the row whose dot is drawn nearest the click, within a
+// few pixels, read off a pass of its own that draws every row as one pixel
+// holding its row (`click`). What it's taken for is the interface's.
+//
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
@@ -73,8 +84,8 @@
 // `?band=<au>,<au>` (the orbit sizes that stay lit, `?bandGain` times as
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
-import { FOUND, GLIDE, REACH, SHIFT, ZOOM, aimedAt, createHand, type Place, type View } from './camera.ts';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NearestFilter, NoBlending, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderTarget, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
+import { FLY, FOUND, GLIDE, REACH, SHIFT, ZOOM, aimedAt, createHand, type Place, type View } from './camera.ts';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -182,6 +193,23 @@ export interface SceneHost {
   groupYears(): number;
   groupChip(): string;
   groupBytes(): number;
+  /** A drawn group's flight in: where its dots were in the window it was
+   *  drawn in, the middle of them (left, top, right, bottom, CSS px; empty
+   *  with none to fly in to); the panel's width once its slide is over
+   *  (CSS px), which the flight fits its picture beside; and how many
+   *  times a group's way back has been taken (a flight back for each). */
+  groupFit(): ArrayLike<number>;
+  /** How long the flight in takes, and the flight back, ms. */
+  flyMs(): number;
+  insetTo(): number;
+  backs(): number;
+  /** The group's biggest bodies, named on their dots: their rows; what
+   *  each name says (the body's name, then its diameter); and where each
+   *  one's dot is drawn, `years` after the epoch (x, y, z of each, au; as
+   *  `foundPlace`). */
+  groupNamed(): ArrayLike<number>;
+  groupNames(): string[];
+  namedPlaces(years: number, integrated: boolean): ArrayLike<number>;
   /** The camera as this frame drew it, for the interface's compass: how
    *  far it stands round from where it opened and its tilt from straight
    *  down (degrees; riding, the ride's own camera's, and between the two
@@ -237,6 +265,10 @@ export interface SceneStats {
    *  and how much of the gray is in, 0 to 1. */
   group: number;
   grayed: number;
+  /** What the camera is doing about a drawn group: `waiting` to fly in
+   *  (a hand is mid-drag), flying `in` to it, flying `back` to where it was
+   *  before, or nothing (it's there, or a hand took the flight). */
+  fly: 'waiting' | 'in' | 'back' | '';
   /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
   flight: number;
   /** How far the frame had turned to Jupiter's in the last frame drawn. */
@@ -322,6 +354,15 @@ export interface BeltScene {
   /** A found row's mark as drawn: where its ring is (CSS px); nothing
    *  while it isn't drawn. Its name is among `labels`. */
   found(): { x: number; y: number } | undefined;
+  /** A group's named bodies as drawn: each one's row, what its name says,
+   *  where its ring is, and where its chip's corner is and how wide it is (CSS px). */
+  named(): { row: number; name: string; size: string; x: number; y: number; left: number; top: number; width: number }[];
+  /** A click at a window position: the row whose dot is drawn nearest it,
+   *  within `PICK.reach` CSS px of it, or -1. Of the rows in one pixel, the
+   *  first in the file; of pixels as near, the first row. Only through the
+   *  fixed frame's camera, in space, and not for the press that stopped a
+   *  camera moving on its own. */
+  click(x: number, y: number): number;
   stats: SceneStats;
 }
 
@@ -587,6 +628,44 @@ const vertex = (stops: number, integrated: boolean) => /* glsl */ `
   }
 `;
 
+/** A click's pass: every row with a dot as one pixel, where its place
+ *  falls, holding its row (three bytes of it, and an alpha that says a row
+ *  is there). Its depth is its row, so of the rows in one pixel the first
+ *  in the file is kept. The belt's rows are their own vertices; a row the
+ *  crate's integration moves is handed its row. */
+const pickVertex = (integrated: boolean) => /* glsl */ `
+  uniform vec4 uGroups;
+  uniform float uGroupsE;
+  uniform float uIntegrated;
+  varying vec4 vRow;
+  ${integrated ? `${PLACE_INTEGRATED}\n  attribute float row;` : PLACE}
+
+  void main() {
+    bool hilda = a >= uGroups.x && a <= uGroups.y;
+    bool trojan = a > uGroups.z && a < uGroups.w && e < uGroupsE;
+    vRow = vec4(0.0);
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    // As the belt's own draw: no dot for a row with no ellipse, and none
+    // here for a row that's drawn apart.
+    if (!(a > 0.0) || !(e < 1.0)${integrated ? '' : ' || (uIntegrated > 0.5 && (hilda || trojan))'}) return;
+    vec3 at = place();
+    vec4 seen = projectionMatrix * modelViewMatrix * vec4(at.x, at.z, -at.y, 1.0);
+    // Only what the camera draws: in front of it, between its planes.
+    if (!(seen.w > 0.0) || seen.z < -seen.w || seen.z > seen.w) return;
+    int id = ${integrated ? 'int(row + 0.5)' : 'gl_VertexID'};
+    gl_Position = vec4(seen.xy / seen.w, (float(id) + 0.5) / 8388608.0 - 1.0, 1.0);
+    gl_PointSize = 1.0;
+    vRow = vec4(float(id & 255), float((id >> 8) & 255), float((id >> 16) & 255), 255.0) / 255.0;
+  }
+`;
+const PICK_FRAGMENT = /* glsl */ `
+  varying vec4 vRow;
+  void main() {
+    gl_FragColor = vRow;
+  }
+`;
+
 const FRAGMENT = /* glsl */ `
   uniform float uAlpha;
   uniform float uHard;
@@ -718,6 +797,16 @@ const CHIP = { height: 22, over: 12, keep: 8, border: '#404040', fill: '#0a0a0a'
  *  and how long the gray takes to come and go, ms
  *  (`docs/DECISIONS.md`, "Look"). */
 const GRAY = { alpha: 0.5, sky: 1 / 3, ms: 300 } as const;
+/** One of a group's biggest bodies, named as board 7 draws it, CSS px: a
+ *  white ring round its dot (the board's has a fill; here the dot is the
+ *  row's own, and shows in it), and right of it a chip with the row's name
+ *  and its diameter, a gap's chip's border over its fill at 0.9. */
+const BODY = { ring: 5, line: 1, name: [10, -11], fill: 'rgba(10, 10, 10, 0.9)', most: 4 } as const;
+/** The blur behind the table's panel, CSS px (`docs/DECISIONS.md`, "Table"). */
+const GLASS_BLUR = 8;
+/** A click on a dot: how far from the click a dot may be drawn, CSS px
+ *  (`docs/DECISIONS.md`, "Input"). */
+const PICK = { reach: 6 } as const;
 /** What the interface adds to the scene (the ride's triangle, a picked
  *  gap's marker, its path, and its name; a found row's ring and name): white, neutral-50,
  *  oklch(0.985 0 0), the theme's foreground. */
@@ -793,7 +882,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, group: 0, grayed: 0, flight: 0, ride: 0, integrated: 0, catchingUp: false };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, group: 0, grayed: 0, fly: '', flight: 0, ride: 0, integrated: 0, catchingUp: false };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -853,11 +942,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     marks.frustumCulled = false;
     bodies.add(marks);
   }
-  // `?glass`, to be looked at: the page's element that blurs the scene
-  // behind the table's panel, `?glassBlur` CSS px (the panel's own fill is
-  // GPUI's, `host.rs`).
-  const glass = has('glass') ? document.querySelector<HTMLElement>('#glass') : null;
-  glass?.style.setProperty('--glass-blur', `${knob('glassBlur', 18)}px`);
+  // The table's panel is glass: the page's element that blurs the scene
+  // behind it, 8 CSS px, chosen by the owner's eye with the panel's fill
+  // (GPUI's, `host.rs`, `GLASS`). `?glassBlur` is another blur, for
+  // looking; at `?glass=1` the panel is opaque and nothing is blurred.
+  const glass = knob('glass', 0) < 1 ? document.querySelector<HTMLElement>('#glass') : null;
+  glass?.style.setProperty('--glass-blur', `${knob('glassBlur', GLASS_BLUR)}px`);
   let glassWidth = 0;
   /** Nothing: what's drawn over rows drawn alone. */
   const none = new Scene();
@@ -894,7 +984,18 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   // A drawn group's chip: its rows, counted by the crate.
   const groupChip = name('');
   Object.assign(groupChip.label.style, { height: `${CHIP.height}px`, padding: '0 8px', display: 'flex', alignItems: 'center', boxSizing: 'border-box', border: `1px solid ${CHIP.border}`, borderRadius: '6px', background: CHIP.fill, color: ADDED, textShadow: 'none', fontVariantNumeric: 'tabular-nums' });
-  const allNames = [sunName, jupiterName, ...rideNames, markerName, groupChip, foundName];
+  // A group's biggest bodies: a chip each, the row's name and, muted, its
+  // diameter, both the crate's from the rows file.
+  const bodies_ = Array.from({ length: BODY.most }, () => {
+    const named = name('');
+    const [called, size] = [document.createElement('span'), document.createElement('span')];
+    called.style.color = ADDED;
+    named.label.replaceChildren(called, size);
+    Object.assign(named.label.style, { height: `${CHIP.height}px`, padding: '0 8px', display: 'flex', alignItems: 'center', gap: '6px', boxSizing: 'border-box', border: `1px solid ${CHIP.border}`, borderRadius: '6px', background: BODY.fill, textShadow: 'none', fontVariantNumeric: 'tabular-nums' });
+    return { named, called, size, at: undefined as [number, number] | undefined };
+  });
+  // (A check reads a group's chip and a found row's name from the end.)
+  const allNames = [sunName, jupiterName, ...rideNames, markerName, ...bodies_.map((body) => body.named), groupChip, foundName];
   // And its dashed triangle through the three points in step with
   // Jupiter: white, as what the interface adds.
   const SVG = 'http://www.w3.org/2000/svg';
@@ -942,6 +1043,21 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   names.append(finding);
   /** The ring as drawn (CSS px), if it is. */
   let foundDrawn: { x: number; y: number } | undefined;
+  // The rings of a group's named bodies, white too, each round its dot.
+  const naming = document.createElementNS(SVG, 'svg');
+  naming.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible');
+  const bodyRings = bodies_.map(() => {
+    const ring = document.createElementNS(SVG, 'circle');
+    for (const [attribute, value] of [['r', String(BODY.ring)], ['fill', 'none'], ['stroke', ADDED], ['stroke-width', String(BODY.line)], ['visibility', 'hidden']]) ring.setAttribute(attribute!, value!);
+    naming.append(ring);
+    return ring;
+  });
+  names.append(naming);
+  /** The rows named, as the crate last said; and where each one's dot is
+   *  (x, y, z of each), as last asked for, and the years it was for. */
+  let namedRows: number[] = [];
+  let namedAt: number[] = [];
+  let namedFor = [NaN, 0];
   // A drawn shape's outline, white too, dashed as board 6 has it.
   const outlining = document.createElementNS(SVG, 'svg');
   outlining.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; visibility: hidden');
@@ -952,7 +1068,21 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   /** The shape while it's drawn, and closed until its rows are in: its
    *  points, window positions; and where each closed point's ray met the
    *  ecliptic through the camera it was drawn through. */
-  let shape: { points: number[]; closed: boolean; anchors?: ([number, number] | undefined)[]; through?: string } | undefined;
+  let shape: { points: number[]; closed: boolean; anchors?: ([number, number] | undefined)[]; through?: string; seen?: PerspectiveCamera } | undefined;
+  /** A group's flight in, waiting to begin: the point of the ecliptic at
+   *  the middle of where its dots were drawn, how far that was from the
+   *  eye along the camera's line of sight (au), and how wide and high its
+   *  dots were drawn (CSS px). `before`: the camera before it flew in, the
+   *  way back; `back`: that flight, waiting to begin. `backs`: the ways
+   *  back the crate has counted, as of the last group. */
+  let flyIn: { at: [number, number]; depth: number; width: number; height: number; edges: [number, number][] } | undefined;
+  let before: Place | undefined;
+  let back: Place | undefined;
+  let backs = host.backs();
+  let fly: SceneStats['fly'] = '';
+  /** How long a flight in is, and a flight back: the crate's, which
+   *  slides the panel in over the same time. */
+  const flyMs = host.flyMs();
   /** The group the crate last handed over: the years its shape was drawn
    *  on; the shape as drawn, and the camera it was drawn through
    *  (`cameraNow`); and the shape on the ecliptic, for any other camera.
@@ -1135,6 +1265,9 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     stats.distance = distance;
   };
 
+  /** The way a window position's ray goes from a camera's eye, in the
+   *  scene's axes: the one place the window is turned into a ray. */
+  const rayThrough = (seen: PerspectiveCamera, x: number, y: number) => new Vector3((2 * x) / innerWidth - 1, 1 - (2 * y) / innerHeight, 0.5).unproject(seen).sub(seen.position);
   /** Where a window position's ray meets the ecliptic (x, y, au), through
    *  the camera as it is, no farther along the plane than `reach` camera
    *  distances. Past that, or over the sky: nothing, or with `held` the
@@ -1142,7 +1275,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const ground = (x: number, y: number, reach: number, held: boolean): [number, number] | undefined => {
     place(last?.inset ?? 0, last?.ride);
     const eye = camera.position;
-    const ray = new Vector3((2 * x) / innerWidth - 1, 1 - (2 * y) / innerHeight, 0.5).unproject(camera).sub(eye);
+    const ray = rayThrough(camera, x, y);
     const along = Math.hypot(ray.x, ray.z);
     const most = reach * stats.distance;
     // Level with the ecliptic or away from it, the ray never meets it.
@@ -1153,6 +1286,15 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       out = most;
     }
     return along > 0 ? [eye.x + (ray.x / along) * out, -(eye.z + (ray.z / along) * out)] : [eye.x, -eye.z];
+  };
+  /** Where a window position's ray meets the ecliptic (x, y, au) through
+   *  a camera kept from an earlier frame; nothing over the sky. */
+  const groundThrough = (seen: PerspectiveCamera, x: number, y: number): [number, number] | undefined => {
+    const eye = seen.position;
+    const ray = rayThrough(seen, x, y);
+    if (!(ray.y * eye.y < 0)) return undefined;
+    const out = -eye.y / ray.y;
+    return [eye.x + ray.x * out, -(eye.z + ray.z * out)];
   };
   /** `?glide`: chosen by hand, left for looking. */
   const feel = { glideMs: knob('glide', GLIDE.ms) };
@@ -1228,6 +1370,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     const [tilt, bearing] = [view.tilt, view.bearing];
     let to = frame.foundAt;
     chase = 'flying';
+    // (A flight in to a group, or back from one, gives way to it.)
+    [fly, flyIn, back] = ['', undefined, undefined];
     const flies = hand.fly(
       () => {
         to = foundAt ?? to;
@@ -1251,6 +1395,72 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (aim.x === view.x && aim.y === view.y && distance === view.distance) return false;
     [view.x, view.y, view.distance] = [aim.x, aim.y, distance];
     return true;
+  };
+  /** A drawn group's flights: in, until where its dots were drawn fills
+   *  what the panel will leave, the camera keeping its tilt, its bearing,
+   *  and its roll; and back, to where the camera was before. Each is the
+   *  hand's own flight, so a hand takes it over as it does the way home,
+   *  and each begins once the camera is a hand's (the fixed frame's, in
+   *  space) and no hand is mid-drag. */
+  const flown = (frame: Frame, now: number) => {
+    if (fly !== 'waiting' && fly && !hand.flying()) fly = '';
+    const hands = frame.flight <= 0 && frame.ride <= 0;
+    // (Out of space, or riding, the camera is that action's.)
+    if (!hands) [flyIn, back] = [undefined, undefined];
+    if (back) {
+      const to = back;
+      if (hand.fly(() => to, now, flyMs)) [back, fly] = [undefined, 'back'];
+    }
+    if (!flyIn) {
+      if (fly === 'waiting') fly = '';
+      return;
+    }
+    const [aim, tilt, bearing] = [flyIn, view.tilt, view.bearing];
+    /** The distance the flight ends at, and the room it was found for. */
+    let fitted = { for: '', distance: NaN };
+    const flies = hand.fly(
+      () => {
+        // What the panel will leave, less the room the group keeps from
+        // its sides (never more than half of it, in a narrow window).
+        const room = innerWidth - host.insetTo();
+        const [wide, high] = [Math.max(room / 2, room - 2 * FLY.side), Math.max(innerHeight / 2, innerHeight - 2 * FLY.edge)];
+        const key = [room, innerHeight].join();
+        if (key !== fitted.for) {
+          // Straight down, the picture grows evenly as the camera closes
+          // in: by how much the box must. Tilted, its near side grows
+          // faster than its far side: the distance is found, from which
+          // the box's sides on the ecliptic, through a camera there, are
+          // as wide and as high as the room.
+          let distance = aim.depth * Math.max(aim.width / wide, aim.height / high);
+          if (aim.edges.length >= 4) {
+            const was = { ...view };
+            const fills = (from: number) => {
+              Object.assign(view, { x: aim.at[0], y: aim.at[1], distance: from });
+              place(host.insetTo());
+              const seen = aim.edges.map((edge) => onScreen(new Vector3(...inScene(edge[0], edge[1], 0))));
+              if (seen.some((where) => !where)) return Infinity;
+              const [xs, ys] = [seen.map((where) => where![0]), seen.map((where) => where![1])];
+              return Math.max((Math.max(...xs) - Math.min(...xs)) / wide, (Math.max(...ys) - Math.min(...ys)) / high);
+            };
+            let [near, far] = [ZOOM.nearest, ZOOM.farthest];
+            for (let step = 0; step < 40; step++) {
+              const middle = Math.sqrt(near * far);
+              if (fills(middle) > 1) near = middle;
+              else far = middle;
+            }
+            distance = far;
+            // (The camera as it was: the frame's own draw places it.)
+            Object.assign(view, was);
+            place(last?.inset ?? 0, last?.ride);
+          }
+          fitted = { for: key, distance: Math.min(ZOOM.farthest, Math.max(ZOOM.nearest, distance)) };
+        }
+        return { x: aim.at[0], y: aim.at[1], distance: fitted.distance, tilt, bearing };
+      },
+      now,
+      flyMs,
+    );
+    [flyIn, fly] = flies ? [undefined, 'in'] : [flyIn, 'waiting'];
   };
   /** The hand for an input the interface handed over for a frame (0 the
    *  fixed one's, 1 the ride's own), if the camera as last drawn is at rest
@@ -1347,6 +1557,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     found: number;
     finds: number;
     foundAt: [number, number, number] | undefined;
+    /** Where a group's named bodies are: the ecliptic's x, y, z of each. */
+    named: number[];
   }
   let last: Frame | undefined;
   /** The text's bounds as last asked for, and the crate's count then. */
@@ -1411,11 +1623,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       const at = found >= 0 ? host.foundPlace(years, !!apart) : [];
       [foundAt, foundFor] = [at.length === 3 ? [at[0]!, at[1]!, at[2]!] : undefined, [found, years, apart]];
     }
-    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places, picked, marked: lit, gap, marker, found, finds, foundAt };
+    // A group's named bodies, when the clock has moved (or the two groups
+    // went on or off their integrated places): each where its dot is drawn.
+    if (namedRows.length && space > 0 && (years !== namedFor[0] || apart !== namedFor[1])) [namedAt, namedFor] = [Array.from(host.namedPlaces(years, !!apart)), [years, apart]];
+    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places, picked, marked: lit, gap, marker, found, finds, foundAt, named: namedAt };
   };
   // Landed, time moves no dot: of the clock, only the way back draws.
   const moved = (frame: Frame, from: Frame) =>
-    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated || frame.picked !== from.picked || frame.marked !== from.marked || frame.gap !== from.gap || frame.found !== from.found || frame.foundAt !== from.foundAt;
+    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated || frame.picked !== from.picked || frame.marked !== from.marked || frame.gap !== from.gap || frame.found !== from.found || frame.foundAt !== from.foundAt || frame.named !== from.named;
   /** What isn't a row, as it leaves the picture and returns: the Sun,
    *  Jupiter, its orbit, the marks, and the names; and the haze, which on
    *  the axes would light the gaps. (The sky leaves by a number of its
@@ -1547,6 +1762,31 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (where) foundRing.setAttribute('transform', `translate(${where[0].toFixed(1)} ${where[1].toFixed(1)})`);
     foundDrawn = where ? { x: where[0], y: where[1] } : undefined;
     put(foundName, at && where ? at : ORIGIN, () => FOUND_MARK.name[0], FOUND_MARK.name[1], where ? 1 : 0, innerWidth - frame.inset);
+  };
+
+  /** A group's named bodies: a ring on each one's dot and its chip beside
+   *  it, through the camera as it is, inside what the panel leaves. A body
+   *  that is the row found has the found row's own mark. */
+  const body = (frame: Frame) => {
+    /** The chips placed so far: left, top, right, bottom. */
+    const placed: [number, number, number, number][] = [];
+    bodies_.forEach((named, at) => {
+      const there = at < namedRows.length && frame.space > 0 && frame.ride <= 0 && namedRows[at] !== frame.found && !Number.isNaN(frame.named[at * 3] ?? NaN);
+      const place = there ? new Vector3(...inScene(frame.named[at * 3]!, frame.named[at * 3 + 1]!, frame.named[at * 3 + 2]!)) : undefined;
+      const where = place && onScreen(place);
+      const inside = !!where && where[0] >= 0 && where[0] <= innerWidth - frame.inset && where[1] >= 0 && where[1] <= innerHeight;
+      if (inside !== !!named.at) bodyRings[at]!.setAttribute('visibility', inside ? 'visible' : 'hidden');
+      if (inside) bodyRings[at]!.setAttribute('transform', `translate(${where![0].toFixed(1)} ${where![1].toFixed(1)})`);
+      named.at = inside ? where : undefined;
+      // Right of its ring, as the board has it; left of it where that
+      // would lie over a bigger body's chip (the bigger are placed first).
+      const box = (left: number): [number, number, number, number] => [left, where![1] + BODY.name[1], left + named.named.width, where![1] + BODY.name[1] + CHIP.height];
+      const over = (one: [number, number, number, number]) => placed.some((other) => one[0] < other[2] && other[0] < one[2] && one[1] < other[3] && other[1] < one[3]);
+      const flipped = inside && over(box(where![0] + BODY.name[0])) && !over(box(where![0] - BODY.name[0] - named.named.width));
+      const dx = flipped ? -BODY.name[0] - named.named.width : BODY.name[0];
+      put(named.named, inside ? place! : ORIGIN, () => dx, BODY.name[1], inside ? 1 : 0, innerWidth - frame.inset);
+      if (inside && named.named.shown) placed.push(box(where![0] + dx));
+    });
   };
 
   /** A drawn shape's outline, and a group's chip. While it's drawn, and
@@ -1685,6 +1925,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (!alone) furnish(frame);
     if (!alone) mark(frame);
     if (!alone) found(frame);
+    if (!alone) body(frame);
     if (!alone) outline(frame);
     // `?glass`: the blur behind the panel is as wide as the panel is now.
     if (glass && frame.inset !== glassWidth) glass.style.width = `${(glassWidth = frame.inset)}px`;
@@ -1696,6 +1937,19 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     stats.grayed = grayed;
     tell(frame.ride);
   };
+  /** A click's pass: its materials (the belt's own uniforms, as the last
+   *  frame set them: the same years, the same rows drawn apart), what they
+   *  draw, and the few pixels round the click they draw into. */
+  const pickUniforms = { uYears: material.uniforms.uYears!, uGroups: material.uniforms.uGroups!, uGroupsE: material.uniforms.uGroupsE!, uIntegrated: material.uniforms.uIntegrated! };
+  const pickMaterials = [false, true].map((integrated) => new ShaderMaterial({ vertexShader: pickVertex(integrated), fragmentShader: PICK_FRAGMENT, uniforms: pickUniforms, blending: NoBlending, depthTest: true, depthWrite: true }));
+  const picking = new Scene();
+  const pickSide = 2 * PICK.reach + 1;
+  const pickTarget = new WebGLRenderTarget(pickSide, pickSide, { depthBuffer: true, minFilter: NearestFilter, magFilter: NearestFilter });
+  const pickPixels = new Uint8Array(pickSide * pickSide * 4);
+  let pickBelt: Points<BufferGeometry<NormalOrGLBufferAttributes>> | undefined;
+  let pickIntegrated: Points<BufferGeometry<NormalOrGLBufferAttributes>> | undefined;
+  /** Whether the last press stopped a camera that was moving on its own. */
+  let stopped = false;
   /** The belt's room on the GPU: a buffer a column, and what draws from them. */
   interface Belt {
     rows: number;
@@ -1742,6 +1996,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       for (const [attribute, values] of attributes) geometry.setAttribute(attribute, values);
       geometry.setAttribute('placed', new GLBufferAttribute(places, gl.FLOAT, 3, 4, count));
       geometry.setAttribute('picked', picked);
+      // (A click's pass reads which row of the file each one is.)
+      geometry.setAttribute('row', new BufferAttribute(Float32Array.from(rows), 1));
       geometry.setDrawRange(start, drawn);
       const points = new Points(geometry, integratedMaterial);
       points.frustumCulled = false;
@@ -1750,6 +2006,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       return points;
     });
     integrated = { rows: count, list: rows, picked, places, draws, drawn: ranges.reduce((sum, range) => sum + range[1], 0), years: NaN, apart: false };
+    if (!alone && draws[0]) {
+      pickIntegrated = new Points(draws[0].geometry, pickMaterials[1]!);
+      pickIntegrated.frustumCulled = false;
+      picking.add(pickIntegrated);
+      renderer.compile(picking, camera);
+    }
   };
   /** The belt's first `rows` rows are in its buffers: what's drawn of it. */
   const shown = (belt: Belt, rows: number) => {
@@ -1769,7 +2031,17 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
    *  crate everything first and for the bytes' address last: the view over
    *  them is uploaded with no call to it between. */
   const regroup = (now: number) => {
-    const [points, years, chip] = [host.groupShape(), host.groupYears(), host.groupChip()];
+    const [points, years, chip, fit, taken] = [host.groupShape(), host.groupYears(), host.groupChip(), host.groupFit(), host.backs()];
+    // Its biggest bodies: which rows, and what each one's chip says.
+    const says = host.groupNames();
+    namedRows = Array.from(host.groupNamed()).slice(0, BODY.most);
+    [namedAt, namedFor] = [[], [NaN, 0]];
+    namedRows.forEach((_, body) => {
+      const { named, called, size } = bodies_[body]!;
+      [called.textContent, size.textContent] = [says[body * 2] ?? '', says[body * 2 + 1] ?? ''];
+      named.text = `${called.textContent} ${size.textContent}`;
+      [named.width, named.height] = [named.label.offsetWidth, named.label.offsetHeight];
+    });
     const at = belt ? host.groupBytes() : 0;
     if (at && belt) {
       const bytes = host.bytes(at, belt.rows);
@@ -1789,11 +2061,36 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       group = { years, points: Array.from(points), through: shape?.through ?? cameraNow(last?.inset ?? 0), anchors };
       groupChip.label.textContent = groupChip.text = chip;
       [groupChip.width, groupChip.height] = [groupChip.label.offsetWidth, groupChip.label.offsetHeight];
+      // Its flight in: toward the middle of where its dots were drawn,
+      // through the camera the shape was closed through, from as far as
+      // makes them fill what the panel will leave. The camera as it is
+      // now is the way back. (A row picked by a click has no box: it's
+      // flown to as a found row is, and that has no way back but home.)
+      const seen = shape?.seen;
+      const middle = fit.length === 4 && seen ? groundThrough(seen, (fit[0]! + fit[2]!) / 2, (fit[1]! + fit[3]!) / 2) : undefined;
+      [flyIn, before, back] = [undefined, undefined, undefined];
+      if (middle && seen) {
+        const depth = -new Vector3(...inScene(middle[0], middle[1], 0)).applyMatrix4(seen.matrixWorldInverse).z;
+        // (The box's corners and its sides' middles, on the ecliptic:
+        // those over the sky have no place there.)
+        const [left, top, right, bottom] = [fit[0]!, fit[1]!, fit[2]!, fit[3]!];
+        const [across, down] = [(left + right) / 2, (top + bottom) / 2];
+        const edges = [[left, top], [across, top], [right, top], [left, down], [right, down], [left, bottom], [across, bottom], [right, bottom]].flatMap(([x, y]) => {
+          const on = groundThrough(seen, x!, y!);
+          return on ? [on] : [];
+        });
+        flyIn = { at: middle, depth, width: Math.max(1, right - left), height: Math.max(1, bottom - top), edges };
+        before = { ...view };
+      }
     } else {
       // (The bytes stay as they were while the gray goes out.)
       group = undefined;
       stats.group = 0;
+      // The way back, if that is how the group was let go: the camera
+      // flies to where it was before it flew in.
+      [flyIn, back, before] = [undefined, taken !== backs ? before : undefined, undefined];
     }
+    backs = taken;
     // A release that got its rows, or none, or was let go: no shape.
     if (!shape || shape.closed) shape = undefined;
     [grayTo, grayAt] = [group ? 1 : 0, now];
@@ -1820,12 +2117,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // glide ends there. (The roll's ease, once begun, goes on to its end.)
     if (frame.flight > 0 || frame.ride > 0) hand.rest();
     if (frame.flight > 0 || frame.ride < 1) rideHand.rest();
+    // (A group's flights first: a row found in the same frame has the camera.)
+    flown(frame, now);
     chased(frame, now);
     const stepped = [hand.step(now), rideHand.step(now)];
     // (After the step: a flight that landed in it is followed from here.)
     const followed = follow(frame);
     if (stepped[0] || stepped[1] || followed) dirty = true;
-    [stats.chase, stats.finds] = [chase, foundFinds];
+    [stats.chase, stats.finds, stats.fly] = [chase, foundFinds, fly];
     moving();
     if (dirty || !last || moved(frame, last)) render(frame);
   };
@@ -1868,6 +2167,14 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         return points;
       });
       belt = { rows, buffers, picked, draws };
+      // A click's pass draws the belt's own rows, from the same buffers.
+      if (!alone) {
+        pickBelt = new Points(draws[0]!.geometry, pickMaterials[0]!);
+        pickBelt.frustumCulled = false;
+        picking.add(pickBelt);
+        // (Its program made now, with the belt's: not in the first click.)
+        renderer.compile(picking, camera);
+      }
     },
     addRows(blocks, through, now) {
       if (!belt) throw new Error('rows before the belt has its room');
@@ -1901,6 +2208,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       }
       for (const buffer of [...belt.buffers, belt.picked]) gl.deleteBuffer(buffer);
       belt = undefined;
+      picking.clear();
+      [pickBelt, pickIntegrated] = [undefined, undefined];
       if (integrated) {
         for (const points of integrated.draws) {
           dust.remove(points);
@@ -1923,9 +2232,45 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       render(ask(performance.now()));
     },
     press() {
+      stopped = hand.gliding() || rideHand.gliding();
       hand.press();
       rideHand.press();
       moving();
+    },
+    click(x, y) {
+      // Only what a visitor could have meant: a dot of the belt in space,
+      // through the fixed frame's camera, and not with the press that
+      // stopped a camera on its way.
+      if (stopped || alone || !pickBelt || !last || last.flight > 0 || last.ride > 0 || last.space < 1) return -1;
+      // The last frame's camera, looking only at the pixels round the
+      // click: one of the pass's pixels is one CSS pixel of the window.
+      place(last.inset, last.ride);
+      const eye = camera.clone();
+      const reach = PICK.reach;
+      eye.setViewOffset(innerWidth, innerHeight, last.inset / 2 + Math.floor(x) - reach, Math.floor(y) - reach, pickSide, pickSide);
+      if (pickIntegrated) pickIntegrated.visible = !!integrated?.apart;
+      const [target, alpha] = [renderer.getRenderTarget(), renderer.getClearAlpha()];
+      renderer.setClearAlpha(0);
+      renderer.setRenderTarget(pickTarget);
+      renderer.clear();
+      renderer.render(picking, eye);
+      renderer.readRenderTargetPixels(pickTarget, 0, 0, pickSide, pickSide, pickPixels);
+      renderer.setRenderTarget(target);
+      renderer.setClearAlpha(alpha);
+      // The nearest pixel that holds a row, within the reach; of pixels
+      // as near, the first row in the file. (The pass's rows run up.)
+      let [nearest, picked] = [Infinity, -1];
+      for (let down = 0; down < pickSide; down++) {
+        for (let across = 0; across < pickSide; across++) {
+          const at = ((pickSide - 1 - down) * pickSide + across) * 4;
+          if (!pickPixels[at + 3]) continue;
+          const row = pickPixels[at]! | (pickPixels[at + 1]! << 8) | (pickPixels[at + 2]! << 16);
+          const off = (across - reach) ** 2 + (down - reach) ** 2;
+          if (off > reach * reach) continue;
+          if (off < nearest || (off === nearest && row < picked)) [nearest, picked] = [off, row];
+        }
+      }
+      return picked;
     },
     dragStart(x, y, button, modifiers, frame) {
       dragging = handOf(frame);
@@ -1987,7 +2332,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         const points = shape.points;
         // Where each point's ray meets the ecliptic, through the camera
         // the crate picks through: the outline is kept there.
-        shape = { points, closed, through: cameraNow(last?.inset ?? 0), anchors: Array.from({ length: points.length / 2 }, (_, point) => ground(points[point * 2]!, points[point * 2 + 1]!, REACH, true)) };
+        const anchors = Array.from({ length: points.length / 2 }, (_, point) => ground(points[point * 2]!, points[point * 2 + 1]!, REACH, true));
+        // (And that camera, kept: the group's flight in starts from where
+        // its dots were drawn through it. `ground` has just placed it.)
+        shape = { points, closed, through: cameraNow(last?.inset ?? 0), anchors, seen: camera.clone() };
       } else shape = undefined;
       if (last && !alone) outline(last);
     },
@@ -2001,5 +2349,6 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     triangle: () => (triangleShown && !names.hidden && space > 0 ? corners : undefined),
     marker: () => (markerDrawn && !names.hidden && space > 0 ? markerDrawn : undefined),
     found: () => (foundDrawn && !names.hidden && space > 0 ? foundDrawn : undefined),
+    named: () => (names.hidden || space <= 0 ? [] : bodies_.flatMap((body, at) => (body.at ? [{ row: namedRows[at]!, name: body.called.textContent ?? '', size: body.size.textContent ?? '', x: body.at[0], y: body.at[1], left: body.named.left, top: body.named.top, width: body.named.width }] : []))),
   };
 }

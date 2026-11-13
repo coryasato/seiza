@@ -8,8 +8,32 @@ use std::cell::Cell;
 
 thread_local! {
     static INSET: Cell<f32> = const { Cell::new(0.0) };
+    static INSET_TO: Cell<f32> = const { Cell::new(0.0) };
     static SCRIM: Cell<[f32; 4]> = const { Cell::new([0.0; 4]) };
     static SCRIM_CHANGES: Cell<u32> = const { Cell::new(0) };
+    static BACKS: Cell<u32> = const { Cell::new(0) };
+}
+
+/// The panel's width once its slide is over, CSS px: a flight that ends
+/// with the panel in fits its picture to what the panel will leave.
+pub fn inset_to() -> f32 {
+    INSET_TO.get()
+}
+
+pub fn set_inset_to(px: f32) {
+    INSET_TO.set(px);
+}
+
+/// How many times a group's way back has been taken ("Show all rows", "The
+/// whole belt", "Draw a group" pressed back): the scene flies its camera
+/// back to where it was before the flight in when this has moved. A group
+/// let go by another action's press isn't one: the camera is that action's.
+pub fn backs() -> u32 {
+    BACKS.get()
+}
+
+pub fn back() {
+    BACKS.set(BACKS.get().wrapping_add(1));
 }
 
 /// The panel's width on screen, CSS px: the scene centers its picture in
@@ -62,6 +86,7 @@ pub enum Frame {
 /// A wheel over the scene, at a window position (CSS px): it zooms toward
 /// the pointer. Off the web there is no scene.
 pub fn wheel(x: f32, y: f32, delta: f32, modifiers: u8, frame: Frame) {
+    input();
     #[cfg(target_family = "wasm")]
     crate::web::scene_wheel(x, y, delta, modifiers, frame as u8);
     #[cfg(not(target_family = "wasm"))]
@@ -71,6 +96,7 @@ pub fn wheel(x: f32, y: f32, delta: f32, modifiers: u8, frame: Frame) {
 /// A double click on the scene, at a window position: nearer, toward the
 /// pointer.
 pub fn double_click(x: f32, y: f32, frame: Frame) {
+    input();
     #[cfg(target_family = "wasm")]
     crate::web::scene_double_click(x, y, frame as u8);
     #[cfg(not(target_family = "wasm"))]
@@ -80,6 +106,7 @@ pub fn double_click(x: f32, y: f32, frame: Frame) {
 /// An arrow key, for `frame`'s camera: it slides along the ecliptic,
 /// `right` and `up` each -1, 0, or 1 as the window has them.
 pub fn nudge(right: i8, up: i8, frame: Frame) {
+    input();
     #[cfg(target_family = "wasm")]
     crate::web::scene_nudge(right, up, frame as u8);
     #[cfg(not(target_family = "wasm"))]
@@ -88,6 +115,7 @@ pub fn nudge(right: i8, up: i8, frame: Frame) {
 
 /// The + key or the − key, for `frame`'s camera: nearer, or farther.
 pub fn zoom_step(nearer: bool, frame: Frame) {
+    input();
     #[cfg(target_family = "wasm")]
     crate::web::scene_zoom_step(nearer, frame as u8);
     #[cfg(not(target_family = "wasm"))]
@@ -96,6 +124,7 @@ pub fn zoom_step(nearer: bool, frame: Frame) {
 
 /// The way home, for `frame`'s camera: it flies back to where it opened.
 pub fn home(frame: Frame) {
+    input();
     #[cfg(target_family = "wasm")]
     crate::web::scene_home(frame as u8);
     #[cfg(not(target_family = "wasm"))]
@@ -124,12 +153,70 @@ thread_local! {
     /// nothing for a press that went to something over the surface, or
     /// that came while the camera was no hand's.
     static PRESSES: Cell<[Option<Frame>; 2]> = const { Cell::new([None, None]) };
+    /// Every input that moves a camera or is a press, counted.
+    static INPUTS: Cell<u32> = const { Cell::new(0) };
+    /// Where a press that may yet be a click on a dot landed: plain, the
+    /// left button's, on the surface, the fixed frame's camera a hand's.
+    static CLICK: Cell<Option<[f32; 2]>> = const { Cell::new(None) };
+}
+
+/// How far a press may move and still be a click, CSS px.
+const CLICK_SLOP: f32 = 3.0;
+
+/// How many inputs the window has heard that are a press or move a camera
+/// (a wheel, a double click, a key, the way home): a click on a dot waits
+/// to see that none follows it (a double click's second press, or a hand
+/// that went on to something else).
+pub fn inputs() -> u32 {
+    INPUTS.get()
+}
+
+fn input() {
+    INPUTS.set(INPUTS.get().wrapping_add(1));
+}
+
+/// The surface took a press that a release in the same place makes a
+/// click on a dot.
+pub fn click_start(x: f32, y: f32) {
+    CLICK.set(Some([x, y]));
+}
+
+/// The pointer moved: a press that has gone farther than a click's slop is
+/// a drag.
+pub fn click_moved(x: f32, y: f32) {
+    if CLICK
+        .get()
+        .is_some_and(|[from_x, from_y]| (x - from_x).hypot(y - from_y) > CLICK_SLOP)
+    {
+        CLICK.set(None);
+    }
+}
+
+/// A release at a window position: where the click was, if the press it
+/// ends was one.
+pub fn click_end(x: f32, y: f32) -> Option<[f32; 2]> {
+    click_moved(x, y);
+    CLICK.take()
+}
+
+/// The row whose dot the scene drew nearest a window position, within its
+/// reach; none past it, or off the web.
+pub fn dot_at(x: f32, y: f32) -> Option<usize> {
+    #[cfg(target_family = "wasm")]
+    return usize::try_from(crate::web::scene_click(x, y)).ok();
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let _ = (x, y);
+        None
+    }
 }
 
 /// A press anywhere in the window, heard before whatever takes it: a camera
 /// gliding stops, and the press before this one is the last one now.
 pub fn press() {
     PRESSES.set([None, PRESSES.get()[0]]);
+    input();
+    CLICK.set(None);
     #[cfg(target_family = "wasm")]
     crate::web::scene_press();
 }
@@ -256,6 +343,32 @@ mod tests {
         assert!(!surface_press(Frame::Turning));
         press();
         assert!(surface_press(Frame::Turning));
+    }
+
+    #[test]
+    fn a_click_is_a_press_released_where_it_landed() {
+        use super::{Frame, click_end, click_moved, click_start, inputs, nudge, press};
+        let before = inputs();
+        press();
+        assert_eq!(inputs(), before.wrapping_add(1));
+        nudge(1, 0, Frame::Fixed);
+        assert_eq!(inputs(), before.wrapping_add(2));
+        // No press the surface took: no click.
+        assert_eq!(click_end(10.0, 10.0), None);
+        press();
+        click_start(10.0, 10.0);
+        click_moved(12.0, 11.0);
+        assert_eq!(click_end(11.0, 10.0), Some([10.0, 10.0]));
+        assert_eq!(click_end(11.0, 10.0), None);
+        // Moved past the slop, it's a drag, wherever it's released.
+        press();
+        click_start(10.0, 10.0);
+        click_moved(20.0, 10.0);
+        assert_eq!(click_end(10.0, 10.0), None);
+        // The next press forgets the last.
+        click_start(10.0, 10.0);
+        press();
+        assert_eq!(click_end(10.0, 10.0), None);
     }
 
     #[test]

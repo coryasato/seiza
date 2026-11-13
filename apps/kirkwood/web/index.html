@@ -25,10 +25,10 @@
          `muted_foreground`), with the page's color behind each letter. */
       #names { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; font: 12px/18px 'IBM Plex Sans', system-ui, sans-serif; color: oklch(0.708 0 0); }
       #names > div { position: absolute; left: 0; top: 0; white-space: nowrap; text-shadow: 0 0 3px #05060a, 0 0 3px #05060a; }
-      /* `?glass`: what blurs the scene (and a name) behind the table's
+      /* The glass panel: what blurs the scene (and a name) behind the table's
          panel, between the two canvases; the scene gives it the panel's
          width on screen. No width, nothing blurred. */
-      #glass { position: fixed; top: 0; right: 0; height: 100%; width: 0; z-index: 1; pointer-events: none; -webkit-backdrop-filter: blur(var(--glass-blur, 18px)); backdrop-filter: blur(var(--glass-blur, 18px)); }
+      #glass { position: fixed; top: 0; right: 0; height: 100%; width: 0; z-index: 1; pointer-events: none; -webkit-backdrop-filter: blur(var(--glass-blur, 8px)); backdrop-filter: blur(var(--glass-blur, 8px)); }
     </style>
   </head>
   <body>

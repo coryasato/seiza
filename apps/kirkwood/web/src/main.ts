@@ -44,6 +44,14 @@ import init, {
   group_bytes,
   group_chip,
   group_cost,
+  group_fit,
+  group_named,
+  group_names,
+  named_places,
+  panel_state,
+  scene_backs,
+  scene_fly_ms,
+  scene_inset_to,
   group_rows,
   group_shape,
   group_state,
@@ -138,6 +146,9 @@ type Kirkwood = {
   drawMove(x: number, y: number): void;
   drawEnd(closed: boolean): void;
   camera(): Float64Array;
+  /** Called by the crate: a click on the scene, at a window position: the
+   *  row whose dot is drawn nearest it, within the scene's reach, or -1. */
+  click(x: number, y: number): number;
   /** Called by the crate: an arrow key (`right` and `up` each -1, 0, or 1),
    *  the + or − key, and the way home (the compass's press, the H key),
    *  each for a frame's camera. */
@@ -231,7 +242,10 @@ type Kirkwood = {
    *  (the column, -1 with none); the file rows at rows of the table; the
    *  table sorted by a column, as a press on its arrow does; and a file
    *  row's number in a column the table sorts by. */
-  group(): { mode: boolean; drawing: boolean; pending: boolean; rows: number; placed: number };
+  group(): { mode: boolean; drawing: boolean; pending: boolean; rows: number; placed: number; drawn: boolean };
+  /** For the checks: whether the panel is open (or on its way in), and
+   *  what its header says of a drawn group's rows by class. */
+  panel(): { open: boolean; classes: string };
   groupRows(): Uint32Array;
   groupShape(): Float32Array;
   groupYears(): number;
@@ -322,6 +336,13 @@ async function startScene(): Promise<BeltScene> {
     groupYears: group_years,
     groupChip: group_chip,
     groupBytes: group_bytes,
+    groupFit: group_fit,
+    insetTo: scene_inset_to,
+    flyMs: scene_fly_ms,
+    backs: scene_backs,
+    groupNamed: group_named,
+    groupNames: group_names,
+    namedPlaces: named_places,
     floats: (at, count) => new Float32Array(memory!.buffer, at, count),
     bytes: (at, count) => new Uint8Array(memory!.buffer, at, count),
   });
@@ -496,6 +517,7 @@ const kirkwood: Kirkwood = {
   drawMove: (x, y) => scene?.drawMove(x, y),
   drawEnd: (closed) => scene?.drawEnd(closed),
   camera: () => new Float64Array(scene?.viewProjection() ?? []),
+  click: (x, y) => scene?.click(x, y) ?? -1,
   nudge: (right, up, frame) => scene?.nudge(right, up, frame),
   zoomStep: (nearer, frame) => scene?.zoomStep(nearer, frame),
   home: (frame) => scene?.home(frame),
@@ -578,8 +600,12 @@ const kirkwood: Kirkwood = {
   },
   jump: (row) => table_jump(row),
   group: () => {
-    const [mode, drawing, pending, rows, , placed] = Array.from(group_state());
-    return { mode: !!mode, drawing: !!drawing, pending: !!pending, rows: rows!, placed: placed! };
+    const [mode, drawing, pending, rows, , placed, drawn] = Array.from(group_state());
+    return { mode: !!mode, drawing: !!drawing, pending: !!pending, rows: rows!, placed: placed!, drawn: !!drawn };
+  },
+  panel: () => {
+    const [open, classes] = panel_state();
+    return { open: open === 'true', classes: classes ?? '' };
   },
   groupRows: group_rows,
   groupShape: group_shape,

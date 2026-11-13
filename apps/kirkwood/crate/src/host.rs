@@ -57,18 +57,43 @@ use crate::table::{Source, Table, View};
 
 /// The panel's width, CSS px.
 const PANEL_WIDTH: f32 = 560.;
-/// `?glass`: the panel as glass, to be looked at. What is left of its fill
-/// (`?glass=<0 to 1>`, 0.6 with no value); the page blurs the scene behind
-/// it (`web/src/scene.ts`). Not there, the panel is opaque.
+/// The panel is glass: what is left of its fill, 0.2, chosen by the
+/// owner's eye (`docs/DECISIONS.md`, "Table"); the page blurs the scene
+/// behind it (`web/src/scene.ts`, `GLASS_BLUR`: the same knob there).
+/// `?glass=<0 to 1>` is another fill, for looking; at 1 the panel is
+/// opaque, with nothing blurred, and the table's fills are the theme's.
+const GLASS_FILL: f32 = 0.2;
 pub static GLASS: LazyLock<Option<f32>> = LazyLock::new(|| {
-    seiza::url::has_param("glass").then(|| {
-        seiza::url::param("glass")
-            .and_then(|fill| fill.parse::<f32>().ok())
-            .map_or(0.6, |fill| fill.clamp(0.0, 1.0))
-    })
+    let fill = seiza::url::param("glass")
+        .and_then(|fill| fill.parse::<f32>().ok())
+        .map_or(GLASS_FILL, |fill| fill.clamp(0.0, 1.0));
+    (fill < 1.0).then_some(fill)
 });
 /// The panel's slide in or out.
 const SLIDE_MS: f64 = 350.0;
+/// How long the camera's flight in to a group is, and its flight back, and
+/// so the panel's slide in with the group's rows: on the same easing, so
+/// the scene moves aside as it zooms (`docs/DECISIONS.md`, "Table"). The
+/// scene asks for it (`web::scene_fly_ms`): one number.
+pub const FLY_IN_MS: f64 = 1600.0;
+/// `?fly=0`, for the checks: a group picked leaves the camera and the
+/// panel as they are.
+pub static FLY_IN: LazyLock<bool> =
+    LazyLock::new(|| seiza::url::param("fly").is_none_or(|fly| fly != "0"));
+/// How long a click on a dot waits, from its release, to see that it isn't
+/// a double click's first: a second press in that time, or any other input
+/// that moves a camera, and the click picks nothing. 200 ms, by the
+/// owner's hand: 400 felt laggy. The platform counts two presses as a
+/// double click when they're under [`DOUBLE_CLICK_MS`] apart (gpui-pre-web's
+/// `register_click`), so a slow one's second press can come after the
+/// wait: it takes the pick back (`undo_click`).
+const CLICK_WAITS: Duration = Duration::from_millis(200);
+const DOUBLE_CLICK_MS: f64 = 400.0;
+/// How many of a group's biggest bodies are named, as board 7 draws them.
+const NAMED: usize = 4;
+/// How many classes the panel's header counts a group's rows by, before
+/// "others", as board 7 has it.
+const CLASSES: usize = 6;
 /// How often the date redraws while time moves: a rate a person can read.
 const DATE_EVERY: Duration = Duration::from_millis(250);
 
@@ -85,6 +110,10 @@ pub const LASSO_TARGET: &str = "lasso";
 /// The panel's way back from a group, and its count of the group's rows.
 pub const SHOW_ALL_TARGET: &str = "show-all";
 pub const GROUP_COUNT_TARGET: &str = "group-count";
+/// The header's second line, a drawn group's rows by class; and the way
+/// back under the title, "The whole belt".
+pub const CLASSES_TARGET: &str = "group-classes";
+pub const WHOLE_BELT_TARGET: &str = "whole-belt";
 /// The line the panel says of a found row that has no dot.
 pub const NO_DOT_TARGET: &str = "no-dot";
 /// The row "Find Ceres" finds: the file's first.
@@ -182,6 +211,8 @@ struct Slide {
     from: f32,
     to: f32,
     start_ms: f64,
+    /// How long it takes.
+    ms: f64,
 }
 
 /// The belt as the scene has drawn it, counted from the elements' rows.
@@ -227,6 +258,14 @@ pub struct Host {
     /// How far in the panel is, 0..1.
     panel_t: f32,
     slide: Option<Slide>,
+    /// The panel was opened with no window at hand (a group picked): the
+    /// table takes the keys in the next frame drawn.
+    table_wants_keys: bool,
+    /// The page clock when a click last picked a dot: a double click's
+    /// second press soon after takes the pick back.
+    click_picked_ms: f64,
+    /// A drawn group's rows by class, as the panel's header says them.
+    classes: Option<SharedString>,
     date: Entity<DateLabel>,
     /// The compass, a view of its own, so the camera's turn redraws it
     /// alone. Nothing until the scene's first frame.
@@ -262,6 +301,9 @@ impl Host {
             panel_open: false,
             panel_t: 0.0,
             slide: None,
+            table_wants_keys: false,
+            click_picked_ms: f64::NEG_INFINITY,
+            classes: None,
             date: cx.new(DateLabel::new),
             compass: None,
             hint_folded: scene::hint_folded(),
@@ -528,12 +570,46 @@ impl Host {
             // And the scene's, from the moment it's shut.
             window.focus(&self.focus, cx);
         }
+        self.slide_panel(SLIDE_MS);
+        cx.notify();
+    }
+
+    /// The panel slides from where it is to open or shut, as it now is,
+    /// over `ms`.
+    fn slide_panel(&mut self, ms: f64) {
         self.slide = Some(Slide {
             from: self.panel_t,
             to: if self.panel_open { 1.0 } else { 0.0 },
             start_ms: now(),
+            ms,
         });
+    }
+
+    /// The panel comes in over `ms`, if it isn't in or on its way: with a
+    /// group's rows, as the camera flies in to the group, or with the one
+    /// row of a dot clicked. The table takes the keys, as it does when
+    /// the handle opens it.
+    fn open_panel(&mut self, ms: f64, cx: &mut Context<Self>) {
+        if self.panel_open || self.table.is_none() {
+            return;
+        }
+        self.panel_open = true;
+        self.table_wants_keys = true;
+        self.slide_panel(ms);
         cx.notify();
+    }
+
+    /// For the checks: whether the panel is open, or on its way in.
+    pub fn panel_is_open(&self) -> bool {
+        self.panel_open
+    }
+
+    /// For the checks: what the panel's header says of a drawn group's
+    /// rows by class; empty with none.
+    pub fn class_line(&self) -> String {
+        self.classes
+            .as_ref()
+            .map_or_else(String::new, ToString::to_string)
     }
 
     /// The table's selection changed: one row selected is the row found,
@@ -666,11 +742,14 @@ impl Host {
     /// axes, the frame stops turning, and a found row is let go, as the
     /// mode begins (`docs/DECISIONS.md`, "Interface").
     fn toggle_lasso(&mut self, cx: &mut Context<Self>) {
-        if group::held() {
+        if group::drawn() {
             self.show_all(cx);
         } else if group::mode() || group::pending() {
             self.leave_mode(cx);
         } else if self.can_draw() {
+            // (A dot clicked isn't a group drawn: its one row is let go
+            // as the mode begins.)
+            self.drop_group(cx);
             self.lose(cx);
             if flight::sorted() {
                 flight::toggle();
@@ -706,33 +785,174 @@ impl Host {
 
     /// A release got its rows (`web::scene_pick`): with a group, the
     /// table is its rows; with none under the shape, the mode goes on.
+    /// The camera flies in to it and the panel comes in with its rows
+    /// (board 7), its biggest bodies named on their dots.
     pub fn group_picked(&mut self, cx: &mut Context<Self>) {
         if group::held() {
             self.refilter(cx);
+            self.describe_group();
+            if *FLY_IN {
+                self.open_panel(FLY_IN_MS, cx);
+            }
         }
         cx.notify();
     }
 
-    /// "Show all rows", and the action pressed back: the group is let go.
-    /// Every row is the table's again and every dot has its color; time
-    /// runs again if the mode paused it.
+    /// What's said of a drawn group, from the rows file: its biggest
+    /// bodies, each with its name and diameter for the scene to write on
+    /// its dot ([`NAMED`] of them, the rows that have a diameter on file,
+    /// ties in the file's order), and its rows by class for the panel's
+    /// header.
+    fn describe_group(&mut self) {
+        let (Some(catalog), Some(rows)) = (&self.catalog, group::rows()) else {
+            return;
+        };
+        let file = catalog.file_rows();
+        let mut biggest: Vec<(f32, u32)> = Vec::with_capacity(NAMED + 1);
+        let mut classes = vec![0usize; file.classes().len()];
+        for &row in rows.iter() {
+            if let Some(count) = classes.get_mut(file.class_index(row as usize)) {
+                *count += 1;
+            }
+            let km = file.diameter(row as usize);
+            // (Bigger than the smallest kept, or there's room: a row with
+            // no diameter is NaN, and never is.)
+            if km > 0.0 && (biggest.len() < NAMED || km > biggest[NAMED - 1].0) {
+                let at = biggest.partition_point(|&(kept, _)| kept >= km);
+                biggest.insert(at, (km, row));
+                biggest.truncate(NAMED);
+            }
+        }
+        group::name(
+            biggest
+                .into_iter()
+                .map(|(km, row)| group::Named {
+                    row,
+                    name: body_name(catalog, row as usize),
+                    size: km_line(km),
+                })
+                .collect(),
+        );
+        self.classes = Some(class_line(file.classes(), &classes).into());
+    }
+
+    /// "Show all rows", "The whole belt", and "Draw a group" pressed
+    /// back: the group's way back. Every row is the table's again and
+    /// every dot has its color; time runs again if the mode paused it; and
+    /// the camera flies back to where it was before it flew in. From one
+    /// dot clicked, the whole table is at that row, still found: the
+    /// camera stays with it.
     fn show_all(&mut self, cx: &mut Context<Self>) {
+        if !group::held() {
+            return;
+        }
+        let clicked = group::clicked();
+        self.let_group_go(cx);
+        scene::back();
+        let at = clicked.and_then(|row| self.view.borrow().at(row));
+        if let (Some(table), Some(at)) = (self.table.clone(), at) {
+            // (The table's own row, scrolled to: found by its `Selected`.)
+            table.update(cx, |table, cx| table.jump_to(at as u64, cx));
+        }
+    }
+
+    /// The group is let go: every row, every color, and time as it was.
+    /// The camera stays where it is.
+    fn let_group_go(&mut self, cx: &mut Context<Self>) {
         if !group::held() {
             return;
         }
         group::let_go();
         clock::resume_after_group();
+        self.classes = None;
         self.refilter(cx);
         cx.notify();
     }
 
-    /// The group, and the mode, let go by another action's press.
+    /// The group, and the mode, let go by another action's press: the
+    /// camera is that action's, and doesn't fly back.
     fn drop_group(&mut self, cx: &mut Context<Self>) {
         if group::held() {
-            self.show_all(cx);
+            self.let_group_go(cx);
         } else if group::mode() || group::pending() {
             self.leave_mode(cx);
         }
+    }
+
+    /// A click on the scene, at a window position, that moved no camera:
+    /// the dot the scene drew nearest it, within its reach, is picked,
+    /// once the click has waited out a double click's second press (which
+    /// zooms, and picks nothing).
+    fn clicked(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        if !self.can_draw() || hands_frame() != Some(scene::Frame::Fixed) {
+            return;
+        }
+        // (Asked now: the dot nearest the click in the frame it was made
+        // on, whatever the clock does while it waits.)
+        let Some(row) = scene::dot_at(x, y) else {
+            return;
+        };
+        let inputs = scene::inputs();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(CLICK_WAITS).await;
+            let _ = this.update(cx, |this, cx| {
+                if scene::inputs() == inputs {
+                    this.pick_row(row, cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// A double click whose first press had already picked a dot (its two
+    /// presses farther apart than a click waits, and still one double
+    /// click to the platform): the pick is taken back. A dot clicked is
+    /// let go, every row and every color; a row found in a drawn group is
+    /// let go, the group kept.
+    fn undo_click(&mut self, cx: &mut Context<Self>) {
+        if now() - self.click_picked_ms > DOUBLE_CLICK_MS {
+            return;
+        }
+        self.click_picked_ms = f64::NEG_INFINITY;
+        if group::clicked().is_some() {
+            self.let_group_go(cx);
+        } else {
+            self.lose(cx);
+        }
+        cx.notify();
+    }
+
+    /// One dot picked: its row is the table's one row, every other dot
+    /// goes gray, and the row is found, so the camera flies to it and the
+    /// panel comes in. The way back ("Show all rows") is the whole table
+    /// at that row. A dot clicked before it gives way to this one. A drawn
+    /// group is kept: a click on one of its dots finds that row in its
+    /// table, and a click on a gray dot does nothing (a group drawn isn't
+    /// thrown away by a stray click, nor its way back).
+    fn pick_row(&mut self, row: usize, cx: &mut Context<Self>) {
+        let ready = self.can_draw()
+            && hands_frame() == Some(scene::Frame::Fixed)
+            && !(group::mode() || group::pending());
+        let Some(table) = self.table.clone().filter(|_| ready && row < self.rows) else {
+            return;
+        };
+        self.click_picked_ms = now();
+        if group::drawn() {
+            let at = self.view.borrow().at(row);
+            if let Some(at) = at {
+                table.update(cx, |table, cx| table.jump_to(at as u64, cx));
+                self.open_panel(SLIDE_MS, cx);
+            }
+            return;
+        }
+        // (A dot clicked paused no clock and has no classes: nothing of it
+        // to give back.)
+        group::pick_one(row, self.rows, clock::years());
+        self.refilter(cx);
+        // (The table's own row: found by its `Selected`.)
+        table.update(cx, |table, cx| table.jump_to(0, cx));
+        self.open_panel(SLIDE_MS, cx);
+        cx.notify();
     }
 
     /// The table reads the group's rows, or with none every row: the count,
@@ -769,7 +989,7 @@ impl Host {
             // A group Ceres isn't in is let go: the first row is every
             // row's first.
             if self.view.borrow().at(CERES).is_none() {
-                self.show_all(cx);
+                self.let_group_go(cx);
             }
             let at = self.view.borrow().at(CERES).unwrap_or(CERES);
             // (The table's own row, scrolled to: found by its `Selected`.)
@@ -910,7 +1130,7 @@ impl Host {
         let Some(slide) = &self.slide else {
             return;
         };
-        let k = ((now() - slide.start_ms) / SLIDE_MS).clamp(0.0, 1.0);
+        let k = ((now() - slide.start_ms) / slide.ms).clamp(0.0, 1.0);
         // Off the web the page clock stands still: the slide lands at once.
         let k = if cfg!(target_family = "wasm") { k } else { 1.0 };
         self.panel_t = slide.from + (slide.to - slide.from) * ease(k) as f32;
@@ -1187,7 +1407,8 @@ impl Host {
             .child(self.render_action(
                 "Draw a group",
                 LASSO_TARGET,
-                group::mode() || group::pending() || group::held(),
+                // (A dot clicked isn't a group drawn.)
+                group::mode() || group::pending() || group::drawn(),
                 self.can_draw(),
                 Self::toggle_lasso,
                 cx,
@@ -1549,6 +1770,47 @@ impl Host {
                 // (Beside the card, not in it: inside its border the
                 // bounds would be a pixel short all round.)
                 .child(target(CARD_TARGET)),
+        )
+    }
+
+    /// "The whole belt", as board 7 draws it: the way back from a group,
+    /// under the title's lines (as far under as a picked gap's card is),
+    /// while a group is held and its dots are in space. The same press as
+    /// "Show all rows" in the panel, there for a panel that's shut.
+    fn render_whole_belt(&self, cx: &Context<Self>) -> Option<impl IntoElement> {
+        let space = flight::space() as f32;
+        if !group::held() || space <= 0.0 || self.belt.is_none() {
+            return None;
+        }
+        let theme = cx.theme();
+        let (fill, hover, plain) = (theme.secondary, theme.secondary_hover, theme.foreground);
+        let [_, top, _, height] = scene::scrim();
+        Some(
+            div()
+                .absolute()
+                .left(px(CARD_LEFT))
+                .top(px((top + height + CARD_UNDER_TITLE).max(CARD_TOP)))
+                .opacity(space)
+                .child(
+                    div()
+                        .id("whole-belt")
+                        .h(px(28.))
+                        .px(px(10.))
+                        .flex()
+                        .items_center()
+                        .gap(px(6.))
+                        .rounded(px(6.))
+                        .bg(fill)
+                        .text_size(px(14.))
+                        .cursor_pointer()
+                        .hover(move |button| button.bg(hover))
+                        // Nothing under it takes its presses.
+                        .occlude()
+                        .on_click(cx.listener(|this, _, _, cx| this.show_all(cx)))
+                        .child(chevron_drawing(plain))
+                        .child("The whole belt"),
+                )
+                .child(target(WHOLE_BELT_TARGET)),
         )
     }
 
@@ -1921,7 +2183,12 @@ impl Host {
                                 .relative()
                                 .text_size(px(14.))
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child(format!("{} rows in the shape", grouped(rows.len())))
+                                .child(if group::drawn() {
+                                    format!("{} in the shape", group_line(rows.len()))
+                                } else {
+                                    // (One dot clicked: no shape.)
+                                    format!("{} picked", group_line(rows.len()))
+                                })
                                 .child(target(GROUP_COUNT_TARGET))
                                 .into_any_element(),
                             div()
@@ -1969,6 +2236,18 @@ impl Host {
                         ),
                     ),
             )
+            // Board 7's second line: a drawn group's rows by class, cut
+            // short where the panel is too narrow for all of it.
+            .children(self.classes.clone().filter(|_| group::drawn()).map(|line| {
+                div()
+                    .relative()
+                    .px_3()
+                    .pb_2()
+                    .text_size(px(12.))
+                    .text_color(theme.muted_foreground)
+                    .child(div().truncate().child(line))
+                    .child(target(CLASSES_TARGET))
+            }))
             // A found row with no dot: the press flew nowhere, and
             // this says why.
             .children(find::found().filter(|_| find::marked().is_none()).map(|_| {
@@ -1991,8 +2270,19 @@ impl Render for Host {
         self.step_flight(window);
         self.step_ride(window);
         self.step_gap(window);
-        // The scene centers its picture in what the panel leaves.
+        // The scene centers its picture in what the panel leaves, and a
+        // flight that ends with the panel in, in what it will leave.
         scene::set_inset(self.panel_t * PANEL_WIDTH);
+        scene::set_inset_to(if self.panel_open { PANEL_WIDTH } else { 0.0 });
+        // A panel opened with no window at hand: its table has the keys
+        // from here, as it does when the handle opens it.
+        if std::mem::take(&mut self.table_wants_keys)
+            && self.panel_open
+            && let Some(table) = &self.table
+        {
+            let focus = table.read(cx).focus_handle().clone();
+            window.focus(&focus, cx);
+        }
         // The keys are the scene's unless something else has them (the
         // table, from its panel's opening until a press elsewhere).
         if !self.panel_open && window.focused(cx).is_none() {
@@ -2043,7 +2333,7 @@ impl Render for Host {
                     // (`drag_listeners`); a double click's second press
                     // zooms in, and starts none. Only where the camera
                     // is a hand's.
-                    .on_any_mouse_down(|event: &MouseDownEvent, _, _| {
+                    .on_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, _, cx| {
                         let Some(button) = button(event.button) else {
                             return;
                         };
@@ -2066,18 +2356,30 @@ impl Render for Host {
                         // of this one.)
                         let second = plain && scene::surface_press(frame);
                         if second && event.click_count == 2 {
+                            // (A dot its first press picked, in the rare
+                            // slow one, is let go: a double click zooms.)
+                            this.undo_click(cx);
                             scene::double_click(x, y, frame);
                         } else {
                             scene::drag_start(x, y, button, held, frame);
+                            // Released where it landed, it's a click on
+                            // the dot there, if there is one: through the
+                            // fixed frame's camera, as a shape is drawn.
+                            // (A first press only: the third of a run
+                            // of quick ones is a hand zooming still.)
+                            if plain && event.click_count == 1 && frame == scene::Frame::Fixed {
+                                scene::click_start(x, y);
+                            }
                         }
-                    }),
+                    })),
             )
-            .child(drag_listeners())
+            .child(drag_listeners(cx.entity().downgrade()))
             // The axes' furniture takes no input: a wheel or a press
             // on it falls through to the surface above.
             .children(self.render_furniture(window, cx))
             .child(self.render_title(cx))
             .children(self.render_card(cx))
+            .children(self.render_whole_belt(cx))
             .child(self.render_time_control(cx))
             .children(self.render_corner(window, cx));
         match &self.table {
@@ -2180,11 +2482,12 @@ fn held(modifiers: Modifiers) -> u8 {
 /// surface has handed its press over, so a drag that crosses the panel or
 /// a control keeps the camera. Registered every frame, not only once a
 /// drag starts: a press and its release can both come before the next
-/// paint. It draws nothing and takes no input of its own.
-fn drag_listeners() -> impl IntoElement {
+/// paint. It draws nothing and takes no input of its own. A press the
+/// surface took, released where it landed, is a click, which `host` hears.
+fn drag_listeners(host: WeakEntity<Host>) -> impl IntoElement {
     canvas(
         |_, _, _| {},
-        |_, _, window, _| {
+        move |_, _, window, _| {
             window.on_mouse_event(|_: &MouseDownEvent, phase, _, _| {
                 if phase == DispatchPhase::Capture {
                     scene::press();
@@ -2211,6 +2514,7 @@ fn drag_listeners() -> impl IntoElement {
                     return;
                 };
                 let (x, y) = (event.position.x.into(), event.position.y.into());
+                scene::click_moved(x, y);
                 // The release never came (a canceled pointer, say): the
                 // button isn't down.
                 if event.pressed_button.and_then(button) == Some(dragging) {
@@ -2222,7 +2526,7 @@ fn drag_listeners() -> impl IntoElement {
             // Any button's release ends it: with two held, the platform
             // tells the first one's release as a move, with the button
             // it remembers still down, so the drag's own may never come.
-            window.on_mouse_event(|event: &MouseUpEvent, phase, window, _| {
+            window.on_mouse_event(move |event: &MouseUpEvent, phase, window, cx| {
                 if phase != DispatchPhase::Capture {
                     return;
                 }
@@ -2234,7 +2538,13 @@ fn drag_listeners() -> impl IntoElement {
                     }
                     close_shape();
                 }
-                scene::drag_end(event.position.x.into(), event.position.y.into());
+                let (x, y) = (event.position.x.into(), event.position.y.into());
+                let click = scene::click_end(x, y).filter(|_| event.button == MouseButton::Left);
+                scene::drag_end(x, y);
+                // A press released where it landed: a click on a dot.
+                if let Some([x, y]) = click {
+                    let _ = host.update(cx, |host, cx| host.clicked(x, y, cx));
+                }
             });
         },
     )
@@ -2342,6 +2652,24 @@ fn cross_drawing(color: Hsla) -> impl IntoElement {
         },
     )
     .size(px(12.))
+}
+
+/// The arrow on "The whole belt", as board 7 draws it: a chevron, back.
+fn chevron_drawing(color: Hsla) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let middle = bounds.center();
+            let mut stroke = PathBuilder::stroke(px(1.5));
+            stroke.move_to(point(middle.x + px(1.75), middle.y - px(3.5)));
+            stroke.line_to(point(middle.x - px(1.75), middle.y));
+            stroke.line_to(point(middle.x + px(1.75), middle.y + px(3.5)));
+            if let Ok(stroke) = stroke.build() {
+                window.paint_path(stroke, color);
+            }
+        },
+    )
+    .size(px(14.))
 }
 
 /// Publishes its parent's bounds under `id` (`__seizaTargets[id]`).
@@ -2482,9 +2810,54 @@ fn no_dot_line(name: &str, belt: bool) -> String {
     }
 }
 
+/// One of a group's biggest bodies as board 7 names it: its number and
+/// its name ("15 Eunomia"); with no name of its own, as a found row's mark
+/// says it.
+fn body_name(catalog: &Catalog, row: usize) -> String {
+    let rows = catalog.file_rows();
+    match (rows.number(row), rows.name(row)) {
+        (Some(number), Some(name)) => format!("{number} {name}"),
+        _ => row_name(catalog, row),
+    }
+}
+
+/// A diameter beside a body's name, as board 7 writes one: whole
+/// kilometers ("232 km"), or under 10 km a tenth.
+fn km_line(km: f32) -> String {
+    if km >= 9.95 {
+        format!("{km:.0} km")
+    } else {
+        format!("{km:.1} km")
+    }
+}
+
+/// A group's rows by class, as board 7's header has them: the [`CLASSES`]
+/// classes with the most rows, the most first (ties in the file's order
+/// of classes), then the rest as "others". `counts` is the rows of each of
+/// `names`.
+fn class_line(names: &[String], counts: &[usize]) -> String {
+    let mut by: Vec<(usize, &str)> = counts
+        .iter()
+        .zip(names)
+        .filter(|&(&count, _)| count > 0)
+        .map(|(&count, name)| (count, name.as_str()))
+        .collect();
+    // (Stable: equal counts stay in the file's order.)
+    by.sort_by_key(|&(count, _)| std::cmp::Reverse(count));
+    let others: usize = by.iter().skip(CLASSES).map(|&(count, _)| count).sum();
+    let mut parts: Vec<String> = by
+        .iter()
+        .take(CLASSES)
+        .map(|&(count, name)| format!("{name} {}", grouped(count)))
+        .collect();
+    if others > 0 {
+        parts.push(format!("others {}", grouped(others)));
+    }
+    parts.join(" · ")
+}
+
 /// What the chip at a drawn shape says, as board 6 has it: the group's
-/// rows, counted. (The chip is the scene's: off the web nothing asks.)
-#[cfg(any(target_family = "wasm", test))]
+/// rows, counted.
 pub fn group_line(rows: usize) -> String {
     match rows {
         1 => "1 row".into(),
@@ -2577,6 +2950,33 @@ mod tests {
     fn the_chip_counts_the_groups_rows() {
         assert_eq!(super::group_line(143_854), "143,854 rows");
         assert_eq!(super::group_line(1), "1 row");
+    }
+
+    #[test]
+    fn a_groups_rows_are_counted_by_class_the_most_first() {
+        let names: Vec<String> = ["AMO", "APO", "IMB", "MBA", "MCA", "OMB", "TJN", "TNO"]
+            .map(String::from)
+            .to_vec();
+        // Board 7's line.
+        assert_eq!(
+            super::class_line(&names, &[673, 814, 574, 135_461, 1_815, 4_513, 3, 1]),
+            "MBA 135,461 · OMB 4,513 · MCA 1,815 · APO 814 · AMO 673 · IMB 574 · others 4"
+        );
+        // A class with no row isn't said, and with six or fewer there are
+        // no others; equal counts stay in the file's order.
+        assert_eq!(
+            super::class_line(&names, &[2, 0, 2, 9, 0, 0, 0, 0]),
+            "MBA 9 · AMO 2 · IMB 2"
+        );
+        assert_eq!(super::class_line(&names, &[0; 8]), "");
+    }
+
+    #[test]
+    fn a_diameter_is_whole_kilometers_or_under_ten_a_tenth() {
+        assert_eq!(super::km_line(231.689), "232 km");
+        assert_eq!(super::km_line(939.4), "939 km");
+        assert_eq!(super::km_line(9.96), "10 km");
+        assert_eq!(super::km_line(2.34), "2.3 km");
     }
 
     #[test]

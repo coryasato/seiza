@@ -107,6 +107,11 @@ extern "C" {
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = camera)]
     pub fn scene_camera() -> Vec<f64>;
 
+    /// A click on the scene, at a window position (CSS px): the row whose
+    /// dot the scene drew nearest it, within its reach, or -1.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = click)]
+    pub fn scene_click(x: f32, y: f32) -> i32;
+
     /// Whether the hint was folded on an earlier visit, and that it is
     /// now: the page's to remember.
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = hintFolded)]
@@ -192,7 +197,7 @@ pub fn start(ui_font: Vec<u8>) {
             // nothing that's 0, and the text is composited away. Headless
             // Chromium has no such blending, so no check sees it.
             cx.set_text_rendering_mode(TextRenderingMode::Grayscale);
-            // `?glass`: the table's own fills let the panel's show (and
+            // The panel is glass (unless `?glass=1`): the table's own fills let the panel's show (and
             // through it the scene), its stripes half as strong.
             if crate::host::GLASS.is_some() {
                 let theme = Theme::global_mut(cx);
@@ -700,9 +705,14 @@ pub fn scene_finds() -> u32 {
 /// on its ellipse. Empty with no row marked.
 #[wasm_bindgen]
 pub fn found_place(years: f64, integrated: bool) -> Vec<f64> {
-    let Some(row) = find::marked() else {
-        return Vec::new();
-    };
+    find::marked()
+        .and_then(|row| drawn_place(row, years, integrated))
+        .map_or_else(Vec::new, |place| place.to_vec())
+}
+
+/// Where the scene draws a row's dot, `years` after the epoch
+/// ([`found_place`]); nothing for a row with no ellipse.
+fn drawn_place(row: usize, years: f64, integrated: bool) -> Option<[f64; 3]> {
     let moved = integrated
         .then(|| {
             MOVED.with_borrow(|moved| {
@@ -712,17 +722,15 @@ pub fn found_place(years: f64, integrated: bool) -> Vec<f64> {
             })
         })
         .flatten();
-    moved
-        .or_else(|| {
-            with_elements(|elements| {
-                Some(elements)
-                    .filter(|elements| row < elements.whole())
-                    .and_then(|elements| Orbit::of_row(elements, row))
-                    .map(|orbit| orbit.place(years))
-            })
-            .flatten()
+    moved.or_else(|| {
+        with_elements(|elements| {
+            Some(elements)
+                .filter(|elements| row < elements.whole())
+                .and_then(|elements| Orbit::of_row(elements, row))
+                .map(|orbit| orbit.place(years))
         })
-        .map_or_else(Vec::new, |place| place.to_vec())
+        .flatten()
+    })
 }
 
 /// The found row's name, from the rows file: what its mark says.
@@ -840,11 +848,74 @@ pub fn group_chip() -> String {
     group::with(|group| crate::host::group_line(group.rows.len())).unwrap_or_default()
 }
 
+/// Where a drawn group's dots were in the window it was drawn in, the
+/// middle of them: left, top, right, bottom (CSS px). The scene's camera
+/// flies in until that fills what the panel leaves. Empty with no group,
+/// for a row picked by a click (it's flown to as a found row is), and with
+/// the flight in turned off (`?fly=0`).
+#[wasm_bindgen]
+pub fn group_fit() -> Vec<f32> {
+    if !*crate::host::FLY_IN {
+        return Vec::new();
+    }
+    group::with(|group| group.fit.map_or_else(Vec::new, |fit| fit.to_vec())).unwrap_or_default()
+}
+
+/// The panel's width once its slide is over (CSS px): what a flight in
+/// fits its picture beside.
+#[wasm_bindgen]
+pub fn scene_inset_to() -> f32 {
+    scene::inset_to()
+}
+
+/// How long the flight in to a group takes, and the flight back, ms: the
+/// time the panel slides in over.
+#[wasm_bindgen]
+pub fn scene_fly_ms() -> f64 {
+    crate::host::FLY_IN_MS
+}
+
+/// How many times a group's way back has been taken: the camera flies back
+/// to where it was before the flight in when this has moved with the group
+/// let go.
+#[wasm_bindgen]
+pub fn scene_backs() -> u32 {
+    scene::backs()
+}
+
+/// The group's biggest bodies, which the scene names on their dots: their
+/// rows, biggest first. Empty with no group, or none of its rows measured.
+#[wasm_bindgen]
+pub fn group_named() -> Vec<u32> {
+    group::named_rows()
+}
+
+/// What each of those names says: the body's name, then its diameter.
+#[wasm_bindgen]
+pub fn group_names() -> Vec<String> {
+    group::named()
+        .into_iter()
+        .flat_map(|named| [named.name, named.size])
+        .collect()
+}
+
+/// Where each named body's dot is drawn, `years` after the epoch: x, y, z
+/// of each, au, in the order of [`group_named`] (as [`found_place`] has a
+/// found row's).
+#[wasm_bindgen]
+pub fn named_places(years: f64, integrated: bool) -> Vec<f64> {
+    group::named_rows()
+        .into_iter()
+        .flat_map(|row| drawn_place(row as usize, years, integrated).unwrap_or([f64::NAN; 3]))
+        .collect()
+}
+
 // --- For the checks (`checks/see.ts`).
 
 /// The lasso and its group: whether the mode is on, a shape is being
 /// drawn, and a release waits for its rows; the group's rows (-1 with
-/// none); how many times it has changed; and the rows placed so far.
+/// none); how many times it has changed; the rows placed so far; and
+/// whether the group held was drawn (a shape, not a click on a dot).
 #[wasm_bindgen]
 pub fn group_state() -> Vec<f64> {
     vec![
@@ -854,7 +925,20 @@ pub fn group_state() -> Vec<f64> {
         group::rows().map_or(-1.0, |rows| rows.len() as f64),
         f64::from(group::changes()),
         group::placed() as f64,
+        f64::from(u8::from(group::drawn())),
     ]
+}
+
+/// The panel: whether it's open, and what its header's second line says
+/// of a drawn group (its rows by class); empty with none.
+#[wasm_bindgen]
+pub fn panel_state() -> Vec<String> {
+    let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    host.read_with(&cx, |host, _| {
+        vec![host.panel_is_open().to_string(), host.class_line()]
+    })
 }
 
 /// What the last drawn group cost, ms: its rows' placing, their test

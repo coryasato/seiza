@@ -12,6 +12,14 @@
 //! what's left is a row's place through the scene's camera and one lookup
 //! in the shape's pixels ([`Mask`]), spread over frames the same way.
 //!
+//! A group is flown in to: with its rows comes where their dots were in the
+//! window it was drawn in, the middle of them ([`Group::fit`]), which the
+//! scene's camera closes on. And its biggest bodies are named ([`name`]):
+//! the rows, and what each one's label says.
+//!
+//! A click on one dot is a group of that row alone ([`pick_one`]): no
+//! shape, and nothing to fit.
+//!
 //! What's here is the mode, the shape, the work, and the group. Who enters
 //! and leaves the mode, and what the group does to the table, are the
 //! interface's (`host.rs`); the outline and the gray are the scene's.
@@ -28,6 +36,10 @@ const MOST_POINTS: usize = 4096;
 /// frame's budget.
 const PLACED_AT_ONCE: usize = 2048;
 const TESTED_AT_ONCE: usize = 16_384;
+/// The share of a group's dots left out at each side of the window when
+/// the camera fits it: a few rows far from the rest (a body on a long
+/// orbit, behind the others) don't decide where it flies.
+const FIT_TRIM: f64 = 0.01;
 
 /// A closed shape's pixels, filled once: a row's test is one lookup. A
 /// pixel is inside when its center is, by the even-odd rule.
@@ -150,10 +162,25 @@ pub struct Group {
     /// A byte a row of the file: 1 in the group. The scene's copy is made
     /// from a view over these, which never move while the group is held.
     pub bytes: Vec<u8>,
-    /// The closed shape, window positions (CSS px) as it was drawn.
+    /// The closed shape, window positions (CSS px) as it was drawn; none
+    /// for a row picked by a click on its dot.
     pub shape: Vec<[f32; 2]>,
     /// The clock's years it was drawn on: its outline is true only there.
     pub years: f64,
+    /// Where its dots were in the window it was drawn in, but for the
+    /// [`FIT_TRIM`] of them farthest out each way: left, top, right, bottom
+    /// (CSS px). The camera's flight in fits this to what the panel leaves.
+    /// None for a row picked by a click.
+    pub fit: Option<[f32; 4]>,
+}
+
+/// One of a group's biggest bodies, named on its dot.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Named {
+    pub row: u32,
+    /// Its name, and its diameter, as its label says them.
+    pub name: String,
+    pub size: String,
 }
 
 /// A release waiting for its rows.
@@ -164,6 +191,10 @@ struct Pending {
     /// The rows tested so far, and those inside.
     tested: usize,
     inside: Vec<u32>,
+    /// Of those inside, how many fell in each column of the window's
+    /// pixels, and in each row of them.
+    across: Vec<u32>,
+    down: Vec<u32>,
     /// Whether the rows drawn apart have been put where they're drawn.
     apart: bool,
 }
@@ -182,6 +213,8 @@ thread_local! {
     static WORK: RefCell<Option<Work>> = const { RefCell::new(None) };
     static PENDING: RefCell<Option<Pending>> = const { RefCell::new(None) };
     static GROUP: RefCell<Option<Group>> = const { RefCell::new(None) };
+    /// The group's biggest bodies, as the interface named them.
+    static NAMED: RefCell<Vec<Named>> = const { RefCell::new(Vec::new()) };
     /// How many times the group, or a release's fate, has changed: the
     /// scene asks for the group again when this has moved.
     static CHANGES: Cell<u32> = const { Cell::new(0) };
@@ -267,12 +300,15 @@ pub fn release(camera: Option<Camera>) -> bool {
     if mask.is_empty() {
         return false;
     }
+    let (across, down) = (vec![0; mask.width], vec![0; mask.height]);
     PENDING.set(Some(Pending {
         mask,
         camera,
         shape,
         tested: 0,
         inside: Vec::new(),
+        across,
+        down,
         apart: false,
     }));
     true
@@ -322,6 +358,8 @@ pub fn step(
                 if let Some(pending) = pending {
                     (pending.tested, pending.apart) = (0, false);
                     pending.inside.clear();
+                    pending.across.fill(0);
+                    pending.down.fill(0);
                 }
             });
         }
@@ -366,6 +404,9 @@ pub fn step(
                         && pending.mask.holds(x, y)
                     {
                         pending.inside.push(row as u32);
+                        // (Inside the shape is inside the window.)
+                        pending.across[x as usize] += 1;
+                        pending.down[y as usize] += 1;
                     }
                 }
                 pending.tested = to;
@@ -387,11 +428,15 @@ pub fn step(
                 for &row in &pending.inside {
                     bytes[row as usize] = 1;
                 }
+                let (left, right) = middle(&pending.across, picked);
+                let (top, bottom) = middle(&pending.down, picked);
+                NAMED.set(Vec::new());
                 GROUP.set(Some(Group {
                     rows: pending.inside.into(),
                     bytes,
                     shape: pending.shape,
                     years,
+                    fit: Some([left, top, right, bottom]),
                 }));
                 MODE.set(false);
                 WORK.set(None);
@@ -402,6 +447,51 @@ pub fn step(
     }
 }
 
+/// Where the middle of `total` dots lies along one side of the window,
+/// from how many fell in each pixel of it: from the first pixel to past the
+/// last, with [`FIT_TRIM`] of them left out at each end.
+fn middle(counts: &[u32], total: usize) -> (f32, f32) {
+    let skip = (total as f64 * FIT_TRIM) as usize;
+    let first = |pixels: &mut dyn Iterator<Item = (usize, &u32)>| {
+        let mut seen = 0;
+        for (at, &count) in pixels {
+            seen += count as usize;
+            if seen > skip {
+                return Some(at);
+            }
+        }
+        None
+    };
+    let low = first(&mut counts.iter().enumerate()).unwrap_or(0);
+    let high = first(&mut counts.iter().enumerate().rev()).unwrap_or(low);
+    (low as f32, (high + 1) as f32)
+}
+
+/// A click on one dot: a group of that row alone, of a file of `rows`, on
+/// the clock's `years`. No shape, and nothing for the camera to fit: the
+/// row is found, and flown to as a found row is. A group held before it,
+/// and the mode, are let go.
+pub fn pick_one(row: usize, rows: usize, years: f64) {
+    if row >= rows {
+        return;
+    }
+    MODE.set(false);
+    DRAWING.set(None);
+    PENDING.set(None);
+    WORK.set(None);
+    let mut bytes = vec![0; rows];
+    bytes[row] = 1;
+    NAMED.set(Vec::new());
+    GROUP.set(Some(Group {
+        rows: [row as u32].into(),
+        bytes,
+        shape: Vec::new(),
+        years,
+        fit: None,
+    }));
+    changed();
+}
+
 /// How many of the rows are placed so far; 0 out of the mode.
 pub fn placed() -> usize {
     WORK.with_borrow(|work| work.as_ref().map_or(0, |work| work.placed))
@@ -410,8 +500,43 @@ pub fn placed() -> usize {
 /// The group is let go: every row, every color.
 pub fn let_go() {
     if GROUP.take().is_some() {
+        NAMED.set(Vec::new());
         changed();
     }
+}
+
+/// Whether the group held was drawn: a shape, not a click on one dot.
+pub fn drawn() -> bool {
+    GROUP.with_borrow(|group| group.as_ref().is_some_and(|group| !group.shape.is_empty()))
+}
+
+/// The row a click on its dot picked, if that is the group held.
+pub fn clicked() -> Option<usize> {
+    GROUP.with_borrow(|group| {
+        group
+            .as_ref()
+            .filter(|group| group.shape.is_empty())
+            .and_then(|group| group.rows.first().map(|&row| row as usize))
+    })
+}
+
+/// The group's biggest bodies are named: the interface's to say which,
+/// from the rows file. Kept while the group is.
+pub fn name(named: Vec<Named>) {
+    if held() {
+        NAMED.set(named);
+    }
+}
+
+/// The rows of the group's named bodies, biggest first (asked for every
+/// frame time runs: no name is copied for it).
+pub fn named_rows() -> Vec<u32> {
+    NAMED.with_borrow(|named| named.iter().map(|named| named.row).collect())
+}
+
+/// The group's named bodies; none with no group.
+pub fn named() -> Vec<Named> {
+    NAMED.with_borrow(Clone::clone)
 }
 
 /// Whether a group is held.
@@ -437,8 +562,9 @@ pub fn changes() -> u32 {
 #[cfg(test)]
 mod tests {
     use super::{
-        Camera, Mask, Stepped, changes, drawing, enter, held, leave, let_go, mode, pending, placed,
-        point, press, release, rows, step, with,
+        Camera, Mask, Named, Stepped, changes, clicked, drawing, drawn, enter, held, leave, let_go,
+        middle, mode, name, named, pending, pick_one, placed, point, press, release, rows, step,
+        with,
     };
 
     /// A camera that draws the ecliptic's x and y as window pixels, 1 au a
@@ -595,13 +721,63 @@ mod tests {
             );
             assert_eq!(group.bytes[2021], 1);
             assert_eq!(group.bytes[4242], 0);
+            // Where its dots were: the square's own pixels.
+            assert_eq!(group.fit, Some([20.0, 20.0, 60.0, 60.0]));
         })
         .expect("a group");
+        assert!(drawn() && clicked().is_none());
+        // Its biggest bodies are named while it's held.
+        let ceres = Named {
+            row: 2021,
+            name: "1 Ceres".into(),
+            size: "939 km".into(),
+        };
+        name(vec![ceres.clone()]);
+        assert_eq!(named(), [ceres]);
         // Its places are let go with the mode.
         assert_eq!(placed(), 0);
         let_go();
-        assert!(!held() && rows_held().is_empty());
+        assert!(!held() && rows_held().is_empty() && named().is_empty());
         assert_eq!(changes(), before.wrapping_add(2));
+    }
+
+    #[test]
+    fn the_fit_leaves_out_the_farthest_of_the_dots() {
+        // 1,000 dots in pixels 40 to 49, and one far out each way: 10 are
+        // left out at each end, so the two far ones don't count.
+        let mut counts = vec![0; 100];
+        counts[3] = 1;
+        counts[97] = 1;
+        for pixel in &mut counts[40..50] {
+            *pixel = 100;
+        }
+        assert_eq!(middle(&counts, 1002), (40.0, 50.0));
+        // A few dots: none left out.
+        assert_eq!(middle(&counts[..10], 1), (3.0, 4.0));
+        assert_eq!(middle(&[0, 0], 0), (0.0, 1.0));
+    }
+
+    #[test]
+    fn a_click_on_one_dot_is_a_group_of_that_row() {
+        leave();
+        let_go();
+        let before = changes();
+        pick_one(12, 10, 0.0);
+        assert!(!held(), "no such row");
+        enter();
+        pick_one(7, 10, 1.5);
+        assert!(held() && !mode() && !drawn());
+        assert_eq!(clicked(), Some(7));
+        assert_eq!(rows_held(), [7]);
+        with(|group| {
+            assert_eq!(group.bytes, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0]);
+            assert!(group.shape.is_empty() && group.fit.is_none());
+            assert_eq!(group.years, 1.5);
+        })
+        .expect("a group");
+        assert!(changes() != before);
+        let_go();
+        assert_eq!(clicked(), None);
     }
 
     fn rows_held() -> Vec<u32> {
