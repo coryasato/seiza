@@ -128,6 +128,10 @@ pub struct Elements {
     /// those with a place on the sort's axes ([`crate::layout::in_view`]),
     /// counted as it arrives.
     counts: Vec<Counts>,
+    /// The rows held so far of the two groups in step with Jupiter
+    /// ([`crate::ride::group`]) that have an ellipse, gathered as they
+    /// arrive: the rows the integration moves.
+    grouped: Vec<u32>,
 }
 
 /// What's counted of the rows up to a block's end.
@@ -146,6 +150,7 @@ impl Elements {
             layout: None,
             whole: 0,
             counts: Vec::new(),
+            grouped: Vec::new(),
         }
     }
 
@@ -157,6 +162,7 @@ impl Elements {
             layout: None,
             whole: 0,
             counts: Vec::new(),
+            grouped: Vec::new(),
         };
         elements.arrived(held)?;
         if elements.layout.is_none() {
@@ -192,6 +198,9 @@ impl Elements {
                 let (a, e) = (self.get(Element::A, row), self.get(Element::E, row));
                 counts.bound += usize::from(is_ellipse(a, e));
                 counts.in_view += usize::from(crate::layout::in_view(a, e));
+                if is_ellipse(a, e) && crate::ride::group(a, e).is_some() {
+                    self.grouped.push(row as u32);
+                }
             }
             self.counts.push(counts);
         }
@@ -271,6 +280,13 @@ impl Elements {
         self.counts_before(rows).in_view
     }
 
+    /// The rows held so far of the two groups in step with Jupiter (the
+    /// Hildas and the Trojans, by their a and e) that have an ellipse, in
+    /// the file's order.
+    pub fn grouped(&self) -> &[u32] {
+        &self.grouped
+    }
+
     /// Whether a row's orbit is an ellipse. A row whose isn't (e not below
     /// 1, a below 0) keeps its a and e; its mean anomaly is a hyperbola's.
     pub fn is_bound(&self, row: usize) -> bool {
@@ -334,6 +350,9 @@ mod tests {
         // more than 0.6 (not row 2).
         assert_eq!(elements.in_view_before(4), 3);
         assert_eq!(elements.in_view_before(10), 3);
+        // Of the two groups in step with Jupiter: row 3, 5 au out. (Row 2,
+        // at 4 au, has no ellipse.)
+        assert_eq!(elements.grouped(), [3]);
         let blocks = elements.blocks(4, 10);
         assert_eq!(
             blocks.iter().map(|block| block.1).collect::<Vec<_>>(),

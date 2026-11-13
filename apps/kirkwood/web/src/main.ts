@@ -19,12 +19,17 @@ import init, {
   elements_columns,
   elements_rows,
   elements_whole,
+  ellipse_of,
   file_begin,
   file_end,
   file_failed,
   file_progress,
   flight_hold,
   flight_state,
+  integrated_columns,
+  integrated_jump,
+  integrated_rows,
+  integrated_state,
   jupiter_orbit,
   jupiter_place,
   layout_gaps,
@@ -42,6 +47,7 @@ import init, {
   scene_failed,
   scene_flight,
   scene_inset,
+  scene_integrated,
   scene_plot,
   scene_ride,
   scene_scrim,
@@ -92,12 +98,14 @@ type Kirkwood = {
   held: number;
   /** For the checks: the scene, once it's started; whether the views it
    *  was given were over the wasm's own memory; the crate's 64-bit place
-   *  for a row and for Jupiter (ecliptic x, y, z in au); the clock; and,
+   *  for a row (a Hilda's or a Trojan's as integrated), where its ellipse
+   *  alone puts it, and Jupiter's (ecliptic x, y, z in au); the clock; and,
    *  of the `rows` rows the scene has drawn so far `of` the file's, those
    *  with a dot and those without. */
   scene?: BeltScene;
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
+  ellipseOf(row: number, years: number): number[];
   jupiter(years: number): number[];
   clock(): { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
   belt(): { drawn: number; unbound: number; rows: number; of: number };
@@ -125,6 +133,12 @@ type Kirkwood = {
   ride(): { turned: number; riding: boolean; flying: boolean };
   ridePoints(years: number): number[];
   rideCounts(): { hildas: number; trojans: number };
+  /** For the checks: the integration (the rows it moves, the bytes held
+   *  for them, a step's years); and what a jump of the clock costs: the
+   *  rows moved to `years` in one go, then their places worked out, in
+   *  milliseconds each. */
+  integrated(): { rows: number; bytes: number; step: number };
+  integratedJump(years: number): { stepsMs: number; placesMs: number } | undefined;
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -186,6 +200,10 @@ async function startScene(): Promise<BeltScene> {
     ridePoints: ride_points,
     rideGroups: ride_groups,
     holdRide: ride_hold,
+    integratedRows: integrated_rows,
+    integratedColumns: integrated_columns,
+    integrated: scene_integrated,
+    floats: (at, count) => new Float32Array(memory!.buffer, at, count),
   });
   kirkwood.scene = scene;
   performance.mark('kirkwood:scene');
@@ -353,6 +371,7 @@ const kirkwood: Kirkwood = {
   wasmBytesAtFirstFrame: 0,
   held: 0,
   placeOf: (row, years) => Array.from(place_of(row, years)),
+  ellipseOf: (row, years) => Array.from(ellipse_of(row, years)),
   jupiter: (years) => Array.from(jupiter_place(years)),
   clock: () => {
     const [years, running, held, ended, first, last] = Array.from(clock_state());
@@ -383,6 +402,14 @@ const kirkwood: Kirkwood = {
   rideCounts: () => {
     const [hildas, trojans] = Array.from(ride_counts());
     return { hildas: hildas!, trojans: trojans! };
+  },
+  integrated: () => {
+    const [rows, bytes, step] = Array.from(integrated_state());
+    return { rows: rows!, bytes: bytes!, step: step! };
+  },
+  integratedJump: (years) => {
+    const [stepsMs, placesMs] = Array.from(integrated_jump(years));
+    return stepsMs === undefined ? undefined : { stepsMs, placesMs: placesMs! };
   },
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;

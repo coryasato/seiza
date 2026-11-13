@@ -64,23 +64,36 @@ impl Orbit {
 
     /// Where the body is, `years` of the clock after the epoch.
     pub fn place(&self, years: f64) -> [f64; 3] {
+        self.state(years).0
+    }
+
+    /// Where the body is, `years` of the clock after the epoch, and how it
+    /// moves there: au, and au a year.
+    pub fn state(&self, years: f64) -> ([f64; 3], [f64; 3]) {
         let turns = self.mean_anomaly / 360.0 + self.turns_a_year * years;
         // The turn nearest zero.
         let mean = (turns - turns.round()) * TAU;
         let anomaly = eccentric_anomaly(mean, self.e);
+        let (sin, cos) = anomaly.sin_cos();
+        let minor = self.a * (1.0 - self.e * self.e).sqrt();
         // In the orbit's own plane, x toward perihelion.
-        let x = self.a * (anomaly.cos() - self.e);
-        let y = self.a * (1.0 - self.e * self.e).sqrt() * anomaly.sin();
+        let (x, y) = (self.a * (cos - self.e), minor * sin);
+        // The anomaly's own rate, radians a year.
+        let rate = TAU * self.turns_a_year / (1.0 - self.e * cos);
+        let (vx, vy) = (-self.a * sin * rate, minor * cos * rate);
         // Turned by the argument of perihelion, tilted by the inclination,
         // turned by the node.
         let (so, co) = self.node.to_radians().sin_cos();
         let (sw, cw) = self.perihelion.to_radians().sin_cos();
         let (si, ci) = self.i.to_radians().sin_cos();
-        [
-            (co * cw - so * sw * ci) * x + (-co * sw - so * cw * ci) * y,
-            (so * cw + co * sw * ci) * x + (-so * sw + co * cw * ci) * y,
-            sw * si * x + cw * si * y,
-        ]
+        let turned = |x: f64, y: f64| {
+            [
+                (co * cw - so * sw * ci) * x + (-co * sw - so * cw * ci) * y,
+                (so * cw + co * sw * ci) * x + (-so * sw + co * cw * ci) * y,
+                sw * si * x + cw * si * y,
+            ]
+        };
+        (turned(x, y), turned(vx, vy))
     }
 
     /// The size of an orbit in step with this one, au: it turns `turns`

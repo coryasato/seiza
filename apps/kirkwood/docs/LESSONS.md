@@ -208,3 +208,21 @@ The second action, the camera's flight to straight above and its turn with Jupit
 - **A test that steps a second at a time meets the stall guard.** The ride's own test moved it half its length in one reading, which the progress takes for a tab back from the background.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface"; the evidence: [`../PLAN.md`](../PLAN.md), M4's checks.
+
+## M4 part B: the Hildas and the Trojans, integrated (2026-11-12)
+
+The integrator in Rust and its tests against Horizons, the two groups as a draw of their own from places the crate hands over, the cost of a frame and of a jump, which Hildas, and the clock's reach.
+
+**Surprises:**
+- **The step's length doesn't show against Horizons.** Hektor is 0.017 au off in 2076 at a step of half a year and at a 32nd: what's left is Saturn's, not the step's. The step had to be chosen against a shorter step, row by row.
+- **A Newton step that lands on the bracket's end was turned away.** The solver asked for a step strictly inside the bracket; the root was the bracket's end, so every drift fell back to bisection: right to the last digit and four times as slow. Found only when a looser stop made the answers wrong.
+- **The clouds' count looked like a trend, and was an alias.** Counted every 12.5 years the Trojans in their clouds fell steadily toward 1976: 12.5 years is a hair over one of Jupiter's turns, and the count breathes with that turn. Counted every year it goes between 15,540 and 16,174.
+- **It costs no frames.** Three milliseconds a frame on the processor, and the scene's rate is the same to the noise: the frame waits on the GPU.
+- **An old check found the catch-up before a new one was written.** Hektor drawn alone in 2036 was 1.57 px from the crate's place: exactly its ellipse, for the frames the steps were still being taken. The checks now wait for the rows to be there, and that wait is a number.
+- **A disc under the title's text reads two pixels off.** In 1976 from straight above Hektor sits behind "they're". The camera is turned half round for that date.
+- **On the epoch the two pictures are the same to the pixel.** Not close: none of 3.24 million differ, a second draw and a different order of blending included.
+- **`just` hands a `;` to the shell.** `--ways "a:;b:x=0"` through the recipe ran one way and then tried to run the rest as commands; the frame rates were asked of `node` itself.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene"; the evidence: [`../PLAN.md`](../PLAN.md), M4's checks.
+
+*After review:* a step undone isn't a step never taken. The first build stepped back the way it came when that was shorter, and a row that had passed close to Jupiter wouldn't have come back to the same float; steps are now only taken away from the epoch, and a place is the same to the bit by any way.

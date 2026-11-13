@@ -15,6 +15,8 @@
 //!   dots on, a against e ([`layout`]);
 //! - the ride with Jupiter ([`ride`]): how far the frame has turned to
 //!   it, the points in step with it, and the two groups that hold there;
+//! - those two groups moved for real ([`integrate`]): the Hildas and the
+//!   Trojans under the Sun and Jupiter, and their places for the scene;
 //! - the interface ([`host`]): the title, the time control, and the table
 //!   in a panel behind its handle, over a surface that hands the scene its
 //!   wheel (`scene`);
@@ -30,6 +32,7 @@ pub mod clock;
 pub mod elements;
 pub mod flight;
 mod host;
+pub mod integrate;
 pub mod layout;
 pub mod orbit;
 pub mod ramp;

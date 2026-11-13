@@ -39,8 +39,8 @@ test:
 # What the release build shows, in headless Chromium (checks/see.ts): the
 # first frame before either file is asked for, the table over the rows
 # file, the wasm's memory against the files' bytes, the belt, the time
-# control, the look, the legend, the sky, the sort flight, and the ride with Jupiter. Screenshots and seen.json in
-# checks/out/ (gitignored). --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride; --runs.
+# control, the look, the legend, the sky, the sort flight, the ride with Jupiter, and the integrated rows. Screenshots and seen.json in
+# checks/out/ (gitignored). --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,integrated; --runs.
 # Asked for by name alone: --only rate (the scene's frames a second), slow
 # (a load on a slow link), cross (--browser firefox|webkit, with wheel).
 # Run `just kirkwood build` first.

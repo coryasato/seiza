@@ -32,6 +32,14 @@
 // ride's names and its dashed triangle, the page's own between the two
 // canvases, are placed through the camera on the crate's three points.
 //
+// The Hildas and the Trojans are moved for real: the crate integrates them
+// under the Sun and Jupiter (`crate/src/integrate.rs`), and their rows are
+// a draw of their own, each placed where the crate has it (a buffer of
+// places uploaded when the clock moves) and otherwise drawn as any row is,
+// by its a, e, and H; the belt's draw leaves those rows out. Until their
+// places are in (the clock jumped), they're on their ellipses with the
+// rest. `?integrate=0` leaves them there.
+//
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
@@ -98,6 +106,21 @@ export interface SceneHost {
   rideGroups(): ArrayLike<number>;
   /** `?ride`: holds the ride at a progress, 0 to 1. */
   holdRide(progress: number): void;
+  /** The rows the crate's integration moves (the Hildas and the Trojans),
+   *  in the file's order; none until the elements are held whole. */
+  integratedRows(): Uint32Array;
+  /** What those rows are drawn by, beside their places: each row's a,
+   *  then each row's e, node, argument of perihelion, and H. */
+  integratedColumns(): Float32Array;
+  /** Those rows moved to `years`: where their places are in the crate's
+   *  memory (x, y, z of each, au), or 0 while they aren't there yet (a
+   *  jump of the clock is caught up a few milliseconds a call). With
+   *  `draw` false they're stepped and no place is worked out. */
+  integrated(years: number, draw: boolean): number;
+  /** A view over `count` 32-bit floats of the crate's memory at `at`:
+   *  good until that memory next grows, so it's made and uploaded with no
+   *  call to the crate between. */
+  floats(at: number, count: number): Float32Array;
 }
 
 export interface SceneStats {
@@ -119,6 +142,12 @@ export interface SceneStats {
   flight: number;
   /** How far the frame had turned to Jupiter's in the last frame drawn. */
   ride: number;
+  /** The rows drawn where the crate's integration has them, in the last
+   *  frame drawn; 0 while they're on their ellipses with the rest. */
+  integrated: number;
+  /** Whether those rows were still on their way to the clock in the last
+   *  frame drawn (it jumped: a few steps are taken a frame). */
+  catchingUp: boolean;
 }
 
 export interface BeltScene {
@@ -225,6 +254,24 @@ const PLACE = /* glsl */ `
   }
 `;
 
+/** A row the crate's integration moves: its place is handed over (the
+ *  ecliptic's x, y, z in au), and its a, e, and angles are the file's,
+ *  for everything else a dot is drawn by. */
+const PLACE_INTEGRATED = /* glsl */ `
+  attribute float a;
+  attribute float e;
+  attribute float node;
+  attribute float peri;
+  attribute vec3 placed;
+
+  vec3 place() {
+    return placed;
+  }
+`;
+/** The integrated rows' attributes beside their places, in the order the
+ *  crate hands their columns over. */
+const INTEGRATED_COLUMNS = ['a', 'e', 'node', 'peri', 'mag'];
+
 /** The sort flight: how late the outermost orbit leaves after the
  *  innermost, and how far a dot is off its neighbors', of the flight's
  *  whole; a dot's own flight is the rest. The crate's tests run this
@@ -273,9 +320,11 @@ const FLIGHT = /* glsl */ `
   }
 `;
 
-/** The belt's dots, their tints through a ramp of `stops` stops. Every
- *  color here is linear light, written as it is into the look's buffer. */
-const vertex = (stops: number) => /* glsl */ `
+/** The belt's dots, their tints through a ramp of `stops` stops; or, with
+ *  `integrated`, the dots of the rows the crate's integration moves, the
+ *  same but for where each is. Every color here is linear light, written
+ *  as it is into the look's buffer. */
+const vertex = (stops: number, integrated: boolean) => /* glsl */ `
   // A plain dot's size, in the scene's pixels.
   uniform float uSize;
   // What the camera's nearness makes of a dot in space: its size, and its
@@ -305,18 +354,25 @@ const vertex = (stops: number) => /* glsl */ `
   uniform vec4 uGroups;
   uniform float uGroupsE;
   uniform vec3 uRideLight;
+  // 1 while those two groups' rows are drawn apart, from where the
+  // crate's integration has them: the belt's own draw leaves them out.
+  uniform float uIntegrated;
   // 1 for a row drawn alone as a plain disc: one size, one color.
   uniform float uHard;
   uniform vec3 uPlain;
   varying vec3 vColor;
   varying float vAlpha;
   varying float vGrow;
-  ${PLACE}
+  ${integrated ? PLACE_INTEGRATED : PLACE}
   ${FLIGHT}
 
   void main() {
+    // The two groups in step with Jupiter, by their a and e.
+    bool hilda = a >= uGroups.x && a <= uGroups.y;
+    bool trojan = a > uGroups.z && a < uGroups.w && e < uGroupsE;
     // A row with no ellipse (e not below 1) has no place on one: no dot.
-    if (!(a > 0.0) || !(e < 1.0)) {
+    // And none here for a row that's drawn apart.
+    if (!(a > 0.0) || !(e < 1.0)${integrated ? '' : ' || (uIntegrated > 0.5 && (hilda || trojan))'}) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       gl_PointSize = 0.0;
       return;
@@ -360,8 +416,6 @@ const vertex = (stops: number) => /* glsl */ `
     // shape there are lit, and the rest of the belt dimmed: a few
     // thousand dots among a million and a half don't show otherwise.
     if (uRide > 0.0) {
-      bool hilda = a >= uGroups.x && a <= uGroups.y;
-      bool trojan = a > uGroups.z && a < uGroups.w && e < uGroupsE;
       if (hilda || trojan) banded *= mix(1.0, hilda ? uRideLight.x : uRideLight.y, uRide);
       else vAlpha *= mix(1.0, uRideLight.z, uRide);
     }
@@ -532,6 +586,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   // `?rideSky=<0 to 1>`, to be looked at: how much of the sky the frame
   // that turns with Jupiter keeps (none, as it ships).
   const rideSky = Math.min(1, Math.max(0, knob('rideSky', 0)));
+  // `?integrate=0`: the Hildas and the Trojans stay on their ellipses.
+  const integrates = on('integrate');
   /** Rows drawn alone are plain discs, to be found in a screenshot. */
   const hard = !!alone && on('hard');
   const marked = has('marks');
@@ -539,7 +595,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist), flight: 0, ride: 0 };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist), flight: 0, ride: 0, integrated: 0, catchingUp: false };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -666,7 +722,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const ramp = host.ramp();
   const stops = ramp.length / 4;
   const material = new ShaderMaterial({
-    vertexShader: vertex(stops),
+    vertexShader: vertex(stops, false),
     fragmentShader: FRAGMENT,
     uniforms: {
       uYears: { value: [0, 0] },
@@ -686,11 +742,23 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       uGroups: { value: new Vector4(...Array.from(host.rideGroups()).slice(0, 4)) },
       uGroupsE: { value: host.rideGroups()[4]! },
       uRideLight: { value: new Vector3(...RIDE_LIGHT) },
+      uIntegrated: { value: 0 },
       uFlight: { value: 0 },
       uAxes: { value: new Vector4(...Array.from(host.axes())) },
       uPlot: { value: new Vector4() },
     },
     blending: hard ? NormalBlending : AdditiveBlending,
+    depthTest: false,
+    depthWrite: false,
+    transparent: true,
+  });
+  // The rows the crate's integration moves: the same dots (the one set of
+  // uniforms), each placed where the crate has it.
+  const integratedMaterial = new ShaderMaterial({
+    vertexShader: vertex(stops, true),
+    fragmentShader: FRAGMENT,
+    uniforms: material.uniforms,
+    blending: material.blending,
     depthTest: false,
     depthWrite: false,
     transparent: true,
@@ -816,6 +884,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     /** The three points in step with Jupiter: the x, y, z of each. Asked
      *  for while the frame is turned. */
     points: number[];
+    /** Where the integrated rows' places for `years` are in the crate's
+     *  memory; 0 while there are none (no such rows yet, the rows not yet
+     *  moved to the clock, or no dot in space). */
+    integrated: number;
   }
   let last: Frame | undefined;
   /** The text's bounds as last asked for, and the crate's count then. */
@@ -849,11 +921,15 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       [jupiter_, jupiterFor] = [[at[0]!, at[1]!, at[2]!], years];
     }
     if (space > 0 && ride > 0 && years !== pointsFor) [points, pointsFor] = [Array.from(host.ridePoints(years)), years];
-    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points };
+    // The Hildas and the Trojans are stepped to the clock whatever is
+    // drawn (so they're there when the dots fly back from the axes), and
+    // their places worked out only while a dot is in space.
+    const places = integrated ? host.integrated(years, flight < 1) : 0;
+    return { years, inset, scrim, flight, space, plot, jupiter: jupiter_, ride, sky, points, integrated: places };
   };
   // Landed, time moves no dot: of the clock, only the way back draws.
   const moved = (frame: Frame, from: Frame) =>
-    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky;
+    (frame.years !== from.years && frame.flight < 1) || frame.inset !== from.inset || frame.scrim !== from.scrim || frame.flight !== from.flight || frame.plot !== from.plot || frame.ride !== from.ride || frame.sky !== from.sky || frame.integrated !== from.integrated;
   /** What isn't a row, as it leaves the picture and returns: the Sun,
    *  Jupiter, its orbit, the marks, and the names; and the haze, which on
    *  the axes would light the gaps. (The sky leaves by a number of its
@@ -934,6 +1010,20 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // (`host.rs`), so nothing is brightened that isn't said to be.
     material.uniforms.uRide!.value = Math.max(0, 2 * frame.ride - 1) * frame.space;
     (material.uniforms.uPlot!.value as Vector4).set(...frame.plot);
+    // The Hildas and the Trojans where the crate's integration has them:
+    // their places uploaded when the clock has moved, from a view over
+    // the crate's memory made here (nothing has been asked of the crate
+    // since the frame was). Without places they're the belt's own rows.
+    const apart = !!integrated && frame.integrated !== 0;
+    if (integrated && apart && frame.years !== integrated.years) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, integrated.places);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, host.floats(frame.integrated, integrated.rows * 3));
+      integrated.years = frame.years;
+    }
+    if (integrated && apart !== integrated.apart) for (const points of integrated.draws) points.visible = integrated.apart = apart;
+    material.uniforms.uIntegrated!.value = apart ? 1 : 0;
+    stats.integrated = apart ? integrated!.drawn : 0;
+    stats.catchingUp = !!integrated && !apart && frame.flight < 1;
     leave(frame.space);
     // `?rideSky`, to be looked at: what the ride leaves of the sky, which
     // then turns with the frame.
@@ -977,6 +1067,46 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     draws: Points<BufferGeometry<NormalOrGLBufferAttributes>>[];
   }
   let belt: Belt | undefined;
+  /** The rows the crate's integration moves: their places' buffer, as
+   *  the crate last handed them over (`years`; NaN before the first), and
+   *  what draws from it; `drawn` of them are drawn (all, or those among
+   *  `?only`'s), `apart` from the belt's own draw while places are in. */
+  interface Integrated {
+    rows: number;
+    places: WebGLBuffer;
+    draws: Points<BufferGeometry<NormalOrGLBufferAttributes>>[];
+    drawn: number;
+    years: number;
+    apart: boolean;
+  }
+  let integrated: Integrated | undefined;
+  /** The belt is whole: the two groups' rows get their own draw. Asks
+   *  the crate, so it runs before any view over its memory is made. */
+  const integrate = () => {
+    const rows = host.integratedRows();
+    const count = rows.length;
+    if (!count) return;
+    const columns = host.integratedColumns();
+    if (columns.length !== count * INTEGRATED_COLUMNS.length) throw new Error(`the scene wants five columns of the ${count} integrated rows`);
+    const places = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, places);
+    gl.bufferData(gl.ARRAY_BUFFER, count * 12, gl.DYNAMIC_DRAW);
+    const attributes = INTEGRATED_COLUMNS.map((attribute, column) => [attribute, new BufferAttribute(columns.slice(column * count, (column + 1) * count), 1)] as const);
+    // All of them; or, of rows drawn alone, those that are among them.
+    const ranges: [number, number][] = alone ? alone.flatMap((row): [number, number][] => (rows.includes(row) ? [[rows.indexOf(row), 1]] : [])) : [[0, count]];
+    const draws = ranges.map(([start, drawn]) => {
+      const geometry = new BufferGeometry<NormalOrGLBufferAttributes>();
+      for (const [attribute, values] of attributes) geometry.setAttribute(attribute, values);
+      geometry.setAttribute('placed', new GLBufferAttribute(places, gl.FLOAT, 3, 4, count));
+      geometry.setDrawRange(start, drawn);
+      const points = new Points(geometry, integratedMaterial);
+      points.frustumCulled = false;
+      points.visible = false;
+      dust.add(points);
+      return points;
+    });
+    integrated = { rows: count, places, draws, drawn: ranges.reduce((sum, range) => sum + range[1], 0), years: NaN, apart: false };
+  };
   /** The belt's first `rows` rows are in its buffers: what's drawn of it. */
   const shown = (belt: Belt, rows: number) => {
     stats.rows = rows;
@@ -1032,8 +1162,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     },
     addRows(blocks, through, now) {
       if (!belt) throw new Error('rows before the belt has its room');
-      // Everything the crate is asked comes first; then the views, read
+      // Everything the crate is asked comes first (with the last rows,
+      // the two groups its integration moves); then the views, read
       // where the crate keeps each block, and their upload, in one go.
+      if (through === belt.rows && integrates && !integrated) integrate();
       const frame = now ? ask(performance.now()) : undefined;
       let at = stats.rows;
       for (const columns of blocks()) {
@@ -1060,6 +1192,15 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       }
       for (const buffer of belt.buffers) gl.deleteBuffer(buffer);
       belt = undefined;
+      if (integrated) {
+        for (const points of integrated.draws) {
+          dust.remove(points);
+          points.geometry.dispose();
+        }
+        gl.deleteBuffer(integrated.places);
+        integrated = undefined;
+        material.uniforms.uIntegrated!.value = 0;
+      }
       dirty = true;
     },
     wantsSky: !alone && on('sky'),

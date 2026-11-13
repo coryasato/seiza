@@ -22,6 +22,7 @@ use crate::clock;
 use crate::elements::{Element, Elements};
 use crate::flight;
 use crate::host::Host;
+use crate::integrate::{self, Moved};
 use crate::layout::{self, Plot};
 use crate::orbit::{JUPITER, Orbit};
 use crate::ramp;
@@ -33,6 +34,10 @@ use crate::scene;
 const PROGRESS_EVERY_MS: f64 = 100.0;
 /// The places Jupiter's orbit is drawn through.
 const ORBIT_POINTS: usize = 256;
+
+/// The most time one frame's call spends stepping the two groups toward
+/// the clock, when the clock has jumped: the rest waits for the next.
+const INTEGRATE_MS: f64 = 8.0;
 
 /// Set once each file is held and read as one.
 const ELEMENTS_MARK: &str = "kirkwood:elements";
@@ -67,6 +72,9 @@ thread_local! {
     /// The rows the scene has drawn so far, as it last said.
     static DRAWN: Cell<usize> = const { Cell::new(0) };
     static PROGRESS_AT: Cell<f64> = const { Cell::new(f64::NEG_INFINITY) };
+    /// The Hildas and the Trojans, moved under the Sun and Jupiter: made
+    /// when the scene first asks for their rows, once the elements are held.
+    static MOVED: RefCell<Option<Moved>> = const { RefCell::new(None) };
 }
 
 /// The elements, whole or still arriving; nothing before the page begins
@@ -377,6 +385,78 @@ pub fn ride_hold(progress: f64) {
     update_host(|_, cx| cx.notify());
 }
 
+/// The rows the integration moves (the Hildas and the Trojans with an
+/// ellipse), in the file's order: the order of their places
+/// ([`scene_integrated`]) and of their columns ([`integrated_columns`]).
+/// Empty until the elements are held whole. The first call makes their
+/// states, each row where its ellipse puts it on the epoch.
+#[wasm_bindgen]
+pub fn integrated_rows() -> Vec<u32> {
+    let Some(elements) = HELD.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    MOVED.with_borrow_mut(|moved| {
+        moved
+            .get_or_insert_with(|| Moved::new(&elements, elements.grouped()))
+            .rows()
+            .to_vec()
+    })
+}
+
+/// What the scene draws those rows by, beside their places: each row's a,
+/// then each row's e, node, argument of perihelion, and H, as the file
+/// holds them. A copy, made once.
+#[wasm_bindgen]
+pub fn integrated_columns() -> Vec<f32> {
+    let Some(elements) = HELD.with_borrow(Clone::clone) else {
+        return Vec::new();
+    };
+    MOVED.with_borrow(|moved| {
+        let rows = moved.as_ref().map_or(&[][..], Moved::rows);
+        [
+            Element::A,
+            Element::E,
+            Element::Node,
+            Element::Perihelion,
+            Element::H,
+        ]
+        .into_iter()
+        .flat_map(|element| rows.iter().map(move |&row| (element, row)))
+        .map(|(element, row)| elements.get(element, row as usize))
+        .collect()
+    })
+}
+
+/// The two groups' rows moved to `years` on the clock: where their places
+/// are in this memory (x, y, z of each in au, 32-bit floats, in the order
+/// of [`integrated_rows`]), or 0 while they aren't there yet. The clock
+/// running, that's a step now and then; after a jump of the clock it's
+/// many, taken a few milliseconds a call, and the scene draws the rows on
+/// their ellipses until they're in. With `draw` false the rows are stepped
+/// and no place is worked out (nothing of space is drawn). The address
+/// holds for the page's life; a view over it doesn't, so the scene makes
+/// its view and uploads it with no call in here between.
+#[wasm_bindgen]
+pub fn scene_integrated(years: f64, draw: bool) -> u32 {
+    MOVED.with_borrow_mut(|moved| {
+        let Some(moved) = moved else {
+            return 0;
+        };
+        let started = seiza::marks::now();
+        while !moved.toward(years, 1) {
+            if seiza::marks::now() - started > INTEGRATE_MS {
+                return 0;
+            }
+        }
+        if !draw {
+            return 0;
+        }
+        moved
+            .places(years)
+            .map_or(0, |places| places.as_ptr() as usize as u32)
+    })
+}
+
 /// The panel's width on screen (CSS px): the scene centers in the rest.
 #[wasm_bindgen]
 pub fn scene_inset() -> f32 {
@@ -465,10 +545,34 @@ pub fn scene_failed(message: String) {
 // --- For the checks (`checks/see.ts`).
 
 /// The crate's own place for a row, `years` after the epoch, in 64-bit
-/// floats: x, y, z in au. Empty for a row with no ellipse, or one that
-/// isn't held yet.
+/// floats: x, y, z in au. A Hilda's or a Trojan's is where the integration
+/// puts it, moved there from the epoch on its own (not the scene's rows,
+/// which came by whatever way the clock did); any other row's is its
+/// ellipse's. Which it is goes by the row's group alone, not by what the
+/// scene is drawing: on a page with `?integrate=0`, or while the scene's
+/// rows are still on their way to the clock, a Hilda or a Trojan is drawn
+/// at [`ellipse_of`]. Empty for a row with no ellipse, one that isn't held
+/// yet, or a time that isn't on the clock.
 #[wasm_bindgen]
 pub fn place_of(row: usize, years: f64) -> Vec<f64> {
+    with_elements(|elements| {
+        if row >= elements.whole() {
+            return Vec::new();
+        }
+        let (a, e) = (elements.get(Element::A, row), elements.get(Element::E, row));
+        let place = match ride::group(a, e) {
+            Some(_) => integrate::place_of(elements, row, years),
+            None => Orbit::of_row(elements, row).map(|orbit| orbit.place(years)),
+        };
+        place.map_or_else(Vec::new, |place| place.to_vec())
+    })
+    .unwrap_or_default()
+}
+
+/// Where a row's 2026 ellipse alone puts it, `years` after the epoch: x,
+/// y, z in au. Empty for a row with no ellipse, or one that isn't held yet.
+#[wasm_bindgen]
+pub fn ellipse_of(row: usize, years: f64) -> Vec<f64> {
     with_elements(|elements| {
         Some(elements)
             .filter(|elements| row < elements.whole())
@@ -476,6 +580,43 @@ pub fn place_of(row: usize, years: f64) -> Vec<f64> {
             .map_or_else(Vec::new, |orbit| orbit.place(years).to_vec())
     })
     .unwrap_or_default()
+}
+
+/// The integration: the rows it moves, the bytes held for them, and a
+/// step's years. Zeros before the scene has asked for the rows.
+#[wasm_bindgen]
+pub fn integrated_state() -> Vec<f64> {
+    MOVED.with_borrow(|moved| {
+        moved.as_ref().map_or_else(
+            || vec![0.0, 0.0, integrate::STEP],
+            |moved| {
+                vec![
+                    moved.rows().len() as f64,
+                    moved.bytes() as f64,
+                    integrate::STEP,
+                ]
+            },
+        )
+    })
+}
+
+/// What a jump of the clock costs: the rows moved to `years` in one go,
+/// however many steps that is, and then their places worked out as a
+/// frame's are. The milliseconds each took.
+#[wasm_bindgen]
+pub fn integrated_jump(years: f64) -> Vec<f64> {
+    MOVED.with_borrow_mut(|moved| {
+        let Some(moved) = moved else {
+            return Vec::new();
+        };
+        let started = seiza::marks::now();
+        if !moved.to(years) {
+            return Vec::new();
+        }
+        let stepped = seiza::marks::now();
+        moved.places(years);
+        vec![stepped - started, seiza::marks::now() - stepped]
+    })
 }
 
 /// The crate's own place on the axes for an orbit of size `a` and

@@ -98,6 +98,20 @@
 //           sort-to-ride.jpg, sort-then-ride.jpg): fails unless each ends in
 //           one pressed action, with time paused on the axes and running
 //           again in the turning frame, and what isn't a row right in each.
+//   integrated  the Hildas and the Trojans, moved by the crate's integration:
+//           fails unless the rows drawn apart are the file's own two groups
+//           and the page's counts are what they were; unless, on the epoch,
+//           the picture is the one drawn with every row on its ellipse
+//           (`?integrate=0`), and 50 years on it isn't; unless Hilda,
+//           Patroclus, and Hektor, drawn alone a decade on and 50 years
+//           back, are each within a CSS pixel of the crate's own place for
+//           them, integrated from the epoch apart, and more than a pixel
+//           from their ellipse's. The turning frame at the clock's two ends
+//           and on the epoch, integrated and on the ellipses
+//           (out/integrated-*.jpg, ellipses-*.jpg). And what it costs: a
+//           jump of the clock across its whole reach in one go and as the
+//           page takes it, a frame's places, and the wasm's memory with
+//           and without.
 //
 // Run only when asked for by name (minutes more each):
 //
@@ -118,7 +132,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,integrated,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -136,7 +150,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'ride', 'rate', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'ride', 'integrated', 'rate', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -183,7 +197,7 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; flight: number; ride: number };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; flight: number; ride: number; integrated: number; catchingUp: boolean };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
@@ -191,6 +205,7 @@ type Kirkwood = {
   scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; under(x: number, y: number): [number, number] | undefined };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
+  ellipseOf(row: number, years: number): number[];
   jupiter(years: number): number[];
   clock(): Clock;
   belt(): { drawn: number; unbound: number; rows: number; of: number };
@@ -204,6 +219,8 @@ type Kirkwood = {
   ride(): { turned: number; riding: boolean; flying: boolean };
   ridePoints(years: number): number[];
   rideCounts(): { hildas: number; trojans: number };
+  integrated(): { rows: number; bytes: number; step: number };
+  integratedJump(years: number): { stepsMs: number; placesMs: number } | undefined;
 };
 type Probe = { rows: number; first: number; end: number; loaded: number; pending: number };
 type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
@@ -352,6 +369,9 @@ async function withBelt<T>(url: string, params: Record<string, string>, see: (pa
   const { page, problems, close } = await open(chromium, url, { params });
   try {
     await waitMark(page, BELT, 0, 120_000);
+    // On a date far from the epoch the Hildas and the Trojans are a few
+    // frames on their way there.
+    await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.scene!.stats.catchingUp, undefined, { timeout: 60_000 });
     await settle(page);
     const seen = await see(page);
     if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
@@ -374,17 +394,24 @@ function project(camera: number[], place: number[]): [number, number] {
   return [((row(0) / w + 1) / 2) * camera[16]!, ((1 - row(1) / w) / 2) * camera[17]!];
 }
 
+/** In the page: a screenshot (a PNG as base64) on a canvas to read pixels
+ *  from, and its pixels for each CSS pixel. Handed to the page as its
+ *  source, so it leans on nothing outside itself. */
+async function decoded(data: string): Promise<{ context: OffscreenCanvasRenderingContext2D; scale: number }> {
+  const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
+  const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d', { willReadFrequently: true })!;
+  context.drawImage(bitmap, 0, 0);
+  return { context, scale: bitmap.width / innerWidth };
+}
+const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
+
 /** In a screenshot at the display's pixels: around each place (CSS px),
  *  the center of what's lit within `reach`, its lit pixels, and the
  *  place's own color. */
 async function lit(page: Page, png: Buffer, places: [number, number][], reach = 14): Promise<{ x: number; y: number; pixels: number; color: [number, number, number] }[]> {
   return page.evaluate(
-    async ({ data, places, reach }) => {
-      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const context = canvas.getContext('2d', { willReadFrequently: true })!;
-      context.drawImage(bitmap, 0, 0);
-      const scale = bitmap.width / innerWidth;
+    async ({ data, places, reach, decode }) => {
+      const { context, scale } = await (new Function(`return (${decode})`)() as typeof decoded)(data);
       return places.map(([x, y]) => {
         const [left, top, size] = [Math.round((x - reach) * scale), Math.round((y - reach) * scale), Math.round(2 * reach * scale)];
         const { data: pixels } = context.getImageData(left, top, size, size);
@@ -404,7 +431,7 @@ async function lit(page: Page, png: Buffer, places: [number, number][], reach = 
         return { x: sum ? (left + sumX / sum) / scale : NaN, y: sum ? (top + sumY / sum) / scale : NaN, pixels: count, color: [center[0]!, center[1]!, center[2]!] as [number, number, number] };
       });
     },
-    { data: png.toString('base64'), places, reach },
+    { data: png.toString('base64'), places, reach, decode: decoded.toString() },
   );
 }
 
@@ -597,17 +624,13 @@ const withSky = <T>(url: string, params: Record<string, string>, see: (page: Pag
  *  pixels (r, g, b, a bytes, row by row) of a part of it, in CSS px. */
 async function pixelsOf<T>(page: Page, png: Buffer, clip: Clip, measure: (pixels: Uint8ClampedArray, width: number, height: number, scale: number) => T): Promise<T> {
   return page.evaluate(
-    async ({ data, clip, measure }) => {
-      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const context = canvas.getContext('2d', { willReadFrequently: true })!;
-      context.drawImage(bitmap, 0, 0);
-      const scale = bitmap.width / innerWidth;
+    async ({ data, clip, measure, decode }) => {
+      const { context, scale } = await (new Function(`return (${decode})`)() as typeof decoded)(data);
       const [width, height] = [Math.round(clip.width * scale), Math.round(clip.height * scale)];
       const { data: pixels } = context.getImageData(Math.round(clip.x * scale), Math.round(clip.y * scale), width, height);
       return (new Function(`return (${measure})`)() as (pixels: Uint8ClampedArray, width: number, height: number, scale: number) => T)(pixels, width, height, scale);
     },
-    { data: png.toString('base64'), clip, measure: measure.toString() },
+    { data: png.toString('base64'), clip, measure: measure.toString(), decode: decoded.toString() },
   ) as Promise<T>;
 }
 
@@ -1144,7 +1167,6 @@ async function actionFills(page: Page): Promise<{ sort: number; ride: number }> 
 }
 
 async function seeSort(url: string) {
-  const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
   const actionLight = (page: Page, png: Buffer) => actionFill(page, png, 'sort');
   // The press, the landing, and the press back, with time running.
   const flight = await withSky(url, { date: EPOCH }, async (page) => {
@@ -1410,8 +1432,159 @@ function countGroups(): { hildas: number; trojans: number } {
   return { hildas, trojans };
 }
 
+/** Two screenshots of one size: the pixels of `clip` (CSS px) whose red,
+ *  green, or blue differ by more than `by` of 255, and how many there are. */
+async function differing(page: Page, one: Buffer, other: Buffer, clip: Clip, by = 24): Promise<{ pixels: number; of: number }> {
+  return page.evaluate(
+    async ({ pngs, clip, by, decode }) => {
+      const read = async (data: string) => {
+        const { context, scale } = await (new Function(`return (${decode})`)() as typeof decoded)(data);
+        return context.getImageData(Math.round(clip.x * scale), Math.round(clip.y * scale), Math.round(clip.width * scale), Math.round(clip.height * scale)).data;
+      };
+      const [a, b] = [await read(pngs[0]!), await read(pngs[1]!)];
+      let pixels = 0;
+      for (let at = 0; at < a.length; at += 4) {
+        if (Math.abs(a[at]! - b[at]!) > by || Math.abs(a[at + 1]! - b[at + 1]!) > by || Math.abs(a[at + 2]! - b[at + 2]!) > by) pixels++;
+      }
+      return { pixels, of: a.length / 4 };
+    },
+    { pngs: [one.toString('base64'), other.toString('base64')], clip, by, decode: decoded.toString() },
+  );
+}
+
+async function seeIntegrated(url: string) {
+  const file = { ...countRows(), ...countGroups() };
+  const grouped = file.hildas + file.trojans;
+  const ELLIPSES = { integrate: '0' };
+
+  // On the epoch: the rows drawn apart are the file's two groups, the
+  // page's counts are what they were, and the picture is the ellipses'.
+  const top = { paused: '', elev: '90', az: '0', roll: '0', dist: '15.5', sky: '0' };
+  const square = { x: 270, y: 0, width: 900, height: 900 };
+  /** A picture and what the page says of it; and, read in that page while
+   *  it's open, the pixels by which it differs from another. */
+  const picture = (params: Record<string, string>, from?: Buffer) =>
+    withBelt(url, { ...top, ...params }, async (page) => {
+      const png = await page.screenshot();
+      const says = await kirkwood(page, (kirkwood) => ({ ...kirkwood.belt(), points: kirkwood.scene!.stats.points, sceneRows: kirkwood.scene!.stats.rows, apart: kirkwood.scene!.stats.integrated, state: kirkwood.integrated(), wasm: kirkwood.wasmBytes() }));
+      return { png, ...says, differs: from ? await differing(page, png, from, square) : undefined };
+    });
+  const epoch = await picture({ date: EPOCH });
+  const epochEllipses = await picture({ date: EPOCH, ...ELLIPSES }, epoch.png);
+  const on = await picture({ date: '2076-06-09' });
+  const onEllipses = await picture({ date: '2076-06-09', ...ELLIPSES }, on.png);
+  need(epoch.apart === grouped && epoch.state.rows === grouped, `${epoch.apart} rows are drawn apart, of ${epoch.state.rows} integrated; the file's two groups are ${file.hildas} Hildas and ${file.trojans} Trojans`);
+  need(epochEllipses.apart === 0 && epochEllipses.state.rows === 0, `with ?integrate=0, ${epochEllipses.apart} rows are drawn apart`);
+  for (const [name, seen] of [['integrated', epoch], ['on their ellipses', epochEllipses]] as const) {
+    need(seen.drawn === file.drawn && seen.unbound === file.unbound, `${name}: the page counts ${seen.drawn} rows drawn and ${seen.unbound} not; the elements file has ${file.drawn} and ${file.unbound}`);
+    need(seen.sceneRows === manifest['elements.bin'].rows && seen.points === seen.sceneRows, `${name}: the scene was given ${seen.sceneRows} rows and draws ${seen.points} points`);
+  }
+  const pictures = { epoch: epochEllipses.differs!, on: onEllipses.differs! };
+  need(pictures.epoch.pixels === 0, `on the epoch ${pictures.epoch.pixels} pixels differ between the rows integrated and on their ellipses`);
+  need(pictures.on.pixels > 1000, `the control passes: 50 years on, ${pictures.on.pixels} pixels differ`);
+
+  // Three integrated rows drawn alone, a decade on and at the clock's
+  // first day, against the crate's own place for each: integrated from
+  // the epoch apart, not the scene's rows. A numbered asteroid's row is
+  // its number less one.
+  const ALONE = [
+    { name: '153 Hilda', row: 152 },
+    { name: '617 Patroclus', row: 616 },
+    { name: '624 Hektor', row: 623 },
+  ];
+  const alone = [];
+  // (In 1976 from this camera Hektor is under the title's text, which a
+  // disc's center can't be read through: the camera is turned half round.)
+  for (const [date, roll] of [['2036-06-09', '0'], ['1976-06-09', '180']] as const) {
+    alone.push(
+      ...(await withBelt(url, { ...top, roll, date, only: ALONE.map((body) => body.row).join(',') }, async (page) => {
+        const png = await page.screenshot({ path: join(out, `integrated-alone-${date}.png`) });
+        const { years, camera, places, ellipses, points, apart } = await kirkwood(page, (kirkwood) => {
+          const years = kirkwood.clock().years;
+          const rows = new URLSearchParams(location.search).get('only')!.split(',').map(Number);
+          return { years, camera: kirkwood.scene!.viewProjection(), places: rows.map((row) => kirkwood.placeOf(row, years)), ellipses: rows.map((row) => kirkwood.ellipseOf(row, years)), points: kirkwood.scene!.stats.points, apart: kirkwood.scene!.stats.integrated };
+        });
+        need(points === ALONE.length && apart === ALONE.length, `${points} points drawn, ${apart} of them apart; ${ALONE.length} were asked for alone`);
+        const expected = places.map((place) => project(camera, place));
+        const found = await lit(page, png, expected);
+        return ALONE.map((body, at) => {
+          const [x, y] = expected[at]!;
+          const off = Math.hypot(found[at]!.x - x, found[at]!.y - y);
+          const [ellipseX, ellipseY] = project(camera, ellipses[at]!);
+          const ellipseOff = Math.hypot(found[at]!.x - ellipseX, found[at]!.y - ellipseY);
+          need(found[at]!.pixels > 20, `${body.name} on ${date}: no disc near (${round(x)}, ${round(y)})`);
+          need(off <= 1, `${body.name} on ${date}: drawn ${off.toFixed(2)} px from the crate's integrated place (${round(x)}, ${round(y)})`);
+          need(ellipseOff > 1, `${body.name} on ${date}: the control passes (${ellipseOff.toFixed(2)} px from its ellipse's place)`);
+          return { body: body.name, date, years: fixed(years, 4), integratedPlacePx: [round(x), round(y)], drawnPx: [fixed(found[at]!.x), fixed(found[at]!.y)], offPx: fixed(off), fromItsEllipsePx: round(ellipseOff) };
+        });
+      })),
+    );
+  }
+
+  // The turning frame at the clock's two ends and on the epoch: the
+  // clouds and the triangle, integrated and on the ellipses.
+  for (const date of ['1976-06-09', EPOCH, '2076-06-09']) {
+    for (const [name, params] of [['integrated', {}], ['ellipses', ELLIPSES]] as const) {
+      await withBelt(url, { date, paused: '', ride: '1', ...params }, async (page) => {
+        await page.waitForTimeout(400);
+        await shot(page, `${name}-${date.slice(0, 4)}`);
+      });
+    }
+  }
+
+  // What a jump costs: the clock's whole reach in one go (from the epoch
+  // to an end is half of it), and a frame's places; then as the page
+  // takes it, opened on the first day.
+  const jump = await withBelt(url, { date: EPOCH, paused: '' }, (page) =>
+    kirkwood(page, (kirkwood) => {
+      const { first, last } = kirkwood.clock();
+      const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1]!;
+      const [back, on, across]: [number[], number[], number[]] = [[], [], []];
+      for (let run = 0; run < 5; run++) {
+        // From the epoch to the first day; back to the epoch (no steps:
+        // the rows start over); to the last day; and from there to the
+        // first, by way of the epoch.
+        back.push(kirkwood.integratedJump(first)!.stepsMs);
+        kirkwood.integratedJump(0);
+        on.push(kirkwood.integratedJump(last)!.stepsMs);
+        across.push(kirkwood.integratedJump(first)!.stepsMs);
+        kirkwood.integratedJump(0);
+      }
+      const places = Array.from({ length: 40 }, (_, frame) => kirkwood.integratedJump(frame / 400)!.placesMs);
+      const { step, rows, bytes } = kirkwood.integrated();
+      return { rows, bytes, stepYears: step, steps: Math.ceil(-first / step), toTheFirstDayMs: median(back), toTheLastDayMs: median(on), lastDayToFirstMs: median(across), aFramesPlacesMs: median(places) };
+    }),
+  );
+  const { page, close } = await open(chromium, url, { params: { date: '1976-06-09', paused: '' } });
+  let caughtUp;
+  try {
+    const belt = await waitMark(page, BELT, 0, 120_000);
+    caughtUp = await page.evaluate(
+      (belt) =>
+        new Promise<{ ms: number; frames: number }>((done) => {
+          let frames = 0;
+          const tick = (now: number) => {
+            frames++;
+            if ((globalThis as unknown as Page_).__kirkwood.scene!.stats.catchingUp) return void requestAnimationFrame(tick);
+            done({ ms: now - belt, frames });
+          };
+          requestAnimationFrame(tick);
+        }),
+      belt,
+    );
+  } finally {
+    await close();
+  }
+  return {
+    rows: { hildas: file.hildas, trojans: file.trojans, drawnApart: epoch.apart },
+    picture: { onTheEpochPixelsDiffering: pictures.epoch.pixels, fiftyYearsOnPixelsDiffering: pictures.on.pixels, of: pictures.on.of },
+    alone,
+    jump: { ...jump, stepMs: fixed(jump.toTheFirstDayMs / jump.steps, 3), toTheFirstDayMs: round(jump.toTheFirstDayMs), toTheLastDayMs: round(jump.toTheLastDayMs), lastDayToFirstMs: round(jump.lastDayToFirstMs), aFramesPlacesMs: fixed(jump.aFramesPlacesMs), openedOnTheFirstDay: { caughtUpAfterTheBeltMs: round(caughtUp.ms), frames: caughtUp.frames } },
+    memory: { heldForTheRowsMB: mb(jump.bytes), wasmMB: mb(epoch.wasm), wasmOnEllipsesMB: mb(epochEllipses.wasm) },
+  };
+}
+
 async function seeRide(url: string) {
-  const fixed = (value: number, digits = 2) => Number(value.toFixed(digits));
   /** One reading of the page: what the scene last drew, and the crate's
    *  own numbers for the years it drew at. */
   const read = (page: Page) =>
@@ -1758,6 +1931,7 @@ try {
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
   if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
   if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
+  if (ONLY.has('integrated')) seen.integrated = await seeIntegrated(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);
   if (ONLY.has('cross')) seen.cross = await seeCross(server.url);
