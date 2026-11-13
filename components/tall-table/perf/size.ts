@@ -62,6 +62,8 @@ const FEATURES: Record<string, string | string[]> = {
   density: ['seiza_tall_table7density', 'seiza_tall_table5state7density'],
   // Formatting: the format's own module, beside the automatic format.
   format: 'seiza_tall_table6format6number',
+  // Reordering: the move's rules and the state's `reorder` module.
+  reorder: ['seiza_tall_table7reorder', 'seiza_tall_table5state7reorder'],
 };
 
 /** A feature that turns on another is measured against it too, and the

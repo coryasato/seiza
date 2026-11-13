@@ -276,7 +276,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// Every change but a drag's own: if `selection` is new, a drag
     /// selecting ends (its flags were for the range it started), and the
     /// change is emitted.
-    fn replace_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
+    pub(super) fn replace_selection(
+        &mut self,
+        selection: Option<TallTableSelection>,
+        cx: &mut Context<Self>,
+    ) {
         if self.selection_state.current != selection {
             self.selection_state.selecting = None;
             self.set_selection(selection, cx);
@@ -368,6 +372,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The columns were replaced: the selection goes, a drag with it.
     pub(super) fn clear_selection_for_columns(&mut self, cx: &mut Context<Self>) {
         self.replace_selection(None, cx);
+    }
+
+    /// A new order was set (`reorder`'s `set_order`): a `Columns` or `Cells`
+    /// range goes (its places are other columns now); a `Rows` one stays.
+    #[cfg(feature = "reorder")]
+    pub(super) fn order_selection(&mut self, cx: &mut Context<Self>) {
+        let kept = self
+            .selection_state
+            .current
+            .filter(|selection| selection.kind() == Kind::Rows);
+        self.replace_selection(kept, cx);
     }
 
     /// Whether a drag is selecting: no tooltip meanwhile.

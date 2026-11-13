@@ -104,7 +104,12 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `density`: `__tallTableDensity(row, text)`, the table's `set_density` at
 /// a row height and a text size in px (`false`, and nothing sent, for
 /// anything but two positive numbers). With `follow`: `__tallTableLetGo()`,
-/// the table's `let_go`.
+/// the table's `let_go`. With `reorder`: `__tallTableMove(start, end, to)`,
+/// the table's `move_columns` of the places `start..end` to `to`, and
+/// `__tallTableOrder(order)`, its `set_order` (an array, `order[place]` the
+/// column's index drawn there); each `false`, and nothing sent, for numbers
+/// that aren't whole, a block past the columns or a `to` past what fits, or
+/// an order that isn't one of the columns.
 #[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
 const EXACT_HOOK: &str = "__tallTableExact";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
@@ -125,6 +130,10 @@ const PIN_HOOK: &str = "__tallTablePin";
 const DENSITY_HOOK: &str = "__tallTableDensity";
 #[cfg(all(feature = "follow", target_family = "wasm"))]
 const LET_GO_HOOK: &str = "__tallTableLetGo";
+#[cfg(all(feature = "reorder", target_family = "wasm"))]
+const MOVE_HOOK: &str = "__tallTableMove";
+#[cfg(all(feature = "reorder", target_family = "wasm"))]
+const ORDER_HOOK: &str = "__tallTableOrder";
 
 // gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
 // `assets`), for `?sort-icons`: bundled whichever the page draws, so the
@@ -353,7 +362,8 @@ impl Host {
                 feature = "sort",
                 feature = "pin",
                 feature = "density",
-                feature = "follow"
+                feature = "follow",
+                feature = "reorder"
             ),
             target_family = "wasm"
         ))]
@@ -365,7 +375,7 @@ impl Host {
                 exact: Box::new(rows.exact()),
                 #[cfg(feature = "sort")]
                 source_row: Box::new(rows.source_row()),
-                #[cfg(feature = "sort")]
+                #[cfg(any(feature = "sort", feature = "reorder"))]
                 columns: table.read(cx).columns().len(),
                 #[cfg(feature = "sort")]
                 drained: Box::new(rows.drained_reads()),
@@ -405,6 +415,16 @@ impl Host {
             #[cfg(not(target_family = "wasm"))]
             let pinned = shape.pinned();
             table.update(cx, |table, cx| table.set_pinned(pinned, cx));
+        }
+        // The columns reversed before the first frame (`reorder`,
+        // `?order=reverse`); `?order=` alone or absent, the list's own (the
+        // control).
+        #[cfg(all(feature = "reorder", target_family = "wasm"))]
+        if seiza::url::param("order").as_deref() == Some("reverse") {
+            table.update(cx, |table, cx| {
+                let order = (0..table.columns().len()).rev().collect();
+                table.set_order(order, cx);
+            });
         }
         // Following from the start, before the first frame (a log view).
         #[cfg(feature = "follow")]
@@ -591,7 +611,8 @@ impl Density {
         feature = "sort",
         feature = "pin",
         feature = "density",
-        feature = "follow"
+        feature = "follow",
+        feature = "reorder"
     ),
     target_family = "wasm"
 ))]
@@ -600,8 +621,8 @@ struct Source {
     exact: Box<dyn Fn(u64, usize) -> Option<String>>,
     #[cfg(feature = "sort")]
     source_row: Box<dyn Fn(u64) -> u64>,
-    /// The table's columns, every one sortable (`sort`).
-    #[cfg(feature = "sort")]
+    /// The table's columns (`sort`: every one sortable; `reorder`).
+    #[cfg(any(feature = "sort", feature = "reorder"))]
     columns: usize,
     #[cfg(feature = "sort")]
     drained: Box<dyn Fn() -> u64>,
@@ -621,7 +642,8 @@ struct Source {
         feature = "sort",
         feature = "pin",
         feature = "density",
-        feature = "follow"
+        feature = "follow",
+        feature = "reorder"
     ),
     target_family = "wasm"
 ))]
@@ -634,7 +656,7 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
         exact,
         #[cfg(feature = "sort")]
         source_row,
-        #[cfg(feature = "sort")]
+        #[cfg(any(feature = "sort", feature = "reorder"))]
         columns,
         #[cfg(feature = "sort")]
         drained,
@@ -753,6 +775,53 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                 on_let_go(Box::new(|host, _, cx| {
                     host.table.update(cx, |table, cx| table.let_go(cx));
                 }));
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "reorder")]
+    {
+        let on_move = enter.clone();
+        set(
+            MOVE_HOOK,
+            Closure::<dyn Fn(f64, f64, f64) -> bool>::new(move |start: f64, end: f64, to: f64| {
+                let whole =
+                    |value: f64| value.fract() == 0.0 && (0.0..=columns as f64).contains(&value);
+                if !(whole(start) && whole(end) && whole(to)) {
+                    return false;
+                }
+                let (start, end, to) = (start as usize, end as usize, to as usize);
+                if start >= end || to > columns - (end - start) {
+                    return false;
+                }
+                on_move(Box::new(move |host, _, cx| {
+                    host.table
+                        .update(cx, |table, cx| table.move_columns(start..end, to, cx));
+                }));
+                true
+            })
+            .into_js_value(),
+        );
+        let on_order = enter.clone();
+        set(
+            ORDER_HOOK,
+            Closure::<dyn Fn(Vec<f64>) -> bool>::new(move |order: Vec<f64>| {
+                let mut seen = vec![false; columns];
+                let whole = order.len() == columns
+                    && order.iter().all(|&index| {
+                        index.fract() == 0.0
+                            && (0.0..columns as f64).contains(&index)
+                            && !std::mem::replace(&mut seen[index as usize], true)
+                    });
+                if !whole {
+                    return false;
+                }
+                let order: Vec<usize> = order.into_iter().map(|index| index as usize).collect();
+                on_order(Box::new(move |host, _, cx| {
+                    host.table
+                        .update(cx, |table, cx| table.set_order(order, cx));
+                }));
+                true
             })
             .into_js_value(),
         );

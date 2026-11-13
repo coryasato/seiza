@@ -127,7 +127,12 @@ fn row_count(rows: &RangeInclusive<u64>) -> u64 {
 pub(super) struct Running<P, R> {
     id: CopyId,
     pub(super) rows: RangeInclusive<u64>,
+    #[cfg(not(feature = "reorder"))]
     columns: RangeInclusive<usize>,
+    /// The indices drawn at them then (`reorder`): a move since doesn't
+    /// change what it copies, or in what order.
+    #[cfg(feature = "reorder")]
+    indices: Vec<usize>,
     /// The next row to format.
     next_row: u64,
     /// Its reads in flight: the page and the request.
@@ -223,11 +228,23 @@ impl<D: TallTableDelegate> TallTableState<D> {
             columns: columns.clone(),
         }));
         let options = self.copy_state.options;
+        // The columns drawn at its places now, by index (`reorder`).
+        #[cfg(feature = "reorder")]
+        let indices = self.order[columns.clone()].to_vec();
+        #[cfg(not(feature = "reorder"))]
         let header = options.headers.then(|| {
             text::header_line(
                 self.column_info[columns.clone()]
                     .iter()
                     .map(|column| column.name().as_ref()),
+            )
+        });
+        #[cfg(feature = "reorder")]
+        let header = options.headers.then(|| {
+            text::header_line(
+                indices
+                    .iter()
+                    .map(|&index| self.column_info[index].name().as_ref()),
             )
         });
         // Any value may be NULL: past the cap with every one empty, it's
@@ -251,7 +268,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             id,
             next_row: *rows.start(),
             rows,
+            #[cfg(not(feature = "reorder"))]
             columns,
+            #[cfg(feature = "reorder")]
+            indices,
             reads: Vec::new(),
             landed: Vec::new(),
             bytes: 0,
@@ -500,7 +520,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
         };
         running.turn_pending = false;
         let max_bytes = running.max_bytes;
+        #[cfg(not(feature = "reorder"))]
         let columns = running.columns.clone();
+        // The indices it started with, in that order (`reorder`): copied
+        // once a turn, so each row's pass clones a slice's iterator, not
+        // the list.
+        #[cfg(feature = "reorder")]
+        let indices = running.indices.clone();
+        #[cfg(feature = "reorder")]
+        let columns = indices.iter().copied();
         let mut budget = (TURN_CELLS / columns.clone().count() as u64).max(1);
         let mut piece = running.header.take().unwrap_or_default();
         running.header_bytes += writer.bytes(&piece);

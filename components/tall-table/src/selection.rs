@@ -4,12 +4,15 @@
 
 use std::ops::RangeInclusive;
 
-/// A cell: a row and a column (an index into `columns()`).
+/// A cell: a row and a column's place, where it's drawn (0 at the left;
+/// without `reorder`, its index in `columns()`; with it, `order()` names
+/// the index drawn there).
 pub type Cell = (u64, usize);
 
 /// What's selected: one range from `anchor` (the active cell, where a
 /// plain arrow moves from) to `head` (where Shift moves), either way round.
-/// The kind says how far it spans; the cells are where the reader is.
+/// The kind says how far it spans; the cells are where the reader is, a
+/// column by its place ([`Cell`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TallTableSelection {

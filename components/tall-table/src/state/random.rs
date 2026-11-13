@@ -56,7 +56,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "copy",
     feature = "sort",
     feature = "pin",
-    feature = "density"
+    feature = "density",
+    feature = "reorder"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -92,7 +93,7 @@ fn cell_text(row: u64, column: usize, stamp: Stamp) -> String {
 }
 
 /// [`cell_text`] read back.
-#[cfg(feature = "copy")]
+#[cfg(any(feature = "copy", feature = "reorder"))]
 fn parse_cell(text: &str) -> Option<(u64, usize, Stamp)> {
     let text = text.strip_prefix('r')?;
     let (row, text) = text.split_once('c')?;
@@ -380,6 +381,13 @@ enum Step {
     /// `set_density`: one of [`DENSITIES`] (`k % DENSITIES.len()`).
     #[cfg(feature = "density")]
     Density(u8),
+    /// `move_columns`, or with `pin` `move_columns_pinned` to either side:
+    /// a block, a `to`, and a side, from the number ([`expand_move`]).
+    #[cfg(feature = "reorder")]
+    MoveColumns(u64),
+    /// `set_order`: the columns shuffled, seeded by the number.
+    #[cfg(feature = "reorder")]
+    SetOrder(u64),
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
     /// failed as broken (`how`); a cancelled one with its page or
@@ -655,7 +663,8 @@ const INVARIANTS: [&str; 8] = [
 struct Copying {
     id: CopyId,
     rows: RangeInclusive<u64>,
-    columns: RangeInclusive<usize>,
+    /// The indices drawn at its places when it started, in that order.
+    columns: Vec<usize>,
     text: String,
 }
 
@@ -665,6 +674,8 @@ enum Control {
     #[cfg(feature = "copy")]
     Copy(super::copy::Control),
     Cache(crate::pages::Control),
+    #[cfg(feature = "reorder")]
+    Reorder(crate::reorder::Control),
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -780,6 +791,8 @@ impl Run {
                 #[cfg(feature = "copy")]
                 Some(Control::Copy(control)) => table.copy_state.control = control,
                 Some(Control::Cache(control)) => table.cache.control = control,
+                #[cfg(feature = "reorder")]
+                Some(Control::Reorder(control)) => table.reorder_control = control,
                 None => {}
             }
             #[cfg(feature = "copy")]
@@ -1065,6 +1078,20 @@ impl Run {
                 };
                 self.update(|table, cx| table.set_density(density, cx));
             }
+            #[cfg(feature = "reorder")]
+            Step::MoveColumns(pick) => {
+                let (places, to, side) = expand_move(pick, self.columns);
+                self.update(|table, cx| match side {
+                    #[cfg(feature = "pin")]
+                    Some(pinned) => table.move_columns_pinned(places, to, pinned, cx),
+                    _ => table.move_columns(places, to, cx),
+                });
+            }
+            #[cfg(feature = "reorder")]
+            Step::SetOrder(pick) => {
+                let order = shuffled(pick, self.columns);
+                self.update(|table, cx| table.set_order(order, cx));
+            }
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -1274,6 +1301,23 @@ impl Run {
                     ));
                 }
             }
+            // 5: each cell the last frame drew holds its own row's and its
+            // column's text, its column read by its index wherever it's
+            // drawn (`reorder`; a cut text can't be read back).
+            #[cfg(feature = "reorder")]
+            for cell in table.drawn_text.borrow().iter() {
+                if let Some((row, column, _)) = parse_cell(&cell.text)
+                    && (row, column) != (cell.row, cell.column)
+                {
+                    return Err(Violation::new(
+                        5,
+                        format!(
+                            "row {}, column {} drawn as {:?}",
+                            cell.row, cell.column, cell.text
+                        ),
+                    ));
+                }
+            }
             // 5: every visible row drawn as loaded is of its current era
             // (and without `live`, its current version).
             for row in visible {
@@ -1356,6 +1400,9 @@ impl Run {
                             format!("{id:?} started while {:?} runs", copying.id),
                         ));
                     }
+                    // Its columns as drawn now, the step that started it
+                    // having moved none since (`reorder`).
+                    let columns = self.read(|table| order_of(table)[columns].to_vec());
                     self.copying = Some(Copying {
                         id,
                         rows,
@@ -1398,7 +1445,7 @@ impl Run {
         }
         let mut lines = text.split('\n');
         if self.copy_options.headers {
-            let header: Vec<String> = copying.columns.clone().map(|c| format!("c{c}")).collect();
+            let header: Vec<String> = copying.columns.iter().map(|c| format!("c{c}")).collect();
             if lines.next() != Some(header.join("\t").as_str()) {
                 return wrong("no header line".into());
             }
@@ -1409,11 +1456,11 @@ impl Run {
                 return wrong(format!("row {row} missing"));
             };
             let cells: Vec<&str> = line.split('\t').collect();
-            if cells.len() != copying.columns.clone().count() {
+            if cells.len() != copying.columns.len() {
                 return wrong(format!("row {row} has {} cells", cells.len()));
             }
             let mut stamp = None;
-            for (column, cell) in copying.columns.clone().zip(cells) {
+            for (&column, cell) in copying.columns.iter().zip(cells) {
                 match parse_cell(cell) {
                     Some((r, c, s)) if r == row && c == column && stamp.is_none_or(|t| t == s) => {
                         stamp = Some(s);
@@ -1461,6 +1508,16 @@ fn loaded_reads(table: &TallTableState<Source>) -> Vec<usize> {
         .loaded_slots()
         .map(|(_, page, _)| page.request)
         .collect()
+}
+
+/// The order drawn: `order[place]` the index there (the identity without
+/// `reorder`).
+#[cfg(feature = "copy")]
+fn order_of(table: &TallTableState<Source>) -> Vec<usize> {
+    #[cfg(feature = "reorder")]
+    return table.order().to_vec();
+    #[cfg(not(feature = "reorder"))]
+    (0..table.columns().len()).collect()
 }
 
 fn following(table: &TallTableState<Source>) -> bool {
@@ -1533,13 +1590,18 @@ fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), Stri
 /// prints the case with them, which recurs as a scenario.
 #[cfg(feature = "pin")]
 fn with_pins(seed: u64, steps: &mut Vec<Step>) {
-    place_steps(seed, steps, Step::Pin);
+    place_steps(seed, steps, |pick| Step::Pin(pick as u8));
 }
 
 /// Up to eight of `step`'s, each from a number at a place among `steps`,
 /// both from `seed`: never drawn ([`with_pins`]).
-#[cfg(any(feature = "pin", feature = "density", feature = "follow"))]
-fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u8) -> Step) {
+#[cfg(any(
+    feature = "pin",
+    feature = "density",
+    feature = "follow",
+    feature = "reorder"
+))]
+fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u64) -> Step) {
     // SplitMix64.
     let mut state = seed;
     let mut next = move || {
@@ -1551,7 +1613,7 @@ fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u8) -> Step) {
     };
     for _ in 0..next() % 9 {
         let (at, pick) = (next(), next());
-        steps.insert(at as usize % (steps.len() + 1), step(pick as u8));
+        steps.insert(at as usize % (steps.len() + 1), step(pick));
     }
 }
 
@@ -1571,7 +1633,9 @@ const DENSITIES: [(f32, gpui_kit::AbsoluteLength); 5] = [
 /// stay what they were.
 #[cfg(feature = "density")]
 fn with_densities(seed: u64, steps: &mut Vec<Step>) {
-    place_steps(seed ^ 0xd1b5_4a32_d192_ed03, steps, Step::Density);
+    place_steps(seed ^ 0xd1b5_4a32_d192_ed03, steps, |pick| {
+        Step::Density(pick as u8)
+    });
 }
 
 /// `follow`'s `let_go` steps, up to eight, placed as `pin`'s are
@@ -1582,6 +1646,55 @@ fn with_densities(seed: u64, steps: &mut Vec<Step>) {
 #[cfg(feature = "follow")]
 fn with_let_gos(seed: u64, steps: &mut Vec<Step>) {
     place_steps(seed ^ 0x2545_f491_4f6c_dd1d, steps, |_| Step::LetGo);
+}
+
+/// `reorder`'s steps, up to eight, placed as `pin`'s are ([`with_pins`]),
+/// from the scheduler seed by a stream of their own, so `pin`'s,
+/// `density`'s, and `let_go`'s places stay what they were: one in four a
+/// `set_order`, the rest a move.
+#[cfg(feature = "reorder")]
+fn with_moves(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0xbb67_ae85_84ca_a73b, steps, |pick| {
+        if pick % 4 == 0 {
+            Step::SetOrder(pick >> 2)
+        } else {
+            Step::MoveColumns(pick >> 2)
+        }
+    });
+}
+
+/// A move among `columns` columns from `pick`: a block of one to three, a
+/// `to` (each within what fits), and with `pin` a side one time in three
+/// each (`None`: `move_columns`).
+#[cfg(feature = "reorder")]
+fn expand_move(pick: u64, columns: usize) -> (Range<usize>, usize, Option<bool>) {
+    let length = 1 + (pick % 3) as usize % columns;
+    let room = (columns - length + 1) as u64;
+    let start = ((pick >> 8) % room) as usize;
+    let to = ((pick >> 24) % room) as usize;
+    let side = match (pick >> 40) % 3 {
+        0 => None,
+        side => Some(side == 1),
+    };
+    (start..start + length, to, side)
+}
+
+/// `0..columns` shuffled by a SplitMix64 stream from `pick`.
+#[cfg(feature = "reorder")]
+fn shuffled(pick: u64, columns: usize) -> Vec<usize> {
+    let mut state = pick;
+    let mut next = move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    };
+    let mut order: Vec<usize> = (0..columns).collect();
+    for at in (1..columns).rev() {
+        order.swap(at, (next() % (at as u64 + 1)) as usize);
+    }
+    order
 }
 
 /// How many cases: `PROPTEST_CASES`, else 48 in the all-on run, 16 in the
@@ -1610,7 +1723,12 @@ fn run(control: Option<Control>) -> Result<(), String> {
             // A failure names its step in the case as run, `pin`'s,
             // `density`'s, and `let_go`'s steps among them, so it's printed
             // with them.
-            #[cfg(any(feature = "pin", feature = "density", feature = "follow"))]
+            #[cfg(any(
+                feature = "pin",
+                feature = "density",
+                feature = "follow",
+                feature = "reorder"
+            ))]
             let case = {
                 let mut case = case;
                 #[cfg(feature = "pin")]
@@ -1619,10 +1737,17 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_densities(seed, &mut case.steps);
                 #[cfg(feature = "follow")]
                 with_let_gos(seed, &mut case.steps);
+                #[cfg(feature = "reorder")]
+                with_moves(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
-                #[cfg(any(feature = "pin", feature = "density", feature = "follow"))]
+                #[cfg(any(
+                    feature = "pin",
+                    feature = "density",
+                    feature = "follow",
+                    feature = "reorder"
+                ))]
                 let failure = format!("{failure}\nthe case as run, with the placed steps:\n{case}");
                 TestCaseError::fail(failure)
             })
@@ -1934,5 +2059,13 @@ mod controls {
         // Their old rows drawn, or (`live`) a page a shrink to its start
         // kept never read again.
         fails(Control::Cache(Cache::KeepPastShrink), &[5, 8]);
+    }
+
+    #[cfg(feature = "reorder")]
+    #[test]
+    fn a_cell_read_by_its_place() {
+        // A moved column's cells drawn with the values of the column at its
+        // place in the host's list.
+        fails(Control::Reorder(crate::reorder::Control::ReadByPlace), &[5]);
     }
 }

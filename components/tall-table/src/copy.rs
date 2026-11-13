@@ -79,7 +79,10 @@ pub enum TallTableCopy {
     /// (the confirming click is a gesture of its own).
     Declined { rows: u64, columns: usize },
     /// In the task that asked for it (the key, or `copy`): a host writing
-    /// to the web's clipboard opens its write here.
+    /// to the web's clipboard opens its write here. `columns` are places,
+    /// where they're drawn (with `reorder`, the text holds the columns
+    /// `order()` drew there when it started, in that order, whatever moves
+    /// after).
     Started {
         id: CopyId,
         rows: RangeInclusive<u64>,

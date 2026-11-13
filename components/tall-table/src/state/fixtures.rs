@@ -68,6 +68,11 @@ mod density;
 #[cfg(feature = "format")]
 mod format;
 
+/// `reorder`: `fixtures/reorder.json` and its controls, and the order drawn
+/// and driven in a window.
+#[cfg(feature = "reorder")]
+mod reorder;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 
@@ -746,6 +751,8 @@ fn cell_mismatches(skew: isize, exact: fn(f64) -> String, text: fn(&str) -> Stri
                 budget,
                 #[cfg(feature = "format")]
                 format: None,
+                #[cfg(feature = "reorder")]
+                index: 0,
             };
             let (value, exact_text) = match (kind, cell["value"].as_str()) {
                 (_, None) => (CellValue::Null, CellValue::Null.to_string()),

@@ -31,6 +31,7 @@ pub(crate) struct CellText {
     pub whole: bool,
     #[cfg(test)]
     pub row: u64,
+    /// Its column's index (with `reorder`, not its place).
     #[cfg(test)]
     pub column: usize,
 }
@@ -41,6 +42,7 @@ pub(crate) struct CellText {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DrawnText {
     pub row: u64,
+    /// Its column's index (with `reorder`, not its place).
     pub column: usize,
     pub text: String,
     pub x: f32,

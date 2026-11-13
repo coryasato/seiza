@@ -55,7 +55,8 @@ pub(crate) struct SortState {
     pub(super) current: Option<Sort>,
     /// The host's icons, all three loaded; `None`: the glyphs.
     icons: Option<SortIcons>,
-    /// The arrow a left press went down on: its release there sorts.
+    /// The arrow a left press went down on: its release there sorts. By
+    /// its column's index, as the sort is (with `reorder`, not its place).
     pressed: Option<usize>,
     hovered: Option<usize>,
     /// A sort's reads are waiting for the end of the update that made it.
@@ -90,6 +91,7 @@ pub(crate) enum Control {
 #[cfg(test)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DrawnArrow {
+    /// Its column's index (with `reorder`, not its place).
     pub(crate) column: usize,
     pub(crate) arrow: Arrow,
     pub(crate) color: Hsla,
@@ -279,19 +281,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.apply_sort(None, cx);
     }
 
-    /// The room column `index` (laid out as `column`) leaves its arrow, if
-    /// it draws one: sortable, and wide enough for its padding, the gap,
-    /// and the box.
-    pub(super) fn arrow_room(&self, index: usize, column: &LaidOutColumn) -> Option<f32> {
+    /// The room the column at place `at` (laid out as `column`) leaves its
+    /// arrow, if it draws one: sortable, and wide enough for its padding,
+    /// the gap, and the box.
+    pub(super) fn arrow_room(&self, at: usize, column: &LaidOutColumn) -> Option<f32> {
         let sizes = self.sizes();
         let room = room(self.glyphs.arrow_px, sizes);
-        (self.column_info[index].sortable && column.width >= sizes.padding() + room).then_some(room)
+        (self.column_info[column.index(at)].sortable && column.width >= sizes.padding() + room)
+            .then_some(room)
     }
 
-    /// Column `index`'s arrow box (laid out as `column`), if it draws one:
-    /// its left from the column's left edge, and its width.
-    pub(super) fn arrow_box(&self, index: usize, column: &LaidOutColumn) -> Option<(f32, f32)> {
-        self.arrow_room(index, column)?;
+    /// The arrow box of the column at place `at` (laid out as `column`), if
+    /// it draws one: its left from the column's left edge, and its width.
+    pub(super) fn arrow_box(&self, at: usize, column: &LaidOutColumn) -> Option<(f32, f32)> {
+        self.arrow_room(at, column)?;
         let sizes = self.sizes();
         let box_px = box_width(self.glyphs.arrow_px, sizes);
         Some((column.width - sizes.padding() / 2.0 - box_px, box_px))
@@ -300,22 +303,23 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The arrows over the header's cells, each a target of its own: under
     /// `resize`'s bands, beside `select`'s header press.
     pub(super) fn render_arrows(&mut self, cx: &mut Context<Self>) -> Option<Div> {
-        // Each drawn arrow's right edge and box left in its column's region
-        // (with `pin`, the pinned columns' or the scrolled ones'), the box as
-        // the layout probe reports it (`arrow_box`).
+        // Each drawn arrow's column's index, its place, and its right edge
+        // and box left in its column's region (with `pin`, the pinned
+        // columns' or the scrolled ones'), the box as the layout probe
+        // reports it (`arrow_box`).
         let place = self.place();
-        let visible: Vec<(usize, f32, f32)> = self
+        let visible: Vec<(usize, usize, f32, f32)> = self
             .visible_columns()
-            .filter_map(|(index, column)| {
-                let (box_x, _) = self.arrow_box(index, column)?;
-                let left = place.layer_left(index, column.x, self.scroll_x);
+            .filter_map(|(at, column)| {
+                let (box_x, _) = self.arrow_box(at, column)?;
+                let left = place.layer_left(at, column.x, self.scroll_x);
                 // A scrolled column's arrow partly under the run (`pin`)
                 // isn't drawn: it couldn't be pressed there.
                 #[cfg(feature = "pin")]
-                if !place.holds(index) && left + box_x - TARGET_PAD < 0.0 {
+                if !place.holds(at) && left + box_x - TARGET_PAD < 0.0 {
                     return None;
                 }
-                Some((index, left + column.width, left + box_x))
+                Some((column.index(at), at, left + column.width, left + box_x))
             })
             .collect();
         #[cfg(test)]
@@ -337,7 +341,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(any(test, not(feature = "pin")))]
         let gutter = self.gutter_width();
         let mut arrows = Vec::with_capacity(visible.len());
-        for (index, edge, box_left) in visible {
+        for (index, at, edge, box_left) in visible {
             let direction = self
                 .sort_state
                 .current
@@ -368,13 +372,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 target: Bounds::new(
                     point(
                         self.body.origin.x
-                            + px(gutter
-                                + left
-                                + if place.holds(index) {
-                                    0.0
-                                } else {
-                                    place.edge()
-                                }),
+                            + px(gutter + left + if place.holds(at) { 0.0 } else { place.edge() }),
                         self.body.origin.y - sizes.row(),
                     ),
                     size(px(width), sizes.row()),
@@ -401,7 +399,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 (None, None) => mark,
             };
             arrows.push((
-                place.holds(index),
+                place.holds(at),
                 div()
                     .id(("tall-table-sort", index))
                     .absolute()

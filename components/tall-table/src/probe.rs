@@ -40,8 +40,8 @@ pub struct TallTableLayout {
     /// The cells area's left edge (right of the row numbers) and top edge.
     pub left: f32,
     pub top: f32,
-    /// Row `r`'s top is `top + (r - probe.top) * row_height`, and column
-    /// `c`'s left edge is `left + columns[c].x - probe.scroll_x` (with
+    /// Row `r`'s top is `top + (r - probe.top) * row_height`, and the
+    /// column at place `c`'s left edge is `left + columns[c].x - probe.scroll_x` (with
     /// `pin`, less `probe.scroll_x` only when `c >= pinned`).
     pub row_height: f32,
     pub cells_width: f32,
@@ -70,6 +70,11 @@ pub struct ColumnProbe {
     /// its width; `None` for a column that draws none.
     #[cfg(feature = "sort")]
     pub arrow: Option<(f32, f32)>,
+    /// Its index in [`TallTableState::columns`](crate::TallTableState::columns)
+    /// (`reorder`): the layout's columns are in drawn order, each at its
+    /// place.
+    #[cfg(feature = "reorder")]
+    pub index: usize,
 }
 
 /// A drawn cell's value and the text handed to GPUI for it (which GPUI may
@@ -78,6 +83,8 @@ pub struct ColumnProbe {
 #[non_exhaustive]
 pub struct CellProbe {
     pub row: u64,
+    /// Its column's place, where it's drawn (with `reorder`, the layout's
+    /// [`ColumnProbe::index`] at that place names the column).
     pub column: usize,
     /// The value's exact text (a float's shortest round-trip text).
     pub exact: String,

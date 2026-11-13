@@ -40,6 +40,8 @@ fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
                 budget: 1,
                 #[cfg(feature = "format")]
                 format: None,
+                #[cfg(feature = "reorder")]
+                index,
             };
             x += width;
             column

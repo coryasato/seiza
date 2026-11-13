@@ -727,6 +727,13 @@ describe('copy.json', () => {
 // when both sides build sorting.
 test('sort.json', { skip: 'the contender has no sort' }, () => {});
 
+// --- reorder ---
+
+// `reorder.json` pins a column move's order, pin count, and selection
+// after it: the level is added only when a scenario asks for column moves
+// and both sides build them.
+test('reorder.json', { skip: 'the contender has no column moves' }, () => {});
+
 // --- selection.json's table ---
 
 /** The fixture's row height and gutter: any will do (its targets are rows

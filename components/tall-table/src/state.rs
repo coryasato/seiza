@@ -240,9 +240,14 @@ impl Glyphs {
     }
 
     /// `columns` laid out by these glyphs at `sizes` (with `sort`, a
-    /// sortable header's arrow counted).
+    /// sortable header's arrow counted); with `reorder`, in `order`.
     #[inline(always)]
-    fn lay_out(&self, columns: &[TallTableColumn], sizes: Sizes) -> (Vec<LaidOutColumn>, f32) {
+    fn lay_out(
+        &self,
+        columns: &[TallTableColumn],
+        #[cfg(feature = "reorder")] order: &[usize],
+        sizes: Sizes,
+    ) -> (Vec<LaidOutColumn>, f32) {
         #[cfg_attr(not(feature = "format"), expect(unused_mut))]
         let mut laid_out = layout_columns(
             columns,
@@ -266,6 +271,9 @@ impl Glyphs {
                     control: format::Control::None,
                 });
         }
+        // Each column put at its place (`reorder`).
+        #[cfg(feature = "reorder")]
+        let laid_out = crate::column::in_order(laid_out.0, order);
         laid_out
     }
 
@@ -543,13 +551,15 @@ pub enum TallTableEvent {
     /// A drag released or a fit changed a width (`resize`): each column's
     /// set width (by the host's [`TallTableColumn::width`], a drag, or a
     /// fit), `None` where it's still its kind's, in the order of
-    /// [`TallTableState::columns`], for a host to keep (by column name, if
-    /// its columns change) and give back through `width`. Not emitted while
-    /// a drag moves, or when nothing changed.
+    /// [`TallTableState::columns`] (by index: with `reorder`, not the order
+    /// drawn), for a host to keep (by column name, if its columns change)
+    /// and give back through `width`. Not emitted while a drag moves, or
+    /// when nothing changed.
     #[cfg(feature = "resize")]
     ColumnWidthsChanged(Vec<Option<Pixels>>),
     /// The selection changed (`select`): a press, a drag, a key, `select`,
-    /// `jump_to`, `set_rows` cutting it, `set_columns` clearing it. Not
+    /// `jump_to`, `set_rows` cutting it, `set_columns` clearing it, and with
+    /// `reorder` a move changing its places or `set_order` clearing it. Not
     /// emitted when an input leaves it as it was.
     #[cfg(feature = "select")]
     Selected(Option<crate::selection::TallTableSelection>),
@@ -569,6 +579,18 @@ pub enum TallTableEvent {
     /// than half the cells' width.
     #[cfg(feature = "pin")]
     Pinned(usize),
+    /// The order changed (`reorder`): a drag's release,
+    /// [`TallTableState::move_columns`], or
+    /// [`TallTableState::set_order`]. `order[place]` is the index drawn
+    /// there after; with `pin`, `pinned` is the host's count after
+    /// ([`TallTableState::pinned`]), which a move across the run's edge
+    /// changes.
+    #[cfg(feature = "reorder")]
+    ColumnsMoved {
+        order: Vec<usize>,
+        #[cfg(feature = "pin")]
+        pinned: usize,
+    },
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -588,8 +610,14 @@ pub struct TallTableStats {
 pub struct TallTableState<D: TallTableDelegate> {
     delegate: D,
     /// As the host gave them; [`TallTableState::set_columns`] replaces them.
+    /// In index order: what a column's index names.
     column_info: Vec<TallTableColumn>,
+    /// Laid out, in drawn order: what a place names.
     columns: Vec<LaidOutColumn>,
+    /// The order the columns are drawn in: `order[place]` is the index
+    /// drawn there (`reorder`).
+    #[cfg(feature = "reorder")]
+    order: Vec<usize>,
     content_width: f32,
     /// Read from the window's font at render; columns are laid out by it.
     glyphs: Glyphs,
@@ -679,6 +707,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The paging fixture's `follow` negative controls.
     #[cfg(all(test, feature = "follow"))]
     pub(crate) follow_control: follow::Control,
+    /// `reorder.json`'s negative controls, and the random test's.
+    #[cfg(all(test, feature = "reorder"))]
+    pub(crate) reorder_control: crate::reorder::Control,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -693,12 +724,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx: &mut Context<Self>,
     ) -> Self {
         let glyphs = Glyphs::estimate();
+        #[cfg(feature = "reorder")]
+        let order: Vec<usize> = (0..columns.len()).collect();
         // The default's (`density`), set before the first frame.
-        let (laid_out, content_width) = glyphs.lay_out(&columns, Sizes::base());
+        let (laid_out, content_width) = glyphs.lay_out(
+            &columns,
+            #[cfg(feature = "reorder")]
+            &order,
+            Sizes::base(),
+        );
         let mut table = Self {
             delegate,
             column_info: columns,
             columns: laid_out,
+            #[cfg(feature = "reorder")]
+            order,
             content_width,
             glyphs,
             hover: None,
@@ -758,6 +798,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
             follow_control: follow::Control::None,
+            #[cfg(all(test, feature = "reorder"))]
+            reorder_control: crate::reorder::Control::None,
         };
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         table.track_flashes();
@@ -802,6 +844,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.scroll.rows()
     }
 
+    /// As the host gave them: a column's index is its place here (with
+    /// `reorder`, [`TallTableState::order`] says where each is drawn).
     pub fn columns(&self) -> &[TallTableColumn] {
         &self.column_info
     }
@@ -928,15 +972,22 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// With `select`, the selection is cleared (a host keeping it calls
     /// `select` after). With `copy`, a copy running is cancelled.
     ///
-    /// With `sort`, the sort stays if the column at its index has the name
-    /// it had and is sortable; otherwise it's cleared as `set_sort(None)`
-    /// would (a host that moved the sorted column calls `set_sort` with its
-    /// new index).
+    /// With `sort`, the sort stays if the column at its index (in
+    /// `columns`) has the name it had and is sortable; otherwise it's
+    /// cleared as `set_sort(None)` would (a host that moved the sorted
+    /// column in its list calls `set_sort` with its new index).
+    ///
+    /// With `reorder`, the order is the list's own (each place its index):
+    /// a host keeping an order calls `set_order` after.
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         #[cfg(feature = "copy")]
         self.cancel_copy(cx);
         #[cfg(feature = "sort")]
         let sorted = self.sorted_name();
+        #[cfg(feature = "reorder")]
+        {
+            self.order = (0..columns.len()).collect();
+        }
         self.column_info = columns;
         // A suffix the glyphs didn't shape: read them again at the next
         // render, which lays the columns out by it (`format`).
@@ -998,7 +1049,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// them, so no layout leaves a stale run.
     #[cfg_attr(not(feature = "pin"), expect(unused_variables))]
     fn lay_out(&mut self, cx: &mut Context<Self>) {
-        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info, self.sizes());
+        (self.columns, self.content_width) = self.glyphs.lay_out(
+            &self.column_info,
+            #[cfg(feature = "reorder")]
+            &self.order,
+            self.sizes(),
+        );
         self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
         self.hover = None;
         self.layout_generation += 1;
@@ -1711,6 +1767,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return None;
         };
         let laid_out = self.columns.get(column)?;
+        // A page reads a column by its index (`reorder`).
+        let column = laid_out.index(column);
         let value = page.value(index, column)?;
         if value == CellValue::Null {
             return None;
@@ -2023,7 +2081,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             #[cfg(feature = "custom-cells")]
             let paints: Vec<paint::ColumnPaint> = columns
                 .iter()
-                .map(|(index, _)| paint::ColumnPaint::resolve(&self.column_info[*index], theme))
+                .map(|(place, column)| {
+                    paint::ColumnPaint::resolve(&self.column_info[column.index(*place)], theme)
+                })
                 .collect();
             #[cfg(feature = "custom-cells")]
             let frame_paint = {
@@ -2103,7 +2163,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             } else {
                                 &mut quads
                             };
-                            let value = page.value(index, *column_index).unwrap_or(CellValue::Null);
+                            // A page reads a column by its index (`reorder`).
+                            let source = column.index(*column_index);
+                            // The random test's control reads the value by
+                            // its place.
+                            #[cfg(all(test, feature = "reorder"))]
+                            let read =
+                                if self.reorder_control == crate::reorder::Control::ReadByPlace {
+                                    *column_index
+                                } else {
+                                    source
+                                };
+                            #[cfg(not(all(test, feature = "reorder")))]
+                            let read = source;
+                            let value = page.value(index, read).unwrap_or(CellValue::Null);
                             let exact = cell_probes.is_some().then(|| value.to_string());
                             #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
                             let mut color = if matches!(value, CellValue::Null) {
@@ -2121,7 +2194,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                         paint::DrawnPaint::default()
                                     } else {
                                         paint::draw(
-                                            page.paint(index, *column_index),
+                                            page.paint(index, source),
                                             &paints[position],
                                             &frame_paint,
                                             row_paint,
@@ -2140,7 +2213,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 if let (Some(now), Some(ramp)) =
                                     (flash_now, paints[position].flash.as_ref())
                                     && let Some((at, opacity)) =
-                                        self.flashes.at(row, *column_index, now, reduce_motion)
+                                        self.flashes.at(row, source, now, reduce_motion)
                                     && let Some(color) = paint::flash_color(ramp, at, opacity)
                                 {
                                     drawn.flash = Some(color);
@@ -2201,14 +2274,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             // A formatted text that fits, drawn whole
                             // (`format`), or the automatic format.
                             #[cfg(feature = "format")]
-                            let (text, whole) = match self.glyphs.fit_format(
-                                column,
-                                sizes,
-                                page,
-                                index,
-                                *column_index,
-                                &value,
-                            ) {
+                            let (text, whole) = match self
+                                .glyphs
+                                .fit_format(column, sizes, page, index, source, &value)
+                            {
                                 Some(text) => (text, true),
                                 None => (shown_text(column, value), false),
                             };
@@ -2240,7 +2309,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 #[cfg(test)]
                                 row,
                                 #[cfg(test)]
-                                column: *column_index,
+                                column: source,
                             };
                             #[cfg(feature = "pin")]
                             if pinned {
@@ -2361,17 +2430,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     columns: self
                         .columns
                         .iter()
-                        // The index is `sort`'s alone (clippy's
-                        // `unused_enumerate_index` without it).
+                        // The place is `sort`'s and `reorder`'s alone
+                        // (clippy's `unused_enumerate_index` without them).
                         .zip(0..)
-                        .map(|(column, _index)| ColumnProbe {
+                        .map(|(column, _place)| ColumnProbe {
                             name: column.name.to_string(),
                             x: column.x,
                             width: column.width,
                             kind: column.kind.as_str(),
                             budget: column.budget,
                             #[cfg(feature = "sort")]
-                            arrow: self.arrow_box(_index, column),
+                            arrow: self.arrow_box(_place, column),
+                            #[cfg(feature = "reorder")]
+                            index: column.index(_place),
                         })
                         .collect(),
                     #[cfg(feature = "format")]
@@ -2888,6 +2959,10 @@ pub(crate) mod pin;
 #[cfg(feature = "density")]
 pub(crate) mod density;
 
+/// `reorder`: the order, a move, and what follows it.
+#[cfg(feature = "reorder")]
+pub(crate) mod reorder;
+
 #[cfg(test)]
 mod tests {
     // Not `super::*`: it brings gpui-kit's `test` attribute, which shadows `#[test]`.
@@ -2911,6 +2986,8 @@ mod tests {
             budget: 21,
             #[cfg(feature = "format")]
             format: None,
+            #[cfg(feature = "reorder")]
+            index: 0,
         };
         let text = |value: &str| cell_text(&column, CellValue::Text(value.into()));
         assert_eq!(text("a\r\nb\nc\rd"), "a¶b¶c¶d");
