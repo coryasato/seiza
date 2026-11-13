@@ -61,11 +61,19 @@
 //   tables), `fling()` and `jump()` refused; without `?measure` none of
 //   state, batches, refreshed marks, the generations, or cell timing;
 //   framed, every mark relayed, the refreshed ones too.
+// - The wide level (the wide sheet at its default stop, its own build):
+//   with `?measure`, a block's Cmd+C marks copy-started, copied, and
+//   copy-written in that order, each after the key's event, started in the
+//   key's task (before the next frame), `__contender.copy` written with
+//   its bytes; the sheet's Cmd+C (Cmd+A) marks copy-declined alone,
+//   `__contender.copy` declined, and Cmd+C again starts it; Escape then
+//   cancels it (`failed`, `cancelled`, no written mark), the selection
+//   kept; without `?measure`, a copy marks nothing and publishes no `copy`.
 //
 // Usage: node apps/observatory/perf/tanstack-contract.ts [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
 // data`; run `just observatory tanstack-build`, `tanstack-build market`,
-// `tanstack-build tail`, and `tanstack-build wall` first.
+// `tanstack-build tail`, `tanstack-build wall`, and `tanstack-build wide` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -74,7 +82,9 @@ import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { PROBE_KEY, PROBE_MS } from '../metrics/metrics.ts';
 import { INSTRUMENTS } from '../contenders/market/feed.ts';
-import { LIVE_TAIL, MARKET_WATCH, MONITORING_WALL } from '../contenders/scenarios.ts';
+import { LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET } from '../contenders/scenarios.ts';
+import { COPY_MARKS } from '../contenders/tools.ts';
+import { copyMarkTimes } from './wide-tools.ts';
 import { DESK_ROWS } from '../contenders/wall/desks.ts';
 import { MARKS, dataFile, lastMark, nativeDuckDB, perfDir, problems, protocolContext, serveTanstack } from './harness.ts';
 
@@ -85,6 +95,8 @@ const MARKET_PORT = 4365;
 const TAIL_PORT = 4373;
 /** The wall level's build. */
 const WALL_PORT = 4390;
+/** The wide level's build. */
+const WIDE_PORT = 4396;
 /** The data layer's chunk: the engine's start imports it first. */
 const DATA_LAYER = /\/assets\/table-[\w-]+\.js$/;
 /** How long after the filled mark its cells may paint: three frames. */
@@ -397,6 +409,7 @@ try {
   await marketContract();
   await tailContract();
   await wallContract();
+  await wideContract();
 } finally {
   await browser.close();
   await server.close();
@@ -862,6 +875,124 @@ async function wallContract(): Promise<void> {
     }
   } finally {
     await wall.close();
+  }
+}
+
+/** The wide level's copy contract (its own build, the wide sheet at its default stop). */
+async function wideContract(): Promise<void> {
+  const wide = await serveTanstack(WIDE_PORT, undefined, 'wide');
+  const out: Record<string, unknown> = {};
+  output.wide = out;
+  type Layout = { left: number; top: number; rowHeight: number; columns: { x: number; width: number }[] };
+  type WideGlobal = Global & { __contender?: { layout?: Layout; copy?: { state: string; bytes?: number; reason?: string }; selection?: { kind: string } | null } };
+  const url = `${wide.url}?scenario=${WIDE_SHEET.id}&stop=${WIDE_SHEET.defaultStop}`;
+  const jan1 = WIDE_SHEET.heatFrom;
+  const cellAt = (layout: Layout, row: number, column: number): [number, number] => [layout.left + layout.columns[column]!.x + layout.columns[column]!.width / 2, layout.top + (row + 0.5) * layout.rowHeight];
+  /** Presses `keys`, recording the key's event time and the next frame's. */
+  const press = async (page: Page, keys: string) => {
+    const since = await now(page);
+    await page.evaluate(() => {
+      const g = globalThis as { __nextFrame?: number };
+      delete g.__nextFrame;
+      addEventListener('keydown', () => requestAnimationFrame((at) => (g.__nextFrame = at)), { capture: true, once: true });
+    });
+    await page.keyboard.press(keys);
+    return since;
+  };
+  const keyAt = (page: Page) => page.evaluate(() => (globalThis as Global).__keys?.at(-1) ?? null);
+  /** The measured page's layout: without `?measure` none is published. */
+  let measuredLayout: Layout | null = null;
+  const copyState = (page: Page) => page.evaluate(() => (globalThis as WideGlobal).__contender?.copy ?? null);
+  try {
+    // Measured.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(wide.url).origin });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(`${url}&measure`);
+      await waitMark(page, MARKS.filled, 0);
+      const layout = (await (await page.waitForFunction(() => (globalThis as WideGlobal).__contender?.layout ?? false, null, { timeout: 10_000 })).jsonValue()) as Layout;
+      measuredLayout = layout;
+
+      // A block: started, copied, written, each after the key; started in its task.
+      await page.mouse.click(...cellAt(layout, 1, jan1));
+      await page.keyboard.down('Shift');
+      await page.mouse.click(...cellAt(layout, 4, jan1 + 2));
+      await page.keyboard.up('Shift');
+      const blockSince = await press(page, 'ControlOrMeta+KeyC');
+      await waitMark(page, COPY_MARKS.written, blockSince, 30_000).catch(() => {});
+      const key = await keyAt(page);
+      const nextFrame = await page.evaluate(() => (globalThis as { __nextFrame?: number }).__nextFrame ?? null);
+      const block = await copyMarkTimes(page, blockSince);
+      const order = [COPY_MARKS.started, COPY_MARKS.copied, COPY_MARKS.written];
+      check(block.map((mark) => mark.name).join() === order.join(), `wide: a block's marks ${block.map((mark) => mark.name).join(' → ')}, not ${order.join(' → ')}`);
+      check(key !== null && block.every((mark) => mark.at >= key), `wide: a block's marks before the key's event (${key})`);
+      const started = block.find((mark) => mark.name === COPY_MARKS.started)?.at ?? null;
+      check(started !== null && nextFrame !== null && started < nextFrame, `wide: copy-started at ${started}, not in the key's task (the next frame at ${nextFrame})`);
+      const blockState = await copyState(page);
+      check(blockState?.state === 'written' && (blockState.bytes ?? 0) > 0, `wide: __contender.copy ${JSON.stringify(blockState)} after a block's copy`);
+
+      // The sheet: declined alone, then Cmd+C again starts it; Escape cancels it.
+      await page.keyboard.press('ControlOrMeta+KeyA');
+      const sheetSince = await press(page, 'ControlOrMeta+KeyC');
+      await waitMark(page, COPY_MARKS.declined, sheetSince, 10_000).catch(() => {});
+      await page.waitForTimeout(500);
+      const declined = await copyMarkTimes(page, sheetSince);
+      check(declined.map((mark) => mark.name).join() === COPY_MARKS.declined, `wide: the sheet's key set ${declined.map((mark) => mark.name).join(' → ') || 'nothing'}, not ${COPY_MARKS.declined} alone`);
+      const declinedState = await copyState(page);
+      check(declinedState?.state === 'declined', `wide: __contender.copy ${JSON.stringify(declinedState)} after the sheet's key`);
+      const againSince = await press(page, 'ControlOrMeta+KeyC');
+      const again = await waitMark(page, COPY_MARKS.started, againSince, 10_000).catch(() => null);
+      check(again !== null, "wide: Cmd+C again on the declined sheet started no copy");
+      await page.waitForFunction(() => (globalThis as WideGlobal).__contender?.copy?.state === 'copying', null, { timeout: 5_000 }).catch(() => {});
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1_000);
+      const cancelled = await copyState(page);
+      const afterEscape = await copyMarkTimes(page, againSince);
+      const selection = await page.evaluate(() => (globalThis as WideGlobal).__contender?.selection ?? null);
+      check(cancelled?.state === 'failed' && cancelled.reason === 'cancelled', `wide: __contender.copy ${JSON.stringify(cancelled)} after Escape during the sheet's copy`);
+      check(!afterEscape.some((mark) => mark.name === COPY_MARKS.written), `wide: the cancelled copy was written (${afterEscape.map((mark) => mark.name).join(' → ')})`);
+      check(selection?.kind === 'columns', `wide: Escape during a copy left the selection ${JSON.stringify(selection)}, not the sheet's`);
+      out.measured = { block: { key, nextFrame, marks: block, state: blockState }, sheet: { declined, state: declinedState, again, escape: { state: cancelled, marks: afterEscape, selection } } };
+      console.log(`wide: a block's ${block.map((mark) => `${mark.name.slice(10)} +${(mark.at - key!).toFixed(1)} ms`).join(', ')} from the key (started before the next frame: ${started !== null && nextFrame !== null && started < nextFrame}); the sheet ${declined.map((mark) => mark.name.slice(10)).join()}, then Cmd+C again started it and Escape cancelled it (${cancelled?.state}, ${cancelled?.reason}; the selection kept)`);
+      failures.push(...found.map((problem) => `wide measured page: ${problem}`));
+      await context.close();
+    }
+
+    // Unmeasured: a copy written (the clipboard holds it) marks nothing and
+    // publishes no `copy`; nor does the sheet's declined key. The cells'
+    // places from the measured page's layout, the same build and viewport.
+    {
+      const context = await protocolContext(browser, { init: [recorder] });
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(wide.url).origin });
+      const page = await context.newPage();
+      const found = problems(page);
+      await page.goto(url);
+      await waitMark(page, MARKS.filled, 0);
+      const since = await now(page);
+      await page.evaluate(() => navigator.clipboard.writeText(''));
+      await page.mouse.click(...cellAt(measuredLayout!, 1, jan1));
+      await page.keyboard.down('Shift');
+      await page.mouse.click(...cellAt(measuredLayout!, 4, jan1 + 2));
+      await page.keyboard.up('Shift');
+      await page.keyboard.press('ControlOrMeta+KeyC');
+      const pasted = await page
+        .waitForFunction(() => navigator.clipboard.readText().then((text) => text || false), null, { timeout: 10_000, polling: 100 })
+        .then((handle) => handle.jsonValue() as Promise<string>)
+        .catch(() => '');
+      check(pasted.split('\n').length === 4 && pasted.split('\n').every((line) => line.split('\t').length === 3), `wide without ?measure: a block's Cmd+C wrote ${JSON.stringify(pasted.slice(0, 80))}, not its 4 × 3 cells`);
+      await page.keyboard.press('ControlOrMeta+KeyA');
+      await page.keyboard.press('ControlOrMeta+KeyC');
+      await page.waitForTimeout(500);
+      const seen = { written: pasted.length, marks: await copyMarkTimes(page, since), copy: await copyState(page) };
+      check(seen.marks.length === 0 && seen.copy === null, `wide without ?measure: ${JSON.stringify(seen)}`);
+      out.unmeasured = seen;
+      failures.push(...found.map((problem) => `wide unmeasured page: ${problem}`));
+      await context.close();
+    }
+  } finally {
+    await wide.close();
   }
 }
 

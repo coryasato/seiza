@@ -147,7 +147,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   const columnsRef = __LEVEL__ === 'wide' ? useRef<readonly LaidOutColumn[]>([]) : null;
   const tools: Tools | null =
     __LEVEL__ === 'wide' && scene
-      ? useWideTools((): ToolRefs => ({ frame: frameRef!, scroller: scrollerRef, model: modelRef, sheet: sheetRef, columns: columnsRef! }), scene, () => gutter, rows, paging)
+      ? useWideTools((): ToolRefs => ({ frame: frameRef!, scroller: scrollerRef, model: modelRef, sheet: sheetRef, columns: columnsRef! }), scene, () => gutter, rows, paging, scene.copy, fileColumns)
       : null;
   const columns = useMemo(
     (): LaidOutColumn[] => (scene ? sceneColumns(fileColumns, scene, tools?.widths) : (__LEVEL__ === 'market' || __LEVEL__ === 'wall') && market ? market.columns : __LEVEL__ === 'tail' && tail ? tail.columns : layOutAll(fileColumns)),

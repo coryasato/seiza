@@ -14,13 +14,18 @@ import { flushSync } from 'react-dom';
 import { measuring, type Contender } from '../../../../contract.ts';
 import type { CellValue } from './data/format.ts';
 import type { TablePaging } from './data/paging.ts';
-import type { TablePage } from './data/table.ts';
+import type { Column, TablePage } from './data/table.ts';
 import { clampWidth, type LaidOutColumn, type Sizes } from './layout.ts';
 import { BAND_PADDING, dragWidth, fitWidth, pressBand, type Resizing } from './resize.ts';
 import { setWidthOf, type WideScene } from './scene.ts';
 import type { ScaledScroller } from './scroll.ts';
 import { Selector, selectionJson, type Selection, type SheetView, type Step } from './select.ts';
 import type { Sheet } from './wide.ts';
+import type * as CopyModule from './copy.ts';
+
+/** The wide level's copy (`copy.ts`): loaded after first paint with the
+ *  data layer, handed to the tools with the open table. */
+export type CopyLayer = typeof CopyModule;
 
 /** What the view draws of the tools. */
 export interface Tools {
@@ -56,7 +61,7 @@ let lastPointer = 'mouse';
 /** The tools' state and their listeners on the table. `refs` and `gutter`
  *  are read once the table is mounted (the view makes them after the
  *  columns, which the tools' widths lay out). */
-export function useWideTools(table: () => ToolRefs, scene: WideScene, gutterOf: () => number, rows: number, paging: TablePaging<TablePage>): Tools {
+export function useWideTools(table: () => ToolRefs, scene: WideScene, gutterOf: () => number, rows: number, paging: TablePaging<TablePage>, copy?: CopyLayer, fileColumns: readonly Column[] = []): Tools {
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   const measured = useMemo(measuring, []);
   const state = useRef<Omit<Tools, 'jumped'> & { selector: Selector | null }>({ widths: [], selection: null, focused: false, resizing: null, held: null, selector: null });
@@ -96,6 +101,8 @@ export function useWideTools(table: () => ToolRefs, scene: WideScene, gutterOf: 
       scrollX: scroller.scrollLeft,
       maxScrollX: Math.max(0, scroller.scrollWidth - scroller.clientWidth),
     });
+    // Cmd+C on the selection (`copy.ts`), once the data layer brought it.
+    const copier = copy?.attachCopy(paging, fileColumns, () => s.selection) ?? null;
     const selector = new Selector({
       view,
       // A key's move: a step of at most the view through the scroller (the
@@ -120,6 +127,7 @@ export function useWideTools(table: () => ToolRefs, scene: WideScene, gutterOf: 
           const target = contender();
           if (target) target.selection = selectionJson(selection);
         }
+        copier?.selected(selection);
         render();
       },
     });
@@ -328,7 +336,10 @@ export function useWideTools(table: () => ToolRefs, scene: WideScene, gutterOf: 
       const { key, shiftKey: shift, metaKey: meta, ctrlKey: ctrl } = event;
       let handled = false;
       if ((meta || ctrl) && !shift && key.toLowerCase() === 'a') handled = selector.selectAll();
-      else if (key === 'Escape' && !meta && !ctrl) handled = selector.escape();
+      // A copy of the selection; with nothing selected the key goes on.
+      else if ((meta || ctrl) && !shift && key.toLowerCase() === 'c') handled = copier?.key() ?? false;
+      // A copy running is cancelled first, the selection kept.
+      else if (key === 'Escape' && !meta && !ctrl) handled = (copier?.escape() ?? false) || selector.escape();
       else {
         const step: Step | null =
           meta && !ctrl && key === 'ArrowUp' ? 'first'
@@ -363,9 +374,10 @@ export function useWideTools(table: () => ToolRefs, scene: WideScene, gutterOf: 
       scroller.removeEventListener('keydown', onKey, { capture: true });
       scroller.removeEventListener('focus', onFocus);
       scroller.removeEventListener('blur', onFocus);
+      copier?.close();
       s.selector = null;
     };
-  }, [paging]);
+  }, [paging, copy, fileColumns]);
 
   const s = state.current;
   return { widths: s.widths, selection: s.selection, focused: s.focused, resizing: s.resizing, held: s.held, jumped: (row) => s.selector?.jumped(row) };

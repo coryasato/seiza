@@ -171,7 +171,7 @@ What a DOM contender's lengths must match to draw the same cells at a density (`
 
 ## `copy.json`
 
-What a DOM contender's copy must give (`copy`; the table's README), not how it reads for it: the order of the copy's reads and where its `Text` pieces break aren't pinned, since neither changes the text and both follow when a source's pages land. No contender copies yet: the TanStack contender's test names the file skipped.
+What a DOM contender's copy must give (`copy`; the table's README), not how it reads for it: the order of the copy's reads and where its `Text` pieces break aren't pinned, since neither changes the text and both follow when a source's pages land. The TanStack contender's test runs it against its wide level's copy (`data/copy.ts`), with the controls.
 
 - `options`: the table's `CopyOptions::default()` (`max_bytes`, `key_max_cells`, `headers`); the native test fails if they part. A case's `options` replace fields of it.
 - `paging`: the table's `page_rows` and `prefetch` (0); `viewport_rows`, a key of its own beside `paging`: the rows the view holds. The view holds the first page's rows only, so the first page is loaded when a case copies and every other page is read for the copy.

@@ -135,6 +135,8 @@ type DataLayer = typeof import('./data/table.ts') & typeof import('./data/paging
 let marketLayer: Promise<typeof import('./data/quotes.ts')> | null = null;
 /** The wall level's data layer (`data/wall.ts`), loaded with the rest. */
 let wallLayer: Promise<typeof import('./data/wall.ts')> | null = null;
+/** The wide level's copy (`copy.ts`), loaded with the rest. */
+let copyLayer: Promise<typeof import('./copy.ts')> | null = null;
 /** The tail level's data layer (`data/replay.ts`), loaded with the rest. */
 let tailLayer: Promise<typeof import('./data/replay.ts')> | null = null;
 /** The tail level's clock, paused or not (`__contender.pause`, `?measure`):
@@ -164,6 +166,7 @@ function startEngine(): Promise<Engine> {
       if (__LEVEL__ === 'market') marketLayer = import('./data/quotes.ts');
       if (__LEVEL__ === 'tail') tailLayer = import('./data/replay.ts');
       if (__LEVEL__ === 'wall') wallLayer = import('./data/wall.ts');
+      if (__LEVEL__ === 'wide') copyLayer = import('./copy.ts');
       const [table, paging] = await Promise.all([import('./data/table.ts'), import('./data/paging.ts')]);
       const data = { ...table, ...paging };
       const queries = new data.Queries(bridge);
@@ -208,6 +211,8 @@ async function openFile(): Promise<number> {
     if (__LEVEL__ === 'market') return await openMarket(data, file);
     if (__LEVEL__ === 'tail') return await openTail(data, queries, file);
     if (__LEVEL__ === 'wall') return await openWall(file);
+    // The wide level's copy, which the table's tools take from its scene.
+    if (__LEVEL__ === 'wide' && scene) scene.copy = await copyLayer!;
     const paging = new data.TablePaging<TablePage>(file.rows, file.source);
     shownPaging = paging;
     // The first screen is gone: its paint, if it never came (a hidden

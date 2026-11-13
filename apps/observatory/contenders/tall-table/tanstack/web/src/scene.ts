@@ -7,6 +7,7 @@
  * it (`test/view.test.ts`).
  */
 
+import type { CopyLayer } from './wide-tools.ts';
 import type { DensityStop, WideScenario } from '../../../../scenarios.ts';
 import { resolveSizes } from './density.ts';
 import { layOutAll, type ColumnSpec, type LaidOutColumn, type Sizes } from './layout.ts';
@@ -53,6 +54,9 @@ export interface WideScene {
   columnWidth: number;
   /** The heat's domain: the ramp's ends and its middle. */
   domain: Domain;
+  /** The copy (`copy.ts`), loaded after first paint with the data layer:
+   *  set before the table opens (`main.ts`). */
+  copy?: CopyLayer;
 }
 
 /** The scenario at `stop`. */

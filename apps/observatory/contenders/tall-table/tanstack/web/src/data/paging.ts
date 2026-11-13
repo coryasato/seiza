@@ -16,9 +16,12 @@
  * through a typed view of them (`live.ts`'s `PagingInside`). On live
  * tail's alone, the rows grow and the view follows them (`follow.ts`:
  * `setRows`, `follow`, the reader's moves deciding following, the tail
- * pin, the visible pages bottom first), behind `__LEVEL__ === 'tail'`.
+ * pin, the visible pages bottom first), behind `__LEVEL__ === 'tail'`. On
+ * the wide level, `copy` (`copy.ts`: its reads beside the cache, planned
+ * with the cache's), behind `__LEVEL__ === 'wide'`.
  */
 
+import { closeCopy, copyRunning, loadWantedCopy, type CopyBooks } from './copy.ts';
 import { keepBottom, readerMoved, releaseDrag, tailFirst, type FollowControl } from './follow.ts';
 import { dragRested, loadWantedLive, pageDoneLive, type RowSet } from './live.ts';
 import { PageCache, type Direction, type Rows, type RowState } from './pages.ts';
@@ -110,6 +113,8 @@ export class TablePaging<P extends Page> {
   declare private followControl: FollowControl;
   /** Live tail's: following turned on or off. */
   declare onFollowing?: (following: boolean) => void;
+  /** The wide level's `copy`, once the host sets it up (`copy.ts`'s `setCopy`). */
+  declare private copy: CopyBooks<P> | undefined;
 
   constructor(rows: number, source: PageSource<P>, paging: Paging = PAGING, clock: Clock = pageClock) {
     this.rows = rows;
@@ -222,7 +227,7 @@ export class TablePaging<P extends Page> {
       this.clock.clearTimeout(this.dragSettle);
       this.dragSettle = null;
       this.loadPages();
-    } else if (__LEVEL__ === 'tail' && pinned) this.loadPages();
+    } else if ((__LEVEL__ === 'tail' && pinned) || (__LEVEL__ === 'wide' && copyRunning(this))) this.loadPages();
   }
 
   /** Cancels every read still out; nothing loads after. */
@@ -230,6 +235,8 @@ export class TablePaging<P extends Page> {
     if (this.closed) return;
     this.closed = true;
     for (const request of this.cache.requests()) this.source.cancel(request);
+    // The wide level's: a copy ends with no event, its reads cancelled.
+    if (__LEVEL__ === 'wide') closeCopy(this);
     for (const timer of [this.dragSettle, this.scrollSettle]) if (timer !== null) this.clock.clearTimeout(timer);
   }
 
@@ -277,6 +284,8 @@ export class TablePaging<P extends Page> {
   /** Sends the reads the viewport needs and cancels the ones it doesn't. */
   private loadWanted(wanted: readonly number[]): void {
     if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') return loadWantedLive(this, wanted);
+    // The wide level's: the copy's reads too.
+    if (__LEVEL__ === 'wide') return loadWantedCopy(this, wanted);
     if (this.closed) return;
     const plan = this.cache.plan(wanted, this.cache.visiblePages(this.visible()));
     for (const request of plan.cancel) this.source.cancel(request);

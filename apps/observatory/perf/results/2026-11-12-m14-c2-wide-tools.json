@@ -1,0 +1,261 @@
+{
+  "date": "2026-11-12",
+  "label": "m14-c2-wide-tools",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "viewport": "1440x900",
+  "deviceScaleFactor": 2,
+  "dprNote": "the tools' page and touch sections ran at DPR 1, in the browsers they name",
+  "scenario": "wide-sheet",
+  "results": {
+    "gpui": {
+      "tools": {
+        "window": {
+          "resize": {
+            "dayWidth": 68,
+            "dragged": 128,
+            "fitted": 46,
+            "placeHeldAt": 511,
+            "pinnedEdge": 668,
+            "cellsWidth": 1336
+          },
+          "copy": {
+            "layoutHeldThroughScroll": true,
+            "weekCells": 74424,
+            "weekChars": 346361,
+            "weekSame": true,
+            "weekMarks": [
+              "contender:copy-started",
+              "contender:copied",
+              "contender:copy-written"
+            ],
+            "weekSha256": "e2b3828e2ecd97fd342051ef00668c9ecf6baa06cf128cde38078efa4e3ba6b2",
+            "blockSame": true,
+            "blockSha256": "7b48682c1a09861a8b64ea1a99063af64c170c77eedc4733fcdd4b9961ea1647",
+            "sheetSha256": "a34813bce8581bbdb45f9d22864a917831aa5c8dd2c1543d3bcc1afb21ae3f83",
+            "declinedMarks": [
+              "contender:copy-declined"
+            ],
+            "sheetBytes": 18865525,
+            "sheetSame": true,
+            "sheetMarks": [
+              "contender:copy-started",
+              "contender:copied",
+              "contender:copy-written"
+            ],
+            "declinedAgainMarks": [
+              "contender:copy-declined"
+            ],
+            "ctrlC": true,
+            "cmdShiftCMarks": []
+          },
+          "unmeasured": []
+        },
+        "touch": {
+          "deviceScaleFactor": 1,
+          "tapSelected": true,
+          "bandDragResized": false,
+          "width": 68
+        },
+        "page-chromium": {
+          "browser": "chromium",
+          "version": "153.0.8010.12",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 17.350000381469727
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        },
+        "page-firefox": {
+          "browser": "firefox",
+          "version": "155.0",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 3.019999999999982
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        },
+        "page-webkit": {
+          "browser": "webkit",
+          "version": "26.6",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 5
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        }
+      }
+    },
+    "tanstack": {
+      "tools": {
+        "window": {
+          "resize": {
+            "dayWidth": 68,
+            "dragged": 128,
+            "fitted": 46,
+            "placeHeldAt": 519,
+            "pinnedEdge": 676,
+            "cellsWidth": 1352
+          },
+          "copy": {
+            "layoutHeldThroughScroll": true,
+            "weekCells": 74424,
+            "weekChars": 346361,
+            "weekSame": true,
+            "weekMarks": [
+              "contender:copy-started",
+              "contender:copied",
+              "contender:copy-written"
+            ],
+            "weekSha256": "e2b3828e2ecd97fd342051ef00668c9ecf6baa06cf128cde38078efa4e3ba6b2",
+            "blockSame": true,
+            "blockSha256": "7b48682c1a09861a8b64ea1a99063af64c170c77eedc4733fcdd4b9961ea1647",
+            "sheetSha256": "a34813bce8581bbdb45f9d22864a917831aa5c8dd2c1543d3bcc1afb21ae3f83",
+            "declinedMarks": [
+              "contender:copy-declined"
+            ],
+            "sheetBytes": 18865525,
+            "sheetSame": true,
+            "sheetMarks": [
+              "contender:copy-started",
+              "contender:copied",
+              "contender:copy-written"
+            ],
+            "declinedAgainMarks": [
+              "contender:copy-declined"
+            ],
+            "ctrlC": true,
+            "cmdShiftCMarks": []
+          },
+          "unmeasured": []
+        },
+        "touch": {
+          "deviceScaleFactor": 1,
+          "tapSelected": true,
+          "bandDragResized": false,
+          "width": 68
+        },
+        "page-chromium": {
+          "browser": "chromium",
+          "version": "153.0.8010.12",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 12.88499927520752
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        },
+        "page-firefox": {
+          "browser": "firefox",
+          "version": "155.0",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 5.799999999999727
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        },
+        "page-webkit": {
+          "browser": "webkit",
+          "version": "26.6",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 6
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        }
+      }
+    },
+    "copiesSameOnBothSides": {
+      "weekSha256": true,
+      "blockSha256": true,
+      "sheetSha256": true
+    }
+  },
+  "failures": []
+}

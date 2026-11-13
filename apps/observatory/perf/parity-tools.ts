@@ -26,6 +26,9 @@
 //   drawn where GPUI draws it (the box of the pixels the selection changed
 //   in the cells, within a pixel). Control: the box of a block a row off
 //   differs.
+// - The copy: Cmd+C on a block (the tint's last) puts the same text on
+//   the clipboard on both sides, read by a real paste. Control: with
+//   nothing selected, the key copies nothing (no copy mark).
 //
 // Usage (alone): node apps/observatory/perf/parity-tools.ts [--browsers chromium,firefox,webkit]
 // Needs `just observatory data`; run `just observatory tanstack-build wide`
@@ -35,6 +38,8 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { WIDE_SHEET } from '../contenders/scenarios.ts';
+import { COPY_MARKS } from '../contenders/tools.ts';
+import { copyMarks, paste } from './wide-tools.ts';
 import { BROWSER_TYPES, KNOWN_WARNINGS, MARKS, frames, near, problems, protocolContext, serveGpui, serveTanstack } from './harness.ts';
 
 interface Layout {
@@ -98,6 +103,10 @@ interface Run {
   viewRows: number;
   /** The tint's box in CSS px (the selection's changed pixels), per block. */
   tints: Record<string, number[] | null>;
+  /** Cmd+C on the last block: the text a paste read. */
+  copied: string;
+  /** Cmd+C with nothing selected: the copy marks it set (none). */
+  unselectedMarks: string[];
 }
 
 /** Drags from x to x + dx along the header, in steps, and lets go. */
@@ -191,7 +200,7 @@ function selectionSteps(layout: Layout): { name: string; run: (page: Page) => Pr
 async function runSide(page: Page, url: string, side: string, fail: (what: string) => void): Promise<Run> {
   let layout = await open(page, url);
   const y = headerY(layout);
-  const run: Run = { layout, fits: [], clamped: null, back: null, steps: [], tints: {}, viewRows: NaN };
+  const run: Run = { layout, fits: [], clamped: null, back: null, steps: [], tints: {}, viewRows: NaN, copied: '', unselectedMarks: [] };
   const dpr = await page.evaluate(() => devicePixelRatio);
 
   // The fits, from the opening view.
@@ -257,6 +266,21 @@ async function runSide(page: Page, url: string, side: string, fail: (what: strin
     const after = await page.screenshot({ clip });
     run.tints[name] = await changedBox(page, before, after, clip, dpr);
   }
+
+  // The copy: Cmd+C on the block selected last, read by a real paste; then
+  // with nothing selected, Cmd+C copies nothing.
+  const since = await page.evaluate(() => performance.now());
+  await page.keyboard.press('ControlOrMeta+KeyC');
+  const written = await waitMark(page, COPY_MARKS.written, since, 30_000).then(() => true, () => false);
+  if (!written) fail(`${side} copy: Cmd+C on a block wrote nothing (${JSON.stringify(await page.evaluate(() => (globalThis as { __contender?: { copy?: unknown } }).__contender?.copy))})`);
+  run.copied = await paste(page);
+  await page.mouse.click(...cellAt(layout, 1, JAN1));
+  await page.keyboard.press('Escape');
+  await frames(page, 2);
+  const bare = await page.evaluate(() => performance.now());
+  await page.keyboard.press('ControlOrMeta+KeyC');
+  await page.waitForTimeout(500);
+  run.unselectedMarks = await copyMarks(page, bare);
   return run;
 }
 
@@ -406,6 +430,8 @@ function compare(name: string, gpui: Run, tanstack: Run, fail: (what: string) =>
     const got = tanstack.tints[block];
     if (!want || !got || got.some((value, index) => !near(value, want[index]!, 1))) fail(`${name} tint ${block}: ${JSON.stringify(got)}; GPUI's ${JSON.stringify(want)}`);
   }
+  if (!gpui.copied || tanstack.copied !== gpui.copied) fail(`${name} copy: pasted ${JSON.stringify(tanstack.copied.slice(0, 80))}; GPUI's ${JSON.stringify(gpui.copied.slice(0, 80))}`);
+  for (const [side, run] of [['GPUI', gpui], [name, tanstack]] as const) if (run.unselectedMarks.length) fail(`${side} copy control: Cmd+C with nothing selected set ${run.unselectedMarks.join(', ')}`);
   const control = tanstack.tints['a row off (control)'];
   const days = gpui.tints['in the days'];
   if (control && days && control.every((value, index) => near(value, days[index]!, 1))) fail(`${name} tint control: a block a row off drew where the days' block does`);
@@ -419,6 +445,8 @@ export async function toolsParity(browsers: string[], tanstackUrl: string, gpuiU
     const browser = await chromium.launch({ channel: 'chromium' });
     try {
       const context = await protocolContext(browser);
+      // Headless Chromium refuses every async clipboard write without it.
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(gpuiUrl).origin });
       const page = await context.newPage();
       gpui = await runSide(page, gpuiUrl, 'gpui', fail);
       out.gpui = gpui;
@@ -430,6 +458,7 @@ export async function toolsParity(browsers: string[], tanstackUrl: string, gpuiU
     const browser: Browser = await BROWSER_TYPES[name]!.launch(name === 'chromium' ? { channel: 'chromium' } : {});
     try {
       const context = await protocolContext(browser);
+      if (name === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(tanstackUrl).origin });
       const page = await context.newPage();
       const found = problems(page);
       const run = await runSide(page, tanstackUrl, name, fail);
@@ -438,7 +467,7 @@ export async function toolsParity(browsers: string[], tanstackUrl: string, gpuiU
       for (const problem of found) if (!KNOWN_WARNINGS.some((warning) => warning.test(problem))) fail(`${name} tools: ${problem}`);
       out[name] = { run, bands };
       console.log(`${name} tools: held ${JSON.stringify(bands.held)}; a pinned column narrowed ${JSON.stringify(bands.narrowedPin)}; two keys ${JSON.stringify(bands.twoKeys)}`);
-      console.log(`${name} tools: the view ${run.viewRows.toFixed(2)} rows (GPUI ${gpui.viewRows.toFixed(2)}); fits ${run.fits.join(', ')} px (GPUI ${gpui.fits.join(', ')}); clamped ${run.clamped}, back ${run.back}; ${run.steps.length} selection steps; tints ${JSON.stringify(run.tints['across the pinned edge'])} (GPUI ${JSON.stringify(gpui.tints['across the pinned edge'])})`);
+      console.log(`${name} tools: the view ${run.viewRows.toFixed(2)} rows (GPUI ${gpui.viewRows.toFixed(2)}); fits ${run.fits.join(', ')} px (GPUI ${gpui.fits.join(', ')}); clamped ${run.clamped}, back ${run.back}; ${run.steps.length} selection steps; tints ${JSON.stringify(run.tints['across the pinned edge'])} (GPUI ${JSON.stringify(gpui.tints['across the pinned edge'])}); Cmd+C pasted ${run.copied.length} characters, GPUI's: ${run.copied === gpui.copied}`);
     } finally {
       await browser.close();
     }

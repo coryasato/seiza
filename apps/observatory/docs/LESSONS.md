@@ -668,3 +668,11 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - A key's scroll on the DOM lands a frame later. The review found that two keys before the scroll event both measured from the old top and overshot. Nothing else in the contender reads the top right after moving it.
 - Sharing the set width's clamp from `layout.ts` moved the base's bundle. Rollup kept the helper as a top-level function and renamed React's internals around it. `layOut` keeps its inline copy, and the test pins the two equal.
 - The view's page is its own. In headless runs the DOM's overlay scrollbar takes no height, so TanStack's view holds 42.3 rows against GPUI's 41.5, and Page Down moves 41 rows against 40. The base parity already allowed for this, so the tools' parity reads each side's page from its own End.
+
+## M14 part C2: the TanStack side's copy (2026-11-12)
+
+**Results:** [`perf/results/2026-11-12-m14-c2.md`](../perf/results/2026-11-12-m14-c2.md).
+
+**Surprises:**
+- An import whose code is all dropped can still move other builds. `data/copy.ts` imported `number.ts`'s `f32Text` for the fixture's float32s. Nothing of the copy reached market watch's, live tail's, or the wall's bundles, but `number.ts` moved earlier in their chunks, and market watch's grew a byte. `data/copy.ts` keeps its own five-line copy.
+- The writer's ordering depends on when GPUI delivers events, and the DOM delivers them at once. A writer that can't open the clipboard cancels at `Started`. Told synchronously, that cancel would run before the copy existed, and the copy would go on reading. So the port queues its events until the call that emitted them ends, then plans the reads, as GPUI's update and `defer` do.

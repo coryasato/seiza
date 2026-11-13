@@ -31,8 +31,8 @@
 //   native DuckDB to the byte, the sheet declined then confirmed, the
 //   copy's marks in order, the globals only with `?measure`; the page's
 //   copy line from a parent page in Chromium, Firefox, and WebKit; a tap
-//   and a touch drag on a band. The GPUI side's (the TanStack side's when
-//   it builds them).
+//   and a touch drag on a band. On both sides, and with both, each copied
+//   text the same on both, byte for byte.
 //
 // Usage: node apps/observatory/perf/wide.ts [--label <name>] [--side gpui|tanstack] [--only tools]
 // --label writes perf/results/<date>-<label>.json. Needs `just observatory
@@ -58,8 +58,8 @@ const SIDES: Side[] = only ? [only] : ['gpui', 'tanstack'];
 const onlyWhat = option('only');
 if (onlyWhat !== undefined && onlyWhat !== 'tools') throw new Error(`--only ${onlyWhat}: only \`tools\` is known`);
 const toolsOnly = onlyWhat === 'tools';
-/** The sides whose wide build has the tools (the TanStack side's once it builds them). */
-const TOOLED: Side[] = ['gpui'];
+/** The sides whose wide build has the tools. */
+const TOOLED: Side[] = ['gpui', 'tanstack'];
 if (toolsOnly && !SIDES.some((side) => TOOLED.includes(side))) throw new Error(`--only tools: ${SIDES.join(', ')} builds no tools yet (TOOLED: ${TOOLED.join(', ')})`);
 
 interface Layout {
@@ -439,6 +439,14 @@ try {
     results[side] = { ...results[side], tools };
   }
   if (toolsOnly && !SIDES.some((side) => results[side])) fail('--only tools: no side was checked');
+  // With both sides, each copy's text the same on both, byte for byte.
+  const copies = SIDES.map((side) => ((results[side] as { tools?: { window?: { copy?: Record<string, unknown> } } } | undefined)?.tools?.window?.copy ?? {}));
+  if (copies.length === 2) {
+    const same = Object.fromEntries(['weekSha256', 'blockSha256', 'sheetSha256'].map((key) => [key, copies[0]![key] !== undefined && copies[0]![key] === copies[1]![key]]));
+    for (const [key, ok] of Object.entries(same)) if (!ok) fail(`the copies' ${key.replace('Sha256', '')} text differs between the sides (${copies.map((copy) => String(copy[key]).slice(0, 12)).join(' vs ')})`);
+    results.copiesSameOnBothSides = same;
+    console.log(`the copies on both sides: ${Object.entries(same).map(([key, ok]) => `${key.replace('Sha256', '')} ${ok ? 'the same' : 'DIFFERENT'}`).join(', ')}`);
+  }
 } finally {
   await browser?.close();
   for (const levels of Object.values(servers)) for (const server of Object.values(levels)) await server?.close();

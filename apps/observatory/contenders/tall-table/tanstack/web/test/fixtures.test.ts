@@ -28,7 +28,9 @@ import { BASE_SIZES, clampWidth, layOut } from '../src/layout.ts';
 import { resolveSizes } from '../src/density.ts';
 import { dragWidth, pressBand } from '../src/resize.ts';
 import { Pin } from '../src/pin.ts';
-import { Selector, selectionJson, type SelectControl, type SheetView, type Step } from '../src/select.ts';
+import { Selector, selectedColumns, selectedRows, selectionJson, type SelectControl, type SheetView, type Step } from '../src/select.ts';
+import { copyColumns } from '../src/copy.ts';
+import { COPY_OPTIONS, copyKey, copyStart, setCopy, valueText, type CopyControl, type CopyEvent, type CopyKind } from '../src/data/copy.ts';
 
 const fixtures = new URL('../../../../../../../components/tall-table/fixtures/', import.meta.url);
 const fixture = (name: string): any => JSON.parse(readFileSync(new URL(name, fixtures), 'utf8'));
@@ -679,9 +681,44 @@ describe('selection.json', () => {
 
 // --- copy ---
 
-// `copy.json` pins a copy's text and its limits: the wide level ports the
-// copy against it.
-test('copy.json', { skip: 'the contender has no copy' }, () => {});
+// `copy.json` pins a copy's text and its limits (the wide level's,
+// `data/copy.ts`), as the native test drives the element
+// (`state/fixtures/copy.rs`): the table opened over the fixture's source,
+// its first page read for the view, then the copy by the key or the host's
+// call, each read answered at once and counted.
+
+describe('copy.json', () => {
+  const copy = fixture('copy.json');
+
+  test("the options are the copy's defaults", () => {
+    assert.deepEqual(copy.options, { max_bytes: COPY_OPTIONS.maxBytes, key_max_cells: COPY_OPTIONS.keyMaxCells, headers: COPY_OPTIONS.headers });
+  });
+
+  for (const scenario of copy.cases as { name: string }[]) {
+    test(scenario.name, async () => {
+      assert.deepEqual(await copyMismatches(null, scenario.name), []);
+    });
+  }
+
+  // The contender's columns as the copy writes them: a FLOAT's text is
+  // its own float32 shortest, as GPUI's engine gives it, not the widened
+  // double's; a DOUBLE's its own.
+  test("a FLOAT column copies as float32", () => {
+    const columns = copyColumns([
+      { name: 'f', type: 'FLOAT', kind: 'float' },
+      { name: 'd', type: 'DOUBLE', kind: 'float' },
+    ]);
+    assert.deepEqual(columns.map((column) => column.kind), ['float32', 'float']);
+    assert.equal(valueText(Math.fround(0.1), columns[0]!.kind), '0.1');
+    assert.equal(valueText(Math.fround(0.1), columns[1]!.kind), '0.10000000149011612', 'the control: as a double');
+  });
+
+  test('controls fail', async () => {
+    for (const control of copy.controls as { name: Exclude<CopyControl, null>; fails: string[] }[]) {
+      for (const name of control.fails) assert.notDeepEqual(await copyMismatches(control.name, name), [], `control ${control.name} passed ${name}`);
+    }
+  });
+});
 
 // --- sort ---
 
@@ -840,3 +877,98 @@ function selectionMismatches(control: SelectControl, only?: string): string[] {
 
 // `pin.json`, `density.json`, and `paint.json`, the wide level's features:
 // `wide.test.ts`.
+
+// --- copy.json's table ---
+
+/** A page of `copy.json`'s source: each value typed as Arrow gives the
+ *  contender its column's (a float a `number`, a float32 one rounded to
+ *  f32, an integer a `bigint`, a decimal and text a `string`). */
+class CopyPage implements Page {
+  readonly byteLength = 1;
+  private readonly rows: (number | bigint | string | null)[][];
+
+  constructor(rows: (number | bigint | string | null)[][]) {
+    this.rows = rows;
+  }
+
+  get length(): number {
+    return this.rows.length;
+  }
+
+  value(row: number, column: number): number | bigint | string | null | undefined {
+    return this.rows[row]?.[column];
+  }
+}
+
+const COPY_KINDS: Record<string, CopyKind> = { float: 'float', float32: 'float32', integer: 'integer', decimal: 'text', text: 'text' };
+
+function copyValue(kind: string, text: string | null): number | bigint | string | null {
+  if (text === null) return null;
+  if (kind === 'float') return Number(text);
+  if (kind === 'float32') return Math.fround(Number(text));
+  if (kind === 'integer') return BigInt(text);
+  return text;
+}
+
+/** `copy.json`'s cases whose outcome the copy (under `control`) doesn't
+ *  give; every case, or the one named. */
+async function copyMismatches(control: CopyControl, only?: string): Promise<string[]> {
+  const table = fixture('copy.json');
+  const mismatches: string[] = [];
+  for (const scenario of table.cases) {
+    if (only !== undefined && scenario.name !== only) continue;
+    const got = await asLevel('wide', () => runCopy(table, scenario, control));
+    const expect = scenario.expect;
+    const want: Record<string, unknown> = { outcome: expect.outcome };
+    if (expect.started) want.started = expect.started;
+    if ('text' in expect) want.text = expect.text;
+    if ('reads' in expect) want.reads = expect.reads;
+    const have = Object.fromEntries(Object.keys(want).map((key) => [key, got[key as keyof typeof got]]));
+    if (JSON.stringify(have) !== JSON.stringify(want)) mismatches.push(`${scenario.name}: ${JSON.stringify(have)}; the fixture's ${JSON.stringify(want)}`);
+  }
+  return mismatches;
+}
+
+async function runCopy(table: any, scenario: any, control: CopyControl): Promise<{ started?: unknown; outcome?: unknown; text: string; reads: boolean }> {
+  const source = table.sources[scenario.source];
+  const kinds: string[] = source.columns.map((column: { kind: string }) => column.kind);
+  const rows: (number | bigint | string | null)[][] = source.rows.map((row: (string | null)[]) => row.map((text, column) => copyValue(kinds[column]!, text)));
+  const paging: Paging = { ...PAGING, pageRows: table.paging.page_rows, prefetch: table.paging.prefetch };
+  let reads = 0;
+  const pages: PageSource<CopyPage> = {
+    load: ([start, end]) => {
+      reads++;
+      return { request: reads, result: Promise.resolve(new CopyPage(rows.slice(start, end))) };
+    },
+    cancel: () => {},
+  };
+  const events: CopyEvent[] = [];
+  const opened = new TablePaging<CopyPage>(rows.length, pages, paging);
+  const options = {
+    maxBytes: scenario.options?.max_bytes ?? table.options.max_bytes,
+    keyMaxCells: scenario.options?.key_max_cells ?? table.options.key_max_cells,
+    headers: scenario.options?.headers ?? table.options.headers,
+  };
+  const columns = source.columns.map((column: { name: string; kind: string }) => ({ name: column.name, kind: COPY_KINDS[column.kind]! }));
+  setCopy(opened, { columns, options, onEvent: (event) => events.push(event), schedule: (run) => setImmediate(run), control });
+  opened.setViewportRows(table.viewport_rows);
+  await flush();
+  assert.equal(opened.row(0).kind, 'loaded', 'the first page is loaded before the copy');
+  const readsBefore = reads;
+  const selection = { kind: scenario.selection.kind, anchor: scenario.selection.anchor, head: scenario.selection.head };
+  const selected = [selectedRows(selection, rows.length)!, selectedColumns(selection, columns.length)!] as const;
+  if (scenario.by === 'key') copyKey(opened, ...selected);
+  else copyStart(opened, ...selected);
+  const ended = () => events.some((event) => event.kind === 'copied' || event.kind === 'failed' || event.kind === 'declined');
+  for (let wait = 0; !ended() && wait < 1000; wait++) await flush();
+  opened.close();
+  const result: { started?: unknown; outcome?: unknown; text: string; reads: boolean } = { text: '', reads: reads > readsBefore };
+  for (const event of events) {
+    if (event.kind === 'started') result.started = { rows: [...event.rows], columns: [...event.columns] };
+    else if (event.kind === 'text') result.text += event.text;
+    else if (event.kind === 'copied') result.outcome = { copied: { rows: event.rows, bytes: event.bytes } };
+    else if (event.kind === 'declined') result.outcome = { declined: { rows: event.rows, columns: event.columns } };
+    else if (event.kind === 'failed') result.outcome = event.reason.kind === 'too-large' ? { too_large: { bytes: event.reason.bytes, max_bytes: event.reason.maxBytes } } : { [event.reason.kind]: event.reason };
+  }
+  return result;
+}

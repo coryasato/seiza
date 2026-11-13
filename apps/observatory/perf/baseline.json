@@ -35,10 +35,10 @@
       },
       "wasmBrotliKiB": 2799.5,
       "tanstackJsBrotliKiB": {
-        "date": "2026-11-03",
+        "date": "2026-11-12",
         "machine": "local",
-        "firstPaint": 76.8,
-        "dataLayer": 34.8
+        "firstPaint": 82.4,
+        "dataLayer": 39.2
       }
     },
     "market": {

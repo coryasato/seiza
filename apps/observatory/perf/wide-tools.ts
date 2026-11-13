@@ -15,6 +15,8 @@
 //   Cmd+C again on it written, its text DuckDB's to the byte (the control:
 //   a selection change in between declines again); Ctrl+C; Cmd+Shift+C
 //   (the browsers' Inspect) copying nothing;
+// - each copy's text digested, so `perf/wide.ts` compares the two sides'
+//   byte for byte;
 // - the marks in order (started, copied, written; declined alone), and
 //   none of the globals without `?measure` (the control);
 // - from a parent page on the same origin, in Chromium, Firefox, and
@@ -26,6 +28,7 @@
 // - on touch (Chromium, `hasTouch`): a tap selects; a touch drag on a
 //   band is reported, resizing or not.
 
+import { createHash } from 'node:crypto';
 import { chromium, firefox, webkit, type Browser, type BrowserType, type Frame, type Page } from '@playwright/test';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import type { Side } from '../contenders/contract.ts';
@@ -112,17 +115,20 @@ async function selected(target: Target, want: Selection): Promise<string | null>
   }
 }
 
-/** The copy's marks set since `since`, in order of time. */
-const copyMarks = (page: Page, since: number) =>
-  page.evaluate(
+/** The copy's marks set since `since` in `target`, in order of time, with their times. */
+export const copyMarkTimes = (target: Target, since: number): Promise<{ name: string; at: number }[]> =>
+  target.evaluate(
     ({ names, since }) =>
       performance
         .getEntriesByType('mark')
         .filter((entry) => names.includes(entry.name) && entry.startTime >= since)
         .sort((a, b) => a.startTime - b.startTime)
-        .map((entry) => entry.name),
+        .map((entry) => ({ name: entry.name, at: entry.startTime })),
     { names: Object.values(COPY_MARKS) as string[], since },
   );
+
+/** The copy's marks set since `since`, in order of time. */
+export const copyMarks = async (target: Target, since: number): Promise<string[]> => (await copyMarkTimes(target, since)).map((mark) => mark.name);
 
 /** Copies by `keys` from now and reads it back: the marks in order and the clipboard's text. */
 async function copied(page: Page, keys: string): Promise<{ marks: string[]; text: string; state: string | undefined }> {
@@ -132,6 +138,9 @@ async function copied(page: Page, keys: string): Promise<{ marks: string[]; text
   const text = await page.evaluate(() => navigator.clipboard.readText());
   return { marks: await copyMarks(page, since), text, state: (await read(page, 'copy'))?.state };
 }
+
+/** A copied text's digest, for the two sides' texts compared byte for byte. */
+const digest = (text: string): string => createHash('sha256').update(text).digest('hex');
 
 const ORDER = [COPY_MARKS.started, COPY_MARKS.copied, COPY_MARKS.written].join(' → ');
 
@@ -277,7 +286,7 @@ export async function checkTools(browser: Browser, side: Side, url: string, conn
     const moved = await page.evaluate(() => (globalThis as { __contender?: { state?: { top: number } } }).__contender?.state?.top ?? 0);
     if (!held || moved === 0) fail(`${side} layout: ${held ? 'held' : 'republished'} through a scroll that moved ${moved} px`);
     console.log(`${side} layout: the same object through a scroll of ${moved} px down and sideways: ${held}`);
-    results.copy = { layoutHeldThroughScroll: held, weekCells: rows * 7, weekChars: weekText.length, weekSame: weekCopy.text === weekText, weekMarks: weekCopy.marks, blockSame: block.text === blockText, declinedMarks: declined, sheetBytes: bytes, sheetSame: sheet.text === sheetText, sheetMarks: sheet.marks, declinedAgainMarks: again, ctrlC: ctrl.text === ctrlText, cmdShiftCMarks: shifted };
+    results.copy = { layoutHeldThroughScroll: held, weekCells: rows * 7, weekChars: weekText.length, weekSame: weekCopy.text === weekText, weekMarks: weekCopy.marks, weekSha256: digest(weekCopy.text), blockSame: block.text === blockText, blockSha256: digest(block.text), sheetSha256: digest(sheet.text), declinedMarks: declined, sheetBytes: bytes, sheetSame: sheet.text === sheetText, sheetMarks: sheet.marks, declinedAgainMarks: again, ctrlC: ctrl.text === ctrlText, cmdShiftCMarks: shifted };
     for (const problem of found) fail(`${side} tools: ${problem}`);
   } finally {
     await context.close();
@@ -318,7 +327,7 @@ const PARENT = (src: string) => `<!doctype html><meta charset="utf-8"><body styl
 </script>`;
 
 /** A real paste in `page`: a textarea focused, Cmd+V (Ctrl+V elsewhere), read. */
-async function paste(page: Page): Promise<string> {
+export async function paste(page: Page): Promise<string> {
   await page.evaluate(() => {
     const area = document.createElement('textarea');
     area.id = '__paste';

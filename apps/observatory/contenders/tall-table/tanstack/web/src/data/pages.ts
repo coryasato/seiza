@@ -17,6 +17,7 @@
  * the rows it was read with: its branches sit behind `__LEVEL__ === 'tail'`.
  */
 
+import { copyHas, copyReading, grantCopy, newCacheCopy, type CacheCopy } from './copy.ts';
 import { type Live, type LiveBooks, type RowSet, type Rereads, attachLive, cancelLive, landReread, liveRequests, newBooks, newRereads, planLive, reread, startReread } from './live.ts';
 
 /** Which way the viewport last moved. Prefetch reaches further that way. */
@@ -44,6 +45,11 @@ export type RowState<T> = { kind: 'loaded'; page: T; index: number } | { kind: '
 export interface Plan<R> {
   fetch: number[];
   cancel: R[];
+  /** The wide level's `copy`: how many of the copy's wants may start now,
+   *  sent before `fetch[copyAt..]` (after the visible pages, before
+   *  prefetch). */
+  copy?: number;
+  copyAt?: number;
 }
 
 export class PageCache<T, R> {
@@ -65,6 +71,8 @@ export class PageCache<T, R> {
   private tick = 0;
   /** `live`'s books (market watch's level). */
   declare private live: LiveBooks;
+  /** `copy`'s reads in flight and wants (the wide level's, `copy.ts`). */
+  declare private copy: CacheCopy<R>;
 
   constructor(rows: number, pageRows: number, budgetBytes: number, maxInFlight: number) {
     this.rows = rows;
@@ -72,6 +80,7 @@ export class PageCache<T, R> {
     this.budgetBytes = budgetBytes;
     this.maxInFlight = Math.max(1, maxInFlight);
     if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') this.live = newBooks();
+    if (__LEVEL__ === 'wide') this.copy = newCacheCopy();
   }
 
   pages(): number {
@@ -188,6 +197,8 @@ export class PageCache<T, R> {
     this.draining.push(...cancel);
     const tick = ++this.tick;
     let inFlight = this.inFlight() + this.draining.length;
+    // The wide level's: the copy's reads count in flight, never cached.
+    if (__LEVEL__ === 'wide') inFlight += copyReading(this);
     const fetch: number[] = [];
     const shown = Math.min(visible, wanted.length);
     // Loading or not asked for yet. A failed page isn't retried while it
@@ -205,8 +216,15 @@ export class PageCache<T, R> {
     // pages' after the visible pages with nothing to show, then the rest
     // as prefetch, in `wanted`'s order.
     const rereads: Rereads | null = __LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall' ? newRereads(this) : null;
+    // The wide level's `copy`: its reads granted once, after the visible
+    // pages and before prefetch; prefetch skips a page it reads.
+    let grant: { copy: number; copyAt: number } | null = null;
     wanted.forEach((page, index) => {
       if ((__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') && index === shown) inFlight += reread(this, wanted.slice(0, shown), rereads!, inFlight, fetch);
+      if (__LEVEL__ === 'wide' && index === shown) {
+        grant = grantCopy(this, visibleMissing, inFlight, fetch);
+        inFlight += grant.copy;
+      }
       const slot = this.slots.get(page);
       if (slot?.kind === 'loaded') {
         // Prefetch pages beyond reach are still marked used, so they aren't
@@ -214,10 +232,15 @@ export class PageCache<T, R> {
         slot.used = tick;
         if ((__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') && index >= shown && index < reach) inFlight += reread(this, [page], rereads!, inFlight, fetch);
       } else if (index < reach && slot === undefined && inFlight < this.maxInFlight) {
+        if (__LEVEL__ === 'wide' && index >= shown && copyHas(this, page, grant!.copy)) return;
         fetch.push(page);
         inFlight++;
       }
     });
+    if (__LEVEL__ === 'wide') {
+      grant ??= grantCopy(this, visibleMissing, inFlight, fetch);
+      return { fetch, cancel, copy: grant.copy, copyAt: grant.copyAt };
+    }
     if (__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall') {
       if (wanted.length === shown) inFlight += reread(this, wanted, rereads!, inFlight, fetch);
       // The control: stale pages outside `wanted` kept and read again.
