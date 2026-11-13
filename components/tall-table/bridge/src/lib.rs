@@ -6,9 +6,9 @@
 //! scrollbar's targets, with `follow` the tail mark and the following
 //! flag, with `resize` the widths a resize left, with `select` the
 //! selection, with `copy` the clipboard's writer ([`clipboard`]), with
-//! `sort` the order and its mark, with `pin` the columns pinned, and the
-//! probes (`TallTableProbe`, `TallTableLayout`,
-//! `CellProbe`) as JS values on globals a host names.
+//! `sort` the order and its mark, with `pin` the columns pinned, with
+//! `reorder` the columns' order, and the probes (`TallTableProbe`,
+//! `TallTableLayout`, `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
 //! ([`Publish::event`]); what only it does (its own state object, its
@@ -83,6 +83,11 @@ pub struct Publish {
     /// [`TallTableEvent::Pinned`]), replaced as the run changes.
     #[cfg(feature = "pin")]
     pub pinned: Option<&'static str>,
+    /// The global holding the columns' order (`reorder`'s
+    /// [`TallTableEvent::ColumnsMoved`]): `[index]`, the column's index
+    /// drawn at each place, replaced at each change. Unset until the first.
+    #[cfg(feature = "reorder")]
+    pub column_order: Option<&'static str>,
 }
 
 impl Publish {
@@ -165,6 +170,12 @@ impl Publish {
             TallTableEvent::Pinned(columns) => {
                 if let Some(name) = self.pinned {
                     js::set_global(name, &(*columns as f64).into());
+                }
+            }
+            #[cfg(all(feature = "reorder", target_family = "wasm"))]
+            TallTableEvent::ColumnsMoved { order, .. } => {
+                if let Some(name) = self.column_order {
+                    js::set_global(name, &js::order(order));
                 }
             }
             #[cfg(target_family = "wasm")]
@@ -274,6 +285,8 @@ pub mod js {
     /// `[{name, x, width, kind, budget}]`: `budget` is the characters a
     /// float may take. With `sort`, also `arrow`: its box, `{x, width}` in
     /// CSS px from the column's left edge, or `null` where none is drawn.
+    /// With `reorder`, also `index`: the column's index (the list is in
+    /// drawn order, each at its place).
     pub fn columns(columns: &[ColumnProbe]) -> JsValue {
         let list: Array = columns
             .iter()
@@ -295,6 +308,8 @@ pub mod js {
                         arrow.into()
                     }),
                 );
+                #[cfg(feature = "reorder")]
+                set(&object, "index", number(column.index as f64));
                 JsValue::from(object)
             })
             .collect();
@@ -335,6 +350,13 @@ pub mod js {
         set(&object, "anchor", cell(selection.anchor()));
         set(&object, "head", cell(selection.head()));
         object.into()
+    }
+
+    /// `[index]`: the column's index drawn at each place (`reorder`).
+    #[cfg(feature = "reorder")]
+    pub fn order(order: &[usize]) -> JsValue {
+        let list: Array = order.iter().map(|&index| number(index as f64)).collect();
+        list.into()
     }
 
     /// `{column, direction}` or `null`: `direction` is `ascending` or

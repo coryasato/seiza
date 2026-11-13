@@ -82,6 +82,11 @@ export const PINNED_GLOBAL = '__tallTablePinned';
  *  wide's first. */
 export const DEFAULT_PINNED: Record<Shape, number> = { narrow: 2, wide: 1 };
 
+/** With `reorder` (`host/crate/src/host.rs`, `COLUMN_ORDER_GLOBAL`): the
+ *  columns' order, `[index]` drawn at each place, replaced at each change;
+ *  unset until the first. */
+export const COLUMN_ORDER_GLOBAL = '__tallTableColumnOrder';
+
 /** With `density` (`host/crate/src/host.rs`, `Density`): the host's
  *  default `?density=`, the dense setting: 18 px rows, 11 px text, 56 px
  *  floats. `?density=30,14` is the control, the base's numbers. */
@@ -298,6 +303,9 @@ type Global = {
   __tallTableDensity?: (row: number, text: number) => boolean;
   /** With `follow` and `?perf`. */
   __tallTableLetGo?: () => void;
+  /** With `reorder` and `?perf`. */
+  __tallTableMove?: (start: number, end: number, to: number) => boolean;
+  __tallTableOrder?: (order: number[]) => boolean;
 };
 
 /** The cells the last frame drew, with their paint (`custom-cells`, a
@@ -562,8 +570,9 @@ export async function selectThrough(page: Page, want: Selection): Promise<void> 
   await selected(page, want);
 }
 
-/** With `copy` or `sort` and `?perf`: each `[row, column]`'s exact text,
- *  `null` for NULL (the host's source, as a read now answers it). */
+/** With `copy`, `sort`, or `reorder` and `?perf`: each `[row, column]`'s
+ *  exact text, `column` the column's index, `null` for NULL (the host's
+ *  source, as a read now answers it). */
 export async function exactTexts(page: Page, cells: [number, number][]): Promise<(string | null)[]> {
   return page.evaluate((cells) => cells.map(([row, column]) => (globalThis as Global).__tallTableExact!(row, column)), cells);
 }
@@ -771,4 +780,67 @@ export function runsOf(marks: boolean[], scale: number, at: number): [number, nu
   });
   if (from >= 0) runs.push([at + from / scale, at + marks.length / scale]);
   return runs;
+}
+
+/** With `reorder`: the order `[0, 1, …]` with the places `start..end`
+ *  moved so the first lands at `to` (the table's `move_columns`). */
+export function movedOrder(order: number[], start: number, end: number, to: number): number[] {
+  const rest = [...order.slice(0, start), ...order.slice(end)];
+  return [...rest.slice(0, to), ...order.slice(start, end), ...rest.slice(to)];
+}
+
+/** With `reorder`: the layout once its columns are `order` (each place's
+ *  `index`) and the published order agrees (unset reads as the list's
+ *  own). */
+export async function orderedAs(page: Page, order: number[], timeout = 10_000): Promise<Layout> {
+  const handle = await page.waitForFunction(
+    ({ order, name }) => {
+      const g = globalThis as Global & Record<string, unknown>;
+      const layout = g.__tallTableLayout;
+      const published = (g[name] as number[] | undefined) ?? order.map((_, place) => place);
+      const json = JSON.stringify(order);
+      return layout && JSON.stringify(layout.columns.map((column) => column.index)) === json && JSON.stringify(published) === json ? layout : false;
+    },
+    { order, name: COLUMN_ORDER_GLOBAL },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Layout;
+}
+
+/** With `reorder` and `?perf`: the table's `set_order`, through the host's
+ *  hook, then the layout in it. */
+export async function orderThrough(page: Page, order: number[]): Promise<Layout> {
+  const sent = await page.evaluate((order) => (globalThis as Global).__tallTableOrder!(order), order);
+  if (!sent) throw new Error(`the host's order hook refused ${JSON.stringify(order)}`);
+  return orderedAs(page, order);
+}
+
+/** Whether the build has `select` on: named, or turned on by `copy` (the
+ *  host's `Cargo.toml`). Only the reorder checks read it; each other
+ *  feature's checks read `select` as named, so a `copy` build's runs stay
+ *  what its recorded results measured. */
+export function selectOn(features = builtFeatures()): boolean {
+  return features.includes('select') || features.includes('copy');
+}
+
+/** How far right of a drag's press (`moveGripAt`) a press that selects the
+ *  column lands (`reorder` with `select`): past gpui-pre-web's double-click
+ *  distance (5 px, its `register_click`), so the drag's press is never a
+ *  second click, which never moves. Its 400 ms are timed when each press
+ *  is handled (`Date.now()`), so no wait in a script is sure to clear them. */
+export const SELECT_OFFSET_PX = 8;
+
+/** With `reorder`: where to press column `place`'s header for a drag, CSS
+ *  px: a quarter of the way in (at most 12 px), clear of `resize`'s band
+ *  and `sort`'s arrow at its right. */
+export function moveGripAt(layout: Layout, place: number, scrollX: number): { x: number; y: number } {
+  const { width } = layout.columns[place]!;
+  return { x: layout.left + screenLeft(layout, place, scrollX) + Math.min(12, width / 4), y: layout.top - layout.rowHeight / 2 };
+}
+
+/** With `reorder`: an x (CSS px) that puts the drag's gap after place
+ *  `place`, three quarters into its column: right of its center, left of
+ *  the next one's. */
+export function gapAfterX(layout: Layout, place: number, scrollX: number): number {
+  return layout.left + screenLeft(layout, place, scrollX) + (layout.columns[place]!.width * 3) / 4;
 }

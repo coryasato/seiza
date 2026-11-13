@@ -582,8 +582,9 @@ pub enum TallTableEvent {
     #[cfg(feature = "pin")]
     Pinned(usize),
     /// The order changed (`reorder`): a drag's release,
-    /// [`TallTableState::move_columns`], or
-    /// [`TallTableState::set_order`]. `order[place]` is the index drawn
+    /// [`TallTableState::move_columns`], [`TallTableState::set_order`],
+    /// or [`TallTableState::set_columns`] resetting another order to the
+    /// list's own. `order[place]` is the index drawn
     /// there after; with `pin`, `pinned` is the host's count after
     /// ([`TallTableState::pinned`]), which a move across the run's edge
     /// changes.
@@ -992,16 +993,24 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ///
     /// With `reorder`, the order is the list's own (each place its index):
     /// a host keeping an order calls `set_order` after.
+    /// [`TallTableEvent::ColumnsMoved`] if another order was in effect, so
+    /// a host's copy of the order never goes stale.
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         #[cfg(feature = "copy")]
         self.cancel_copy(cx);
         #[cfg(feature = "sort")]
         let sorted = self.sorted_name();
         #[cfg(feature = "reorder")]
-        {
+        let reordered = {
+            let reordered = self
+                .order
+                .iter()
+                .enumerate()
+                .any(|(place, &index)| place != index);
             self.order = (0..columns.len()).collect();
             self.cancel_drag(cx);
-        }
+            reordered
+        };
         self.column_info = columns;
         // A suffix the glyphs didn't shape: read them again at the next
         // render, which lays the columns out by it (`format`).
@@ -1019,6 +1028,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.keep_sort(sorted, cx);
         // The count is kept, the run computed over the new columns (`pin`).
         self.lay_out(cx);
+        // The order reset (`reorder`), after `lay_out`'s `Pinned`, as a
+        // move's.
+        #[cfg(feature = "reorder")]
+        if reordered {
+            self.emit_moved(cx);
+        }
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         {
             self.flashes.clear();
@@ -2981,11 +2996,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         let root = root.on_mouse_down(
             MouseButton::Left,
             cx.listener(|this, event: &MouseDownEvent, _, cx| {
-                if this.press_move(event, cx) {
-                    return;
+                if !this.press_move(event, cx) {
+                    #[cfg(feature = "select")]
+                    this.press_select(event, cx);
                 }
-                #[cfg(feature = "select")]
-                this.press_select(event, cx);
             }),
         );
         // The cells' and the header's text (`density`); the tooltip sets

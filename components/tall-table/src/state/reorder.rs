@@ -189,7 +189,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// [`TallTableEvent::ColumnsMoved`] with the order and, with `pin`, the
     /// host's count.
-    fn emit_moved(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn emit_moved(&mut self, cx: &mut Context<Self>) {
         cx.emit(TallTableEvent::ColumnsMoved {
             order: self.order.clone(),
             #[cfg(feature = "pin")]

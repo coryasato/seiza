@@ -72,6 +72,11 @@ pub const SORTED_MARK: &str = "tall-table:sorted";
 #[cfg(feature = "pin")]
 pub const PINNED_GLOBAL: &str = "__tallTablePinned";
 
+/// The columns' order, `[index]` drawn at each place, replaced at each
+/// change (`reorder`'s `ColumnsMoved`); unset until the first.
+#[cfg(feature = "reorder")]
+pub const COLUMN_ORDER_GLOBAL: &str = "__tallTableColumnOrder";
+
 /// What became of the last copy (`copy`), as `tall-table-bridge`'s
 /// `clipboard::Outcome::to_js` writes it, replaced at each step.
 #[cfg(feature = "copy")]
@@ -86,13 +91,14 @@ pub const COPIED_MARK: &str = "tall-table:copied";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 
-/// The scripts' hooks with `?perf` (`copy`, `sort`, or `pin`). With `copy`
-/// or `sort`: `__tallTableExact(row, column)`, a value's exact text (`null`
-/// for NULL) at a row of the order read now. With `copy`: `__tallTableSelect(kind,
-/// anchorRow, anchorColumn, headRow, headColumn)`, the table's `select`
-/// (`kind` `rows`, `columns`, `cells`, or anything else for none), the
-/// table focused as a press would; `__tallTableClose()`, the table's
-/// `close`, told to the clipboard's writer; and `__tallTableHeap()`, the
+/// The scripts' hooks with `?perf` (`copy`, `sort`, `pin`, `density`,
+/// `follow`, or `reorder`). With `copy`, `sort`, or `reorder`:
+/// `__tallTableExact(row, column)`, a value's exact text (`null` for NULL)
+/// at a row of the order read now, `column` the column's index. With
+/// `copy`: `__tallTableSelect(kind, anchorRow, anchorColumn, headRow,
+/// headColumn)`, the table's `select` (`kind` `rows`, `columns`, `cells`,
+/// or anything else for none), the table focused as a press would;
+/// `__tallTableClose()`, the table's `close`, told to the clipboard's writer; and `__tallTableHeap()`, the
 /// wasm heap's bytes (its memory, which never shrinks). With `sort`:
 /// `__tallTableSort(column, direction)`, the table's `set_sort`
 /// (`direction` `ascending` or `descending`, anything else for none;
@@ -110,7 +116,10 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// column's index drawn there); each `false`, and nothing sent, for numbers
 /// that aren't whole, a block past the columns or a `to` past what fits, or
 /// an order that isn't one of the columns.
-#[cfg(all(any(feature = "copy", feature = "sort"), target_family = "wasm"))]
+#[cfg(all(
+    any(feature = "copy", feature = "sort", feature = "reorder"),
+    target_family = "wasm"
+))]
 const EXACT_HOOK: &str = "__tallTableExact";
 #[cfg(all(feature = "copy", target_family = "wasm"))]
 const HEAP_HOOK: &str = "__tallTableHeap";
@@ -223,8 +232,9 @@ impl Host {
     /// A table over `shape`'s rows, each page read held `delay`, its float
     /// columns painted `cells`' way (`custom-cells`). With
     /// `probing`, the table reports its probes and the host publishes them
-    /// (`__tallTable`, `__tallTableLayout`, and with `custom-cells` and
-    /// `?probe-cells` the drawn cells, `__tallTableCells`). With `live`,
+    /// (`__tallTable`, `__tallTableLayout`, and with `custom-cells`,
+    /// `sort`, `format`, or `reorder` and `?probe-cells` the drawn cells,
+    /// `__tallTableCells`). With `live`,
     /// `live`'s feed and flash, and with `follow` the tail feed ([`Live`]).
     pub fn new(
         shape: Shape,
@@ -239,15 +249,26 @@ impl Host {
         // The drawn cells and their paint, for the smoke check
         // (`?probe-cells`), never in a perf run: building them costs every
         // frame. Only with the feature, so the base host is unchanged.
-        // With `sort` too, whose smoke check reads the drawn order, and
-        // `format`, whose smoke check reads the drawn text.
+        // With `sort` too, whose smoke check reads the drawn order,
+        // `format`, whose smoke check reads the drawn text, and `reorder`,
+        // whose smoke check reads each place's column.
         #[cfg(not(all(
-            any(feature = "custom-cells", feature = "sort", feature = "format"),
+            any(
+                feature = "custom-cells",
+                feature = "sort",
+                feature = "format",
+                feature = "reorder"
+            ),
             target_family = "wasm"
         )))]
         let probe_cells = false;
         #[cfg(all(
-            any(feature = "custom-cells", feature = "sort", feature = "format"),
+            any(
+                feature = "custom-cells",
+                feature = "sort",
+                feature = "format",
+                feature = "reorder"
+            ),
             target_family = "wasm"
         ))]
         let probe_cells = probing && seiza::url::has_param("probe-cells");
@@ -326,6 +347,8 @@ impl Host {
             sorted_mark: Some(SORTED_MARK),
             #[cfg(feature = "pin")]
             pinned: Some(PINNED_GLOBAL),
+            #[cfg(feature = "reorder")]
+            column_order: Some(COLUMN_ORDER_GLOBAL),
         };
         // The table emits while its frame renders, so GPUI runs this in the
         // task that presents it, and the mark lands right after the frame.
@@ -368,10 +391,10 @@ impl Host {
             target_family = "wasm"
         ))]
         if probing {
-            #[cfg(any(feature = "copy", feature = "sort"))]
+            #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
             let rows = table.read(cx).delegate();
             let source = Source {
-                #[cfg(any(feature = "copy", feature = "sort"))]
+                #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
                 exact: Box::new(rows.exact()),
                 #[cfg(feature = "sort")]
                 source_row: Box::new(rows.source_row()),
@@ -617,7 +640,7 @@ impl Density {
     target_family = "wasm"
 ))]
 struct Source {
-    #[cfg(any(feature = "copy", feature = "sort"))]
+    #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
     exact: Box<dyn Fn(u64, usize) -> Option<String>>,
     #[cfg(feature = "sort")]
     source_row: Box<dyn Fn(u64) -> u64>,
@@ -629,11 +652,12 @@ struct Source {
 }
 
 /// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, `pin`,
-/// `density`, or `follow`): with
-/// `copy` or `sort` [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`],
+/// `density`, `follow`, or `reorder`): with
+/// `copy`, `sort`, or `reorder` [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`],
 /// [`SELECT_HOOK`], and [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`],
 /// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`], with
-/// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`].
+/// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`], with
+/// `reorder` [`MOVE_HOOK`] and [`ORDER_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
@@ -652,7 +676,7 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
 
     let set = |name, hook: wasm_bindgen::JsValue| tall_table_bridge::js::set_global(name, &hook);
     let Source {
-        #[cfg(any(feature = "copy", feature = "sort"))]
+        #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
         exact,
         #[cfg(feature = "sort")]
         source_row,
@@ -661,7 +685,7 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
         #[cfg(feature = "sort")]
         drained,
     } = source;
-    #[cfg(any(feature = "copy", feature = "sort"))]
+    #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
     set(
         EXACT_HOOK,
         // `null` for NULL: wasm-bindgen would answer `None` as `undefined`.

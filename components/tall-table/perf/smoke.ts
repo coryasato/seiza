@@ -114,7 +114,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -140,6 +140,11 @@ const sort = builtFeatures().includes('sort');
 const pin = builtFeatures().includes('pin');
 const density = builtFeatures().includes('density');
 const format = builtFeatures().includes('format');
+const reorder = builtFeatures().includes('reorder');
+/** The reorder runs: a header dragged (and with `select` a range, with
+ *  `pin` across the edge, with `copy` a block copied, with `sort` a sorted
+ *  column), or opened at `?order=reverse`. */
+type ReorderRun = 'drag' | 'reverse';
 /** The format runs: the host's formats, or `?format=off` (the control). */
 type FormatRun = 'on' | 'off';
 /** The width `checkFormat` narrows a float column to (`resize`): the
@@ -1283,6 +1288,185 @@ async function checkDensity(page: Page, label: string, layout: Layout, start: Sh
 }
 /** Rows `checkDensity` samples, from row 1. */
 const ROWS_SAMPLED = 6;
+/** A header drag (`reorder`): the pointer to `from`, pressed, moved to
+ *  `toX` in `DRAG_MOVES` steps, given a few frames (the release takes the
+ *  gap the last frame drew), and released. */
+async function dragHeader(page: Page, from: { x: number; y: number }, toX: number): Promise<void> {
+  await page.mouse.move(from.x, from.y);
+  await page.waitForTimeout(50);
+  await page.mouse.down({ clickCount: 1 });
+  for (let step = 1; step <= DRAG_MOVES; step++) await page.mouse.move(from.x + ((toX - from.x) * step) / DRAG_MOVES, from.y);
+  await page.waitForTimeout(150);
+  await page.mouse.up({ clickCount: 1 });
+}
+
+/** The cells the last frame drew are the source's at their column's index
+ *  (`order[place]`), polled up to 5 s (the cells published may be a frame
+ *  behind the layout); a note, or `null` after a failure. */
+async function cellsInOrder(page: Page, label: string, what: string, order: number[]): Promise<string | null> {
+  let wrong = '';
+  for (let waited = 0; waited < 5_000; waited += 50) {
+    const cells = await drawnCells(page);
+    const exact = await exactTexts(page, cells.map((cell) => [cell.row, order[cell.column]!]));
+    const at = cells.findIndex((cell, index) => cell.exact !== (exact[index] ?? 'NULL'));
+    if (cells.length && at < 0) return `${cells.length} cells`;
+    wrong = at < 0 ? 'no cells drawn' : `place ${cells[at]!.column} (column ${order[cells[at]!.column]}), row ${cells[at]!.row} drew ${JSON.stringify(cells[at]!.exact)}, the source holds ${JSON.stringify(exact[at])}`;
+    await page.waitForTimeout(50);
+  }
+  return failed(`${label}: ${what}: ${wrong}`);
+}
+
+/** Each place's header name is its column's (`names` in index order, as
+ *  the list's own order draws them); each place's index is checked by
+ *  `orderedAs`. */
+function namesInOrder(label: string, what: string, layout: Layout, names: string[]): void {
+  const at = layout.columns.findIndex((column, place) => column.name !== names[column.index ?? place]);
+  if (at >= 0) failed(`${label}: ${what}: place ${at} named ${JSON.stringify(layout.columns[at]!.name)}, its column ${layout.columns[at]!.index} is ${JSON.stringify(names[layout.columns[at]!.index!])}`);
+}
+
+/** The run `pin` keeps in effect for a count: cut at half the cells'
+ *  width (`src/pin.rs`'s `in_effect`, its 0.001 px slack). */
+function pinInEffect(layout: Layout, count: number): number {
+  let run = Math.min(count, layout.columns.length);
+  while (run > 0 && layout.columns[run - 1]!.x + layout.columns[run - 1]!.width > layout.cellsWidth / 2 + 0.001) run--;
+  return run;
+}
+
+/** `reorder`: at `?order=reverse`, the first screen drawn reversed against
+ *  the source, then the list's own through the hook. Otherwise a header
+ *  dragged two places right and back, the published order and the layout
+ *  probe agreeing and the drawn cells the source's at each place's column;
+ *  with `sort`, all of it sorted (the order kept); with `select`, the
+ *  column selected first and still selected at its new place, then a
+ *  two-column range dragged; with `copy`, a block copied after the move,
+ *  pasted back in drawn order; with `pin`, a column dragged into the run
+ *  and out, the published count following. */
+async function checkReorder(page: Page, label: string, start: Layout, run: ReorderRun): Promise<string> {
+  const notes: string[] = [];
+  const selects = selectOn();
+  const own = start.columns.map((_, place) => place);
+  if (run === 'reverse') {
+    const reversed = [...own].reverse();
+    const layout = await orderedAs(page, reversed).catch(async () => failed(`${label}: opened at ${JSON.stringify(start.columns.map((column) => column.index))} (published ${JSON.stringify(await global(page, COLUMN_ORDER_GLOBAL))}), not reversed`));
+    if (!layout) return '';
+    const drawn = await cellsInOrder(page, label, 'reversed at open', reversed);
+    const back = await orderThrough(page, own).catch(() => failed(`${label}: the list's own order through the hook not drawn`));
+    if (!back) return '';
+    // The list's own names, each at its place: the reversed screen's
+    // headers checked against them.
+    namesInOrder(label, 'reversed at open', layout, back.columns.map((column) => column.name));
+    const ownDrawn = await cellsInOrder(page, label, "the list's own", own);
+    if (drawn && ownDrawn) notes.push(`reversed at open (${drawn}), then the list's own (${ownDrawn})`);
+    return notes.length ? `, ${notes.join('; ')}` : '';
+  }
+
+  const names = start.columns.map((column) => column.name);
+  const pinned = start.pinned ?? 0;
+  // The first scrolled column but one: the one left of it stays scrolled.
+  const column = pinned + 1;
+  const sorted: Sort | null = sort ? { column, direction: 'descending' } : null;
+  if (sorted && !(await sortThrough(page, sorted).catch(() => failed(`${label}: not sorted ${JSON.stringify(sorted)}`)))) return '';
+  const view = () => shown(page).then(({ shown }) => shown);
+  /** Drags the column (or the selected range) at `place` so the gap is
+   *  after `after`, then waits for `want`. */
+  const drag = async (what: string, layout: Layout, place: number, after: number, want: number[]): Promise<Layout | null> => {
+    const scrollX = (await view()).scrollX;
+    await dragHeader(page, moveGripAt(layout, place, scrollX), gapAfterX(layout, after, scrollX));
+    const moved = await orderedAs(page, want).catch(async () => failed(`${label}: ${what}: from ${JSON.stringify(moveGripAt(layout, place, scrollX))} to ${gapAfterX(layout, after, scrollX)}, selection ${JSON.stringify((await view()).selection)}: the order ${JSON.stringify((await shown(page)).layout.columns.map((column) => column.index))} (published ${JSON.stringify(await global(page, COLUMN_ORDER_GLOBAL))}), not ${JSON.stringify(want)}`));
+    if (moved) namesInOrder(label, what, moved, names);
+    return moved;
+  };
+  const columnsAt = (from: number, to = from): Selection => ({ kind: 'columns', anchor: [0, from], head: [0, to] });
+  /** A press that selects the column at `place` (`SELECT_OFFSET_PX`). */
+  const selectHeader = async (layout: Layout, place: number, shift = false) => {
+    const grip = moveGripAt(layout, place, (await view()).scrollX);
+    await pressAt(page, { ...grip, x: grip.x + SELECT_OFFSET_PX }, shift);
+  };
+
+  // Two places right: with `select`, selected first, so the press drags it.
+  if (selects) {
+    await selectHeader(start, column);
+    await selected(page, columnsAt(column)).catch(() => failed(`${label}: a press on column ${column}'s header didn't select it`));
+  }
+  const right = movedOrder(own, column, column + 1, column + 2);
+  const moved = await drag('two places right', start, column, column + 2, right);
+  if (!moved) return '';
+  const rightDrawn = await cellsInOrder(page, label, 'two places right', right);
+  if (selects) await selected(page, columnsAt(column + 2)).catch(async () => failed(`${label}: two places right: selected ${JSON.stringify((await view()).selection ?? null)}, not column ${column}'s new place`));
+  if (sorted) await sortedAs(page, sorted, 5_000).catch(async () => failed(`${label}: two places right: sorted ${JSON.stringify((await view()).sort ?? null)}, not ${JSON.stringify(sorted)}`));
+  if (rightDrawn) notes.push(`column ${column} two places right (${rightDrawn}${sorted ? ', sorted' : ''})`);
+
+  // A block copied in drawn order: the columns at places column..column+2.
+  if (copy) {
+    const block: Selection = { kind: 'cells', anchor: [1, column], head: [3, column + 2] };
+    await selectThrough(page, block);
+    const state = await copyByKey(page);
+    if (state.state !== 'written') failed(`${label}: a block after the move: ${JSON.stringify(state)}, not written`);
+    else {
+      const lines = parseTsv(await paste(page));
+      const places = [column, column + 1, column + 2];
+      const cells = [1, 2, 3].flatMap((row) => places.map((place) => [row, right[place]!] as [number, number]));
+      const exact = await exactTexts(page, cells);
+      const at = cells.findIndex(([row], index) => lines[row - 1]?.[index % 3] !== (exact[index] ?? ''));
+      if (lines.length !== 3 || at >= 0) failed(`${label}: a block after the move pasted ${JSON.stringify(lines)}, the source's in drawn order ${JSON.stringify(exact)}`);
+      else notes.push(`a block copied in drawn order (columns ${places.map((place) => right[place]).join(', ')})`);
+    }
+    await selectThrough(page, columnsAt(column + 2));
+  }
+
+  // And back: the gap after the place left of where it started.
+  const back = await drag('back', moved, column + 2, column - 1, own);
+  if (!back) return '';
+  const backDrawn = await cellsInOrder(page, label, 'back', own);
+  if (selects) await selected(page, columnsAt(column)).catch(async () => failed(`${label}: back: selected ${JSON.stringify((await view()).selection ?? null)}, not column ${column}'s place`));
+  if (sorted) await sortedAs(page, sorted, 5_000).catch(async () => failed(`${label}: back: sorted ${JSON.stringify((await view()).sort ?? null)}, not ${JSON.stringify(sorted)}`));
+  if (backDrawn) notes.push(`and back (${backDrawn})`);
+
+  // With `select`, a two-column range two places right, still selected.
+  if (selects) {
+    await selectHeader(back, column + 1, true);
+    await selected(page, columnsAt(column, column + 1)).catch(() => failed(`${label}: a Shift+press on column ${column + 1}'s header didn't select columns ${column}–${column + 1}`));
+    const pair = movedOrder(own, column, column + 2, column + 2);
+    const pairMoved = await drag('a two-column range', back, column, column + 3, pair);
+    if (pairMoved) {
+      await selected(page, columnsAt(column + 2, column + 3)).catch(async () => failed(`${label}: a two-column range: selected ${JSON.stringify((await view()).selection ?? null)} after the move`));
+      const drawn = await cellsInOrder(page, label, 'a two-column range', pair);
+      if (drawn) notes.push(`columns ${column}–${column + 1} dragged as a range (${drawn})`);
+    }
+    await orderThrough(page, own).catch(() => failed(`${label}: the list's own order through the hook not drawn`));
+    await selected(page, null).catch(() => failed(`${label}: set_order kept a Columns selection`));
+  }
+
+  // With `pin`, into the run (the gap after place 0) and out again.
+  if (pin && pinned) {
+    let layout = (await shown(page)).layout;
+    if (selects) {
+      await selectHeader(layout, column);
+      await selected(page, columnsAt(column)).catch(() => failed(`${label}: a press on column ${column}'s header didn't select it`));
+    }
+    const into = movedOrder(own, column, column + 1, 1);
+    const pinnedIn = await drag('into the run', layout, column, 0, into);
+    if (pinnedIn) {
+      const inEffect = pinInEffect(pinnedIn, pinned + 1);
+      layout = (await pinnedAs(page, inEffect).catch(async () => failed(`${label}: into the run: ${JSON.stringify(await global(page, PINNED_GLOBAL))} pinned, not ${inEffect}`))) ?? pinnedIn;
+      // Out: the gap after the run's last column but the one moved in,
+      // right of the edge (the count back to `pinned`).
+      const out = await drag('out of the run', layout, 1, pinned + 1, own);
+      if (out) {
+        const outPinned = await pinnedAs(page, pinInEffect(out, pinned)).catch(async () => failed(`${label}: out of the run: ${JSON.stringify(await global(page, PINNED_GLOBAL))} pinned, not ${pinned}`));
+        const drawn = await cellsInOrder(page, label, 'out of the run', own);
+        if (outPinned && drawn) notes.push(`column ${column} pinned (${inEffect} in effect) and unpinned (${pinned}) by drags (${drawn})`);
+      }
+    }
+  }
+  if (selects) {
+    await page.keyboard.press('Escape');
+    await selected(page, null).catch(() => failed(`${label}: Escape kept the selection`));
+  }
+  if (sorted) await sortThrough(page, null).catch(() => failed(`${label}: the sort not undone`));
+  return notes.length ? `, ${notes.join('; ')}` : '';
+}
+
 /** The sideways room `checkPin` narrows the viewport for, where it has
  *  less. */
 const PIN_ROOM_PX = 150;
@@ -1540,7 +1724,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -1561,14 +1745,17 @@ try {
     const controlled = builtFeatures().every((feature) => feature === 'density');
     if (density) runs.push(...SHAPES.flatMap((shape) => (controlled ? (['dense', 'control'] as DensityRun[]) : (['dense'] as DensityRun[])).map((densities) => ({ ...quiet, shape, densities }))));
     if (format) runs.push(...SHAPES.flatMap((shape) => (['on', 'off'] as FormatRun[]).map((formatting) => ({ ...quiet, shape, formatting }))));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}`;
+    if (reorder) runs.push(...SHAPES.flatMap((shape) => (['drag', 'reverse'] as ReorderRun[]).map((reordering) => ({ ...quiet, shape, reordering }))));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
       // advances' size) with `density`; `?format=off` for the control.
       if (formatting) Object.assign(params, { 'probe-cells': '', ...(density ? { density: '30,14' } : {}), ...(formatting === 'off' ? { format: 'off' } : {}) });
       if (sorting) params['probe-cells'] = '';
+      if (reordering) params['probe-cells'] = '';
+      if (reordering === 'reverse') params.order = 'reverse';
       if (sorting === 'icons') params['sort-icons'] = '';
       if (sorting === 'opened') params.sort = `${OPEN_SORT.column},${OPEN_SORT.direction === 'ascending' ? 'asc' : 'desc'}`;
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
@@ -1598,6 +1785,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The reorder runs check their own, from the first screen.
+        if (reordering) {
+          const reordered = await checkReorder(page, label, layout, reordering);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${reordered}`);
+          continue;
         }
         // The format runs check their own, from the first screen.
         if (formatting) {

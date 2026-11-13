@@ -658,7 +658,17 @@ fn set_columns_resets_the_order(cx: &mut TestAppContext) {
     sheet.update(|table, cx| table.set_columns(columns(), cx));
     sheet.check_cells(&[0, 1, 2, 3]);
     let moved = sheet.moved();
-    assert_eq!(moved, [vec![1, 0, 3, 2]], "set_columns emits no move");
+    assert_eq!(
+        moved,
+        [vec![1, 0, 3, 2], vec![0, 1, 2, 3]],
+        "set_columns emits the list's own order it reset to"
+    );
+    // Already the list's own: nothing changed, nothing emitted.
+    sheet.update(|table, cx| table.set_columns(columns(), cx));
+    assert!(
+        sheet.moved().is_empty(),
+        "set_columns over the list's own emits no move"
+    );
 }
 
 #[gpui_kit::test]
