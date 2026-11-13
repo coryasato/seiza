@@ -129,8 +129,29 @@
 //           page takes it, a frame's places, and the wasm's memory with
 //           and without.
 //
+//   camera  the camera a hand moves, on a held clock: a drag pans along the
+//           ecliptic (fails unless the plane's point under the pointer at
+//           the press is under it at the release, within a CSS pixel, from
+//           the opening camera and from two tilted by `?elev`, with the
+//           distance, tilt, bearing, and roll as they were; unless a press
+//           on the time control or the open panel, on the landed layout,
+//           and riding, each dragged, moves nothing; and unless a drag that
+//           crosses the open panel keeps the camera to its release there);
+//           a wheel zooms toward the pointer (fails unless the plane's
+//           point under it holds within a pixel in and out, the camera
+//           stops at 0.05 and 60 au, over the sky it zooms and looks where
+//           it did, and with Ctrl held it zooms the scene and leaves the
+//           page's own zoom); and the glide (fails unless a drag let go
+//           moving carries on and rests, one let go still doesn't, a press
+//           stops one, and at rest the scene draws nothing). The dots at
+//           the nearest zoom (out/camera-near-*.jpg).
+//
 // Run only when asked for by name (minutes more each):
 //
+//   drag    a drag's frames: the scene's frames a second while a scripted
+//           drag moves the camera, with time running and paused, at the
+//           display's resolution and at `?scale` 0.75 and 0.5 (the median
+//           of `--rate-runs` loads).
 //   rate    the scene's frames a second while time runs, at the display's
 //           resolution, three quarters, and half, each with the bloom whole,
 //           at half its size, and off (the median of `--rate-runs` loads, 3;
@@ -148,7 +169,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,sort,ride,gap,integrated,rate,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,sort,ride,gap,integrated,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -166,7 +187,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'sort', 'ride', 'gap', 'integrated', 'rate', 'slow', 'cross'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'sort', 'ride', 'gap', 'integrated', 'rate', 'drag', 'slow', 'cross'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -183,7 +204,7 @@ const RATE_MORE = (option('ways') ?? '')
     return [name!, Object.fromEntries(new URLSearchParams(query))];
   });
 /** Asked for by name alone: the frame rates, the slow link, and another browser take minutes more. */
-const ASKED = ['rate', 'slow', 'cross'];
+const ASKED = ['rate', 'drag', 'slow', 'cross'];
 const ONLY = new Set((option('only') ?? PARTS.filter((part) => !ASKED.includes(part)).join(',')).split(','));
 if (ENGINE !== chromium && [...ONLY].some((part) => part !== 'cross' && part !== 'wheel')) throw new Error('--browser runs --only cross,wheel; every other part is Chromium\'s');
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs wants a whole number of loads, 1 or more; got "${option('runs')}"`);
@@ -213,7 +234,8 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; flight: number; ride: number; integrated: number; catchingUp: boolean };
+type View = { x: number; y: number; distance: number; tilt: number; bearing: number; roll: number };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; gliding: boolean; flight: number; ride: number; integrated: number; catchingUp: boolean };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
@@ -1044,7 +1066,9 @@ async function seeWheel(url: string) {
       });
     // Over the scene, the panel shut.
     const opening = await read();
-    await page.mouse.move(500, 450);
+    // (On the Sun, which the camera looks at: a wheel zooms toward the
+    // pointer, and the Sun's name is read centered below.)
+    await page.mouse.move(720, 450);
     await wheel(page, 300);
     await page.waitForTimeout(300);
     const zoomed = await read();
@@ -1075,6 +1099,302 @@ async function seeWheel(url: string) {
   } finally {
     await close();
   }
+}
+
+// --- The camera a hand moves.
+
+type Point = [number, number];
+/** The scene's camera as last drawn, and what it has drawn. */
+const cameraNow = (page: Page) =>
+  kirkwood(page, (kirkwood) => {
+    const scene = kirkwood.scene!;
+    return { view: scene.stats.camera, gliding: scene.stats.gliding, frames: scene.stats.frames, matrix: scene.viewProjection() };
+  });
+const under = (page: Page, [x, y]: Point) => page.evaluate(([x, y]) => (globalThis as unknown as Page_).__kirkwood.scene!.under(x!, y!), [x, y]);
+/** A drag from one window position to another: a move every 8 ms, `ms`
+ *  from the press to the last; then `still` ms with the pointer at rest
+ *  before the release (none: let go moving), unless `held`. With
+ *  `pressed`, a drag already held is carried on. */
+async function dragged(page: Page, from: Point, to: Point, { ms = 400, still = 250, held = false, pressed = false } = {}): Promise<void> {
+  if (!pressed) {
+    await page.mouse.move(...from);
+    await page.mouse.down();
+  }
+  const steps = Math.max(2, Math.round(ms / 8));
+  const start = Date.now();
+  for (let step = 1; step <= steps; step++) {
+    await page.mouse.move(from[0] + ((to[0] - from[0]) * step) / steps, from[1] + ((to[1] - from[1]) * step) / steps);
+    const wait = start + (ms * step) / steps - Date.now();
+    if (wait > 0) await page.waitForTimeout(wait);
+  }
+  if (still) await page.waitForTimeout(still);
+  if (!held) await page.mouse.up();
+}
+const sameView = (a: View, b: View) => a.x === b.x && a.y === b.y && a.distance === b.distance && a.tilt === b.tilt && a.bearing === b.bearing && a.roll === b.roll;
+const viewOf = (view: View) => ({ at: [fixed(view.x, 4), fixed(view.y, 4)], distance: fixed(view.distance, 4), tilt: fixed(view.tilt, 2), bearing: fixed(view.bearing, 2), roll: fixed(view.roll, 2) });
+const off = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+async function seeCamera(url: string) {
+  // A drag pans along the plane, from the opening camera and from two
+  // tilted by the knob.
+  const pans = [];
+  for (const [name, params] of [
+    ['the opening camera', {}],
+    ['30° from straight down', { elev: '60' }],
+    ['78° from straight down', { elev: '12', roll: '0' }],
+  ] as [string, Record<string, string>][]) {
+    pans.push(
+      await withBelt(url, { ...HELD, ...params }, async (page) => {
+        const [from, to]: [Point, Point] = [[700, 520], [560, 610]];
+        const before = await cameraNow(page);
+        const held = await under(page, from);
+        need(!!held, `${name}: no point of the ecliptic under ${from.join()}`);
+        await dragged(page, from, to);
+        await settle(page);
+        const after = await cameraNow(page);
+        const at = project(after.matrix, [...held!, 0]);
+        need(off(at, to) <= 1, `${name}: the point pressed at ${from.join()} is at ${at.map(round).join()} after a drag to ${to.join()}`);
+        need(off(project(before.matrix, [...held!, 0]), from) <= 0.01, `${name}: the point under the press isn't where the camera puts it`);
+        need(!sameView(before.view, after.view) && after.view.distance === before.view.distance && after.view.tilt === before.view.tilt && after.view.bearing === before.view.bearing && after.view.roll === before.view.roll, `${name}: a pan took the camera from ${JSON.stringify(before.view)} to ${JSON.stringify(after.view)}`);
+        need(!after.gliding, `${name}: let go still, the camera glides`);
+        if (name === 'the opening camera') await shot(page, 'camera-panned');
+        return { camera: name, press: from, release: to, pointHeldAu: held!.map((au) => fixed(au, 4)), pointAfterPx: at.map((px) => fixed(px, 2)), offPx: fixed(off(at, to), 3), before: viewOf(before.view), after: viewOf(after.view) };
+      }),
+    );
+  }
+  // A press on a control or the panel moves nothing, nor a drag where the
+  // camera isn't a hand's; and a drag that crosses the panel keeps it.
+  const elsewhere = await withBelt(url, HELD, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    const first = (await cameraNow(page)).view;
+    const still = async (what: string) => {
+      await settle(page);
+      const now = (await cameraNow(page)).view;
+      need(sameView(first, now), `${what} moved the camera from ${JSON.stringify(first)} to ${JSON.stringify(now)}`);
+    };
+    // The time control (a press that leaves it is no click).
+    const [tx, ty, tw, th] = await targetRect(page, 'time');
+    await dragged(page, [tx + tw / 2, ty + th / 2], [tx + tw / 2 - 200, ty - 200], { ms: 200 });
+    await still('a drag from the time control');
+    // The panel, open.
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(600);
+    await dragged(page, [1440 - PANEL + 200, 450], [400, 300], { ms: 200 });
+    await still('a drag from the open panel');
+    // From the scene across the panel, and let go over it.
+    const [from, to]: [Point, Point] = [[420, 520], [1440 - PANEL + 150, 600]];
+    const held = await under(page, from);
+    need(!!held, `the panel open: no point of the ecliptic under ${from.join()}`);
+    await dragged(page, from, [1440 - PANEL - 40, 560], { ms: 250, still: 100, held: true });
+    await settle(page);
+    const beside = await cameraNow(page);
+    await dragged(page, [1440 - PANEL - 40, 560], to, { ms: 200, pressed: true });
+    await settle(page);
+    const over = await cameraNow(page);
+    need(!sameView(beside.view, over.view), 'a drag that crossed the panel stopped moving the camera at its edge');
+    const at = project(over.matrix, [...held!, 0]);
+    need(off(at, to) <= 1, `a drag across the panel: the point pressed at ${from.join()} is at ${at.map(round).join()} at its release at ${to.join()}`);
+    // The release was the drag's: a move after it moves nothing.
+    await page.mouse.move(300, 300);
+    await settle(page);
+    need(sameView(over.view, (await cameraNow(page)).view), 'a move after the release over the panel moved the camera');
+    await shot(page, 'camera-across-panel');
+    return { acrossThePanel: { press: from, release: to, pointAfterPx: at.map((px) => fixed(px, 2)), offPx: fixed(off(at, to), 3), before: viewOf(first), after: viewOf(over.view) } };
+  });
+  const modes = [];
+  for (const [name, params] of [
+    ['on the axes', { flight: '1' }],
+    ['riding with Jupiter', { ride: '1' }],
+  ] as [string, Record<string, string>][]) {
+    modes.push(
+      await withBelt(url, { ...HELD, ...params }, async (page) => {
+        const before = await cameraNow(page);
+        await dragged(page, [700, 520], [560, 610], { ms: 200, still: 0 });
+        await page.waitForTimeout(300);
+        const after = await cameraNow(page);
+        need(sameView(before.view, after.view) && !after.gliding && before.matrix.join() === after.matrix.join(), `${name}, a drag moved the camera from ${JSON.stringify(before.view)} to ${JSON.stringify(after.view)}`);
+        return name;
+      }),
+    );
+  }
+
+  // A wheel zooms toward the pointer.
+  const zoom = await withBelt(url, HELD, async (page) => {
+    const at: Point = [500, 560];
+    await page.mouse.move(...at);
+    const steps = [];
+    for (const delta of [-300, -300, 500]) {
+      const before = await cameraNow(page);
+      const held = await under(page, at);
+      need(!!held, `no point of the ecliptic under ${at.join()}`);
+      await wheel(page, delta);
+      await settle(page);
+      const after = await cameraNow(page);
+      const now = project(after.matrix, [...held!, 0]);
+      need(after.view.distance !== before.view.distance && off(now, at) <= 1, `a wheel of ${delta} at ${at.join()}: the camera went from ${before.view.distance} au to ${after.view.distance}, the point under the pointer to ${now.map(round).join()}`);
+      need(after.view.tilt === before.view.tilt && after.view.bearing === before.view.bearing && after.view.roll === before.view.roll, 'a wheel tilted or turned the camera');
+      steps.push({ wheel: delta, distanceAu: [fixed(before.view.distance, 4), fixed(after.view.distance, 4)], pointAfterPx: now.map((px) => fixed(px, 2)), offPx: fixed(off(now, at), 3) });
+    }
+    await shot(page, 'camera-zoomed');
+    // The limits, the pointer on what the camera looks at.
+    const limit = async (delta: number) => {
+      const looked = (await cameraNow(page)).view;
+      const [x, y] = project((await cameraNow(page)).matrix, [looked.x, looked.y, 0]);
+      await page.mouse.move(x, y);
+      for (let turn = 0; turn < 40; turn++) await wheel(page, delta);
+      await settle(page);
+      const stopped = await cameraNow(page);
+      await page.waitForTimeout(300);
+      const frames = (await cameraNow(page)).frames;
+      await wheel(page, delta);
+      await page.waitForTimeout(300);
+      const pushed = await cameraNow(page);
+      need(sameView(stopped.view, pushed.view) && pushed.frames === frames, `a wheel past the limit moved the camera from ${JSON.stringify(stopped.view)} to ${JSON.stringify(pushed.view)}, or drew`);
+      return stopped.view.distance;
+    };
+    const farthest = await limit(600);
+    const nearest = await limit(-600);
+    need(farthest === 60 && nearest === 0.05, `the wheel stops at ${nearest} au and ${farthest}`);
+    return { pointer: at, steps, limitsAu: [nearest, farthest] };
+  });
+  // Over the sky, toward what the camera looks at.
+  const sky = await withBelt(url, { ...HELD, elev: '5', roll: '0' }, async (page) => {
+    const at: Point = [720, 120];
+    need(!(await under(page, at)), `at 5° above the plane a ray through ${at.join()} meets the ecliptic`);
+    await page.mouse.move(...at);
+    const before = await cameraNow(page);
+    await wheel(page, -300);
+    await settle(page);
+    const after = await cameraNow(page);
+    need(after.view.distance < before.view.distance && after.view.x === before.view.x && after.view.y === before.view.y, `a wheel over the sky took the camera from ${JSON.stringify(before.view)} to ${JSON.stringify(after.view)}`);
+    return { pointer: at, before: viewOf(before.view), after: viewOf(after.view) };
+  });
+  // With Ctrl held, as a trackpad's pinch: the scene zooms, never the page.
+  const pinch = await withBelt(url, HELD, async (page) => {
+    const pageZoom = () => page.evaluate(() => ({ scale: visualViewport!.scale, width: innerWidth, ratio: devicePixelRatio }));
+    const at: Point = [500, 560];
+    await page.mouse.move(...at);
+    const [before, zoomBefore, held] = [await cameraNow(page), await pageZoom(), await under(page, at)];
+    await wheel(page, -20);
+    await settle(page);
+    const plain = await cameraNow(page);
+    await page.keyboard.down('Control');
+    await wheel(page, -20);
+    await page.keyboard.up('Control');
+    await settle(page);
+    const [after, zoomAfter] = [await cameraNow(page), await pageZoom()];
+    const [byPlain, byPinch] = [before.view.distance / plain.view.distance, plain.view.distance / after.view.distance];
+    need(byPinch > byPlain * 1.05, `a wheel with Ctrl held zoomed the scene by ${byPinch}, and a plain one by ${byPlain}`);
+    need(JSON.stringify(zoomBefore) === JSON.stringify(zoomAfter), `a wheel with Ctrl held took the page's zoom from ${JSON.stringify(zoomBefore)} to ${JSON.stringify(zoomAfter)}`);
+    const now = project(after.matrix, [...held!, 0]);
+    need(off(now, at) <= 1, `a wheel with Ctrl held: the point under the pointer went to ${now.map(round).join()}`);
+    return { wheel: -20, zoomedBy: { plain: fixed(byPlain, 4), withCtrl: fixed(byPinch, 4) }, pageZoom: zoomAfter };
+  });
+
+  // The glide.
+  const glide = await withBelt(url, HELD, async (page) => {
+    const fling = () => dragged(page, [800, 480], [560, 560], { ms: 120, still: 0 });
+    await fling();
+    const letGo = Date.now();
+    const released = await cameraNow(page);
+    need(released.gliding, 'let go moving, the camera does not glide');
+    await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.scene!.stats.gliding, undefined, { timeout: 10_000, polling: 'raf' });
+    const restMs = Date.now() - letGo;
+    await settle(page);
+    const rested = await cameraNow(page);
+    const carried = Math.hypot(rested.view.x - released.view.x, rested.view.y - released.view.y);
+    need(carried > 0, 'the glide carried the camera nowhere');
+    await page.waitForTimeout(1500);
+    const later = await cameraNow(page);
+    need(later.frames === rested.frames && sameView(later.view, rested.view), `at rest, time paused, the scene drew ${later.frames - rested.frames} frames in 1.5 s`);
+    // A press stops it: on the scene, and on a control.
+    const stops = [];
+    for (const [where, press] of [
+      ['the scene', () => page.mouse.click(300, 600)],
+      ['the handle', () => clickTarget(page, 'table-handle')],
+    ] as [string, () => Promise<void>][]) {
+      await fling();
+      need((await cameraNow(page)).gliding, 'let go moving again, the camera does not glide');
+      await press();
+      const pressed = await cameraNow(page);
+      await page.waitForTimeout(300);
+      const after = await cameraNow(page);
+      need(!pressed.gliding && after.view.x === pressed.view.x && after.view.y === pressed.view.y, `a press on ${where} left the camera gliding`);
+      stops.push(where);
+    }
+    return { restMs, carriedAu: fixed(carried, 4), released: viewOf(released.view), rested: viewOf(rested.view), framesAtRest: later.frames - rested.frames, aPressStopsItOn: stops };
+  });
+
+  // The dots at the nearest zoom, and on the way in.
+  for (const [name, dist] of [['1', '1'], ['0-2', '0.2'], ['0-05', '0.05']] as const) {
+    await withSky(url, { ...HELD, at: '2.2,-1.6', dist }, async (page) => {
+      await shot(page, `camera-near-${name}`);
+    });
+  }
+  return { pans, ...elsewhere, nothingMoves: ['a drag from the time control', 'a drag from the open panel', ...modes.map((mode) => `a drag ${mode}`)], zoom, overTheSky: sky, pinch, glide };
+}
+/** A drag's frames: the scene's frames a second while a scripted drag
+ *  moves the camera round a circle, by the scene's resolution. */
+async function seeDrag(url: string) {
+  const SECONDS = 4;
+  const ways = [];
+  for (const [name, params] of [
+    ["the display's resolution", {}],
+    ['three quarters', { scale: '0.75' }],
+    ['half', { scale: '0.5' }],
+    ["the display's, time paused", { paused: '' }],
+    ['three quarters, time paused', { scale: '0.75', paused: '' }],
+  ] as [string, Record<string, string>][]) {
+    const loads: { scene: number; page: number; p50: number; p95: number; longest: number }[] = [];
+    for (let run = 0; run < RATE_RUNS; run++) {
+      loads.push(
+        await withSky(url, { date: EPOCH, ...params }, async (page) => {
+          await page.mouse.move(720, 520);
+          await page.mouse.down();
+          const measured = page.evaluate(
+            (ms) =>
+              new Promise<{ scene: number; page: number; p50: number; p95: number; longest: number }>((done) => {
+                const stats = (globalThis as unknown as Page_).__kirkwood.scene!.stats;
+                const from = performance.now();
+                let [frames, last, lastAt] = [0, stats.frames, from];
+                const gaps: number[] = [];
+                const tick = (now: number) => {
+                  frames++;
+                  if (stats.frames !== last) {
+                    gaps.push(now - lastAt);
+                    [last, lastAt] = [stats.frames, now];
+                  }
+                  if (now - from < ms) return void requestAnimationFrame(tick);
+                  const seconds = (now - from) / 1000;
+                  const sorted = gaps.slice(1).sort((a, b) => a - b);
+                  done({ scene: (gaps.length - 1) / seconds, page: frames / seconds, p50: sorted[Math.floor(sorted.length / 2)]!, p95: sorted[Math.floor(sorted.length * 0.95)]!, longest: sorted[sorted.length - 1]! });
+                };
+                requestAnimationFrame(tick);
+              }),
+            SECONDS * 1000,
+          );
+          // Round a circle, a move every 8 ms, until the reading is in.
+          let done = false;
+          void measured.then(() => (done = true));
+          const start = Date.now();
+          while (!done) {
+            const turn = ((Date.now() - start) / 1000) * Math.PI;
+            await page.mouse.move(720 + 160 * Math.sin(turn), 520 + 90 * (1 - Math.cos(turn)));
+            await page.waitForTimeout(8);
+          }
+          const reading = await measured;
+          await page.waitForTimeout(250);
+          await page.mouse.up();
+          return reading;
+        }),
+      );
+    }
+    const of = (pick: (load: (typeof loads)[number]) => number) => round(median(loads.map(pick)));
+    ways.push({ way: name, params, sceneFramesASecond: of((load) => load.scene), pageFramesASecond: of((load) => load.page), frameMs: { p50: of((load) => load.p50), p95: of((load) => load.p95), longest: of((load) => load.longest) } });
+    console.error(JSON.stringify(ways[ways.length - 1]));
+  }
+  return { seconds: SECONDS, runs: RATE_RUNS, ways };
 }
 
 // --- The sort flight.
@@ -2191,11 +2511,13 @@ try {
   if (ONLY.has('color')) seen.color = await seeColor(server.url);
   if (ONLY.has('sky')) seen.sky = await seeSky(server.url);
   if (ONLY.has('wheel')) seen.wheel = await seeWheel(server.url);
+  if (ONLY.has('camera')) seen.camera = await seeCamera(server.url);
   if (ONLY.has('sort')) seen.sort = await seeSort(server.url);
   if (ONLY.has('ride')) seen.ride = await seeRide(server.url);
   if (ONLY.has('gap')) seen.gap = await seeGap(server.url);
   if (ONLY.has('integrated')) seen.integrated = await seeIntegrated(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
+  if (ONLY.has('drag')) seen.drag = await seeDrag(server.url);
   if (ONLY.has('slow')) seen.slow = await seeSlow(server.url);
   if (ONLY.has('cross')) seen.cross = await seeCross(server.url);
   writeFileSync(join(out, ENGINE === chromium ? 'seen.json' : `seen-${BROWSER}.json`), `${JSON.stringify(seen, null, 2)}\n`);

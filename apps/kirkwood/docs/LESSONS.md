@@ -242,3 +242,16 @@ The chips as buttons, the marker on an orbit exactly in step with Jupiter, its p
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interface"; the evidence: [`milestones.md`](milestones.md), M4's checks.
 
 *After review:* every check waited for the page to come to rest, and every fault was in between: a press while the camera was still flying, a second press on a chip still fading, a crossfade whose two halves did not meet. A check of a thing that moves needs a step taken while it moves.
+
+## M5 part A: the drag, the wheel, and the glide (2026-11-12)
+
+**Surprises:**
+- **The pan needed no camera math of its own.** Asking where the pointer's ray meets the plane, through the camera as it's placed, and sliding by the difference is exact at any tilt, with the roll, and beside the panel: every check read 0.00 px. The view offset and the roll, the two things expected to need care, came free.
+- **A map's horizon was the part the plan hadn't named.** The opening shot has sky in two corners and ground 76 au away along its top edge. A point held there flings the camera, and a wheel there carries it tens of au a notch: both needed a reach, and what the camera looks at a bound.
+- **"Over the sky" came back as a place.** A ray that never meets the plane was given an infinite reach, and infinity isn't past an infinite limit: the check for the sky read a point of the ecliptic at infinity. The check caught it only because it asked for nothing there.
+- **The pinch was already a wheel.** The first look the plan asked for was one read of gpui-pre-web: the default is taken whatever is held, and Ctrl is in the event.
+- **Stepping the resolution costs the frame a hand feels, and the eye turned it down for another reason.** Three quarters while the camera moves buys 8 frames a second and spends 100 ms on the first frame of every drag; what the owner saw was the picture flickering back to sharp after a fling. The number said "maybe"; a real browser said no in a minute.
+- **Up close, a dot is a star.** Nothing swells or breaks at the nearest zoom; the surprise is that the belt's few near dots and Gaia's stars are the same small points.
+- **A flag read from the next frame reads late.** The glide's flag was set by the frame after the release, and the check read it before one came.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Input", "Scene".

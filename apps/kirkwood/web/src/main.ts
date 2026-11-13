@@ -98,8 +98,15 @@ const SKY_MARK = 'kirkwood:sky';
 type Kirkwood = {
   /** Called by the crate once GPUI's first frame is on screen. */
   firstFrame(): void;
-  /** Called by the crate: a wheel over the scene. */
-  wheel(x: number, y: number, delta: number): void;
+  /** Called by the crate: a wheel over the scene (in the fixed frame, or
+   *  riding with Jupiter), a press anywhere in the window, and a drag on
+   *  the scene (its start, its moves, its end). */
+  wheel(x: number, y: number, delta: number, modifiers: number): void;
+  rideWheel(delta: number, modifiers: number): void;
+  press(): void;
+  dragStart(x: number, y: number, button: number, modifiers: number): void;
+  dragMove(x: number, y: number): void;
+  dragEnd(x: number, y: number): void;
   /** For the checks: the wasm's linear memory in bytes, now and as it was
    *  when the first frame was on screen (before either file). */
   wasmBytes(): number;
@@ -394,7 +401,12 @@ const kirkwood: Kirkwood = {
     kirkwood.wasmBytesAtFirstFrame = kirkwood.wasmBytes();
     void afterFirstFrame();
   },
-  wheel: (x, y, delta) => scene?.wheel(x, y, delta),
+  wheel: (x, y, delta, modifiers) => scene?.wheel(x, y, delta, modifiers),
+  rideWheel: (delta, modifiers) => scene?.rideWheel(delta, modifiers),
+  press: () => scene?.press(),
+  dragStart: (x, y, button, modifiers) => scene?.dragStart(x, y, button, modifiers),
+  dragMove: (x, y) => scene?.dragMove(x, y),
+  dragEnd: (x, y) => scene?.dragEnd(x, y),
   wasmBytes: () => memory?.buffer.byteLength ?? 0,
   wasmBytesAtFirstFrame: 0,
   held: 0,

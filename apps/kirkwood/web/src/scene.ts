@@ -10,6 +10,10 @@
 // draws only when something changed: the clock, the camera, the panel's
 // width, the window.
 //
+// The camera is a map's, and a hand's (`camera.ts`): a drag pans along the
+// ecliptic, a wheel zooms toward the pointer, and a drag let go moving
+// glides to rest. The interface hands each over; this canvas hears nothing.
+//
 // A dot's color is its orbit size, through the crate's ramp, and its
 // brightness and size come from its H as the eye would see it; all of it is
 // drawn in linear light through the look's passes (`look.ts`), with the sky
@@ -43,7 +47,7 @@
 // For the checks and for looking (the page's query): the camera, `?az`,
 // `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks
 // at, on the ecliptic, au); `?scale` (the scene's pixels for each of the
-// display's); `?only=<row>,<row>` (those rows alone, as plain discs
+// display's), and `?glide` (the glide's time constant, ms); `?only=<row>,<row>` (those rows alone, as plain discs
 // `?size` CSS px across, with no Sun, Jupiter, sky, haze, or bloom;
 // `?hard=0` draws them as the belt's dots are); `?marks` (lines from the
 // Sun toward Jupiter, 60° either side of it, and opposite);
@@ -51,6 +55,7 @@
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
+import { GLIDE, REACH, ZOOM, createHand, zoomBy, type View } from './camera.ts';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -156,6 +161,12 @@ export interface SceneStats {
   renderer: string;
   /** The camera's distance from what it looks at, au. */
   distance: number;
+  /** The fixed frame's camera, a hand's to move, as last drawn: what it
+   *  looks at (the ecliptic's x and y, au), its distance (au), its tilt
+   *  from straight down, its bearing, and its roll (degrees). */
+  camera: View;
+  /** Whether the camera is gliding, let go moving. */
+  gliding: boolean;
   /** The sort flight in the last frame drawn: 0 in space, 1 landed. */
   flight: number;
   /** How far the frame had turned to Jupiter's in the last frame drawn. */
@@ -190,9 +201,24 @@ export interface BeltScene {
   setSky(file: ArrayBuffer): void;
   /** Where a window position's ray meets the ecliptic: its x and y, au. */
   under(x: number, y: number): [number, number] | undefined;
-  /** A wheel over the scene, at a window position: zooms. (The interface
-   *  hands none over while the dots are out of space.) */
-  wheel(x: number, y: number, delta: number): void;
+  /** A wheel over the scene in the fixed frame, at a window position,
+   *  with the modifiers held (1 Ctrl, 2 Shift, 4 Alt, 8 the platform's):
+   *  zooms toward the pointer; with Ctrl, as a trackpad's pinch. And one
+   *  riding with Jupiter: the ride's own distance, toward the Sun. (The
+   *  interface says which, from the crate's own state, and hands none
+   *  over while the dots are out of space or the camera flies between.) */
+  wheel(x: number, y: number, delta: number, modifiers: number): void;
+  rideWheel(delta: number, modifiers: number): void;
+  /** A press anywhere in the window: a glide stops. */
+  press(): void;
+  /** A drag on the scene, at window positions: its start (the button: 0
+   *  the left, 1 the middle, 2 the right; the modifiers), its moves, its
+   *  end. The left button's pans along the ecliptic, and let go moving the
+   *  camera glides. (The interface hands none over but in space, in the
+   *  fixed frame.) */
+  dragStart(x: number, y: number, button: number, modifiers: number): void;
+  dragMove(x: number, y: number): void;
+  dragEnd(x: number, y: number): void;
   /** Projection × view (column-major), then the window's width and height. */
   viewProjection(): number[];
   /** The names the scene draws, and where (CSS px). */
@@ -613,9 +639,12 @@ function only(): number[] | undefined {
 const inScene = (x: number, y: number, z: number): [number, number, number] => [x, z, -y];
 
 export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: SceneHost): BeltScene {
-  const AZIMUTH = (knob('az', OPENING.az) * Math.PI) / 180;
-  const ELEVATION = (knob('elev', OPENING.elev) * Math.PI) / 180;
-  const ROLL = (knob('roll', OPENING.roll) * Math.PI) / 180;
+  /** The fixed frame's camera, a map's numbers: a hand's to move
+   *  (`camera.ts`). Riding with Jupiter the camera looks at the Sun from a
+   *  distance of the ride's own, which a wheel there moves by `rideZoom`
+   *  until the camera is back. */
+  const [lookedX, lookedY] = lookedAt();
+  const view: View = { x: lookedX, y: lookedY, distance: knob('dist', OPENING.dist), tilt: 90 - knob('elev', OPENING.elev), bearing: knob('az', OPENING.az), roll: knob('roll', OPENING.roll) };
   const scale = knob('scale', 1);
   const alone = only();
   // `?flight=<0 to 1>`: the sort flight held there, for a screenshot; and
@@ -642,7 +671,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: knob('dist', OPENING.dist), flight: 0, ride: 0, integrated: 0, catchingUp: false };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, gliding: false, flight: 0, ride: 0, integrated: 0, catchingUp: false };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -650,12 +679,6 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const dust = new Scene();
   const bodies = new Scene();
   const camera = new PerspectiveCamera(FOV, 1, 0.01, 1000);
-  /** What the camera looks at, in the fixed frame, and its distance from
-   *  it there: a wheel's to move. Riding with Jupiter it looks at the Sun,
-   *  from a distance of the ride's own, which a wheel there moves by
-   *  `rideZoom` until the camera is back. */
-  const target = new Vector3(...inScene(...lookedAt(), 0));
-  let spaceDistance = stats.distance;
   let rideZoom = 1;
   /** The scene's pixels for each CSS pixel. */
   let pixelRatio = 1;
@@ -891,19 +914,20 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     if (inset > 0) camera.setViewOffset(innerWidth, innerHeight, inset / 2, 0, innerWidth, innerHeight);
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
+    const [AZIMUTH, ELEVATION, ROLL] = [view.bearing, 90 - view.tilt, view.roll].map((degrees) => (degrees * Math.PI) / 180) as [number, number, number];
     const toward = new Vector3(Math.cos(ELEVATION) * Math.sin(AZIMUTH), Math.sin(ELEVATION), Math.cos(ELEVATION) * Math.cos(AZIMUTH));
     // Straight down, "up" is the way the camera would face from the side.
     const up = Math.cos(ELEVATION) < 1e-3 ? new Vector3(-Math.sin(AZIMUTH), 0, -Math.cos(AZIMUTH)) : new Vector3(0, 1, 0);
     fixed.setFromRotationMatrix(facing.lookAt(toward, ORIGIN, up.applyAxisAngle(toward, ROLL)));
-    let distance = spaceDistance;
-    at.copy(target);
+    let distance = view.distance;
+    at.set(...inScene(view.x, view.y, 0));
     if (ride > 0) {
       // The frame's one angle: Jupiter's longitude. Seen from above, the
       // way Jupiter goes (a quarter turn ahead of it) is up.
       riding.setFromRotationMatrix(facing.lookAt(ABOVE, ORIGIN, new Vector3(...inScene(-Math.sin(anchor), Math.cos(anchor), 0))));
       // (About the ecliptic's pole, the scene's y: the way longitude grows.)
       fixed.slerp(riding, ride).premultiply(turnSince.setFromAxisAngle(ABOVE, ride * since));
-      distance *= ((rideDistance(inset) * rideZoom) / spaceDistance) ** ride;
+      distance *= ((rideDistance(inset) * rideZoom) / view.distance) ** ride;
       at.multiplyScalar(1 - ride);
     }
     camera.quaternion.copy(fixed);
@@ -912,6 +936,33 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     camera.updateMatrixWorld();
     stats.distance = distance;
   };
+
+  /** Where a window position's ray meets the ecliptic (x, y, au), through
+   *  the camera as it is, no farther along the plane than `reach` camera
+   *  distances. Past that, or over the sky: nothing, or with `held` the
+   *  point at the reach the same way round, so a drag there still pans. */
+  const ground = (x: number, y: number, reach: number, held: boolean): [number, number] | undefined => {
+    place(last?.inset ?? 0, last?.ride);
+    const eye = camera.position;
+    const ray = new Vector3((2 * x) / innerWidth - 1, 1 - (2 * y) / innerHeight, 0.5).unproject(camera).sub(eye);
+    const along = Math.hypot(ray.x, ray.z);
+    const most = reach * stats.distance;
+    // Level with the ecliptic or away from it, the ray never meets it.
+    const meets = ray.y * eye.y < 0;
+    let out = meets ? (Math.abs(eye.y) * along) / Math.abs(ray.y) : Infinity;
+    if (!meets || out > most) {
+      if (!held) return undefined;
+      out = most;
+    }
+    return along > 0 ? [eye.x + (ray.x / along) * out, -(eye.z + (ray.z / along) * out)] : [eye.x, -eye.z];
+  };
+  /** The hand on the fixed frame's camera: a drag, a wheel, the glide. */
+  const hand = createHand(
+    view,
+    { ground: (x, y, held) => ground(x, y, REACH, held), pixel: () => (2 * view.distance * Math.tan((FOV * Math.PI) / 360)) / innerHeight },
+    () => (dirty = true),
+    knob('glide', GLIDE.ms),
+  );
 
   /** Where a place in the scene is in the window (CSS px), or nothing
    *  behind the camera. */
@@ -1147,6 +1198,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     // ride opens as board 2 has it.
     if (frame.ride <= 0) rideZoom = 1;
     place(frame.inset, frame.ride);
+    stats.camera = { ...view };
     // Up close the dust thins out, by the square of how much nearer the
     // camera is than it opens: a dot's area and its opacity each grow with
     // the nearness, so the dust keeps its brightness and its colors.
@@ -1283,6 +1335,11 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const tick = (now: number) => {
     requestAnimationFrame(tick);
     const frame = ask(now);
+    // The camera is a hand's only in space, in the fixed frame: a flight
+    // of the scene's own takes it, and a glide ends there.
+    if (frame.flight > 0 || frame.ride > 0) hand.rest();
+    else if (hand.step(now)) dirty = true;
+    stats.gliding = hand.gliding();
     if (dirty || !last || moved(frame, last)) render(frame);
   };
   requestAnimationFrame(tick);
@@ -1373,33 +1430,30 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       // Drawn now, so the caller's mark is of stars on screen.
       render(ask(performance.now()));
     },
-    wheel(_x, _y, delta) {
-      const by = Math.exp(-delta * 0.002);
-      // Riding, a wheel moves the ride's own distance, from as near as
-      // the fixed frame's camera goes to four times as far as the ride
-      // opens (which in a narrow window is already past 60 au); the fixed
+    press() {
+      hand.press();
+      stats.gliding = false;
+    },
+    dragStart: (x, y, button, modifiers) => hand.dragStart(x, y, button, modifiers, performance.now()),
+    dragMove: (x, y) => hand.dragMove(x, y, performance.now()),
+    dragEnd(x, y) {
+      hand.dragEnd(x, y, performance.now());
+      stats.gliding = hand.gliding();
+    },
+    wheel: (x, y, delta, modifiers) => hand.wheel(x, y, delta, modifiers, performance.now()),
+    rideWheel(delta, modifiers) {
+      // The ride's own distance, from as near as the fixed frame's camera
+      // goes to four times as far as the ride opens (which in a narrow
+      // window is already past the fixed frame's farthest); the fixed
       // frame's is as the visitor left it, for the way back.
-      // On the way between the two a wheel moves neither: it would be the
-      // fixed frame's, changed unseen.
-      const ride = last?.ride ?? 0;
-      if (ride >= 1) rideZoom = Math.min(4, Math.max(0.05 / rideDistance(last?.inset ?? 0), rideZoom * by));
-      else if (ride <= 0) spaceDistance = Math.min(60, Math.max(0.05, spaceDistance * by));
-      else return;
+      rideZoom = Math.min(4, Math.max(ZOOM.nearest / rideDistance(last?.inset ?? 0), rideZoom * zoomBy(delta, modifiers)));
       dirty = true;
     },
     viewProjection() {
       place(last?.inset ?? 0, last?.ride);
       return [...new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements, innerWidth, innerHeight];
     },
-    under(x, y) {
-      place(last?.inset ?? 0, last?.ride);
-      const eye = camera.position;
-      const ray = new Vector3((2 * x) / innerWidth - 1, 1 - (2 * y) / innerHeight, 0.5).unproject(camera).sub(eye);
-      // Level with the ecliptic or away from it: the ray never meets it.
-      if (!(ray.y * eye.y < 0)) return undefined;
-      const reach = -eye.y / ray.y;
-      return [eye.x + ray.x * reach, -(eye.z + ray.z * reach)];
-    },
+    under: (x, y) => ground(x, y, Infinity, false),
     labels: () => allNames.map((named) => ({ text: named.text, left: named.left, top: named.top, width: named.width, height: named.height, shown: named.shown && !names.hidden && space > 0 })),
     triangle: () => (triangleShown && !names.hidden && space > 0 ? corners : undefined),
     marker: () => (markerDrawn && !names.hidden && space > 0 ? markerDrawn : undefined),

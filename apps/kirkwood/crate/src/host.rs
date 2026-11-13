@@ -2,7 +2,8 @@
 //! ("Sort by orbit size", "Ride with Jupiter"), the furniture of the axes
 //! the sort lands the dots on, and the table behind its handle on the right edge, a panel
 //! that slides in over the rows. Under them, a window-sized surface that hears what nothing above it took: a
-//! wheel there is the scene's.
+//! wheel there is the scene's, and a press there starts a drag of the
+//! scene's, its camera's to pan, which the scene keeps to its release.
 //!
 //! Its first frame holds no data: the title, the time control, and the
 //! handle saying its rows are loading. The files arrive after it
@@ -1141,36 +1142,65 @@ impl Render for Host {
         self.step_gap(window);
         // The scene centers its picture in what the panel leaves.
         scene::set_inset(self.panel_t * PANEL_WIDTH);
-        let root =
-            div()
-                .relative()
-                .size_full()
-                .text_color(cx.theme().foreground)
-                // Under everything: what the title, the time control, the
-                // handle, and the panel don't take is the scene's. They occlude
-                // it, so a wheel over the table never zooms.
-                .child(div().id("scene").absolute().inset_0().on_scroll(
-                    |event: &ScrollEvent, _, _| {
-                        // The camera is space's: with the dots headed for
-                        // the axes, on them, or on their way back, a wheel
-                        // moves nothing.
-                        if flight::sorted() || flight::progress() > 0.0 {
+        let root = div()
+            .relative()
+            .size_full()
+            .text_color(cx.theme().foreground)
+            // Under everything: what the title, the time control, the
+            // handle, and the panel don't take is the scene's. They occlude
+            // it, so a wheel over the table never zooms.
+            .child(
+                div()
+                    .id("scene")
+                    .absolute()
+                    .inset_0()
+                    .on_scroll(|event: &ScrollEvent, _, _| {
+                        // The camera is space's: with the dots headed
+                        // for the axes, on them, or on their way back,
+                        // a wheel moves nothing. Nor while the camera
+                        // flies to the ride or back: it would be the
+                        // fixed frame's, changed unseen.
+                        if !in_space() {
                             return;
                         }
-                        let delta = event.delta.pixel_delta(px(16.)).y;
-                        scene::wheel(
-                            event.position.x.into(),
-                            event.position.y.into(),
-                            delta.into(),
-                        );
-                    },
-                ))
-                // The axes' furniture takes no input: a wheel or a press
-                // on it falls through to the surface above.
-                .children(self.render_furniture(window, cx))
-                .child(self.render_title(cx))
-                .children(self.render_card(cx))
-                .child(self.render_time_control(cx));
+                        let delta: f32 = event.delta.pixel_delta(px(16.)).y.into();
+                        let held = held(event.modifiers);
+                        if fixed_frame() {
+                            scene::wheel(
+                                event.position.x.into(),
+                                event.position.y.into(),
+                                delta,
+                                held,
+                            );
+                        } else if ride::riding() && ride::turned() >= 1.0 {
+                            scene::ride_wheel(delta, held);
+                        }
+                    })
+                    // A press here starts a drag of the scene's, which
+                    // it keeps to its release wherever that is
+                    // (`drag_listeners`). Only in space, in the fixed
+                    // frame: the camera is a hand's nowhere else.
+                    .on_any_mouse_down(|event: &MouseDownEvent, _, _| {
+                        let Some(button) = button(event.button) else {
+                            return;
+                        };
+                        if in_space() && fixed_frame() {
+                            scene::drag_start(
+                                event.position.x.into(),
+                                event.position.y.into(),
+                                button,
+                                held(event.modifiers),
+                            );
+                        }
+                    }),
+            )
+            .child(drag_listeners())
+            // The axes' furniture takes no input: a wheel or a press
+            // on it falls through to the surface above.
+            .children(self.render_furniture(window, cx))
+            .child(self.render_title(cx))
+            .children(self.render_card(cx))
+            .child(self.render_time_control(cx));
         match &self.table {
             Some(table) if self.panel_t > 0.0 => root.child(self.render_panel(&table.clone(), cx)),
             _ => root.child(self.render_handle(cx)),
@@ -1218,6 +1248,82 @@ impl Render for DateLabel {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div().text_size(px(14.)).child(clock::date(clock::years()))
     }
+}
+
+/// Whether the dots are in space: not headed for the axes, on them, or on
+/// their way back.
+fn in_space() -> bool {
+    !(flight::sorted() || flight::progress() > 0.0)
+}
+
+/// Whether the camera is the fixed frame's, at rest there: not riding with
+/// Jupiter, nor on its way there or back.
+fn fixed_frame() -> bool {
+    !ride::riding() && ride::turned() <= 0.0
+}
+
+/// A button as the scene takes it: 0 the left, 1 the middle, 2 the right.
+fn button(button: MouseButton) -> Option<u8> {
+    match button {
+        MouseButton::Left => Some(0),
+        MouseButton::Middle => Some(1),
+        MouseButton::Right => Some(2),
+        MouseButton::Navigate(_) => None,
+    }
+}
+
+fn held(modifiers: Modifiers) -> u8 {
+    scene::modifiers(
+        modifiers.control,
+        modifiers.shift,
+        modifiers.alt,
+        modifiers.platform,
+    )
+}
+
+/// What the window hears for the scene, wherever the pointer is: any press
+/// (a camera gliding stops), and a drag's moves and release once the
+/// surface has handed its press over, so a drag that crosses the panel or
+/// a control keeps the camera. Registered every frame, not only once a
+/// drag starts: a press and its release can both come before the next
+/// paint. It draws nothing and takes no input of its own.
+fn drag_listeners() -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        |_, _, window, _| {
+            window.on_mouse_event(|_: &MouseDownEvent, phase, _, _| {
+                if phase == DispatchPhase::Capture {
+                    scene::press();
+                }
+            });
+            window.on_mouse_event(|event: &MouseMoveEvent, phase, _, _| {
+                if phase != DispatchPhase::Capture {
+                    return;
+                }
+                let Some(dragging) = scene::dragging() else {
+                    return;
+                };
+                let (x, y) = (event.position.x.into(), event.position.y.into());
+                // The release never came (a canceled pointer, say): the
+                // button isn't down.
+                if event.pressed_button.and_then(button) == Some(dragging) {
+                    scene::drag_move(x, y);
+                } else {
+                    scene::drag_end(x, y);
+                }
+            });
+            // Any button's release ends it: with two held, the platform
+            // tells the first one's release as a move, with the button
+            // it remembers still down, so the drag's own may never come.
+            window.on_mouse_event(|event: &MouseUpEvent, phase, _, _| {
+                if phase == DispatchPhase::Capture {
+                    scene::drag_end(event.position.x.into(), event.position.y.into());
+                }
+            });
+        },
+    )
+    .absolute()
+    .size_0()
 }
 
 /// Publishes its parent's bounds under `id` (`__seizaTargets[id]`).
