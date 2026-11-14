@@ -16,7 +16,7 @@ Always published, measured or not: every mark but the probe key's (the page's re
 
 `performance.mark`s, set only by the contender. Two kinds:
 
-- **Steps** (`contender:first-pixels`, `usable`, `open`): set once per load, again only on a retry. Readers take the last entry, as for every mark (root `CLAUDE.md`, "`shared/` and `shared-web/` conventions").
+- **Steps** (`contender:first-pixels`, `usable`, `open`): set once per load, again only on a retry. Readers take the last entry, as for every mark (root `CLAUDE.md`, "Marks").
 - **Events** (`contender:filled`, `input`): set every time it happens. A reader takes the first entry after the moment it times (the open, an input), as the harness's `waitMark(page, mark, since)` does; the last entry is only the latest fill.
 
 | Mark | When | GPUI | TanStack |

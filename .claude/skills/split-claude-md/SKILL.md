@@ -66,7 +66,7 @@ Each goes into the top file's "When something outside a folder changes it", once
 
 ### 4. Write the top file
 
-Keep its intro and its rules, then: "Where the detail is" (a table: folder or rule, what it is, its file; and how a new component or folder joins it), "When something outside a folder changes it", a short Layout (one line a folder, naming its file), and Commands (one line each, recipes grouped, the home in brackets; the cross-cutting recipes' full lines). Aim for about 1,000–1,500 words; the root, about 2,000–2,500.
+Keep its intro and its rules, then: "Where the detail is" (a table: folder or rule, what it is, its file; and how a new component or folder joins it. The root's table lists only the rules, since its Layout names each folder's file), "When something outside a folder changes it", a short Layout (one line a folder, naming its file), and Commands (one line each, recipes grouped, the home in brackets; the cross-cutting recipes' full lines). Aim for about 1,000–1,500 words; the root, about 2,000–2,500.
 
 ### 5. Audit
 

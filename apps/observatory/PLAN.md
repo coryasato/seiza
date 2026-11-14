@@ -32,7 +32,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
-**Closing a milestone:** as for every app (root `CLAUDE.md`, "Working agreements"): every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md` (repo-wide ones in the root's); a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to `docs/milestones.md`, leaving one row above.
+**Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md` (repo-wide ones in the root's); a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to `docs/milestones.md`, leaving one row above.
 
 **Component and engine changes:** the observatory consumes the tall table and the DuckDB engine; it doesn't reshape them ([`CLAUDE.md`](CLAUDE.md), rule 1). What it has asked of each is recorded with the milestone that asked, in [`docs/milestones.md`](docs/milestones.md).
 

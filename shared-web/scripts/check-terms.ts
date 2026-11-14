@@ -13,8 +13,8 @@
 // docs/templates/ (their M<n> placeholders are on purpose) and docs/private/. PLAN.md, milestones.md, LESSONS.md,
 // DECISIONS.md, and perf/results/ are never checked: they are history.
 // A part's ID alone (a letter A-G and a number, or a check's, with "-n")
-// counts too. Exceptions: CPU names ("Apple M1"), SVG path data
-// (d="M12 2v2"), and the root CLAUDE.md's naming of parts' checks.
+// counts too. Exceptions: CPU names ("Apple M1")
+// and SVG path data (d="M12 2v2").
 // Prints each hit as file:line: text and exits 1.
 
 import { execFileSync } from 'node:child_process';
@@ -44,7 +44,7 @@ function isChecked(file: string): boolean {
 
 const MILESTONE = /\bM\d+\b|\bpart [A-G]\d*\b|\b[A-G]\d{1,2}(?:-\d+)?\b/;
 // Text that looks like a milestone but isn't, removed before matching.
-const EXCEPTIONS = [/\bApple M\d+\b/g, /\bd="[^"]*"/g, /\(A\d, B\d, …\)/g];
+const EXCEPTIONS = [/\bApple M\d+\b/g, /\bd="[^"]*"/g];
 
 const hits: string[] = [];
 for (const file of files.filter(isChecked)) {
