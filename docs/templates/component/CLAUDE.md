@@ -6,6 +6,8 @@
 
 This is <name>'s context. Why it's built this way is in `docs/DECISIONS.md`; what it offers its users, in `README.md`. Its work is a milestone in its `PLAN.md` once it has a roadmap of its own (else in the app that drives it), its features' own costs measured in its `perf/results/`, and each app's budgets in that app. The repo-wide rules in the root `CLAUDE.md` apply here too. Paths below are relative to this directory.
 
+Once a folder's detail outgrows a few paragraphs, it moves to that folder's own `CLAUDE.md`, loaded only when a file there is read, and this file keeps the rules, a map of the folders, and a line per command (root `CLAUDE.md`, "Docs: one home per fact").
+
 Current state only: say what to do and point to the decision behind it (`docs/DECISIONS.md`, "<area>"); don't retell its measurements.
 
 ## Rules
