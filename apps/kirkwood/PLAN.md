@@ -106,6 +106,12 @@ None committed (the research's "Extras"):
 - A search by name, and a date picker.
 - Up close, the few bodies with real shapes (Ceres, Vesta) drawn as themselves; any other close-up rock is invented and labeled as illustration.
 
+Rules from the `CLAUDE.md` files that a check could hold instead of a sentence (code, so each goes through review):
+
+- **The page's background is the look's floor** (`web/CLAUDE.md`): a test that `index.html`'s `background` is `scene.ts`'s `PAGE`.
+- **The checks' copies of the code's numbers** (`checks/CLAUDE.md`): `see.ts` importing `RIDE_NAMES` from `scene.ts`, and the table's column numbers (`DIAMETER`, `LIVE`) read from the crate through a hook, rather than holding copies.
+- **Never type a tint, a group's bound, an axis's end, or a gap's place in `scene.ts` or `host.rs`** (`web/CLAUDE.md`, `crate/CLAUDE.md`): a lint over those files for literal au and e bounds and color literals.
+
 ## Open questions
 
 - **The marker's name over its own path:** "the marker" sits 16 px right of the marker and 26 up, as board 5 has it, with no fill under it, so where the path runs up and to the right of the marker the white line crosses the white name (seen at 5:2 and 7:3 on the epoch, `docs/seen/gap-5-2.jpg`). Whether the name gets a fill, or moves to the side the path leaves clear. *By eye, at the owner's next look.*

@@ -1,5 +1,5 @@
-// The page's query knobs, for the checks and for looking: the scene's
-// modules read them here.
+// The page's query knobs, for the checks and for looking (each listed in
+// docs/query.md): the scene's modules read them here.
 const query = new URLSearchParams(location.search);
 
 /** A number from the page's query, or `otherwise`; anything else there is

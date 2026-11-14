@@ -30,9 +30,17 @@ wasm profile="debug":
     wasm-bindgen {{target_dir}}/{{profile}}/kirkwood.wasm --out-dir {{pkg}} --target web
     {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + pkg + "/kirkwood_bg.wasm -o " + pkg + "/kirkwood_bg.wasm" } else { "true" } }}
 
-# Native tests: the clock and the files' rules, and (ignored in a plain
-# `cargo test`, run here) the files' readers against data/fixture.json: they
-# read data/elements.bin and data/rows.bin, and fail without them.
+# Native tests: the clock and its reach, the files' rules, Jupiter against
+# data/horizons.json, the integration's steps. And, `#[ignore]`d in a plain
+# `cargo test` and run here (about two minutes; they read data/elements.bin
+# and data/rows.bin, and fail without them): the files against the manifest,
+# the readers against data/fixture.json (and that a wrong cell fails), five
+# rows against Horizons, the Trojans by a and e against the rows of class
+# TJN, a live cell against the row's place at the instant shown, the
+# integration against Horizons and the Trojans in their clouds across the
+# clock's reach, the shader's 32-bit arithmetic against the 64-bit place for
+# every row, and its flight against the place on the axes for every row in
+# view. The two studies are no-ops without KIRKWOOD_STUDY.
 test:
     cargo test -p kirkwood -- --include-ignored
 
@@ -40,9 +48,10 @@ test:
 # first frame before either file is asked for, the table over the rows
 # file, the wasm's memory against the files' bytes, the belt, the time
 # control, the look, the legend, the sky, the camera a hand moves, its compass, hint, and keys, the sort flight, the ride with Jupiter, a gap picked, the integrated rows, a row found, a group drawn, its flight in, a dot clicked, the live columns, and a sort as a tour. Screenshots and seen.json in
-# checks/out/ (gitignored). --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour; --runs.
-# Asked for by name alone: --only rate (the scene's frames a second), slow
-# (a load on a slow link), cross (--browser firefox|webkit, with wheel).
+# checks/out/ (gitignored); about 30 minutes. --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour; --runs.
+# Asked for by name alone: --only rate (the scene's frames a second), drag
+# (a drag's frames a second), slow (a load on a slow link), cross (--browser
+# firefox|webkit, with wheel), glass (the panel as glass over a group).
 # Run `just kirkwood build` first.
 see *args:
     node {{app_dir}}/checks/see.ts {{args}}
