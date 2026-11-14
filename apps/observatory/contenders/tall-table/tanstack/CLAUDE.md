@@ -6,10 +6,10 @@ React and TanStack Virtual over the DOM, the DOM side of GPUI | TanStack. Claude
 
 `contenders/tall-table/tanstack/web/`: Vite, base `/observatory/contenders/tall-table/tanstack/`, React without JSX (`createElement`), no Wasm of its own. Its data layer (`src/data/`) ports the tall table's own logic, so the component's fixtures hold for it; its view follows the table's input where the browser's differs (the keys, a track press that jumps, the drag and its settle, Shift+wheel: `docs/dom-scroll-model.md`), and `tanstack-parity` checks it item by item against the GPUI contender. The contract it publishes is `docs/contender-contract.md`'s. Why each choice: `docs/DECISIONS.md`, "TanStack contender".
 
-## A build per level, and every other level's bytes unchanged
+## A build per level
 
 - **A build per level:** `--mode wide|market|tail|wall` into `web/dist-<level>/` at `…/tanstack/<level>/`, the base's `web/dist/`. `__LEVEL__` is a build constant (`contenders/level.ts`'s `levelConstants`, in the prerender's server too), so another level's branches drop out of a level's bundle, and `./level.css` resolves to the level's CSS (`wide.css`, `market.css`, `tail.css`, `wall.css`, the base's empty `base.css`).
-- **A change for one level leaves every other level's bundle byte-identical.** The habits that keep it so:
+- **How its levels keep each other's bundles byte-identical** (the rule: `contenders/CLAUDE.md`):
   - a top-level call in a level's module (`memo(…)`) is marked `/* @__PURE__ */`;
   - a level's imports in `main.ts` come after the view's (imported first, they reorder the other levels' modules);
   - anything Vite transforms whatever the branch (a worker's `new Worker(new URL(…))`) sits only in a module the level alone imports;
@@ -17,8 +17,6 @@ React and TanStack Virtual over the DOM, the DOM side of GPUI | TanStack. Claude
   - in the data layer, `pages.ts` and `paging.ts` reach `copy.ts` only behind `__LEVEL__ === 'wide'`, `live.ts` only behind `'market'`, `'tail'`, or `'wall'`, and `follow.ts` (and `live.ts`'s grown page) only behind `'tail'`; what only a level does is a function, never a method (a bundler drops an unused function, not a method), reaching the classes' private members through a typed view (`CacheInside`, `PagingInside`);
   - a value import that would close a cycle or move a shared chunk is copied instead: `follow.ts` imports only types from `paging.ts` (so it keeps its own `clamp` and its own copy of `invalidateRows`' deferred plan), `data/copy.ts` keeps its own `f32Text`, the wall's data layer is `data/wall.ts` rather than market watch's `quotes.ts` shared, and `layout.ts`'s `clampWidth` is written inline by `layOut` (the test pins the two equal);
   - a level's CSS is a file of its own (`wall-theme.css`, `wide-theme.css`), so no other level's CSS changes.
-
-  Each was confirmed by an A/B in the milestone that built it; a check that enforces it is planned (`PLAN.md`, "Byte-identical as checks, not habits").
 
 ## First paint
 

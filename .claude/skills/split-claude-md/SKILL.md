@@ -31,10 +31,7 @@ One target a session, in two passes the user reviews apart: **the split** moves 
 ### 1. Measure
 
 ```sh
-f=<dir>/CLAUDE.md
-wc -w $f
-awk '/^##+ /{if(n)printf "%-40s %6d\n",n,w; n=$0; w=0; next} {w+=NF} END{printf "%-40s %6d\n",n,w}' $f
-awk '{printf "%3d %5d  %s\n", NR, NF, substr($0,1,90)}' $f   # every line: its number and words
+sh .claude/skills/split-claude-md/measure.sh <dir>/CLAUDE.md --lines   # its words, each section's, and every line's number and words
 ```
 
 Show the user a table: each section (and each long bullet: an architecture section is often one bullet per folder), its words, and where it would go; and what a typical session loads before and after. Agree on the homes before moving anything.
@@ -106,4 +103,7 @@ Go through each file a section at a time and put every piece in one bucket:
 - **What a check covers** (long per-recipe lists in Commands) is reference whose home is the script's header and the justfile's comment above the recipe: confirm they hold it, then the `CLAUDE.md` line keeps one clause.
 - **A rule that can be a check should be one:** a failing check is more reliable than a sentence weighed against others. Don't build it in this pass (it's code, and goes through `/code-review`); add it to the target's `PLAN.md`, with the rule's file and the check's shape.
 - Rewrite in the repo's voice (its root `CLAUDE.md` and the user's memory: American English, current state only, no milestone IDs). Never drop a rule to save words: when unsure whether a sentence is a rule or narration, keep it.
+- **A sentence you write fresh is checked against the code,** not just the old text: the audit proves moved text, not new claims. Grep the names it uses, and any "never" or "only" it states (widening "`components.ts` holds no contender code" into "the page imports no contender code" made a false rule: the page imports one).
+- **A rule two sibling folders share goes to their common parent's file once;** each sibling keeps only how it applies there (the observatory's byte-identical rule: `contenders/CLAUDE.md`, each contender its habits).
+- **Check each old rule survived:** for every imperative in the committed file, are its named terms (`backticked`) still in the new one? Each that isn't is either covered under new words, pinned by a check or fixture, or restored.
 - Show the user, per file, the before and after words and what went to each bucket, with the deleted narration's file and line range in the last commit so it can be checked.
