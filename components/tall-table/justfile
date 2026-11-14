@@ -12,7 +12,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # `features` are the host's (`custom-cells`: `?cells=heat|bars|color`;
 # `live`: `?live=<updates/s>`; both: `?flash`; `follow`:
 # `?rows=<n>&append=<rows/s>&follow`; `pin`: `?pin=<n>`; `density`:
-# `?density=<row>,<text>[,<width>]`).
+# `?density=<row>,<text>[,<width>]`; `format`: `?format=off`; `reorder`:
+# `?order=reverse`; the rest: host/crate/src/lib.rs).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
 
@@ -56,12 +57,15 @@ size *args:
 # control), and with `density` built every segment at the host's dense
 # default (or --density <row>,<text>[,<width>]'s; 30,14 the control),
 # and with `format` built every segment with the host's formats (or none:
-# --format off, the control),
+# --format off, the control), and with `reorder` built a reorder drag (the
+# first float column's header 600 px right and back, twice, released where
+# pressed) and every segment in the list's own order or reversed (--order
+# reverse),
 # reference + throttled, cold, median of 10. Per-frame work from
 # Chromium's trace, cross-checked by `workRecorder`; late frames and the
 # presented frames; frame intervals; visible cells; a throttled segment
 # that doesn't rest reported, not failed. --runs, --shape, --profile,
-# --pin, --density, --format, --label
+# --cells, --pin, --density, --format, --order, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -130,10 +134,12 @@ sort *args:
 # the source's exact values by Chromium's advances, both decimals among
 # them, and with `resize` a float column narrowed, its cells falling back;
 # `?format=off` none formatted, and on a build with `format` alone its
-# first screen against the base build's saved one).
+# first screen against the base build's saved one; with `reorder`, in
+# both, a header dragged two places right and back, its cells following,
+# with each other feature built, and `?order=reverse`'s first screen).
 # --browsers. `--screens save` runs only the reference screens and keeps
 # them under this tree's commit; `--screens <commit>` compares them with
-# that commit's, pixel for pixel (CLAUDE.md, "Commands"). Run `just
+# that commit's, pixel for pixel (smoke.ts's header). Run `just
 # tall-table build` first (with `density` or `format`, a base build's
 # smoke first, for its screens).
 smoke *args:
@@ -183,8 +189,9 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format,tall-table-host/reorder
 
 # The random test of the paging soaked: `cases` cases for each of `seeds`
-# (`SEED`: a different set of cases each), every feature on, in a release
-# build with debug assertions and overflow checks (its time:
+# (`SEED`: a different set of cases each), every feature with steps in
+# the random test on (not `format`, which has none), in a release build
+# with debug assertions and overflow checks (its time:
 # docs/DECISIONS.md, "Fixtures"). A failure prints its minimal steps and
 # scheduler seed; `SEED=<n>` recurs it in `test`.
 soak seeds="1 2 3 4" cases="500":
