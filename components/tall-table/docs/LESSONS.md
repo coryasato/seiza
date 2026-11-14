@@ -551,3 +551,13 @@ No results note: nothing measured. The build's check was a byte comparison again
 - gpui-pre-web counts clicks with `Date.now()` when it handles each press, not the event's time, so the 400 ms double-click window can't be waited out for sure by a script on a busy machine. A press that selects a header and the drag's press that follows land 8 px apart instead, past its 5 px.
 - The drawn cells' check needed the source's exact values in a `reorder` build (the host's `__tallTableExact`, built only with `copy` or `sort` before) and its drawn cells (`?probe-cells`, likewise): both now build with `reorder` too, in the host only.
 - The code review found what the browsers couldn't: `set_columns` reset the order without an event, so the bridge's published order would go stale in a host that loads a new list after a move (Tycho, once it adopts). The bare host never calls `set_columns`, so no smoke run could show it; it's now an event, with a window test that fails without it.
+
+## M15: `reorder` (part E, 2026-11-13)
+
+**Results:** [`perf/results/2026-11-13-m15-e.md`](../perf/results/2026-11-13-m15-e.md)
+
+**Surprises:**
+- A reversed order isn't the same screen: the narrow shape's columns differ in width, and reversed one more fits at the left (308 cells against 280), so its segments read 3–6% over the base for the drawing alone. The wide shape, every column alike, is the clean read of the order's own cost: none. An order's cost has to be read where the order changes nothing else on screen.
+- The bump's cursor write on every mouse and scroll event, flagged as a risk to the drags, costs nothing a frame shows, at 0.9.1 against 0.9.0, in either profile. The throttled wide resize drag's late frames, which looked like the bump at first (3.9% against 0%), are a per-run coin toss in both versions (clean, or 6–44% late, at the same work): ten runs can't separate them, and the work can.
+- `perf.ts` records gpui-kit from the tree's lock, not from the build it serves, so a build from another commit served in its place is labelled with this tree's version. The 0.9.0 files were corrected by hand; a script that serves another tree's build would read its own `build.json`'s version, as the observatory's metric scripts do (`wasmCrateVersion`).
+- The narrow reference scroll moves with its place in the session: 4.01 ms for the base at 0.9.1 and 4.38 for the base at 0.9.0 three runs later, the same table code, a spread of ~0.4 ms across places, wider than within one run of ten. Reading a feature against that spread, not against one base run, is what kept `reorder`'s +0.31 there from reading as a cost.
