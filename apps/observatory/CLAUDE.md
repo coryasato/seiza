@@ -4,7 +4,7 @@ The Observatory is seiza's comparison page, at `seiza.io/observatory`: it runs e
 
 ---
 
-This is the Observatory's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md` (repo-wide decisions, the comparison protocol's above all, in the root `docs/DECISIONS.md`); finished milestones, in `docs/milestones.md`; budgets, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here too, its "Comparison protocol" first. Paths below are relative to `apps/observatory/`.
+This is the Observatory's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md` (repo-wide decisions, the comparison protocol's above all, in the root `docs/DECISIONS.md`); finished milestones, in `docs/milestones.md`; budgets, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here too, and `.claude/rules/comparison-protocol.md` first. Paths below are relative to `apps/observatory/`.
 
 Current state only: say what to do and point to the decision behind it; don't retell its measurements.
 
@@ -13,7 +13,7 @@ Current state only: say what to do and point to the decision behind it; don't re
 These add to the repo-wide rules.
 
 1. **Consume, don't reshape.** The observatory uses components and engines as they are. It may ask one to expose what its metrics need, or to take an option a host sets; it never changes how a utility app behaves, and every such change records its effect on each app that builds it (root `CLAUDE.md`, "Tiers").
-2. **Everything lives under `/observatory/`** (`contenders/paths.ts`, the one list of paths). The apex origin is shared with the landing page and future pages: the page (`/observatory/`, `/observatory/<component>/`), the contenders (`/observatory/contenders/<component>/<stack>/`, each its build's base), the engine (`/observatory/duckdb/`, outside the contenders' bases: `@seiza/duckdb`'s `extensionDir` `duckdb` under `extensionBase` `/observatory/`), and the data (`/observatory/data/`) are served under it, and nothing registers a service worker outside it. The one exception is the site's: the font at `/fonts/` (root `CLAUDE.md`, "The apex site").
+2. **Everything lives under `/observatory/`** (`contenders/paths.ts`, the one list of paths). The apex origin is shared with the landing page and future pages: the page (`/observatory/`, `/observatory/<component>/`), the contenders (`/observatory/contenders/<component>/<stack>/`, each its build's base), the engine (`/observatory/duckdb/`, outside the contenders' bases: `@seiza/duckdb`'s `extensionDir` `duckdb` under `extensionBase` `/observatory/`), and the data (`/observatory/data/`) are served under it, and nothing registers a service worker outside it. The one exception is the site's: the font at `/fonts/` (`.claude/rules/apex-site.md`).
 3. **The page is JS; the contenders are what they compare.** The page and the DOM contenders are JS throughout, on purpose (root `CLAUDE.md`, "Stack and pins"). The GPUI contender is a minimal Rust host of the component.
 
 ## Where the detail is
@@ -37,7 +37,7 @@ A second component's contenders go in `contenders/<component>/<stack>/`, each wi
 
 Rules whose cause is elsewhere, so no folder's file would be read in time:
 
-- **A gpui-kit bump** regenerates the TanStack contender's theme (`just observatory theme-css`; `contenders/tall-table/tanstack/CLAUDE.md`), and whether it re-measures the scenarios is decided per bump (root `CLAUDE.md`, "Comparison protocol").
+- **A gpui-kit bump** regenerates the TanStack contender's theme (`just observatory theme-css`; `contenders/tall-table/tanstack/CLAUDE.md`), and whether it re-measures the scenarios is decided per bump (root `CLAUDE.md`, "When something outside a folder changes it").
 - **A change to the UI font (`shared-web/fonts/`) or the tall table's cell text** regenerates `cells.json`'s drawn cells (`just observatory cell-fixture`), then `cargo test -p seiza-tall-table`. A data file's change says so in `data/CLAUDE.md`.
 - **A new path outside `/observatory/` and `/fonts/`** goes into the seiza.io WAF rule before it deploys (its text in the gitignored root `docs/private/zone.md`).
 - **A number on the page or in a doc** is never typed: the page's are resolved at build time (`web/CLAUDE.md`, `cold.ts`), the docs' by `just observatory report`.

@@ -41,7 +41,7 @@ pub mod wall;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Scene {
     /// The data file's SQL name, which the page SQL names: the same on both
-    /// sides (root `CLAUDE.md`, "Comparison protocol").
+    /// sides (`.claude/rules/comparison-protocol.md`).
     pub file: String,
     #[cfg(feature = "wide")]
     pub wide: Wide,

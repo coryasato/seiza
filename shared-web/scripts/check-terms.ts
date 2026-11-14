@@ -35,6 +35,7 @@ function isChecked(file: string): boolean {
   if (SKIPPED.some((pattern) => pattern.test(file))) return false;
   const name = basename(file);
   if (name === 'CLAUDE.md' || name === 'README.md') return true;
+  if (/^\.claude\/rules\/.+\.md$/.test(file)) return true;
   if (/^apps\/[^/]+\/perf\/budgets\.json$/.test(file)) return true;
   if (/(^|\/)docs\/.+\.md$/.test(file)) return !HISTORY_DOCS.has(name);
   if (name === 'justfile' || name.endsWith('.justfile')) return true;

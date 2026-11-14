@@ -60,8 +60,8 @@ export const PROFILES: Profile[] = [
  * `device-pixel-content-box` in CSS pixels, so GPUI would draw 2× layout into
  * a 1× backing store. Hiding `devicePixelContentBoxSize` sends gpui-pre-web
  * down its Safari path (`contentRect × devicePixelRatio`), which gives a
- * consistent 2× backing store. Real browsers don't need it (root CLAUDE.md,
- * "Known GPUI Kit web gotchas").
+ * consistent 2× backing store. Real browsers don't need it (.claude/rules/
+ * perf-harness.md).
  */
 export function hideDevicePixelContentBox(): void {
   delete (ResizeObserverEntry.prototype as { devicePixelContentBoxSize?: unknown }).devicePixelContentBoxSize;
@@ -132,8 +132,8 @@ export function machineInfo(): { machine: string; cpu: string; os: string; versi
 }
 
 /**
- * The stacks a result was measured with, as the workspace locks them (root
- * `CLAUDE.md`, "Comparison protocol"): a bump of any re-measures what it
+ * The stacks a result was measured with, as the workspace locks them
+ * (`.claude/rules/comparison-protocol.md`): a bump of any re-measures what it
  * touches or labels the old numbers with these. The crates from
  * `Cargo.lock`, the packages from `package-lock.json` (one copy each, the
  * workspace's), and the Chromium Playwright drives.

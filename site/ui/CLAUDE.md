@@ -1,6 +1,6 @@
 # site-ui
 
-The apex site's shell, `@seiza/site-ui`: what every page on seiza.io renders around its content (root `CLAUDE.md`, "The apex site").
+The apex site's shell, `@seiza/site-ui`: what every page on seiza.io renders around its content (`.claude/rules/apex-site.md`).
 
 ---
 

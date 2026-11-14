@@ -1,8 +1,8 @@
 /* The table's boxes as the tall table draws them (components/tall-table/
    src/state.rs, tall_table.rs; the GPUI host's 16 px page padding), in the
    colors of theme.css (generated from gpui-kit's default theme). GPUI's
-   text can't be matched exactly (root CLAUDE.md, "Known GPUI Kit web
-   gotchas"); its boxes can. */
+   text can't be matched exactly (.claude/rules/gpui-web.md,
+   "GPUI lays out in whole device pixels"); its boxes can. */
 
 /* The UI face GPUI draws with (shared-web/fonts/), so the cells' character
    budgets fit the same way: at the site's one font path (contenders/

@@ -8,7 +8,7 @@ The project's goal is to show that **WebAssembly + GPU-rendered UI builds heavy 
 
 ---
 
-This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the samples and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; budgets, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` (TTFP first, paint before heavy loads, measurement protocol, canvas tradeoffs, GPUI Kit gotchas, `shared/` conventions) apply here too. Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
+This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the samples and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; budgets, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` (TTFP first, paint before heavy loads, measurement protocol, canvas tradeoffs, `shared/` conventions) apply here too, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
 
 ---
 

@@ -1,8 +1,7 @@
 /**
  * The scenarios: the one list, read by the page, the contenders, and the
  * perf scripts, as `paths.ts` is (`docs/DECISIONS.md`, "Scenarios"). A
- * scenario is a workload on a feature level (root `CLAUDE.md`, "Comparison
- * protocol"): its level names the build, its data the file in `data/`
+ * scenario is a workload on a feature level (`.claude/rules/comparison-protocol.md`): its level names the build, its data the file in `data/`
  * (`MANIFEST.json` has its rows and credit), and its stops the parameters
  * each cold result is labelled by (`<scenario>-<stop>`). A frame picks one
  * by `?scenario=<id>&stop=<id>`; without them a contender loads its level's

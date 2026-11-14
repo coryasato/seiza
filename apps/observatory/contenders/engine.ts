@@ -5,8 +5,8 @@
  *   emitted under `duckdb/`, beside the extensions, named by their content,
  *   and referenced at `/observatory/duckdb/` (`paths.ts`), outside the
  *   contender's base: both contenders load the same bytes at the same URLs,
- *   so the second to load finds them cached (root `CLAUDE.md`, "Comparison
- *   protocol"). The dev and preview servers serve that path (the extensions
+ *   so the second to load finds them cached (`.claude/rules/
+ *   comparison-protocol.md`). The dev and preview servers serve that path (the extensions
  *   in `public/duckdb/` in dev, the build's `duckdb/` in preview; a missing
  *   extension is a 404 there, the rule `@seiza/duckdb`'s `duckdb()` plugin
  *   keeps under a base), and the

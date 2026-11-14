@@ -23,7 +23,7 @@ gpui-kit = { workspace = true, features = ["test-support"] }
 # The entry point and the contract are web-only; the view compiles natively for clippy.
 [target.'cfg(target_family = "wasm")'.dependencies]
 # Without the observation panel: the contender carries no chrome the DOM side
-# lacks (root CLAUDE.md, "Comparison protocol"). `just observatory sizes`
+# lacks (.claude/rules/comparison-protocol.md). `just observatory sizes`
 # fails if it links anyway.
 seiza.workspace = true
 # What the contender does with the table's events: its mark, targets, probes.

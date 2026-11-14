@@ -1,7 +1,7 @@
 /**
  * Market watch's feed, and the monitoring wall's: the one module both
  * contenders' workers run (`worker.ts`), so either side gets the same bytes
- * (root `CLAUDE.md`, "Comparison protocol": a scenario's feed). Pure:
+ * (`.claude/rules/comparison-protocol.md`: a scenario's feed). Pure:
  * nothing here touches the browser, so the data's prep (`data/prep.ts`) and
  * the fixtures' writer (`fixtures/write.ts`) run it in Node.
  *

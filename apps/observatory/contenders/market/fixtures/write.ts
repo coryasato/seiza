@@ -3,7 +3,7 @@
  * `FIXTURES`' directories: market watch's here, and the monitoring wall's in
  * `contenders/wall/fixtures/` (its 8 desks' 400 instruments, the most a stop
  * shows). Each pins what "every tick reaches the store" means, the same on
- * both sides (root `CLAUDE.md`, "Comparison protocol"): the scenario's seed,
+ * both sides (`.claude/rules/comparison-protocol.md`): the scenario's seed,
  * `TICKS` ticks from the feed (`feed.ts`) over its instruments
  * in batches of uneven sizes, and each instrument's ten fields after them,
  * folded here by a reference fold of its own (apart from either side's

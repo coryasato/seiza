@@ -1,6 +1,6 @@
 /**
  * The contender's window (`docs/DECISIONS.md`, "Page"): one contender at a
- * time, in a same-origin frame (root `CLAUDE.md`, "Comparison protocol"),
+ * time, in a same-origin frame (`.claude/rules/comparison-protocol.md`),
  * between a title bar and a status bar, at its scenario's level (the
  * build `scenarios.ts` names) and stop. The title bar holds the GPUI |
  * TanStack toggle, the dial (a scenario with stops: a segmented control on

@@ -1,0 +1,28 @@
+---
+paths:
+  - "**/*.rs"
+  - "**/Cargo.toml"
+  - "shared-web/src/**"
+  - "apps/*/web/**"
+  - "components/*/host/**"
+  - "apps/observatory/contenders/**"
+---
+
+# Known GPUI Kit web gotchas (check before debugging)
+
+- **The `gpui-kit` skills track upstream main, which runs ahead of the pin.** Updated 2026-10-07 to main (`1af2d1f`). The APIs it documented that 0.7.3 lacked (the test harness's `find_all` and `ClickOptions`) are in 0.8.0. Check the pinned crate source before using an API from the skill.
+
+- **Load fonts before `gpui_kit::init`.** On wasm there are no system fonts. `Theme::change` resolves `.SystemUIFont` during init and panics on an empty font database, and because wasm uses `panic=abort`, the canvas never paints. Call `add_fonts(...)` (bundled UI font) first, then init. See longbridge/gpui-kit#3101 and #3105. `shared/`'s bootstrap handles this; apps shouldn't call init themselves.
+- **Input paste on web (0.9.0, checked in Tycho):** Cmd/Ctrl+V goes through the browser's paste event and needs no permission. The context menu (drawn by gpui-kit on the canvas: Cut, Copy, Paste, Select All) pastes through the async clipboard read (#3244), which needs `clipboard-read`: with it granted the paste lands, without it nothing is pasted and nothing is said (headless Chromium; the prompt a real browser shows is a manual check).
+- **gpui-kit's Input binds its Mac shortcuts only under `cfg(target_os = "macos")`,** never true on wasm, so in a Mac browser Cmd+A/C/X/Z did nothing and Opt+Shift+← selected one character. `shared/`'s bootstrap binds them for an app that asks (`Bootstrap::mac_input_bindings()`; a host that doesn't links none of it), in Mac browsers only (`navigator.platform`; elsewhere Alt+←/→ is Back/Forward). Cmd+A/C/X go before `gpui_kit::init`, so the right-click menu keeps its Ctrl labels (the latest binding labels an action, and wasm spells Cmd "Win"); the rest go after, to outrank the wasm build's own. Cmd+V stays unbound, so it reaches the browser's permission-free paste event.
+- **Don't use gpui-kit's `Input` (`gpui_kit::component::input::Input`) for a single-line field.** The element renders any of its single-line, textarea, and code-editor states, so all three engines link: +194 KiB brotli, measured in 0.7.1. gpui-base's unstyled `gpui_kit::base::input::Input` renders only the single-line state (+88 KiB, the engine itself). Style it yourself, and attach the right-click menu with `InputState::on_context_menu` (gpui-kit's `NativeMenu::show`, +2 KiB). Tycho's `workbench.rs` does this.
+- Install `console_error_panic_hook` in debug builds. A panic shows up as `RuntimeError: unreachable` unless the hook is installed.
+- **Since 0.7.0, `gpui_kit::open_window` wraps the content in `Root`, and `Root` hosts dialogs, sheets, and notifications.** Don't wrap in `Root` yourself or render overlay layers by hand (the 0.6 `Root::render_*_layer` APIs are gone). Anything a view draws sits under `Root`'s overlays, including the perf overlay. `shared/`'s `Bootstrap` opens the window.
+- **GPUI doesn't deliver browser file drops.** gpui-pre-web (0.3.5 through 0.3.12) `preventDefault`s `dragover`/`drop` on its canvas (so the tab doesn't navigate to the file) and drops them: a browser gives `File` objects, not the paths `ExternalPaths` wants. Listen on `window` yourself and enter GPUI through its foreground executor; Tycho's `crate/src/files.rs` does this. A GPUI click handler runs inside the DOM's pointer event, so it can open a file dialog (`input.click()`).
+- **The web platform maps `.SystemUIFont` to IBM Plex Sans.** That's the family `shared-web/fonts/` bundles, so no theme font override is needed.
+- **`shared/` uses GPUI's `Auto` backend:** WebGPU when the browser has a usable adapter, WebGL2 otherwise. It beat forced WebGL2 on cold-start TTFP by 40% in Chromium and 28% in WebKit (Tycho). Check both paths when debugging rendering: headless Firefox falls back to WebGL2.
+- **GPUI lays out in whole device pixels and draws its own glyphs.** Line heights are rounded to device pixels and positions of exactly x.5 round down (the browser rounds up); its text is measured with its own advances (a 14 px label ran ~1 px narrower than Chrome's) and rasterized by gpui-pre-web, crisper and up to ~2 px lower at DPR 1. An HTML copy of a GPUI view can match its boxes exactly but not its text. `shared-web/src/placeholder.ts` copies the rounding; read it before building another HTML twin of a GPUI screen.
+- **The static placeholder shell (`shared-web/src/placeholder.ts`) is opt-in per app** (`seizaViteConfig`'s `placeholder`). `shared/` releases it in the microtask that sets `gpui:first-frame`; it fades out over that frame. It must stay inert, in the placeholder font's characters (printable ASCII and "…"; the build fails otherwise), and match the app's first frame; each app's check compares them.
+- **GPUI's first real draw isn't in a `requestAnimationFrame`.** The window starts at 0×0. The first draw with a real size happens in gpui-pre-web's `ResizeObserver` callback, which renders and presents synchronously. With WebGPU it can be GPUI's rAF instead. Don't time anything off rAF ordering. See `shared/src/first_frame.rs`.
+
+When a GPUI Kit web bug blocks progress, check upstream issues first. Work around it in `shared/` with a comment linking the issue. Don't fork unless there's no other way.

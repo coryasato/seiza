@@ -37,7 +37,7 @@ import './level.css';
 // shows (`contender:failed`), and nothing opens.
 const picked = pickScenario(__LEVEL__, new URLSearchParams(location.search));
 /** The data file's SQL name, which the page SQL names: the same on both
- *  sides (root `CLAUDE.md`, "Comparison protocol"). */
+ *  sides (`.claude/rules/comparison-protocol.md`). */
 const FILE = picked instanceof Error ? '' : picked.scenario.data;
 /** What the wide level sets on the table at the stop (`scene.ts`); a
  *  scenario the build can't set fails the load as an unknown one does, never

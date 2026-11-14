@@ -1,6 +1,6 @@
 // The GPUI contender's wasm, with and without `seiza`'s observation panel,
 // and the check that the panel never leaks into the contender's own build
-// (root CLAUDE.md, "Comparison protocol": neither side carries code for
+// (.claude/rules/comparison-protocol.md: neither side carries code for
 // something it doesn't have).
 //
 // Always (also `--check`, which `just observatory check` runs):

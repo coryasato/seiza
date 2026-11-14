@@ -27,7 +27,7 @@ import { dragRested, loadWantedLive, pageDoneLive, type RowSet } from './live.ts
 import { PageCache, type Direction, type Rows, type RowState } from './pages.ts';
 
 /** The paging numbers: the component's `Paging::default()`, the controlled
- *  variable of the comparison (root `CLAUDE.md`, "Comparison protocol").
+ *  variable of the comparison (`.claude/rules/comparison-protocol.md`).
  *  `paging.json`'s `paging` pins them. */
 export interface Paging {
   pageRows: number;

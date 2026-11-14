@@ -48,7 +48,7 @@ Both draw the same pixels: the spike's screenshots of the two drawings (heat and
 Settled when it was built (2026-10-24): the table's `docs/DECISIONS.md`, "Features" (the jump's highlight, the fixture's colors from Chromium, the API as built).
 
 - **The row's shading and the jump highlight sit under a fill,** so a fill hides the jump's highlight in its cell. A highlight drawn over the cells (a border, or a quad above the text) would keep it; settled with a screenshot when it's built, since it touches the base's drawing.
-- **The fixture pins resolved colors,** in light and dark, from the ramps' stops and each cell's values: the stops are theme tokens, which a JSON can't name, and a DOM contender mixes the same tokens' values. A shade is one 8-bit step a channel: the native test allows that much for rounding, and a control two steps off must fail. A bar's pixels allow one device pixel: GPUI rounds positions of exactly x.5 down and the browser rounds them up (root `CLAUDE.md`, "Known GPUI Kit web gotchas").
+- **The fixture pins resolved colors,** in light and dark, from the ramps' stops and each cell's values: the stops are theme tokens, which a JSON can't name, and a DOM contender mixes the same tokens' values. A shade is one 8-bit step a channel: the native test allows that much for rounding, and a control two steps off must fail. A bar's pixels allow one device pixel: GPUI rounds positions of exactly x.5 down and the browser rounds them up (`.claude/rules/gpui-web.md`).
 - **Undefined answers draw nothing:** a NaN paint value, or a field whose column has no ramp or bar, paints nothing for that field (and is a debug assertion for the second, a host's mistake).
 - **A placeholder or failed row paints nothing;** only a loaded row asks its page for paint.
 
@@ -183,7 +183,7 @@ Live tail's headlines are the rate held while following, append → pixel, and s
 
 ### What a DOM contender does
 
-TanStack Virtual has no follow; a contender keeps `scrollTop` at its loaded tail as rows arrive, if it's following, on its own scroller ("— (the contender's own, on its scroller)", the table's [`PLAN.md`](../../components/tall-table/PLAN.md)). Past the browser's element-height cap its spacer is scaled (root `CLAUDE.md`, "Comparison protocol"), so its tail is the scaled spacer's. The observatory works this out when it builds the scenario; the table's part is the fixture below.
+TanStack Virtual has no follow; a contender keeps `scrollTop` at its loaded tail as rows arrive, if it's following, on its own scroller ("— (the contender's own, on its scroller)", the table's [`PLAN.md`](../../components/tall-table/PLAN.md)). Past the browser's element-height cap its spacer is scaled (`.claude/rules/comparison-protocol.md`), so its tail is the scaled spacer's. The observatory works this out when it builds the scenario; the table's part is the fixture below.
 
 ### A fixture for a DOM contender
 
@@ -686,7 +686,7 @@ What the table has today: one row height, `ROW_SIZE` (gpui-kit's `Size::Small`, 
 
 ### TanStack Table
 
-Headless: the row height is the virtualizer's `estimateSize` and the CSS's, the text size is CSS, and a column's width is column sizing's `size` (`header.getSize()`), set in the column definition, with `minSize`, `maxSize`, and `enableColumnResizing` apart from it. A DOM contender matches a density by three CSS numbers and the virtualizer's row size; what it can't take from CSS is where GPUI's layout puts the text (root `CLAUDE.md`, "GPUI lays out in whole device pixels"), so its widths and budgets come from a fixture, as `cells.json`'s do.
+Headless: the row height is the virtualizer's `estimateSize` and the CSS's, the text size is CSS, and a column's width is column sizing's `size` (`header.getSize()`), set in the column definition, with `minSize`, `maxSize`, and `enableColumnResizing` apart from it. A DOM contender matches a density by three CSS numbers and the virtualizer's row size; what it can't take from CSS is where GPUI's layout puts the text (`.claude/rules/gpui-web.md`, "GPUI lays out in whole device pixels"), so its widths and budgets come from a fixture, as `cells.json`'s do.
 
 ### A feature, not a setting on the base
 

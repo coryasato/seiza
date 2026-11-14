@@ -73,7 +73,7 @@ A file's column sizes are in its footer (`parquet_metadata`'s `total_compressed_
 - **Linear sampling:** a bin drawn 2–3 px wide is blended with its neighbors, and a held image magnified by a zoom is smooth, not blocky. Right for a density; whether single-count bins at a deep zoom read as points or as smudges is settled with a screenshot in the build.
 - **Counts to colors:** a log scale by default (a density's counts span four or five decades: the asteroids' fullest bin holds thousands, most hold one), through a ramp whose stops are theme tokens, mixed in Oklab as the table's cell ramps are. The state keeps the landed counts, not only the image, so a theme change re-colors without a read. Empty bins are clear: the plot's background shows.
 - **The scale's top is the grid's fullest bin,** so a zoom re-scales the colors. The alternative (a fixed scale from the first grid) makes deep zooms dim. Settled in the build, with the legend that shows it.
-- **Axes** (ticks at round numbers, their labels, the column names) are text and lines the component draws itself. gpui-kit's `plot` module has scales and axes for its charts; whether they fit a zoomable axis and what they link is checked in the build before reusing them (its `Input` linked three engines for one field: root `CLAUDE.md`, "Known GPUI Kit web gotchas").
+- **Axes** (ticks at round numbers, their labels, the column names) are text and lines the component draws itself. gpui-kit's `plot` module has scales and axes for its charts; whether they fit a zoomable axis and what they link is checked in the build before reusing them (its `Input` linked three engines for one field: `.claude/rules/gpui-web.md`).
 
 ---
 

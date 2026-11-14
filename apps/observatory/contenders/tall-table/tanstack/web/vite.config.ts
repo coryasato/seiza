@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
   const outDir = levelOutDir(level);
   /** The first screen, rendered by the view itself into the page's HTML
    *  (in dev too), which `main.ts` hydrates: React's prerendered first
-   *  screen (root `CLAUDE.md`, "Comparison protocol"). */
+   *  screen (`.claude/rules/comparison-protocol.md`). */
   const firstScreen = prerender<typeof View>({
     module: '/src/view.ts',
     render: ({ App, FIRST_SCREEN }) => renderToString(createElement(App, { load: FIRST_SCREEN })),

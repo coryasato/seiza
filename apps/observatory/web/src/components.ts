@@ -3,7 +3,7 @@
  * its scenarios: the page's list (its nav, its routes, its frames). A
  * contender is only a name, a label, and a URL here: its page is a bare
  * build of its own, one per feature level, fetched when its frame is
- * created (root `CLAUDE.md`, "Comparison protocol"), never part of this
+ * created (`.claude/rules/comparison-protocol.md`), never part of this
  * bundle. The scenarios are `contenders/scenarios.ts`'s, the one list; this
  * file adds what the page says of each.
  *

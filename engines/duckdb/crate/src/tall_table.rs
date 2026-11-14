@@ -487,7 +487,7 @@ mod tests {
     }
 
     /// The tall table's SQL fixture: the SQL is the same on both sides of
-    /// the observatory's comparison (root `CLAUDE.md`, "Comparison protocol").
+    /// the observatory's comparison (`.claude/rules/comparison-protocol.md`).
     const SQL_FIXTURE: &str = include_str!("../../../../components/tall-table/fixtures/sql.json");
 
     /// What `open_parquet` sends for a host that asks for no metadata keys,

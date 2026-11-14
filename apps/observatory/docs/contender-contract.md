@@ -1,6 +1,6 @@
 # The contender contract
 
-What every contender page publishes, so one metrics module (`metrics/metrics.ts`), the Playwright scripts, and the observatory's page can measure any of them the same way (root `CLAUDE.md`, "Comparison protocol"). Contenders set marks and publish state; they compute no metric. How each metric is then read is under "Reading the metrics" below; the choices behind it are in [`DECISIONS.md`](DECISIONS.md), "Measurement".
+What every contender page publishes, so one metrics module (`metrics/metrics.ts`), the Playwright scripts, and the observatory's page can measure any of them the same way (`.claude/rules/comparison-protocol.md`). Contenders set marks and publish state; they compute no metric. How each metric is then read is under "Reading the metrics" below; the choices behind it are in [`DECISIONS.md`](DECISIONS.md), "Measurement".
 
 The GPUI contender builds this from the tall table's events in its host; the TanStack contender from its own view. Names are the same on both sides.
 

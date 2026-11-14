@@ -1,6 +1,6 @@
 # The TanStack contender's scroll model
 
-How the DOM side scrolls 1,567,523 rows of 30 px (47,025,690 px) natively, on the compositor, with the content moving 1:1 with the input (root `CLAUDE.md`, "Comparison protocol"). It was sized on a throwaway spike page (since removed; its `src/scaled.ts` is in git history); the numbers are in [`perf/results/2026-10-15-m1-a.md`](../perf/results/2026-10-15-m1-a.md), the choices in [`DECISIONS.md`](DECISIONS.md), "Scroll model".
+How the DOM side scrolls 1,567,523 rows of 30 px (47,025,690 px) natively, on the compositor, with the content moving 1:1 with the input (`.claude/rules/comparison-protocol.md`). It was sized on a throwaway spike page (since removed; its `src/scaled.ts` is in git history); the numbers are in [`perf/results/2026-10-15-m1-a.md`](../perf/results/2026-10-15-m1-a.md), the choices in [`DECISIONS.md`](DECISIONS.md), "Scroll model".
 
 ## The browsers' limits
 

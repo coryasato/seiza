@@ -1,6 +1,6 @@
 # The tall table's fixtures
 
-What "the same" means for any other implementation of the table's base level (the observatory's DOM contenders): the page requests it makes, the text its cells show, and the SQL it sends (root `CLAUDE.md`, "Comparison protocol"). Each fixture runs natively against the table, and in TS against each DOM contender, and each has negative controls that must fail it.
+What "the same" means for any other implementation of the table's base level (the observatory's DOM contenders): the page requests it makes, the text its cells show, and the SQL it sends (`.claude/rules/comparison-protocol.md`). Each fixture runs natively against the table, and in TS against each DOM contender, and each has negative controls that must fail it.
 
 | File | What it pins | Native test | Written by |
 |---|---|---|---|
