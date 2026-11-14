@@ -97,7 +97,7 @@ The JS side loads after first paint and costs no first-paint bytes: the engine c
 
 | File | What's in it |
 |---|---|
-| [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, DuckDB-Wasm gotchas. |
+| [`CLAUDE.md`](CLAUDE.md) | Rules, a map of its files, DuckDB-Wasm gotchas. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
 
 Its work is planned and measured in the app that drives it; there's no PLAN.md here.
