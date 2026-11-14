@@ -27,7 +27,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | `contenders/tall-table/gpui/` | The GPUI contender: the bare Rust host of the tall table, a build per level | `contenders/tall-table/gpui/CLAUDE.md` |
 | `contenders/tall-table/tanstack/` | The TanStack contender: React and TanStack Virtual, a build per level, the table's logic ported | `contenders/tall-table/tanstack/CLAUDE.md` |
 | `metrics/` | The one module that computes every metric | `metrics/CLAUDE.md` |
-| `perf/` | Every check and measurement script, the ports, the perf gotchas, what each check covers | `perf/CLAUDE.md` |
+| `perf/` | Every check and measurement script, the perf gotchas, a line per check (what each covers: its header and the justfile) | `perf/CLAUDE.md` |
 | `data/` | The six data files, their prep and pins | `data/CLAUDE.md` |
 | `worker/` | Hosting: the Worker on seiza.io, staging, the deploy | `worker/CLAUDE.md` |
 
