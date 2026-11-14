@@ -323,6 +323,10 @@ impl Host {
             table.set_density(density, cx);
             table
         });
+        // The rest defaulted: built alone, none is left, but a workspace-wide
+        // build (an IDE's) turns on the bridge features another host asks
+        // for, and their fields with them.
+        #[allow(clippy::needless_update)]
         let publish = Publish {
             filled_mark: Some(FILLED_MARK),
             scrollbar: true,
@@ -349,6 +353,7 @@ impl Host {
             pinned: Some(PINNED_GLOBAL),
             #[cfg(feature = "reorder")]
             column_order: Some(COLUMN_ORDER_GLOBAL),
+            ..Publish::default()
         };
         // The table emits while its frame renders, so GPUI runs this in the
         // task that presents it, and the mark lands right after the frame.
