@@ -1,6 +1,5 @@
 /**
- * The scroll model (`docs/dom-scroll-model.md`; `spike/src/scaled.ts` is
- * its reference): a native scroller over more pixels than a browser lets an
+ * The scroll model (`docs/dom-scroll-model.md`): a native scroller over more pixels than a browser lets an
  * element be tall.
  *
  * The spacer is at most 2^24 px tall; the content is `rows × rowHeight`.

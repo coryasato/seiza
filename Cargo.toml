@@ -11,10 +11,6 @@ members = [
     "engines/duckdb/crate",
     "apps/tycho/crate",
     "apps/observatory/contenders/tall-table/gpui/crate",
-    # Throwaway: live tail's spike, deleted with apps/observatory/spike/.
-    "apps/observatory/spike/tail-gpui",
-    # Throwaway: the monitoring wall's spike, deleted with apps/observatory/spike/.
-    "apps/observatory/spike/wall-gpui",
     "apps/kirkwood/crate",
 ]
 

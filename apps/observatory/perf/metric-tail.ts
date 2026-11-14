@@ -39,7 +39,7 @@ import { THROTTLE_MIN, spin, throttleCheck } from './throttle-control.ts';
 
 const SETTLE_MS = 1000;
 const WINDOW_MS = 10_000;
-/** The scroll back (the spike's, `spike/tail-run.ts`): a gesture up, its speed, px and px/s. */
+/** The scroll back (the spike's): a gesture up, its speed, px and px/s. */
 const GESTURE_PX = 300;
 const GESTURE_SPEED = 10_000;
 /** After the gesture, the view's top must hold this long as rows arrive. */

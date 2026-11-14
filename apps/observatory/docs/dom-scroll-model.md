@@ -1,6 +1,6 @@
 # The TanStack contender's scroll model
 
-How the DOM side scrolls 1,567,523 rows of 30 px (47,025,690 px) natively, on the compositor, with the content moving 1:1 with the input (root `CLAUDE.md`, "Comparison protocol"). It was sized on the throwaway page in `spike/`, whose `src/scaled.ts` is the reference implementation; the numbers are in [`perf/results/2026-10-15-m1-a.md`](../perf/results/2026-10-15-m1-a.md), the choices in [`DECISIONS.md`](DECISIONS.md), "Scroll model".
+How the DOM side scrolls 1,567,523 rows of 30 px (47,025,690 px) natively, on the compositor, with the content moving 1:1 with the input (root `CLAUDE.md`, "Comparison protocol"). It was sized on a throwaway spike page (since removed; its `src/scaled.ts` is in git history); the numbers are in [`perf/results/2026-10-15-m1-a.md`](../perf/results/2026-10-15-m1-a.md), the choices in [`DECISIONS.md`](DECISIONS.md), "Scroll model".
 
 ## The browsers' limits
 
@@ -12,7 +12,7 @@ How the DOM side scrolls 1,567,523 rows of 30 px (47,025,690 px) natively, on th
 
 So a plain native scroller over the full table loses its last ~0.45 M rows in Chromium and WebKit and doesn't scroll at all in Firefox.
 
-**Plain TanStack** (TanStack Virtual over the full count in a native scroller, no scaling: the spike's `?v=plain`, `just observatory spike --only plain`) stops there too. Its spacer asks for 47,025,690 px:
+**Plain TanStack** (TanStack Virtual over the full count in a native scroller, no scaling, as the spike measured it) stops there too. Its spacer asks for 47,025,690 px:
 
 - **Chromium and WebKit** lay it out at 33,554,428 px. End, the scroller pinned at its end, and TanStack's own `scrollToIndex` of the last row all stop at row 1,118,485 (WebKit 1,118,481), 71.4% of the way: the last ~449,000 rows can't be reached, and nothing says so.
 - **Firefox** lays it out at 0 px, so the scroller's room is only the rows TanStack last drew (positioned rows overflow it). Each End moves a few rows on, to the edge of what's drawn: the three tries reached row 33, then 37, then 161. The table can't be scrolled in any useful sense.
@@ -64,7 +64,7 @@ Shift turns a vertical wheel sideways, as the tall table does, where the platfor
 
 - **Drive a native scroller with raw `page.mouse.wheel` deltas.** Under Chromium's DPR 2 emulation the page's `deltaY` is half Playwright's delta, but a native scroller moves the whole of it, so the harness's `wheel()` (which doubles the delta for GPUI's listeners) scrolls the DOM side twice as far.
 - **A fling of equal events reaches the end; the harness's `fling()` doesn't.** Its catch-up last event (up to ~4.4 M px) is clamped by the scroller's room. Firefox clamps every event to a page, so no scripted fling crosses the table there.
-- **Headless browsers hide the scrollbar:** Playwright launches Chromium with `--hide-scrollbars`, and headless Firefox has only overlay scrollbars of no width. `spike/input.ts`'s `openWithScrollbars` turns Chromium's off; Firefox's drag needs a headed Firefox with `ui.useOverlayScrollbars: 0`.
+- **Headless browsers hide the scrollbar:** Playwright launches Chromium with `--hide-scrollbars`, and headless Firefox has only overlay scrollbars of no width. Launching Chromium without it (`ignoreDefaultArgs: ['--hide-scrollbars']`, as `perf/contender.ts` does) shows them; Firefox's drag needs a headed Firefox with `ui.useOverlayScrollbars: 0`.
 - **An overlay scrollbar takes a press only while it's shown** (Chromium and WebKit on macOS): bring it up with a wheel there and back, a frame apart, and the pointer over it (`perf/tanstack-parity.ts`'s `showBar`), or the press lands on the cells; it can still fade out before the press (`downOnBar` checks the press's target and tries again).
 - **WebKit's scripted wheel can take ~80 ms to arrive**, as long as the drag settle, so a wheel meant to land inside a drag may arrive after it ended; a key arrives at once.
 

@@ -7295,20 +7295,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tail-spike"
-version = "0.1.0"
-dependencies = [
- "gpui-kit",
- "js-sys",
- "seiza",
- "seiza-duckdb",
- "seiza-tall-table",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "tall-table-bridge"
 version = "0.1.0"
 dependencies = [
@@ -8049,17 +8035,6 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
-]
-
-[[package]]
-name = "wall-spike"
-version = "0.1.0"
-dependencies = [
- "gpui-kit",
- "js-sys",
- "seiza",
- "seiza-tall-table",
- "wasm-bindgen",
 ]
 
 [[package]]

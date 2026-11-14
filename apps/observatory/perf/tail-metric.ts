@@ -35,7 +35,7 @@ export function tailRecorder(): void {
 
 /** Init script (GPUI): after each task that makes GPU calls, the state's
  *  `top` and `__contenderFollowing`; marks `probe:let-go` in the first frame
- *  whose top moved while not following (the spike's rule, `spike/tail-run.ts`): the scroll
+ *  whose top moved while not following (the spike's rule): the scroll
  *  back's frame. "Up" alone can miss it: a count set in that frame before
  *  the wheel pins the view down by more than the wheel moves it up. Armed
  *  again once following comes back. As `gpuiProbe` finds a moved frame

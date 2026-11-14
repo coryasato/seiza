@@ -138,7 +138,7 @@ The rules a step checks, in brief (the spec is the table's `PLAN.md`, `select`'s
 
 ## `pin.json`
 
-What a DOM contender's pinned columns must match to draw the same cells (`pin`; the table's README), not how it draws them (a DOM grid's sticky cells). No contender pins yet: the observatory adds the level when both its sides build it.
+What a DOM contender's pinned columns must match to draw the same cells (`pin`; the table's README), not how it draws them (a DOM grid's sticky cells). The TanStack contender runs it, with its controls, against its wide level's `pin.ts` (`wide.test.ts`).
 
 Each of `cases` is a table's `cells_width` (CSS px, the cells area right of the row numbers), its columns' `widths` (laid out left to right from 0, each column's `x` the sum of the widths before it), the host's `count` (`set_pinned`), and a sideways `scroll_x`; its `hits` are screen x's (px from the cells' left) and its `into_view` column indices. `expect` holds:
 
@@ -154,7 +154,7 @@ Each of `cases` is a table's `cells_width` (CSS px, the cells area right of the 
 
 ## `density.json`
 
-What a DOM contender's lengths must match to draw the same cells at a density (`density`; the table's README): its CSS row height, font size, padding, and column widths, and the budgets a float rounds to. No contender builds a density yet: the observatory adds the level when both its sides build it, and until then its test names the file skipped.
+What a DOM contender's lengths must match to draw the same cells at a density (`density`; the table's README): its CSS row height, font size, padding, and column widths, and the budgets a float rounds to. The TanStack contender runs it, with its controls, against its wide level's `density.ts` (`wide.test.ts`).
 
 `columns` are laid out in every case: their `name`, `kind`, and (`integer`) `max_chars`, and a set `width` (`TallTableColumn::width`) where given. Each of `cases` is a `rem` size (px), a `row_height` (px), a `text` size (`{"px": n}` or `{"rems": n}`), a `view_height` (px, the viewport's), a row count (`rows`, for the gutter), and `number_px`, the widest advance of the characters a number is written with at the case's text size. `expect` holds:
 
