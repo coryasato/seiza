@@ -10,7 +10,8 @@
  * it too.
  */
 
-import { KEEPS_UP_SHARE, READ_THROUGH, SCROLLS, TAIL_KEEPS_UP_MS, WALL_TICKS_A_TABLE, type LiveReadings } from '../../metrics/metrics.ts';
+import { KEEPS_UP_SHARE, READ_THROUGH, SCROLLS, TAIL_KEEPS_UP_MS, WALL_TICKS_A_TABLE, WIDE_DRAG, type LiveReadings } from '../../metrics/metrics.ts';
+import { COPY_KEY_MAX_CELLS } from '../../contenders/tools.ts';
 import type { Source } from '../../../../shared-web/scripts/results.ts';
 import type { Side } from '../../contenders/contract.ts';
 import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET, resultLabel, type Scenario, type Stop } from '../../contenders/scenarios.ts';
@@ -35,12 +36,15 @@ export interface Card {
   /** The status bar's label, and the card's. */
   segment: string;
   label: string;
-  /** A count has none (''). */
-  unit: 'ms' | '%' | 'MiB' | '';
+  /** A count has none (''). Seconds are shown from a metric in ms. */
+  unit: 'ms' | 's' | '%' | 'MiB' | '';
   better: 'lower' | 'higher';
   /** The cold value as shown: Smoothness is the frames on time, 100 less the
    *  late share. The verdict judges the metric as measured (`cardOutcome`). */
   shown: (cold: number) => number;
+  /** How a shown value prints, where `number`'s one decimal hides what the
+   *  verdict judges (a copy's seconds). */
+  format?: (shown: number) => string;
   /** The value the verdict judges, lower is better: the metric as measured,
    *  unless measured higher-is-better (a share of frames drawn). */
   judged?: (cold: number) => number;
@@ -55,6 +59,14 @@ export interface Card {
   waiting?: string;
   /** Under the card's label, above the cold values (the fast device's caption). */
   caption?: string;
+  /** What it reads, before "lower is better" in the card's corner
+   *  ("key → written"). */
+  measures?: string;
+  /** Under the verdict, from the cold numbers (at `stop` for a card
+   *  measured per stop): what the card's values leave out. */
+  noteOf?: (cold: ScenarioCold, stop?: string) => string;
+  /** The explainer's numbers after `explain`, at `stop`. */
+  explainOf?: (cold: ScenarioCold, stop?: string) => string;
   /** The explainer: what the number means, then how it's measured. */
   explain: string;
   /** Its metric's fastest and slowest runs (`<metric>-min`, `<metric>-max`):
@@ -162,7 +174,7 @@ export const WIDE_CARDS: Card[] = [
     judged: drawn,
     caption: undefined,
     explain:
-      `The share of frames on time while you scroll: a frame is late when it takes longer than one and a half of your display’s frames. Counted on the page’s own thread. Cold: the share of the display’s frames that drew new cells in a steady scroll at this stop, down (${px(down.speed)} px/s) and sideways (${px(sideways.speed)} px/s), the slower of the two.`,
+      `The share of frames on time while you scroll, resize a day, or drag a selection: a frame is late when it takes longer than one and a half of your display’s frames. Counted on the page’s own thread. Cold: the share of the display’s frames that drew new cells in a steady scroll at this stop, down (${px(down.speed)} px/s) and sideways (${px(sideways.speed)} px/s), the slower of the two.`,
   },
   {
     ...card('memory'),
@@ -206,6 +218,122 @@ export const WIDE_STOP_CARDS: Card[] = [
     explain: `The main thread’s time in each frame that drew new cells, the 95th percentile, in the steady scroll down (${px(down.speed)} px/s): its layout, its drawing, and GPUI’s present. Past one display frame, frames are skipped.`,
   },
   { ...WIDE_CARDS.find((card) => card.key === 'memory')!, caption: 'After the sideways session' },
+];
+
+const sideValues = (cold: ScenarioCold, metric: string, profile: Profile, stop?: string): [number, number] => cold.values[coldKey(metric, profile, stop)]!;
+/** "GPUI 5.5 ms, TanStack 9 ms": a reading per side. */
+const bySide = ([gpui, tanstack]: readonly [number, number], unit: string) => `GPUI ${withUnit(gpui, unit)}, TanStack ${withUnit(tanstack, unit)}`;
+/** "GPUI 0 % and 1.2 %, TanStack …": a reading per side, fast then slow device. */
+const bothDevices = (cold: ScenarioCold, metric: string, unit: string, stop?: string) => {
+  const [fast, slow] = PROFILES.map((profile) => sideValues(cold, metric, profile, stop));
+  return `GPUI ${withUnit(fast![0], unit)} and ${withUnit(slow![0], unit)}, TanStack ${withUnit(fast![1], unit)} and ${withUnit(slow![1], unit)}`;
+};
+const DREW = 'GPUI’s frames are those it presents; the DOM’s, those its page paints.';
+const DRAG_PACE = `a pointer move every ${WIDE_DRAG.everyMs} ms, the same on both sides`;
+const DRAG_TRIPS = WIDE_DRAG.trips === 2 ? 'twice' : `${WIDE_DRAG.trips} times`;
+
+/** A drag's card at a stop: the share of frames that drew, its work and
+ *  late frames beside it. */
+const dragCard = (key: 'resize' | 'select', label: string, what: string, said: [string, string]): Card => ({
+  key,
+  metric: key,
+  perStop: true,
+  segment: label,
+  label,
+  unit: '%',
+  better: 'higher',
+  shown: (cold) => cold,
+  judged: drawn,
+  word: 'smoother',
+  ratio: false,
+  measures: 'frames drawn',
+  explain: `The share of the display’s frames that drew while ${what}, ${DRAG_PACE}. ${DREW} Above the values, the main thread’s time in each frame that drew, the 95th percentile.`,
+  explainOf: (cold, stop) => ` Late frames, longer than one and a half of the display’s frames, fast and slow device: ${bothDevices(cold, `${key}-late`, '%', stop)}.`,
+  noteOf: (cold, stop) => `Work per frame, p95, fast device: ${bySide(sideValues(cold, `${key}-work`, 'reference', stop), 'ms')}.`,
+  said,
+});
+
+/** "While dragging"'s line: the two drags, as `perf/metric-drag.ts` makes them. */
+export const DRAG_SETS = `A day’s edge dragged ${WIDE_DRAG.px} px and back, ${DRAG_TRIPS}; a block dragged corner to corner and back. ${DRAG_PACE.charAt(0).toUpperCase()}${DRAG_PACE.slice(1)}.`;
+
+/** "Copying"'s line. */
+export const COPY_SETS = 'From the key to the clipboard written, from a cold view. No stop changes a copy.';
+
+/** The wide sheet's drags at a stop, under its cards ("While dragging"). */
+export const WIDE_DRAG_CARDS: Card[] = [
+  dragCard('resize', 'Resizing a day', `Jan 1’s edge is dragged ${WIDE_DRAG.px} px out and back, ${DRAG_TRIPS}, so every frame lays the columns out again`, ['stays smoother resizing a day', 'resizing a day']),
+  dragCard('select', 'Selecting a block', 'a selection is dragged from the top row’s first scrolled cell to the last cell wholly in view and back, a row a move, so every frame draws a new selection', ['stays smoother dragging a selection', 'dragging a selection']),
+];
+
+/** "3.9 M": cells past a million. */
+const cellsText = (cells: number) => (cells >= 1e6 ? `${(cells / 1e6).toFixed(1)} M` : cells.toLocaleString('en-US'));
+const COPY_FROM = 'From a cold view at the default stop, its visible pages loaded, to the browser’s clipboard write resolved.';
+
+/** A copy's time, key → written, in the card's unit: ms, or seconds to two
+ *  decimals under 10 s (one decimal would print 0.82 and 0.85 s alike). */
+const copyCard = (key: string, label: string, unit: 'ms' | 's', measures: string, explain: string, noteOf: Card['noteOf'], said: [string, string]): Card => ({
+  key,
+  metric: key,
+  segment: label,
+  label,
+  unit,
+  better: 'lower',
+  shown: unit === 's' ? (cold) => cold / 1000 : (cold) => cold,
+  format: unit === 's' ? (shown) => (shown < 10 ? shown.toFixed(2) : number(shown)) : undefined,
+  word: 'faster',
+  ratio: true,
+  measures,
+  explain,
+  noteOf,
+  said,
+});
+
+/** The wide sheet's copies, measured once at the default stop ("Copying"). */
+export const WIDE_COPY_CARDS: Card[] = [
+  copyCard(
+    'copy-block',
+    'The visible block',
+    'ms',
+    'key → written',
+    `The cells on screen, selected by a drag, copied by the key: every page already in hand, so no read. ${COPY_FROM}`,
+    (cold) => `${cellsText(sideValues(cold, 'copy-block-cells', 'reference')[0])} cells, dragged across what’s on screen: every page in hand.`,
+    ['copies the visible block sooner', 'copying the visible block'],
+  ),
+  copyCard(
+    'copy-week',
+    'A week',
+    's',
+    'key → written',
+    `Seven days’ columns, selected by their headers, copied by the key: under the ${COPY_KEY_MAX_CELLS.toLocaleString('en-US')} cells a key copies, every row of them, so each page is read beside the cache, a page at a time, and its text joined in turns that leave room for frames. ${COPY_FROM}`,
+    (cold) => `${cellsText(sideValues(cold, 'copy-week-cells', 'reference')[0])} cells, seven days: every page read beside the cache.`,
+    ['copies a week sooner', 'copying a week'],
+  ),
+  copyCard(
+    'copy-sheet',
+    'The whole sheet',
+    's',
+    'Copy anyway → written',
+    `Every cell selected, the key declined (past the ${COPY_KEY_MAX_CELLS.toLocaleString('en-US')} cells a key copies), then confirmed, as Copy anyway does: every page read beside the cache, its text joined in turns that leave room for frames. Timed from the confirming key to the browser’s clipboard write resolved, from a cold view at the default stop.`,
+    (cold) => `${cellsText(sideValues(cold, 'copy-sheet-cells', 'reference')[0])} cells, ${size(sideValues(cold, 'copy-sheet-bytes', 'reference')[0] / 1024)} of text: everything selected, the key declined, then Copy anyway.`,
+    ['copies the whole sheet sooner', 'copying the whole sheet'],
+  ),
+  {
+    key: 'copy-scroll',
+    metric: 'copy-scroll',
+    segment: 'Scrolling while it copies',
+    label: 'Scrolling while it copies',
+    unit: '%',
+    better: 'higher',
+    shown: (cold) => cold,
+    judged: drawn,
+    word: 'smoother',
+    ratio: false,
+    measures: 'frames drawn',
+    explain: `The share of the display’s frames that drew new cells in the steady scroll down (${px(down.speed)} px/s) started at the whole sheet’s confirming key, while it copies. ${DREW}`,
+    explainOf: (cold) => ` The same scroll with no copy, fast and slow device: ${bothDevices(cold, 'copy-scroll-idle', '%')}.`,
+    noteOf: (cold) => `A steady scroll down from the sheet’s Copy anyway; with no copy, fast device: ${bySide(sideValues(cold, 'copy-scroll-idle', 'reference'), '%')}.`,
+    said: ['scrolls smoother while the sheet copies', 'scrolling while the sheet copies'],
+  },
 ];
 
 /** "Shown in"'s explainer: what it reads in this tab and cold. */
@@ -453,8 +581,8 @@ export const CHART_MS = 50;
 /** Every budgets.json metric a scenario's page shows, each with its key
  *  in the scenario's numbers (`coldKey`). */
 export function metricsOf(scenario: Scenario): { id: string; key: string; gpuiOnly?: boolean }[] {
-  const { once, perStop, gpuiOnce = [] } = numbersOf(scenario);
-  const keys = [...once.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile))), ...scenario.stops.flatMap((stop) => perStop.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile, stop.id))))];
+  const { once, perStop, gpuiOnce = [], onceReference = [] } = numbersOf(scenario);
+  const keys = [...once.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile))), ...onceReference.map((metric) => coldKey(metric, 'reference')), ...scenario.stops.flatMap((stop) => perStop.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile, stop.id))))];
   const gpuiKeys = gpuiOnce.flatMap((metric) => PROFILES.map((profile) => coldKey(metric, profile)));
   return [...keys.map((key) => ({ id: `${metricPrefix(scenario)}${key}`, key })), ...gpuiKeys.map((key) => ({ id: `${metricPrefix(scenario)}${key}`, key, gpuiOnly: true }))];
 }
@@ -552,11 +680,18 @@ interface ScenarioNumbers {
   keeps?: Keeps;
   /** The card no stop changes: what it shows beside Ready in and Download. */
   onceCards?: Card[];
+  /** The wide sheet's tools: its drags' cards at a stop ("While dragging")
+   *  and its copies' (measured once, "Copying"), below the stop's cards. */
+  dragCards?: Card[];
+  copyCards?: Card[];
   /** The cards at a stop per row: 3 by default; live tail's four in a 2 × 2. */
   stopColumns?: 2 | 3;
   /** A line under the stop's heading in the panel, where a stop's numbers
    *  need one. */
   stopNote?: (stop: Stop, values: ScenarioCold['values']) => string | null;
+  /** Metrics measured once, read on the fast device alone (a copy's cells
+   *  and bytes, the same on both devices). */
+  onceReference?: string[];
   /** Metrics measured on GPUI alone, once (the admin table's fonts toggle):
    *  `ScenarioCold.gpui`'s keys. */
   gpuiOnce?: string[];
@@ -594,10 +729,13 @@ const NUMBERS: Record<string, ScenarioNumbers> = {
   [WIDE_SHEET.id]: {
     cards: WIDE_CARDS,
     phone: PHONE,
-    once: ['usable', 'data', 'memory'],
-    perStop: ['down', 'sideways', 'fast', 'down-work'],
+    once: ['usable', 'data', 'memory', 'copy-block', 'copy-week', 'copy-sheet', 'copy-scroll', 'copy-scroll-idle'],
+    onceReference: ['copy-block-cells', 'copy-week-cells', 'copy-sheet-cells', 'copy-sheet-bytes'],
+    perStop: ['down', 'sideways', 'fast', 'down-work', 'resize', 'select', 'resize-work', 'select-work', 'resize-late', 'select-late'],
     ...filesOf(WIDE_SHEET),
     stopCards: WIDE_STOP_CARDS,
+    dragCards: WIDE_DRAG_CARDS,
+    copyCards: WIDE_COPY_CARDS,
     keeps: {
       reads: 'the share of the display’s frames that drew new cells',
       explain: 'of the display’s frames draw new cells in a steady scroll down and in one sideways; the slower of the two is drawn. GPUI’s frames are those it presents; the DOM’s, those its page renders rows in.',
@@ -789,6 +927,9 @@ export const cardOutcome = (card: Card, values: ScenarioCold['values'], profile:
   return least[0]! <= most[1]! && least[1]! <= most[0]! ? { winner: null, times: 1 } : out;
 };
 
+/** A shown value as its card prints it. */
+export const cardText = (card: Card, shown: number): string => (card.format ?? number)(shown);
+
 /** A card's cold values as shown, per device (at `stop` for a card measured per stop). */
 export const cardValues = (card: Card, values: ScenarioCold['values'], profile: Profile, stop?: string): [number, number] => {
   const [gpui, tanstack] = values[cardKey(card, profile, stop)]!;
@@ -966,6 +1107,8 @@ export function stopWins(scenario: Scenario, cold: ScenarioCold): Wins {
     shown: ['shows each update sooner', 'how soon an update shows'],
   };
   for (const card of numbers.stopCards ?? []) credit(...both(card, scenario.defaultStop), ...(card.said ?? said[card.key]!));
+  // The wide sheet's tools: the drags at the default stop, as the cards above; the copies, measured there.
+  for (const card of [...(numbers.dragCards ?? []), ...(numbers.copyCards ?? [])]) credit(...both(card, scenario.defaultStop), ...card.said!);
   credit(...both(READY), 'is ready sooner', 'ready');
   // A card the status bar has and the panel's cards don't: memory, measured once.
   const memory = numbers.cards.find((card) => card.key === 'memory');

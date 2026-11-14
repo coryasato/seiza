@@ -46,10 +46,13 @@ export interface MeterSide {
 }
 
 /** The input that moves each side's table. GPUI draws its own scrolling:
- *  the wheel, the keys that scroll, touches, and a drag (its thumb's). The
- *  DOM's scroller says when it moved, whatever moved it (a key, the
- *  scrollbar), and the wheel and touches start it. */
+ *  the wheel, the keys that scroll, touches, and a drag (its thumb's, and
+ *  on the wide sheet a band's or a selection's). The DOM's scroller says
+ *  when it moved, whatever moved it (a key, the scrollbar), and the wheel
+ *  and touches start it; where the table has drags (`drags`), a pointer
+ *  moved with a button held starts it too, so Smooth counts a drag's frames. */
 const SCROLL_INPUTS: Record<Side, string[]> = { gpui: ['wheel', 'keydown', 'touchmove', 'pointermove'], tanstack: ['wheel', 'touchmove', 'scroll'] };
+const inputsOf = (tracked: Tracked): string[] => (tracked.drags && tracked.side === 'tanstack' ? [...SCROLL_INPUTS.tanstack, 'pointermove'] : SCROLL_INPUTS[tracked.side]);
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
 /** What reaches a frame's realm: its element, the closures over its
@@ -81,6 +84,9 @@ interface Tracked {
   scrolling: boolean;
   /** Its scenario runs a feed: its frames are recorded from its first rows on. */
   feed: boolean;
+  /** Its table has drags (the wide sheet's resize and selection): a drag's
+   *  frames are recorded as a scroll's. */
+  drags: boolean;
   /** The feed's frames recorded, and as of the last refresh: the record's
    *  version moves once a refresh, not once a frame. */
   feedFrames: number;
@@ -105,8 +111,8 @@ let metrics: Awaited<ReturnType<typeof loadMetrics>> | null = null;
 const epoch = (pageMs: number) => performance.timeOrigin + pageMs;
 
 /** A new frame for `side`, as the slot creates it: its readings start over.
- *  `feed`: its scenario runs a feed. */
-export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, feed = false): void {
+ *  `feed`: its scenario runs a feed; `drags`: its table has drags. */
+export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, feed = false, drags = false): void {
   if (shown) release(shown);
   const tracked: Tracked = {
     side,
@@ -118,6 +124,7 @@ export function trackFrame(side: Side, frame: HTMLIFrameElement, base: string, f
     base: new URL(base, location.href).href,
     scrolling: false,
     feed,
+    drags,
     feedFrames: 0,
     feedFramesRead: 0,
     version: 0,
@@ -219,7 +226,9 @@ function listenForScrolls(tracked: Tracked, link: Link, window: Window): () => v
   };
   const input = (event: Event) => {
     if (event.type === 'keydown' && !SCROLL_KEYS.has((event as KeyboardEvent).key)) return;
-    if (event.type === 'pointermove' && !(event as PointerEvent).buttons) return;
+    // A drag on TanStack's frame is the primary button's, as its tools take
+    // it: a right or middle press that moves a pixel starts no recording.
+    if (event.type === 'pointermove' && !((event as PointerEvent).buttons & (tracked.side === 'tanstack' ? 1 : ~0))) return;
     last = performance.now();
     // The feed's loop records every frame already, a scroll's among them.
     if (feed) return void (tracked.scrolling = true);
@@ -230,7 +239,7 @@ function listenForScrolls(tracked: Tracked, link: Link, window: Window): () => v
     requestAnimationFrame(tick);
   };
   const options = { capture: true, passive: true };
-  const types = SCROLL_INPUTS[tracked.side];
+  const types = inputsOf(tracked);
   for (const type of types) window.addEventListener(type, input, options);
   return () => {
     scroll = null;

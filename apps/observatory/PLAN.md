@@ -28,7 +28,7 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
 | M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
-| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2, B, C1, C2, D1, D2, and E1 done, E2 next) |
+| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2, B, C1, C2, D1, D2, E1, and E2 done, F next) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
@@ -236,14 +236,17 @@ The design: the canvas's wide-sheet row ([`docs/DECISIONS.md`](docs/DECISIONS.md
 ### Part E2: the panel and the description
 
 **Done when:**
-- [ ] **E2-1, the panel:** "While dragging" at the picked stop and "Copying" as the canvas draws them, every value from `perf/results/` (`readouts.ts`, `cold.ts`); this tab's Smooth counting a drag's frames.
-- [ ] **E2-2, the description and the admin row:** "where each side wins" generated with the drags and the copies; the shortfalls (whole cells only, resize by pointer alone); "What it models"' line; the admin row's explainer pointing to the wide sheet.
-- [ ] **E2-3, `page --check`:** the sections' values as `perf/results/` has them, the wins re-derived, the admin row's link.
+- [x] **E2-1, the panel:** "While dragging" at the picked stop and "Copying" as the canvas draws them, every value from `perf/results/` (`readouts.ts`, `cold.ts`); this tab's Smooth counting a drag's frames.
+  *Evidence:* `readouts.ts`'s `WIDE_DRAG_CARDS` (Resizing a day, Selecting a block: the share drawn on both devices, work p95 in the note, late frames in the explainer) and `WIDE_COPY_CARDS` (the visible block, a week, the whole sheet, scrolling while it copies), rendered under the stop's cards by `numbers.ts`'s `StopsBody`; 62 new `perf/budgets.json` metrics (`gate: recorded`, `show: []` until F's README sections; a copy's cells and the sheet's bytes on the fast device alone, the same on both) from `2026-11-13-m14-d2-drag-*` and `-copy-*`. At ~710 cells: resize GPUI 100 / 96.3 %, TanStack 68.9 / 33.7 %; the sheet's copy GPUI 1.9 / 2.7 s, TanStack 1.5 / 4.8 s; the scroll while it copies GPUI 91.6 %, TanStack 22 % (99.6 and 43.4 % with no copy). The drags' constants are `metrics.ts`'s `WIDE_DRAG`, which `metric-drag.ts` now reads. This tab's Smooth: TanStack's frames take a pointer moved with a button held on the wide level (`live.ts`, `drags`), as GPUI's already did ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-14).
+- [x] **E2-2, the description and the admin row:** "where each side wins" generated with the drags and the copies; the shortfalls (whole cells only, resize by pointer alone); "What it models"' line; the admin row's explainer pointing to the wide sheet.
+  *Evidence:* the wins (`stopWins` crediting each drag at the default stop and each copy, both devices): "GPUI keeps up with more cells on screen, stays smoother in a fast fling, spends less time on each frame, stays smoother resizing a day, stays smoother dragging a selection, copies a week sooner on a slow device, copies the whole sheet sooner on a slow device, and scrolls smoother while the sheet copies. TanStack holds less memory, copies the visible block sooner, copies the whole sheet sooner on a fast device, is ready sooner, and downloads less." The shortfalls: GPUI copies whole cells only; both sides resize by pointer alone (said as both, since neither resizes on touch). "What it models" ends with the boards' line. The admin row: "… The wide sheet’s build selects and copies whole cells: try it there.", linking the wide sheet's route.
+- [x] **E2-3, `page --check`:** the sections' values as `perf/results/` has them, the wins re-derived, the admin row's link.
+  *Evidence:* `perf/page.ts` (2026-11-14), PASS: at the window's stop, a picked one (rows-26), and the dial's rows-18, both sections' headings, every card's values, "best", verdict, and note against the numbers, and the resize's explainer saying its late frames; the wins re-derived; "What it models" and the two shortfalls; a phone's panel of 11 cards; the admin row's text and its link to `/observatory/tall-table/wide-sheet/`; on both sides Smooth "—" before a drag and after the same moves with no button (the control), then a share after a selection drag ("—", "—", "100 %" on each). Rerun on the build with `/code-review high`'s ten fixes (a copy's seconds to two decimals, the corner wrapping, Smooth on TanStack's primary button alone, the counts read on the fast device alone, the labels, and five tidyings): PASS, first paint 69.4 ms (limit 72.5; 67.1 before the fixes), first-paint JS 87.3 KiB (limit 95.5).
 
 ### Part F: shipped
 
 **Done when:**
-- [ ] **F-1:** the README's wide sheet sections with the new rows by `report` and the canvas tradeoffs; `burst` (a copy's reads included) under the zone's limit; the deploy; `worker-check`.
+- [ ] **F-1:** the README's wide sheet sections with the new rows by `report` (the drags' and copies' metrics are in `perf/budgets.json` with `show: []`: give them `readme:` sections and the README their markers) and the canvas tradeoffs; `burst` (a copy's reads included) under the zone's limit; the deploy; `worker-check`.
 
 ---
 

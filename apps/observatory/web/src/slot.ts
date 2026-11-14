@@ -257,7 +257,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   }, [base, painted, frame, stop, scenario, fonts]);
   // This tab's readouts follow each frame from its creation (`live.ts`).
   useEffect(() => {
-    if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base, feeds(scenario));
+    if (shown && base && src && ref.current) trackFrame(shown.side, ref.current, base, feeds(scenario), offersTools(scenario));
   }, [src]);
 
   /** A new frame, and the URL's parameters, the defaults omitted. */

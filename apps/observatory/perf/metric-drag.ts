@@ -2,15 +2,17 @@
 // stop (`--stop`, default all): nothing read whole first, the open's
 // visible pages loaded and quiet, then two drags through real pointer
 // events (Playwright's `mouse.down`, `move`, `up`: no gesture, so no DPR
-// scaling), a move every `MOVE_EVERY_MS` on a fixed schedule (not paced by
-// each move's handling), each traced on its own, as the tall table's own
+// scaling), a move every `WIDE_DRAG.everyMs` (`metrics.ts`'s: a mouse's
+// report rate; at a move a frame, throttled frames outran the moves'
+// delivery, the table's finding) on a fixed schedule (not paced by each
+// move's handling), each traced on its own, as the tall table's own
 // `perf` segments are (`components/tall-table/perf/perf.ts`):
 //
 // - resize: Jan 1's edge (the first day, right of Latitude) pressed and
-//   dragged right `DRAG_PX` and back, `DRAG_TRIPS` times, `DRAG_MOVES`
-//   moves each way (~2 s): every move re-lays out the columns; back at the
-//   press, the release changes nothing (the width at the end must be the
-//   one at the press);
+//   dragged right `WIDE_DRAG.px` and back, `WIDE_DRAG.trips` times,
+//   `WIDE_DRAG.movesEachWay` moves each way (~2 s): every move re-lays
+//   out the columns; back at the press, the release changes nothing
+//   (the width at the end must be the one at the press);
 // - select: from the top row's first scrolled cell (Latitude) to the last
 //   fully visible row and column and back, a row a move with the column
 //   following the diagonal, in whole round trips for about the resize's
@@ -47,18 +49,10 @@
 import type { Page } from '@playwright/test';
 import { frameIntervals, recordedBetween, workBetween, workRecorder } from '../../../shared-web/perf/harness.ts';
 import { flag, percentiles } from '../../../shared-web/perf/protocol.ts';
-import { FRAME_MS, ORIGIN_MARK, Trace, WORK_CATEGORIES, domPainted, drewShare, frameWork, lateFrames, type DrewShare } from '../metrics/metrics.ts';
+import { FRAME_MS, ORIGIN_MARK, Trace, WIDE_DRAG, WORK_CATEGORIES, domPainted, drewShare, frameWork, lateFrames, type DrewShare } from '../metrics/metrics.ts';
 import { WIDE_SHEET } from '../contenders/scenarios.ts';
 import { dataReads, frameRecorder, medianOf, now, opened, openSide, quiet, runMetric, wideStop, type RunResult, type Session } from './contender.ts';
 
-/** The resize drag: out this far and back, `DRAG_TRIPS` times, `DRAG_MOVES`
- *  moves each way (the table's segment). */
-const DRAG_PX = 200;
-const DRAG_TRIPS = 2;
-const DRAG_MOVES = 62;
-/** A move every this long: a mouse's report rate; at a move a frame,
- *  throttled frames outran the moves' delivery (the table's finding). */
-const MOVE_EVERY_MS = 8;
 /** Idle after the release, inside the trace's window. */
 const TAIL_MS = 300;
 /** The control: the moves with no button pressed. */
@@ -111,13 +105,13 @@ const widthsOf = (page: Page): Promise<(number | null)[] | null> => page.evaluat
 const selectionOf = (page: Page): Promise<unknown> => page.evaluate(() => (globalThis as { __contender?: { selection?: unknown } }).__contender?.selection ?? null);
 
 /** Sends `points` as pointer moves on a fixed schedule, one every
- *  `MOVE_EVERY_MS`, without awaiting each (Playwright's move waits for the
+ *  `WIDE_DRAG.everyMs`, without awaiting each (Playwright's move waits for the
  *  page's handling, which would pace the input by its cost). */
 async function moveThrough(page: Page, points: readonly [number, number][]): Promise<void> {
   const sent: Promise<unknown>[] = [];
   const t0 = performance.now();
   for (let index = 0; index < points.length; index++) {
-    const wait = t0 + index * MOVE_EVERY_MS - performance.now();
+    const wait = t0 + index * WIDE_DRAG.everyMs - performance.now();
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
     const [x, y] = points[index]!;
     // Settled at once, so a failed move can't go unhandled while the loop waits.
@@ -176,7 +170,7 @@ async function traced(session: Session, points: readonly [number, number][]): Pr
   };
 }
 
-/** Jan 1's band: out `DRAG_PX` and back, `DRAG_TRIPS` times, from its edge on the header row. */
+/** Jan 1's band: out `WIDE_DRAG.px` and back, `WIDE_DRAG.trips` times, from its edge on the header row. */
 function resizePath(layout: Layout): [number, number][] {
   const column = layout.columns[WIDE_SHEET.heatFrom]!;
   const x = layout.left + column.x + column.width;
@@ -185,10 +179,10 @@ function resizePath(layout: Layout): [number, number][] {
   // draws (23 frames a run on both sides).
   const y = CONTROL ? layout.top + layout.rowHeight / 2 : layout.top - Math.min(8, layout.rowHeight / 2);
   const points: [number, number][] = [[x, y]];
-  for (let trip = 0; trip < DRAG_TRIPS; trip++)
-    for (let step = 1; step <= 2 * DRAG_MOVES; step++) {
-      const out = step <= DRAG_MOVES ? step : 2 * DRAG_MOVES - step;
-      points.push([x + (DRAG_PX * out) / DRAG_MOVES, y]);
+  for (let trip = 0; trip < WIDE_DRAG.trips; trip++)
+    for (let step = 1; step <= 2 * WIDE_DRAG.movesEachWay; step++) {
+      const out = step <= WIDE_DRAG.movesEachWay ? step : 2 * WIDE_DRAG.movesEachWay - step;
+      points.push([x + (WIDE_DRAG.px * out) / WIDE_DRAG.movesEachWay, y]);
     }
   return points;
 }
@@ -205,7 +199,7 @@ async function selectPath(page: Page, layout: Layout): Promise<{ points: [number
   const lastColumn = layout.columns.findLastIndex((column) => column.x + column.width <= layout.cellsWidth);
   if (rows < 2 || lastColumn <= first) throw new Error(`the select drag needs 2 rows and a scrolled column wholly in view: ${rows} rows, last whole column ${lastColumn}`);
   const span = rows - 1;
-  const trips = Math.max(1, Math.round((DRAG_TRIPS * DRAG_MOVES) / span));
+  const trips = Math.max(1, Math.round((WIDE_DRAG.trips * WIDE_DRAG.movesEachWay) / span));
   const at = (out: number): [number, number] => {
     const column = layout.columns[first + Math.round((out / span) * (lastColumn - first))]!;
     return [layout.left + column.x + column.width / 2, layout.top + (out + 0.5) * layout.rowHeight];
@@ -288,6 +282,6 @@ await runMetric<Run>(
     };
     return { ...Object.fromEntries(DRAGS.map((drag) => [drag, of(drag)])), workloads: [...new Set(runs.map((run) => JSON.stringify(run.workload)))].map((workload) => JSON.parse(workload)) };
   },
-  { drags: { resize: { column: WIDE_SHEET.heatFrom, px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES }, select: { from: [0, WIDE_SHEET.pinned] } }, moveEveryMs: MOVE_EVERY_MS, tailMs: TAIL_MS, ...(CONTROL ? { control: 'the moves with no button pressed' } : {}) },
+  { drags: { resize: { column: WIDE_SHEET.heatFrom, px: WIDE_DRAG.px, trips: WIDE_DRAG.trips, movesEachWay: WIDE_DRAG.movesEachWay }, select: { from: [0, WIDE_SHEET.pinned] } }, moveEveryMs: WIDE_DRAG.everyMs, tailMs: TAIL_MS, ...(CONTROL ? { control: 'the moves with no button pressed' } : {}) },
   { levels: ['wide'], allStops: true },
 );

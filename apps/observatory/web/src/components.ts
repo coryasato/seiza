@@ -172,8 +172,8 @@ export const scenarioCopy = (scenario: Scenario): ScenarioCopy => {
 
 const tallTable = (side: Side) => (level: Level) => contenderBase('tall-table', side, level);
 
-export const COMPONENTS: Component[] = [
-  {
+/** The tall table, the first component: its page and its scenarios'. */
+export const TALL_TABLE: Component = {
     id: 'tall-table',
     // As gpui-kit names its `DataTable` (docs/DECISIONS.md, "Page", the copy).
     label: 'TallTable',
@@ -186,8 +186,9 @@ export const COMPONENTS: Component[] = [
       { side: 'tanstack', label: 'TanStack', stack: 'React and TanStack Virtual, in the page’s own HTML', url: tallTable('tanstack') },
     ],
     scenarios: SCENARIOS,
-  },
-];
+};
+
+export const COMPONENTS: Component[] = [TALL_TABLE];
 
 /** The scenarios whose cold numbers the page shows: `cold.ts` resolves
  *  each one's, and fails the build on a missing value. A scenario joins

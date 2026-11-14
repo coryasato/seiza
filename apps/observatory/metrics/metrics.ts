@@ -435,6 +435,14 @@ export const SCROLLS = {
   fast: { y: -120_000, speed: 60_000 },
 } as const;
 
+/** The wide sheet's drags (`perf/metric-drag.ts`, the table's own `perf`
+ *  segments): the resize drags Jan 1's edge out `px` and back, `trips`
+ *  times, `movesEachWay` moves each way; the selection drags a block
+ *  corner to corner and back for about as many moves; a pointer move every
+ *  `everyMs` (a mouse's report rate) on both sides. The page's "While
+ *  dragging" says them. */
+export const WIDE_DRAG = { px: 200, trips: 2, movesEachWay: 62, everyMs: 8 } as const;
+
 /** The monitoring wall's memory session: the feed's ticks a desk, its
  *  `?ticks` this × the stop's tables (market watch's 200 an instrument over a
  *  desk's 50; `perf/metric-memory.ts`, and the page's Memory card says it). */

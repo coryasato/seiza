@@ -28,9 +28,9 @@ import { COPY_KEY_MAX_CELLS, COPY_MAX_BYTES, type ContenderTools, type ToolsMess
 import { FONTS_LICENSE, SCRIPT_FACES } from '../../contenders/fonts/faces.ts';
 import { SCRIPTS, SCRIPT_ROWS } from './scripts.ts';
 import { SCRIPT_FONTS } from '../../contenders/paths.ts';
-import { ADMIN_TABLE, MARKET_WATCH, MONITORING_WALL, oklchCss, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { ADMIN_TABLE, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET, oklchCss, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 import { DESK_ROWS } from '../../contenders/wall/desks.ts';
-import { compact, listOf, millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
+import { TALL_TABLE, compact, listOf, millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
 import { toggleMeter, useMeter } from './meter.ts';
@@ -46,6 +46,8 @@ import {
   cardsOf,
   CHART_MS,
   coldKey,
+  COPY_SETS,
+  DRAG_SETS,
   DEVICES,
   keepsVerdict,
   measuredWith,
@@ -53,6 +55,7 @@ import {
   partsOf,
   PROFILES,
   cardValues,
+  cardText,
   downloadTotal,
   evenSentence,
   number,
@@ -605,8 +608,9 @@ function CardHead({ label, explain, note }: { label: string; explain: string; no
   return h(
     'div',
     { className: 'flex items-center justify-between gap-2 text-[13px]' },
-    h('span', { className: 'inline-flex items-center gap-0.5' }, label, info(`About ${label}`, explain)),
-    h('small', { className: 'text-[11px] whitespace-nowrap text-muted-foreground' }, note),
+    h('span', { className: 'inline-flex shrink-0 items-center gap-0.5' }, label, info(`About ${label}`, explain)),
+    // A long corner ("Copy anyway → written · lower is better") wraps, right-aligned, in a narrow card.
+    h('small', { className: 'shrink text-right text-[11px] text-balance text-muted-foreground' }, note),
   );
 }
 
@@ -626,6 +630,9 @@ const big = (text: string, unit: string, best: boolean, attributes: Record<strin
 interface StatCardProps {
   card: Card;
   values: ScenarioCold['values'];
+  /** The scenario's cold numbers, for a card's note and explainer from them
+   *  (`noteOf`, `explainOf`). */
+  cold?: ScenarioCold;
   /** The stop a card measured per stop shows. */
   stop?: string;
   /** Under the verdict: where it was measured, when not at the stop shown. */
@@ -652,16 +659,18 @@ function Pauses({ values, stop, contenders }: { values: ScenarioCold['values']; 
   );
 }
 
-function StatCard({ card, values, stop, note, live, contenders }: StatCardProps) {
+function StatCard({ card, values, cold: numbers, stop, note, live, contenders }: StatCardProps) {
   const outcomes = PROFILES.map((profile) => cardOutcome(card, values, profile, stop));
+  const said = note ?? (numbers && card.noteOf?.(numbers, stop));
+  const explain = `${card.explain}${(numbers && card.explainOf?.(numbers, stop)) ?? ''}`;
   // This tab: only once a side has loaded, for a card with a reading here.
   const loaded = card.live ? contenders.filter((contender) => live[contender.side]) : [];
   return h(
     'div',
     { 'data-card': card.key, className: CARD },
-    h(CardHead, { label: card.label, explain: card.explain, note: better(card) }),
+    h(CardHead, { label: card.label, explain, note: card.measures ? `${card.measures} · ${better(card)}` : better(card) }),
     h('span', { 'data-verdict': '', className: 'text-sm leading-snug' }, verdict(outcomes[0]!, outcomes[1]!, card.word, card.ratio)),
-    note ? h('span', { 'data-card-note': '', className: 'text-[11px] text-muted-foreground' }, note) : null,
+    said ? h('span', { 'data-card-note': '', className: 'text-[11px] text-muted-foreground' }, said) : null,
     h(
       'div',
       { className: 'grid grid-cols-2 items-baseline gap-x-2.5' },
@@ -671,7 +680,7 @@ function StatCard({ card, values, stop, note, live, contenders }: StatCardProps)
         return [
           h('span', { key: `${profile}-caption`, className: CAPTION }, index === 0 && card.caption ? `${DEVICES[profile]}, ${card.caption.toLowerCase()}` : DEVICES[profile]),
           ...contenders.map((contender) =>
-            h(Fragment, { key: `${profile}-${contender.side}` }, big(number(shown[sideIndex(contender.side)]!), card.unit, outcomes[index]!.winner === contender.side, { [`data-cold-${profile}`]: contender.side })),
+            h(Fragment, { key: `${profile}-${contender.side}` }, big(cardText(card, shown[sideIndex(contender.side)]!), card.unit, outcomes[index]!.winner === contender.side, { [`data-cold-${profile}`]: contender.side })),
           ),
         ];
       }),
@@ -801,7 +810,7 @@ interface Capability {
   how: string;
   gpui: Answer;
   /** Why, per side. */
-  whyGpui: string;
+  whyGpui: ReactNode;
   whyTanstack: string;
 }
 
@@ -812,7 +821,7 @@ export function capabilities(fonts: FontsState): Capability[] {
   const wrong = SCRIPT_ROWS.filter((row) => !row.right).map((row) => row.script);
   return [
     { key: 'find', what: 'Find a country with Ctrl+F', how: 'Search the page for “Ísland”.', gpui: 'no', whyGpui: 'The canvas holds no text the browser can search.', whyTanstack: 'The browser finds it and scrolls to it: every row is on the page.' },
-    { key: 'select', what: 'Select and copy a capital', how: 'Drag across “Reykjavík”, then copy.', gpui: 'no', whyGpui: 'No text selection in this build.', whyTanstack: 'Native selection.' },
+    { key: 'select', what: 'Select and copy a capital', how: 'Drag across “Reykjavík”, then copy.', gpui: 'no', whyGpui: h(Fragment, null, 'No text selection in this build. The wide sheet’s build selects and copies whole cells: ', wideSheetLink('try it there'), '.'), whyTanstack: 'Native selection.' },
     { key: 'reader', what: 'Hear it with a screen reader', how: 'VoiceOver: Ctrl+Option+arrows through a row.', gpui: 'no', whyGpui: 'One image to the screen reader: no cell is named.', whyTanstack: 'A table, read cell by cell with its headers.' },
     fonts === 'on'
       ? { key: 'scripts', what: 'Every script drawn', how: 'Scroll to Sri Lanka, Thailand, Egypt.', gpui: 'partly', whyGpui: `With fonts: ${right} of ${SCRIPT_ROWS.length} scripts right. ${listOf(wrong, 'and')} draw a mark out of place (below).`, whyTanstack: 'The system’s fonts, shaped by the browser.' }
@@ -820,6 +829,11 @@ export function capabilities(fonts: FontsState): Capability[] {
     { key: 'flags', what: 'The flags', how: 'Look at the first column.', gpui: 'yes', whyGpui: 'The browser draws each flag into the canvas.', whyTanstack: 'The system’s emoji.' },
     { key: 'translate', what: 'Translate the page', how: 'Your browser’s Translate.', gpui: 'no', whyGpui: 'Nothing to translate.', whyTanstack: 'The names and headers translate.' },
   ];
+}
+
+/** A link to the wide sheet's route, which carries `?side=` as a scenario's link does. */
+function wideSheetLink(text: string): ReactNode {
+  return h('a', { href: scenarioPath(TALL_TABLE, WIDE_SHEET), [SCENARIO_LINK]: '', 'data-wide-link': '', className: 'text-foreground underline underline-offset-4' }, text);
 }
 
 const answer = (said: Answer) =>
@@ -1050,13 +1064,7 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
       ),
       h('div', { className: 'grid gap-4 @2xl:grid-cols-2' }, ...PROFILES.map((profile) => h(KeepsChart, { key: profile, scenario, values: numbers.values, profile, picked: at.id, pick: setPicked }))),
     ),
-    h(
-      'div',
-      { 'data-stop-heading': '', className: 'flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-0.5' },
-      h('h3', { className: 'text-sm' }, `At ${at.label}`),
-      h('span', { className: 'text-xs text-muted-foreground' }, stopSets(scenario, at, numbers.rows)),
-      at.id === stop.id ? h('span', { className: 'text-xs text-muted-foreground' }, 'this window’s stop') : null,
-    ),
+    heading({ key: 'stop', 'data-stop-heading': '' }, `At ${at.label}`, stopSets(scenario, at, numbers.rows), at.id === stop.id ? 'this window’s stop' : null),
     note ? h('p', { 'data-stop-note': '', className: '-mt-2 px-0.5 text-xs leading-snug text-muted-foreground' }, note) : null,
     h(
       'div',
@@ -1066,8 +1074,32 @@ function StopsBody({ scenario, numbers, stop, live, contenders }: StopsProps) {
       ),
       h(OnceCard, { key: 'once', scenario, numbers, contenders, pairs }),
     ),
+    // The wide sheet's tools: its drags at the picked stop, then its copies, which no stop changes.
+    ...(shape.dragCards
+      ? [
+          heading({ key: 'drag', 'data-section-heading': 'drag' }, `While dragging, at ${at.label}`, DRAG_SETS),
+          h('div', { key: 'drag-cards', 'data-section': 'drag', className: 'grid gap-3 @2xl:grid-cols-2' }, ...shape.dragCards.map((card) => h(StatCard, { key: card.key, card, values: numbers.values, cold: numbers, stop: at.id, live, contenders }))),
+        ]
+      : []),
+    ...(shape.copyCards
+      ? [
+          heading({ key: 'copy', 'data-section-heading': 'copy' }, `Copying, at ${byDefault.label}`, COPY_SETS),
+          h('div', { key: 'copy-cards', 'data-section': 'copy', className: 'grid gap-3 @2xl:grid-cols-2 @6xl:grid-cols-4' }, ...shape.copyCards.map((card) => h(StatCard, { key: card.key, card, values: numbers.values, cold: numbers, live, contenders }))),
+        ]
+      : []),
   );
 }
+
+/** A heading in the panel's body: the stop's, or a section's under it,
+ *  with its React key and the data attribute that names it. */
+const heading = (attributes: { key: string } & Record<string, string>, title: string, sets: string, aside: string | null = null) =>
+  h(
+    'div',
+    { ...attributes, className: 'flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-0.5' },
+    h('h3', { className: 'text-sm' }, title),
+    h('span', { className: 'text-xs text-muted-foreground' }, sets),
+    aside ? h('span', { className: 'text-xs text-muted-foreground' }, aside) : null,
+  );
 
 /** The chart's plot: its height, its top and bottom lines in it, and the
  *  gutters its labels and its last marker take, CSS px. Its x is a share
@@ -1276,7 +1308,7 @@ const STORIES: Record<string, Story> = {
   },
   'wide-sheet': {
     shows: (numbers) =>
-      `A spreadsheet, a BI tool’s sheet, a notebook’s output: hundreds of columns, compact rows, and color telling each value’s story. Here a row is one of ${numbers.rows.toLocaleString('en-US')} weather stations, from the far north to the far south, and a column is a day of 2025, its high drawn as heat. The seasons show as a warm band along each row; scrolling south, the band flips. The station and its place stay pinned as the days scroll by. Each stop of the dial packs more cells on screen, the same on both sides, read from one file by the same database engine.`,
+      `A spreadsheet, a BI tool’s sheet, a notebook’s output: hundreds of columns, compact rows, and color telling each value’s story. Here a row is one of ${numbers.rows.toLocaleString('en-US')} weather stations, from the far north to the far south, and a column is a day of 2025, its high drawn as heat. The seasons show as a warm band along each row; scrolling south, the band flips. The station and its place stay pinned as the days scroll by. Each stop of the dial packs more cells on screen, the same on both sides, read from one file by the same database engine. Drag a day’s edge to widen it, or select cells, stations, or days and copy them, as a spreadsheet would.`,
     after: (_, component) => [
     {
       title: 'Why',
@@ -1289,6 +1321,10 @@ const STORIES: Record<string, Story> = {
       ),
     },
   ],
+    shortfalls: [
+      'GPUI copies whole cells, never part of one’s text: the canvas has no text selection.',
+      'Both sides resize a day with a pointer alone, not by touch or a key, as the table does.',
+    ],
   },
   'market-watch': {
     shows: (numbers) =>

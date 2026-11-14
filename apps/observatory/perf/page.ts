@@ -100,7 +100,7 @@ import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_S
 import { WALL_INSTRUMENTS } from '../contenders/wall/instruments.ts';
 import { DESK_ROWS } from '../contenders/wall/desks.ts';
 import { COLUMNS as MARKET_COLUMNS, INSTRUMENTS } from '../contenders/market/feed.ts';
-import { COMPARE_HASH, COMPONENTS, isDensity, listOf, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
+import { COMPARE_HASH, COMPONENTS, TALL_TABLE, isDensity, listOf, millions, READOUT_PARAM, ROUTES, scenarioCopy, scenarioPath, stopSets, stopShort, WHY_ANCHOR } from '../web/src/components.ts';
 import { MECHANISMS, mechanismAnchor } from '../web/src/mechanisms.ts';
 import { SCRIPT_ROWS, unjudged } from '../web/src/scripts.ts';
 import { KEEPS_UP_SHARE, TAIL_KEEPS_UP_MS } from '../metrics/metrics.ts';
@@ -123,9 +123,14 @@ import {
   READY,
   WIDE_CARDS,
   WIDE_STOP_CARDS,
+  WIDE_DRAG_CARDS,
+  WIDE_COPY_CARDS,
+  DRAG_SETS,
+  COPY_SETS,
   cardOutcome,
   cardsOf,
   cardValues,
+  cardText,
   coldKey,
   downloadTotal,
   evenSentence,
@@ -154,7 +159,6 @@ const given = option('url');
 if (given && (check || flag('write-baseline'))) throw new Error('--url records production; budgets and the baseline are the local build\'s');
 const label = option('label') ?? (check ? null : given ? 'page-production' : 'page');
 const PORT = 4334;
-const TALL_TABLE = COMPONENTS.find((component) => component.id === 'tall-table')!;
 /** The comparison measured and checked: Big file's route. */
 const ROUTE = scenarioPath(TALL_TABLE, BIG_FILE);
 const WIDE_ROUTE = scenarioPath(TALL_TABLE, WIDE_SHEET);
@@ -1085,7 +1089,7 @@ async function checkCard(page: Page, card: Card, values: ScenarioCold['values'],
   const shown = await panelCard(page, card.key);
   const outcomes = DEVICE_PROFILES.map((profile) => cardOutcome(card, values, profile, stop));
   DEVICE_PROFILES.forEach((profile, index) => {
-    const want = cardValues(card, values, profile, stop).map(number);
+    const want = cardValues(card, values, profile, stop).map((value) => cardText(card, value));
     const got = shown.cold[profile]!;
     expect(JSON.stringify(got.map((value) => value.text)) === JSON.stringify(want), `${what} ${card.key} ${profile}: shows ${JSON.stringify(got)}, results say ${want}`);
     const winner = outcomes[index]!.winner;
@@ -1177,6 +1181,25 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
         expect(shown.note === note, `${what} ${card.key}'s note: ${JSON.stringify(shown.note)}`);
         cards[card.key] = shown.verdict;
       }
+      // "While dragging" at the cards' stop, "Copying" at the default stop, whatever the stop.
+      const sections = await page.locator('[data-section-heading]').evaluateAll((headings) => headings.map((heading) => [heading.getAttribute('data-section-heading'), heading.querySelector('h3')!.textContent, heading.querySelector('span')!.textContent]));
+      const sectionsWant = [
+        ['drag', `While dragging, at ${stopOf(stop).label}`, DRAG_SETS],
+        ['copy', `Copying, at ${stopOf(WIDE_SHEET.defaultStop).label}`, COPY_SETS],
+      ];
+      expect(JSON.stringify(sections) === JSON.stringify(sectionsWant), `${what}: the tools' sections ${JSON.stringify(sections)}`);
+      for (const card of [...WIDE_DRAG_CARDS, ...WIDE_COPY_CARDS]) {
+        const shown = await checkCard(page, card, values, stop, what);
+        const note = card.noteOf!(cold, stop);
+        expect(shown.note === note, `${what} ${card.key}'s note: ${JSON.stringify(shown.note)}, the numbers say ${JSON.stringify(note)}`);
+        cards[card.key] = shown.verdict;
+      }
+      // A drag's explainer says its late frames at the stop.
+      await page.getByRole('button', { name: 'About Resizing a day' }).click();
+      const late = WIDE_DRAG_CARDS[0]!.explainOf!(cold, stop);
+      const explained = (await popovers(page).textContent()) ?? '';
+      expect(explained.includes(late.trim()), `${what}: the resize's explainer ${JSON.stringify(explained)} doesn't say ${JSON.stringify(late)}`);
+      await page.keyboard.press('Escape');
       return cards;
     };
     out.atDefault = await checkStop(WIDE_SHEET.defaultStop, 'the window’s stop');
@@ -1233,6 +1256,13 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     expect(JSON.stringify(others) === JSON.stringify([ROUTE, MARKET_ROUTE, TAIL_ROUTE, ADMIN_ROUTE, WALL_ROUTE]), `the wide sheet's other scenarios: ${JSON.stringify(others)}`);
     out.wins = sentences;
     out.measured = measured;
+    // What it models says the tools; where the canvas falls short, the copy's whole cells and the pointer's resize.
+    const models = (await page.locator('[data-description] p').first().textContent()) ?? '';
+    expect(models.endsWith('Drag a day’s edge to widen it, or select cells, stations, or days and copy them, as a spreadsheet would.'), `"What it models" doesn't say the tools: ${JSON.stringify(models)}`);
+    const shortfalls = await page.locator('[data-description] h2:text-is("Where the canvas falls short") + ul li').allTextContents();
+    const shortWant = ['GPUI copies whole cells, never part of one’s text: the canvas has no text selection.', 'Both sides resize a day with a pointer alone, not by touch or a key, as the table does.'];
+    expect(shortWant.every((line) => shortfalls.includes(line)), `the wide sheet's shortfalls: ${JSON.stringify(shortfalls)}`);
+    out.shortfalls = shortfalls;
     // The other scenarios carry the route's `?side=`, as the sidebar's and the crumb's links do.
     await page.goto(`${url}?side=tanstack`);
     await page.locator('[data-others] a').first().click();
@@ -1253,9 +1283,10 @@ async function wideReadouts(url: string): Promise<Record<string, unknown>> {
     await small.getByRole('button', { name: 'More numbers' }).tap();
     await small.getByRole('menuitem', { name: 'Compare with cold runs' }).tap();
     await small.locator('[data-card]').first().waitFor({ timeout: 5_000 }).catch(() => {});
-    expect((await small.locator('[data-card]').count()) === 5, `a phone's panel has ${await small.locator('[data-card]').count()} cards`);
+    const phoneCards = 2 + WIDE_STOP_CARDS.length + WIDE_DRAG_CARDS.length + WIDE_COPY_CARDS.length;
+    expect((await small.locator('[data-card]').count()) === phoneCards, `a phone's panel has ${await small.locator('[data-card]').count()} cards, not ${phoneCards}`);
     await phone.close();
-    console.log("phone: the overflow's Compare opens the wide sheet's panel, its five cards");
+    console.log(`phone: the overflow's Compare opens the wide sheet's panel, its ${phoneCards} cards`);
   } finally {
     await browser.close();
   }
@@ -1996,6 +2027,10 @@ async function adminReadouts(url: string): Promise<Record<string, unknown>> {
     const byDefault = await capabilityRows();
     expect(JSON.stringify(byDefault) === JSON.stringify(capabilitiesWant('no')), `the capabilities without fonts: ${JSON.stringify(byDefault)}`);
     const missing = SCRIPT_FACES.length + 2;
+    // The select row's explainer points to the wide sheet, whose build selects and copies.
+    const selectWhy = await page.locator('[data-capability="select"] [data-side="gpui"] small').evaluate((why) => ({ text: why.textContent, href: why.querySelector('[data-wide-link]')?.getAttribute('href') ?? null }));
+    expect(selectWhy.text === 'No text selection in this build. The wide sheet’s build selects and copies whole cells: try it there.' && selectWhy.href === WIDE_ROUTE, `the select row's explainer: ${JSON.stringify(selectWhy)}`);
+    out.selectRow = selectWhy;
     const scriptsWhy = await page.locator('[data-capability="scripts"] [data-side="gpui"] small').textContent();
     expect(scriptsWhy === `One bundled face: ${missing} scripts draw as boxes. Load fonts to see them shaped (below).`, `the scripts row without fonts: ${scriptsWhy}`);
     // Each script's verdict: every face's script, then the two the browser draws.
@@ -2510,6 +2545,35 @@ const copyLineIs = (page: Page, line: string, what: string, timeout = 30_000) =>
 /** The clipboard's text, or its length alone for a long one. */
 const clipboard = (page: Page) => page.evaluate(async () => { const text = await navigator.clipboard.readText(); return { length: text.length, head: text.slice(0, 4_000) }; });
 
+/** This tab's Smooth counts a drag's frames: nothing read before (the
+ *  control: the same moves with no button), a share after a selection drag. */
+async function smoothCountsDrag(page: Page, name: string): Promise<Record<string, string | null>> {
+  const smooth = page.locator('[data-segment="smooth"]');
+  const reading = async () => ((await smooth.textContent()) ?? '').replace(/^Smooth/, '');
+  const stage = await box(page, 'iframe');
+  const drag = async (pressed: boolean) => {
+    await page.mouse.move(stage.x + 500, stage.y + 200);
+    if (pressed) await page.mouse.down();
+    for (let step = 1; step <= 30; step++) {
+      await page.mouse.move(stage.x + 500 + step * 8, stage.y + 200 + step * 5);
+      await page.waitForTimeout(16);
+    }
+    if (pressed) await page.mouse.up();
+  };
+  const before = await reading();
+  await drag(false);
+  await page.waitForTimeout(1_000);
+  const unpressed = await reading();
+  expect(before === '—' && unpressed === '—', `${name}'s Smooth before a drag read "${before}", then "${unpressed}" after the moves with no button (the control)`);
+  await drag(true);
+  const after = await page
+    .waitForFunction(() => /\d %$/.test(document.querySelector('[data-segment="smooth"]')?.textContent ?? ''), null, { timeout: 5_000 })
+    .then(reading)
+    .catch(() => null);
+  expect(after !== null, `${name}'s Smooth read nothing after a selection drag: "${await reading()}"`);
+  return { before, unpressed, after };
+}
+
 /** One side's tools in the window: the selection's line, the button's
  *  copy, a declined key, Copy anyway, Cancel, the title bar's state. */
 async function toolsInWindow(page: Page, side: 'gpui' | 'tanstack'): Promise<Record<string, unknown>> {
@@ -2520,6 +2584,7 @@ async function toolsInWindow(page: Page, side: 'gpui' | 'tanstack'): Promise<Rec
   // Nothing selected: the button disabled, the data label in the status bar.
   let now = await copyState(page);
   expect(now.line === null && now.button === 'Copy' && !now.enabled && now.label === 'Copy: select cells first' && (await page.locator('[data-file]').count()) === 1, `${name} before a selection: ${JSON.stringify(now)}`);
+  out.smooth = await smoothCountsDrag(page, name);
   // A cell pressed in the frame, then the keys: a block of 4 rows × 3 days.
   const stage = await box(page, 'iframe');
   await page.mouse.click(stage.x + 500, stage.y + 200);
@@ -2589,7 +2654,8 @@ async function toolsInWindow(page: Page, side: 'gpui' | 'tanstack'): Promise<Rec
   // The title bar's state is the load's alone: no copy changed it.
   const changed = await states(page);
   expect(changed.length === 0, `${name}: the title bar's state changed with a copy: ${JSON.stringify(changed)}`);
-  console.log(`${name}: ${out.selected && (out.selected as { text: string }).text}; the button wrote "${(out.block as { text: string }).text}"; ${(out.declined as { text: string }).text}; Copy anyway → "${(out.copying as { text: string }).text}" → Cancel "${(out.canceled as { text: string }).text}", the clipboard kept; Copy anyway again "${(out.sheet as { text: string }).text}"; the title bar's state unchanged`);
+  const smooth = out.smooth as Record<string, string | null>;
+  console.log(`${name}: Smooth "${smooth.before}", "${smooth.unpressed}" after the moves with no button, "${smooth.after}" after a selection drag; ${out.selected && (out.selected as { text: string }).text}; the button wrote "${(out.block as { text: string }).text}"; ${(out.declined as { text: string }).text}; Copy anyway → "${(out.copying as { text: string }).text}" → Cancel "${(out.canceled as { text: string }).text}", the clipboard kept; Copy anyway again "${(out.sheet as { text: string }).text}"; the title bar's state unchanged`);
   return out;
 }
 

@@ -704,3 +704,13 @@ No results note: nothing measured but `page --check`'s own first paint (PLAN.md'
 **Surprises:**
 - The frame tells seven copy states and a reason, the boards drew five. Writing, a cancel, an unavailable clipboard, and the cap needed words of their own; a cancel is the visitor's own doing, so it isn't said in the fall's color.
 - On a phone the status bar shows the data's icon next to the side's name, though its classes say a phone has room for neither (`hidden @max-[1100px]:flex max-md:hidden`), most likely the container query's variant winning over the breakpoint's (not traced). It's HEAD's, untouched here; on the wide sheet the phone's Copy takes its place while something's selected.
+
+## M14 part E2: the panel and the description (2026-11-14)
+
+No results note: nothing measured but `page --check`'s own first paint (PLAN.md's E2 evidence).
+
+**Surprises:**
+- The boards' sketch had the copies even-handed; measured, they split three ways. TanStack copies the visible block 2.3× sooner; why isn't traced, the week is even on a fast device, and the whole sheet goes to TanStack on a fast device and to GPUI on a slow one (4.8 against 2.7 s). The wins say each by device rather than one verdict.
+- TanStack's Smooth in this tab never counted a drag: its frames listened for the wheel, touches, and the scroller's scroll, and a resize or a selection drag scrolls nothing. GPUI's counted it already, through its pointer moves. Turned on for the wide level alone, so a text selection's drag on the admin table doesn't start reading as scrolling.
+- The boards' "resizes with a pointer alone" was written as the canvas's shortfall, but neither side resizes on touch (part B). It's said as both sides', which is true and still tells a phone's visitor why no edge moves.
+

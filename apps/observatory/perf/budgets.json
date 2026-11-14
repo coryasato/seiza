@@ -2633,6 +2633,1060 @@
       "show": ["readme:wide-sheet"]
     },
     {
+      "id": "wide-sheet-rows-26-resize-reference",
+      "label": "Wide sheet at ~380 cells: frames that drew, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-resize-throttled",
+      "label": "Wide sheet at ~380 cells: frames that drew, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-resize-work-reference",
+      "label": "Wide sheet at ~380 cells: work per frame, p95, a day’s edge dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-resize-work-throttled",
+      "label": "Wide sheet at ~380 cells: work per frame, p95, a day’s edge dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-resize-late-reference",
+      "label": "Wide sheet at ~380 cells: late frames, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-resize-late-throttled",
+      "label": "Wide sheet at ~380 cells: late frames, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-select-reference",
+      "label": "Wide sheet at ~380 cells: frames that drew, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-select-throttled",
+      "label": "Wide sheet at ~380 cells: frames that drew, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-select-work-reference",
+      "label": "Wide sheet at ~380 cells: work per frame, p95, a block’s selection dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-select-work-throttled",
+      "label": "Wide sheet at ~380 cells: work per frame, p95, a block’s selection dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-select-late-reference",
+      "label": "Wide sheet at ~380 cells: late frames, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.reference.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-26-select-late-throttled",
+      "label": "Wide sheet at ~380 cells: late frames, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-26.json",
+          "path": "profiles.throttled.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-resize-reference",
+      "label": "Wide sheet at ~570 cells: frames that drew, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-resize-throttled",
+      "label": "Wide sheet at ~570 cells: frames that drew, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-resize-work-reference",
+      "label": "Wide sheet at ~570 cells: work per frame, p95, a day’s edge dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-resize-work-throttled",
+      "label": "Wide sheet at ~570 cells: work per frame, p95, a day’s edge dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-resize-late-reference",
+      "label": "Wide sheet at ~570 cells: late frames, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-resize-late-throttled",
+      "label": "Wide sheet at ~570 cells: late frames, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-select-reference",
+      "label": "Wide sheet at ~570 cells: frames that drew, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-select-throttled",
+      "label": "Wide sheet at ~570 cells: frames that drew, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-select-work-reference",
+      "label": "Wide sheet at ~570 cells: work per frame, p95, a block’s selection dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-select-work-throttled",
+      "label": "Wide sheet at ~570 cells: work per frame, p95, a block’s selection dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-select-late-reference",
+      "label": "Wide sheet at ~570 cells: late frames, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.reference.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-22-select-late-throttled",
+      "label": "Wide sheet at ~570 cells: late frames, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-22.json",
+          "path": "profiles.throttled.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-resize-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-resize-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-resize-work-reference",
+      "label": "Wide sheet at ~710 cells: work per frame, p95, a day’s edge dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-resize-work-throttled",
+      "label": "Wide sheet at ~710 cells: work per frame, p95, a day’s edge dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-resize-late-reference",
+      "label": "Wide sheet at ~710 cells: late frames, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-resize-late-throttled",
+      "label": "Wide sheet at ~710 cells: late frames, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-select-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-select-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-select-work-reference",
+      "label": "Wide sheet at ~710 cells: work per frame, p95, a block’s selection dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-select-work-throttled",
+      "label": "Wide sheet at ~710 cells: work per frame, p95, a block’s selection dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-select-late-reference",
+      "label": "Wide sheet at ~710 cells: late frames, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-20-select-late-throttled",
+      "label": "Wide sheet at ~710 cells: late frames, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-resize-reference",
+      "label": "Wide sheet at ~940 cells: frames that drew, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-resize-throttled",
+      "label": "Wide sheet at ~940 cells: frames that drew, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.resize.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.resize.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-resize-work-reference",
+      "label": "Wide sheet at ~940 cells: work per frame, p95, a day’s edge dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-resize-work-throttled",
+      "label": "Wide sheet at ~940 cells: work per frame, p95, a day’s edge dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.resize.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.resize.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-resize-late-reference",
+      "label": "Wide sheet at ~940 cells: late frames, a day’s edge dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-resize-late-throttled",
+      "label": "Wide sheet at ~940 cells: late frames, a day’s edge dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.resize.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.resize.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-select-reference",
+      "label": "Wide sheet at ~940 cells: frames that drew, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-select-throttled",
+      "label": "Wide sheet at ~940 cells: frames that drew, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.select.drewPct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.select.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-select-work-reference",
+      "label": "Wide sheet at ~940 cells: work per frame, p95, a block’s selection dragged, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-select-work-throttled",
+      "label": "Wide sheet at ~940 cells: work per frame, p95, a block’s selection dragged, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.select.workP95Ms"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.select.workP95Ms"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-select-late-reference",
+      "label": "Wide sheet at ~940 cells: late frames, a block’s selection dragged, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.reference.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-rows-18-select-late-throttled",
+      "label": "Wide sheet at ~940 cells: late frames, a block’s selection dragged, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.gpui.summary.select.latePct"
+        },
+        {
+          "glob": "*-drag-wide-sheet-rows-18.json",
+          "path": "profiles.throttled.tanstack.summary.select.latePct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-block-reference",
+      "label": "Wide sheet at ~710 cells: the visible block copied, the key to the clipboard written, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.block.writtenMs"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.block.writtenMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-block-throttled",
+      "label": "Wide sheet at ~710 cells: the visible block copied, the key to the clipboard written, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.block.writtenMs"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.block.writtenMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-week-reference",
+      "label": "Wide sheet at ~710 cells: a week’s columns copied, the key to the clipboard written, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.week.writtenMs"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.week.writtenMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-week-throttled",
+      "label": "Wide sheet at ~710 cells: a week’s columns copied, the key to the clipboard written, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.week.writtenMs"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.week.writtenMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-sheet-reference",
+      "label": "Wide sheet at ~710 cells: the whole sheet copied, the confirming key to the clipboard written, reference",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.sheet.writtenMs"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.sheet.writtenMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-sheet-throttled",
+      "label": "Wide sheet at ~710 cells: the whole sheet copied, the confirming key to the clipboard written, throttled",
+      "unit": "ms",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.sheet.writtenMs"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.sheet.writtenMs"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-scroll-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew in the steady scroll down while the sheet copies, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.scrollCopying.drewPct"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.scrollCopying.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-scroll-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew in the steady scroll down while the sheet copies, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.scrollCopying.drewPct"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.scrollCopying.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-scroll-idle-reference",
+      "label": "Wide sheet at ~710 cells: frames that drew in the same scroll with no copy, reference",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.scroll.drewPct"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.scroll.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-scroll-idle-throttled",
+      "label": "Wide sheet at ~710 cells: frames that drew in the same scroll with no copy, throttled",
+      "unit": "%",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.gpui.summary.scroll.drewPct"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.throttled.tanstack.summary.scroll.drewPct"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-block-cells-reference",
+      "label": "Wide sheet: the cells in the visible block copied at ~710 cells, reference",
+      "unit": "",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.block.cells"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.block.cells"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-week-cells-reference",
+      "label": "Wide sheet: the cells in a week’s columns copied, reference",
+      "unit": "",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.week.cells"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.week.cells"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-sheet-cells-reference",
+      "label": "Wide sheet: the cells in the whole sheet copied, reference",
+      "unit": "",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.sheet.cells"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.sheet.cells"
+        }
+      ],
+      "show": []
+    },
+    {
+      "id": "wide-sheet-copy-sheet-bytes-reference",
+      "label": "Wide sheet: the whole sheet’s text as copied, bytes, reference",
+      "unit": "",
+      "gate": "recorded",
+      "local": [
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.gpui.summary.sheet.bytes"
+        },
+        {
+          "glob": "*-copy-wide-sheet-rows-20.json",
+          "path": "profiles.reference.tanstack.summary.sheet.bytes"
+        }
+      ],
+      "show": []
+    },
+    {
       "id": "market-watch-100-keeps-reference",
       "label": "Market watch at 100 updates/s: batches shown in a frame of their own (keeps up), reference",
       "unit": "%",
