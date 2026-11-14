@@ -16,7 +16,8 @@
 // The size ceiling: the Parquet table repeated to ~2.2 GB and ~4.5 GB
 // (DuckDB's default 122,880-row groups, as a visitor's file would most
 // likely have), ~4.6 GB (past 2^32 bytes), and ~9.6 GB, and the CSV fixture to ~2,
-// ~4, ~5.4, ~8.6, and ~10.7 GB.
+// ~4, ~5.4, ~8.6, and ~10.7 GB; and random-hex.csv (~4.6 GB of random hex,
+// which compresses badly: under the 6 GB limit, over DuckDB's memory budget).
 //
 // Cell overflow: overflow.parquet, 2,000 rows of values too wide
 // for their columns, of every kind the table formats differently: long,

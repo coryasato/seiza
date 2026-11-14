@@ -38,7 +38,9 @@
 //
 // Usage: node apps/tycho/perf/csv.ts [--runs 10] [--throttled-runs 10] [--label m6-csv]
 //                                    [--reference-only] [--only drop|fixture|supersede|formats|browsers]
-// Starts `vite preview` on web/dist. Writes perf/results/<date>-<label>.json.
+// Starts `vite preview` on web/dist, or with --url <origin> runs against that
+// origin (production), recorded, not budgeted. Writes
+// perf/results/<date>-<label>.json.
 // Run `just tycho build` first.
 
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';

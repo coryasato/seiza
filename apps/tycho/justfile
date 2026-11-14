@@ -50,7 +50,7 @@ extensions:
 # Build a sample (fetch once, then prep → Parquet + MANIFEST.json) and load
 # it into the local R2 that `wrangler dev` serves. `asteroids` (the default)
 # also writes the CSV fixture; `gaia` reads ~90 GB from AWS Open Data on its
-# first run (~1 h), keeping ~1.5 GB of extracts in data/raw/gaia/, and takes
+# first run (docs/data.md), keeping ~1.5 GB of extracts in data/raw/gaia/, and takes
 # `--cut` and `--bench` (data/prep.ts). `--refresh` fetches again. Native
 # DuckDB (data/package.json, its own lockfile) is installed here, not by
 # `just setup`.
@@ -206,7 +206,7 @@ perf *args:
 # changes, reload). --controls: negative controls for the screenshot match.
 # --ab <dist>: interleaved TTFP and placeholder-paint A/B against another
 # build's web/dist (--runs, --reference-only); fails when either side's TTFP
-# spread is 6% or more. Run `just tycho build` first.
+# spread (IQR over median) is 3.5% or more. Run `just tycho build` first.
 placeholder *args:
     node {{app_dir}}/perf/placeholder.ts {{args}}
 

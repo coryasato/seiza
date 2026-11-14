@@ -20,9 +20,10 @@
 //   small CSS error into the placeholder and must fail the match.
 //
 // --ab <dist>: interleaved A/B against another build's web/dist (HEAD's,
-//   built in a worktree with its own target/; see CLAUDE.md, "Perf script
-//   gotchas"), the protocol's page, reference and throttled (--runs 10,
-//   --reference-only): TTFP and the placeholder's paint. The no-blank-frame
+//   built in a worktree with its own target/; .claude/rules/perf-harness.md,
+//   "What every app's scripts meet"), the protocol's page, reference and
+//   throttled (--runs 10, --reference-only): TTFP and the placeholder's
+//   paint. The no-blank-frame
 //   check at the swap runs in every perf.ts run. Each side's TTFP spread
 //   (interquartile range over median, `QUIET_SPREAD`) must stay under 3.5%,
 //   or the run can't resolve a 3% difference and fails as too noisy: rerun

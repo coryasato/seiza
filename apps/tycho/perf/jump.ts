@@ -27,6 +27,7 @@
 // --browsers adds Firefox and WebKit: first, middle, last, out of range.
 //
 // Usage: node apps/tycho/perf/jump.ts [--runs 10] [--label m7-jump] [--reference-only] [--samples asteroids,gaia] [--browsers]
+// --url <origin> runs against that origin (production) instead of the local build.
 // Writes perf/results/<date>-<label>.json. Run `just tycho build` first.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

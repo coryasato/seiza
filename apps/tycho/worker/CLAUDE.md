@@ -4,9 +4,11 @@ Hosting: the Cloudflare Worker at tycho.seiza.io, R2, the deploy. Claude Code lo
 
 ## Hosting
 
-- **Hosting:** Cloudflare, one Worker (`worker/`) + R2, at **https://tycho.seiza.io** (never the account's default Workers subdomain, which names its owner: `workers_dev = false`). The Worker runs first for the page, `/assets/*`, and `/duckdb-ext/*`, and serves the quality-11 `<file>.br` that `just tycho deploy` writes beside each one (Cloudflare's own compression sent the app wasm as 3.7 MiB of zstd against 2.8 MiB; ~1 s on Fast 4G), with the page `no-transform` (Cloudflare's Web Analytics injects a beacon script otherwise). DuckDB's two wasm bundles are over the 25 MiB static-asset limit: R2 holds them under `assets/` (their `.br` fit in static assets). `/data/*` comes from R2 by range. The WAF guards it before the Worker runs (a path allowlist and a per-IP rate limit, set in the dashboard), and `just tycho pause` turns the samples off. Details in `docs/hosting.md`.
+How it works, with its numbers, is in `docs/hosting.md`.
 
+- **Hosting:** Cloudflare, one Worker (`worker/`) + R2, at **https://tycho.seiza.io**. The Worker runs first for the page, `/assets/*`, and `/duckdb-ext/*`, and serves the quality-11 `<file>.br` that `just tycho deploy` writes beside each one, with the page `no-transform`; DuckDB's two wasm bundles are in R2 under `assets/` (their `.br` fit in static assets). Why each: `.claude/rules/cloudflare.md`. `/data/*` comes from R2 by range. The WAF guards it before the Worker runs (a path allowlist and a per-IP rate limit, set in the dashboard), and `just tycho pause` turns the samples off.
 - **The pause answer** (a `/data/*` 503 with `X-Tycho-Paused: 1`) is what `web/src/main.ts`'s `refusal` reads: change both together.
+- **Neither the R2 profile's keys nor the account ID go in the repo** (`worker/scripts/deploy.ts`'s header says where each comes from).
 
 ## Files
 
@@ -16,10 +18,10 @@ worker/           # Cloudflare Worker (src/index.ts: /data/* from R2 with byte r
 
 ## Commands
 
-```
-just tycho worker-check # /data/* byte-range checks: Worker unit tests (strict fake R2, fake static assets), then against `wrangler dev` (HEAD, 206, 416, 404, headers, SHA-256); `node worker/scripts/check.ts --url https://tycho.seiza.io` also checks the deployed build (every file's bytes, headers, br on the wire, no injected script)
-just tycho deploy [flags] # release build, then upload changed samples and the oversize DuckDB wasm to R2 (S3 API, by SHA-256), write the .br copies, `wrangler deploy`, and check production (retries for a minute while the version propagates); needs `wrangler login` and TYCHO_R2_PROFILE (--dry-run, --skip-check)
-just tycho pause / resume # production: every /data/* request answers 503 and the app says to drop a file (Worker secret DATA_PAUSED, seconds, survives deploys) / back on; needs `wrangler login`
-```
+What each covers and its flags are in its script's header (`worker/scripts/`) and the justfile's comment above its recipe.
 
-`just tycho deploy` needs `wrangler login` (one account: the account ID comes from it, or CLOUDFLARE_ACCOUNT_ID) and `TYCHO_R2_PROFILE`, an AWS CLI profile holding an R2 API token's S3 keys; neither the profile's keys nor the account ID go in the repo.
+```
+just tycho worker-check   # /data/* byte ranges: the Worker's unit tests, then `wrangler dev`; `node worker/scripts/check.ts --url https://tycho.seiza.io` checks production
+just tycho deploy [flags] # release build, R2 uploads, the .br copies, `wrangler deploy`, then checks production; needs `wrangler login` and TYCHO_R2_PROFILE
+just tycho pause / resume # production's samples off (every /data/* a 503, the app says to drop a file) / back on; needs `wrangler login`
+```

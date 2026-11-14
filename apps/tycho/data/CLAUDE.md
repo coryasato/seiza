@@ -10,11 +10,13 @@ data/             # fetch_asteroids.ts, fetch_gaia.ts, prep.sql + prep-gaia.sql 
 
 ## Commands
 
+What each builds, and its flags, are in its script's header (`data/prep.ts`, `data/drop_files.ts`) and the justfile's comment above its recipe.
+
 ```
-just tycho data [--refresh] # fetch the asteroid catalog once (data/raw/), prep.sql → asteroids.parquet + CSV fixture + MANIFEST.json, load it into local R2
-just tycho data gaia [flags] # fetch Gaia DR3's G < 15 stars once (~90 GB read from AWS Open Data, ~50 min; data/raw/gaia/, 2.3 GB), prep-gaia.sql → gaia-dr3-bright.parquet (G < 14.5, 25,067,889 rows, 1.5 GB) + MANIFEST.json, load it into local R2 (--cut, --bench 30720,61440: row-group variants in data/bench/, --refresh, --jobs)
-just tycho data-deps    # install data/'s native DuckDB (its own lockfile; not an npm workspace, so `just setup` skips it)
-just tycho drop-files [names] # test files in data/drop/ (gitignored): asteroids.parquet ×3 (~108 MiB) and ×27 (~970 MiB; also at 122,880- and 1,048,576-row groups), the CSV fixture ×6 (~1 GB); the size ceiling: Parquet ×60/×120/×130/×270 (2–9.6 GB), CSV ×12/×24/×30/×48/×60 (2–10.7 GB), and random-hex.csv (4.6 GB, compresses badly); cell overflow: overflow.parquet (2,000 rows too wide for their columns); ~55 GB in all, so pass names; recorded in MANIFEST.json
+just tycho data [--refresh]   # the asteroid catalog → asteroids.parquet, the CSV fixture, MANIFEST.json, into local R2
+just tycho data gaia [flags]  # Gaia DR3's bright stars → gaia-dr3-bright.parquet + MANIFEST.json, into local R2 (--cut, --bench)
+just tycho data-deps          # data/'s native DuckDB (its own lockfile; not an npm workspace, so `just setup` skips it)
+just tycho drop-files [names] # the test files in data/drop/ (gitignored): ~55 GB in all, so pass names
 ```
 
-`just tycho data` needs network once (the JPL API, ~2.5 min; Gaia: AWS Open Data, ~50 min, and the ESA archive's count for the cut); after that it reuses `data/raw/`. `wrangler dev` keeps the local R2 it fills under `worker/.wrangler/state/` (gitignored).
+`just tycho data` needs network once (the JPL API; Gaia: AWS Open Data, whose cost is in `docs/data.md`, and the ESA archive's count for the cut); after that it reuses `data/raw/`. `wrangler dev` keeps the local R2 it fills under `worker/.wrangler/state/` (gitignored).

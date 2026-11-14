@@ -54,6 +54,8 @@ None: M10, `trim-paths`, closed 2026-11-01 ([`docs/milestones.md`](docs/mileston
 - [ ] `just tycho jump --reference-only`: the context menu's Paste on 0.9.1 (gpui-component 0.9.1 sizes the menu's items in rems; `perf/jump.ts`'s `MENU_PASTE_DY` is unchecked on it), then the version in that comment.
 - [ ] `just tycho lint`'s TypeScript step fails on `shared-web/perf/protocol.ts(67,11)`: `Cannot find name 'ResizeObserverEntry'` (`tsc -p shared-web/perf` from Tycho's host; the same project passes from the tall table's `lint`). Not the bump's: neither file changed with it. Fix before the next `check`, which runs `lint` first.
 
+**A shared wait before a canvas click** (from the CLAUDE.md condensing, 2026-11-14): `.claude/rules/perf-harness.md`'s WebKit press-before-hover rule binds every app, but its fix is Tycho's own `hoverSettles` (`perf/table.ts`), and `shared-web/perf/`'s `clickTarget` doesn't wait. Shape: `clickTarget` waits two frames between the move and the press (or `shared-web/perf/` exports `hoverSettles`), Tycho's copy goes, and the rule names the shared helper.
+
 ---
 
 ## Long-term goals

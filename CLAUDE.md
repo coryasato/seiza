@@ -28,7 +28,7 @@ A folder's own `CLAUDE.md` loads when a file in that folder is read ("Repo layou
 |---|---|---|
 | `.claude/rules/toolchain.md` | Bumping the pins, the nightly, the release profile, `wasm-opt` | `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, a justfile |
 | `.claude/rules/gpui-web.md` | GPUI Kit's web gotchas, to check before debugging, and where a workaround goes | any `.rs`, a `Cargo.toml`, `shared-web/src/`, an app's `web/`, a host, the observatory's contenders |
-| `.claude/rules/perf-harness.md` | `shared-web/perf/`'s helpers, and headless Chromium's DPR traps | any `perf/`, Kirkwood's `checks/` |
+| `.claude/rules/perf-harness.md` | `shared-web/perf/`'s helpers, headless Chromium's DPR traps, and the traps every app's scripts meet (WebKit's clicks, the placeholder's fade, the panel, an A/B's worktree) | any `perf/`, Kirkwood's `checks/` |
 | `.claude/rules/cloudflare.md` | The gotchas every Worker meets | a `worker/`, a `wrangler.toml` |
 | `.claude/rules/apex-site.md` | seiza.io's pages, its shell, its theme and fonts | `site/`, the observatory's `web/` and `worker/`, Tycho's `web/`, `shared-web/` |
 | `.claude/rules/comparison-protocol.md` | How the observatory compares a component with a DOM equivalent | `apps/observatory/`, a component's `fixtures/` |

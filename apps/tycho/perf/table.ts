@@ -35,8 +35,10 @@
 // calls (first rows and the viewport filled must land in the task that
 // presented their frame); the frame budgets are Chromium's.
 // --sweep runs page size {256, 1024, 4096} × prefetch {1, 2, 4} (`?page=`,
-// `?prefetch=`) instead of the protocol runs. Writes
-// perf/results/<date>-<label>.json. Run `just tycho build` first.
+// `?prefetch=`) instead of the protocol runs. --url <origin> runs against
+// that origin (production): its numbers are recorded, its budgets not
+// enforced. Writes perf/results/<date>-<label>.json. Run `just tycho build`
+// first.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

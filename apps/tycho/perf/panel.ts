@@ -28,7 +28,8 @@
 // reference run; every run's values must match.
 //
 // Usage: node apps/tycho/perf/panel.ts [--runs 10] [--label m7-panel] [--reference-only]
-// Writes perf/results/<date>-<label>.json. Run `just tycho build` first.
+// No --url: the "Read" check counts bytes at the local server. Writes
+// perf/results/<date>-<label>.json. Run `just tycho build` first.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
