@@ -222,7 +222,7 @@ Nothing can be reused as code. `ColGroup`, the bands, and `resize_cols` are crat
 
 What carries over is behavior and measures: the 4 px on each side of a 1 px hairline, its colors, the header-only grab, the cursor, min and max per column, the event at the release, the double-click fit, and ignoring the second press's drag.
 
-**The drag is the table's own,** as its scrollbars' are: a press on a band starts a column drag, and the move and release handlers the body's `canvas` already registers every frame (the table's `CLAUDE.md`, "A scrollbar release can arrive before the next paint") follow it. That gets the release in every browser, and there's no 2 px dead zone. It's a field of its own (`resizing`), not a variant of `drag`: `drag.is_some()` holds page reads until a scrollbar drag rests (`load_or_settle`, and with `live` `drag_resting`), and a wheel during a column drag must page as the base does. While the drag is on, `Window::set_window_cursor_style` keeps the resize cursor wherever the pointer goes. The cursor otherwise falls back to the cell's when the pointer outruns a narrow column's band.
+**The drag is the table's own,** as its scrollbars' are: a press on a band starts a column drag, and the move and release handlers the body's `canvas` already registers every frame (the table's `src/CLAUDE.md`, "A scrollbar release can arrive before the next paint") follow it. That gets the release in every browser, and there's no 2 px dead zone. It's a field of its own (`resizing`), not a variant of `drag`: `drag.is_some()` holds page reads until a scrollbar drag rests (`load_or_settle`, and with `live` `drag_resting`), and a wheel during a column drag must page as the base does. While the drag is on, `Window::set_window_cursor_style` keeps the resize cursor wherever the pointer goes. The cursor otherwise falls back to the cell's when the pointer outruns a narrow column's band.
 
 ### The width model
 
@@ -935,7 +935,7 @@ Weighed: a grip at the header's left (a target of its own, but it takes a cell's
 ### Frame-work risk
 
 - **Scrolling with a moved order:** a cell reads its page by its column's index rather than its place, an `usize` read from the laid-out column it already holds. Pages are columnar, so a permuted order reads the same columns in another order. Measured: the scroll and flings with the order reversed against the identity order on the same build and the base.
-- **The drag:** a frame a pointer move (the preview), the cells drawn as at rest plus the preview's cells and the line, as `resize`'s drag redraws. Measured as its segment: the first float column's header dragged 600 px right and back, twice, a pointer move every 8 ms (the table's `CLAUDE.md`, "Perf script gotchas").
+- **The drag:** a frame a pointer move (the preview), the cells drawn as at rest plus the preview's cells and the line, as `resize`'s drag redraws. Measured as its segment: the first float column's header dragged 600 px right and back, twice, a pointer move every 8 ms (the table's `perf/CLAUDE.md`, "Perf script gotchas").
 - **The release:** a layout, as a `resize` release's.
 
 ### Canvas gaps
