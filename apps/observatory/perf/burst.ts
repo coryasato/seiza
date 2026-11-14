@@ -18,6 +18,10 @@
 // - both: Big file's route, GPUI filled and flung, then the wide sheet's
 //   (the sidebar's link), the same: both files read inside one window.
 // - wide-reloads: the wide sheet's route reloaded 5 times, 1 s apart.
+// - copy: the wide sheet's route; GPUI fills at the default stop, every
+//   cell selected (Cmd+A) and copied by the window's Copy button (the whole
+//   sheet: every page read beside the view's), a fling while it copies, the
+//   clipboard written; a flip to TanStack, the same.
 // - market: market watch's route; GPUI fills at the default stop and runs
 //   under the feed for 2 s, then the dial through every other stop, the same
 //   at each; a flip to TanStack, the same from there: each side at every stop.
@@ -46,7 +50,7 @@
 // production's: the safe side for a limit. A peak, not a timing, so one run
 // per scenario.
 //
-// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,market,market-reloads,tail,tail-reloads,admin,admin-reloads,wall,wall-reloads]
+// Usage: node apps/observatory/perf/burst.ts [--label burst] [--only visit,reloads,wide,both,wide-reloads,copy,market,market-reloads,tail,tail-reloads,admin,admin-reloads,wall,wall-reloads]
 // Run gpui-build, tanstack-build, and build first. Writes
 // perf/results/<date>-<label>.json.
 
@@ -168,6 +172,22 @@ async function fonts(page: Page, drawn: boolean): Promise<void> {
   if (drawn) await page.waitForFunction(() => document.querySelector('[data-fonts-state]')?.getAttribute('data-fonts-state') === 'on', null, { timeout: 60_000 });
 }
 
+/** The wide sheet's whole sheet copied on `side`, filled: Cmd+A in its frame,
+ *  the window's Copy (the host's copy, which the key's limit doesn't hold), a
+ *  fling while it reads, then the clipboard written (the copy line's state). */
+async function copySheet(page: Page, side: 'gpui' | 'tanstack'): Promise<void> {
+  await play(page, side, [], 'wide');
+  const stage = await page.locator('iframe').boundingBox();
+  if (!stage) throw new Error('no frame to copy from');
+  await page.mouse.click(stage.x + 500, stage.y + 200);
+  await page.keyboard.press('ControlOrMeta+KeyA');
+  await page.waitForFunction(() => !(document.querySelector('[data-copy]') as HTMLButtonElement | null)?.disabled, null, { timeout: 10_000 });
+  await page.locator('[data-copy]').click();
+  await page.waitForSelector('[data-copy-line="copying"], [data-copy-line="written"]', { timeout: 10_000 });
+  await play(page, side, ['fling'], 'wide');
+  await page.waitForSelector('[data-copy-line="written"]', { timeout: 120_000 });
+}
+
 async function reloads(page: Page): Promise<void> {
   for (let reload = 0; reload < 5; reload++) {
     await page.reload();
@@ -209,6 +229,16 @@ const scenarios: Record<string, { route: string; run: (page: Page) => Promise<vo
     },
   },
   'wide-reloads': { route: WIDE_ROUTE, run: reloads },
+  copy: {
+    route: WIDE_ROUTE,
+    run: async (page) => {
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
+      await copySheet(page, 'gpui');
+      await flip(page, 'TanStack');
+      await copySheet(page, 'tanstack');
+      await page.waitForTimeout(2_000);
+    },
+  },
   market: {
     route: MARKET_ROUTE,
     run: async (page) => {

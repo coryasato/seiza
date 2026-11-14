@@ -714,3 +714,10 @@ No results note: nothing measured but `page --check`'s own first paint (PLAN.md'
 - TanStack's Smooth in this tab never counted a drag: its frames listened for the wheel, touches, and the scroller's scroll, and a resize or a selection drag scrolls nothing. GPUI's counted it already, through its pointer moves. Turned on for the wide level alone, so a text selection's drag on the admin table doesn't start reading as scrolling.
 - The boards' "resizes with a pointer alone" was written as the canvas's shortfall, but neither side resizes on touch (part B). It's said as both sides', which is true and still tells a phone's visitor why no edge moves.
 
+
+## M14 part F: the wide sheet's tools shipped (2026-11-14)
+
+**Results:** [`perf/results/2026-11-14-m14-f.md`](../perf/results/2026-11-14-m14-f.md).
+
+**Surprises:**
+- Copying the whole sheet, 3.9 M cells and 18 MiB of text, is light on the wire: 51 requests in its busiest 10 s on both sides together, under a single visit's 68. The copy's eight page reads go through the engine like any other page's. Reloading a scenario read by range is still what nears the zone's limit (142).

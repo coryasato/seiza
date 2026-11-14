@@ -4,7 +4,7 @@
 
 **Live at [seiza.io/observatory](https://seiza.io/observatory/).** It also runs locally: `just observatory preview` after `gpui-build`, `tanstack-build`, and `build`.
 
-The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in six scenarios: **Big file**, all 1.57 M known asteroids; **Wide sheet**, a spreadsheet's shape, 10,632 weather stations by 365 days of daily highs as heat, at four densities; **Market watch**, a trading screen, 50 made-up instruments whose prices a seeded feed updates in place, 100 to 5k times a second, each change flashing; and **Live tail**, a log tool's live view, NASA's web server log of July 1995 replayed into the table at 1k to 100k rows a second while the view follows the newest; **Admin table**, the table in almost every app, the world's 250 countries and territories, each named in its own language and script, where what's compared is what the browser's own tools can do with each side's text; and **Monitoring wall**, an ops screen, 4 to 8 small tables of made-up instruments in one frame, each updated 2k times a second by a seeded feed.
+The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in six scenarios: **Big file**, all 1.57 M known asteroids; **Wide sheet**, a spreadsheet's shape, 10,632 weather stations by 365 days of daily highs as heat, at four densities, its columns resized and its cells selected and copied; **Market watch**, a trading screen, 50 made-up instruments whose prices a seeded feed updates in place, 100 to 5k times a second, each change flashing; and **Live tail**, a log tool's live view, NASA's web server log of July 1995 replayed into the table at 1k to 100k rows a second while the view follows the newest; **Admin table**, the table in almost every app, the world's 250 countries and territories, each named in its own language and script, where what's compared is what the browser's own tools can do with each side's text; and **Monitoring wall**, an ops screen, 4 to 8 small tables of made-up instruments in one frame, each updated 2k times a second by a seeded feed.
 
 - **What it measures: use, not page load.** A data component is judged over a session: how soon it's usable, how long data takes to appear, how fast a scroll or a jump shows up, what a fling looks like, whether the last row is reachable, and what it costs in memory, CPU, and bytes. First pixels and bundle size are footnotes.
 - **Only the UI differs:** both sides read the same file through the same engine (DuckDB-Wasm), with the same queries and the same paging numbers. Everything else is what each stack does best; the DOM side scrolls natively.
@@ -66,7 +66,7 @@ The first comparison, the tall table over the asteroids, cold, median of 10, eac
 
 ### Wide sheet
 
-The tall table at its wide level (custom cells, the key columns pinned, density) on both sides, over GHCN-Daily's 2025 highs: Station and Place pinned, a day per column, each cell's heat on one diverging ramp. A dial sets how many cells are on screen (about 380, 570, 710, or 940: the row height, the text size, and the days' width, the same on both sides). Each value is **GPUI / TanStack**, cold, median of 10, on Chromium's gesture scroll. A side **keeps up** at a stop when at least 90% of the display's frames draw new cells in both the steady scroll down and the sideways one. How it's read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics"; the runs: [`perf/results/2026-11-13-m14-d2.md`](perf/results/2026-11-13-m14-d2.md), on the level's builds with the resize, selection, and copy built in.
+The tall table at its wide level (custom cells, the key columns pinned, density) on both sides, over GHCN-Daily's 2025 highs: Station and Place pinned, a day per column, each cell's heat on one diverging ramp. A dial sets how many cells are on screen (about 380, 570, 710, or 940: the row height, the text size, and the days' width, the same on both sides). Each value is **GPUI / TanStack**, cold, median of 10, on Chromium's gesture scroll. A side **keeps up** at a stop when at least 90% of the display's frames draw new cells in both the steady scroll down and the sideways one. How it's read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics"; the runs: [`perf/results/2026-11-13-m14-d2.md`](perf/results/2026-11-13-m14-d2.md), on the level's builds with the resize, selection, and copy built in. In the same frame a visitor resizes a column, selects, and copies; those have numbers of their own, below the scrolls'.
 
 - **Where GPUI wins:** it keeps up at every stop on a fast device, to ~940 cells, and on a slow one to ~570, where TanStack keeps up at none (on a fast device at ~380 it misses by a little: its sideways scroll's median 89% against the line's 90%, its runs 81–99%); in a fast fling it draws new cells in every frame at every stop on a fast device, where TanStack draws about every other one; its work per frame is lower in all three scrolls at every stop on both devices. A key moves it sooner, a scrollbar press lands on filled rows sooner, and on a fast device moves it sooner too, and a wheel lands on filled rows sooner. It spends less main-thread CPU over the session on a fast device.
 - **Where TanStack wins:** it's usable far sooner (its prerendered first screen hydrates while GPUI's wasm downloads), holds less memory (by far once open; after the file is read whole and a long sideways session, the gap narrows, and GPUI's wasm memory never shrinks), downloads a small fraction of GPUI's bytes, and spends less main-thread CPU over the session on a slow device. A wheel moves its view sooner, on the compositor, and so does a scrollbar press on a slow device.
@@ -163,6 +163,94 @@ Once, at the default stop (~710 cells):
 
 "Now" is each metric's newest local measurement: [2026-11-13-m14-d2-usable-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-usable-wide-sheet-rows-20.json), [2026-11-13-m14-d2-data-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-data-wide-sheet-rows-20.json), [2026-11-13-m14-d2-response-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-response-wide-sheet-rows-20.json), [2026-11-13-m14-d2-reach-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-reach-wide-sheet-rows-20.json), [2026-11-13-m14-d2-cost-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-cost-wide-sheet-rows-20.json), [2026-11-13-m14-d2-memory-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-memory-wide-sheet-rows-20.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
 <!-- report:readme:wide-sheet:end -->
+
+#### Resizing, selecting, copying
+
+Both sides resize a column (its header's edge dragged, or double-clicked to fit; the key columns as far as the pin allows), select rows, columns, or a block of cells by pointer or keys, and copy a selection as tab-separated exact values with Cmd+C or Ctrl+C (or the window's Copy button). Past 100,000 cells the key is declined, and pressed again it copies anyway, up to 64 MiB of text; the copy reads the pages it needs beside the view's and spreads its work over frames, so the view keeps scrolling. Each value is **GPUI / TanStack**, cold, median of 10, through real pointer events and keys. How each is read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics" (the drags, the copies); the runs: [`perf/results/2026-11-13-m14-d2.md`](perf/results/2026-11-13-m14-d2.md).
+
+- **Where GPUI wins:** a drag stays smooth. Dragging a day's edge, it draws every frame at every stop on a fast device at about half TanStack's work, where TanStack re-lays out the column's cells at each move and its work grows with the cells; on a slow device GPUI draws about twice TanStack's share of frames, and TanStack's late frames climb with the cells. Dragging a selection, both draw nearly every frame on a fast device, GPUI's slowest frames are cheaper, and on a slow device it draws more of them. On a slow device it copies a week and the whole sheet sooner (the sheet in about 60% of TanStack's time), and while the whole sheet copies its view scrolls nearly as smoothly as with no copy, where TanStack's draws about half as many frames as with no copy.
+- **Where TanStack wins:** a selection's typical frame is cheaper on a fast device (it re-tints a few cells where GPUI redraws its frame), it copies the visible block sooner (GPUI's copy starts on its next frame), and on a fast device it copies the whole sheet sooner, though with twice GPUI's main-thread time.
+- **Even:** a week copied on a fast device (the eight page reads take the time on both sides), and what each copies: the same cells and the same text, byte for byte.
+
+The drags, at each stop: a day's edge dragged out 200 px and back twice, and a block's selection dragged from the top row to the last row and column in view and back. A frame **drew** when it showed the drag's new place; the share is of the display's frames over the drag:
+
+<!-- report:readme:wide-sheet-drags:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Wide sheet at ~380 cells: frames that drew, a day’s edge dragged, reference | — | 100 / 98.8 % |
+| Wide sheet at ~380 cells: frames that drew, a day’s edge dragged, throttled | — | 88 / 49.2 % |
+| Wide sheet at ~380 cells: work per frame, p95, a day’s edge dragged, reference | — | 4.5 / 7 ms |
+| Wide sheet at ~380 cells: work per frame, p95, a day’s edge dragged, throttled | — | 13.9 / 26.6 ms |
+| Wide sheet at ~380 cells: late frames, a day’s edge dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~380 cells: late frames, a day’s edge dragged, throttled | — | 1.7 / 12.5 % |
+| Wide sheet at ~380 cells: frames that drew, a block’s selection dragged, reference | — | 100 / 99.1 % |
+| Wide sheet at ~380 cells: frames that drew, a block’s selection dragged, throttled | — | 90.2 / 61.8 % |
+| Wide sheet at ~380 cells: work per frame, p95, a block’s selection dragged, reference | — | 4.4 / 5.7 ms |
+| Wide sheet at ~380 cells: work per frame, p95, a block’s selection dragged, throttled | — | 11.8 / 20.3 ms |
+| Wide sheet at ~380 cells: late frames, a block’s selection dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~380 cells: late frames, a block’s selection dragged, throttled | — | 0.9 / 0 % |
+| Wide sheet at ~570 cells: frames that drew, a day’s edge dragged, reference | — | 100 / 98.3 % |
+| Wide sheet at ~570 cells: frames that drew, a day’s edge dragged, throttled | — | 73.8 / 35.9 % |
+| Wide sheet at ~570 cells: work per frame, p95, a day’s edge dragged, reference | — | 4.9 / 8.6 ms |
+| Wide sheet at ~570 cells: work per frame, p95, a day’s edge dragged, throttled | — | 16.1 / 33.3 ms |
+| Wide sheet at ~570 cells: late frames, a day’s edge dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~570 cells: late frames, a day’s edge dragged, throttled | — | 7.6 / 29 % |
+| Wide sheet at ~570 cells: frames that drew, a block’s selection dragged, reference | — | 100 / 99 % |
+| Wide sheet at ~570 cells: frames that drew, a block’s selection dragged, throttled | — | 75 / 53.8 % |
+| Wide sheet at ~570 cells: work per frame, p95, a block’s selection dragged, reference | — | 4.8 / 7.3 ms |
+| Wide sheet at ~570 cells: work per frame, p95, a block’s selection dragged, throttled | — | 15.3 / 26.6 ms |
+| Wide sheet at ~570 cells: late frames, a block’s selection dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~570 cells: late frames, a block’s selection dragged, throttled | — | 6.7 / 3 % |
+| Wide sheet at ~710 cells: frames that drew, a day’s edge dragged, reference | — | 100 / 96.3 % |
+| Wide sheet at ~710 cells: frames that drew, a day’s edge dragged, throttled | — | 68.9 / 33.7 % |
+| Wide sheet at ~710 cells: work per frame, p95, a day’s edge dragged, reference | — | 5.5 / 10.1 ms |
+| Wide sheet at ~710 cells: work per frame, p95, a day’s edge dragged, throttled | — | 18.7 / 38.7 ms |
+| Wide sheet at ~710 cells: late frames, a day’s edge dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~710 cells: late frames, a day’s edge dragged, throttled | — | 7.2 / 41.6 % |
+| Wide sheet at ~710 cells: frames that drew, a block’s selection dragged, reference | — | 100 / 99.1 % |
+| Wide sheet at ~710 cells: frames that drew, a block’s selection dragged, throttled | — | 69.6 / 50.4 % |
+| Wide sheet at ~710 cells: work per frame, p95, a block’s selection dragged, reference | — | 5.3 / 8.3 ms |
+| Wide sheet at ~710 cells: work per frame, p95, a block’s selection dragged, throttled | — | 17.7 / 32.5 ms |
+| Wide sheet at ~710 cells: late frames, a block’s selection dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~710 cells: late frames, a block’s selection dragged, throttled | — | 7.4 / 10 % |
+| Wide sheet at ~940 cells: frames that drew, a day’s edge dragged, reference | — | 100 / 93.4 % |
+| Wide sheet at ~940 cells: frames that drew, a day’s edge dragged, throttled | — | 59.6 / 32.7 % |
+| Wide sheet at ~940 cells: work per frame, p95, a day’s edge dragged, reference | — | 6.4 / 12 ms |
+| Wide sheet at ~940 cells: work per frame, p95, a day’s edge dragged, throttled | — | 22 / 47.8 ms |
+| Wide sheet at ~940 cells: late frames, a day’s edge dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~940 cells: late frames, a day’s edge dragged, throttled | — | 7.6 / 61 % |
+| Wide sheet at ~940 cells: frames that drew, a block’s selection dragged, reference | — | 100 / 96.9 % |
+| Wide sheet at ~940 cells: frames that drew, a block’s selection dragged, throttled | — | 62.6 / 49.2 % |
+| Wide sheet at ~940 cells: work per frame, p95, a block’s selection dragged, reference | — | 6.2 / 9.7 ms |
+| Wide sheet at ~940 cells: work per frame, p95, a block’s selection dragged, throttled | — | 21.3 / 40.7 ms |
+| Wide sheet at ~940 cells: late frames, a block’s selection dragged, reference | — | 0 / 0 % |
+| Wide sheet at ~940 cells: late frames, a block’s selection dragged, throttled | — | 15 / 18.6 % |
+
+"Now" is each metric's newest local measurement: [2026-11-13-m14-d2-drag-wide-sheet-rows-26](perf/results/2026-11-13-m14-d2-drag-wide-sheet-rows-26.json), [2026-11-13-m14-d2-drag-wide-sheet-rows-22](perf/results/2026-11-13-m14-d2-drag-wide-sheet-rows-22.json), [2026-11-13-m14-d2-drag-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-drag-wide-sheet-rows-20.json), [2026-11-13-m14-d2-drag-wide-sheet-rows-18](perf/results/2026-11-13-m14-d2-drag-wide-sheet-rows-18.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:wide-sheet-drags:end -->
+
+The copies, at the default stop: the visible block, a week's columns, and the whole sheet (Cmd+A, the key declined, the key again), each timed from the key to the clipboard written; and the steady scroll down while the sheet copies, against the same scroll with no copy:
+
+<!-- report:readme:wide-sheet-copies:start -->
+| Metric | Budget | Now |
+|---|---|---|
+| Wide sheet at ~710 cells: the visible block copied, the key to the clipboard written, reference | — | 20.3 / 9 ms |
+| Wide sheet at ~710 cells: the visible block copied, the key to the clipboard written, throttled | — | 47 / 20 ms |
+| Wide sheet at ~710 cells: a week’s columns copied, the key to the clipboard written, reference | — | 824.5 / 848.4 ms |
+| Wide sheet at ~710 cells: a week’s columns copied, the key to the clipboard written, throttled | — | 933.6 / 1004.8 ms |
+| Wide sheet at ~710 cells: the whole sheet copied, the confirming key to the clipboard written, reference | — | 1855.3 / 1497.1 ms |
+| Wide sheet at ~710 cells: the whole sheet copied, the confirming key to the clipboard written, throttled | — | 2719.3 / 4779.1 ms |
+| Wide sheet at ~710 cells: frames that drew in the steady scroll down while the sheet copies, reference | — | 91.6 / 22 % |
+| Wide sheet at ~710 cells: frames that drew in the steady scroll down while the sheet copies, throttled | — | 68.9 / 9.2 % |
+| Wide sheet at ~710 cells: frames that drew in the same scroll with no copy, reference | — | 99.6 / 43.4 % |
+| Wide sheet at ~710 cells: frames that drew in the same scroll with no copy, throttled | — | 73 / 15.6 % |
+| Wide sheet: the cells in the visible block copied at ~710 cells, reference | — | 656 / 656 |
+| Wide sheet: the cells in a week’s columns copied, reference | — | 74424 / 74424 |
+| Wide sheet: the cells in the whole sheet copied, reference | — | 3912576 / 3912576 |
+| Wide sheet: the whole sheet’s text as copied, bytes, reference | — | 18865525 / 18865525 |
+
+"Now" is each metric's newest local measurement: [2026-11-13-m14-d2-copy-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-copy-wide-sheet-rows-20.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+<!-- report:readme:wide-sheet-copies:end -->
 
 ### Market watch
 
@@ -522,6 +610,7 @@ Once, at the default stop (6 tables). Memory once the ticks are drawn leaves out
 Where the GPUI side falls short of a DOM table, said here and in the page's description below the window:
 
 - **The browser can't see its text.** Find (Ctrl+F) doesn't find a cell, a drag doesn't select one, a screen reader hears one image with no cell named, and Translate has nothing to translate. The admin table's panel ("What each side can do") shows this side by side, and `perf/admin.ts` checks each with a control.
+- **It selects and copies whole cells only.** The wide sheet's build selects rows, columns, or blocks of cells and copies their exact values, but never part of one cell's text: the canvas has no text selection. TanStack's cells there take the same whole-cell selection, so the two copy the same text. Neither side resizes a column by touch or a key: a pointer drags the edge, as the table does.
 - **It draws only the scripts its faces cover.** GPUI bundles one face (IBM Plex Sans), so a name in another script draws as boxes. The admin table's fonts toggle loads a Noto face per script after first paint; with them, Arabic, Khmer, and Sinhala still draw a mark out of place. The flags are drawn, by the browser into the canvas.
 
 - **On touch, a swipe scrolls one axis.** GPUI's touch recognizer locks a pan to the axis it starts on and never unlocks it, so a diagonal swipe moves only one way, and when it picks the other axis the table feels stuck. TanStack's native scroller pans diagonally. It's in gpui core, not the table. Vertical and horizontal swipes and flings work.
