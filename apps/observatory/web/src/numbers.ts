@@ -3,7 +3,9 @@
  * chunk of its own rendered after the page's first paint: the window's
  * status bar (this tab's readings, each segment opening its explainer and
  * its cold comparison; Meter (`meter.ts`'s), Run benchmark, Compare; on a
- * phone Smooth, Memory, and an overflow), the panel Compare opens over the
+ * phone Smooth, Memory, and an overflow; on the wide sheet, the copy line
+ * in the data label's place while something's selected, and the wide
+ * sheet's Copy button), the panel Compare opens over the
  * frame (the scenario's numbers: Big file's cards with both devices and
  * their verdicts and its input-to-response chart; a scenario with stops'
  * keeps-up charts, its cards at the stop they pick, and the card for what
@@ -16,12 +18,13 @@
  * main thread (the readout's cost, "Page").
  */
 
-import { Check, ChevronDown, ChevronUp, Contrast, Database, Ellipsis, Info, Pause, Play, Type, X } from 'lucide-react';
-import { createElement as h, Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Check, ChevronDown, ChevronUp, Contrast, Copy, Database, Ellipsis, Info, Pause, Play, Type, X } from 'lucide-react';
+import { createElement as h, Fragment, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { SOURCE } from '@seiza/site-ui/components/footer';
 import cold from 'virtual:cold-numbers';
 import type { Side } from '../../contenders/contract.ts';
 import type { FollowMessage, FollowingMessage } from '../../contenders/follow.ts';
+import { COPY_KEY_MAX_CELLS, COPY_MAX_BYTES, type ContenderTools, type ToolsMessage } from '../../contenders/tools.ts';
 import { FONTS_LICENSE, SCRIPT_FACES } from '../../contenders/fonts/faces.ts';
 import { SCRIPTS, SCRIPT_ROWS } from './scripts.ts';
 import { SCRIPT_FONTS } from '../../contenders/paths.ts';
@@ -64,7 +67,7 @@ import {
   type Profile,
   type ScenarioCold,
 } from './readouts.ts';
-import { ICON_BUTTON, PANEL_ID, seriesDot, stopSets, type FontsState } from './slot.ts';
+import { ICON_BUTTON, PANEL_ID, seriesDot, stopSets, toolsStore, type FontsState } from './slot.ts';
 
 const other = (side: Side): Side => (side === 'gpui' ? 'tanstack' : 'gpui');
 const sideIndex = (side: Side) => (side === 'gpui' ? 0 : 1);
@@ -122,9 +125,12 @@ interface StatusProps {
   /** Whether the page has this scenario's cold numbers: without them, no
    *  cold rows in the explainers and no panel. */
   coldReady: boolean;
+  /** The wide sheet's frame (its messages `toolsStore`'s), or null on a
+   *  scenario without the tools. */
+  tools: ToolsProps | null;
 }
 
-export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, coldReady }: StatusProps) {
+export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, coldReady, tools }: StatusProps) {
   const side = shown.side;
   const meter = useMeter().mode !== 'off';
   const dataLabel = scenarioCopy(scenario).dataLabel;
@@ -167,6 +173,33 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
       ),
     );
   };
+  // What the data is and its rows; in a bar too narrow for both sides'
+  // text (the wide sheet's needs ~1,010 px), an icon that opens them. A
+  // phone has no room for either.
+  const file = [
+    h(
+      'span',
+      { 'data-file': '', className: 'inline-flex min-w-0 items-center gap-1.5 px-2.5 text-xs text-muted-foreground tabular-nums max-md:hidden @max-[1100px]:hidden' },
+      h('span', { className: 'truncate text-foreground' }, dataLabel),
+      h('span', { className: 'whitespace-nowrap' }, dataRowsText),
+    ),
+    h(
+      'span',
+      { className: 'hidden @max-[1100px]:flex max-md:hidden' },
+      h(
+        Explainer,
+        {
+          className: 'h-full',
+          placement: 'above-start',
+          width: 320,
+          trigger: h(Database, { 'aria-hidden': true }),
+          triggerProps: { 'aria-label': 'The data', 'data-file-icon': '', className: `${SEGMENT} min-w-9 justify-center` },
+        },
+        h('span', { className: 'text-foreground' }, dataLabel),
+        h('span', { className: 'block text-muted-foreground tabular-nums' }, dataRowsText),
+      ),
+    ),
+  ];
   const later = (label: ReactNode, what: string) => h('button', { type: 'button', disabled: true, title: `${what}: coming soon`, className: `${SEGMENT} max-md:hidden` }, label);
   return h(
     'div',
@@ -175,31 +208,8 @@ export function StatusBar({ shown, scenario, stop, panel, togglePanel, rows, col
       'div',
       { className: 'flex min-w-0 items-stretch' },
       h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 text-xs max-md:px-2 max-md:text-[13px]' }, seriesDot(side), shown.label),
-      // What the data is and its rows; in a bar too narrow for both sides'
-      // text (the wide sheet's needs ~1,010 px), an icon that opens them. A
-      // phone has no room for either.
-      h(
-        'span',
-        { 'data-file': '', className: 'inline-flex min-w-0 items-center gap-1.5 px-2.5 text-xs text-muted-foreground tabular-nums max-md:hidden @max-[1100px]:hidden' },
-        h('span', { className: 'truncate text-foreground' }, dataLabel),
-        h('span', { className: 'whitespace-nowrap' }, dataRowsText),
-      ),
-      h(
-        'span',
-        { className: 'hidden @max-[1100px]:flex max-md:hidden' },
-        h(
-          Explainer,
-          {
-            className: 'h-full',
-            placement: 'above-start',
-            width: 320,
-            trigger: h(Database, { 'aria-hidden': true }),
-            triggerProps: { 'aria-label': 'The data', 'data-file-icon': '', className: `${SEGMENT} min-w-9 justify-center` },
-          },
-          h('span', { className: 'text-foreground' }, dataLabel),
-          h('span', { className: 'block text-muted-foreground tabular-nums' }, dataRowsText),
-        ),
-      ),
+      // The wide sheet's copy line, in the data label's place while something's selected.
+      ...(tools ? [h(CopySlot, { ...tools, file })] : file),
     ),
     h(
       'div',
@@ -295,6 +305,206 @@ export function FollowToggle({ frame, disabled }: { frame: RefObject<HTMLIFrameE
           count.toLocaleString('en-US'),
           h('span', { className: 'max-md:sr-only' }, count === 1 ? ' new row' : ' new rows'),
         ),
+  );
+}
+
+// ---------------------------------------------------------------- the wide sheet's tools
+
+/** The wide sheet's frame, as the window hands it to the Copy button and
+ *  the status bar (`slot.ts`); its messages are `toolsStore`'s. */
+interface ToolsProps {
+  frame: RefObject<HTMLIFrameElement | null>;
+  /** Until the frame fills, or once it failed. */
+  disabled: boolean;
+}
+
+/** The frame's last word on the selection and the copy: only the
+ *  components that say it re-render as it changes. */
+const useTools = () => useSyncExternalStore(toolsStore.subscribe, toolsStore.get, () => null);
+
+/** The copy key as this platform spells it: ⌘ on a Mac, Ctrl+ elsewhere
+ *  (both hosts take either). */
+const copyKey = (key: string) => (/Mac|iPhone|iPad/.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`);
+
+const cellCount = (cells: number) => `${cells.toLocaleString('en-US')} ${cells === 1 ? 'cell' : 'cells'}`;
+/** A large count cut short: "3.9 M cells". */
+const cellsShort = (cells: number) => (cells >= 1e6 ? `${(cells / 1e6).toFixed(1)} M cells` : cellCount(cells));
+const copyTook = (ms: number) => (ms < 100 ? `${Math.max(1, Math.round(ms))} ms` : `${(ms / 1000).toFixed(1)} s`);
+const textBytes = (bytes: number) => (bytes < 1024 ? `${bytes} bytes` : size(bytes / 1024));
+const percent = (done: number) => Math.min(100, Math.floor(done * 100));
+
+/** What the copy line says of a message: its text, a quieter hint, whether
+ *  it's a failure (the fall's color), a running copy's share, and what a
+ *  screen reader hears (the same, without the share, which only the bar
+ *  and the text show). */
+interface CopyWords {
+  text: string;
+  hint: string;
+  bad: boolean;
+  progress: number | null;
+  spoken: string;
+}
+
+/** The status bar's words for the frame's last message (the canvas's
+ *  wide-sheet boards, `docs/DECISIONS.md`, "Page", 2026-11-12 and
+ *  2026-11-14). */
+export function copyWords({ cells, copy, done, bytes, ms, reason }: ToolsMessage): CopyWords {
+  const said = (text: string, hint: string, bad = false, progress: number | null = null, spoken = `${text}. ${hint}.`): CopyWords => ({ text, hint, bad, progress, spoken });
+  const failed = (text: string, bad = true) => said(text, 'Your clipboard is as it was', bad);
+  switch (copy) {
+    case 'declined':
+      return said(`${cellsShort(cells)}: past the ${COPY_KEY_MAX_CELLS.toLocaleString('en-US')} a key copies`, `Copy anyway, or ${copyKey('C')} again`);
+    case 'copying':
+      return said(`Copying ${cellsShort(cells)}… ${percent(done)} %`, 'Esc cancels', false, percent(done), `Copying ${cellsShort(cells)}. Esc cancels.`);
+    case 'writing':
+      return said(`Copying ${cellsShort(cells)}… 100 %`, `Writing ${textBytes(bytes)} to your clipboard`, false, 100, `Copying ${cellsShort(cells)}. Esc cancels.`);
+    case 'written':
+      return said(`Copied ${cellCount(cells)} in ${copyTook(ms)}`, `${textBytes(bytes)} of tab-separated text`);
+    case 'refused':
+      return failed('The browser refused the clipboard: nothing copied');
+    case 'unavailable':
+      return failed('This browser has no clipboard to write here: nothing copied');
+    case 'failed':
+      if (reason === 'too-large') return failed(`${cellsShort(cells)}: past the ${COPY_MAX_BYTES / 1024 / 1024} MiB a copy holds`);
+      if (reason === 'cancelled' || reason === 'closed') return failed('Copy canceled', false);
+      if (reason === 'read') return failed('A page of the file didn’t read: nothing copied');
+      return failed('The copy failed: nothing copied');
+    default:
+      return said(`${cellCount(cells)} selected`, `${copyKey('C')} copies`);
+  }
+}
+
+/** Whether the press cancels: a copy is under way. */
+const running = (message: ToolsMessage | null) => message?.copy === 'copying' || message?.copy === 'writing';
+
+/** The Copy button's press, in its click (the clipboard's gesture for the
+ *  same-origin frame): the host's copy, or Cancel while one runs. */
+function pressCopy(frame: RefObject<HTMLIFrameElement | null>, message: ToolsMessage | null): void {
+  const tools = (frame.current?.contentWindow as (Window & { __contenderTools?: ContenderTools }) | null | undefined)?.__contenderTools;
+  if (running(message)) tools?.cancel();
+  else tools?.copy();
+}
+
+/** The market watch fall's color per theme, for a failed copy's text and
+ *  the admin table's "Drawn wrong" (`page.css`'s `.observatory-wrong`). */
+const FALL_COLORS = Object.fromEntries((['light', 'dark'] as const).map((theme) => [`--wrong-${theme}`, oklchCss(MARKET_WATCH.signs[theme].down)]));
+
+/** How long a selection's count waits still before it's spoken: a drag
+ *  changes it every 100 ms, and only where it rests is worth saying. */
+const SELECTION_SPOKEN_AFTER_MS = 500;
+
+/**
+ * What a screen reader hears of the selection and the copy: one polite
+ * region, mounted with the status bar (empty until something's selected,
+ * so its first text is a change it announces), changed only when the
+ * words do, never by a copy's share. A selection's count is spoken once
+ * it rests.
+ */
+function CopyAnnouncer({ spoken, selection }: { spoken: string; selection: boolean }) {
+  const [said, setSaid] = useState(spoken);
+  useEffect(() => {
+    if (!selection) return void setSaid(spoken);
+    const wait = setTimeout(() => setSaid(spoken), SELECTION_SPOKEN_AFTER_MS);
+    return () => clearTimeout(wait);
+  }, [spoken, selection]);
+  return h('span', { role: 'status', 'data-copy-announce': '', className: 'sr-only' }, said);
+}
+
+/**
+ * The status bar's left on the wide sheet: the data label (`file`) until
+ * something's selected, then the copy line in its place (the selection,
+ * then the copy: its progress and bar, copied, declined, refused); the
+ * title bar's state stays the load's. In a bar too narrow for it the line
+ * truncates, its whole text in its title. A phone has no title bar room:
+ * its Copy is here, a button with the line's short form.
+ */
+function CopySlot({ frame, disabled, file }: ToolsProps & { file: ReactNode[] }) {
+  const message = useTools();
+  const words = message && message.cells > 0 ? copyWords(message) : null;
+  return h(
+    Fragment,
+    null,
+    h(CopyAnnouncer, { spoken: words?.spoken ?? '', selection: message?.copy === null }),
+    ...(words && message ? copyLine(frame, disabled, message, words) : file),
+  );
+}
+
+function copyLine(frame: RefObject<HTMLIFrameElement | null>, disabled: boolean, message: ToolsMessage, words: CopyWords): ReactNode[] {
+  const { cells, copy } = message;
+  const phoneLabel = running(message)
+    ? `Cancel · ${words.progress ?? 100} %`
+    : copy === 'written'
+      ? 'Copied'
+      : copy === 'declined'
+        ? 'Copy anyway'
+        : words.bad
+          ? 'Not copied'
+          : `Copy ${cellsShort(cells).replace(/ cells?$/, '')}`;
+  return [
+    h(
+      'span',
+      { key: 'line', 'data-copy-line': copy ?? 'selected', title: `${words.text} · ${words.hint}`, style: FALL_COLORS, className: 'inline-flex min-w-0 items-center gap-2 px-2.5 text-xs whitespace-nowrap max-md:hidden' },
+      h('span', { 'data-copy-text': '', className: `min-w-0 truncate tabular-nums ${words.bad ? 'observatory-wrong' : 'text-foreground'}` }, words.text),
+      words.progress === null
+        ? null
+        : h('span', { 'data-copy-progress': words.progress, className: 'h-1 w-16 shrink-0 overflow-hidden rounded-sm bg-muted', 'aria-hidden': true }, h('span', { className: 'block h-full bg-foreground', style: { width: `${words.progress}%` } })),
+      h('span', { 'data-copy-hint': '', className: 'min-w-0 shrink-[2] truncate text-muted-foreground' }, words.hint),
+    ),
+    h(
+      'button',
+      { key: 'phone', type: 'button', 'data-copy-phone': '', disabled, onClick: () => pressCopy(frame, message), 'aria-label': `${phoneLabel}: ${cellCount(cells)}`, className: `${SEGMENT} md:hidden [&_svg]:size-3.5` },
+      h(Copy, { 'aria-hidden': true }),
+      phoneLabel,
+    ),
+  ];
+}
+
+/**
+ * The wide sheet's Copy button, where the admin table's fonts toggle sits,
+ * after first paint: disabled until something's selected, "Copy anyway"
+ * after a declined key, "Cancel" while a copy runs. It's the host's copy,
+ * which the key's limit doesn't hold (the cap does), called in the frame
+ * inside its click. Its explainer says what selects, the keys, the limits,
+ * and a resize. A phone's is in the status bar (`CopySlot`).
+ */
+export function CopyButton({ frame, disabled }: ToolsProps) {
+  const tools = useTools();
+  const cells = tools?.cells ?? 0;
+  const label = tools?.copy === 'declined' ? 'Copy anyway' : running(tools) ? 'Cancel' : 'Copy';
+  return h(
+    'span',
+    { className: 'flex shrink-0 items-center gap-0.5 max-md:hidden' },
+    h(
+      'button',
+      {
+        type: 'button',
+        'data-copy': tools?.copy ?? (cells ? 'selected' : 'none'),
+        disabled: disabled || cells === 0,
+        onClick: () => pressCopy(frame, tools),
+        'aria-label': cells === 0 ? 'Copy: select cells first' : `${label}: ${cellCount(cells)}`,
+        className: 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 text-[13px] whitespace-nowrap hover:bg-accent disabled:opacity-50 disabled:hover:bg-background [&_svg]:size-3.5 [&_svg]:text-muted-foreground',
+      },
+      h(Copy, { 'aria-hidden': true }),
+      label,
+    ),
+    info('About selecting, copying, and resizing', h(CopyAbout)),
+  );
+}
+
+/** The Copy button's explainer: what selects, the keys, the limits, a resize. */
+function CopyAbout() {
+  const rows: [string, string][] = [
+    ['A key copies', `up to ${COPY_KEY_MAX_CELLS.toLocaleString('en-US')} cells`],
+    ['Past that', `Copy anyway, or ${copyKey('C')} again`],
+    ['At most', `${COPY_MAX_BYTES / 1024 / 1024} MiB of text`],
+    ['Pages not on screen', 'read beside the cache'],
+  ];
+  return h(
+    Fragment,
+    null,
+    `Select cells (a press, a drag, Shift, the arrows), a station (its row’s number), or a day (its header); ${copyKey('A')} selects every column. ${copyKey('C')} copies the selection as tab-separated text, each value exact. Drag a header’s right edge to resize a day; double-click it to fit. The same on both sides.`,
+    h('span', { 'data-copy-rows': '', className: 'mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-muted-foreground' }, ...rows.flatMap(([what, how]) => [h('span', { key: what }, what), h('span', { key: `${what}:how`, className: 'text-right text-foreground' }, how)])),
+    h('span', { className: 'mt-2 block text-muted-foreground' }, 'Each side builds the text and writes your clipboard itself. A paste before the copy ends gets your clipboard’s old contents.'),
   );
 }
 
@@ -672,7 +882,7 @@ function CapabilitiesBody({ scenario, numbers, live, contenders, fonts }: { scen
         'aria-label': 'Each script on GPUI, with fonts loaded',
         'data-scripts': '',
         // "Drawn wrong" in the design canvas's red, market watch's fall per theme.
-        style: Object.fromEntries((['light', 'dark'] as const).map((theme) => [`--wrong-${theme}`, oklchCss(MARKET_WATCH.signs[theme].down)])),
+        style: FALL_COLORS,
         className: 'grid grid-cols-[96px_minmax(0,1fr)_96px] overflow-hidden rounded-[10px] border text-[13px] @2xl:grid-cols-[110px_150px_120px_minmax(0,1fr)]',
       },
       h(

@@ -53,6 +53,13 @@ export interface ContenderTools {
   cancel(): void;
 }
 
+/** The table's copy limits on the wide level, its defaults: the cells a
+ *  key copies (past them it declines), and the text a copy may hold. The
+ *  page says them; the TanStack contender's tests hold its `COPY_OPTIONS`
+ *  to them, and those to the table's copy fixture. */
+export const COPY_KEY_MAX_CELLS = 100_000;
+export const COPY_MAX_BYTES = 64 * 1024 * 1024;
+
 /** A copy's progress is told at most this often; a change of state, and
  *  the last progress held back, go at once or when the time is up. */
 export const TOOLS_EVERY_MS = 100;

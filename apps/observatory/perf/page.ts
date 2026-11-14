@@ -39,6 +39,14 @@
 // sidebar's list open on a scenario's route with its item filled, closed on
 // the Overview until its chevron opens it; a phone's dial menu.
 //
+// The wide sheet's tools, checked once (`wideTools`): its frame made with
+// `?readout`; the lead and the Copy explainer; on each side the status
+// bar's line for a selection, the Copy button writing it, a declined key,
+// Copy anyway and Cancel (the clipboard as it was), then Copy anyway
+// writing the sheet, the title bar's state unchanged throughout; a phone's
+// Copy in the status bar; the control, a frame without `?readout`
+// exporting no tools and telling the page nothing.
+//
 // The galleries, checked once (`galleries`): the Overview's thesis, its
 // card in the first screen, its rule from the cold numbers (its N
 // re-derived; with no numbers, none: the control), prerendered; the
@@ -2350,7 +2358,7 @@ async function scenarios(url: string): Promise<Record<string, unknown>> {
     await page.goto(url);
     await page.waitForSelector('iframe');
     const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
-    expect((await frameSrc(page)) === frameUrl('gpui', WIDE_SHEET, WIDE_SHEET.defaultStop, theme), `the wide sheet's first frame: ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === wideFrameUrl('gpui', WIDE_SHEET.defaultStop, theme), `the wide sheet's first frame: ${await frameSrc(page)}`);
     expect((await pressedStop(page)) === WIDE_SHEET.defaultStop, `the dial's pressed stop at load: ${await pressedStop(page)}`);
     const labels = await page.locator('[data-dial] [data-stop]').evaluateAll((buttons) => buttons.map((button) => [button.textContent, button.getAttribute('title')]));
     expect(
@@ -2382,7 +2390,7 @@ async function scenarios(url: string): Promise<Record<string, unknown>> {
     await page.locator('[data-dial] [data-stop="rows-18"]').click();
     await page.waitForFunction((src) => document.querySelector('iframe')?.getAttribute('src')?.includes(src), 'stop=rows-18', { timeout: 5_000 });
     expect(!(await old!.evaluate((frame) => frame.isConnected)), "the stop didn't destroy the frame");
-    expect((await frameSrc(page)) === frameUrl('gpui', WIDE_SHEET, 'rows-18', theme), `the frame after the stop: ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === wideFrameUrl('gpui', 'rows-18', theme), `the frame after the stop: ${await frameSrc(page)}`);
     expect(new URL(page.url()).search === '?stop=rows-18', `the URL after the stop: ${page.url()}`);
     expect((await groupDisabled(page)) && (await dialDisabled(page)), 'the toggle or the dial is enabled before the new stop filled');
     await waitFilled(page, gpuiWide);
@@ -2398,7 +2406,7 @@ async function scenarios(url: string): Promise<Record<string, unknown>> {
     await waitEnabled(page, 'GPUI at rows-26');
     await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
     await page.waitForFunction((base) => new URL(document.querySelector('iframe')?.src ?? 'x:').pathname === base, tanstackWide, { timeout: 5_000 });
-    expect((await frameSrc(page)) === frameUrl('tanstack', WIDE_SHEET, 'rows-26', theme), `TanStack's frame after the flip: ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === wideFrameUrl('tanstack', 'rows-26', theme), `TanStack's frame after the flip: ${await frameSrc(page)}`);
     expect(new URL(page.url()).search === '?stop=rows-26&side=tanstack', `the URL after the flip: ${page.url()}`);
     await waitFilled(page, tanstackWide);
     await waitEnabled(page, 'TanStack at rows-26');
@@ -2407,10 +2415,10 @@ async function scenarios(url: string): Promise<Record<string, unknown>> {
     // The parameters on a load; an unknown stop is the default.
     await page.reload();
     await page.waitForSelector('iframe');
-    expect((await frameSrc(page)) === frameUrl('tanstack', WIDE_SHEET, 'rows-26', theme) && (await pressedStop(page)) === 'rows-26', `a reload at ?stop=rows-26&side=tanstack: ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === wideFrameUrl('tanstack', 'rows-26', theme) && (await pressedStop(page)) === 'rows-26', `a reload at ?stop=rows-26&side=tanstack: ${await frameSrc(page)}`);
     await page.goto(`${url}?stop=nope`);
     await page.waitForSelector('iframe');
-    expect((await frameSrc(page)) === frameUrl('gpui', WIDE_SHEET, WIDE_SHEET.defaultStop, theme), `an unknown stop: ${await frameSrc(page)}`);
+    expect((await frameSrc(page)) === wideFrameUrl('gpui', WIDE_SHEET.defaultStop, theme), `an unknown stop: ${await frameSrc(page)}`);
     await waitFilled(page, gpuiWide);
     console.log('URL: ?stop= and ?side= pick the first frame; an unknown stop loads the default');
 
@@ -2466,6 +2474,234 @@ async function scenarios(url: string): Promise<Record<string, unknown>> {
     await small.waitForFunction(() => document.querySelector('iframe')?.getAttribute('src')?.includes('stop=rows-26'), null, { timeout: 5_000 }).catch(() => fail("a phone's dial menu didn't pick the stop"));
     await phone.close();
     console.log(`phone: the dial a menu ("~${stop(WIDE_SHEET.defaultStop).cells}"), the state "Ready"; the menu picks a stop`);
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+/** The wide sheet's frame as the page makes it: with `?readout`, so it
+ *  tells the page its selection and copy. */
+const wideFrameUrl = (side: 'gpui' | 'tanstack', stop: string, theme: string) => `${frameUrl(side, WIDE_SHEET, stop, theme)}&${READOUT_PARAM}=`;
+
+/** The copy key as the page spells it on this platform: ⌘ on a Mac, Ctrl+ elsewhere. */
+const platformKey = (page: Page) => page.evaluate(() => (/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+'));
+/** A copy's time as the line says it: whole ms under 100, else tenths of a second. */
+const COPY_TOOK = /^(\d+ ms|\d+\.\d s)$/;
+
+/** The copy line's state, its text and hint, and the Copy button's label. */
+async function copyState(page: Page) {
+  const line = page.locator('[data-copy-line]');
+  const shown = (await line.count()) > 0;
+  return {
+    line: shown ? await line.getAttribute('data-copy-line') : null,
+    text: shown ? await line.locator('[data-copy-text]').textContent() : null,
+    hint: shown ? await line.locator('[data-copy-hint]').textContent() : null,
+    button: await page.locator('[data-copy]').textContent(),
+    label: await page.locator('[data-copy]').getAttribute('aria-label'),
+    enabled: await page.locator('[data-copy]').isEnabled(),
+  };
+}
+const copyLineIs = (page: Page, line: string, what: string, timeout = 30_000) =>
+  page
+    .waitForSelector(`[data-copy-line="${line}"]`, { timeout })
+    .then(() => true)
+    .catch(() => (fail(`${what}: the copy line never read "${line}"`), false));
+/** The clipboard's text, or its length alone for a long one. */
+const clipboard = (page: Page) => page.evaluate(async () => { const text = await navigator.clipboard.readText(); return { length: text.length, head: text.slice(0, 4_000) }; });
+
+/** One side's tools in the window: the selection's line, the button's
+ *  copy, a declined key, Copy anyway, Cancel, the title bar's state. */
+async function toolsInWindow(page: Page, side: 'gpui' | 'tanstack'): Promise<Record<string, unknown>> {
+  const name = side === 'gpui' ? 'GPUI' : 'TanStack';
+  const out: Record<string, unknown> = {};
+  // The copy key as the page spells it on this platform (`numbers.ts`'s `copyKey`).
+  const key = await platformKey(page);
+  // Nothing selected: the button disabled, the data label in the status bar.
+  let now = await copyState(page);
+  expect(now.line === null && now.button === 'Copy' && !now.enabled && now.label === 'Copy: select cells first' && (await page.locator('[data-file]').count()) === 1, `${name} before a selection: ${JSON.stringify(now)}`);
+  // A cell pressed in the frame, then the keys: a block of 4 rows × 3 days.
+  const stage = await box(page, 'iframe');
+  await page.mouse.click(stage.x + 500, stage.y + 200);
+  for (const press of ['Shift+ArrowRight', 'Shift+ArrowRight', 'Shift+ArrowDown', 'Shift+ArrowDown', 'Shift+ArrowDown']) await page.keyboard.press(press);
+  await page.waitForFunction(() => document.querySelector('[data-copy-line] [data-copy-text]')?.textContent === '12 cells selected', null, { timeout: 5_000 }).catch(() => fail(`${name}: no "12 cells selected" in the status bar`));
+  now = await copyState(page);
+  expect(now.line === 'selected' && now.hint === `${key}C copies` && now.enabled && now.label === 'Copy: 12 cells' && (await page.locator('[data-file], [data-file-icon]').count()) === 0, `${name}'s selection: ${JSON.stringify(now)}`);
+  out.selected = now;
+  // A screen reader hears the count once it rests, from a region mounted before it.
+  const announce = page.locator('[data-copy-announce]');
+  await page.waitForFunction((want) => document.querySelector('[data-copy-announce]')?.textContent === want, `12 cells selected. ${key}C copies.`, { timeout: 3_000 }).catch(() => fail(`${name}'s announcer never said the selection`));
+  out.spoken = await announce.textContent();
+  // The button's copy: the clipboard written, its text the block's.
+  await page.locator('[data-copy]').click();
+  await copyLineIs(page, 'written', `${name}'s block`);
+  now = await copyState(page);
+  const block = await clipboard(page);
+  const lines = block.head.split('\n');
+  expect(COPY_TOOK.test(now.text?.replace(/^Copied 12 cells in /, '') ?? '') && !!now.text?.startsWith('Copied 12 cells in ') && now.hint === `${Buffer.byteLength(block.head)} bytes of tab-separated text`, `${name}'s block written: ${JSON.stringify(now)}`);
+  expect(lines.length === 4 && lines.every((line) => line.split('\t').length === 3), `${name}'s block on the clipboard: ${JSON.stringify(block.head)}`);
+  out.block = { ...now, clipboard: block.head };
+
+  // The sheet: Cmd+A, Cmd+C declined; Copy anyway, then Cancel: the clipboard as it was.
+  await page.mouse.click(stage.x + 500, stage.y + 200);
+  await page.keyboard.press('ControlOrMeta+KeyA');
+  await page.keyboard.press('ControlOrMeta+KeyC');
+  await copyLineIs(page, 'declined', `${name}'s sheet`, 5_000);
+  now = await copyState(page);
+  expect(now.text === '3.9 M cells: past the 100,000 a key copies' && now.hint === `Copy anyway, or ${key}C again` && now.button === 'Copy anyway' && now.label === 'Copy anyway: 3,912,576 cells', `${name}'s declined key: ${JSON.stringify(now)}`);
+  out.declined = now;
+  // In a bar too narrow for the line, it truncates rather than running under the numbers.
+  await page.setViewportSize({ width: 1000, height: DESKTOP.height });
+  await page.waitForTimeout(300);
+  const fits = await page.evaluate(() => {
+    const line = document.querySelector('[data-copy-line]')!.getBoundingClientRect();
+    const numbers = document.querySelector('[data-segment]')!.getBoundingClientRect();
+    return { line: Math.round(line.right), numbers: Math.round(numbers.left) };
+  });
+  expect(fits.line <= fits.numbers, `${name}'s declined line at 1000 px runs to ${fits.line} px, under the numbers from ${fits.numbers}`);
+  await page.setViewportSize(DESKTOP);
+  out.narrow = fits;
+  await page.locator('[data-copy]').click();
+  await copyLineIs(page, 'copying', `${name}'s Copy anyway`, 5_000);
+  now = await copyState(page);
+  const bar = await page.locator('[data-copy-progress]').getAttribute('data-copy-progress');
+  expect(/^Copying 3\.9 M cells… \d+ %$/.test(now.text ?? '') && now.hint === 'Esc cancels' && now.button === 'Cancel' && bar !== null, `${name} copying: ${JSON.stringify(now)}, the bar ${bar}`);
+  const spokenCopying = await announce.textContent();
+  expect(!/%/.test(spokenCopying ?? ''), `${name}: the announcer speaks the copy's share: "${spokenCopying}"`);
+  out.copying = { ...now, bar, spoken: spokenCopying };
+  await page.locator('[data-copy]').click();
+  await copyLineIs(page, 'failed', `${name}'s Cancel`, 5_000);
+  now = await copyState(page);
+  const kept = await clipboard(page);
+  expect(now.text === 'Copy canceled' && now.hint === 'Your clipboard is as it was' && now.button === 'Copy' && kept.head === block.head, `${name} canceled: ${JSON.stringify(now)}, the clipboard ${JSON.stringify(kept.head.slice(0, 40))}`);
+  out.canceled = now;
+  // The key declines again after the cancel; Copy anyway writes the sheet.
+  await page.mouse.click(stage.x + 500, stage.y + 200);
+  await page.keyboard.press('ControlOrMeta+KeyA');
+  await page.keyboard.press('ControlOrMeta+KeyC');
+  await copyLineIs(page, 'declined', `${name}'s sheet again`, 5_000);
+  await page.locator('[data-copy]').click();
+  await copyLineIs(page, 'written', `${name}'s sheet written`, 60_000);
+  now = await copyState(page);
+  const sheet = await clipboard(page);
+  expect(/^Copied 3,912,576 cells in \d+\.\d s$/.test(now.text ?? '') && now.hint === '18.0 MiB of tab-separated text' && sheet.length > 18_000_000, `${name}'s sheet written: ${JSON.stringify(now)}, ${sheet.length} characters on the clipboard`);
+  out.sheet = { ...now, characters: sheet.length };
+  // The title bar's state is the load's alone: no copy changed it.
+  const changed = await states(page);
+  expect(changed.length === 0, `${name}: the title bar's state changed with a copy: ${JSON.stringify(changed)}`);
+  console.log(`${name}: ${out.selected && (out.selected as { text: string }).text}; the button wrote "${(out.block as { text: string }).text}"; ${(out.declined as { text: string }).text}; Copy anyway → "${(out.copying as { text: string }).text}" → Cancel "${(out.canceled as { text: string }).text}", the clipboard kept; Copy anyway again "${(out.sheet as { text: string }).text}"; the title bar's state unchanged`);
+  return out;
+}
+
+/**
+ * The wide sheet's tools in the window (`docs/DECISIONS.md`, "Page",
+ * 2026-11-12): the frame made with `?readout`; the lead; the Copy button
+ * and its explainer; on both sides the selection's line, a copy, a
+ * declined key, Copy anyway, and Cancel; a phone's Copy in the status
+ * bar. The control: a frame without `?readout` (the cold runs') exports
+ * no tools and tells the page nothing.
+ */
+async function wideTools(url: string, origin: string): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  const base = (side: 'gpui' | 'tanstack') => contenderBase('tall-table', side, 'wide');
+  const rows = resolveCold().numbers.scenarios[WIDE_SHEET.id]!.rows;
+  const browser = await chromium.launch({ channel: 'chromium' });
+  try {
+    const context = await layoutContext(browser, DESKTOP);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+    await context.addInitScript(markRecorder);
+    await context.addInitScript(stateRecorder);
+    const page = await context.newPage();
+    const found = problems(page);
+    await page.goto(url);
+    await waitFilled(page, base('gpui'));
+    await waitEnabled(page, 'the wide sheet');
+    await page.waitForSelector('[data-copy]');
+    const theme = await page.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'));
+    expect((await frameSrc(page)) === wideFrameUrl('gpui', WIDE_SHEET.defaultStop, theme), `the wide sheet's frame: ${await frameSrc(page)}`);
+    const lead = scenarioCopy(WIDE_SHEET).lead(rows);
+    expect(lead === `${rows.toLocaleString('en-US')} weather stations × 365 days. Turn up the cells; drag a day’s edge; select and copy.` && (await page.getByText(lead).count()) === 1, `the lead "${lead}" isn't in the title bar`);
+    await page.getByRole('button', { name: 'About selecting, copying, and resizing' }).click();
+    const about = await page.locator('[data-copy-rows] > span').allTextContents();
+    expect(JSON.stringify(about) === JSON.stringify(['A key copies', 'up to 100,000 cells', 'Past that', `Copy anyway, or ${await platformKey(page)}C again`, 'At most', '64 MiB of text', 'Pages not on screen', 'read beside the cache']), `the Copy explainer's rows: ${JSON.stringify(about)}`);
+    await page.keyboard.press('Escape');
+    await states(page);
+    out.gpui = await toolsInWindow(page, 'gpui');
+    await page.getByRole('group', { name: 'Contender' }).getByRole('button', { name: 'TanStack' }).click();
+    // A flip is a load: the new frame says nothing yet, so nothing's selected.
+    await page.waitForFunction(() => document.querySelector('[data-copy]')?.getAttribute('aria-label') === 'Copy: select cells first', null, { timeout: 5_000 }).catch(() => fail('the Copy button kept the last frame\'s selection after a flip'));
+    await waitFilled(page, base('tanstack'));
+    await waitEnabled(page, 'TanStack at the wide sheet');
+    expect((await frameSrc(page)) === wideFrameUrl('tanstack', WIDE_SHEET.defaultStop, theme), `TanStack's wide frame: ${await frameSrc(page)}`);
+    await states(page);
+    out.tanstack = await toolsInWindow(page, 'tanstack');
+    expect(found.length === 0, `the wide sheet's tools: page problems: ${found.join('; ')}`);
+    await context.close();
+
+    // A phone: no Copy in the title bar; a tap selects, the status bar's Copy writes it.
+    const phone = await layoutContext(browser, PHONE);
+    await phone.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+    await phone.addInitScript(markRecorder);
+    const small = await phone.newPage();
+    await small.goto(url);
+    await waitFilled(small, base('gpui'));
+    await waitEnabled(small, 'a phone');
+    await small.waitForSelector('[data-copy]', { state: 'attached' });
+    expect(!(await small.locator('[data-copy]').isVisible()) && (await small.locator('[data-copy-phone]').count()) === 0, "a phone's title bar shows Copy, or its status bar does before a selection");
+    const stage = await box(small, 'iframe');
+    await small.touchscreen.tap(stage.x + 200, stage.y + 300);
+    const button = small.locator('[data-copy-phone]');
+    await button.waitFor({ timeout: 5_000 }).catch(() => fail("a phone's tap selected nothing"));
+    const before = await button.textContent();
+    await button.tap();
+    await small.waitForFunction(() => document.querySelector('[data-copy-phone]')?.textContent === 'Copied', null, { timeout: 10_000 }).catch(() => fail("a phone's Copy never read Copied"));
+    const pasted = await clipboard(small);
+    // The announcer speaks the line's words: "Copied 1 cell in <time>. <n> bytes of tab-separated text."
+    const said = (await small.locator('[data-copy-announce]').textContent()) ?? '';
+    const spoken = /^Copied 1 cell in (.+)\. \d+ bytes of tab-separated text\.$/.exec(said);
+    expect(before === 'Copy 1' && pasted.length > 0 && !/[\t\n]/.test(pasted.head) && !!spoken && COPY_TOOK.test(spoken[1]!), `a phone: "${before}", then "${said}", the clipboard ${JSON.stringify(pasted.head)}`);
+    out.phone = { before, said, clipboard: pasted.head };
+    await phone.close();
+    console.log(`phone: no Copy in the title bar; a tap, then "${before}" in the status bar wrote ${JSON.stringify(pasted.head)} ("${said}")`);
+
+    // The control: a frame without ?readout neither exports the tools nor
+    // tells the page anything; with it, both sides do.
+    const bare = await browser.newContext({ viewport: DESKTOP });
+    const host = await bare.newPage();
+    await host.goto(new URL(OBSERVATORY, origin).href);
+    const told: Record<string, unknown> = {};
+    for (const side of ['gpui', 'tanstack'] as const) {
+      for (const readout of [false, true]) {
+        const src = new URL(`${base(side)}?scenario=${WIDE_SHEET.id}&stop=${WIDE_SHEET.defaultStop}${readout ? `&${READOUT_PARAM}` : ''}`, origin).href;
+        await host.evaluate((src) => {
+          const g = globalThis as unknown as { __told: unknown[] };
+          g.__told = [];
+          document.getElementById('__tools')?.remove();
+          const frame = document.createElement('iframe');
+          frame.id = '__tools';
+          frame.src = src;
+          frame.style.cssText = 'position: fixed; inset: 0; width: 1200px; height: 800px; border: 0; z-index: 100';
+          addEventListener('message', (event) => {
+            if (event.source === frame.contentWindow && event.data?.seiza === 'tools') g.__told.push(event.data);
+          });
+          document.body.append(frame);
+        }, src);
+        await host.waitForFunction(() => (document.getElementById('__tools') as HTMLIFrameElement | null)?.contentWindow?.performance.getEntriesByName('contender:filled').length, null, { timeout: 60_000 });
+        await host.mouse.click(500, 200);
+        await host.keyboard.press('Shift+ArrowRight');
+        await host.waitForTimeout(600);
+        const got = await host.evaluate(() => ({
+          messages: (globalThis as unknown as { __told: unknown[] }).__told.length,
+          tools: Boolean(((document.getElementById('__tools') as HTMLIFrameElement).contentWindow as unknown as { __contenderTools?: unknown }).__contenderTools),
+        }));
+        told[`${side}${readout ? ':readout' : ''}`] = got;
+        if (readout) expect(got.messages >= 1 && got.tools, `${side} with ?${READOUT_PARAM}: ${JSON.stringify(got)}`);
+        else expect(got.messages === 0 && !got.tools, `${side} without ?${READOUT_PARAM} told the page ${got.messages} messages, tools ${got.tools ? 'exported' : 'absent'}`);
+      }
+    }
+    out.control = told;
+    await bare.close();
+    console.log(`control: without ?${READOUT_PARAM} no frame exports the tools or tells the page anything (${JSON.stringify(told)})`);
   } finally {
     await browser.close();
   }
@@ -2836,6 +3072,7 @@ try {
     readOut.meter = await meter(url);
     readOut.scenarios = await scenarios(new URL(WIDE_ROUTE, url).href);
     readOut.wide = await wideReadouts(new URL(WIDE_ROUTE, url).href);
+    readOut.wideTools = await wideTools(new URL(WIDE_ROUTE, url).href, server.url);
     readOut.market = await marketReadouts(new URL(MARKET_ROUTE, url).href, server.url);
     readOut.tail = await tailReadouts(new URL(TAIL_ROUTE, url).href, server.url);
     readOut.admin = await adminReadouts(new URL(ADMIN_ROUTE, url).href);

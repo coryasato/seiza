@@ -4,8 +4,8 @@
  * between a title bar and a status bar, at its scenario's level (the
  * build `scenarios.ts` names) and stop. The title bar holds the GPUI |
  * TanStack toggle, the dial (a scenario with stops: a segmented control on
- * a desktop, a menu on a phone), live tail's follow toggle (`numbers.ts`'s,
- * after first paint), the side's state (the page's only
+ * a desktop, a menu on a phone), live tail's follow toggle and the wide
+ * sheet's Copy button (`numbers.ts`'s, after first paint), the side's state (the page's only
  * `aria-live` text, changed only by a load, never by a scroll) and its
  * explainer (what this load fetched and what came from the cache), and the
  * lead; the status bar every number and the panel's button. The window is
@@ -28,6 +28,12 @@
  * panel's code (`numbers.ts`), so nothing shifts when they arrive. The
  * meter (`meter.ts`) sits over the frame, after first paint too, hidden
  * while the panel is open.
+ *
+ * The wide sheet's frame is made with `?readout` and tells the page its
+ * selection and copy (`docs/contender-contract.md`, "The copy line"): the
+ * slot keeps the last message in `toolsStore`, a new frame starting with
+ * none, which the Copy button and the status bar's left read and say in
+ * the page's words (`docs/DECISIONS.md`, "Page", 2026-11-12).
  */
 
 import { ChevronDown, Info } from 'lucide-react';
@@ -37,6 +43,7 @@ import { currentTheme, onThemeChange } from '@seiza/site-ui/theme';
 import rows, { scriptFaces } from 'virtual:data-rows';
 import { FONTS_PARAM, MARKS, type Side, type ThemeMessage } from '../../contenders/contract.ts';
 import { FONTS, SCRIPT_FONTS } from '../../contenders/paths.ts';
+import type { ToolsMessage } from '../../contenders/tools.ts';
 import { SCENARIO_PARAM, type DensityStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
 import { COMPARE_HASH, feeds, hasCold, seriesDot, isDensity, READOUT_PARAM, scenarioCopy, SIDE_PARAM, stopSets, stopShort, STOP_PARAM, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
@@ -128,6 +135,33 @@ const Panel = lazy(() => import('./numbers.ts').then(({ Panel }) => ({ default: 
 const Meter = lazy(() => import('./numbers.ts').then(({ Meter }) => ({ default: Meter })));
 const Follow = lazy(() => import('./numbers.ts').then(({ FollowToggle }) => ({ default: FollowToggle })));
 const Fonts = lazy(() => import('./numbers.ts').then(({ FontsToggle }) => ({ default: FontsToggle })));
+const Copy = lazy(() => import('./numbers.ts').then(({ CopyButton }) => ({ default: CopyButton })));
+
+/** Whether a scenario's frame offers the wide sheet's tools (the selection
+ *  and the copy, said by the page). */
+const offersTools = (scenario: Scenario) => scenario.level === 'wide';
+
+/**
+ * The shown frame's last word on the selection and the copy, outside
+ * React's state: it comes up to every 100 ms during a drag or a copy, and
+ * only the Copy button and the status bar's left subscribe to it, so the
+ * window never re-renders for it (the page shares the contender's main
+ * thread). A new frame starts with none.
+ */
+let toolsNow: ToolsMessage | null = null;
+const toolsListeners = new Set<() => void>();
+const setToolsNow = (message: ToolsMessage | null) => {
+  if (message === toolsNow) return;
+  toolsNow = message;
+  for (const listener of toolsListeners) listener();
+};
+export const toolsStore = {
+  get: (): ToolsMessage | null => toolsNow,
+  subscribe: (listener: () => void) => {
+    toolsListeners.add(listener);
+    return () => void toolsListeners.delete(listener);
+  },
+};
 
 /** Sends the page's theme to a contender's frame. */
 function sendTheme(frame: HTMLIFrameElement | null, theme = currentTheme()): void {
@@ -177,8 +211,13 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
 
   // The shown frame's marks: only its own, and only from this origin.
   useEffect(() => {
-    const listen = (event: MessageEvent<Partial<MarkMessage>>) => {
+    const listen = (event: MessageEvent<Partial<MarkMessage> | Partial<ToolsMessage>>) => {
       if (event.origin !== location.origin || event.source !== ref.current?.contentWindow) return;
+      // The wide sheet's selection and copy (`docs/contender-contract.md`, "The copy line").
+      if (event.data?.seiza === 'tools') {
+        if (typeof event.data.cells === 'number') setToolsNow(event.data as ToolsMessage);
+        return;
+      }
       if (event.data?.seiza !== 'mark') return;
       if (typeof event.data.name === 'string' && typeof event.data.at === 'number') frameMark(event.source, event.data.name, event.data.at);
       // A state changes only on a load: a scroll's filled marks set the same one.
@@ -209,8 +248,9 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
   const src = useMemo(() => {
     if (!base || !painted) return null;
     const params = new URLSearchParams({ [SCENARIO_PARAM]: scenario.id, [STOP_PARAM]: stop.id, theme: currentTheme() });
-    // A feed's frame keeps what this tab's Shown in reads (`live.ts`).
-    if (feeds(scenario)) params.set(READOUT_PARAM, '');
+    // A feed's frame keeps what this tab's Shown in reads (`live.ts`); the
+    // wide sheet's tells the page its selection and copy.
+    if (feeds(scenario) || offersTools(scenario)) params.set(READOUT_PARAM, '');
     // The admin table's fonts toggle, on GPUI's side alone.
     if (fonts && shown?.side === 'gpui') params.set(FONTS_PARAM, '');
     return `${base}?${params}`;
@@ -226,6 +266,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
     setStopped(false);
     setFontsMark('waiting');
     setFontsKiB(null);
+    setToolsNow(null);
     setFrame((frame) => frame + 1);
     const url = new URL(location.href);
     for (const [name, value] of Object.entries(params)) {
@@ -290,6 +331,8 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
       painted && copy.fonts ? h(Suspense, { fallback: null }, h(Fonts, { gpui: shown?.side === 'gpui', state: fontsState, busy, faces: scriptFaces, toggle: toggleFonts })) : null,
       // Live tail's follow toggle, after first paint, each frame's its own.
       painted && scenario.level === 'tail' ? h(Suspense, { fallback: null }, h(Follow, { key: frame, frame: ref, disabled: state !== 'filled' || stopped })) : null,
+      // The wide sheet's Copy, after first paint; a phone's is in the status bar.
+      painted && offersTools(scenario) ? h(Suspense, { fallback: null }, h(Copy, { frame: ref, disabled: state !== 'filled' || stopped })) : null,
       compact ? h('span', { className: 'h-5 w-px shrink-0 bg-border max-md:hidden', 'aria-hidden': true }) : null,
       h(
         'span',
@@ -327,7 +370,7 @@ export function ContenderSlot({ component, scenario }: { component: Component; s
       'div',
       { 'data-status-bar': '', className: 'observatory-status' },
       painted && shown
-        ? h(Suspense, { fallback: null }, h(StatusBar, { shown, scenario, stop, panel, togglePanel: () => (panel ? closePanel() : setPanel(true)), rows: fileRows, coldReady: hasCold(scenario) }))
+        ? h(Suspense, { fallback: null }, h(StatusBar, { shown, scenario, stop, panel, togglePanel: () => (panel ? closePanel() : setPanel(true)), rows: fileRows, coldReady: hasCold(scenario), tools: offersTools(scenario) ? { frame: ref, disabled: state !== 'filled' || stopped } : null }))
         : null,
     ),
   );

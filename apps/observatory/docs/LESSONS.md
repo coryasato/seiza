@@ -696,3 +696,11 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - An A/B against a kept build tests what changed since that build, not since the published numbers. The kept "M9 level" was the commit before part B, which already had the table's text drawn from one element a region (after M9 measured), so the A/B saw +0.25 ms where the page was showing GPUI at twice today's work. Only the reruns showed it. The next A/B keeps a build of what the page shows.
 - A component's milestone can land between a part's smoke runs and its measured runs. tall-table M15 changed `resize`, `select`, and `copy`'s shared state code after D1, so the measured wide wasm wasn't D1's. Hash the build at the start of a measuring session, not only at the smoke.
 - A verdict can flip on the line with nothing moved. TanStack's sideways scroll at ~380 read 89.1% against the 90% line (M9: 97.9). The A/B's sign test didn't count it as moved, but it read lower on the grown level at all four stops.
+
+## M14 part E1: the window (2026-11-14)
+
+No results note: nothing measured but `page --check`'s own first paint (PLAN.md's E1 evidence).
+
+**Surprises:**
+- The frame tells seven copy states and a reason, the boards drew five. Writing, a cancel, an unavailable clipboard, and the cap needed words of their own; a cancel is the visitor's own doing, so it isn't said in the fall's color.
+- On a phone the status bar shows the data's icon next to the side's name, though its classes say a phone has room for neither (`hidden @max-[1100px]:flex max-md:hidden`), most likely the container query's variant winning over the breakpoint's (not traced). It's HEAD's, untouched here; on the wide sheet the phone's Copy takes its place while something's selected.

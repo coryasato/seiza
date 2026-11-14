@@ -115,7 +115,7 @@ const COPY: Record<string, ScenarioCopy> = {
   },
   'wide-sheet': {
     dataLabel: 'Daily highs by weather station, 2025 (NOAA)',
-    lead: (rows) => `${rows.toLocaleString('en-US')} weather stations × 365 days. Turn up the cells to find where each side stops keeping up.`,
+    lead: (rows) => `${rows.toLocaleString('en-US')} weather stations × 365 days. Turn up the cells; drag a day’s edge; select and copy.`,
     dial: { label: 'Cells on screen', about: 'Each stop sets the row height, the days’ width, and the text size: the same on both sides.' },
     // TanStack ready sooner and downloading less, as in every scenario: the platform.
     leans: ['cells', 'decoding', 'platform'],

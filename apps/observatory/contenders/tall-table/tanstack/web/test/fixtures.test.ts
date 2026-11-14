@@ -30,6 +30,7 @@ import { dragWidth, pressBand } from '../src/resize.ts';
 import { Pin } from '../src/pin.ts';
 import { Selector, selectedColumns, selectedRows, selectionJson, type SelectControl, type SheetView, type Step } from '../src/select.ts';
 import { copyColumns } from '../src/copy.ts';
+import { COPY_KEY_MAX_CELLS, COPY_MAX_BYTES } from '../../../../tools.ts';
 import { COPY_OPTIONS, copyKey, copyStart, setCopy, valueText, type CopyControl, type CopyEvent, type CopyKind } from '../src/data/copy.ts';
 
 const fixtures = new URL('../../../../../../../components/tall-table/fixtures/', import.meta.url);
@@ -692,6 +693,10 @@ describe('copy.json', () => {
 
   test("the options are the copy's defaults", () => {
     assert.deepEqual(copy.options, { max_bytes: COPY_OPTIONS.maxBytes, key_max_cells: COPY_OPTIONS.keyMaxCells, headers: COPY_OPTIONS.headers });
+  });
+
+  test('the limits are the ones the page says', () => {
+    assert.deepEqual([COPY_OPTIONS.keyMaxCells, COPY_OPTIONS.maxBytes], [COPY_KEY_MAX_CELLS, COPY_MAX_BYTES]);
   });
 
   for (const scenario of copy.cases as { name: string }[]) {
