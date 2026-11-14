@@ -8,6 +8,8 @@ This is <App>'s context. What's next is in `PLAN.md`; why things are built this 
 
 Current state only: say what to do and point to the decision behind it (`docs/DECISIONS.md`, "<area>"); don't retell its measurements.
 
+Once a folder's detail outgrows a few paragraphs, it moves to that folder's own `CLAUDE.md`, loaded only when a file there is read, and this file keeps the rules, a map of the folders, and a line per command (root `CLAUDE.md`, "Docs: one home per fact").
+
 ## <App> rules
 
 These add to the repo-wide rules.

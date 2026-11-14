@@ -106,7 +106,7 @@ Not milestones. Each starts with research.
 - **Remove the benchmark button** (decided 2026-11-14, built in a session of its own): the goal is dropped, but the page still draws the button, disabled. Its case was a sweep of a scenario's stops on each side, drawing where each stops keeping up, and the Compare panel's "Where each side keeps up" already draws that from cold runs; an in-tab run would only add warm numbers that could read as contradicting them, and the dials and the status bar's live readings already give a visitor something to play with. The session:
   - `web/src/numbers.ts`: the status bar's disabled "Run benchmark" (`later(…, 'The benchmark')`) and the phone overflow's "Run benchmark: coming soon" go. `Play` stays imported: live tail's follow toggle uses it.
   - `perf/page.ts` names neither, but its checks of the status bar's boxes and the phone's overflow run on the change: `just observatory page --check`.
-  - `web/src/numbers.ts`'s header comment and `CLAUDE.md`'s page description ("Run benchmark disabled until it's built") lose it.
+  - `web/src/numbers.ts`'s header comment and `web/CLAUDE.md`'s page description ("Run benchmark disabled until it's built") lose it.
   - The replay hooks stay (`__contender.replay`: `perf/burst.ts` and the contract checks drive them); only the comments that call them the benchmark's change (`docs/contender-contract.md`, "Replay hooks"; `perf/burst.ts`'s header).
   - A decision in `docs/DECISIONS.md`, "Page", superseding 2026-10-23's ("deferred to a long-term goal; it stays in the status bar, disabled").
   - The design canvas loses the button, light and dark, desktop and phone.
